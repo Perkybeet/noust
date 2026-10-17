@@ -9,12 +9,22 @@ written in Spanish because its readers are Spanish auditors and security officer
 - **Noust is a component, not a certified system.** An ENS certificate is issued to the
   organisation's information system; Noust is not in the CCN's CPSTIC catalogue. What Noust
   does is enforce what a component can enforce and produce the evidence an auditor asks for.
-- **`security.profile: ens-medium`** fixes, in one place every area reads
-  (`noust.core.ens.profile`), the values category MEDIUM expects: 15-minute idle lock and
+- **Compliance is chosen, never the default** (3.4). Every control is a switch of its own and
+  frameworks are presets over them: **ENS BÁSICA, MEDIA and ALTA** are three, beside ISO/IEC 27001,
+  NIS2, CIS Controls v8, SOC 2 and GDPR art. 32, and several can be on together (each control takes
+  the strictest value any asks). Nothing is on until it is chosen: `noust compliance enable
+  ens-media`. [COMPLIANCE.md](COMPLIANCE.md) is generated from the one table that says which
+  control each framework turns on and the clause it serves, and lists what stays organisational.
+- **`security.profile: ens-medium`** (and any spelling of it) keeps working and means **ENS MEDIA is
+  enabled**. It fixes, in one place every area reads (`noust.core.compliance`), the values category
+  MEDIUM expects: 15-minute idle lock and
   8-hour sessions, lockout after 5 failures, 14-character passwords, 90-day API tokens, a
   365-day audit retention, four-eyes approvals, a `--reason` for every CLI change, the master
   token restricted to account recovery, backups encrypted before they leave, an operator TLS
-  certificate for the console. Turn it on with `noust config set security.profile ens-medium`.
+  certificate for the console, and the roles split: an `admin` does not govern accounts, security
+  settings or the audit trail (outside it, one `admin` does everything, so one person needs one
+  account). Turn it on with `noust compliance enable ens-media` or `noust config set
+  security.profile ens-medium`.
 - **`noust ens check`** compares the server with the profile, check by check, each mapped to its
   RD 311/2022 measure, and exits 0/1/2 like a monitoring check. **`noust ens report`** writes the
   evidence bundle (JSON and Markdown, hashed). The console shows both under Settings > Security >
@@ -64,17 +74,32 @@ auditor: **qué hace Noust, qué tiene que hacer la organización y con qué evi
 | Soportes e información (mp.si, mp.info) | Copias cifradas y autenticadas, clasificación por aplicación, minimización | Custodia, transporte, borrado seguro, calificación | Borrado de discos |
 | Software y servicios (mp.sw, mp.s) | Compilaciones sin privilegios, previews, HealthGate, plantillas nginx endurecidas, CSP estricta | Desarrollo seguro de sus aplicaciones, pruebas de penetración | - |
 
-## 2. El perfil `ens-medium`
+## 2. El marco ENS MEDIA (`ens-medium`)
 
 ```bash
-noust config set security.profile ens-medium   # requiere el rol security en la consola
+noust compliance enable ens-media              # muestra qué cambia y la medida de cada control
+noust compliance check --framework ens-media   # control a control, con la medida de cada hallazgo
+noust config set security.profile ens-medium   # el ajuste de siempre: significa «ENS MEDIA activo»
 noust ens profile                               # qué fija el perfil y cuál está activo
 ```
 
-El perfil no es un interruptor de funciones: es un conjunto de valores y de rechazos definido en
-un único módulo (`src/noust/core/ens/profile.py`) que leen el inicio de sesión, la CLI, las
-aprobaciones, la auditoría, las copias y `noust ens check`. Un nombre mal escrito se interpreta
-como `ens-medium` (falla hacia lo estricto). Cambiarlo queda en la auditoría.
+Desde la 3.4 el cumplimiento es **elegido, nunca el valor por defecto**. Cada control (aprobación
+por cuatro ojos, un motivo por cambio, separación de funciones, límites de sesión, cifrado de
+copias...) tiene su propio ajuste, y un **marco** es un preajuste que activa los controles que
+ayudan con una norma y dice la cláusula que sirve cada uno. ENS MEDIA es exactamente lo que fue
+siempre el perfil `ens-medium`; ENS BÁSICA y ENS ALTA son los otros dos niveles, con las medidas
+del Anexo II que se aplican a cada categoría. Se pueden activar varios a la vez (ENS junto con ISO
+27001 es habitual): cada control toma el valor **más estricto** que pida cualquiera, y se puede
+endurecer más, nunca relajar por debajo de un marco activo. La tabla que dice qué activa cada
+marco, y la lista de lo que sigue siendo organizativo, está en [COMPLIANCE.md](COMPLIANCE.md); un
+marco **no** hace que el sistema «cumpla»: activa controles técnicos.
+
+El marco no es un interruptor de funciones: es un conjunto de valores y de rechazos definido en
+un único módulo (`src/noust/core/compliance/frameworks.py`) que leen el inicio de sesión, la CLI,
+las aprobaciones, la auditoría, las copias y `noust ens check`. Un nombre mal escrito en
+`security.profile` se interpreta como `ens-medium` (falla hacia lo estricto). Activarlo o
+desactivarlo queda en la auditoría (`security.framework.change`); desactivar un marco, o relajar un
+control, pide el modo sudo.
 
 | Valor | Estándar | `ens-medium` | Medidas |
 |---|---|---|---|
@@ -96,7 +121,15 @@ como `ens-medium` (falla hacia lo estricto). Cambiarlo queda en la auditoría.
 | Publicar la consola en un nombre público (`noust console expose`) | permitido, con segundo factor en todas las cuentas | rechazado salvo `--force-ens` con confirmación y una lista de IP (queda auditado) | mp.com.1, op.acc.4.5 |
 | Terminal de la consola (`terminal.idle_minutes`, `terminal.max_minutes`) | los valores configurados | 10 min sin teclear y 60 min en total como máximo; cada sesión queda grabada en la auditoría | op.acc.6.4, op.exp.8 |
 | Terminal root del servidor (`terminal.server.enabled`) | apagado hasta que se enciende | rechazado salvo `terminal.server.force_ens` además, y entonces queda auditado; con aprobación de cuatro ojos | op.acc.3, mp.eq.1 |
+| Funciones del rol `admin` (`security.roles_split`) | el administrador lo puede todo, también cuentas, ajustes de seguridad y auditoría: una persona, una cuenta | separadas: el administrador no gobierna cuentas, seguridad ni auditoría; lo hacen `security` y `auditor` | op.acc.3 |
+| Separación de funciones (`security.separation_of_duties`) | opcional | obligatoria: una persona no tiene `admin` u `operator` junto con `security`, ni `auditor` con otro rol, salvo excepción documentada | op.acc.3.1, op.acc.3.2 |
+| Motivo en las excepciones (`security.exception_reasons`) | opcional | obligatorio al compilar como root, aceptar un riesgo, permitir un contenedor privilegiado o congelar por un incidente | op.exp.5.2 |
 | Fallo al escribir la auditoría (`audit.on_failure`) | `warn`: el cambio se hace y el fallo se muestra | `refuse` siempre: ningún cambio sin registro; la API contesta `503 audit_unavailable` y la línea de comandos sale con error antes de hacer nada (lectura, inicio de sesión y `noust audit` siguen abiertos) | op.exp.8 |
+
+Lo que **no** es un control y es igual con cualquier perfil: el modo sudo mismo («Confirma que eres
+tú» antes de una acción destructiva), que nadie cambia ni se eleva su propia cuenta (cambiar el
+propio rol, desactivarse, borrarse, restablecer el propio segundo factor lo hace otra persona
+administradora o `root`), y el segundo factor que cada cuenta registra.
 
 Ajustes de seguridad relacionados que no dependen del perfil:
 

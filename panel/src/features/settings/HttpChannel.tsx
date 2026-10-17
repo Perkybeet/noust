@@ -9,7 +9,6 @@ import { useMutation } from "@tanstack/react-query";
 import { KeyRound } from "lucide-react";
 import { useState } from "react";
 
-import { patchConfig } from "../../api/queries/config";
 import { removeNotificationChannel, saveNotificationChannel } from "../../api/queries/notifications";
 import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
@@ -49,9 +48,7 @@ export interface HttpChannelProps {
   label?: string;
   description?: string;
   /**
-   * The channel was added by name. It is then written through the channel API (a type and its
-   * settings) and removed outright; a default channel is written into the configuration and
-   * only emptied.
+   * The channel was added by name. It is removed outright; a default channel is only emptied.
    */
   added?: boolean;
   /** Open the drawer as soon as the row appears: the channel was just added and has no destination yet. */
@@ -73,10 +70,13 @@ export function HttpChannel({ spec, stored, name = spec.id, label = spec.label, 
     cleared.size > 0 ||
     spec.fields.some((field) => (field.secret ? (draft[field.key] ?? "").trim() !== "" : draft[field.key] !== undefined && draft[field.key]?.trim() !== (stored[field.key] ?? "")));
 
-  /** One write of the channel's settings, by the way its kind is written. */
+  /**
+   * One write of the channel's settings. Always through the channel API, which changes only the
+   * settings it is given: writing the block through the configuration would replace it whole and
+   * lose the channel's routing, quiet hours, cap and summary.
+   */
   const write = async (values: Record<string, string>): Promise<void> => {
-    if (added) await saveNotificationChannel(name, { type: spec.id, settings: values });
-    else await patchConfig(`notifications.channels.${name}`, values);
+    await saveNotificationChannel(name, { type: spec.id, settings: values });
     await refresh();
   };
   const save = useMutation({

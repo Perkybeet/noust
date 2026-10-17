@@ -24,6 +24,7 @@ from typing import Any
 
 from noust.monitor.collector import RecordingStatus
 from noust.monitor.plan import (
+    KIND_COMPOSE,
     KIND_PHP_FPM,
     KIND_STATIC,
     PlanBuilder,
@@ -32,6 +33,7 @@ from noust.monitor.plan import (
     TargetStatus,
     target_status,
 )
+from noust.monitor.series import container_label, container_series
 from noust.monitor.timeseries import MetricsStore
 from noust.monitor.traffic import traffic_metric_names
 
@@ -60,6 +62,8 @@ class AppMetricsStatus:
         units: What each unit or container looks like right now.
         series: The metric names of the series that exist for this kind of
             application (``cpu``, ``memory``, ``requests``, ``errors_5xx``).
+        containers: For a Compose stack, each container with the series of its
+            own (the same roles as ``series``, but for one container).
         traffic: Whether requests are being counted, and why not.
         last_sample_at: The newest sample of any of its series, or None.
         collector: Whether history is being recorded at all.
@@ -72,6 +76,7 @@ class AppMetricsStatus:
     reason: Reason | None
     units: list[TargetStatus] = field(default_factory=list)
     series: dict[str, str] = field(default_factory=dict)
+    containers: list[dict[str, Any]] = field(default_factory=list)
     traffic: dict[str, Any] = field(default_factory=dict)
     last_sample_at: int | None = None
     collector: RecordingStatus | None = None
@@ -101,11 +106,54 @@ def series_names(plan: SamplingPlan) -> dict[str, str]:
         names["disk_write"] = f"app.{plan.domain}.io.write_bytes_s"
         names["net_rx"] = f"app.{plan.domain}.net.rx_bytes_s"
         names["net_tx"] = f"app.{plan.domain}.net.tx_bytes_s"
-    if plan.kind in (KIND_STATIC, KIND_PHP_FPM):
+    if plan.kind in (KIND_STATIC, KIND_PHP_FPM) or plan.traffic_log is not None:
         requests, errors = traffic_metric_names(plan.domain)
         names["requests"] = requests
         names["errors_5xx"] = errors
     return names
+
+
+#: The role each per-container suffix plays, as ``series`` names it.
+_CONTAINER_ROLES: dict[str, str] = {
+    "cpu.percent": "cpu",
+    "mem.bytes": "memory",
+    "io.read_bytes_s": "disk_read",
+    "io.write_bytes_s": "disk_write",
+    "net.rx_bytes_s": "net_rx",
+    "net.tx_bytes_s": "net_tx",
+}
+
+
+def container_series_names(plan: SamplingPlan) -> list[dict[str, Any]]:
+    """
+    Name the series each container of a Compose stack has of its own.
+
+    Args:
+        plan: The application's plan.
+
+    Returns:
+        One entry per container that has series: its ``name`` as Docker prints
+        it and the metric name of each role. Empty for anything but a stack.
+    """
+    if plan.kind != KIND_COMPOSE:
+        return []
+    found: list[dict[str, Any]] = []
+    for target in plan.targets:
+        if target.kind != "container" or target.cgroup is None:
+            continue
+        label = container_label(target.name)
+        if label is None:
+            continue
+        found.append(
+            {
+                "name": target.name,
+                "series": {
+                    role: container_series(plan.domain, label, suffix)
+                    for suffix, role in _CONTAINER_ROLES.items()
+                },
+            }
+        )
+    return found
 
 
 def app_metrics_status(
@@ -128,6 +176,7 @@ def app_metrics_status(
     """
     plan = planner.build_one(app)
     names = series_names(plan)
+    containers = container_series_names(plan)
     last = store.last_sample_at(list(names.values()))
     now = store.now()
     fresh = last is not None and now - last <= max(
@@ -161,6 +210,7 @@ def app_metrics_status(
         reason=reason,
         units=[target_status(target) for target in plan.targets],
         series=names,
+        containers=containers,
         traffic=traffic,
         last_sample_at=last,
         collector=recording,

@@ -137,6 +137,10 @@ class JobType(str, Enum):
     IDENTITY_MIGRATE = "identity_migrate"
     # Changing how hardened an application's unit is (3.4).
     HARDENING = "hardening"
+    # Tuning an application's unit beyond its hard limits (3.4).
+    TUNING = "tuning"
+    # Measuring what an application takes of the disk (3.4).
+    DISK = "disk"
     # Running an application as several copies of its web process (3.4).
     REPLICAS = "replicas"
     # The server itself (backlog 29): package lists, updates, cleanup, swap.

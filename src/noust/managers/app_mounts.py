@@ -563,11 +563,12 @@ class MountManager:
         cleaned_source = clean_source(source)
         cleaned_target = clean_target(app, target, KIND_PATH)
         if not read_only:
-            from noust.core.ens import profile as ens_profile
+            from noust.core import compliance
 
-            if ens_profile.is_ens():
+            if compliance.is_on("mounts_read_only"):
                 raise ValidationError(
-                    "A server path cannot be bound writable under the ENS profile",
+                    "A server path cannot be bound writable on this server (compliance control "
+                    "mounts_read_only)",
                     details="Bind it read-only, or write through a volume.",
                     field="read_only",
                 )

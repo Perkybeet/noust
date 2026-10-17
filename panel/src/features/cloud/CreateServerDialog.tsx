@@ -372,7 +372,7 @@ export function CreateServerDialog({ open, onClose, account: initialAccount, onA
             <div className="flex min-w-0 flex-col gap-3">
               <Checkbox checked={form.ipv4} onCheckedChange={(ipv4) => set({ ipv4 })} disabled={capabilities["ipv4_optional"] !== true} label={t("cloud.create.ipv4")} description={capabilities["ipv4_optional"] === true ? undefined : t("cloud.create.ipv4Fixed")} />
               {capabilities["ipv6"] === true ? <Checkbox checked={form.ipv6} onCheckedChange={(ipv6) => set({ ipv6 })} label={t("cloud.create.ipv6")} /> : null}
-              {problem === "addresses" ? <p className="text-13 text-danger-fg">{words("addresses")}</p> : null}
+              {problem === "addresses" ? <p className="text-13 text-fail">{words("addresses")}</p> : null}
               {capabilities["backups"] === true ? <Checkbox checked={form.backups} onCheckedChange={(backups) => set({ backups })} label={t("cloud.create.backups")} description={t("cloud.create.backupsHelp")} /> : null}
             </div>
             {keys.length > 0 ? (

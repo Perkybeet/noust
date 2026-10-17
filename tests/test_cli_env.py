@@ -463,17 +463,46 @@ def test_write_app_env_refuses_an_unsafe_name_directly(deployed: Path, store: No
     assert not (deployed / ".env").exists()
 
 
-def test_write_app_env_refuses_a_newline_in_a_value(deployed: Path, store: NoustStore) -> None:
+def test_a_value_of_several_lines_is_one_variable_and_never_a_second_one(
+    deployed: Path, store: NoustStore
+) -> None:
     """
     The env file is read line by line by systemd (EnvironmentFile=) and by
-    EnvManager alike, so a newline in a value must never reach it: it would
-    inject a second variable nobody asked for.
+    EnvManager alike, so a line feed in a value must never become a second
+    variable nobody asked for. It is written between single quotes, where both
+    read everything up to the closing one as the value.
     """
     app = app_env_module.find_app("example.com")
     assert app is not None
 
+    written = app_env_module.write_app_env(app, {"EVIL": "a\nEVIL2=1"})
+
+    assert written.read_text(encoding="utf-8") == "EVIL='a\nEVIL2=1'\n"
+    assert EnvManager().read_env_file(written) == {"EVIL": "a\nEVIL2=1"}
+
+
+def test_a_value_that_closes_its_own_quotes_to_inject_a_variable_is_refused(
+    deployed: Path, store: NoustStore
+) -> None:
+    """The one way out of the quotes is a quote of the same kind: a value of lines has none."""
+    app = app_env_module.find_app("example.com")
+    assert app is not None
+
+    with pytest.raises(EnvironmentValidationError, match="several lines and a single quote"):
+        app_env_module.write_app_env(app, {"EVIL": "a'\nEVIL2=1\n'"})
+
+    assert not (deployed / ".env").exists()
+
+
+@pytest.mark.parametrize("value", ["a\r\nb", "a\x00b", "a\u2028b", "a\x85b", "a\x1bb"])
+def test_any_other_control_character_is_still_refused_in_a_value_of_lines(
+    deployed: Path, store: NoustStore, value: str
+) -> None:
+    app = app_env_module.find_app("example.com")
+    assert app is not None
+
     with pytest.raises(EnvironmentValidationError):
-        app_env_module.write_app_env(app, {"EVIL": "a\nEVIL2=1"})
+        app_env_module.write_app_env(app, {"KEY": value})
 
     assert not (deployed / ".env").exists()
 

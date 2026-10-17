@@ -24,10 +24,11 @@ import click
 from noust.cli.app import Context, NoustCommand, json_option, pass_context
 from noust.core.certificate_store import CustomCertificate
 from noust.core.exceptions import ValidationError
-from noust.deployers import certificates
+from noust.deployers import certificates, internal_certificates
 from noust.managers.acme import AUTHORITIES, AcmeSettings
 from noust.managers.cert_manager import CertManager
 from noust.managers.custom_certificates import CustomCertificates
+from noust.managers.internal_ca import LEAF_DAYS
 from noust.validators.domain import validate_domain
 
 #: The most bytes read from a file given as a certificate or a key.
@@ -279,6 +280,18 @@ def remove_upload_command(ctx: Context, name: str, yes: bool) -> None:
 @click.option("--acme", "use_acme", is_flag=True, help="Have it ordered from the authority.")
 @click.option("--upload", "upload_name", metavar="NAME", help="Serve this uploaded certificate.")
 @click.option(
+    "--internal",
+    "use_internal",
+    is_flag=True,
+    help="Sign it with this server's own authority (noust cert ca init), for a private name.",
+)
+@click.option(
+    "--days",
+    type=click.IntRange(1, 397),
+    default=None,
+    help="With --internal: how long the certificate is valid (90 days by default).",
+)
+@click.option(
     "--dns",
     "dns_account",
     metavar="ACCOUNT",
@@ -292,34 +305,45 @@ def use_command(
     app_domain: str,
     use_acme: bool,
     upload_name: str | None,
+    use_internal: bool,
+    days: int | None,
     dns_account: str | None,
     no_order: bool,
 ) -> None:
     """
-    Choose where APP's certificate comes from: ordered (over HTTP, or DNS with --dns) or uploaded.
+    Choose where APP's certificate comes from: ordered (over HTTP, or DNS with --dns), uploaded, or
+    signed by this server's own authority (--internal).
 
     Changing how a certificate that exists is proven orders it again, once: certbot keeps
     the method in the lineage's renewal configuration. A failed order puts the choice back
     and the certificate that served keeps serving.
     """
     validated = validate_domain(app_domain)
-    if use_acme == bool(upload_name):
-        raise click.UsageError("Give --acme or --upload NAME")
-    if upload_name and dns_account:
+    if [use_acme, bool(upload_name), use_internal].count(True) != 1:
+        raise click.UsageError("Give one of --acme, --upload NAME and --internal")
+    if (upload_name or use_internal) and dns_account:
         raise click.UsageError("--dns is for an ordered certificate, not an uploaded one")
+    if days is not None and not use_internal:
+        raise click.UsageError("--days goes with --internal")
     if ctx.dry_run:
         ctx.logger.info(f"Would change where the certificate of {validated} comes from")
         return
-    if upload_name:
-        change = certificates.use_uploaded(validated, upload_name, verbose=ctx.verbose)
-    else:
-        change = certificates.use_acme(
-            validated,
-            challenge="dns-01" if dns_account else "http-01",
-            dns_provider=dns_account,
-            order=not no_order,
-            verbose=ctx.verbose,
-        )
+    with ctx.quiet():
+        if use_internal:
+            signed = internal_certificates.serve(
+                validated, days=days or LEAF_DAYS, verbose=ctx.verbose
+            )
+            change = certificates.CertificateChange(signed.view)
+        elif upload_name:
+            change = certificates.use_uploaded(validated, upload_name, verbose=ctx.verbose)
+        else:
+            change = certificates.use_acme(
+                validated,
+                challenge="dns-01" if dns_account else "http-01",
+                dns_provider=dns_account,
+                order=not no_order,
+                verbose=ctx.verbose,
+            )
     view = change.view
     if ctx.json_output:
         click.echo(json.dumps({**view.to_dict(), "ordered": change.ordered}))

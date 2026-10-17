@@ -173,11 +173,16 @@ def enable_command(
 
 @sandbox.command("disable")
 @click.argument("domain")
-@click.option("--reason", required=True, help="Why it cannot build in the sandbox; recorded.")
+@click.option(
+    "--reason",
+    default=None,
+    help="Why it cannot build in the sandbox; recorded. Required under the ENS profile "
+    "or with security.exception_reasons on.",
+)
 @click.option("--yes", "-y", is_flag=True, default=False, help="Do not ask for confirmation.")
 @json_option("Print the new regime as JSON.")
 @pass_context
-def disable_command(ctx: Context, domain: str, reason: str, yes: bool) -> None:
+def disable_command(ctx: Context, domain: str, reason: str | None, yes: bool) -> None:
     """
     Build the application as root: an explicit decision, recorded with a reason.
 

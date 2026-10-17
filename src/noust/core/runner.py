@@ -3622,6 +3622,9 @@ PROBE_MODULES: tuple[str, ...] = (
     "noust.managers.database.settings",
     "noust.managers.database.rpm_flavours",
     "noust.managers.unit_hardening",
+    "noust.managers.cron_manager",
+    "noust.managers.app_disk",
+    "noust.managers.kernel_quota",
     "noust.managers.private_networks",
     "noust.managers.stack_networks",
 )

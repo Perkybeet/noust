@@ -485,3 +485,72 @@ def job_runs(
         ],
         total=len(runs),
     )
+
+
+class CronOccurrenceInfo(BaseModel):
+    """
+    One moment a job was due and what became of it.
+
+    Attributes:
+        at: When it was due, epoch seconds.
+        status: ``ran`` (a run started within two minutes), ``late`` (a later run, before the next
+            occurrence) or ``missed`` (no run before the next occurrence).
+        ran_at: When the run that answers for it started, for ``ran`` and ``late``.
+        reason: ``server_off`` when the machine was down at that moment; empty otherwise.
+    """
+
+    at: float
+    status: str
+    ran_at: float | None = None
+    reason: str = ""
+
+
+class CronLedgerResponse(BaseModel):
+    """
+    Which occurrences of a job ran, and which did not.
+
+    Attributes:
+        name: Job name.
+        schedule: The schedule, as systemd reads it.
+        enabled: Whether the timer is enabled; a disabled one has nothing due.
+        since: Where the ledger starts judging: not before the journal begins, the timer was
+            written or the oldest run it read; null for a disabled job.
+        until: Where it stops, epoch seconds.
+        ran: Occurrences that ran on time.
+        late: Occurrences answered by a later run.
+        missed: Occurrences nothing answered for.
+        occurrences: Every occurrence judged, oldest first.
+    """
+
+    name: str
+    schedule: str
+    enabled: bool
+    since: float | None = None
+    until: float
+    ran: int
+    late: int
+    missed: int
+    occurrences: list[CronOccurrenceInfo]
+
+
+@router.get("/{name}/ledger", response_model=CronLedgerResponse)
+def job_ledger(
+    name: str,
+    session: Annotated[dict, Depends(get_current_session)],
+    days: Annotated[int, Query(ge=1, le=31)] = 7,
+) -> CronLedgerResponse:
+    """
+    Say which occurrences of a job ran, were late or never ran.
+
+    Args:
+        name: Job name.
+        session: The authenticated session.
+        days: How far back to look.
+
+    Returns:
+        The ledger: counts, and every occurrence with its verdict.
+
+    Raises:
+        ServiceError: When the job is unknown or foreign, or systemd rejects its schedule.
+    """
+    return CronLedgerResponse(**CronManager(verbose=False).ledger(name, days=days))

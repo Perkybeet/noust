@@ -187,28 +187,61 @@ class TestAuditedCommands:
 
 
 class TestReason:
-    def test_the_ens_profile_requires_a_reason(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(audit_policy, "security_profile", lambda: "ens-medium")
+    @pytest.fixture(autouse=True)
+    def _trail_that_works(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # ENS MEDIA also refuses changes while the trail cannot be written; what is under
+        # test here is the reason, so the trail is taken as writable.
+        from noust.core.audit import failclosed
+
+        monkeypatch.setattr(failclosed, "refusal", lambda config=None: None)
+
+    def test_by_default_a_change_needs_no_reason(self) -> None:
+        result = run("change", "shop")
+
+        assert result.exit_code == 0, result.output
+        assert "reason" not in events("cli.command")[0]["details"]
+
+    def test_the_operators_own_setting_asks_for_one_without_a_framework(
+        self, real_config: Any
+    ) -> None:
+        real_config.set("security.change_reasons", True)
+
+        result = CliRunner().invoke(thing, ["change", "shop"], obj=Context())
+
+        assert result.exit_code == 2 and "security.change_reasons" in result.output
+
+    def test_a_framework_that_asks_for_a_change_reference_requires_a_reason(
+        self, real_config: Any
+    ) -> None:
+        real_config.set("security.frameworks", ["iso-27001"])
+
+        result = CliRunner().invoke(thing, ["change", "shop"], obj=Context())
+
+        assert result.exit_code == 2 and "--reason" in result.output
+        assert events() == []
+
+    def test_the_ens_profile_requires_a_reason(self, real_config: Any) -> None:
+        real_config.set("security.frameworks", ["ens-media"])
         result = CliRunner().invoke(thing, ["change", "shop"], obj=Context())
         assert result.exit_code == 2
         assert "--reason" in result.output
         assert "changed" not in result.output
         assert events() == []
 
-    def test_with_a_reason_it_runs(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(audit_policy, "security_profile", lambda: "ens-medium")
+    def test_with_a_reason_it_runs(self, real_config: Any) -> None:
+        real_config.set("security.frameworks", ["ens-media"])
         result = run("change", "shop", "--reason", "CHG-1")
         assert result.exit_code == 0
         assert events("cli.command")[0]["details"]["reason"] == "CHG-1"
 
-    def test_read_only_commands_never_need_one(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(audit_policy, "security_profile", lambda: "ens-medium")
+    def test_read_only_commands_never_need_one(self, real_config: Any) -> None:
+        real_config.set("security.frameworks", ["ens-media"])
         assert run("look").exit_code == 0
 
     def test_a_command_that_only_reads_in_one_form_needs_none_in_that_form(
-        self, monkeypatch: pytest.MonkeyPatch
+        self, real_config: Any
     ) -> None:
-        monkeypatch.setattr(audit_policy, "security_profile", lambda: "ens-medium")
+        real_config.set("security.frameworks", ["ens-media"])
 
         shown = run("name")
         refused = CliRunner().invoke(thing, ["name", "web-2"], obj=Context())

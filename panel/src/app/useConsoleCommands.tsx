@@ -76,6 +76,10 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
   const { data: permissions } = useQuery({ ...sessionQuery(), select: (session) => session.permissions });
 
   return useMemo(() => {
+    // Nothing is built, and no text of a settings section or a fleet page is looked up, until the
+    // palette is opened: the frame of every page would otherwise draw (and wait for the namespaces of)
+    // everything the palette can find.
+    if (!open) return [];
     const go = (to: string, params?: Record<string, string>) => () => {
       void navigate({ to, ...(params ? { params: params as never } : {}) });
     };
@@ -431,5 +435,5 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
           ];
 
     return [...pages, ...applications, ...resources, ...servers, ...verbs, ...actions];
-  }, [apps, types, index, fleetApps, onFleet, navigate, theme, setTheme, openShortcuts, signOut, t, pathname, appDomain, currentApp, node, nodes, hostname, switchNode, hasFleet, context.kind, permissions, mayOrganise, mayCreateTeams, can, onVerb]);
+  }, [open, apps, types, index, fleetApps, onFleet, navigate, theme, setTheme, openShortcuts, signOut, t, pathname, appDomain, currentApp, node, nodes, hostname, switchNode, hasFleet, context.kind, permissions, mayOrganise, mayCreateTeams, can, onVerb]);
 }

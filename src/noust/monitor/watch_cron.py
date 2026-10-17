@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Cron jobs that ended with an error (checklist K-18 and G-20).
+Cron jobs that ended with an error, or that will not run (checklist K-18 and G-20).
 
 A cron job is a systemd timer and a service. When the service fails, systemd
 records it and nothing else happens: no event, no message, a script that has not
@@ -14,7 +14,10 @@ and announces each run it has not announced yet:
   lines of output as evidence;
 - a run that ended well is ``cron_success``, a heartbeat that ships switched
   off (``notifications.events.cron_success``), for whoever wants to know the
-  nightly job did run.
+  nightly job did run;
+- a job whose timer is enabled but not running is ``cron_missed``: nothing
+  failed, nothing will run, and no run can say so. Told once per stretch, and
+  once more when the timer runs again. A job somebody disabled is left alone.
 
 What it remembers is systemd's id of the last run it saw, per job. The first
 time it sees a job it only remembers (it will not announce a failure from
@@ -30,11 +33,19 @@ from functools import partial
 
 from noust.core.exceptions import NoustError
 from noust.core.notifications.composers_ops import compose_cron
+from noust.core.notifications.composers_watch import compose_cron_timer
 from noust.managers.cron_manager import CronManager, CronOutcome
 from noust.monitor.watches import Watch, WatchServices
 
 #: The scope of what this watch remembers: the last run seen of each job.
 SCOPE = "cron"
+
+#: And the scope of what it remembers of the timers: ``down`` while one is not
+#: running and that was told.
+TIMER_SCOPE = "cron-timer"
+
+#: systemd's words for a timer that is not going to fire.
+STOPPED_TIMER_STATES = frozenset({"inactive", "failed"})
 
 #: Lines of a failed run's output that go into its notification.
 OUTPUT_LINES = 15
@@ -91,6 +102,7 @@ class CronWatch(Watch):
         outcomes = manager.last_outcomes()
         state = services.state
         for outcome in outcomes:
+            self._check_timer(outcome, services)
             if outcome.running:
                 continue
             seen = state.get(SCOPE, outcome.name)
@@ -102,6 +114,42 @@ class CronWatch(Watch):
                 continue
             self._announce(manager, outcome, services)
         state.keep_only(SCOPE, {outcome.name for outcome in outcomes})
+        state.keep_only(TIMER_SCOPE, {outcome.name for outcome in outcomes})
+
+    def _check_timer(self, outcome: CronOutcome, services: WatchServices) -> None:
+        """
+        Say when a job's timer stops running, and when it runs again.
+
+        Args:
+            outcome: The job.
+            services: What the monitor lends.
+        """
+        if not outcome.timer or not outcome.timer_enabled:
+            # Not asked, or switched off on purpose: not a fault.
+            return
+        told = services.state.get(TIMER_SCOPE, outcome.name) == "down"
+        stopped = outcome.timer in STOPPED_TIMER_STATES
+        if stopped and not told:
+            services.state.put(TIMER_SCOPE, outcome.name, "down")
+            services.publish(
+                partial(
+                    compose_cron_timer,
+                    outcome.name,
+                    True,
+                    state=outcome.timer,
+                    domain=outcome.app_domain or None,
+                )
+            )
+        elif not stopped and told:
+            services.state.put(TIMER_SCOPE, outcome.name, "up")
+            services.publish(
+                partial(
+                    compose_cron_timer,
+                    outcome.name,
+                    False,
+                    domain=outcome.app_domain or None,
+                )
+            )
 
     def _announce(
         self, manager: CronManager, outcome: CronOutcome, services: WatchServices

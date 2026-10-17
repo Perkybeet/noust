@@ -6,6 +6,7 @@ Every configuration key and the value it has until you change it. Set one with `
 
 | Key | Default |
 |---|---|
+| `approval.enabled` | `false` |
 | `apps_directory` | `"/var/www/apps"` |
 | `audit.checkpoint_minutes` | `5` |
 | `audit.enterprise_id` | `32473` |
@@ -68,6 +69,12 @@ Every configuration key and the value it has until you change it. Set one with `
 | `monitor.disk_check_seconds` | `0` |
 | `monitor.disk_renotify_hours` | `0` |
 | `monitor.disk_threshold` | `90.0` |
+| `monitor.email_api.access_key_id` | `""` |
+| `monitor.email_api.api_key` | `""` |
+| `monitor.email_api.from_address` | `""` |
+| `monitor.email_api.provider` | `""` |
+| `monitor.email_api.region` | `""` |
+| `monitor.email_api.secret_access_key` | `""` |
 | `monitor.email_recipients` | `[]` |
 | `monitor.enabled` | `false` |
 | `monitor.log_file` | `"/var/log/noust/monitor.log"` |
@@ -88,8 +95,16 @@ Every configuration key and the value it has until you change it. Set one with `
 | `notifications.channels.email.enabled` | `false` |
 | `notifications.channels.gotify.token` | `""` |
 | `notifications.channels.gotify.webhook_url` | `""` |
+| `notifications.channels.lark.secret` | `""` |
+| `notifications.channels.lark.webhook_url` | `""` |
+| `notifications.channels.matrix.access_token` | `""` |
+| `notifications.channels.matrix.homeserver` | `""` |
+| `notifications.channels.matrix.room_id` | `""` |
+| `notifications.channels.mattermost.webhook_url` | `""` |
 | `notifications.channels.ntfy.token` | `""` |
 | `notifications.channels.ntfy.webhook_url` | `""` |
+| `notifications.channels.pagerduty.region` | `"us"` |
+| `notifications.channels.pagerduty.routing_key` | `""` |
 | `notifications.channels.pushover.app_token` | `""` |
 | `notifications.channels.pushover.device` | `""` |
 | `notifications.channels.pushover.user_key` | `""` |
@@ -100,6 +115,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `notifications.channels.webhook.secret` | `""` |
 | `notifications.channels.webhook.webhook_url` | `""` |
 | `notifications.enabled` | `false` |
+| `notifications.events.alert_acknowledged` | `true` |
 | `notifications.events.alert_firing` | `true` |
 | `notifications.events.alert_resolved` | `true` |
 | `notifications.events.app_recovered` | `true` |
@@ -110,7 +126,10 @@ Every configuration key and the value it has until you change it. Set one with `
 | `notifications.events.backup_missing` | `true` |
 | `notifications.events.backup_success` | `false` |
 | `notifications.events.cert_expiring` | `true` |
+| `notifications.events.cleanup_failed` | `true` |
+| `notifications.events.cleanup_success` | `false` |
 | `notifications.events.cron_failed` | `true` |
+| `notifications.events.cron_missed` | `true` |
 | `notifications.events.cron_success` | `false` |
 | `notifications.events.deploy_failed` | `true` |
 | `notifications.events.deploy_hook_failed` | `true` |
@@ -123,6 +142,8 @@ Every configuration key and the value it has until you change it. Set one with `
 | `notifications.events.node_recovered` | `true` |
 | `notifications.events.node_unreachable` | `true` |
 | `notifications.events.os_patches` | `true` |
+| `notifications.events.probe_failed` | `true` |
+| `notifications.events.probe_recovered` | `true` |
 | `notifications.events.restore_failed` | `true` |
 | `notifications.events.restore_success` | `true` |
 | `notifications.events.server_back` | `true` |
@@ -130,12 +151,32 @@ Every configuration key and the value it has until you change it. Set one with `
 | `notifications.events.token_expiring` | `true` |
 | `notifications.events.unit_failed` | `true` |
 | `notifications.language` | `"en"` |
+| `releases.bundle_max_bytes` | `8589934592` |
 | `retention.deployments_days` | `365` |
 | `retention.jobs_days` | `90` |
 | `retention.sessions_days` | `30` |
 | `retention.terminal_days` | `90` |
 | `security.allow_private_hosts` | `[]` |
+| `security.backup_offsite` | `false` |
+| `security.change_reasons` | `false` |
+| `security.console_exposure` | `"allowed"` |
+| `security.database_remote_listen` | `"allowed"` |
+| `security.db_write_root_equivalent` | `false` |
+| `security.exception_reasons` | `false` |
+| `security.explicit_allowlist` | `false` |
+| `security.external_audit_sink` | `false` |
+| `security.frameworks` | `[]` |
+| `security.log_shipping_tls` | `false` |
+| `security.master_token` | `"break_glass"` |
+| `security.mounts_read_only` | `false` |
 | `security.profile` | `"standard"` |
+| `security.restricted_tokens` | `false` |
+| `security.roles_split` | `false` |
+| `security.separation_of_duties` | `false` |
+| `security.server_terminal` | `"allowed"` |
+| `security.single_role_per_account` | `false` |
+| `security.sso_no_admin` | `false` |
+| `security.tls_certificate` | `"any"` |
 | `server.name` | `""` |
 | `service_group` | `"www-data"` |
 | `service_user` | `"www-data"` |
@@ -147,6 +188,9 @@ Every configuration key and the value it has until you change it. Set one with `
 | `ssl.hsts` | `false` |
 | `ssl.provider` | `"certbot"` |
 | `ssl.reuse_wildcard` | `true` |
+| `status_page.directory` | `""` |
+| `status_page.enabled` | `false` |
+| `status_page.title` | `""` |
 | `terminal.enabled` | `true` |
 | `terminal.exec.max_seconds` | `1800` |
 | `terminal.idle_minutes` | `10` |
@@ -163,6 +207,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `updates.check` | `true` |
 | `uploads.source_max_bytes` | `536870912` |
 | `web.allowed_hosts` | `[]` |
+| `web.api_enabled` | `true` |
 | `web.enabled` | `false` |
 | `web.hooks_url` | `""` |
 | `web.host` | `"127.0.0.1"` |

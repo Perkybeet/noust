@@ -332,16 +332,32 @@ def test_put_app_env_allows_an_unchanged_port_alongside_an_unrelated_edit(
     assert (app_dir / ".env").read_text(encoding="utf-8") == "API_KEY=new\nPORT=3000\n"
 
 
-def test_put_app_env_rejects_a_newline_in_a_value_with_422(
+def test_put_app_env_keeps_a_value_of_several_lines_as_one_variable(
     client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
-    """A newline in a value would inject a second variable into the file."""
+    """A line feed in a value is written between quotes: it can never become a second variable."""
     app_dir = deployed_env(store, tmp_path, env_text="API_KEY=old\n")
     elevate(client)
 
     response = client.put(
         "/api/apps/example.com/env",
-        json={"variables": {"EVIL": "a\nEVIL2=1"}},
+        json={"variables": {"API_KEY": "old", "EVIL": "a\nEVIL2=1"}},
+    )
+
+    assert response.status_code == 200, response.text
+    assert (app_dir / ".env").read_text(encoding="utf-8") == "API_KEY=old\nEVIL='a\nEVIL2=1'\n"
+
+
+def test_put_app_env_rejects_a_value_that_would_close_its_own_quotes_with_422(
+    client: TestClient, store: NoustStore, tmp_path: Path
+) -> None:
+    """The one way to a second variable is a quote inside a value of lines, and that is refused."""
+    app_dir = deployed_env(store, tmp_path, env_text="API_KEY=old\n")
+    elevate(client)
+
+    response = client.put(
+        "/api/apps/example.com/env",
+        json={"variables": {"EVIL": "a'\nEVIL2=1\n'"}},
     )
 
     assert response.status_code == 422, response.text

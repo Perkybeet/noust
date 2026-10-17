@@ -122,6 +122,7 @@ used, with their default in the code, so a file that lacks them behaves as docum
 | `github.host` | empty | The GitHub the GitHub App talks to: empty is github.com, or the host of a GitHub Enterprise Server (`ghe.example.com`) or Enterprise Cloud with data residency (`acme.ghe.com`). Set it before the App is created (`noust github host set`): a server that has an App keeps its host unless forced. |
 | `web.allowed_hosts` | empty | The Host header values the console answers to, checked on every request: names, or `*.example.com` for every subdomain. A request for any other host gets a 400 saying so. Loopback and the hosts of `web.public_url` and `web.hooks_url` are always allowed. Empty allows any host, as every earlier version did. Names only: no scheme, port or path. |
 | `web.ip_whitelist` | empty | Client addresses or networks allowed to reach the console; empty allows any. `noust web start --allow-ip` overrides it, and a central's `NOUST_ALLOW_IP` too. |
+| `web.api_enabled` | `true` | Whether API tokens (`noust_tok_`) are accepted. Off, a script gets `403 api_disabled` while the console, which signs in with a session, and the command line carry on; a central's fleet token keeps working, since it is how a central reaches this node. Each token can also be restricted to networks: `noust token create --allow-ip` and `noust token set --allow-ip`. |
 | `web.rate_limit_enabled` | `true` | Whether requests are rate limited. |
 | `web.rate_limit_requests` | `120` | Requests without a credential allowed per window and client address. |
 | `web.rate_limit_authenticated_requests` | `1200` | Requests with a valid credential allowed per window and credential. |
@@ -135,7 +136,12 @@ used, with their default in the code, so a file that lacks them behaves as docum
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `security.profile` | `standard` | `standard`, or `ens-medium` for Spain's ENS category MEDIUM: it caps the `auth.*` settings at the profile's values and keeps the master token to account recovery. |
+| `security.frameworks` | `[]` | The compliance frameworks that are on: `ens-basica`, `ens-media`, `ens-alta`, `iso-27001`, `nis2`, `cis-ig1`, `cis-ig2`, `soc2-security`, `gdpr-32`. Each turns on the controls it names (see [COMPLIANCE.md](COMPLIANCE.md)); several may be on and each control takes the strictest value any asks. Change them with `noust compliance enable` / `disable`. |
+| `security.profile` | `standard` | The setting from before frameworks, kept working: `standard`, or `ens-medium` (any spelling of it, and anything unrecognised) for ENS MEDIA. It means "ENS MEDIA is on". |
+| `security.roles_split`, `security.separation_of_duties`, `security.single_role_per_account`, `security.sso_no_admin`, `security.restricted_tokens` | `false` | Controls of their own (accounts): see [COMPLIANCE.md](COMPLIANCE.md). A framework that asks for one forces it on whatever the setting says; you can only tighten. |
+| `security.change_reasons`, `security.exception_reasons` | `false` | Ask for a reason with every change from the command line and every approval request (`--reason`); ask for one with a decision that lowers protection (building as root, accepting a risk, a privileged container, an incident freeze). |
+| `security.master_token`, `security.external_audit_sink`, `security.log_shipping_tls`, `security.backup_offsite`, `security.tls_certificate`, `security.explicit_allowlist`, `security.console_exposure`, `security.database_remote_listen`, `security.server_terminal`, `security.mounts_read_only`, `security.db_write_root_equivalent` | permissive | The other controls that have a setting of their own; `noust compliance controls` lists every one with its key, its value in force and who forces it. |
+| `approval.enabled` | `false` | Root-equivalent changes wait for a second person's approval (`noust approval`, the console's Approvals). A framework that asks for it, such as ENS MEDIA, turns it on whatever this says; `approval.approvers`, `approval.request_hours` and `approval.execute_minutes` tune who decides and for how long. |
 | `security.allow_private_hosts` | none | Hosts this server may send a request to although they resolve to its own network: a NAS or a MinIO a backup destination connects to, an internal artifact server a source archive is downloaded from, a webhook on the LAN. Names or address literals, compared exactly. Without the host in this list, a destination is refused when it is made or tested, and every use of one refuses the cloud metadata service and this machine's own aliases. Notifications keep their own `notifications.allow_private_hosts`, and also honour this one. |
 | `security.app_packages` | none | The system packages an application may declare (`noust app packages`), as names and globs: `[libvips*, ffmpeg, fonts-*]`. Empty allows any package the distribution has; with a list, a package outside it is refused when it is declared and again when it is installed. See [build.md](build.md#system-packages). |
 | `security.allowed_sources` | none | Where code may come from, as hosts, organisations or repositories (`[github.com/acme]`), and `local`, `push` and `upload` for a directory, `git push` and an uploaded archive. Empty allows everything. See [sources.md](sources.md). |
@@ -214,6 +220,12 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `monitor.smtp.use_tls` | `false` | STARTTLS, usually port 587. Not together with `use_ssl`. |
 | `monitor.smtp.from_address` | empty | The sender; empty uses the account name. |
 | `monitor.smtp.timeout` | `30` | Seconds before a connection to the SMTP server is given up. Not in the defaults. |
+| `monitor.email_api.provider` | empty | Send mail through a provider's API instead of SMTP: `resend`, `postmark`, `brevo` or `ses`. Empty is SMTP. |
+| `monitor.email_api.from_address` | empty | The sender, which the provider must have verified. |
+| `monitor.email_api.api_key` | empty | Resend, Postmark (server token) or Brevo key (a secret). |
+| `monitor.email_api.region` | empty | Amazon SES: the AWS region, such as `eu-west-1`. |
+| `monitor.email_api.access_key_id` | empty | Amazon SES access key id (a secret). |
+| `monitor.email_api.secret_access_key` | empty | Amazon SES secret access key (a secret). |
 | `monitor.email_recipients` | empty list | Who receives email notifications: a list of addresses, or `a@x.com,b@y.com` from the command line. |
 | `monitor.notify` | `false` | Also mail the monitor's raw observations. Not in the defaults. |
 | `monitor.watch_units` | none | Extra systemd units the monitor watches besides the applications'. Not in the defaults. |
@@ -246,11 +258,20 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `notifications.events.approval_decided` | `true` | A request for approval was approved or rejected. |
 | `notifications.events.alert_firing` | `true` | A user-defined alert rule (`noust alert`) has been breached for its whole duration. |
 | `notifications.events.alert_resolved` | `true` | An alert that was announced is back inside its limit. |
+| `notifications.events.alert_acknowledged` | `true` | Somebody took an alert that is firing (`noust alert ack`); a PagerDuty channel acknowledges the incident. |
 | `notifications.events.backup_missing` | `true` | A scheduled backup did not run (an application's, a database's, an application's data or Noust's own state): nothing failed, so `backup_failed` never says so. |
 | `notifications.events.cron_failed` | `true` | A cron job (`noust cron`) ended with an error, with the last lines it printed. |
 | `notifications.events.cron_success` | `false` | Every successful run of every cron job: a heartbeat, off like `backup_success`. |
 | `notifications.events.os_patches` | `true` | Operating system updates are waiting, security ones first; also when the check itself cannot be made. |
 | `notifications.events.token_expiring` | `true` | An API token is about to expire, expires today or just expired. |
+| `notifications.events.cleanup_failed` | `true` | A disk cleanup (`noust server cleanup-schedule`) failed or freed less than it should, with what it said. |
+| `notifications.events.cleanup_success` | `false` | Every cleanup that went well: a heartbeat, off like `backup_success`. |
+| `notifications.events.cron_missed` | `true` | A scheduled task will not run when it should: its timer is gone, disabled or cannot be read. |
+| `notifications.events.probe_failed` | `true` | An external probe (`noust probe`) stopped answering as expected, once per outage. |
+| `notifications.events.probe_recovered` | `true` | A probe that was reported failing answers again. |
+| `status_page.enabled` | `false` | The monitor writes the public status page of the probes (see [probes.md](probes.md#the-status-page)). |
+| `status_page.directory` | empty | Where its files are written, an absolute path; empty is `/var/lib/noust/status-page`. |
+| `status_page.title` | empty | The page's title, at most 80 characters; empty is `Status`. |
 | `notifications.channels.webhook.webhook_url` | empty | The generic endpoint notifications are posted to (a secret: it is a capability URL). |
 | `notifications.channels.webhook.secret` | empty | Signs every delivery with HMAC-SHA256 in `X-Noust-Signature` when set (a secret). |
 | `notifications.channels.slack.webhook_url` | empty | A Slack incoming webhook (a secret). |
@@ -268,6 +289,14 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `notifications.channels.gotify.webhook_url` | empty | The Gotify server's URL (a secret). |
 | `notifications.channels.gotify.token` | empty | The Gotify application's token, sent as `X-Gotify-Key` (a secret). |
 | `notifications.channels.teams.webhook_url` | empty | A Microsoft Teams Workflows webhook (a secret); the message is an Adaptive Card. |
+| `notifications.channels.mattermost.webhook_url` | empty | A Mattermost incoming webhook (a secret). |
+| `notifications.channels.matrix.homeserver` | empty | The Matrix homeserver's base URL. |
+| `notifications.channels.matrix.room_id` | empty | The room's id, `!abc:example.org` (Room settings, Advanced). |
+| `notifications.channels.matrix.access_token` | empty | The posting account's access token (a secret), sent as a bearer header. |
+| `notifications.channels.lark.webhook_url` | empty | A Lark (Feishu) custom bot's webhook (a secret). |
+| `notifications.channels.lark.secret` | empty | The bot's signing secret, when signature verification is on (a secret). |
+| `notifications.channels.pagerduty.routing_key` | empty | The 32-character integration key of a service (Events API v2) (a secret). |
+| `notifications.channels.pagerduty.region` | `us` | The account's service region, `us` or `eu`. |
 
 Any other key under `notifications.channels` is a **further channel** of one of those types, with its own events, route and quiet hours: see [notifications.md](notifications.md).
 
@@ -285,6 +314,7 @@ Any other key under `notifications.channels` is a **further channel** of one of 
 | `databases.safety_copies_kept` | `5` | Safety copies a restore takes of a database before loading over it, kept per database; older ones are deleted after each restore. The newest is never deleted, whatever the value. |
 | `databases.import_max_bytes` | `10737418240` (10 GiB) | The largest dump the console may upload to import (`/api/databases/imports/uploads`): a bigger size is refused before a byte is sent. A file already on the server is not limited by it (`noust db import`). |
 | `uploads.source_max_bytes` | `536870912` (512 MiB) | The largest archive the console or `noust upload add` takes as the code of an application (`/api/uploads`): a bigger size is refused before a byte is sent. What it extracts to is capped apart (50,000 files, 2 GiB). |
+| `releases.bundle_max_bytes` | `8589934592` (8 GiB) | The largest release bundle this server takes from a build server (`/api/apps/{domain}/releases/uploads`, the central's "build on"): a bigger size is refused before a byte is sent. |
 | `databases.import_directories` | empty | Folders, besides `imports` under the backup directory, the API may read a dump from by its path. A comma-separated list of absolute paths; `/` is refused. The CLI reads any file. |
 
 ## Adding a setting

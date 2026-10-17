@@ -15,14 +15,14 @@ here.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from pathlib import Path
 
 from noust.core.config import Config
 from noust.core.exceptions import DeploymentError
 from noust.core.fs import SECRET_MODE, FileSystem, get_fs
 from noust.core.logger import Logger
-from noust.core.store import App, get_store
+from noust.core.store import App, get_store, is_adopted
 from noust.core.utils import domain_to_app_name
 from noust.core.variables.resolver import Resolver
 from noust.core.variables.store import VariableStore
@@ -46,7 +46,11 @@ from noust.deployers.helpers.layout import (
 from noust.deployers.helpers.permissions import hand_over_file
 from noust.deployers.releases import ReleaseManager
 from noust.managers.app_identity import service_account
-from noust.validators.environment import EnvironmentValidationError, validate_environment
+from noust.validators.environment import (
+    EnvironmentValidationError,
+    validate_env_comment,
+    validate_environment,
+)
 
 #: Variables the unit sets inline with ``Environment=`` (see
 #: :meth:`~noust.deployers.base.BaseDeployer._unit_environment`). systemd lets
@@ -106,6 +110,30 @@ def _reject_managed_vars(values: Mapping[str, str], current: Mapping[str, str]) 
     )
 
 
+def refuse_adopted_environment(app: App) -> None:
+    """
+    Refuse to write the environment of a site Noust adopted rather than built.
+
+    The environment of an adopted site is whatever its operator's unit loads, and a ``.env`` that
+    Noust created beside it would be read by nothing or, in a web root, by anybody who asks the
+    web server for it.
+
+    Args:
+        app: The application.
+
+    Raises:
+        EnvironmentValidationError: The application is an adopted site; nothing was written.
+    """
+    if is_adopted(app.app_type):
+        raise EnvironmentValidationError(
+            f"{app.domain} is an adopted site: Noust does not manage its environment",
+            details=(
+                "Its variables are whatever its own unit loads (Environment= or EnvironmentFile= "
+                "in the unit file). Edit them there and restart the application."
+            ),
+        )
+
+
 def find_app(domain: str) -> App | None:
     """
     Find a deployed application by domain, with or without a store row.
@@ -140,7 +168,49 @@ def read_runtime_env(app: App, *, manager: EnvManager | None = None) -> dict[str
         Variable name to value; empty when the application has no ``.env``.
         A build-only variable is not in the file and is not here.
     """
+    if is_adopted(app.app_type):
+        return {}
     return (manager or EnvManager()).read_env_file(env_file_for(app))
+
+
+def read_comments_of(app: App, *, manager: EnvManager | None = None) -> dict[str, str]:
+    """
+    Read the comment above each variable of an application's ``.env``.
+
+    Args:
+        app: The application.
+        manager: Parser to read with. Defaults to a new one.
+
+    Returns:
+        Variable name to its comment, only for the ones that have one.
+    """
+    return (manager or EnvManager()).read_env_comments(env_file_for(app))
+
+
+def check_comments(comments: Mapping[str, str], names: Collection[str]) -> dict[str, str]:
+    """
+    Check the comments a change gives to variables.
+
+    Args:
+        comments: Variable name to its comment; empty text takes the comment away.
+        names: The variables written to the ``.env`` after the change.
+
+    Returns:
+        The comments, trimmed.
+
+    Raises:
+        EnvironmentValidationError: A comment that is not plain short text, or one for a
+            variable that is not in the ``.env`` (a build-only variable is in no file).
+    """
+    clean = {name: validate_env_comment(text, name=name) for name, text in comments.items()}
+    stray = sorted(name for name, text in clean.items() if text and name not in names)
+    if stray:
+        raise EnvironmentValidationError(
+            f"A comment was given for variables that are not in the .env: {', '.join(stray)}",
+            details="A comment is kept above its variable in the file. A variable only the "
+            "build is given is in no file, so it has none.",
+        )
+    return clean
 
 
 def check_app_env(
@@ -164,9 +234,10 @@ def check_app_env(
     Raises:
         EnvironmentValidationError: If :func:`write_app_env` would raise it.
     """
+    refuse_adopted_environment(app)
     reader = manager or EnvManager()
     current = reader.read_env_file(env_file_for(app))
-    clean = validate_environment(values)
+    clean = validate_environment(values, multiline=True)
     _reject_managed_vars(clean, current)
     return clean
 
@@ -213,6 +284,7 @@ def write_app_env(
     logger: Logger | None = None,
     audience: Mapping[str, str] | None = None,
     link: bool = True,
+    comments: Mapping[str, str] | None = None,
 ) -> Path:
     """
     Replace an application's variables with exactly these.
@@ -254,6 +326,8 @@ def write_app_env(
         audience: Names to ``both``, ``build`` or ``runtime``; a name left out
             keeps the audience it has.
         link: Link the file into the active release when it has no link yet.
+        comments: Variable name to the comment kept above it, over the ones the file has;
+            empty text takes one away. None leaves every comment as it is.
 
     Returns:
         The file written.
@@ -276,7 +350,9 @@ def write_app_env(
     plan = plan_environment(
         values, previous=previous, audience=audience, resolver=resolver_for(app)
     )
-    return commit_environment(app, plan, manager=writer, fs=fs, logger=logger, link=link)
+    return commit_environment(
+        app, plan, manager=writer, fs=fs, logger=logger, link=link, comments=comments
+    )
 
 
 def commit_environment(
@@ -287,6 +363,7 @@ def commit_environment(
     fs: FileSystem | None = None,
     logger: Logger | None = None,
     link: bool = True,
+    comments: Mapping[str, str] | None = None,
 ) -> Path:
     """
     Write what :func:`~noust.deployers.helpers.env_variables.plan_environment` decided.
@@ -298,6 +375,8 @@ def commit_environment(
         fs: Filesystem the ownership change and the release link go through.
         logger: Where a failed hand-over or link is reported.
         link: Link the file into the active release when it has no link yet.
+        comments: Variable name to the comment kept above it, over the ones the file has;
+            empty text takes one away. None leaves every comment as it is.
 
     Returns:
         The file written.
@@ -307,6 +386,7 @@ def commit_environment(
         SecurityError: If the destination is a symlink.
         OSError: If the file cannot be written.
     """
+    refuse_adopted_environment(app)
     log = logger or Logger()
     env_file = env_file_for(app)
     writer = manager or EnvManager(fs=fs)
@@ -314,7 +394,15 @@ def commit_environment(
     environment = plan.environment
     runtime = environment.runtime
     _reject_managed_vars(runtime, current)
-    writer.write_env_file(env_file, runtime)
+    kept: dict[str, str] | None = None
+    if comments is not None:
+        asked = check_comments(comments, runtime)
+        kept = {
+            name: text
+            for name, text in {**writer.read_env_comments(env_file), **asked}.items()
+            if text
+        }
+    writer.write_env_file(env_file, runtime, kept)
 
     if app.id is not None:
         VariableStore().set_app_variables(app.id, rows_for(environment))

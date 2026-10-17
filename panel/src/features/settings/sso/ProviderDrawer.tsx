@@ -1,28 +1,23 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
 import { saveProvider, ssoAdminKeys } from "../../../api/queries/ssoAdmin";
 import type { SsoProviderInfo } from "../../../api/queries/ssoAdmin";
-import { myTeamsQuery } from "../../../api/queries/teams";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
-import { ChoiceCards } from "../../../components/ui/ChoiceCards";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { Disclosure } from "../../../components/ui/Disclosure";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Notice } from "../../../components/ui/Notice";
-import { Select } from "../../../components/ui/Select";
-import { Textarea } from "../../../components/ui/Textarea";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
-import { teamRoleLabel } from "../../teams/roles";
-import { TEAM_ROLES } from "../../../api/queries/teams";
 import { splitErrors } from "../formErrors";
-import { CREATED_ROLES, NEW_DRAFT, draftOf, settingsOf } from "./providerForm";
-import type { ProviderDraft, Provisioning } from "./providerForm";
+import { ADMISSION_FOLDED, AdmissionFields } from "./AdmissionFields";
+import { NEW_DRAFT, draftOf, settingsOf } from "./providerForm";
+import type { ProviderDraft } from "./providerForm";
 
 const FIELDS = [
   "label",
@@ -41,9 +36,6 @@ const FIELDS = [
   "clock_skew_seconds",
   "redirect_uri",
 ] as const;
-
-/** The default team is "the default team" until one is chosen: a Select needs a value to hold that. */
-const DEFAULT_TEAM = "__default";
 
 export interface ProviderDrawerProps {
   /** The provider being changed, or null to add one. */
@@ -66,7 +58,6 @@ export function ProviderDrawer({ provider, redirectUri, onClose }: ProviderDrawe
   const creating = provider === null;
   const [draft, setDraft] = useState<ProviderDraft>(provider === null ? NEW_DRAFT : draftOf(provider));
   const [badLine, setBadLine] = useState<number | null>(null);
-  const teams = useQuery(myTeamsQuery());
 
   const set = <K extends keyof ProviderDraft>(key: K, value: ProviderDraft[K]): void => {
     setDraft((previous) => ({ ...previous, [key]: value }));
@@ -91,29 +82,12 @@ export function ProviderDrawer({ provider, redirectUri, onClose }: ProviderDrawe
   });
   const errors = splitErrors(save.error, FIELDS);
   const folded: readonly (typeof FIELDS)[number][] = [
-    "provisioning",
-    "default_role",
-    "default_team",
-    "default_team_role",
-    "allowed_domains",
-    "require_amr",
-    "groups_claim",
-    "group_mappings",
+    ...ADMISSION_FOLDED,
     "scopes",
     "clock_skew_seconds",
     "redirect_uri",
   ];
   const hiddenMessage = folded.map((name) => errors.fields[name]).find((message) => message !== undefined);
-
-  const teamOptions = [
-    { value: DEFAULT_TEAM, label: t("ssoAdmin.form.fields.defaultTeamNone") },
-    ...(teams.data?.teams ?? []).map((team) => ({ value: team.slug, label: team.name })),
-  ];
-  const provisioningOptions: { value: Provisioning; label: string; description: string }[] = [
-    { value: "off", label: t("ssoAdmin.form.fields.provisioningOff"), description: t("ssoAdmin.form.fields.provisioningOffHelp") },
-    { value: "invite", label: t("ssoAdmin.form.fields.provisioningInvite"), description: t("ssoAdmin.form.fields.provisioningInviteHelp") },
-    { value: "auto", label: t("ssoAdmin.form.fields.provisioningAuto"), description: t("ssoAdmin.form.fields.provisioningAutoHelp") },
-  ];
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
@@ -238,135 +212,15 @@ export function ProviderDrawer({ provider, redirectUri, onClose }: ProviderDrawe
           }}
         />
 
-        <Disclosure label={t("ssoAdmin.form.groups.who")} defaultOpen={!creating}>
-          <div className="flex flex-col gap-5">
-            <ChoiceCards
-              legend={t("ssoAdmin.form.fields.provisioning")}
-              options={provisioningOptions}
-              value={draft.provisioning}
-              onValueChange={(value) => {
-                set("provisioning", value);
-              }}
-            />
-            {draft.provisioning === "auto" ? (
-              <>
-                <Field label={t("ssoAdmin.form.fields.defaultRole")} nativeLabel={false} description={t("ssoAdmin.form.fields.defaultRoleHelp")} error={errors.fields.default_role}>
-                  <Select
-                    options={CREATED_ROLES.map((role) => ({ value: role, label: role }))}
-                    value={draft.defaultRole}
-                    onValueChange={(value) => {
-                      set("defaultRole", value);
-                    }}
-                    mono
-                  />
-                </Field>
-                <Field label={t("ssoAdmin.form.fields.defaultTeam")} nativeLabel={false} error={errors.fields.default_team}>
-                  <Select
-                    options={teamOptions}
-                    value={draft.defaultTeam === "" ? DEFAULT_TEAM : draft.defaultTeam}
-                    onValueChange={(value) => {
-                      set("defaultTeam", value === DEFAULT_TEAM ? "" : value);
-                    }}
-                  />
-                </Field>
-                {draft.defaultTeam !== "" ? (
-                  <Field label={t("ssoAdmin.form.fields.defaultTeamRole")} nativeLabel={false} error={errors.fields.default_team_role}>
-                    <Select
-                      options={TEAM_ROLES.map((role) => ({ value: role, label: teamRoleLabel(t, role) }))}
-                      value={draft.defaultTeamRole === "" ? "viewer" : draft.defaultTeamRole}
-                      onValueChange={(value) => {
-                        set("defaultTeamRole", value);
-                      }}
-                    />
-                  </Field>
-                ) : null}
-              </>
-            ) : null}
-            <Checkbox
-              label={t("ssoAdmin.form.fields.linkByEmail")}
-              description={t("ssoAdmin.form.fields.linkByEmailHelp")}
-              checked={draft.linkByEmail}
-              onCheckedChange={(value) => {
-                set("linkByEmail", value);
-              }}
-            />
-            <Checkbox
-              label={t("ssoAdmin.form.fields.requireEmailVerified")}
-              checked={draft.requireEmailVerified}
-              onCheckedChange={(value) => {
-                set("requireEmailVerified", value);
-              }}
-            />
-            <Checkbox
-              label={t("ssoAdmin.form.fields.assumeEmailVerified")}
-              description={t("ssoAdmin.form.fields.assumeEmailVerifiedHelp")}
-              checked={draft.assumeEmailVerified}
-              onCheckedChange={(value) => {
-                set("assumeEmailVerified", value);
-              }}
-            />
-            <Field label={t("ssoAdmin.form.fields.allowedDomains")} optional description={t("ssoAdmin.form.fields.allowedDomainsHelp")} error={errors.fields.allowed_domains}>
-              <Textarea
-                mono
-                rows={2}
-                spellCheck={false}
-                placeholder="acme.test"
-                value={draft.allowedDomains}
-                onChange={(event) => {
-                  set("allowedDomains", event.target.value);
-                }}
-              />
-            </Field>
-            <Field label={t("ssoAdmin.form.fields.requireAmr")} optional description={t("ssoAdmin.form.fields.requireAmrHelp")} error={errors.fields.require_amr}>
-              <Input
-                mono
-                autoComplete="off"
-                spellCheck={false}
-                placeholder="mfa"
-                value={draft.requireAmr}
-                onValueChange={(value: string) => {
-                  set("requireAmr", value);
-                }}
-              />
-            </Field>
-          </div>
-        </Disclosure>
-
-        <Disclosure label={t("ssoAdmin.form.groups.groupsTitle")} defaultOpen={!creating && draft.groupSync}>
-          <div className="flex flex-col gap-5">
-            <Checkbox
-              label={t("ssoAdmin.form.fields.groupSync")}
-              description={t("ssoAdmin.form.fields.groupSyncHelp")}
-              checked={draft.groupSync}
-              onCheckedChange={(value) => {
-                set("groupSync", value);
-              }}
-            />
-            <Field label={t("ssoAdmin.form.fields.groupsClaim")} description={t("ssoAdmin.form.fields.groupsClaimHelp")} error={errors.fields.groups_claim}>
-              <Input
-                mono
-                autoComplete="off"
-                spellCheck={false}
-                value={draft.groupsClaim}
-                onValueChange={(value: string) => {
-                  set("groupsClaim", value);
-                }}
-              />
-            </Field>
-            <Field label={t("ssoAdmin.form.fields.mappings")} optional description={t("ssoAdmin.form.fields.mappingsHelp")} error={errors.fields.group_mappings}>
-              <Textarea
-                mono
-                rows={3}
-                spellCheck={false}
-                placeholder={"ops=admin\ndevs=acme:operator"}
-                value={draft.mappings}
-                onChange={(event) => {
-                  set("mappings", event.target.value);
-                }}
-              />
-            </Field>
-          </div>
-        </Disclosure>
+        <AdmissionFields
+          draft={draft}
+          onChange={(patch) => {
+            setDraft((previous) => ({ ...previous, ...patch }));
+          }}
+          errors={errors.fields}
+          creating={creating}
+          parts={{ provisioning: true, emailTrust: true, methods: true, claim: true }}
+        />
 
         <Disclosure label={t("ssoAdmin.form.groups.more")}>
           <div className="flex flex-col gap-5">

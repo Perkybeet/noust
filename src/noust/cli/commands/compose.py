@@ -22,7 +22,7 @@ import click
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.core.fs import SECRET_MODE, get_fs
 from noust.deployers.compose_paste import MAX_DOCUMENT_BYTES, analyze_document
-from noust.recipes.coolify import MAX_TEMPLATE_BYTES, convert, values_file
+from noust.recipes.coolify import MAX_TEMPLATE_BYTES, convert, default_host_port, values_file
 from noust.validators.domain import validate_domain
 
 
@@ -114,7 +114,7 @@ def check_command(ctx: Context, file: Path) -> None:
 @click.option(
     "--port",
     type=click.IntRange(1, 65535),
-    help="The host port of the web service on 127.0.0.1 (its own port by default).",
+    help="The host port of the web service on 127.0.0.1 (a free one by default).",
 )
 @click.option(
     "--out",
@@ -142,8 +142,15 @@ def import_command(
     else:
         text = file.read_text(encoding="utf-8")
     name = validate_domain(domain) if domain else None
-    result = convert(text, domain=name, port=port)
+    result = convert(text, domain=name, port=port or default_host_port())
     found = analyze_document(result.document)
+    # A variable with no default that nobody made a value for: Compose stops on a ${NAME:?}, and
+    # starts the others with a blank. Saying so now is kinder than at the deploy. The addresses
+    # asked for without a domain are reported on their own.
+    reported = {v.name for v in result.variables}
+    required = [
+        v for v in found.variables if v.required and v.name not in {*result.values, *reported}
+    ]
     if out is not None:
         fs = get_fs()
         fs.make_dir(out, mode=0o755, parents=True)
@@ -158,6 +165,7 @@ def import_command(
                     "routed": list(result.routed) if result.routed else None,
                     "variables": [variable.to_dict() for variable in result.variables],
                     "metadata": result.metadata,
+                    "required": [{"name": v.name, "message": v.message} for v in required],
                     "adjustments": result.adjustments,
                     "warnings": result.warnings,
                     "refused": found.refused,
@@ -187,6 +195,12 @@ def import_command(
         )
     for variable in asked:
         logger.warning(f"{variable.name}: {variable.note}")
+    for needed in required:
+        logger.warning(
+            f"{needed.name} has no default"
+            + (f" ({needed.message})" if needed.message else "")
+            + (f": give it a value in {out}/.env" if out is not None else "")
+        )
     if found.refused:
         logger.error("It cannot be deployed as it is:")
         for problem in found.refused:

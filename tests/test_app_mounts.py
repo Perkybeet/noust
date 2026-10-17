@@ -446,14 +446,12 @@ def test_a_path_that_exists_is_bound_without_its_trailing_slash(tmp_path: Path) 
     assert clean_source(str(tmp_path) + "/") == str(tmp_path)
 
 
-def test_a_writable_path_is_refused_under_the_ens_profile(
-    container: MountManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_a_writable_path_is_refused_where_the_mounts_control_is_on(
+    container: MountManager, tmp_path: Path, real_config: Any
 ) -> None:
-    from noust.core.ens import profile
+    real_config.set("security.frameworks", ["ens-basica"])
 
-    monkeypatch.setattr(profile, "is_ens", lambda config=None: True)
-
-    with pytest.raises(ValidationError, match="ENS"):
+    with pytest.raises(ValidationError, match="mounts_read_only"):
         container.put_path(DOMAIN, str(tmp_path), "/srv/x", read_only=False)
     container.put_path(DOMAIN, str(tmp_path), "/srv/x", read_only=True)
 

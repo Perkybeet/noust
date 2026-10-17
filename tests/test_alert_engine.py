@@ -19,10 +19,11 @@ import pytest
 
 from noust.core.alerts import AlertRule, AlertRules
 from noust.core.alerts.rules import FIRING, OK
+from noust.core.exceptions import ValidationError
 from noust.core.notifications.context import NotificationContext
 from noust.core.notifications.model import Notification, State
 from noust.core.store import NoustStore
-from noust.monitor.alert_engine import MIN_COVERAGE, AlertEngine
+from noust.monitor.alert_engine import MIN_COVERAGE, AlertEngine, acknowledge_alert
 from noust.monitor.timeseries import MetricsStore
 
 START = 1_800_000_000
@@ -400,3 +401,86 @@ class TestResilience:
         h.engine.evaluate()
 
         assert len(h.sent) == 1 and "a-broken" in caplog.text
+
+
+class TestAcknowledged:
+    def fire(self, h: Harness, **overrides: object) -> None:
+        h.rules.save(cpu_rule(cooldown_s=3600, remind=True, **overrides))
+        h.record("cpu.percent", 95.0, 400)
+        h.engine.evaluate()
+        h.sent.clear()
+
+    def publish(self, h: Harness) -> Callable[..., None]:
+        return lambda build: h.sent.append(build(h.context))
+
+    def test_somebody_taking_it_tells_the_channels_who(self, h: Harness) -> None:
+        self.fire(h)
+        h.advance(120)
+
+        state = acknowledge_alert(
+            h.rules, "cpu-high", by="alice", publish=self.publish(h), clock=h.clock
+        )
+
+        assert state.acknowledged_by == "alice"
+        (note,) = h.sent
+        assert (note.kind, note.code, note.state) == (
+            "alert_acknowledged",
+            "alert.acknowledged",
+            State.INFO,
+        )
+        facts = {f.key: f.value for f in note.facts}
+        assert facts["acknowledged_by"] == "alice" and facts["rule"] == "cpu-high"
+        assert "alice is looking into it" in note.summary and "90%" in note.summary
+        assert facts["firing_for"].startswith("7 min")
+
+    def test_taking_it_twice_tells_nobody_twice(self, h: Harness) -> None:
+        self.fire(h)
+
+        for who in ("alice", "bob"):
+            acknowledge_alert(h.rules, "cpu-high", by=who, publish=self.publish(h), clock=h.clock)
+
+        assert len(h.sent) == 1
+
+    def test_what_is_not_firing_tells_nobody(self, h: Harness) -> None:
+        h.rules.save(cpu_rule())
+
+        with pytest.raises(ValidationError):
+            acknowledge_alert(h.rules, "cpu-high", by="alice", publish=self.publish(h))
+
+        assert h.sent == []
+
+    def test_a_taken_alert_is_not_reminded_of(self, h: Harness) -> None:
+        self.fire(h)
+        acknowledge_alert(h.rules, "cpu-high", by="alice", publish=self.publish(h), clock=h.clock)
+        h.sent.clear()
+
+        h.advance(7200)
+        h.record("cpu.percent", 95.0, 400)
+        h.engine.evaluate()
+
+        assert h.sent == []
+
+    def test_handed_back_it_is_reminded_of_again(self, h: Harness) -> None:
+        self.fire(h)
+        acknowledge_alert(h.rules, "cpu-high", by="alice", publish=self.publish(h), clock=h.clock)
+        h.rules.unacknowledge("cpu-high")
+        h.sent.clear()
+
+        h.advance(7200)
+        h.record("cpu.percent", 95.0, 400)
+        h.engine.evaluate()
+
+        assert [n.kind for n in h.sent] == ["alert_firing"]
+
+    def test_a_taken_alert_still_says_when_it_clears(self, h: Harness) -> None:
+        self.fire(h)
+        acknowledge_alert(h.rules, "cpu-high", by="alice", publish=self.publish(h), clock=h.clock)
+        h.sent.clear()
+
+        h.advance(900)
+        h.record("cpu.percent", 40.0, 300)
+        h.engine.evaluate()
+
+        assert [n.kind for n in h.sent] == ["alert_resolved"]
+        state = h.rules.states()[0]
+        assert state.state == OK and state.acknowledged_by is None

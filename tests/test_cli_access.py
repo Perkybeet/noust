@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 from click.testing import CliRunner
@@ -122,7 +123,11 @@ class TestRoles:
 
         assert "built-in" in output
 
-    def test_a_role_that_governs_and_runs_is_refused_with_the_way_out(self, cli: CliRunner) -> None:
+    def test_a_role_that_governs_and_runs_is_refused_with_the_way_out(
+        self, cli: CliRunner, real_config: Any
+    ) -> None:
+        # Separation of duties is a control the operator chooses (item 83), not the default.
+        real_config.set("security.separation_of_duties", True)
         output = run(
             cli,
             "access",

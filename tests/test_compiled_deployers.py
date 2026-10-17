@@ -498,7 +498,7 @@ class TestTheSandboxCache:
         environment = sandbox.build_environment(cache)
 
         for name in (
-            "HOME",  # Maven's repository and its wrapper's distributions are under ~/.m2
+            "HOME",  # the wrapper scripts and every tool that reads $HOME
             "GRADLE_USER_HOME",
             "DOTNET_CLI_HOME",
             "NUGET_PACKAGES",
@@ -509,3 +509,31 @@ class TestTheSandboxCache:
         # A build nobody watches has no use for a banner or a telemetry ping.
         assert environment["DOTNET_NOLOGO"] == "1"
         assert environment["DOTNET_CLI_TELEMETRY_OPTOUT"] == "1"
+
+    def test_a_jvm_finds_its_home_in_the_cache_and_not_in_the_password_file(self) -> None:
+        # A JVM takes user.home from the password file and ignores $HOME, and the build
+        # account's home is /nonexistent: Maven then failed with "Could not create local
+        # repository at /nonexistent/.m2/repository" on the first real build.
+        cache = Path("/var/cache/noust/build/svc-example-com")
+        environment = sandbox.build_environment(cache)
+
+        assert environment["MAVEN_OPTS"] == f"-Duser.home={cache}"
+        assert environment["GRADLE_OPTS"] == f"-Duser.home={cache}"
+
+    def test_the_applications_own_jvm_options_are_kept_and_win(self) -> None:
+        cache = Path("/var/cache/noust/build/svc-example-com")
+        state = sandbox.SandboxState(domain=DOMAIN, mode="on")
+
+        composed = sandbox.command_environment(
+            state,
+            sandbox.BuildPhase.BUILD,
+            configured={"MAVEN_OPTS": "-Xmx512m -Duser.home=/srv/me", "NODE_ENV": "production"},
+            given=None,
+            cache=cache,
+        )
+
+        # Ours first, theirs after: the JVM reads the last -D of a property, so an operator who
+        # chose a home on purpose keeps it, and the heap they asked for is not lost.
+        assert composed["MAVEN_OPTS"] == f"-Duser.home={cache} -Xmx512m -Duser.home=/srv/me"
+        assert composed["GRADLE_OPTS"] == f"-Duser.home={cache}"
+        assert composed["NODE_ENV"] == "production"

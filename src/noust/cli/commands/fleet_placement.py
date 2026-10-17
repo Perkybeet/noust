@@ -352,6 +352,92 @@ def rollout_command(
     _run(ctx, fleet_request, assume_yes, plan_only)
 
 
+@placement_cli.command("ship")
+@click.argument("domain")
+@click.option(
+    "--builder",
+    default=None,
+    help="The server that builds it (the one recorded with 'noust fleet builder set' by default).",
+)
+@click.option(
+    "--to",
+    "to",
+    default=None,
+    help="Comma-separated servers to run it on (every member of the placement by default).",
+)
+@click.option(
+    "--commit", default=None, help="Build exactly this commit instead of the branch head."
+)
+@click.option("--keep", is_flag=True, help="Keep the release the build made on the builder.")
+@click.option(
+    "--schema-changed-ok",
+    is_flag=True,
+    help="Take a release older than a deployment that changed the database's schema.",
+)
+@click.option(
+    "--during-freeze", "frozen_ok", is_flag=True, help="Switch although deploys are frozen."
+)
+@click.option("--force", is_flag=True, help="Send it even to a server already on its commit.")
+@click.option("--canary", default=None, help="The server that goes first and alone.")
+@click.option(
+    "--rollback/--no-rollback",
+    "rollback",
+    default=None,
+    help="Put the servers already moved back if it stops (the placement's own by default).",
+)
+@_strategy_options
+@json_option("Print the plan, then the job's result, as JSON.")
+@pass_context
+def ship_command(
+    ctx: Context,
+    domain: str,
+    builder: str | None,
+    to: str | None,
+    commit: str | None,
+    keep: bool,
+    schema_changed_ok: bool,
+    frozen_ok: bool,
+    force: bool,
+    canary: str | None,
+    rollback: bool | None,
+    serial: str | None,
+    max_failures: int | None,
+    plan_only: bool,
+    assume_yes: bool,
+) -> None:
+    """
+    Build DOMAIN on one server and run that build on the others.
+
+    The builder builds the release once, in its sandbox, without activating it. This central
+    carries the bundle through the tunnels, in chunks, to each server, which checks it against
+    the digest the builder gave and activates it behind the health check after the
+    application's own hooks. The first server goes alone; when the job stops, the servers
+    already moved are put back by their previous release. The exit status is 1 when any server
+    failed.
+    """
+    from noust.cli.commands.fleet_views import _run
+    from noust.web.fleet_ship_actions import ship_request
+
+    manager, placements, found = _placed(domain)
+    members = _csv(to) if to is not None else placements.members(found, manager.list())
+    chosen = canary or (found.canary if found.canary in members else None)
+    fleet_request = ship_request(
+        found.domain,
+        list(members),
+        builder=builder,
+        commit=commit,
+        keep=keep,
+        schema_changed_ok=schema_changed_ok,
+        frozen_ok=frozen_ok,
+        force=force,
+        rollback_on_failure=found.rollback_on_failure if rollback is None else rollback,
+        serial=(int(serial) if serial and serial.isdigit() else serial) if serial else found.serial,
+        max_failures=max_failures if max_failures is not None else found.max_failures,
+        canary=chosen,
+    )
+    _run(ctx, fleet_request, assume_yes, plan_only)
+
+
 @placement_cli.command("copy")
 @click.argument("domain")
 @click.option("--from", "from_node", default=None, help="The server to copy it from.")

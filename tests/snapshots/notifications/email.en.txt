@@ -1783,6 +1783,263 @@ Sent by Noust · web-1 · 2026-09-29 10:45 UTC
 Change what you receive in Settings > Notifications
 
 ========================================================================
+### cleanup.completed
+Subject: [Noust] Disk cleaned: / (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: cleanup_success
+X-Noust-Code: cleanup.completed
+X-Noust-Server: web-1
+
+● Disk cleaned · /
+The server's cleanup policy ran and freed space.
+
+Server: web-1
+Used: 91% -> 64%
+Freed: 11.5 GB
+Actions: journal, pkg-cache, releases
+
+Open in the console: https://console.example.com/n/web-1/server
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### cleanup.partial
+Subject: [Noust] Disk cleanup partly failed: / (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: cleanup_failed
+X-Noust-Code: cleanup.partial
+X-Noust-Server: web-1
+
+▲ Disk cleanup partly failed · /
+The cleanup policy ran, but some of its actions failed.
+
+Server: web-1
+Used: 91% -> 88%
+Freed: 2.0 GB
+Actions: journal, pkg-cache, releases
+See what ran: noust server cleanup-schedule history
+
+What releases reported:
+  rm: cannot remove '/var/www/apps/shop/releases/x': Permission denied
+
+Open in the console: https://console.example.com/n/web-1/server
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### cleanup.failed
+Subject: [Noust] Disk cleanup failed: / (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: cleanup_failed
+X-Noust-Code: cleanup.failed
+X-Noust-Server: web-1
+
+✕ Disk cleanup failed · /
+The cleanup policy ran and every one of its actions failed, so the disk is as it was.
+
+Server: web-1
+Used: 93% -> 93%
+Actions: journal
+See what ran: noust server cleanup-schedule history
+
+What journal reported:
+  Failed to vacuum: Read-only file system
+
+Open in the console: https://console.example.com/n/web-1/server
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### cron.timer_stopped
+Subject: [Noust] Scheduled task will not run: shop-sync (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: cron_missed
+X-Noust-Code: cron.timer_stopped
+X-Noust-Server: web-1
+
+▲ Scheduled task will not run · shop-sync
+The task is enabled but its timer is not running, so it will not start. Nothing failed: nothing runs.
+
+Server: web-1
+Schedule: *-*-* 03:00:00
+Timer: failed
+Start it again with: noust cron enable shop-sync
+
+Open in the console: https://console.example.com/n/web-1/cron
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### cron.timer_running
+Subject: [Noust] Scheduled task runs again: shop-sync (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: cron_missed
+X-Noust-Code: cron.timer_running
+X-Noust-Server: web-1
+
+● Scheduled task runs again · shop-sync
+The task's timer is running again.
+
+Server: web-1
+Schedule: *-*-* 03:00:00
+
+Open in the console: https://console.example.com/n/web-1/cron
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### probe.failed
+Subject: [Noust] Address not answering: shop-site (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: probe_failed
+X-Noust-Code: probe.failed
+X-Noust-Server: web-1
+
+✕ Address not answering · shop-site
+The address stopped answering what the probe asks of it.
+
+Server: web-1
+Address: https://shop.example.com/health
+Unreachable since: 2026-10-16 08:14 UTC
+Probe it now with: noust probe run shop-site
+
+What came back:
+  HTTP 503 Service Unavailable
+  retry-after: 30
+
+Open in the console: https://console.example.com/n/web-1/settings/probes
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### probe.recovered
+Subject: [Noust] Address answering again: shop-site (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: probe_recovered
+X-Noust-Code: probe.recovered
+X-Noust-Server: web-1
+
+● Address answering again · shop-site
+The address answers what the probe asks of it again.
+
+Server: web-1
+Address: https://shop.example.com/health
+Was unreachable for: 7 min 42 s
+Answered in: 184 ms
+
+Open in the console: https://console.example.com/n/web-1/settings/probes
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### alert.acknowledged
+Subject: [Noust] Alert taken: cpu-high (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: alert_acknowledged
+X-Noust-Code: alert.acknowledged
+X-Noust-Server: web-1
+
+○ Alert taken · cpu-high
+alice is looking into it: CPU of the server is still beyond the 90% limit.
+
+Server: web-1
+Rule: cpu-high
+Taken by: alice
+Firing for: 21 min
+
+Open in the console: https://console.example.com/n/web-1/server
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### digest.flood
+Subject: [Noust] Notifications held back (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: digest
+X-Noust-Code: digest.flood
+X-Noust-Server: web-1
+
+○ Notifications held back
+3 notifications passed this channel's limit and were held back until now.
+
+Server: web-1
+Notifications: 3
+Between: 2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC
+
+Disk cleaned · /
+  When: 2026-09-29 10:45 UTC
+  Detail: The server's cleanup policy ran and freed space.
+
+Scheduled task runs again · shop-sync
+  When: 2026-09-29 10:48 UTC
+  Detail: The task's timer is running again.
+
+Address answering again · shop-site
+  When: 2026-09-29 10:51 UTC
+  Detail: The address answers what the probe asks of it again.
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### digest.summary
+Subject: [Noust] Scheduled summary (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: digest
+X-Noust-Code: digest.summary
+X-Noust-Server: web-1
+
+○ Scheduled summary
+3 notifications since the last summary.
+
+Server: web-1
+Notifications: 3
+Between: 2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC
+
+Disk cleaned · /
+  When: 2026-09-29 10:45 UTC
+  Detail: The server's cleanup policy ran and freed space.
+
+Scheduled task runs again · shop-sync
+  When: 2026-09-29 10:48 UTC
+  Detail: The task's timer is running again.
+
+Address answering again · shop-site
+  When: 2026-09-29 10:51 UTC
+  Detail: The address answers what the probe asks of it again.
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
 ### hostile.deploy_failed
 Subject: [Noust] Deploy failed: shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
 Auto-Submitted: auto-generated

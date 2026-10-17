@@ -22,6 +22,12 @@ left once the conventions are Noust's:
 - ``$NAME`` becomes ``${NAME}``, the one spelling Noust reads;
 - Traefik and Coolify labels, the ``coolify`` network and ``exclude_from_hc`` are dropped: they
   mean nothing here, and each is reported in ``adjustments``;
+- a service with no ``restart`` key gets ``unless-stopped``, which is what Coolify's own parser
+  does and what the templates rely on (an application that starts before its database is set up
+  exits, and has to be started again);
+- the named volumes a service mounts are declared at the top level when the template did not
+  (Coolify declares them itself; Compose refuses a project that refers to a volume nobody
+  declared, and 340 of the 345 templates of the catalogue that use one leave the declaration out);
 - what cannot be translated is said in ``warnings`` and never guessed (a file mounted from
   inline ``content``, a magic variable this module does not know).
 
@@ -44,7 +50,9 @@ from typing import Any
 
 import yaml
 
+from noust.core.compose_yaml import load_compose
 from noust.core.exceptions import ValidationError
+from noust.deployers.compose_paste import plain_uses_with_a_default
 from noust.deployers.helpers.compose_ports import parse_ports
 from noust.recipes.variables import generate_value
 
@@ -79,6 +87,7 @@ _JWT = {"SUPABASEANON": "anon", "SUPABASESERVICE": "service_role"}
 #: catch ``TERMS_OF_SERVICE_URL`` and an application's own ``SERVICE_URL=`` key.
 _MAGIC = re.compile(r"\$\{(SERVICE_[A-Z0-9_]+)")
 _BARE_DOLLAR = re.compile(r"(?<!\$)\$([A-Za-z_][A-Za-z0-9_]*)")
+
 _TRAILING_PORT = re.compile(r"(?P<id>.+)_(?P<port>\d{2,5})")
 _HEADER = re.compile(r"#\s*(documentation|slogan|tags|logo|port|env_file|ignore)\s*:\s*(.*)", re.I)
 
@@ -217,6 +226,28 @@ def read_header(text: str) -> dict[str, str]:
     return found
 
 
+def default_host_port() -> int | None:
+    """
+    The port a converted stack is published on when the operator names none.
+
+    The container's own port is the wrong default: 80 and 443 are the web server's, and 3000 or
+    8080 are as likely to be another application's. This is the port ``noust create`` gives an
+    application next (the first free one from 3000 that no application owns), so the number the
+    document is converted with is the number its site will proxy to in the usual order of things.
+
+    Returns:
+        The port, or None when none is free (the container's own is used then).
+    """
+    from noust.core.store import StoreError, get_store
+    from noust.validators.port import find_available_port
+
+    try:
+        owned = get_store().ports_owned_by_apps()
+    except StoreError:
+        owned = set()  # no store yet (a rehearsal on a fresh machine): no application owns any
+    return find_available_port(preferred=3000, exclude=owned)
+
+
 def convert(text: str, *, domain: str | None = None, port: int | None = None) -> CoolifyImport:
     """
     Convert a Coolify template to a Noust Compose document.
@@ -226,7 +257,8 @@ def convert(text: str, *, domain: str | None = None, port: int | None = None) ->
         domain: The name the stack is served on; without one the addresses are left for the
             operator to give.
         port: The host port the web service is published on (``127.0.0.1``); the container's own
-            port by default, which the operator changes if another application has it.
+            port by default (:func:`default_host_port` is what a command or an endpoint passes
+            instead, because that one is rarely free).
 
     Returns:
         The document, the values made, and what was changed or left.
@@ -240,7 +272,7 @@ def convert(text: str, *, domain: str | None = None, port: int | None = None) ->
             "That template is far too large", field="document", details="A template is a few KiB."
         )
     try:
-        document = yaml.safe_load(text)
+        document = load_compose(text)
     except yaml.YAMLError as exc:
         raise ValidationError(
             "That template is not YAML", details=str(exc)[:300], field="document"
@@ -255,6 +287,8 @@ def convert(text: str, *, domain: str | None = None, port: int | None = None) ->
     result = CoolifyImport(document="", metadata=read_header(text))
     routing = _strip_declarations(document["services"], result)
     _clean(document, result)
+    _declare_volumes(document, result)
+    _restart_policy(document, result)
     _normalise(document)
     _publish(document["services"], routing, port, result)
     body = yaml.safe_dump(
@@ -270,6 +304,7 @@ def convert(text: str, *, domain: str | None = None, port: int | None = None) ->
                 f"{name} is named like a Coolify variable but is not one Noust fills in: give it"
             )
     _values(magic, domain, result)
+    _shared_defaults(body, set(magic), result)
     result.document = _header(result) + body
     return result
 
@@ -409,6 +444,80 @@ def _clean(document: dict[str, Any], result: CoolifyImport) -> None:
         del networks["coolify"]
     if not document.get("networks"):
         document.pop("networks", None)
+
+
+#: What a named volume is called: Docker's own rule for a volume name.
+_VOLUME_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
+
+
+def _named_volume(entry: Any) -> str | None:
+    """
+    Args:
+        entry: One item of a service's ``volumes``, in either syntax.
+
+    Returns:
+        The name when it mounts a named volume; None for a bind mount (a path), an anonymous
+        volume, a tmpfs and a source that is a variable.
+    """
+    if isinstance(entry, str):
+        source, separator, _ = entry.partition(":")
+        return source if separator and _VOLUME_NAME.fullmatch(source) else None
+    if isinstance(entry, dict) and entry.get("type", "volume") == "volume":
+        named = entry.get("source")
+        return named if isinstance(named, str) and _VOLUME_NAME.fullmatch(named) else None
+    return None
+
+
+def _declare_volumes(document: dict[str, Any], result: CoolifyImport) -> None:
+    """
+    Declare at the top level the named volumes the services mount and the template did not.
+
+    Args:
+        document: The template, changed in place.
+        result: Where adjustments go.
+    """
+    declared = document.get("volumes")
+    declared = declared if isinstance(declared, dict) else {}
+    used: dict[str, None] = {}
+    for spec in document["services"].values():
+        if not isinstance(spec, dict):
+            continue
+        for entry in spec.get("volumes") or []:
+            name = _named_volume(entry)
+            if name is not None:
+                used.setdefault(name)
+    missing = [name for name in used if name not in declared]
+    if not missing:
+        return
+    document["volumes"] = {**declared, **{name: {} for name in missing}}
+    result.adjustments.append(
+        f"declared {len(missing)} named volume(s) the template mounts without declaring: "
+        f"{', '.join(missing)} (Coolify declares them itself, Compose does not)"
+    )
+
+
+#: What Coolify gives a service that does not say (``RESTART_MODE`` in its helpers).
+RESTART_DEFAULT = "unless-stopped"
+
+
+def _restart_policy(document: dict[str, Any], result: CoolifyImport) -> None:
+    """
+    Give the services that do not say how they restart what Coolify gives them.
+
+    Args:
+        document: The template, changed in place.
+        result: Where adjustments go.
+    """
+    given = 0
+    for spec in document["services"].values():
+        if isinstance(spec, dict) and "restart" not in spec:
+            spec["restart"] = RESTART_DEFAULT
+            given += 1
+    if given:
+        result.adjustments.append(
+            f"restart: {RESTART_DEFAULT} was given to {given} service(s) that did not say "
+            "(Coolify does the same, and the templates rely on it)"
+        )
 
 
 def _normalise(node: Any) -> None:
@@ -577,6 +686,51 @@ def _values(magic: dict[str, Magic], domain: str | None, result: CoolifyImport) 
                 "jwt", signing_secret=result.values[signing], role=item.role
             )
             result.variables.append(ConvertedVariable(name, "generated", secret=True))
+
+
+#: A value an ``.env`` line carries as it is (``values_file`` refuses what it would have to quote).
+_PLAIN_VALUE = re.compile(r"[^\s\"'\\$`]+")
+
+
+def _shared_defaults(body: str, magic: set[str], result: CoolifyImport) -> None:
+    """
+    Give a variable the default another service declares for it.
+
+    Coolify makes a variable's value from the default a template gives it anywhere
+    (``${POSTGRES_DB:-app}``), so the service that reads it plainly (``$POSTGRES_DB`` in a
+    connection string) sees that value too; Compose would give it a blank.
+
+    Args:
+        body: The converted document.
+        magic: The magic variables, whose values are made or asked for already.
+        result: Where the values and the variables go.
+    """
+    for name, default in plain_uses_with_a_default(body).items():
+        if name in magic or name in result.values or name == PORT_VARIABLE:
+            continue
+        if _PLAIN_VALUE.fullmatch(default):
+            result.values[name] = default
+            result.variables.append(
+                ConvertedVariable(
+                    name,
+                    "template",
+                    note=f"The template gives it the default {default}, which another service "
+                    "reads with none",
+                )
+            )
+        else:
+            result.variables.append(
+                ConvertedVariable(
+                    name,
+                    "ask",
+                    note=f"One service reads it with no default and another gives it "
+                    f"{default!r}: write the value in .env",
+                )
+            )
+            result.warnings.append(
+                f"{name} has the default {default!r} in one service and none in another; "
+                "give it a value in .env"
+            )
 
 
 def _header(result: CoolifyImport) -> str:

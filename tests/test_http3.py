@@ -130,6 +130,42 @@ def test_the_firewall_is_asked_about_udp_443(web: NginxManager, runner: FakeRunn
     assert nothing.udp_allowed is None
 
 
+def test_a_firewall_that_lets_everything_in_by_default_does_not_close_udp_443(
+    web: NginxManager, runner: FakeRunner
+) -> None:
+    """
+    nftables rules in place with a default of accept (Docker's, on a plain server) filter
+    nothing, and the answer used to be "the firewall does not let UDP 443 in" with no command to
+    open anything. Found on a real Debian 13 with Docker installed.
+    """
+    open_by_default = FakeFirewall(
+        FirewallState(backend="nftables", active=True, default_incoming="allow")
+    )
+    closed = FakeFirewall(FirewallState(backend="nftables", active=True, default_incoming="drop"))
+
+    wide_open = support_of(web, runner, NEW, open_by_default)
+    shut = support_of(web, runner, NEW, closed)
+
+    assert wide_open.udp_allowed is True and wide_open.firewall_hint == ""
+    assert shut.udp_allowed is False
+    assert "443/udp" in shut.firewall_hint  # even a firewall Noust cannot drive says what to open
+
+
+def test_a_rule_that_refuses_udp_443_is_not_a_way_in(web: NginxManager, runner: FakeRunner) -> None:
+    from dataclasses import replace
+
+    refused = FakeFirewall(
+        FirewallState(
+            backend="ufw",
+            active=True,
+            default_incoming="allow",
+            rules=[replace(udp_rule(), action="deny")],
+        )
+    )
+
+    assert support_of(web, runner, NEW, refused).udp_allowed is False
+
+
 # -- the socket's own site --------------------------------------------------------
 
 
@@ -243,6 +279,77 @@ def test_the_socket_site_stays_until_the_last_site_stops(
     access.set_policy("other.example.org", {"http3": False})
     assert not anchor.exists()
     assert not (machine.web.backend.sites_enabled / ANCHOR_NAME).is_symlink()
+
+
+def reloads(runner: FakeRunner) -> int:
+    return runner.calls.count(("systemctl", "reload", "nginx"))
+
+
+def test_nginx_is_reloaded_after_the_socket_site_goes_so_the_socket_closes(
+    machine: Machine, runner: FakeRunner
+) -> None:
+    """
+    The site was reloaded without HTTP/3 while the socket's site was still there, and the socket's
+    site was removed afterwards with no reload: on a real nginx 28 UDP 443 sockets stayed open
+    (and the handshake-refusing server block stayed loaded) until some later reload.
+    """
+    serve(machine, runner)
+    machine.deploy("other.example.org", app_type="nodejs", tls=True)
+    access.set_policy("example.com", {"http3": True})
+    access.set_policy("other.example.org", {"http3": True})
+
+    runner.calls.clear()
+    access.set_policy("example.com", {"http3": False})
+    assert reloads(runner) == 1  # the site only: the socket is still wanted
+
+    runner.calls.clear()
+    access.set_policy("other.example.org", {"http3": False})
+    assert reloads(runner) == 2  # the site, then the socket's own site going away
+    anchor = machine.web.backend.sites_available / ANCHOR_NAME
+    assert not anchor.exists()
+
+
+def test_removing_the_last_site_over_http3_takes_the_socket_site_and_closes_the_socket(
+    machine: Machine, runner: FakeRunner
+) -> None:
+    """The socket's site outlived every site that used it when the application was removed."""
+    serve(machine, runner)
+    access.set_policy("example.com", {"http3": True})
+    anchor = machine.web.backend.sites_available / ANCHOR_NAME
+    assert anchor.exists()
+    runner.calls.clear()
+
+    access.forget("example.com")
+
+    assert not anchor.exists()
+    assert not (machine.web.backend.sites_enabled / ANCHOR_NAME).is_symlink()
+    assert reloads(runner) == 1
+
+
+def test_removing_a_site_while_another_still_uses_http3_keeps_the_socket_site(
+    machine: Machine, runner: FakeRunner
+) -> None:
+    serve(machine, runner)
+    machine.deploy("other.example.org", app_type="nodejs", tls=True)
+    access.set_policy("example.com", {"http3": True})
+    access.set_policy("other.example.org", {"http3": True})
+    runner.calls.clear()
+
+    access.forget("example.com")
+
+    assert (machine.web.backend.sites_available / ANCHOR_NAME).exists()
+    assert reloads(runner) == 0
+
+
+def test_removing_a_site_that_never_used_http3_asks_nginx_nothing(
+    machine: Machine, runner: FakeRunner
+) -> None:
+    serve(machine, runner)
+    runner.calls.clear()
+
+    access.forget("example.com")
+
+    assert reloads(runner) == 0
 
 
 def test_resetting_the_policy_of_the_last_site_removes_the_socket_site(

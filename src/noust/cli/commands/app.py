@@ -32,7 +32,7 @@ from typing import Any
 import click
 
 from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
-from noust.cli.commands.app_adopt import adopt_command
+from noust.cli.commands.app_adopt import adopt_command, adopt_site_command, discover_command
 from noust.cli.commands.app_apply import apply_command
 from noust.cli.commands.app_backup import backup_before_update_command, backup_required_command
 from noust.cli.commands.app_build import build as build_group
@@ -57,6 +57,7 @@ from noust.cli.commands.app_sandbox import sandbox as sandbox_group
 from noust.cli.commands.app_source import source as source_group
 from noust.cli.commands.app_stop_grace import stop_grace_command
 from noust.cli.commands.app_tag import tag as tag_group
+from noust.cli.commands.app_traffic import traffic_command
 from noust.cli.commands.app_webhook import webhook as webhook_group
 from noust.cli.commands.webapp import _create_app, _read_env_file
 from noust.core.app_health_store import HealthExtras
@@ -118,7 +119,12 @@ def print_plan(logger: Logger, plan: MigrationPlan) -> None:
         "Moves to shared/", ", ".join([*plan.env_files, *plan.persistent]) or "nothing"
     )
     logger.key_value("Persistent paths", f"{', '.join(plan.persistent) or 'none'} ({how})")
-    logger.key_value("Unit", "rewritten to run from current" if plan.unit_rewrite else "unchanged")
+    many = len(plan.all_units) > 1
+    logger.key_value(
+        "Units" if many else "Unit",
+        ("rewritten to run from current" if plan.unit_rewrite else "unchanged")
+        + (f" ({', '.join(plan.all_units)})" if many else ""),
+    )
     logger.key_value("Site", "rewritten to serve current" if plan.site_rewrite else "unchanged")
     logger.key_value(
         "Files", f"{plan.count.files} ({plan.count.bytes} bytes), all kept, none copied"
@@ -139,6 +145,7 @@ cli.add_command(sandbox_group)
 cli.add_command(identity_group)
 cli.add_command(hooks_group)
 cli.add_command(tag_group)
+cli.add_command(traffic_command)
 cli.add_command(promote_command)
 cli.add_command(promotion_command)
 cli.add_command(clone_command)
@@ -158,6 +165,8 @@ cli.add_command(backup_required_command)
 cli.add_command(headless_command)
 cli.add_command(networks_command)
 cli.add_command(adopt_command)
+cli.add_command(adopt_site_command)
+cli.add_command(discover_command)
 cli.add_command(exec_command)
 cli.add_command(reclaim_command)
 for _command in RUNTIME_COMMANDS:

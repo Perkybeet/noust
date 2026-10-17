@@ -87,6 +87,7 @@ from noust.web.permissions.enforce import (
 )
 from noust.web.permissions.principal import scope_of
 from noust.web.permissions.roles import (
+    ADMIN,
     GRANT_BREAK_GLASS,
     GRANT_COMPAT,
     GRANT_PERMISSIONS,
@@ -1247,13 +1248,13 @@ API_TOKEN_COLUMNS_3_4 = (
 )
 
 
-#: What no API token holds under the ENS profile, whoever owns it: a token is
+#: What no API token holds where the restricted_tokens control is on, whoever owns it: a token is
 #: a standing credential nobody watches, and root-equivalent changes or
 #: governing accounts and security settings need a person (ens.md §4.2.6).
 #: The most a token issued before accounts holds once accounts exist and no
 #: admin adopted it: an admin's permissions, never the governance of
 #: accounts, security settings or the audit trail.
-LEGACY_TOKEN_CEILING = permissions_for_role("admin") - {
+LEGACY_TOKEN_CEILING = ADMIN - {
     Permission.SECURITY_MANAGE,
     Permission.ACCOUNTS_MANAGE,
     Permission.AUDIT_MANAGE,
@@ -1262,6 +1263,19 @@ LEGACY_TOKEN_CEILING = permissions_for_role("admin") - {
 ENS_TOKEN_EXCLUDED = frozenset(
     {Permission.ROOT_EQUIVALENT, Permission.ACCOUNTS_MANAGE, Permission.SECURITY_MANAGE}
 )
+
+
+def _api_enabled() -> bool:
+    """
+    Returns:
+        Whether API tokens are accepted (``web.api_enabled``), read on every request so
+        that a change applies to the next one. An unreadable value leaves it on: failing
+        closed would lock a server's scripts out over a typo.
+    """
+    from noust.core.config import Config
+
+    raw = Config().get("web.api_enabled", True)
+    return str(raw).strip().lower() not in ("false", "no", "off", "0")
 
 
 def _validated_networks(entries: list[str] | None) -> list[str] | None:
@@ -2004,17 +2018,14 @@ class SessionStore:
             token_id: The record's id.
 
         Returns:
-            The record, revoked or not, or None.
+            The record as the list shows it (its JSON columns decoded), revoked
+            or not, or None.
         """
         with self._lock:
             row = self._conn.execute(
                 "SELECT * FROM api_tokens WHERE id = ?", (token_id,)
             ).fetchone()
-        if row is None:
-            return None
-        record = dict(row)
-        record.pop("token_hash", None)
-        return record
+        return None if row is None else _token_record(row)
 
     def revoke_account_tokens(self, account_id: int) -> int:
         """
@@ -2128,6 +2139,24 @@ class SessionStore:
                 (owner_account_id, owner_account_id),
             ).fetchall()
         return [_token_record(row) for row in rows]
+
+    def set_api_token_networks(self, token_id: int, networks: list[str] | None) -> bool:
+        """
+        Change the networks a live API token is accepted from.
+
+        Args:
+            token_id: The token record's id.
+            networks: The networks in canonical form, or None for any.
+
+        Returns:
+            Whether a live token with that id was changed.
+        """
+        with self._lock, self._conn:
+            cursor = self._conn.execute(
+                "UPDATE api_tokens SET allowed_cidrs = ? WHERE id = ? AND revoked_at IS NULL",
+                (None if networks is None else json.dumps(networks), token_id),
+            )
+            return cursor.rowcount > 0
 
     def revoke_api_token(self, token_id: int) -> str | None:
         """
@@ -2376,11 +2405,12 @@ class TokenManager:
         How the master token holds the console right now.
 
         Returns:
-            ``recovery`` under the ENS profile (account recovery only),
+            ``recovery`` where the ``master_token`` control is on (account
+            recovery only),
             ``break_glass`` once accounts exist, ``compat`` before (the whole
             console, exactly as in 3.0).
         """
-        if self.policy().ens:
+        if self.policy().requires("master_token"):
             return GRANT_RECOVERY
         return GRANT_BREAK_GLASS if self.accounts_exist() else GRANT_COMPAT
 
@@ -3119,9 +3149,9 @@ class TokenManager:
                 details=f"Use one of: {', '.join(API_TOKEN_SCOPES)}.",
             )
         policy = self.policy()
-        if owner is None and policy.ens:
+        if owner is None and policy.requires("restricted_tokens"):
             raise SecurityError(
-                "Under the ENS profile an API token belongs to an account",
+                "On this server an API token belongs to an account",
                 details=(
                     "Issue it signed in as that account, or from the CLI with "
                     "'noust token create NAME --owner USERNAME'."
@@ -3133,14 +3163,17 @@ class TokenManager:
                 expires_hours = longest
             elif expires_hours > longest:
                 raise SecurityError(
-                    f"API tokens last at most {policy.token_max_days} days under the ENS profile",
-                    details=f"Ask for {int(longest)} hours or fewer, and issue a new one then.",
+                    f"API tokens last at most {policy.token_max_days} days on this server",
+                    details=(
+                        f"Ask for {int(longest)} hours or fewer, and issue a new one then. "
+                        f"A compliance framework asks for it: noust compliance status."
+                    ),
                 )
-            if allow_elevated:
-                raise SecurityError(
-                    "API tokens cannot act in sudo mode under the ENS profile",
-                    details="Do what needs confirming from the console, as a person.",
-                )
+        if allow_elevated and policy.requires("restricted_tokens"):
+            raise SecurityError(
+                "API tokens cannot act in sudo mode on this server",
+                details="Do what needs confirming from the console, as a person.",
+            )
         stored_permissions: list[str] | None = None
         if bound is not None and owner is None:
             raise SecurityError(
@@ -3361,6 +3394,27 @@ class TokenManager:
             self.sessions.revoke_account_tokens(account_id),
         )
 
+    def set_api_token_networks(
+        self, token_id: int, entries: list[str] | None
+    ) -> dict[str, Any] | None:
+        """
+        Restrict a live API token to networks, or lift the restriction.
+
+        Args:
+            token_id: The record's id, as listed.
+            entries: Addresses or CIDRs; None or empty for any.
+
+        Returns:
+            The record as it is now, or None when there is no live token with that id.
+
+        Raises:
+            SecurityError: When an entry is not an address or a network.
+        """
+        networks = _validated_networks(entries)
+        if not self.sessions.set_api_token_networks(token_id, networks):
+            return None
+        return self.sessions.get_api_token_by_id(token_id)
+
     def revoke_api_token(self, token_id: int) -> str | None:
         """
         Revoke one API token by id.
@@ -3485,6 +3539,14 @@ class TokenManager:
                 ENS profile. None of these is a guess, so none is counted.
         """
         policy = self.policy()
+        if not _api_enabled():
+            raise CredentialRefused(
+                403,
+                "api_disabled",
+                "The API is turned off on this server.",
+                "Use the console, or turn it on with: noust config set web.api_enabled true",
+                action="auth.token.denied",
+            )
         cidrs = _json_list(record.get("allowed_cidrs"))
         if cidrs and not (client_ip and ip_matches(client_ip, cidrs)):
             raise CredentialRefused(
@@ -3526,12 +3588,12 @@ class TokenManager:
                     "Issue a new token from an account.",
                     action="auth.token.denied",
                 )
-            if policy.ens:
+            if policy.requires("restricted_tokens"):
                 raise CredentialRefused(
                     401,
                     "legacy_token_refused",
-                    f"The API token {record['name']!r} belongs to no account, which the "
-                    "ENS profile does not accept.",
+                    f"The API token {record['name']!r} belongs to no account, which this "
+                    "server's compliance controls do not accept.",
                     "Create an admin account (noust user create --role admin): it adopts "
                     "every token issued before, or issue a new token from an account.",
                     action="auth.token.denied",
@@ -3565,7 +3627,8 @@ class TokenManager:
                 }
             permissions = requested & teams["permissions"]
             team_part = {key: teams[key] for key in TEAM_PAYLOAD_KEYS}
-        if policy.ens:
+        restricted_tokens = policy.requires("restricted_tokens")
+        if restricted_tokens:
             permissions = permissions - ENS_TOKEN_EXCLUDED
         allow_elevated = record.get("allow_elevated")
         notice = policy.notice_version
@@ -3575,7 +3638,8 @@ class TokenManager:
             "scope": legacy_scope(permissions),
             "role": role,
             "owner_account_id": owner_id,
-            "elevation_exempt": (allow_elevated is None or bool(allow_elevated)) and not policy.ens,
+            "elevation_exempt": (allow_elevated is None or bool(allow_elevated))
+            and not restricted_tokens,
             # A token acts for its owner, so it waits for its owner to accept
             # the usage notice as the owner's session does.
             "notice_pending": owner is not None
@@ -4099,7 +4163,7 @@ class TokenManager:
         if sid == MASTER_SID:
             # generate_master_token spends these tickets, so one that is still
             # here was issued to the token in force.
-            if self.policy().ens:
+            if self.policy().requires("master_token"):
                 return None
             return master_payload(
                 record["client_ip"], self.current_master_generation(), self.master_grant()
@@ -5553,6 +5617,48 @@ def _is_guess(credential: str) -> bool:
     return manager is None or not manager.signed_session_token(credential)
 
 
+#: Paths whose endpoints authenticate a bearer token of their own, which is none of the
+#: console's credentials: a provisioning source's. The limiter must not take that token for a
+#: wrong credential of the console (every request would then count against the lockout, and a
+#: provider's first sync would lock its own address out), and the endpoints count their own
+#: wrong tokens (:func:`record_auth_failure`).
+SELF_AUTHENTICATING_PREFIXES = ("/api/scim", "/api/v1/scim")
+
+
+def authenticates_itself(path: str) -> bool:
+    """
+    Args:
+        path: A request path.
+
+    Returns:
+        Whether the endpoints below it check a bearer token that is theirs alone.
+    """
+    return any(
+        path == prefix or path.startswith(prefix + "/") for prefix in SELF_AUTHENTICATING_PREFIXES
+    )
+
+
+def provisioning_identity(connection: HTTPConnection) -> str | None:
+    """
+    Name the provisioning source a request's bearer token belongs to.
+
+    Args:
+        connection: The incoming request.
+
+    Returns:
+        ``scim:<source>`` for a token of a source that is on, else None. A token that is not one
+        is not noted for the lockout here: the endpoint it was presented to refuses and counts it.
+    """
+    token = bearer_token(connection)
+    manager = get_global_token_manager()
+    if not token or manager is None:
+        return None
+    from noust.core.accounts.scim import ScimManager
+
+    source = ScimManager(manager.accounts.store, accounts=manager.accounts).authenticate(token)
+    return f"scim:{source.name}" if source is not None else None
+
+
 def rate_limit_identity(connection: HTTPConnection, client_ip: str) -> str | None:
     """
     Name the valid credential a request carries, for the rate limiter.
@@ -5573,6 +5679,8 @@ def rate_limit_identity(connection: HTTPConnection, client_ip: str) -> str | Non
         :func:`credential_key` of the first valid credential, or None when the
         request carries none, in which case it is counted by address.
     """
+    if authenticates_itself(connection.url.path):
+        return provisioning_identity(connection)
     candidates = [("cookie", connection.cookies.get(SESSION_COOKIE_NAME))]
     if connection.scope["type"] == "websocket":
         candidates.append(("websocket", subprotocol_token(connection)))
@@ -5640,7 +5748,8 @@ def check_credential(
             raise CredentialRefused(
                 401,
                 "master_bearer_disabled",
-                "The master token is not accepted as a credential under the ENS profile.",
+                "The master token is not accepted as a credential on this server: its "
+                "compliance controls leave it only account recovery.",
                 "Sign in with an account. To recover access, sign in with the master "
                 "token on the console's sign-in page, or use 'noust user' as root.",
                 action="auth.break_glass",

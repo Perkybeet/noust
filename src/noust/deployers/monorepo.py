@@ -41,11 +41,12 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import Any, ClassVar
 
 from noust.central import require_server_role
 from noust.core import paths
 from noust.core.applock import app_lock
+from noust.core.compose_yaml import load_compose
 from noust.core.config import Config
 from noust.core.exceptions import (
     BuildError,
@@ -81,7 +82,7 @@ from noust.deployers.helpers import (
 from noust.deployers.helpers import sandbox as build_sandbox
 from noust.deployers.helpers.databases import provision_database
 from noust.deployers.helpers.health import wait_until_healthy
-from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
+from noust.deployers.helpers.health_gate import HealthCheck
 from noust.deployers.helpers.hooks import (
     CommandHookExecutor,
     DeploymentHooks,
@@ -93,6 +94,7 @@ from noust.deployers.helpers.package_manager import PNPM_INSTALL
 from noust.deployers.helpers.permissions import escapes, hand_over_tree
 from noust.deployers.helpers.preflight import repository_unreachable
 from noust.deployers.helpers.registration import StoreRegistrar
+from noust.deployers.helpers.release_build import StagedRelease
 from noust.deployers.helpers.sandbox import BuildPhase, SandboxState
 from noust.deployers.helpers.site import (
     WriteOutcome,
@@ -103,7 +105,9 @@ from noust.deployers.helpers.site import (
 )
 from noust.deployers.helpers.site import has_certificate as certificate_on_disk
 from noust.deployers.helpers.target import claim_deploy_target, fetch_into_target
+from noust.deployers.helpers.workspace_gates import WorkspaceGates, WorkspaceRestart
 from noust.deployers.interface import AppDeployer, StepReporter, UpdateResult
+from noust.deployers.monorepo_releases import MonorepoReleases, require_not_released
 from noust.deployers.recorder import (
     CapturingLogger,
     DeploymentRecorder,
@@ -113,6 +117,7 @@ from noust.deployers.recorder import (
     recording,
 )
 from noust.deployers.registry import DeployerRegistry
+from noust.deployers.releases import REPO_CACHE_DIR, SHARED_DIR, ReleaseManager
 from noust.managers import app_identity
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.cert_manager import CertManager
@@ -121,10 +126,8 @@ from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.managers.source_manager import SourceManager
 from noust.managers.webserver import hsts_header
 from noust.validators.environment import validate_environment
+from noust.validators.port import find_available_port, is_port_available
 from noust.validators.ssh import is_ssh_url
-
-if TYPE_CHECKING:
-    from noust.deployers.helpers.release_build import StagedRelease
 
 #: Installs and builds in a monorepo touch every workspace; they need minutes,
 #: but they still need a deadline.
@@ -133,29 +136,9 @@ INSTALL_TIMEOUT = 1800
 #: Everything else here is a quick local command.
 COMMAND_TIMEOUT = 300
 
-#: systemd reports a unit active the instant it forks, so a unit with no port
-#: to probe gets this long to fail before its state is believed.
-SETTLE_SECONDS = 2
-
 #: What a provisioned engine is handed to the workspaces as, for the warning
 #: that says it was not.
 _DATABASE_URL_VARIABLES = {"postgresql": "DATABASE_URL", "redis": "REDIS_URL"}
-
-
-@dataclass(frozen=True)
-class WorkspaceRestart:
-    """
-    What restarting every workspace's unit and probing it found.
-
-    Attributes:
-        restarted: The units restarted.
-        healthy: Whether every one of them passed its health gate.
-        evidence: For each one that did not, the probes and its journal.
-    """
-
-    restarted: tuple[str, ...]
-    healthy: bool
-    evidence: str
 
 
 @dataclass
@@ -186,6 +169,11 @@ class MonorepoDeployer(AppDeployer):
 
     APP_TYPE = "monorepo"
     DISPLAY_NAME = "Monorepo (Turborepo/pnpm)"
+
+    #: Created in place, and moved onto releases by the explicit migration (B-16). Not
+    #: SUPPORTS_RELEASES, which is the BaseDeployer pipeline: previews, promotion and release
+    #: bundles stay out of reach of a type that builds its releases its own way.
+    SUPPORTS_RELEASE_LAYOUT: ClassVar[bool] = True
 
     # Files used to detect this app type
     DETECTION_FILES: ClassVar[list[str]] = [
@@ -287,6 +275,10 @@ class MonorepoDeployer(AppDeployer):
         # Deploy hooks (3.2): what this deployment's hooks are and did.
         self.deploy_hooks = DeploymentHooks()
 
+        # The release layout (B-16): where a build happens and how it is switched in when the
+        # application was moved onto releases. Does nothing for one that is in place.
+        self._release = MonorepoReleases(self)
+
     @property
     def runner(self) -> CommandRunner:
         """The command runner this deployer executes through."""
@@ -296,6 +288,20 @@ class MonorepoDeployer(AppDeployer):
     def build_path(self) -> Path:
         """The tree installs and builds run in: the application's, or a trial's scratch copy."""
         return self._build_root if self._build_root is not None else self.app_path
+
+    @property
+    def releases(self) -> ReleaseManager:
+        """The application's releases, when it is on the release layout."""
+        return self._release.manager
+
+    def adopt_release(self, staged: StagedRelease) -> None:
+        """
+        Build this release instead of staging a new one: a deployment of one commit.
+
+        Args:
+            staged: The release, exported and not yet built.
+        """
+        self._release.adopt(staged)
 
     @property
     def source_manager(self) -> SourceManager:
@@ -575,21 +581,27 @@ class MonorepoDeployer(AppDeployer):
         if not isinstance(state, SandboxState):
             return None
         user, group = self._service_account()
+        # On releases the new release is built by the build account, whose release the units do
+        # not use yet; in place the units run from the tree being built, so their own account.
+        released = self._release.enabled()
+        builder, builder_group = (
+            (build_sandbox.BUILD_USER, build_sandbox.BUILD_GROUP) if released else (user, group)
+        )
         if self._sandbox_cache is None:
             build_sandbox.require_working_sandbox(self.runner, self.domain, self.fs)
             self._sandbox_cache = build_sandbox.ensure_cache_dir(
-                self.app_name, user=user, group=group, runner=self.runner, fs=self.fs
+                self.app_name, user=builder, group=builder_group, runner=self.runner, fs=self.fs
             )
             hand_over_tree(
                 self.build_path,
-                user=user,
-                group=group,
+                user=builder,
+                group=builder_group,
                 runner=self.runner,
                 fs=self.fs,
                 logger=self.logger,
                 env_files=self._env_files(self.build_path),
             )
-        root_env = self.app_path / ".env"
+        root_env = self.app_path / SHARED_DIR / ".env" if released else self.app_path / ".env"
         # systemd reads EnvironmentFile= as root, outside the sandbox: a
         # committed link would feed it another application's secrets.
         env_file = root_env if root_env.is_file() and not root_env.is_symlink() else None
@@ -606,13 +618,13 @@ class MonorepoDeployer(AppDeployer):
             app_name=self.app_name,
             phase=phase,
             state=state,
-            user=user,
-            group=group,
+            user=builder,
+            group=builder_group,
             build_path=self.build_path,
             apps_dir=self.config.apps_directory,
             cache=self._sandbox_cache,
             env_file=env_file,
-            shared=None,
+            shared=self.app_path / SHARED_DIR if released else None,
             tasks_max=build_sandbox.BUILD_TASKS_MAX,
         )
 
@@ -688,6 +700,7 @@ class MonorepoDeployer(AppDeployer):
 
         # Track if this is a new deployment (for rollback)
         existing = self.store.get_app(self.domain)
+        require_not_released(existing, self.domain)
         self._is_new_deployment = not existing
         if self.deploy_target is None:
             # Before the fetch, which empties a directory it is not updating,
@@ -760,6 +773,8 @@ class MonorepoDeployer(AppDeployer):
             # Step 2: Discover workspaces
             self.logger.step(2, total_steps, "Discovering workspaces", Icons.SEARCH)
             self._discover_workspaces()
+            if self._is_new_deployment:
+                self._keep_ports_free()
 
             # Step 3: Provision databases
             self.logger.step(3, total_steps, "Provisioning databases", Icons.DATABASE)
@@ -888,11 +903,30 @@ class MonorepoDeployer(AppDeployer):
 
         self.deploy_hooks = DeploymentHooks()
         report = on_step or (lambda _message: None)
+        released = self._release.enabled()
+        if released and self._rehearsing():
+            self.logger.info(
+                f"Would build a new release of {self.domain}, switch every workspace to it "
+                "behind the health check, and keep the one that serves to go back to"
+            )
+            return UpdateResult(
+                package_manager=self.package_manager,
+                prisma_updated=False,
+                is_static=False,
+                start_command="",
+                restarted=(),
+            )
         recorder = self._recorder()
         try:
-            with recording(recorder, git_branch=self.branch):
+            with recording(
+                recorder,
+                git_branch=self.branch,
+                on_failure=(lambda _exc: self._release.abandon()) if released else None,
+            ):
                 try:
-                    result = self._update_steps(report)
+                    result = (
+                        self._release.update(report) if released else self._update_steps(report)
+                    )
                 except DeploymentError as exc:
                     self.deploy_hooks.say_schema_changed(exc)
                     raise
@@ -989,27 +1023,24 @@ class MonorepoDeployer(AppDeployer):
         """
         return isinstance(self.fs, DryRunFileSystem)
 
-    def _unit_gate(self, unit: Service, check: HealthCheck) -> HealthGate:
+    def _gates(self, units: Sequence[Service]) -> WorkspaceGates:
         """
-        Build the gate one workspace's unit must pass.
+        Build the gate every workspace's unit must pass.
 
         Args:
-            unit: The unit.
-            check: The application's health check: path, statuses and wait.
+            units: The units.
 
         Returns:
-            The gate, probing the unit's own port. It never restarts: every
-            unit is restarted before any is probed.
+            The gates, probing each unit's own port with the application's health check. The
+            probe is looked up here, at call time, so it is the one this module holds.
         """
-        return HealthGate(
-            unit=unit.name,
-            url=check.url(unit.port) if unit.port else None,
-            check=check,
+        return WorkspaceGates(
+            units,
+            check=HealthCheck.for_app(self.store.get_app(self.domain)),
             services=self.service_manager,
             logger=self.logger,
-            # Looked up here, at call time, so it is the one this module holds.
             probe=wait_until_healthy,
-            restart=lambda: None,
+            rehearsing=self._rehearsing(),
         )
 
     def _restart_and_probe(self, units: Sequence[Service]) -> WorkspaceRestart:
@@ -1027,35 +1058,7 @@ class MonorepoDeployer(AppDeployer):
         Returns:
             What was restarted, and whether every unit passed.
         """
-        check = HealthCheck.for_app(self.store.get_app(self.domain))
-        restarted: list[str] = []
-        failures: list[str] = []
-        for unit in units:
-            self.logger.substep(f"Restarting {unit.name}")
-            try:
-                self.service_manager.restart(unit.name)
-            except NoustError as exc:
-                failures.append(self._unit_gate(unit, check).evidence(str(exc)))
-            else:
-                restarted.append(unit.name)
-
-        if not self._rehearsing():
-            if any(not unit.port for unit in units):
-                time.sleep(SETTLE_SECONDS)
-            for unit in units:
-                if unit.name not in restarted:
-                    continue
-                gate = self._unit_gate(unit, check)
-                if unit.port:
-                    healthy, evidence = gate.restart_and_probe()
-                    if not healthy:
-                        failures.append(f"{unit.name}: {evidence}")
-                elif not self.service_manager.get_status(unit.name).get("active"):
-                    failures.append(gate.evidence(f"{unit.name} is not running."))
-
-        return WorkspaceRestart(
-            restarted=tuple(restarted), healthy=not failures, evidence="\n\n".join(failures)
-        )
+        return self._gates(units).outcome()
 
     def _go_back(self, units: Sequence[Service], evidence: str) -> DeploymentError:
         """
@@ -1171,7 +1174,7 @@ class MonorepoDeployer(AppDeployer):
     def _discover_workspaces(self) -> None:
         """Discover and analyze workspace apps."""
         self.workspaces = self._workspace_helper.analyze_all_workspaces(
-            self.app_path,
+            self.build_path,
             subdomain_overrides=self.subdomain_overrides,
         )
 
@@ -1190,6 +1193,40 @@ class MonorepoDeployer(AppDeployer):
                 f"{ws.name} ({ws.app_type}) -> {ws.subdomain}.{self.domain}:{ws.port}"
             )
 
+    def _keep_ports_free(self) -> None:
+        """
+        Move a workspace off a port another application owns or something already listens on.
+
+        A workspace's port is the one its ``package.json`` names or a default (3000 and up by
+        position), which knew nothing of the other applications of the server: the first real
+        deployment beside a Spring Boot application on 3001 got a unit that could never bind, and a
+        warning that it "may not be running correctly". Only a new deployment is moved: an existing
+        one holds its own ports, and a redeploy must not take them away.
+
+        Raises:
+            DeploymentError: There is no free port left to give a workspace.
+        """
+        taken = set(self.store.ports_owned_by_apps())
+        claimed: set[int] = set()
+        for workspace in self.workspaces:
+            if (
+                workspace.port in taken
+                or workspace.port in claimed
+                or not is_port_available(workspace.port)
+            ):
+                moved = find_available_port(start=self.base_port, exclude=taken | claimed)
+                if moved is None:
+                    raise DeploymentError(
+                        f"There is no free port for the {workspace.name} workspace",
+                        details=f"{workspace.port} is taken and the search from {self.base_port} "
+                        "found none.",
+                    )
+                self.logger.substep(
+                    f"{workspace.name}: port {workspace.port} is in use, using {moved}"
+                )
+                workspace.port = moved
+            claimed.add(workspace.port)
+
     def _detect_database_requirements(self) -> dict[str, DatabaseConfig]:
         """Detect required databases from project configuration."""
         databases = {}
@@ -1201,7 +1238,7 @@ class MonorepoDeployer(AppDeployer):
                 import yaml
 
                 with open(compose_file) as f:
-                    compose = yaml.safe_load(f)
+                    compose = load_compose(f)
 
                 services = compose.get("services", {})
                 for svc_config in services.values():
@@ -1648,6 +1685,25 @@ class MonorepoDeployer(AppDeployer):
         EACCES.
         """
         user, group = self._service_account()
+        if self._release.enabled():
+            # On releases that is the release just built and shared/, where the .env lives; the
+            # application directory itself stays root's, because the units never write there.
+            shared = self.app_path / SHARED_DIR
+            for tree, env_files in (
+                (self.build_path, self._env_files(self.build_path)),
+                (shared, [shared / ".env"]),
+            ):
+                if tree.is_dir():
+                    hand_over_tree(
+                        tree,
+                        user=user,
+                        group=group,
+                        runner=self.runner,
+                        fs=self.fs,
+                        logger=self.logger,
+                        env_files=env_files,
+                    )
+            return
         hand_over_tree(
             self.app_path,
             user=user,
@@ -2260,7 +2316,11 @@ class MonorepoDeployer(AppDeployer):
         Returns:
             A recorder, built where every deployer's is.
         """
-        return recorder_for(self, git_info=self._git_info())
+        return recorder_for(
+            self,
+            git_info=self._git_info(),
+            release_id=lambda: self._release.staged.id if self._release.staged else None,
+        )
 
     def _git_info(self) -> GitInfo:
         """
@@ -2271,10 +2331,16 @@ class MonorepoDeployer(AppDeployer):
             instead once a failed update has put the previous commit back.
         """
         checkout = checkout_git_info(self.source_manager, self.app_path)
+        cache = checkout_git_info(self.source_manager, self.app_path / REPO_CACHE_DIR)
 
         def read() -> tuple[str | None, str | None]:
             if self._attempted_git is not None:
                 return self._attempted_git
+            staged = self._release.staged
+            if staged is not None:
+                # A release is exported without its history: its commit is what was staged, and
+                # the branch is the one the repository cache follows.
+                return staged.short_commit, self.branch or cache()[1]
             return checkout()
 
         return read

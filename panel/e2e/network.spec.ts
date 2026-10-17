@@ -45,3 +45,19 @@ test("an application's Access settings are two clicks from its Settings", async 
   await settle(page);
   await expectNoA11yViolations(page, "the Access settings");
 });
+
+test("the private certificate authority is one menu away from the certificates, and says what it is before it is made", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, "/domains");
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Private authority" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "Private certificate authority" });
+  await expect(dialog.getByText("This server has no private authority yet")).toBeVisible();
+  await expect(dialog.getByLabel(/More domains it may sign for/)).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Make the authority" })).toBeEnabled();
+  await settle(page);
+  await expectNoA11yViolations(page, "the private authority dialog, before it is made");
+
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+});

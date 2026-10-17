@@ -1783,6 +1783,263 @@ Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
 Cambia lo que recibes en Ajustes > Notificaciones
 
 ========================================================================
+### cleanup.completed
+Subject: [Noust] Disco limpiado: / (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: cleanup_success
+X-Noust-Code: cleanup.completed
+X-Noust-Server: web-1
+
+● Disco limpiado · /
+La política de limpieza del servidor se ha ejecutado y ha liberado espacio.
+
+Servidor: web-1
+Usado: 91% -> 64%
+Liberado: 11.5 GB
+Acciones: journal, pkg-cache, releases
+
+Abrir en la consola: https://console.example.com/n/web-1/server
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### cleanup.partial
+Subject: [Noust] La limpieza del disco ha fallado en parte: / (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: cleanup_failed
+X-Noust-Code: cleanup.partial
+X-Noust-Server: web-1
+
+▲ La limpieza del disco ha fallado en parte · /
+La política de limpieza se ha ejecutado, pero algunas de sus acciones han fallado.
+
+Servidor: web-1
+Usado: 91% -> 88%
+Liberado: 2.0 GB
+Acciones: journal, pkg-cache, releases
+Ver lo ejecutado: noust server cleanup-schedule history
+
+Lo que ha dicho releases:
+  rm: cannot remove '/var/www/apps/shop/releases/x': Permission denied
+
+Abrir en la consola: https://console.example.com/n/web-1/server
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### cleanup.failed
+Subject: [Noust] Ha fallado la limpieza del disco: / (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: cleanup_failed
+X-Noust-Code: cleanup.failed
+X-Noust-Server: web-1
+
+✕ Ha fallado la limpieza del disco · /
+La política de limpieza se ha ejecutado y todas sus acciones han fallado, así que el disco sigue como estaba.
+
+Servidor: web-1
+Usado: 93% -> 93%
+Acciones: journal
+Ver lo ejecutado: noust server cleanup-schedule history
+
+Lo que ha dicho journal:
+  Failed to vacuum: Read-only file system
+
+Abrir en la consola: https://console.example.com/n/web-1/server
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### cron.timer_stopped
+Subject: [Noust] La tarea programada no se ejecutará: shop-sync (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: cron_missed
+X-Noust-Code: cron.timer_stopped
+X-Noust-Server: web-1
+
+▲ La tarea programada no se ejecutará · shop-sync
+La tarea está activada pero su temporizador no está en marcha, así que no arrancará. Nada ha fallado: nada se ejecuta.
+
+Servidor: web-1
+Programación: *-*-* 03:00:00
+Temporizador: failed
+Actívala de nuevo con: noust cron enable shop-sync
+
+Abrir en la consola: https://console.example.com/n/web-1/cron
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### cron.timer_running
+Subject: [Noust] La tarea programada vuelve a ejecutarse: shop-sync (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: cron_missed
+X-Noust-Code: cron.timer_running
+X-Noust-Server: web-1
+
+● La tarea programada vuelve a ejecutarse · shop-sync
+El temporizador de la tarea vuelve a estar en marcha.
+
+Servidor: web-1
+Programación: *-*-* 03:00:00
+
+Abrir en la consola: https://console.example.com/n/web-1/cron
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### probe.failed
+Subject: [Noust] Dirección sin respuesta: shop-site (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: probe_failed
+X-Noust-Code: probe.failed
+X-Noust-Server: web-1
+
+✕ Dirección sin respuesta · shop-site
+La dirección ha dejado de responder lo que le pide la sonda.
+
+Servidor: web-1
+Dirección: https://shop.example.com/health
+Inaccesible desde: 2026-10-16 08:14 UTC
+Pruébala ahora con: noust probe run shop-site
+
+Lo que ha respondido:
+  HTTP 503 Service Unavailable
+  retry-after: 30
+
+Abrir en la consola: https://console.example.com/n/web-1/settings/probes
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### probe.recovered
+Subject: [Noust] La dirección vuelve a responder: shop-site (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: probe_recovered
+X-Noust-Code: probe.recovered
+X-Noust-Server: web-1
+
+● La dirección vuelve a responder · shop-site
+Contesta otra vez a lo que le pide la sonda.
+
+Servidor: web-1
+Dirección: https://shop.example.com/health
+Estuvo inaccesible durante: 7 min 42 s
+Respondió en: 184 ms
+
+Abrir en la consola: https://console.example.com/n/web-1/settings/probes
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### alert.acknowledged
+Subject: [Noust] Alerta atendida: cpu-high (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: alert_acknowledged
+X-Noust-Code: alert.acknowledged
+X-Noust-Server: web-1
+
+○ Alerta atendida · cpu-high
+alice se ocupa: CPU del servidor sigue fuera del límite de 90%.
+
+Servidor: web-1
+Regla: cpu-high
+Atendida por: alice
+Activa desde hace: 21 min
+
+Abrir en la consola: https://console.example.com/n/web-1/server
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### digest.flood
+Subject: [Noust] Avisos contenidos (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: digest
+X-Noust-Code: digest.flood
+X-Noust-Server: web-1
+
+○ Avisos contenidos
+3 avisos pasaron el límite de este canal y se contuvieron hasta ahora.
+
+Servidor: web-1
+Avisos: 3
+Entre: 2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC
+
+Disco limpiado · /
+  Cuándo: 2026-09-29 10:45 UTC
+  Detalle: La política de limpieza del servidor se ha ejecutado y ha liberado espacio.
+
+La tarea programada vuelve a ejecutarse · shop-sync
+  Cuándo: 2026-09-29 10:48 UTC
+  Detalle: El temporizador de la tarea vuelve a estar en marcha.
+
+La dirección vuelve a responder · shop-site
+  Cuándo: 2026-09-29 10:51 UTC
+  Detalle: Contesta otra vez a lo que le pide la sonda.
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### digest.summary
+Subject: [Noust] Resumen programado (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: digest
+X-Noust-Code: digest.summary
+X-Noust-Server: web-1
+
+○ Resumen programado
+3 avisos desde el último resumen.
+
+Servidor: web-1
+Avisos: 3
+Entre: 2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC
+
+Disco limpiado · /
+  Cuándo: 2026-09-29 10:45 UTC
+  Detalle: La política de limpieza del servidor se ha ejecutado y ha liberado espacio.
+
+La tarea programada vuelve a ejecutarse · shop-sync
+  Cuándo: 2026-09-29 10:48 UTC
+  Detalle: El temporizador de la tarea vuelve a estar en marcha.
+
+La dirección vuelve a responder · shop-site
+  Cuándo: 2026-09-29 10:51 UTC
+  Detalle: Contesta otra vez a lo que le pide la sonda.
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
 ### hostile.deploy_failed
 Subject: [Noust] Despliegue fallido: shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
 Auto-Submitted: auto-generated

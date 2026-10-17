@@ -830,6 +830,112 @@
     "message": "3 notifications arrived while this channel was quiet.\n\nServer: web-1\nNotifications: 3\nBetween: 2026-09-29 10:45 UTC - 2026-09-29 11:25 UTC\n\nDisk almost full · /\n  When: 2026-09-29 10:45 UTC\n  Detail: It is past the 90% alert threshold, and a full disk stops deployments, logs and databases on this server.\n\nCertificate expiring · shop.example.com\n  When: 2026-09-29 11:05 UTC\n  Detail: Expires in 7 days (6 Oct 2026).\n\nBackup completed · shop.example.com\n  When: 2026-09-29 11:25 UTC\n  Detail: A new copy of the application was saved.",
     "priority": 5
   },
+  "cleanup.completed": {
+    "title": "● Disk cleaned · /",
+    "message": "The server's cleanup policy ran and freed space.\n\nServer: web-1\nUsed: 91% -> 64%\nFreed: 11.5 GB\nActions: journal, pkg-cache, releases",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/server"
+        }
+      }
+    }
+  },
+  "cleanup.partial": {
+    "title": "▲ Disk cleanup partly failed · /",
+    "message": "The cleanup policy ran, but some of its actions failed.\n\nServer: web-1\nUsed: 91% -> 88%\nFreed: 2.0 GB\nActions: journal, pkg-cache, releases\nSee what ran: noust server cleanup-schedule history\n\nWhat releases reported:\n  rm: cannot remove '/var/www/apps/shop/releases/x': Permission denied",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/server"
+        }
+      }
+    }
+  },
+  "cleanup.failed": {
+    "title": "✕ Disk cleanup failed · /",
+    "message": "The cleanup policy ran and every one of its actions failed, so the disk is as it was.\n\nServer: web-1\nUsed: 93% -> 93%\nActions: journal\nSee what ran: noust server cleanup-schedule history\n\nWhat journal reported:\n  Failed to vacuum: Read-only file system",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/server"
+        }
+      }
+    }
+  },
+  "cron.timer_stopped": {
+    "title": "▲ Scheduled task will not run · shop-sync",
+    "message": "The task is enabled but its timer is not running, so it will not start. Nothing failed: nothing runs.\n\nServer: web-1\nSchedule: *-*-* 03:00:00\nTimer: failed\nStart it again with: noust cron enable shop-sync",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/cron"
+        }
+      }
+    }
+  },
+  "cron.timer_running": {
+    "title": "● Scheduled task runs again · shop-sync",
+    "message": "The task's timer is running again.\n\nServer: web-1\nSchedule: *-*-* 03:00:00",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/cron"
+        }
+      }
+    }
+  },
+  "probe.failed": {
+    "title": "✕ Address not answering · shop-site",
+    "message": "The address stopped answering what the probe asks of it.\n\nServer: web-1\nAddress: https://shop.example.com/health\nUnreachable since: 2026-10-16 08:14 UTC\nProbe it now with: noust probe run shop-site\n\nWhat came back:\n  HTTP 503 Service Unavailable\n  retry-after: 30",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/settings/probes"
+        }
+      }
+    }
+  },
+  "probe.recovered": {
+    "title": "● Address answering again · shop-site",
+    "message": "The address answers what the probe asks of it again.\n\nServer: web-1\nAddress: https://shop.example.com/health\nWas unreachable for: 7 min 42 s\nAnswered in: 184 ms",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/settings/probes"
+        }
+      }
+    }
+  },
+  "alert.acknowledged": {
+    "title": "○ Alert taken · cpu-high",
+    "message": "alice is looking into it: CPU of the server is still beyond the 90% limit.\n\nServer: web-1\nRule: cpu-high\nTaken by: alice\nFiring for: 21 min",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/server"
+        }
+      }
+    }
+  },
+  "digest.flood": {
+    "title": "○ Notifications held back",
+    "message": "3 notifications passed this channel's limit and were held back until now.\n\nServer: web-1\nNotifications: 3\nBetween: 2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC\n\nDisk cleaned · /\n  When: 2026-09-29 10:45 UTC\n  Detail: The server's cleanup policy ran and freed space.\n\nScheduled task runs again · shop-sync\n  When: 2026-09-29 10:48 UTC\n  Detail: The task's timer is running again.\n\nAddress answering again · shop-site\n  When: 2026-09-29 10:51 UTC\n  Detail: The address answers what the probe asks of it again.",
+    "priority": 2
+  },
+  "digest.summary": {
+    "title": "○ Scheduled summary",
+    "message": "3 notifications since the last summary.\n\nServer: web-1\nNotifications: 3\nBetween: 2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC\n\nDisk cleaned · /\n  When: 2026-09-29 10:45 UTC\n  Detail: The server's cleanup policy ran and freed space.\n\nScheduled task runs again · shop-sync\n  When: 2026-09-29 10:48 UTC\n  Detail: The task's timer is running again.\n\nAddress answering again · shop-site\n  When: 2026-09-29 10:51 UTC\n  Detail: The address answers what the probe asks of it again.",
+    "priority": 2
+  },
   "hostile.deploy_failed": {
     "title": "✕ Deploy failed · shop.example.com",
     "message": "It stopped at an error before the new version could take over.\n\nServer: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nRelease: 20260929-104449\nCommit: a1b2c3d (<b>x</b>&amp;<!channel> @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here <@U123> <#C1> red emoji 🚀\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  Release did not pass <its> health & check\n  <urlopen error [Errno 111] Connection refused>\n  ```\n  @everyone <!channel> <@U123|admin> &lt;b&gt;\n  red *bold* _italic_ ~strike~ `code`\n  noitcnuf\n  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…",

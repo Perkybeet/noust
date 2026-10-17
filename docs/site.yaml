@@ -103,6 +103,12 @@ sections:
       - source: docs/runtime.md
         slug: runtime
         summary: "What an application is while it runs: side processes, copies, its unit hardening, mounts, health checks and log shipping."
+      - source: docs/adopting.md
+        slug: adopting
+        summary: "Registering a site that already runs on nginx or Apache, a unit you wrote or PHP, without rebuilding it, and what Noust then does and never does to it."
+      - source: docs/leaving.md
+        slug: leaving
+        summary: "What an application is without Noust, how to stop depending on it without stopping anything, and how to take it off the server."
 
   - title: Running Noust
     pages:
@@ -117,7 +123,7 @@ sections:
         summary: Teams, projects and environments, and what each role sees.
       - source: docs/sso.md
         slug: sso
-        summary: Single sign-on with OpenID Connect.
+        summary: Single sign-on with OpenID Connect or SAML, directories (LDAP, Active Directory) and SCIM provisioning.
       - source: docs/manifest.md
         slug: manifest
         summary: "A server written down in git: plan, apply and export."
@@ -132,13 +138,22 @@ sections:
         summary: "A typed Python client of the API, generated from its schema: authentication, errors, jobs."
       - source: docs/terraform.md
         slug: terraform
-        summary: "What a Terraform and OpenTofu provider is built from, which resources it has, and what is left to write."
+        summary: "The Terraform and OpenTofu provider: installing it, the token it needs, its resources, and how it is proved."
+      - source: docs/terraform-registry.md
+        slug: terraform-registry
+        summary: "Publishing the provider to the Terraform Registry: the repository, the signing key and the release, for the owner."
       - source: docs/MONITOR.md
         slug: monitor
         summary: The resource monitor and the metrics history.
       - source: docs/notifications.md
         slug: notifications
         summary: "Where Noust tells you what happened: channels, events, routes, quiet hours and alert rules."
+      - source: docs/probes.md
+        slug: probes
+        summary: "Asking an address from outside the application, being told when it stops answering, and a public status page."
+      - source: docs/logs.md
+        slug: logs
+        summary: "Searching the logs of every application and server at once, and how long the journal keeps them."
       - source: docs/security.md
         slug: security
         summary: The threat model, roles and permissions, controls, and how to report a vulnerability.
@@ -154,6 +169,9 @@ sections:
       - source: docs/ENS.md
         slug: ens
         summary: Spain's Esquema Nacional de Seguridad, category medium (in Spanish, with an English summary).
+      - source: docs/COMPLIANCE.md
+        slug: compliance
+        summary: Compliance as controls, and the frameworks (ENS, ISO/IEC 27001, NIS2, CIS, SOC 2, GDPR) that switch them on, the clause each control serves and what stays organisational.
 
   - title: Upgrading
     pages:

@@ -178,6 +178,41 @@ always|missing|never`. `--build` and `--no-build` are not on it: Noust decides w
 An update used to ignore the profiles in the unit, so a service under a profile was left out of
 every rebuild; it reads them now.
 
+## Variables the compose file asks for
+
+A compose file interpolates `${NAME}` from the project's `.env` (and from the server's
+environment). `${NAME:-default}` has a default of its own, `${NAME:?message}` refuses to run
+without a value, and a plain `${NAME}` that nothing sets becomes an empty string with a warning
+that scrolls past in a build log. Noust reads the file (the document, so a commented `# ${OLD}` is
+not a variable) and says what it asks for and which of it the stack has:
+
+```bash
+noust app compose variables shop.example.com
+noust env set shop.example.com DB_PASSWORD=...     # how a value is given
+```
+
+| State | Meaning |
+|---|---|
+| `set` | The `.env` (or the server's environment) gives it a value. |
+| `default` | Nothing gives it a value and the file has a default. |
+| `unset` | Nothing gives it a value and the file has no default: Compose will use an empty string. A warning in the deploy log. |
+| `missing` | The file **requires** it (`${NAME:?message}`) and nothing gives it a value. |
+
+- **A deploy or an update refuses first.** With a `missing` variable the stack is not built and
+  nothing that serves is touched; the error names each variable with the file's own message and
+  the `noust env set` that gives it a value. A first deploy reads the `.env.example` first, so a
+  secret it lists is generated before the check. A preview is not judged: its variables come from
+  its parent's.
+- **`${NAME:?}` and `${NAME:-x}` read an empty value as unset; `${NAME?}` and `${NAME-x}` do
+  not**, as Compose does.
+- **Values are never shown**, only whether there is one. The `.env` read is the one beside the
+  compose file (the project directory) over the one at the root of the application.
+- The same list is `GET /api/apps/{domain}/compose/variables`, and in the console it is under the
+  table of **Environment**, where **Add** starts the add dialog from the variable's name. Giving a
+  value is the environment's own `PUT /api/apps/{domain}/env`.
+- The `SERVICE_*` variables Coolify generates are not a Compose feature; Noust's recipes declare
+  their generated variables themselves ([recipes.md](recipes.md)).
+
 ## The Docker networks of a stack
 
 Compose gives each stack a network of its own, so by default two stacks cannot reach each other.
@@ -445,7 +480,8 @@ A stack that somebody brought up by hand (Proggest, in `/opt/proggest`, started 
 `deploy.sh`, served by its own nginx file) cannot be deployed with `noust create`: that would
 clone into a directory that holds its data, derive a project name the running containers do not
 have (and with it new, empty volumes) and write a second site next to yours. `noust app adopt`
-registers it as it is.
+registers it as it is. A site that is not a stack (a unit you wrote, PHP, files) is adopted with
+`noust app adopt-site`: see [Adopting sites that already run](adopting.md).
 
 ```bash
 noust --dry-run app adopt proggest.es --path /opt/proggest   # what it would record; changes nothing
@@ -780,6 +816,13 @@ Every reader of a stack's ports is one: the short form with and without an addre
 protocols (`53:53/udp`, which is not a web port), the long form with `target`, `published` and
 `host_ip`, and values Compose already resolved. Before, three readers each had their own, and
 the one choosing the site's port failed on `127.0.0.1:3000:3000` and fell back to 3000.
+
+The file is read the way Docker Compose reads it, not as YAML 1.1 does: `- 2222:22` is the string it
+is, where PyYAML takes it for a number in base 60 (133342) that no port could be, and `restart: no`
+is `no`, not `false`. The Compose documentation tells people to quote ports whose container side is
+under 60 for this reason; a document that does not is still read right (`noust.core.compose_yaml`).
+A port that reads a variable (`127.0.0.1:${PORT:-80}:80`) is read at its default, and a stack that
+is deployed gets `PORT=<the port its site proxies to>` in its `.env` when it publishes on `${PORT}`.
 
 ## Routing with noust.nginx.yaml
 

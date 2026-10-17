@@ -377,6 +377,9 @@ asks for it again when thirty days are left and reloads the sites that serve it
 ([Upkeep](#upkeep)). Putting a fleet's own traffic on the mesh is a separate question and is not
 done here.
 
+For a name Tailscale does not issue for (`wiki.home.arpa`, a name on a VPN or a home network), the
+server can sign its own certificates: [an authority of your own](certificates.md#an-authority-of-your-own-for-private-names).
+
 API: `GET /api/private-networks`; `GET|PUT|DELETE /api/apps/{domain}/private` (changing it is the
 policy's permission) and `POST /api/apps/{domain}/private/certificate` (sudo mode, server scope:
 the certificate joins the server's own). Console: **Access, Private network**.

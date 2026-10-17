@@ -75,6 +75,25 @@ export const ROLLOUT_PLAN = {
   notes: ["web-2 goes first and alone: it builds the head of the branch, and the commit it ends on is the one every other server is asked for, so they all run the same code."],
 };
 
+export const SHIP_PLAN = {
+  ...ROLLOUT_PLAN,
+  action: "placement_ship",
+  title: "Build on one server, run on others",
+  options: { domain: SHOP, builder: "db-1" },
+  notes: [
+    "db-1 builds shop.example.com once, in its build sandbox, without activating it; the release travels to each server through its tunnel and is activated there behind the health check, after the application's own hooks.",
+    "web-2 goes first and alone: the build is made for it, and only then does it go to the rest.",
+  ],
+};
+
+export const BUILDER = {
+  domain: SHOP,
+  node: "db-1",
+  created_at: "2026-10-10T10:00:00+00:00",
+  created_by: "cli:yago@nas",
+  updated_at: "2026-10-10T10:00:00+00:00",
+};
+
 export const UPSTREAMS = {
   domain: SHOP,
   format: "nginx",
@@ -87,9 +106,16 @@ export const UPSTREAMS = {
 };
 
 /** The fleet of the test fixtures, with the application placed on two of its servers. */
-export function placementRoutes(status: unknown = STATUS): Record<string, RouteHandler> {
+export function placementRoutes(status: unknown = STATUS, builders: readonly unknown[] = []): Record<string, RouteHandler> {
   return {
     ...fleetRoutes(),
+    "GET /api/fleet/builders": () => json(200, { builders }),
+    [`PUT /api/fleet/builders/${SHOP}`]: (call) => json(200, { ...BUILDER, node: (call.body as { node: string }).node }),
+    [`DELETE /api/fleet/builders/${SHOP}`]: () => json(200, BUILDER),
+    [`POST /api/fleet/placements/${SHOP}/ship`]: (call) =>
+      (call.body as { plan?: boolean }).plan === true
+        ? json(200, { plan: SHIP_PLAN, job: null })
+        : json(200, { plan: SHIP_PLAN, job: { job_id: "fj-11", status: "pending", message: "queued", job: {} } }),
     "GET /api/fleet/placements": () => json(200, { placements: [PLACEMENT] }),
     [`GET /api/fleet/placements/${SHOP}`]: () => json(200, { placement: PLACEMENT, status }),
     [`GET /api/fleet/placements/${SHOP}/upstreams`]: () => json(200, UPSTREAMS),

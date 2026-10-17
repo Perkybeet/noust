@@ -12,11 +12,49 @@ The guide for contributors is [docs/TRANSLATING.md](../../../docs/TRANSLATING.md
 
 ```
 i18n/
-  en/<namespace>.ts   English, `as const` (the types are derived from it); bundled
-  en/index.ts         one `export { ns } from "./ns";` line per namespace
-  es/<namespace>.ts   Spanish, typed `Catalog<typeof en>`; loaded as its own chunk
+  en/<namespace>.ts   English, `as const` (the types are derived from it); a chunk of its own
+  en/index.ts         one `export { ns } from "./ns";` line per namespace (types only at run time)
+  es/<namespace>.ts   Spanish, typed `Catalog<typeof en>`; a chunk of its own
   es/index.ts         the same lines, same order
+  catalogs.ts         what is bundled (the chrome) and how every other namespace is fetched
+  routeNamespaces.gen.ts   which namespaces each route draws: generated, `npm run i18n:routes`
 ```
+
+## How the texts reach the browser
+
+Every namespace of English and Spanish is a same-origin chunk of its own, fetched with `import()`. Only
+the **chrome** is in the script every page loads (`CHROME` in `catalogs.ts`, in English): the namespaces
+the frame of any page draws before the router has said which page it is. A namespace is chrome only if a
+cold render of the frame needs it; each one costs every visitor, on every page. Spanish, and any other
+language, fetches its chrome before the first render (`main.tsx`).
+
+1. **Before a page is shown**, the root route loads the namespaces its routes draw (`routes/__root.tsx`,
+   `routeNamespaces.ts`), on every navigation and every hover that preloads one. The page never opens
+   in English or in keys, and nothing shifts: the router keeps the old page until the new one is ready.
+   The map is generated from the source (`scripts/i18n-routes.mjs`): a route draws every namespace named
+   by a literal in the files its page imports, dynamic imports included. A route the map does not know
+   loads every namespace, which is slow once and right. Add a page, or let a page draw another
+   feature's texts, and run `npm run i18n:routes`; `npm test` fails until you have.
+2. **After the first paint**, the rest of the language is fetched while the browser is idle, six chunks at
+   a time (`preload.ts`), so the next page waits for nothing. Not on a connection that asked to save data.
+3. **Switching language** fetches what the page on screen has loaded, in the new language, and then
+   applies it. (A test gets English whole from `test/setup.ts`, so Spanish is whole too.)
+
+### `t()` outside the render
+
+`t()` runs in components, but also in event handlers, toasts, validation helpers and `translate(getLocale(), ...)`
+with no component to suspend. So it never waits and never throws. If the namespace of its key is not here yet it
+answers with the best text there is: the language's own if it is loaded; otherwise English's, if the language is
+not English and English's namespace is loaded; otherwise the key, which is what an unknown key has always been.
+Either way it asks for the namespace, so the next call has the text, and a component that drew the stand-in is
+drawn again when the namespace arrives (`useT` listens, and only to arrivals somebody was waiting for, so the
+idle preload renders nothing). In development the first such miss per namespace is a console warning that names
+the key. It is a fallback, not a plan: a page that triggers it has a namespace its route did not declare, and
+`routes/namespaces.test.tsx` opens every route on a cold catalog to say which.
+
+A label built from data (the name of an audit event, a compliance control) asks `hasMessage(key)` whether English
+has a text before it falls back to the server's own word. Nothing outside `catalogs.ts` imports a catalog:
+`architecture.test.ts` fails on the next `import ... from "./en"`.
 
 ## Using it
 
@@ -39,8 +77,11 @@ translate(getLocale(), "language.loadFailed");
 Data structures hold keys, not text (`label: PlainKey`, see `app/nav.ts`), and whoever
 renders them calls `t(item.label)`.
 
-Tests run in English (`test/setup.ts` resets the language after each test). To test in
-Spanish: `await act(() => setLocale("es"))` from `app/locale`, then assert Spanish text.
+Tests run in English (`test/setup.ts` loads it whole, and resets the language after each test), so `t()`
+is as synchronous for whoever writes a test as it ever was. To test in Spanish:
+`await act(() => setLocale("es"))` from `app/locale`, then assert Spanish text. To test what a browser that has
+just arrived sees, `goCold()` from `test/coldCatalog` leaves English with its chrome alone and records every
+`t()` that finds its namespace missing; `drawnKeys()` finds message keys on screen.
 
 ## Adding a namespace
 
@@ -65,8 +106,10 @@ Spanish: `await act(() => setLocale("es"))` from `app/locale`, then assert Spani
    };
    ```
 3. Add `export { myarea } from "./myarea";` to `en/index.ts` and `es/index.ts`, in
-   alphabetical order. Forgetting the Spanish line fails `tsc` in `catalogs.ts`.
-4. `npm run typecheck && npx vitest run src/i18n` (the catalog tests check for empty text,
+   alphabetical order. Forgetting the Spanish line fails `tsc` in `catalogs.ts`. Nothing else
+   registers the chunks: the build finds the files.
+4. `npm run i18n:routes` if a page draws it (it rewrites `routeNamespaces.gen.ts`; commit the result).
+5. `npm run typecheck && npx vitest run src/i18n` (the catalog tests check for empty text,
    identical placeholders in both languages, and complete plurals).
 
 ## Rules

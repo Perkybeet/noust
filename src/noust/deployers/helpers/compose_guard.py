@@ -45,6 +45,8 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from noust.core.compose_yaml import load_compose
+
 #: A mount whose source ends like this is the Docker daemon's API.
 DOCKER_SOCKET = "docker.sock"
 
@@ -280,7 +282,7 @@ def stack_findings(app_path: Path) -> ComposeFindings:
         candidate = app_path / name
         if candidate.is_file() and not candidate.is_symlink():
             try:
-                document = yaml.safe_load(candidate.read_text(encoding="utf-8"))
+                document = load_compose(candidate.read_text(encoding="utf-8"))
             except (OSError, UnicodeDecodeError, yaml.YAMLError):
                 return ComposeFindings()
             return inspect_compose(document, app_path)

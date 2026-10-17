@@ -18,6 +18,7 @@ import json
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.exceptions import ValidationError
 from noust.core.unit_hardening_store import PROFILES
 from noust.deployers import hardening
 from noust.validators.domain import validate_domain
@@ -120,6 +121,12 @@ def set_command(
     if writable and no_writable:
         raise click.UsageError("--writable and --no-writable contradict each other.")
     validated = validate_domain(domain)
+    # Before the question: a sandbox the unit cannot have is not something to be asked about.
+    state = hardening.status(validated, analyze=False)
+    if not state.eligible:
+        raise ValidationError(
+            f"{validated} cannot be hardened: {state.reason}", details="Nothing was changed."
+        )
     if not (yes or ctx.json_output or ctx.dry_run or no_restart):
         click.confirm(
             f"Restart {validated} in the {profile} sandbox? It is restarted behind its "

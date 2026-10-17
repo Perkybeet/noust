@@ -29,6 +29,8 @@ import { cx } from "../../../lib/cx";
 import { formatBytes, formatBytesRate, formatCount, formatPercent, parseTimestamp } from "../../../lib/format";
 import { appLimits } from "../../apps/data";
 import { CollectorNotice, TruthLine, collectorReasonText } from "../../overview/HistoryStatus";
+import { ContainerCharts, containerMetrics } from "./ContainerCharts";
+import { TrafficSection } from "./TrafficSection";
 import { MetricChart } from "../../overview/MetricChart";
 import { prepareRead, useMetricsRead } from "../../overview/metricsData";
 import type { SeriesSpec } from "../../overview/metricsData";
@@ -196,7 +198,9 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
   const roles = rolesOf(status.data);
   const traffic = roles.unit.length === 0 && roles.traffic.length > 0;
   const shownRoles = traffic ? roles.traffic : [...roles.unit, ...roles.io];
-  const metrics = shownRoles.map((role) => status.data?.series?.[role] ?? "");
+  // A Compose stack's containers each have series of their own: read with the rest, in the one request.
+  const containers = status.data?.containers ?? [];
+  const metrics = [...shownRoles.map((role) => status.data?.series?.[role] ?? ""), ...(traffic ? [] : containerMetrics(containers))];
   const read = useMetricsRead(metrics, range, status.data !== undefined);
   const prepared = useMemo(() => (read.data === undefined ? undefined : prepareRead(read.data, t)), [read.data, t]);
   const control = <RangeControl range={range} onRangeChange={onRangeChange} t={t} />;
@@ -342,6 +346,18 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
           <div className="grid min-w-0 gap-4 xl:grid-cols-2">{ioSpecs.map(chart)}</div>
         </Subsection>
       ) : null}
+      {traffic ? null : (
+        <ContainerCharts
+          containers={containers}
+          range={range}
+          read={read}
+          prepared={prepared}
+          markers={markers}
+          rangeControl={control}
+          height={CHART_HEIGHT}
+          domain={domain}
+        />
+      )}
     </ChartGroup>
   );
 
@@ -414,6 +430,7 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
           )}
           {charts}
           {!traffic ? <p className="text-12 text-pretty text-fg-faint">{t("appPages.metrics.cpuNote")}</p> : null}
+          {status.data.traffic.available ? <TrafficSection domain={domain} /> : null}
           <DeployList domain={domain} marks={marks} t={t} />
         </>
       )}

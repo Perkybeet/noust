@@ -354,17 +354,18 @@ def load_settings(config: Any | None = None) -> AuditSettings:
             raw, "sink_lag_minutes", defaults.sink_lag_minutes, 1, problems, "audit"
         ),
     )
-    # The security profile's floor (noust.core.ens.profile): under ens-medium
-    # events are kept a year at least, whatever the key says.
-    from noust.core.ens.profile import defaults_for
+    # The floor the enabled frameworks leave (noust.core.compliance): ENS MEDIA keeps
+    # events a year at least, whatever the key says.
+    from noust.core.compliance import resolve as compliance
 
-    floor = defaults_for(read_setting(config, "security.profile", None))
-    if floor.ens and settings.retention_days < floor.audit_retention_days:
+    kept = compliance.resolve("audit_retention_days", config)
+    if kept.locked and settings.retention_days < int(kept.floor):
         problems.append(
-            f"audit.retention_days is {settings.retention_days}; the {floor.name} security "
-            f"profile keeps events {floor.audit_retention_days} days at least, which applies."
+            f"audit.retention_days is {settings.retention_days}; "
+            f"{', '.join(kept.forced_by)} keep events {kept.floor} days at least, "
+            "which applies."
         )
-        settings = replace(settings, retention_days=floor.audit_retention_days)
+        settings = replace(settings, retention_days=int(kept.floor))
     if syslog and settings.enterprise_id == DOCUMENTATION_ENTERPRISE_ID:
         problems.append(
             f"audit.enterprise_id is {DOCUMENTATION_ENTERPRISE_ID}, the number reserved for "

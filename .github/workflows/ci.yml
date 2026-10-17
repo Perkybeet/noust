@@ -443,6 +443,72 @@ jobs:
           python -m build packaging/transitional/wasm-cli --outdir dist/wasm-cli
           twine check dist/noust/* dist/wasm-cli/*
 
+  # The Terraform and OpenTofu provider (checklist J-14), Go, in terraform-provider-noust/. Built, vetted and
+  # unit-tested (among the tests, the ones that hold its operations table and every request and answer type to
+  # panel/openapi.json); applied by terraform-plugin-testing to the real API that scripts/console_server.py
+  # serves, with tokens narrowed to the permissions each profile names and never the master token; run under
+  # the real Terraform CLI; and the Python client tested against the same live API. The same stages run in
+  # containers with `python tests/integration/terraform_run.py`.
+  terraform-provider:
+    name: Terraform provider
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: terraform-provider-noust/go.mod
+          cache-dependency-path: terraform-provider-noust/go.sum
+
+      # The wrapper would put its own output around every command the tests read.
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.16.6"
+          terraform_wrapper: false
+
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: "1.12.8"
+          tofu_wrapper: false
+
+      - name: Install the server the tests run against
+        run: pip install -e ".[all]"
+
+      - name: Format, vet, build and unit tests
+        run: python tests/integration/terraform_run.py --native --stage unit
+
+      - name: Acceptance tests against the live API
+        run: python tests/integration/terraform_run.py --native --stage acceptance
+
+      - name: End to end under the Terraform CLI
+        run: python tests/integration/terraform_run.py --native --stage e2e
+
+      # The same plugin protocol, a different engine: what OpenTofu users run.
+      - name: End to end under OpenTofu
+        run: python tests/integration/terraform_run.py --native --stage e2e-tofu
+
+      - name: The Python client against the live API
+        run: python tests/integration/terraform_run.py --native --stage sdk
+
+      # go.mod and go.sum are what a build downloads; the reference under docs/ is what the registry shows.
+      # Neither may differ from what the code says.
+      - name: Check the module and the generated reference are current
+        working-directory: terraform-provider-noust
+        run: |
+          go mod tidy
+          go generate ./...
+          if [ -n "$(git status --porcelain -- .)" ]; then
+            git status --short -- .
+            git diff -- .
+            echo "run go mod tidy and go generate ./... in terraform-provider-noust and commit the result"
+            exit 1
+          fi
+
   # The documentation site (checklist N-17, N-22): built from docs/ on every push, and the build
   # fails on a link or an anchor that leads nowhere, a Markdown file nobody listed in
   # docs/site.yaml, or a generated reference (the command line, the API, the configuration keys)

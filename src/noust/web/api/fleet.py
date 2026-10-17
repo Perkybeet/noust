@@ -25,7 +25,7 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
@@ -419,6 +419,91 @@ async def fleet_activity(
         One row per event.
     """
     return await _view("activity", request, session, node, refresh, {"limit": limit})
+
+
+@router.get("/metrics", response_model=FleetViewOut)
+async def fleet_metrics(
+    request: Request,
+    session: Session,
+    node: NodeFilter = None,
+    refresh: Refresh = False,
+    metric: Annotated[
+        Literal["cpu", "memory", "swap", "disk", "load", "net_rx", "net_tx"],
+        Query(description="What to put side by side"),
+    ] = "cpu",
+    window: Annotated[
+        Literal["1h", "6h", "24h", "7d", "30d"], Query(description="How far back")
+    ] = "24h",
+) -> dict[str, Any]:
+    """
+    One metric of every server over the same window, to compare them.
+
+    Each server answers from its own recorded history (nothing is stored on the
+    central), so a server that is down is a gap in the comparison, said so in
+    ``nodes``, not an error. Memory, swap and disk are the share of what each
+    server has.
+
+    Args:
+        request: The request.
+        session: The authenticated session.
+        node: Only these servers.
+        refresh: Ask again.
+        metric: What to compare.
+        window: How far back.
+
+    Returns:
+        One row per server: its points, latest value, average and peak.
+    """
+    return await _view(
+        "metrics", request, session, node, refresh, {"metric": metric, "window": window}
+    )
+
+
+@router.get("/logs", response_model=FleetViewOut)
+async def fleet_logs(
+    request: Request,
+    session: Session,
+    node: NodeFilter = None,
+    refresh: Refresh = False,
+    q: Annotated[
+        str, Query(max_length=1000, description="The search: words, fields, -excluded, a OR b")
+    ] = "",
+    since: Annotated[
+        str | None, Query(description="Start: 15m, 2h, 7d, a date, epoch seconds")
+    ] = None,
+    until: Annotated[str | None, Query(description="End, in the same forms")] = None,
+    level: Annotated[str | None, Query(description="The worst level kept")] = None,
+    limit: Annotated[int, Query(ge=1, le=500, description="Lines per server")] = 100,
+) -> dict[str, Any]:
+    """
+    Search the logs of the applications of every server at once, newest first.
+
+    Each server decides what this operator may read of its logs (a team's own
+    applications, never another's) and judges the query and the window itself;
+    a server that cannot search is a note on the view, not an error.
+
+    Args:
+        request: The request.
+        session: The authenticated session.
+        node: Only these servers.
+        refresh: Ask again.
+        q: The search.
+        since: Start of the window.
+        until: End of the window.
+        level: The worst level kept.
+        limit: Lines per server.
+
+    Returns:
+        One row per line (``type: line``) and one per note (``type: note``).
+    """
+    params: dict[str, Any] = {
+        "q": q,
+        "since": since,
+        "until": until,
+        "level": level,
+        "limit": limit,
+    }
+    return await _view("logs", request, session, node, refresh, params)
 
 
 # ------------------------------------------------------------------ labels

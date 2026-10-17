@@ -342,6 +342,23 @@ class TestInstall:
             deployer.post_install()
         assert "download failed" in (caught.value.details or "")
 
+    def test_asset_setup_compiles_the_dependencies_so_it_names_an_old_elixir_too(
+        self, tmp_path: Path
+    ) -> None:
+        # mix assets.setup is the first command that compiles the dependencies, so on Phoenix it is
+        # where a server's too-old Elixir shows first (phoenix_template wants 1.16).
+        output = (
+            'warning: the dependency :phoenix_template requires Elixir "~> 1.16" but you are '
+            "running on v1.14.0\ncould not compile dependency :phoenix_template"
+        )
+        runner = FakeRunner().script(["mix", "assets.setup"], stderr=output, exit_code=1)
+        deployer = deployer_for(phoenix(tmp_path), runner)
+        with pytest.raises(DeploymentError) as caught:
+            deployer.post_install()
+        details = caught.value.details or ""
+        assert "could not compile dependency" in details
+        assert "phoenix_template asks for Elixir ~> 1.16 and this server has 1.14.0" in details
+
     def test_migrations_are_said_to_be_a_decision(self, tmp_path: Path) -> None:
         deployer = deployer_for(phoenix(tmp_path))
         lines: list[str] = []
@@ -367,6 +384,33 @@ class TestBuild:
         with pytest.raises(DeploymentError) as caught:
             deployer.pre_build()
         assert "CompileError" in (caught.value.details or "")
+
+    def test_a_dependency_that_needs_a_newer_elixir_is_named_as_the_cause(
+        self, tmp_path: Path
+    ) -> None:
+        # The first real build on Ubuntu 24.04's Elixir 1.14: Mix warned that plug wants 1.15 and
+        # then failed inside plug with an error about a bitstring, nowhere near the reason.
+        output = (
+            'warning: the dependency :plug requires Elixir "~> 1.15" but you are running on '
+            "v1.14.0\nCompiling 42 files (.ex)\n== Compilation error in file "
+            "lib/plug/router/utils.ex ==\n** (CompileError) cannot use ^prefix_size outside of "
+            "match clauses"
+        )
+        runner = FakeRunner().script(["mix", "compile"], stderr=output, exit_code=1)
+        deployer = deployer_for(phoenix(tmp_path), runner)
+        with pytest.raises(DeploymentError) as caught:
+            deployer.pre_build()
+        details = caught.value.details or ""
+        assert "CompileError" in details
+        assert "plug asks for Elixir ~> 1.15 and this server has 1.14.0" in details
+        assert "elixir-lang.org/install" in details
+
+    def test_a_failure_with_no_version_warning_gets_no_guess(self, tmp_path: Path) -> None:
+        runner = FakeRunner().script(["mix", "compile"], stderr="** (CompileError)", exit_code=1)
+        deployer = deployer_for(phoenix(tmp_path), runner)
+        with pytest.raises(DeploymentError) as caught:
+            deployer.pre_build()
+        assert "asks for Elixir" not in (caught.value.details or "")
 
     def test_a_dry_run_builds_nothing_and_finds_nothing(self, tmp_path: Path) -> None:
         deployer = deployer_for(phoenix(tmp_path))

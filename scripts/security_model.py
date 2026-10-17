@@ -134,7 +134,7 @@ GUARANTEES: tuple[Guarantee, ...] = (
         "`deployers/helpers/compose_guard.py` for Compose; `docs/security.md#builds`.",
         (
             "tests/test_build_sandbox.py::test_the_sandbox_failing_its_self_test_stops_the_build_instead_of_running_as_root",
-            "tests/test_build_sandbox.py::test_building_as_root_needs_a_reason",
+            "tests/test_build_sandbox.py::test_building_as_root_needs_a_reason_where_the_server_asks_for_one",
             "tests/test_build_sandbox.py::test_another_applications_env_outside_the_apps_directory_is_inaccessible",
             "tests/test_runner_sandbox.py::TestSandboxArgv::test_every_level_one_property_is_there",
             "tests/test_sandbox_default.py::test_a_passing_trial_turns_the_sandbox_on_and_the_update_builds_in_it",
@@ -237,7 +237,7 @@ GUARANTEES: tuple[Guarantee, ...] = (
         "`web/permissions/roles.py`.",
         (
             "tests/test_permission_routes.py::TestTheRoles::test_operators_restart_renew_and_deploy_but_do_not_change",
-            "tests/test_permission_routes.py::TestTheRoles::test_admin_does_not_govern_security_accounts_or_the_audit",
+            "tests/test_permission_routes.py::TestTheRoles::test_admin_does_not_govern_security_accounts_or_the_audit_under_the_ens_matrix",
             "tests/test_web_sudo.py::test_revoking_a_certificate_requires_elevation",
             "tests/test_web_sudo.py::test_an_idle_window_closes_fifteen_minutes_after_the_last_elevated_action",
             "tests/test_web_oidc.py::TestTheWholeSignIn::test_the_providers_claims_about_its_own_mfa_do_not_skip_ours",
@@ -733,15 +733,22 @@ def block_headers() -> str:
 def block_roles() -> str:
     """The matrix of roles and permissions, from ``roles.py``."""
     from noust.web.permissions import DESCRIPTIONS
-    from noust.web.permissions.roles import ROLE_PERMISSIONS
+    from noust.web.permissions.roles import ROLE_PERMISSIONS, STANDARD_ROLE_PERMISSIONS
 
-    roles = list(ROLE_PERMISSIONS)
+    # The matrix the ENS review decided (the roles split), and beside it the one column that
+    # differs by default: one person running their own servers needs one account (item 83).
+    columns = {
+        **{role: ROLE_PERMISSIONS[role] for role in ROLE_PERMISSIONS},
+        "admin (default)": STANDARD_ROLE_PERMISSIONS["admin"],
+    }
+    headers = {"admin": "admin (roles split)"}
+    names = [headers.get(name, name) for name in columns]
     rows = [
-        "| Permission | What it allows | " + " | ".join(roles) + " |",
-        "|---|---|" + "|".join("---" for _ in roles) + "|",
+        "| Permission | What it allows | " + " | ".join(names) + " |",
+        "|---|---|" + "|".join("---" for _ in names) + "|",
     ]
     for permission in sorted(DESCRIPTIONS):
-        held = ["yes" if permission in ROLE_PERMISSIONS[role] else "" for role in roles]
+        held = ["yes" if permission in columns[name] else "" for name in columns]
         rows.append(f"| `{permission}` | {DESCRIPTIONS[permission]} | " + " | ".join(held) + " |")
     return "\n".join(rows)
 

@@ -49,6 +49,12 @@ The types and what each one receives:
   Teams (a Workflows webhook): one POST each, built in
   :mod:`noust.core.notifier_requests`, with the credentials in a form field or
   a header and never in the URL.
+- **mattermost**, **matrix**, **lark** - the other team chats: Mattermost's
+  attachment (Block Kit is not read there), a Matrix room message with a
+  formatted body, and a Lark (Feishu) card, signed when the bot asks for it.
+- **pagerduty** - Events API v2 for the person on call: a problem triggers an
+  incident, a recovery resolves it by the same key, and what is neither is not
+  sent (:mod:`noust.core.notifications.render.pagerduty`).
 
 Four rules hold everywhere:
 
@@ -101,8 +107,9 @@ import sqlite3
 import time
 import urllib.request
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass, field, replace
+from datetime import datetime, timedelta, timezone
+from functools import partial
 from http.client import HTTPException
 from typing import TYPE_CHECKING, Any
 from urllib.error import HTTPError, URLError
@@ -112,7 +119,7 @@ from urllib.request import Request
 from noust.core import audit, outbound
 from noust.core.background import BackgroundQueue
 from noust.core.config import Config
-from noust.core.exceptions import NoustError
+from noust.core.exceptions import EmailRefused, NoustError
 from noust.core.messages import Locale
 from noust.core.notification_ledger import Delivery, DeliveryLedger, backoff
 from noust.core.notification_placement import store_placement
@@ -133,13 +140,25 @@ from noust.core.notifications.model import (
     Notification,
     State,
 )
-from noust.core.notifications.render import discord, slack, telegram, webhook
-from noust.core.notifications.routing import Placement, decide
+from noust.core.notifications.render import discord, pagerduty, slack, telegram, webhook
+from noust.core.notifications.routing import (
+    HOLD_FLOOD,
+    HOLD_QUIET,
+    HOLD_SUMMARY,
+    Placement,
+    Routing,
+    decide,
+)
 from noust.core.notifier_requests import (
+    MAX_REPLY_BYTES,
     USER_AGENT,
     gotify_request,
     json_request,
+    lark_request,
+    matrix_request,
+    mattermost_request,
     ntfy_request,
+    pagerduty_request,
     post,
     pushover_request,
     require_http_url,
@@ -160,6 +179,9 @@ NOTIFY_TIMEOUT = 10
 
 #: Held notifications released together are sent as one digest from this many.
 DIGEST_MINIMUM = 4
+
+#: A summary of the day is one message from this many; a single item is sent as it is.
+SUMMARY_MINIMUM = 2
 
 #: The ledger is tidied at most this often (seconds).
 PURGE_EVERY_SECONDS = 3_600
@@ -187,11 +209,13 @@ __all__ = [
     "SweepReport",
     "TelegramChat",
     "fresh_config",
+    "guarded_opener",
     "is_transient",
     "legacy_notification",
     "notify_composed",
     "notify_in_background",
     "notify_now",
+    "send_guarded",
     "validate_telegram_bot_token",
 ]
 
@@ -267,7 +291,7 @@ def is_transient(error: BaseException) -> bool:
         return error.code in (408, 425, 429) or error.code >= 500
     if isinstance(error, _Unresolvable):
         return True
-    if isinstance(error, ValueError):
+    if isinstance(error, (ValueError, EmailRefused)):
         return False
     return isinstance(error, (OSError, HTTPException, NoustError))
 
@@ -992,13 +1016,18 @@ class Notifier:
         for instance in resolve_instances(channels):
             if not instance.enabled or not instance.configured:
                 continue
+            wants = instance.spec.wants
+            if wants is not None and not wants(notification):
+                continue
+            routing, judged = self._judged(instance, notification, switches)
             decision = decide(
-                instance.routing,
-                notification,
+                routing,
+                judged,
                 now=now,
                 server_events=switches,
                 default_on=_on_by_default,
                 placement_of=placement,
+                sent_recently=partial(self._sent_recently, instance.name, now=now),
             )
             if decision.action == "skip":
                 logger.debug(
@@ -1011,6 +1040,55 @@ class Notifier:
             if decision.action == "hold" and self._hold(instance, notification, decision):
                 continue
             self._deliver(instance, notification, channels)
+
+    @staticmethod
+    def _judged(
+        instance: ChannelInstance, notification: Notification, switches: Mapping[str, bool]
+    ) -> tuple[Routing, Notification]:
+        """
+        Choose the routing and the notification a channel's decision is made on.
+
+        For a type that closes incidents (a pager) a recovery is not judged
+        like a message: it must arrive even when the channel's severity floor
+        or quiet hours would hold an ``ok``, and it follows the switch of the
+        problem it closes (a channel that hears ``backup_failed`` hears the
+        backup that fixed it, though ``backup_success`` ships off), or an
+        incident opened would stay open. An acknowledgement is judged the same
+        way, or the page would go on escalating after somebody took it.
+
+        Args:
+            instance: The channel.
+            notification: What happened.
+            switches: ``notifications.events``.
+
+        Returns:
+            The routing to decide with, and the notification to decide on.
+        """
+        routing = instance.routing
+        if not instance.spec.closes_incidents:
+            return routing, notification
+        # A pager already collapses repeats by the incident's key, and an incident
+        # that waited for a summary would be one nobody was paged for.
+        routing = replace(routing, flood=None, summary=None)
+        planned = pagerduty.plan(notification)
+        if planned is None or planned.action == "trigger":
+            return routing, notification
+        judged = notification
+        opening = pagerduty.opening_kinds(notification)
+        for kind in opening:
+            wanted = routing.events.get(kind)
+            if wanted is None:
+                wanted = switches.get(kind, _on_by_default(kind))
+            if wanted:
+                judged = replace(notification, kind=kind)
+                break
+        else:
+            if opening:
+                # None of the problems it closes is heard here, so nothing was opened
+                # for it to close: it is judged as the first of them, which is off.
+                judged = replace(notification, kind=opening[0])
+        floor = replace(routing.route, min_severity=None)
+        return replace(routing, route=floor, quiet=None), judged
 
     def test_channel(self, name: str) -> str | None:
         """
@@ -1208,11 +1286,16 @@ class Notifier:
         report: SweepReport,
     ) -> None:
         """
-        Deliver what a channel's quiet hours held, now that they ended.
+        Deliver what a channel held, now that the reason passed.
 
-        More than a few are sent as one digest when the channel's quiet hours
-        say so; fewer one by one. If the quiet hours are on again (the window
-        was edited while these waited) they wait for the new end.
+        What the quiet hours held goes once they ended, as one digest when
+        there are more than a few and the channel's quiet hours say so; what a
+        flood held goes once the channel is under its cap again, as one digest
+        from the same number; what waited for the summary goes together at the
+        summary's hour. Fewer are sent one by one. If the quiet hours are on
+        again (the window was edited while these waited) they wait for the new
+        end, and a flood that is still going keeps its messages for another
+        window.
 
         Args:
             ledger: The ledger the deliveries are on.
@@ -1221,26 +1304,42 @@ class Notifier:
             channels: The ``notifications.channels`` block, for scrubbing.
             report: Filled with the outcome.
         """
-        quiet = instance.routing.quiet
         now = self._clock()
-        if quiet is not None and quiet.active(now):
-            until = quiet.ends_at(now).timestamp()
-            for item in items:
-                self._ledger_do(ledger.reschedule, item.id, until)
-            return
-        notifications: list[tuple[Delivery, Notification]] = []
+        quiet = instance.routing.quiet
+        flood = instance.routing.flood
+        groups: dict[str, list[tuple[Delivery, Notification]]] = {}
         for item in items:
             try:
-                notifications.append((item, item.notification()))
+                held = item.notification()
             except ValueError as exc:
                 self._ledger_do(ledger.failed, item.id, str(exc), item.attempts)
                 report.failed += 1
-        digest = quiet is not None and quiet.digest and len(notifications) >= DIGEST_MINIMUM
-        if digest:
-            self._release_digest(ledger, instance, notifications, channels, report)
-            return
-        for item, _held in notifications:
-            self._retry(ledger, instance, item, channels, report)
+                continue
+            if quiet is not None and quiet.active(now) and not quiet.lets_through(held):
+                self._ledger_do(ledger.reschedule, item.id, quiet.ends_at(now).timestamp())
+                continue
+            groups.setdefault(item.held_for or HOLD_QUIET, []).append((item, held))
+        for cause, group in groups.items():
+            if (
+                cause == HOLD_FLOOD
+                and flood is not None
+                and self._sent_recently(instance.name, flood.minutes, now) >= flood.max_messages
+            ):
+                until = (now + timedelta(minutes=flood.minutes)).timestamp()
+                for item, _held in group:
+                    self._ledger_do(ledger.reschedule, item.id, until)
+                continue
+            if cause == HOLD_SUMMARY:
+                digest = len(group) >= SUMMARY_MINIMUM
+            elif cause == HOLD_FLOOD:
+                digest = len(group) >= DIGEST_MINIMUM
+            else:
+                digest = quiet is not None and quiet.digest and len(group) >= DIGEST_MINIMUM
+            if digest:
+                self._release_digest(ledger, instance, group, channels, report, cause)
+                continue
+            for item, _held in group:
+                self._retry(ledger, instance, item, channels, report)
 
     def _release_digest(
         self,
@@ -1249,6 +1348,7 @@ class Notifier:
         notifications: list[tuple[Delivery, Notification]],
         channels: dict[str, Any],
         report: SweepReport,
+        cause: str = HOLD_QUIET,
     ) -> None:
         """
         Send what was held as one message.
@@ -1259,8 +1359,9 @@ class Notifier:
             notifications: The held deliveries and what each one says.
             channels: The ``notifications.channels`` block, for scrubbing.
             report: Filled with the outcome.
+            cause: Why they were held, which the digest says.
         """
-        digest = compose_digest([n for _item, n in notifications], self._context())
+        digest = compose_digest([n for _item, n in notifications], self._context(), cause)
         try:
             sent = self._dispatch(instance, digest)
         except _DELIVERY_ERRORS as exc:
@@ -1339,7 +1440,8 @@ class Notifier:
 
     def _hold(self, instance: ChannelInstance, notification: Notification, decision: Any) -> bool:
         """
-        Keep a notification until a channel's quiet hours end.
+        Keep a notification until the reason it waits passes: the channel's quiet
+        hours end, its flood is over or the hour of its summary comes.
 
         Args:
             instance: The channel.
@@ -1360,8 +1462,29 @@ class Notifier:
             instance.name,
             instance.type,
             decision.release_at.timestamp(),
+            decision.cause or HOLD_QUIET,
         )
         return held is not None
+
+    def _sent_recently(self, channel: str, minutes: int, now: datetime) -> int:
+        """
+        Count what a channel sent lately, for its anti-flood cap.
+
+        Args:
+            channel: The channel instance.
+            minutes: How far back.
+            now: The current moment.
+
+        Returns:
+            The messages that went out in that time; zero when there is no
+            ledger to count in (a cap that cannot be checked never silences a
+            channel).
+        """
+        ledger = self._open_ledger()
+        if ledger is None:
+            return 0
+        counted = self._ledger_do(ledger.sent_since, channel, now.timestamp() - minutes * 60)
+        return int(counted or 0)
 
     def _deliver(
         self, instance: ChannelInstance, notification: Notification, channels: dict[str, Any]
@@ -1527,13 +1650,7 @@ class Notifier:
             ValueError: When the destination resolves inside a forbidden
                 network.
         """
-        # The SSRF guard: see the module docstring. Checked here, once, for
-        # every HTTP channel, rather than in each _*_request builder - one
-        # chokepoint a new channel cannot forget to pass through.
-        _require_public_destination(request.full_url, self._config)
-        # urlopen raises HTTPError for any non-2xx answer, so reaching close()
-        # means the endpoint accepted the message; the body is not our data.
-        self._opener(request, timeout=NOTIFY_TIMEOUT).close()
+        send_guarded(request, self._config, self._opener)
 
     def _plain_retry(
         self,
@@ -1605,6 +1722,18 @@ class Notifier:
                 notification,
                 thread_id=_telegram_thread(settings, notification.kind),
             )
+        if kind == "matrix":
+            homeserver = str(settings.get("homeserver") or "")
+            room_id = str(settings.get("room_id") or "")
+            access_token = str(settings.get("access_token") or "")
+            if not homeserver or not room_id or not access_token:
+                return None
+            return matrix_request(homeserver, room_id, access_token, notification, instance.name)
+        if kind == "pagerduty":
+            routing_key = str(settings.get("routing_key") or "")
+            if not routing_key:
+                return None
+            return pagerduty_request(routing_key, notification, str(settings.get("region") or ""))
         if kind == "pushover":
             user_key = str(settings.get("user_key") or "")
             app_token = str(settings.get("app_token") or "")
@@ -1628,6 +1757,10 @@ class Notifier:
             return gotify_request(url, notification, token) if token else None
         if kind == "teams":
             return teams_request(url, notification)
+        if kind == "mattermost":
+            return mattermost_request(url, notification)
+        if kind == "lark":
+            return lark_request(url, notification, str(settings.get("secret") or ""))
         return _slack_request(url, notification)
 
     def _send_email(self, notification: Notification, instance: ChannelInstance) -> bool:
@@ -1779,7 +1912,60 @@ def fresh_config() -> Config:
         return Config()
 
 
-def require_public_destination(url: str, purpose: str = "server") -> None:
+def send_guarded(request: Request, config: Config, opener: Opener | None = None) -> None:
+    """
+    Send one request behind the SSRF guard: the one sender of the notifier.
+
+    The guard (see the module docstring) is checked here, once, for every HTTP
+    channel and for the email providers' APIs, rather than in each request
+    builder: one chokepoint a new feature cannot forget to pass through. The
+    default opener checks every redirect hop again.
+
+    Args:
+        request: The request to send.
+        config: The configuration, for ``notifications.allow_private_hosts``.
+        opener: Replacement for the default opener; tests inject one so the
+            suite never opens a socket.
+
+    Raises:
+        OSError: When the endpoint is unreachable or rejects the request.
+        ValueError: When the destination resolves inside a forbidden network,
+            or the answer of a request that judges its answer is a refusal.
+    """
+    _require_public_destination(request.full_url, config)
+    send = opener or guarded_opener(config)
+    # urlopen raises HTTPError for any non-2xx answer, so reaching the answer
+    # means the endpoint accepted the message. Only a request that says its
+    # service reports a refusal in a success answer has that answer read.
+    response = send(request, timeout=NOTIFY_TIMEOUT)
+    try:
+        check = getattr(request, "check_reply", None)
+        if check is not None:
+            check(response.read(MAX_REPLY_BYTES))
+    finally:
+        response.close()
+
+
+def guarded_opener(config: Config) -> Opener:
+    """
+    Build the opener every outbound request of an operator-typed address uses.
+
+    It follows redirects like ``urlopen`` does, but asks the SSRF guard about
+    every hop, so a public address that answers with a redirect to the cloud
+    metadata service is refused at the redirect.
+
+    Args:
+        config: The configuration, for ``notifications.allow_private_hosts``.
+
+    Returns:
+        A callable with ``urlopen``'s calling convention.
+    """
+    return urllib.request.build_opener(_SafeRedirectHandler(config)).open
+
+
+def require_public_destination(
+    url: str, purpose: str = "server", *, unresolved_ok: bool = False
+) -> None:
     """
     Refuse to contact a server that resolves inside the machine's own networks.
 
@@ -1791,9 +1977,15 @@ def require_public_destination(url: str, purpose: str = "server") -> None:
     Args:
         url: The address about to be requested.
         purpose: What it is, for the message ("GitHub Enterprise server").
+        unresolved_ok: Let a name that does not resolve pass: an address saved
+            while its DNS is down is judged again when it is used.
 
     Raises:
         ValueError: The URL has no host, cannot be resolved, or resolves to a
             private or internal address that is not allowed.
     """
-    _require_public_destination(url, Config(), purpose)
+    try:
+        _require_public_destination(url, Config(), purpose)
+    except _Unresolvable:
+        if not unresolved_ok:
+            raise

@@ -467,6 +467,23 @@ def default_filesystem() -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
+def default_runner() -> Iterator[None]:
+    """
+    Put the process-wide runner back to the default after every test.
+
+    ``--dry-run`` installs a :class:`~noust.core.runner.DryRunRunner` as well as
+    the rehearsing filesystem, and a CLI test that exercised it left it for the
+    next test in the same worker: the internal authority's real ``openssl``
+    then printed nothing and the test failed, only in that order.
+
+    Yields:
+        Nothing; the reset happens on the way out.
+    """
+    yield
+    set_runner(None)
+
+
+@pytest.fixture(autouse=True)
 def fresh_upstream_answers() -> Iterator[None]:
     """
     Forget what the remote said about any application, before and after every test.
@@ -579,3 +596,22 @@ def sandbox(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     return tmp_path
+
+
+@pytest.fixture
+def real_config(sandbox: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[object]:
+    """
+    Provide the process-wide configuration, backed by a file of the test's own.
+
+    The compliance controls read the configuration on every call, so a test that wants
+    one on sets it here and finds it forgotten when the test ends.
+
+    Returns:
+        The configuration singleton.
+    """
+    from noust.core.config import Config
+
+    monkeypatch.setattr("noust.core.config.DEFAULT_CONFIG_PATH", sandbox / "etc" / "config.yaml")
+    Config.reset_instance()
+    yield Config()
+    Config.reset_instance()

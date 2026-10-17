@@ -684,9 +684,16 @@ class WebServerManager(BaseManager):
             self.logger.error(f"{self.backend.name} configuration test failed")
             return False
 
-        return self._run(
+        reloaded = self._run(
             ["systemctl", "reload", self.backend.service], timeout=_CONTROL_TIMEOUT
         ).success
+        if reloaded and self.backend.name == "nginx":
+            # nginx has just opened the logs of any site it loaded; fail2ban reads the wildcard of
+            # its jails' logpath only when a jail starts.
+            from noust.managers.server.security_fail2ban import watch_new_web_logs
+
+            watch_new_web_logs(self.runner)
+        return reloaded
 
     def restart(self) -> bool:
         """

@@ -877,6 +877,251 @@ class TestQuietHours:
         assert held.next_attempt_at == datetime(2026, 10, 14, 9, 0, tzinfo=timezone.utc).timestamp()
 
 
+class TestFlood:
+    def capped_slack(self, config: Config, **flood: Any) -> None:
+        config.set(
+            "notifications.channels.slack",
+            {"webhook_url": SLACK, "flood": {"max": 3, "minutes": 10, **flood}},
+        )
+
+    def fail(self, sender: Notifier, count: int) -> None:
+        for index in range(count):
+            sender.notify(note(subject=f"app{index}.example.com"))
+
+    def test_past_its_cap_a_channel_holds_the_rest(
+        self, config: Config, ledger: DeliveryLedger, clock: Clock
+    ) -> None:
+        self.capped_slack(config)
+        opener = Opener()
+
+        self.fail(notifier(config, opener, ledger, clock), 8)
+
+        assert len(opener.requests) == 3
+        held = ledger.recent(state="held")
+        assert len(held) == 5
+        assert {item.held_for for item in held} == {"flood"}
+        assert {item.next_attempt_at for item in held} == {
+            (START + timedelta(minutes=10)).timestamp()
+        }
+        assert ledger.counts()["sent"] == 3
+
+    def test_what_a_flood_held_arrives_as_one_message_once_it_is_over(
+        self, config: Config, ledger: DeliveryLedger, clock: Clock
+    ) -> None:
+        self.capped_slack(config)
+        opener = Opener()
+        sender = notifier(config, opener, ledger, clock)
+        self.fail(sender, 8)
+        clock.advance(minutes=9)
+        assert sender.deliver_due() == SweepReport()
+
+        clock.advance(minutes=1)
+        report = sender.deliver_due()
+
+        assert (report.digests, report.delivered) == (1, 5)
+        assert len(opener.requests) == 4
+        text = opener.requests[-1].data.decode()  # type: ignore[union-attr]
+        assert "Notifications held back" in text and "app4.example.com" in text
+        assert ledger.counts()["held"] == 0
+
+    def test_a_few_are_sent_as_they_are(
+        self, config: Config, ledger: DeliveryLedger, clock: Clock
+    ) -> None:
+        self.capped_slack(config, max=1)
+        opener = Opener()
+        sender = notifier(config, opener, ledger, clock)
+        self.fail(sender, 3)
+        clock.advance(minutes=10)
+
+        report = sender.deliver_due()
+
+        assert (report.digests, report.delivered) == (0, 2)
+        assert len(opener.requests) == 3
+
+    def test_a_cap_that_still_applies_keeps_them_for_another_window(
+        self, config: Config, ledger: DeliveryLedger, clock: Clock
+    ) -> None:
+        self.capped_slack(config)
+        opener = Opener()
+        sender = notifier(config, opener, ledger, clock)
+        self.fail(sender, 5)
+        # The window is widened while they wait: three went out within the last hour.
+        self.capped_slack(config, minutes=60)
+        clock.advance(minutes=10)
+
+        report = sender.deliver_due()
+
+        assert report == SweepReport()
+        assert len(opener.requests) == 3
+        held = ledger.recent(state="held")
+        assert {item.next_attempt_at for item in held} == {
+            (clock.moment + timedelta(minutes=60)).timestamp()
+        }
+
+    def test_the_cap_is_per_channel(
+        self, config: Config, ledger: DeliveryLedger, clock: Clock
+    ) -> None:
+        self.capped_slack(config)
+        config.set(
+            "notifications.channels.slack-b", {"type": "slack", "webhook_url": SLACK_STAGING}
+        )
+        opener = Opener()
+
+        self.fail(notifier(config, opener, ledger, clock), 5)
+
+        assert len(opener.to(SLACK)) == 3
+        assert len(opener.to(SLACK_STAGING)) == 5
+
+    def test_a_cap_that_cannot_be_counted_never_silences_a_channel(
+        self, config: Config, clock: Clock
+    ) -> None:
+        self.capped_slack(config)
+        opener = Opener()
+
+        self.fail(notifier(config, opener, None, clock), 6)
+
+        assert len(opener.requests) == 6
+
+    def test_a_pager_is_neither_capped_nor_summarised(self) -> None:
+        from noust.core.notifications.instances import resolve_instances
+
+        (pager,) = resolve_instances(
+            {
+                "pagerduty": {
+                    "routing_key": "k" * 32,
+                    "flood": {"max": 1, "minutes": 10},
+                    "summary": {"at": "08:00"},
+                }
+            }
+        )
+        assert pager.routing.flood is not None and pager.routing.summary is not None
+
+        for notification in (note(), note(kind="deploy_success", state=State.OK)):
+            routing, _judged = Notifier._judged(pager, notification, {})
+            assert routing.flood is None and routing.summary is None
+
+
+class TestSummary:
+    def summarised_slack(self, config: Config, **summary: Any) -> None:
+        config.set(
+            "notifications.channels.slack",
+            {"webhook_url": SLACK, "summary": {"at": "08:00", **summary}},
+        )
+
+    def succeed(self, sender: Notifier, count: int) -> None:
+        for index in range(count):
+            sender.notify(
+                note(kind="deploy_success", state=State.OK, subject=f"app{index}.example.com")
+            )
+
+    def test_what_is_not_a_problem_waits_and_a_failure_does_not(
+        self, config: Config, ledger: DeliveryLedger, clock: Clock
+    ) -> None:
+        self.summarised_slack(config)
+        opener = Opener()
+        sender = notifier(config, opener, ledger, clock)
+
+        self.succeed(sender, 3)
+        sender.notify(note())
+
+        assert len(opener.requests) == 1
+        held = ledger.recent(state="held")
+        assert {item.held_for for item in held} == {"summary"}
+        assert {item.next_attempt_at for item in held} == {
+            datetime(2026, 10, 14, 8, 0, tzinfo=timezone.utc).timestamp()
+        }
+
+    def test_at_its_hour_it_goes_out_as_one_message(
+        self, config: Config, ledger: DeliveryLedger, clock: Clock
+    ) -> None:
+        self.summarised_slack(config)
+        opener = Opener()
+        sender = notifier(config, opener, ledger, clock)
+        self.succeed(sender, 3)
+        clock.moment = datetime(2026, 10, 14, 7, 59, tzinfo=timezone.utc)
+        assert sender.deliver_due() == SweepReport()
+
+        clock.moment = datetime(2026, 10, 14, 8, 0, tzinfo=timezone.utc)
+        report = sender.deliver_due()
+
+        assert (report.digests, report.delivered) == (1, 3)
+        (request,) = opener.requests
+        text = request.data.decode()  # type: ignore[union-attr]
+        assert "Scheduled summary" in text and "app2.example.com" in text
+
+    def test_a_single_item_is_not_dressed_up_as_a_summary(
+        self, config: Config, ledger: DeliveryLedger, clock: Clock
+    ) -> None:
+        self.summarised_slack(config)
+        opener = Opener()
+        sender = notifier(config, opener, ledger, clock)
+        self.succeed(sender, 1)
+        clock.moment = datetime(2026, 10, 14, 8, 0, tzinfo=timezone.utc)
+
+        report = sender.deliver_due()
+
+        assert (report.digests, report.delivered) == (0, 1)
+
+    def test_a_summary_that_goes_below_warnings_too(
+        self, config: Config, ledger: DeliveryLedger, clock: Clock
+    ) -> None:
+        self.summarised_slack(config, below="failed")
+        opener = Opener()
+        sender = notifier(config, opener, ledger, clock)
+
+        sender.notify(note(kind="disk_threshold", state=State.WARNING, domain=None))
+        sender.notify(note())
+
+        assert len(opener.requests) == 1
+        assert len(ledger.recent(state="held")) == 1
+
+    def test_the_quiet_hours_still_keep_what_they_hold_after_the_summary_hour(
+        self, config: Config, ledger: DeliveryLedger, clock: Clock
+    ) -> None:
+        config.set(
+            "notifications.channels.slack",
+            {
+                "webhook_url": SLACK,
+                "summary": {"at": "08:00"},
+                "quiet": {"start": "07:00", "end": "09:00", "allow": "none"},
+            },
+        )
+        opener = Opener()
+        sender = notifier(config, opener, ledger, clock)
+        self.succeed(sender, 3)
+        clock.moment = datetime(2026, 10, 14, 8, 0, tzinfo=timezone.utc)
+
+        report = sender.deliver_due()
+
+        assert report == SweepReport() and opener.requests == []
+        held = ledger.recent(state="held")
+        assert {item.next_attempt_at for item in held} == {
+            datetime(2026, 10, 14, 9, 0, tzinfo=timezone.utc).timestamp()
+        }
+
+
+class TestHoldsFromBefore:
+    def test_a_delivery_held_before_the_cause_was_recorded_is_a_quiet_hours_one(
+        self, config: Config, ledger: DeliveryLedger, clock: Clock
+    ) -> None:
+        config.set(
+            "notifications.channels.slack",
+            {"webhook_url": SLACK, "quiet": {"start": "22:00", "end": "07:00"}},
+        )
+        clock.moment = datetime(2026, 10, 13, 23, 0, tzinfo=timezone.utc)
+        opener = Opener()
+        sender = notifier(config, opener, ledger, clock)
+        sender.notify(note(kind="disk_threshold", state=State.WARNING, domain=None))
+        with ledger.store._transaction() as cursor:
+            cursor.execute("UPDATE notification_deliveries SET held_for = NULL")
+        assert ledger.recent(state="held")[0].held_for is None
+
+        clock.moment = datetime(2026, 10, 14, 7, 0, tzinfo=timezone.utc)
+        report = sender.deliver_due()
+
+        assert report.delivered == 1 and len(opener.requests) == 1
+
+
 class TestTransientFailures:
     @pytest.mark.parametrize(
         ("error", "transient"),

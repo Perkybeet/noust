@@ -345,6 +345,10 @@ class CertificateError(NoustError):
     pass
 
 
+class CertificateConflictError(CertificateError):
+    """A certificate or authority is already there; the API answers 409."""
+
+
 class CommandError(NoustError):
     """Raised when a shell command execution fails."""
 
@@ -482,6 +486,17 @@ class EmailError(NoustError):
     """Raised when email notification fails."""
 
     pass
+
+
+class EmailRefused(EmailError):
+    """
+    An email provider's API answered with a refusal another try will not change.
+
+    A wrong key, a sender the provider has not verified, an address it rejects:
+    the delivery ledger gives such a delivery up on at once instead of trying it
+    again for hours (an error the provider may recover from, a 5xx or a 429, is
+    a plain :class:`EmailError`).
+    """
 
 
 class SSHError(NoustError):

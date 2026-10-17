@@ -672,6 +672,35 @@ def test_reload_refuses_to_apply_a_broken_configuration(
     assert runner.calls == [("nginx", "-t")]
 
 
+def test_a_reload_of_nginx_lets_the_brute_force_jails_find_the_new_site_logs(
+    nginx: NginxManager, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """fail2ban reads a wildcard of logpath once, so a site loaded now has to be pointed out."""
+    asked: list[Any] = []
+    monkeypatch.setattr(
+        "noust.managers.server.security_fail2ban.watch_new_web_logs",
+        lambda runner=None: asked.append(runner),
+    )
+
+    assert nginx.reload() is True
+
+    assert asked == [runner]
+
+
+def test_a_reload_that_failed_asks_fail2ban_nothing(
+    nginx: NginxManager, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    asked: list[Any] = []
+    monkeypatch.setattr(
+        "noust.managers.server.security_fail2ban.watch_new_web_logs",
+        lambda runner=None: asked.append(runner),
+    )
+    runner.script(["systemctl", "reload", "nginx"], exit_code=1)
+
+    assert nginx.reload() is False
+    assert asked == []
+
+
 def test_apache_syntax_warning_is_not_a_syntax_error(
     apache: ApacheManager, runner: FakeRunner
 ) -> None:

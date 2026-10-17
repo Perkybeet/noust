@@ -119,6 +119,19 @@ export function formatPercent(value: number, locale: Locale = getLocale()): stri
   return numberFormat(locale, { style: "percent", minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value / 100);
 }
 
+/**
+ * An availability on the 0-100 scale, the way a status page writes it: two decimals ("99.95%"), and
+ * "100%" only when nothing failed. A figure that rounds up to 100 is shown as 99.99, because
+ * "100%" would say no check ever failed.
+ */
+export function formatUptime(value: number, locale: Locale = getLocale()): string {
+  if (!Number.isFinite(value)) return "-";
+  const clamped = Math.min(100, Math.max(0, value));
+  const shown = clamped < 100 ? Math.min(99.99, Math.floor(clamped * 100) / 100) : 100;
+  const digits = shown === 100 || shown === 0 ? 0 : 2;
+  return numberFormat(locale, { style: "percent", minimumFractionDigits: digits, maximumFractionDigits: digits }).format(shown / 100);
+}
+
 /** A count: "1,284" in full up to ten thousand, then compact ("12.9K", "4.2M"). */
 export function formatCount(value: number, locale: Locale = getLocale()): string {
   if (!Number.isFinite(value)) return "-";

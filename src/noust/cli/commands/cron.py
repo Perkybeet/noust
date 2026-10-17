@@ -19,13 +19,14 @@ how :mod:`noust.cli.commands.db` is laid out.
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 from typing import Any
 
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
-from noust.core.exceptions import ServiceError
+from noust.core.exceptions import ServiceError, ValidationError
 from noust.core.logger import Logger, state, styled
 from noust.managers.backup_scheduler import SCHEDULE_ALIASES
 from noust.managers.cron_manager import CronJob, CronManager
@@ -490,3 +491,91 @@ def disable(ctx: Context, name: str) -> None:
 def runs(ctx: Context, name: str, limit: int) -> None:
     """Show a job's recent executions, reconstructed from the journal."""
     _exit(_runs(name, limit=limit, logger=ctx.logger, json_output=ctx.json_output))
+
+
+def _ledger(name: str, *, days: int, logger: Logger, json_output: bool = False) -> int:
+    """
+    Show which occurrences of a job ran and which did not.
+
+    Args:
+        name: Job name.
+        days: How far back to look.
+        logger: Logger for the report and errors.
+        json_output: Print the ledger as JSON instead of a report.
+
+    Returns:
+        Exit code.
+    """
+    try:
+        report = CronManager(verbose=logger.verbose).ledger(name, days=days)
+    except (ServiceError, ValidationError) as e:
+        logger.error(str(e))
+        return 1
+
+    if json_output:
+        click.echo(json.dumps(report))
+        return 0
+
+    logger.key_value("Job", report["name"])
+    logger.key_value("Schedule", report["schedule"] or "none")
+    if not report["enabled"]:
+        logger.info("The timer is disabled: nothing is due, so nothing is missed.")
+        return 0
+    judged = len(report["occurrences"])
+    logger.key_value(
+        "Judged",
+        f"{judged} occurrences since {_moment(report['since'])}: "
+        f"{report['ran']} on time, {report['late']} late, {report['missed']} missed",
+    )
+    for occurrence in report["occurrences"]:
+        if occurrence["status"] == "ran":
+            continue
+        detail = (
+            f"ran at {_moment(occurrence['ran_at'])}"
+            if occurrence["status"] == "late"
+            else ("the server was off" if occurrence["reason"] == "server_off" else "did not run")
+        )
+        logger.check(
+            _moment(occurrence["at"]),
+            f"{occurrence['status']}: {detail}",
+            "warn" if occurrence["status"] == "late" else "error",
+        )
+    if report["missed"] + report["late"] == 0:
+        logger.success("Every occurrence ran on time")
+    return 0
+
+
+def _moment(seconds: float | None) -> str:
+    """
+    Args:
+        seconds: Epoch seconds.
+
+    Returns:
+        The moment in UTC, as the runs of a job show it.
+    """
+    if seconds is None:
+        return "unknown"
+    return dt.datetime.fromtimestamp(seconds, tz=dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+
+@cli.command("ledger")
+@click.argument("name")
+@click.option(
+    "--days",
+    type=click.IntRange(1, 31),
+    default=7,
+    show_default=True,
+    help="How far back to look.",
+)
+@json_option("Print the ledger as JSON.")
+@pass_context
+def ledger(ctx: Context, name: str, days: int) -> None:
+    """
+    Show which occurrences of a job ran, were late or never ran.
+
+    A timer makes up one run for the time the machine was off and says nothing
+    about the others. The ledger sets each moment the schedule fell due against
+    the runs the journal saw, and says when the server was off. It judges only
+    from when it can: not before the journal begins or the timer was written.
+    """
+    _exit(_ledger(name, days=days, logger=ctx.logger, json_output=ctx.json_output))

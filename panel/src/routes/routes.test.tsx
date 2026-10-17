@@ -1,7 +1,8 @@
 import { act, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setLocale } from "../app/locale";
+import { drawnKeys, goCold } from "../test/coldCatalog";
 import { renderConsole } from "../test/console";
 import { databaseRoutes } from "../features/databases/testFixtures";
 import { fakeBackend, json, signedInRoutes } from "../test/fakes";
@@ -27,6 +28,7 @@ const PAGES: [path: string, heading: string, content: string][] = [
   ["/apps/shop.example.com/settings/deploy-on-push", "shop.example.com", "Deploy on push"],
   ["/apps/shop.example.com/settings/builds", "shop.example.com", "Builds"],
   ["/apps/shop.example.com/settings/resources", "shop.example.com", "Resources"],
+  ["/apps/shop.example.com/settings/disk", "shop.example.com", "Disk"],
   ["/apps/shop.example.com/settings/previews", "shop.example.com", "Pull request previews"],
   ["/apps/shop.example.com/settings/export", "shop.example.com", "Export"],
   ["/apps/shop.example.com/settings/delete", "shop.example.com", "Delete"],
@@ -76,7 +78,18 @@ describe("the route tree", () => {
     }));
   });
 
+  // Each page opens as it does in a browser that has just arrived: the chrome of English and nothing
+  // else, so the namespaces it draws are the ones the router loaded for it (i18n/routeNamespaces.ts).
+  // A text a page draws that its route did not declare is a miss here, with the namespace named.
+  let restoreCatalog: (() => Promise<void>) | undefined;
+  afterEach(async () => {
+    await restoreCatalog?.();
+    restoreCatalog = undefined;
+  });
+
   it.each(PAGES)("%s is %s", async (path, heading, content) => {
+    const cold = goCold();
+    restoreCatalog = cold.restore;
     // The databases area answers from its own fixtures (features/databases/testFixtures).
     const backend = fakeBackend(databaseRoutes());
     backend.on("GET /api/integrations/github", () => json(200, NO_GITHUB_APP));
@@ -95,6 +108,8 @@ describe("the route tree", () => {
         screen.queryByRole("heading", { level: 2, name: content }) ?? screen.queryByRole("region", { name: content }),
       ).toBeInTheDocument();
     });
+    expect(cold.misses).toEqual([]);
+    expect(drawnKeys()).toEqual([]);
   });
 
   it("/integrations/github/callback is where GitHub sends the browser back", async () => {

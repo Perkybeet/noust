@@ -289,6 +289,23 @@ def _sandbox(app: App) -> dict[str, Any]:
     return {"profile": record.profile, "writable_paths": ",".join(record.writable_paths)}
 
 
+def _tuning(app: App) -> dict[str, Any]:
+    from noust.core.unit_tuning_store import get_record
+
+    record = get_record(app.domain)
+    if record is None:
+        return {}
+    return {
+        name: ",".join(
+            entry["path"] + ":" + entry["mode"] if isinstance(entry, dict) else str(entry)
+            for entry in value
+        )
+        if isinstance(value, list)
+        else value
+        for name, value in record.options.items()
+    }
+
+
 def _mounts(app: App) -> dict[str, Any]:
     from noust.core import app_mount_store
     from noust.managers.app_mounts import MountManager, unsupported_reason
@@ -331,6 +348,7 @@ SECTIONS: tuple[Section, ...] = (
     Section("limits", NEEDS_RESTART, _limits, on_restart=True),
     Section("mounts", NEEDS_RESTART, _mounts, hashed=True, on_restart=True),
     Section("sandbox", NEEDS_RESTART, _sandbox, on_restart=True),
+    Section("tuning", NEEDS_RESTART, _tuning, on_restart=True),
     Section("build", NEEDS_REBUILD, _build, hashed=True),
     Section("container", NEEDS_REBUILD, _container, hashed=True),
     Section("persistent_paths", NEEDS_REBUILD, _persistent_paths),

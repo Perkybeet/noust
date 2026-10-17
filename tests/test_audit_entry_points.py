@@ -257,8 +257,13 @@ def _events(action: str) -> list[dict[str, Any]]:
 
 class TestEntryPointsUnderTheEnsProfile:
     @pytest.fixture(autouse=True)
-    def _ens(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(audit_policy, "security_profile", lambda: "ens-medium")
+    def _ens(self, monkeypatch: pytest.MonkeyPatch, real_config: Any) -> None:
+        from noust.core.audit import failclosed
+
+        real_config.set("security.frameworks", ["ens-media"])
+        # ENS MEDIA also refuses changes while the trail cannot be written; what is under
+        # test here is the reason, so the trail is taken as writable.
+        monkeypatch.setattr(failclosed, "refusal", lambda config=None: None)
         monkeypatch.setattr(audit_policy.audit, "cli_actor", lambda: SYSTEMD)
 
     def test_an_entry_point_runs_without_a_reason_and_is_on_record(self) -> None:

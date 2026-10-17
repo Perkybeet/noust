@@ -88,7 +88,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from noust.core import paths
+from noust.core import compliance, paths
 from noust.core.exceptions import BuildError, ConfigError, NoustError, ValidationError
 from noust.core.fs import FileSystem, get_fs, is_rehearsal
 from noust.core.logger import Logger
@@ -571,7 +571,7 @@ def enable(
 
 
 def disable(
-    domain: str, *, actor: str, reason: str, store: NoustStore | None = None
+    domain: str, *, actor: str, reason: str | None = None, store: NoustStore | None = None
 ) -> SandboxState:
     """
     Build an application as root from now on: an explicit, audited decision.
@@ -579,26 +579,28 @@ def disable(
     Args:
         domain: The application.
         actor: Who decided, for the record.
-        reason: Why, in the operator's words; required.
+        reason: Why, in the operator's words; required only where the
+            ``exception_reasons`` control is on (the ENS profile, or the setting).
         store: The store; the process-wide one by default.
 
     Returns:
         The new state.
 
     Raises:
-        ValidationError: No reason was given.
+        ValidationError: No reason was given where one is required.
     """
-    if not reason.strip():
+    text = compliance.reason_text(reason)
+    if text is None:
         raise ValidationError(
             "Building as root needs a reason",
-            details="Say why this application cannot build in the sandbox: --reason '...'. "
+            details="This server asks for one: --reason '...'. "
             "It is recorded with your name and shown wherever the application is.",
         )
     state = _write(
         store or get_store(),
         domain,
         mode=SandboxMode.OFF.value,
-        reason=reason.strip(),
+        reason=text,
         changed_by=actor,
         changed_at=_now(),
     )
@@ -714,14 +716,15 @@ def set_compose_exception(
         domain: The application, deployed or not yet.
         allowed: Whether it may.
         actor: Who decided.
-        reason: Why; required to allow.
+        reason: Why; required to allow only where the ``exception_reasons``
+            control is on.
         store: The store; the process-wide one by default.
 
     Returns:
         The exception now in force, or None once revoked.
 
     Raises:
-        ValidationError: Allowing without a reason.
+        ValidationError: Allowing without a reason where one is required.
     """
     store = store or get_store()
     if not allowed:
@@ -729,12 +732,13 @@ def set_compose_exception(
             cursor.execute("DELETE FROM compose_exceptions WHERE domain = ?", (domain,))
         _audit(domain, action="compose_exception_revoke", by=actor)
         return None
-    if not (reason or "").strip():
+    text = compliance.reason_text(reason)
+    if text is None:
         raise ValidationError(
             "A privileged container needs a reason",
-            details="It is root on this server: say why this stack needs it, with --reason.",
+            details="It is root on this server and this server asks why: --reason '...'.",
         )
-    exception = ComposeException(domain, (reason or "").strip(), actor, _now())
+    exception = ComposeException(domain, text, actor, _now())
     with store._transaction() as cursor:
         cursor.execute(
             "INSERT INTO compose_exceptions (domain, reason, allowed_by, allowed_at) "
@@ -1116,6 +1120,11 @@ def ensure_cache_dir(
     return cache
 
 
+#: The variables whose value is a list of JVM options, which an application's own value is
+#: appended to rather than replacing (see :func:`command_environment`).
+JVM_OPTION_VARIABLES: tuple[str, ...] = ("MAVEN_OPTS", "GRADLE_OPTS")
+
+
 def build_environment(cache: Path) -> dict[str, str]:
     """
     Point every package manager's cache and home at an application's cache.
@@ -1147,9 +1156,13 @@ def build_environment(cache: Path) -> dict[str, str]:
         # which a release's own directory would throw away every deploy.
         "CARGO_HOME": str(cache / "cargo"),
         "CARGO_TARGET_DIR": str(cache / "cargo-target"),
-        # Java: Maven's repository and its wrapper's distributions are under HOME
-        # (~/.m2); Gradle's home is its own variable.
+        # Java: Gradle's home is its own variable, but Maven's repository (~/.m2) and
+        # everything else a JVM keeps "at home" follow the user.home property, which the
+        # JVM reads from the password file and not from $HOME. The build account's home
+        # is /nonexistent, so each tool is told where home is.
         "GRADLE_USER_HOME": str(cache / "gradle"),
+        "MAVEN_OPTS": f"-Duser.home={cache}",
+        "GRADLE_OPTS": f"-Duser.home={cache}",
         # .NET: the SDK's per-user state and the packages restore downloads, and no
         # telemetry or welcome banner from a build nobody watches.
         "DOTNET_CLI_HOME": str(cache / "dotnet"),
@@ -1779,7 +1792,15 @@ def command_environment(
     """
     strict_install = phase is BuildPhase.INSTALL and state.network == NetworkProfile.STRICT.value
     chosen = dict(given or {}) if strict_install else dict(configured)
-    return {**build_environment(cache), **chosen}
+    environment = {**build_environment(cache), **chosen}
+    # The JVM options are the one cache setting an application's own variables extend instead of
+    # replacing: a MAVEN_OPTS that only asks for a heap must not take the build's home away.
+    defaults = build_environment(cache)
+    for name in JVM_OPTION_VARIABLES:
+        theirs = chosen.get(name)
+        if theirs:
+            environment[name] = f"{defaults[name]} {theirs}"
+    return environment
 
 
 #: What switches a package manager to a production install (devDependencies

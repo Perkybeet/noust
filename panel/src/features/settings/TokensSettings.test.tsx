@@ -184,6 +184,51 @@ describe("Settings > API tokens", () => {
     expect(block).toHaveTextContent("An API token named 'ci-deploy' already exists");
   });
 
+  it("changes where a live token works from, and asks to confirm it only when that widens it", { timeout: 20_000 }, async () => {
+    const backend = tokensBackend(SEEDED);
+    let widening = true;
+    backend.on("PATCH /api/auth/tokens/1", (call) => {
+      const body = call.body as { allowed_cidrs: string[] };
+      if (widening) {
+        widening = false;
+        return problem(403, "elevation_required", "Confirm it's you to continue.");
+      }
+      return json(200, { ...SEEDED[0], allowed_cidrs: body.allowed_cidrs });
+    });
+    const { user } = renderConsole("/settings/tokens");
+    await screen.findByText("ci-deploy");
+    // Only a live token has addresses to change.
+    expect(screen.getAllByRole("button", { name: /^Change where / })).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "Change where ci-deploy works from" }));
+    const dialog = await screen.findByRole("dialog", { name: "Where ci-deploy works from" });
+    await user.type(within(dialog).getByLabelText(/^Only from/), "203.0.113.0/24, 10.0.0.0/8");
+    await user.click(within(dialog).getByRole("button", { name: "Save addresses" }));
+
+    const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
+    await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
+    await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+
+    await expectToast("Changed where ci-deploy works from");
+    const calls = backend.callsTo("PATCH /api/auth/tokens/1");
+    expect(calls.at(-1)?.body).toEqual({ allowed_cidrs: ["203.0.113.0/24", "10.0.0.0/8"] });
+  });
+
+  it("says why the addresses were refused, in the field they belong to", { timeout: 20_000 }, async () => {
+    const backend = tokensBackend(SEEDED);
+    backend.on("PATCH /api/auth/tokens/1", () =>
+      problem(400, "securityerror", "Not an address or a network: 'nowhere'", { hint: "Use 203.0.113.7 or 10.0.0.0/8." }),
+    );
+    const { user } = renderConsole("/settings/tokens");
+    await screen.findByText("ci-deploy");
+    await user.click(screen.getByRole("button", { name: "Change where ci-deploy works from" }));
+    const dialog = await screen.findByRole("dialog", { name: "Where ci-deploy works from" });
+    await user.type(within(dialog).getByLabelText(/^Only from/), "nowhere");
+    await user.click(within(dialog).getByRole("button", { name: "Save addresses" }));
+    const block = await within(dialog).findByRole("alert");
+    expect(block).toHaveTextContent("Not an address or a network");
+    expect(block).toHaveTextContent("Use 203.0.113.7 or 10.0.0.0/8.");
+  });
+
   it("revokes a token after one question: it can be made again", { timeout: 20_000 }, async () => {
     const backend = tokensBackend(SEEDED);
     const { user } = renderConsole("/settings/tokens");

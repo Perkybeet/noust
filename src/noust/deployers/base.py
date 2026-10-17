@@ -36,7 +36,7 @@ import sqlite3
 from abc import abstractmethod
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar, Literal
 
@@ -65,7 +65,6 @@ from noust.core.store import (
     AppStatus,
     DeploymentTrigger,
     DomainKind,
-    ReleaseRecord,
     ReleaseStatus,
     get_store,
 )
@@ -109,9 +108,11 @@ from noust.deployers.helpers.hooks import (
 from noust.deployers.helpers.layout import RELEASES, choose_layout, env_file_in
 from noust.deployers.helpers.nginx_config import NginxAdvancedConfig
 from noust.deployers.helpers.permissions import hand_over_file, hand_over_tree
+from noust.deployers.helpers.process_declaration import declare_for_release, procfile_honoured
 from noust.deployers.helpers.processes import RELEASE, WEB, ProcessSet, resolve_processes
 from noust.deployers.helpers.project_file import parse_build_document
 from noust.deployers.helpers.registration import StoreRegistrar
+from noust.deployers.helpers.release_book import ReleaseBook
 from noust.deployers.helpers.release_build import (
     REPO_CACHE_DIR,
     StagedRelease,
@@ -780,13 +781,8 @@ class BaseDeployer(AppDeployer):
             True for a new application, or one deployed from its Procfile.
         """
         if self._procfile_decision is None:
-            applied = (
-                app_build_store.get_applied(self.domain, store=self.store)
-                if self._app_row() is not None
-                else None
-            )
-            self._procfile_decision = self._app_row() is None or bool(
-                applied and applied.get("procfile")
+            self._procfile_decision = self._app_row() is None or procfile_honoured(
+                self.domain, self.store
             )
         return self._procfile_decision
 
@@ -2225,6 +2221,7 @@ class BaseDeployer(AppDeployer):
             issues += preflight.repository_unreachable(self.runner, self.source)
 
         issues += preflight.insufficient_disk_space(self.config.apps_directory)
+        issues += preflight.over_disk_limit(existing_app, self.runner)
 
         if self.port:
             issues += preflight.port_taken(
@@ -3677,45 +3674,17 @@ class BaseDeployer(AppDeployer):
         """
         if not self.domain or isinstance(self.fs, DryRunFileSystem) or not self.start_command():
             return None
-        found = self.processes()
-        if found.problem or (found.source == "Procfile" and not self._procfile_applies()):
-            # Not read, so not a reason to change what runs: the processes a previous
-            # deployment declared stay as they are.
-            return None
-        beside = [process.name for process in found if not process.started_by_noust]
-        if not self.uses_releases:
-            if beside:
-                self.logger.warning(
-                    f"{', '.join(beside)} declared by the repository "
-                    f"{'is' if len(beside) == 1 else 'are'} not started: processes run on the "
-                    f"releases layout and this application is deployed in place "
-                    f"(noust app migrate {self.domain})"
-                )
-            return None
         manager = ProcessManager(
             store=self.store, services=self.service_manager, runner=self.runner, log=self.logger
         )
-        try:
-            declaration = manager.declare(self.domain, found)
-        except NoustError as exc:
-            self.logger.warning(
-                "The processes the repository declares are not started: "
-                f"{exc.message}{'. ' + exc.details if exc.details else ''}"
-            )
-            return None
-        for name, reason in declaration.skipped:
-            self.logger.warning(
-                f"The {name} process the repository declares is not started: {reason}"
-            )
-        if declaration.changed:
-            self.logger.substep(
-                f"Processes beside the web one, from the repository: {', '.join(declaration.changed)}"
-            )
-        if declaration.removed:
-            self.logger.substep(
-                f"The repository no longer declares: {', '.join(declaration.removed)}"
-            )
-        return None if declaration.empty else declaration
+        return declare_for_release(
+            manager,
+            self.domain,
+            self.processes(),
+            procfile_applies=self._procfile_applies(),
+            releases_layout=self.uses_releases,
+            log=self.logger,
+        )
 
     def _zero_downtime_app(self) -> App | None:
         """
@@ -3876,6 +3845,14 @@ class BaseDeployer(AppDeployer):
             return self._app_record
         return self.store.get_app(self.domain) if self.domain else None
 
+    def _release_book(self) -> ReleaseBook:
+        """
+        Returns:
+            The writer of this application's release rows, over this deployer's store, logger
+            and filesystem.
+        """
+        return ReleaseBook(self.store, self.logger, self.fs, self.domain)
+
     def _records_releases(self) -> int | None:
         """
         Tell whether release rows can be written, and for which application.
@@ -3885,10 +3862,7 @@ class BaseDeployer(AppDeployer):
             the app row back, so a release row would point at nothing) and
             when the application is not registered.
         """
-        if isinstance(self.fs, DryRunFileSystem):
-            return None
-        app = self.store.get_app(self.domain) if self.domain else None
-        return app.id if app is not None else None
+        return self._release_book().app_id()
 
     def _record_release_row(self, staged: StagedRelease) -> None:
         """
@@ -3897,23 +3871,7 @@ class BaseDeployer(AppDeployer):
         Args:
             staged: The release.
         """
-        app_id = self._records_releases()
-        if app_id is None:
-            return
-        try:
-            if self.store.get_release(app_id, staged.id) is None:
-                self.store.record_release(
-                    ReleaseRecord(
-                        id=staged.id,
-                        app_id=app_id,
-                        git_commit=staged.short_commit,
-                        created_at=datetime.now(timezone.utc).isoformat(),
-                        status=ReleaseStatus.BUILT.value,
-                        path=str(staged.path),
-                    )
-                )
-        except _RECORDING_ERRORS as exc:
-            self.logger.warning(f"Could not record release {staged.id}: {exc}")
+        self._release_book().record_row(staged)
 
     def _record_release_status(self, staged: StagedRelease, status: ReleaseStatus) -> None:
         """
@@ -3923,13 +3881,7 @@ class BaseDeployer(AppDeployer):
             staged: The release.
             status: Its new status.
         """
-        app_id = self._records_releases()
-        if app_id is None:
-            return
-        try:
-            self.store.set_release_status(app_id, staged.id, status.value)
-        except _RECORDING_ERRORS as exc:
-            self.logger.warning(f"Could not record release {staged.id} as {status.value}: {exc}")
+        self._release_book().record_status(staged, status)
 
     def _record_release_active(self, staged: StagedRelease) -> None:
         """
@@ -3938,42 +3890,16 @@ class BaseDeployer(AppDeployer):
         Args:
             staged: The release.
         """
-        app_id = self._records_releases()
-        if app_id is None:
-            return
-        try:
-            self.store.mark_release_active(app_id, staged.id)
-        except _RECORDING_ERRORS as exc:
-            self.logger.warning(f"Could not record release {staged.id} as active: {exc}")
+        self._release_book().record_active(staged)
 
     def _prune_releases(self, staged: StagedRelease) -> None:
         """
         Delete the releases beyond the application's retention, and forget them.
 
-        Rows of releases that failed and were removed are kept while they are
-        among the newest ``keep`` rows, so recent failures stay visible, and
-        forgotten after that.
-
         Args:
             staged: The release just activated.
         """
-        keep = self._keep_releases()
-        removed = staged.manager.prune(keep)
-        for release in removed:
-            self.logger.substep(f"Pruned release {release.id}")
-
-        app_id = self._records_releases()
-        if app_id is None:
-            return
-        try:
-            self.store.forget_pruned_releases(
-                app_id,
-                on_disk={release.id for release in staged.manager.list()},
-                removed={release.id for release in removed},
-                keep=keep,
-            )
-        except _RECORDING_ERRORS as exc:
-            self.logger.warning(f"Could not forget pruned releases: {exc}")
+        self._release_book().prune(staged, self._keep_releases())
 
     def _seed_shared_files(self) -> None:
         """

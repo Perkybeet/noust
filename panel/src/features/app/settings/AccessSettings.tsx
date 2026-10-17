@@ -423,7 +423,7 @@ function Http3Card({ form, domain, t }: { form: ReturnType<typeof useAccessForm>
           disabled={cannot && !draft.http3}
           onCheckedChange={(checked) => edit("http3", checked)}
         />
-        {form.errorOf("http3") !== undefined ? <p className="text-13 text-danger">{form.errorOf("http3")}</p> : null}
+        {form.errorOf("http3") !== undefined ? <p className="text-13 text-fail">{form.errorOf("http3")}</p> : null}
         {support.isError ? <ErrorBlock compact error={support.error} title={t("network.access.http3.readFailed")} /> : null}
         {data !== undefined && !data.available ? (
           <Notice tone="warning" title={data.problem}>

@@ -1354,7 +1354,8 @@ def verify_days(config: Config) -> int:
     How often a schedule proves its backups restorable (ENS mp.info.6.r1).
 
     ``backup.verify_days`` (0 turns it off), capped by the security profile's
-    value under ``ens-medium``, where it cannot be turned off.
+    value where a compliance framework asks for it (ENS MEDIA does), where it
+    cannot be turned off.
 
     Args:
         config: The configuration.
@@ -1362,20 +1363,10 @@ def verify_days(config: Config) -> int:
     Returns:
         Days; 0 for never.
     """
-    from noust.core.ens.profile import active_defaults
+    from noust.core.compliance import resolve
 
-    defaults = active_defaults(config)
-    try:
-        configured = int(config.get("backup.verify_days", defaults.backup_verify_days))
-    except (TypeError, ValueError):
-        configured = defaults.backup_verify_days
-    if defaults.ens:
-        return (
-            min(configured, defaults.backup_verify_days)
-            if configured > 0
-            else (defaults.backup_verify_days)
-        )
-    return max(configured, 0)
+    days = resolve.value("backup_verify_days", config)
+    return 0 if days is None else int(days)
 
 
 def _verify_when_due(

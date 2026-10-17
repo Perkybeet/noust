@@ -5,7 +5,7 @@
 
 export { useT, bindT } from "./useT";
 export type { T } from "./useT";
-export { translate, translateRich } from "./translate";
+export { hasMessage, translate, translateRich } from "./translate";
 export type { RichParams } from "./translate";
 export { catalogFor, isCatalogLoaded, loadCatalog } from "./catalogs";
 export { LOCALES } from "./types";

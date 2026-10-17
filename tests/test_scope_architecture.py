@@ -443,6 +443,7 @@ class TestEveryRouteIsHeldToTheScope:
             "DELETE /api/terminal/sessions/{session_id}",
             "GET /api/jobs/active",
             "GET /api/jobs/queue",
+            "GET /api/logs/search",
             "POST /api/jobs/update-many",
             "POST /api/manifest/apply",
             "GET /api/recipes/installed",
@@ -466,6 +467,13 @@ TEAMS_FRAGMENT = "TEAMS"
 #: database: ``(method, route, how the route is classified)``. Each route must be served and must
 #: be classified as said, so a route that drifts to "open" or loses its resource fails here.
 OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
+    # The record of deliveries names every team's applications and keeps what was sent about
+    # them: the server's, like the channels it went through.
+    "notification_deliveries": (
+        ("GET", "/api/notifications/deliveries", INSTANCE),
+        ("POST", "/api/notifications/deliveries/sweep", INSTANCE),
+        ("POST", "/api/notifications/deliveries/{delivery_id}/retry", INSTANCE),
+    ),
     # The text a site's file held: reached through the site, which names its application.
     "site_config_versions": (
         ("GET", "/api/sites/{domain}/config/versions", RESOURCE),
@@ -484,6 +492,13 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("GET", "/api/alerts/rules", INSTANCE),
         ("PUT", "/api/alerts/rules/{name}", INSTANCE),
         ("DELETE", "/api/alerts/rules/{name}", INSTANCE),
+    ),
+    # Where each application a rule watches stands, and who took it: read with the rules and
+    # taken through them, the server's like the monitor.
+    "alert_states": (
+        ("GET", "/api/alerts/rules", INSTANCE),
+        ("POST", "/api/alerts/rules/{name}/acknowledge", INSTANCE),
+        ("DELETE", "/api/alerts/rules/{name}/acknowledge", INSTANCE),
     ),
     # An application's own routes: another team's reads as absent before the handler runs.
     "app_build": (
@@ -592,6 +607,23 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
     "app_hardening": (
         ("GET", "/api/apps/{domain}/hardening", RESOURCE),
         ("PUT", "/api/apps/{domain}/hardening", RESOURCE),
+    ),
+    "app_unit_tuning": (
+        ("GET", "/api/apps/{domain}/tuning", RESOURCE),
+        ("PUT", "/api/apps/{domain}/tuning", RESOURCE),
+    ),
+    # What a site adopted from the server is: read through its application, written by the
+    # instance's own adoption, which no team can ask for.
+    # What an application takes of the disk and the limit it is held to: its own routes.
+    "app_disk": (
+        ("GET", "/api/apps/{domain}/disk", RESOURCE),
+        ("PUT", "/api/apps/{domain}/disk", RESOURCE),
+        ("POST", "/api/apps/{domain}/disk/measure", RESOURCE),
+        ("PUT", "/api/apps/{domain}/disk/kernel", RESOURCE),
+    ),
+    "app_adoption": (
+        ("GET", "/api/apps/{domain}/adoption", RESOURCE),
+        ("POST", "/api/apps/adopt-site", INSTANCE),
     ),
     "app_recipes": (
         ("GET", "/api/recipes/installed", SCOPED),
@@ -759,6 +791,8 @@ NOT_OWNED: dict[str, str] = {
     "console_exposure": "the name the console itself is published on: the server's, not an application's",
     "db_instances": "an engine Noust runs in a container beside the host's: the server's, like the "
     "host's engines. A database on it is a team's, and is reached as any database is",
+    "fleet_builders": "which server a central builds an application on: the central's own, reached "
+    "only through /api/fleet, which is the instance's. The node keeps the application and its build",
     "fleet_placements": "where a central runs an application across its servers: the central's own, "
     "reached only through /api/fleet, which is the instance's. Each server keeps the application and "
     "applies its own teams' scope to it",

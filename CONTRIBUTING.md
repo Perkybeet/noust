@@ -80,6 +80,8 @@ src/noust/
                     through openssl, never a new dependency
     store_secrets.py  which columns of the store hold a secret value and are emptied in a copy
                     (an incident's snapshot, `store export`); a test fails on a column nobody ruled on
+    compose_yaml.py  a Compose document read the way Compose reads it (PyYAML takes `2222:22` for a
+                    base 60 number and `no` for false); every reader of a Compose file uses it
   validators/       names, environments, sources, ports, domains
   managers/         adapters: web server, systemd, certs, backups, databases, source, cron
     diagnose.py     why an app is down: read-only probes, most likely cause first
@@ -93,6 +95,9 @@ src/noust/
                     made, an instance is one more key (`postgresql@pg16`) to every database manager
     app_identity.py the one answer to "which account does this app run as"
     site_topology.py, timeline.py   what a site reaches, live; one timeline over a stretch
+    internal_ca.py, ca_trust.py  the server's own authority for names that only resolve inside a
+                    private network (`noust cert ca`): name-constrained, one machinery with the
+                    database engines' (`TlsAuthority`), its leaves kept as uploads, trust told per device
     console_exposure.py  the console on a public name over TLS (`noust console expose`): nginx
                     site, certificate, trusted proxy, and a record of exactly what it made so
                     `unexpose` removes that and no more
@@ -139,12 +144,24 @@ panel/              Noust console source: React 19, TypeScript, Vite, TanStack R
                     Base UI, Tailwind v4; src/api/schema.gen.ts is generated from openapi.json
   e2e/              Playwright + axe + CSP gate against the real backend
 scripts/console_server.py   the real API on a seeded, sandboxed store (development and E2E)
-scripts/generate_sdk.py     sdk/python from panel/openapi.json; sdk/terraform is the map a provider is
-                            derived from (docs/sdk.md, docs/terraform.md); CI fails on a stale file
+scripts/generate_sdk.py     sdk/python from panel/openapi.json; sdk/terraform is the map the provider is
+                            written from (docs/sdk.md, docs/terraform.md); CI fails on a stale file
+terraform-provider-noust/   the Terraform and OpenTofu provider (Go, Plugin Framework): a client of the API
+                            like the SDK, with the operations table (internal/noust/operations.go) held to
+                            panel/openapi.json by its tests. Published from a repository of its own
+                            (docs/terraform-registry.md, scripts/prepare_terraform_registry.py)
 scripts/reproducible_build.py   the wheel and the sdist of a commit, byte for byte
                             (docs/reproducible-builds.md); CI and the release workflow build with it
 tests/integration/run.py    real deploys in a systemd container (Docker); not part of pytest
 tests/integration/install_matrix.py   the installer on one container per release; not part of pytest
+tests/integration/terraform_run.py    the provider and the Python SDK against the live API of
+                            scripts/console_server.py, Go and Terraform in containers; not part of pytest
+tests/integration/identity.py         SAML, OpenID Connect, LDAP and SCIM against Keycloak, OpenLDAP and a
+                            SCIM conformance client; not part of pytest
+tests/integration/network_run.py      fail2ban, HTTP/3, forward-auth, prefix routes, a site's history,
+                            Coolify templates and the private certificate authority against the real
+                            programs and real clients (Debian server, Alpine client, AlmaLinux device);
+                            not part of pytest
 packaging/install.sh        the one-line installer (POSIX sh, shellcheck-clean), published with a
                             signed SHA256SUMS; its platform table is generated, never edited
 ```
@@ -439,6 +456,7 @@ npm test                        # vitest unit + component tests (axe included)
 npm run check:api               # schema.gen.ts matches openapi.json (npm run gen:api to fix)
 npm run build                   # writes src/noust/web/static: commit the result
 npm run check:bundle            # the build's gzip weight against panel/bundle-budget.json
+npm run i18n:routes             # rewrite src/i18n/routeNamespaces.gen.ts after a route or a page's texts change
 npm run e2e                     # Playwright: every page, both themes, zero axe/CSP violations
 npm run e2e:screens             # screenshots of every route, both themes + 390px mobile
 ```
@@ -579,6 +597,16 @@ case, and lives only in the typed catalogs of `panel/src/i18n` (rules and glossa
 README): whole sentences with placeholders, never fragments. A language beyond these two is not a
 typed catalog but a JSON file in `panel/src/i18n/community/` that anyone can contribute without
 TypeScript (`npm run i18n:new`, guide in `docs/TRANSLATING.md`); tests hold it to English.
+
+The catalogs are not in the script every page loads. Each namespace of each typed language is a
+chunk of its own; only the chrome (what the frame of any page draws) is bundled, in English
+(`CHROME` in `panel/src/i18n/catalogs.ts`). The router loads a route's namespaces before the page
+is shown, from a map generated from the source: after a page starts to draw another feature's
+texts, or a route is added, run `npm run i18n:routes` and commit `routeNamespaces.gen.ts` (a test
+fails until you have). The rest of the language is fetched while the browser is idle, and `t()`
+outside a render never waits or throws (`panel/src/i18n/README.md`, "How the texts reach the
+browser"). Nothing but `catalogs.ts` imports a catalog; a test fails on the next
+`import * as en from "./en"`.
 
 A system error is never paraphrased. Show nginx's or systemd's own output verbatim in mono,
 with the suggested fix above it.

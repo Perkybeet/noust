@@ -54,6 +54,8 @@ from urllib.parse import urlparse
 import yaml  # type: ignore[import-untyped]
 
 from noust.core import paths, update_policy
+from noust.core.compliance import controls as _compliance_controls
+from noust.core.compliance import frameworks as _compliance_frameworks
 from noust.core.config_text import CannotEditText, remove_keys
 from noust.core.ens.profile import STANDARD as STANDARD_PROFILE
 from noust.core.ens.profile import SUDO_IDLE_RANGE, SUDO_MAX_RANGE
@@ -242,6 +244,18 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "use_tls": False,
             "from_address": "",
         },
+        # Mail through a provider's HTTP API instead of the SMTP relay above:
+        # "resend", "postmark", "brevo" or "ses" (empty: SMTP). It replaces
+        # SMTP, never adds to it. api_key is the provider's key (the server
+        # token for Postmark); Amazon SES takes a region and an access key.
+        "email_api": {
+            "provider": "",
+            "api_key": "",
+            "region": "",
+            "access_key_id": "",
+            "secret_access_key": "",
+            "from_address": "",
+        },
         "email_recipients": [],
     },
     "notifications": {
@@ -300,6 +314,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
             # breaching its threshold.
             "alert_firing": True,
             "alert_resolved": True,
+            "alert_acknowledged": True,
             # A scheduled backup that did not run for days: nothing failed, so
             # backup_failed never says so.
             "backup_missing": True,
@@ -311,6 +326,14 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "os_patches": True,
             # An API token about to expire.
             "token_expiring": True,
+            # The disk cleanup a policy ran by itself (the success is a heartbeat,
+            # off like the others), a task whose timer is not running, and an
+            # address that stopped answering a probe.
+            "cleanup_success": False,
+            "cleanup_failed": True,
+            "cron_missed": True,
+            "probe_failed": True,
+            "probe_recovered": True,
         },
         "channels": {
             # A webhook URL is a capability: Slack and Discord embed the
@@ -336,11 +359,24 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "ntfy": {"webhook_url": "", "token": ""},
             "gotify": {"webhook_url": "", "token": ""},
             "teams": {"webhook_url": ""},
+            # Mattermost: an incoming webhook's URL. Matrix: the homeserver,
+            # the room's id (!abc:example.org) and the posting account's
+            # access token. Lark: the custom bot's URL and, if it asks for
+            # signature verification, its signing secret. PagerDuty: the
+            # service's Events API v2 integration key and its region (us/eu).
+            "mattermost": {"webhook_url": ""},
+            "matrix": {"homeserver": "", "room_id": "", "access_token": ""},
+            "lark": {"webhook_url": "", "secret": ""},
+            "pagerduty": {"routing_key": "", "region": "us"},
             # Any other key is a further instance with a "type" (a second
             # Slack, a staging Discord) and may carry its own "events",
             # "route" and "quiet"; see noust.core.notifications.instances.
         },
     },
+    # The public status page of the probes marked public: static files the
+    # monitor rewrites, served by any web server (noust probe status-page).
+    # directory empty is /var/lib/noust/status-page.
+    "status_page": {"enabled": False, "directory": "", "title": ""},
     "web": {
         "enabled": False,
         "host": "127.0.0.1",
@@ -370,6 +406,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "lockout_duration": 900,
         "token_expiration_hours": 12,
         "ip_whitelist": [],
+        # Whether API tokens are accepted at all. Off: the console still works by its
+        # cookie sessions and the command line does not use the API, but nobody scripts
+        # against this server with a noust_tok_ credential. A central's fleet token is not
+        # an API token in this sense and keeps working. Read on every request by
+        # noust.web.auth.TokenManager.
+        "api_enabled": True,
         # Host header values the console answers to, checked on every request
         # by noust.web.server.SecurityMiddleware. Names, or "*.example.com" for
         # every subdomain; the loopback names and the host of web.public_url
@@ -386,9 +428,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "host": "",
     },
     "security": {
-        # "standard", or "ens-medium" for Spain's ENS category MEDIUM: it
-        # caps the auth settings below at the profile's values and keeps the
-        # master token to account recovery. See noust.core.accounts.policy.
+        # The compliance frameworks that are on (noust.core.compliance.frameworks): ens-basica,
+        # ens-media, ens-alta, iso-27001, nis2, cis-ig1, cis-ig2, soc2-security, gdpr-32. Each
+        # turns on the controls below it names the clause of; several may be on, and the
+        # strictest value wins. Empty: nothing chosen, everything as permissive as standard.
+        "frameworks": [],
+        # "standard", or "ens-medium": the setting from before frameworks, kept working. It
+        # means "ENS MEDIA is on" (anything that is not "standard" does, failing strict).
         "profile": "standard",
         # Hosts the machine may send a request to though they resolve to its
         # own network (a NAS for backups, an artifact server for a source
@@ -396,11 +442,30 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # exactly. Empty refuses every internal destination: see
         # noust.core.outbound.
         "allow_private_hosts": [],
+        # Compliance controls (noust.core.compliance.controls): friction chosen, never the
+        # default. Each is off or permissive here; a framework above turns on what it names,
+        # and a value here can only tighten that, never loosen it. roles_split: an
+        # administrator does not govern accounts, security settings or the audit trail.
+        # separation_of_duties: one person may not hold the account that runs the server and
+        # the one that governs it. change_reasons: every change from the command line (and
+        # every approval request) says why. exception_reasons: so does a decision that lowers
+        # protection (building as root, accepting a risk, a privileged container, an incident
+        # freeze). The rest are listed by "noust compliance controls".
+        **{
+            control.key.split(".", 1)[1]: control.stored(control.standard)
+            for control in _compliance_controls.CONTROLS
+            if control.key.startswith("security.")
+            and control.kind != "min"
+            and control.kind != "max"
+        },
     },
     # The Model Context Protocol endpoint (POST /api/mcp): a client with an API token is
     # given tools to inspect, deploy and control applications. Off until a security officer
     # turns it on; "groups" are the kinds of tool offered (inspect, deploy, control).
     "mcp": {"enabled": False, "groups": ["inspect", "deploy", "control"]},
+    # Four-eyes approvals (noust.core.accounts.approvals): root-equivalent actions wait for a
+    # second person. Off until the operator wants it; the ens-medium profile turns it on.
+    "approval": {"enabled": False},
     "auth": {
         # Accounts' sign-in policy (noust.core.accounts.policy): a session
         # unused for idle_minutes, or older than absolute_hours, is over.
@@ -529,6 +594,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # Folders besides the backup directory's ``imports`` the API may read a
         # dump from by its path (noust.managers.database.imports).
         "import_directories": [],
+    },
+    # The release bundles a build server sends (noust.deployers.bundle_spool).
+    "releases": {
+        # The largest bundle this server takes from another one, in bytes: 8 GiB. It is the
+        # built tree of one release, with its dependencies.
+        "bundle_max_bytes": 8 * 1024**3,
     },
     # The code people upload as an archive (noust.managers.source_uploads).
     "uploads": {
@@ -1045,6 +1116,90 @@ def _validate_smtp_host(value: Any) -> str:
             details=f"Got {text!r}. Use a hostname such as smtp.example.com.",
         )
     return text
+
+
+def _validate_email_provider(value: Any) -> str:
+    """
+    Accept the name of an email API provider, or leave it unset (SMTP).
+
+    Args:
+        value: The candidate value, from either front end.
+
+    Returns:
+        The provider, lower-cased.
+
+    Raises:
+        ConfigError: When it names a provider Noust does not speak.
+    """
+    from noust.core.email_api import validate_provider
+
+    try:
+        return validate_provider(value)
+    except ValueError as exc:
+        raise ConfigError(str(exc)) from exc
+
+
+def _validate_email_region(value: Any) -> str:
+    """
+    Accept an AWS region name, or leave it unset.
+
+    Args:
+        value: The candidate value, from either front end.
+
+    Returns:
+        The region.
+
+    Raises:
+        ConfigError: When it is not the name of a region.
+    """
+    from noust.core.email_api import validate_region
+
+    try:
+        return validate_region(value)
+    except ValueError as exc:
+        raise ConfigError(str(exc)) from exc
+
+
+def _validate_status_directory(value: Any) -> str:
+    """
+    Accept where the status page's files are written, or leave the default.
+
+    Args:
+        value: The candidate value, from either front end.
+
+    Returns:
+        An absolute path, or an empty string for the default.
+
+    Raises:
+        ConfigError: When it is not an absolute path without ``..``.
+    """
+    from noust.managers.status_page import validate_directory
+
+    try:
+        return validate_directory(value)
+    except ValueError as exc:
+        raise ConfigError(str(exc)) from exc
+
+
+def _validate_status_title(value: Any) -> str:
+    """
+    Accept what the status page is called.
+
+    Args:
+        value: The candidate value, from either front end.
+
+    Returns:
+        The title, trimmed.
+
+    Raises:
+        ConfigError: When it is too long.
+    """
+    from noust.managers.status_page import validate_title
+
+    try:
+        return validate_title(value)
+    except ValueError as exc:
+        raise ConfigError(str(exc)) from exc
 
 
 def _validate_smtp_section(smtp: dict[str, Any]) -> None:
@@ -1793,6 +1948,63 @@ def _validate_import_directories(value: Any) -> list[str]:
     return folders
 
 
+def _validate_frameworks(value: Any) -> list[str]:
+    """
+    Accept the list of compliance frameworks that are on.
+
+    Args:
+        value: A list of framework ids, or text with them separated by commas.
+
+    Returns:
+        The ids, lower-cased and without repeats.
+
+    Raises:
+        ConfigError: When one is not a framework this version ships.
+    """
+    if isinstance(value, str):
+        items: list[Any] = [part for part in re.split(r"[,\s]+", value) if part]
+    elif isinstance(value, (list, tuple)):
+        items = list(value)
+    elif value is None:
+        items = []
+    else:
+        raise ConfigError(
+            "security.frameworks is a list of framework ids", details=f"Got {value!r}."
+        )
+    names: list[str] = []
+    for item in items:
+        name = str(item).strip().lower()
+        if not _compliance_frameworks.exists(name):
+            raise ConfigError(
+                f"Unknown compliance framework: {item!r}",
+                details=f"The frameworks are: {', '.join(_compliance_frameworks.FRAMEWORK_IDS)}.",
+            )
+        if name not in names:
+            names.append(name)
+    return names
+
+
+def _validate_control(control: Any) -> Callable[[Any], Any]:
+    """
+    Build the validator of a compliance control's setting.
+
+    Args:
+        control: A :class:`~noust.core.compliance.controls.Control`.
+
+    Returns:
+        A function reading the value as the control reads it and refusing what it
+        would not accept; it returns what the key is to hold.
+    """
+
+    def validator(value: Any) -> Any:
+        try:
+            return control.stored(control.coerce(value))
+        except ValueError as exc:
+            raise ConfigError(f"{control.key}: {exc}", details=f"Got {value!r}.") from exc
+
+    return validator
+
+
 _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "webserver": _validate_webserver,
     "databases.import_max_bytes": _int_range_validator(
@@ -1801,6 +2013,9 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "databases.import_directories": _validate_import_directories,
     "uploads.source_max_bytes": _int_range_validator(
         "uploads.source_max_bytes", 1024 * 1024, 1024**4
+    ),
+    "releases.bundle_max_bytes": _int_range_validator(
+        "releases.bundle_max_bytes", 1024 * 1024, 1024**4
     ),
     "auth.sudo.idle_minutes": _int_range_validator("auth.sudo.idle_minutes", *SUDO_IDLE_RANGE),
     "auth.sudo.max_minutes": _int_range_validator("auth.sudo.max_minutes", *SUDO_MAX_RANGE),
@@ -1852,10 +2067,18 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "web.port": _int_range_validator("web.port", 1, 65535),
     "web.session_timeout": _int_range_validator("web.session_timeout", 300, 86400),
     "web.public_url": _validate_public_url,
+    "web.api_enabled": _validate_flag("web.api_enabled"),
     "github.host": _validate_github_host,
     "web.hooks_url": _validate_hooks_url,
     "web.allowed_hosts": _validate_allowed_hosts,
     "security.allow_private_hosts": _validate_private_hosts,
+    "security.frameworks": _validate_frameworks,
+    "approval.enabled": _validate_flag("approval.enabled"),
+    **{
+        control.key: _validate_control(control)
+        for control in _compliance_controls.CONTROLS
+        if control.key.startswith("security.")
+    },
     # The one key every deployer, noust.core.config.Config.apps_directory and
     # the panel's disk usage meter read. "apps.directory" is a deprecated
     # dotted alias, resolved to this key by _canonical_key() before a
@@ -1881,6 +2104,11 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "monitor.smtp.port": _int_range_validator("monitor.smtp.port", 1, 65535),
     "monitor.smtp.from_address": _validate_optional_email("monitor.smtp.from_address"),
     "monitor.email_recipients": _validate_email_list("monitor.email_recipients"),
+    "status_page.directory": _validate_status_directory,
+    "status_page.title": _validate_status_title,
+    "monitor.email_api.provider": _validate_email_provider,
+    "monitor.email_api.region": _validate_email_region,
+    "monitor.email_api.from_address": _validate_optional_email("monitor.email_api.from_address"),
     "notifications.channels.telegram.chat_id": _validate_telegram_chat_id,
     "notifications.channels.discord.mention_role_id": _validate_discord_id(
         "notifications.channels.discord.mention_role_id", "role"
@@ -2218,6 +2446,9 @@ NON_SECRET_KEYS: frozenset[str] = frozenset(
         "token_warning_days",
         # An event switch, like node_host_key_changed: whether to say a token expires.
         "token_expiring",
+        # security.master_token holds a word, break_glass or recovery: what the master token
+        # may do, never the token.
+        "master_token",
     }
 )
 

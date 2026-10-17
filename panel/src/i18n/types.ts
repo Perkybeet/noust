@@ -22,6 +22,9 @@ export const LOCALES: readonly Locale[] = ["en", "es", ...COMMUNITY_LOCALES.map(
 /** Every catalog, by namespace: `Messages["nav"]["apps"]["label"]`. */
 export type Messages = typeof english;
 
+/** A namespace: the first segment of a key, and the file of `en/` and `es/` that holds its texts. */
+export type Namespace = keyof Messages;
+
 /**
  * A message that depends on a number, chosen with `Intl.PluralRules`. English only has `one`
  * and `other`; Spanish may add `many` (CLDR uses it for "1 millón de ..."). A category a

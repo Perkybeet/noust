@@ -507,8 +507,9 @@ class Waf:
         """
         Take the shared rules away, when no site uses the WAF any more.
 
-        The caller has checked that none does. nginx is not reloaded here: the site that
-        stopped using the WAF is being rendered and reloaded by the caller.
+        The caller has checked that none does. nginx is reloaded here, after the files are gone:
+        the reload of the site that stopped using the WAF came first, while the rules were still
+        loaded, so without this one nginx kept all of them in memory until some later reload.
 
         Returns:
             True when this call removed them.
@@ -519,6 +520,11 @@ class Waf:
         self._web.fs.remove(self.file, missing_ok=True)
         self._web.fs.remove(self.rules_file, missing_ok=True)
         audit.record("sites.waf", target="server", details={"action": "rules removed"})
+        if not self._web.reload():
+            self._web.logger.warning(
+                "nginx did not reload after the firewall's rules were removed: "
+                "it keeps them loaded until it does"
+            )
         return True
 
     def events(self, hosts: set[str], limit: int = 50, log: Path | None = None) -> list[WafEvent]:

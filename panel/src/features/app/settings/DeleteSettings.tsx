@@ -6,6 +6,7 @@ import { Button } from "../../../components/ui/Button";
 import { ICONS } from "../../../components/ui/icons";
 import { Mono } from "../../../components/ui/Mono";
 import { useT } from "../../../i18n";
+import { isAdopted } from "../adopted";
 import { DeleteAppDialog } from "../DeleteAppDialog";
 import { useSudoFirst } from "./formParts";
 import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
@@ -30,24 +31,30 @@ export function DeleteSettings() {
     sudoFirst(() => setOpen(true), t("appSettings.danger.startFailed", { domain }));
   };
 
+  const adopted = isAdopted(app);
+
   return (
     <>
       <DangerZone title={t("appSettings.danger.title")} description={t("appSettings.danger.description")}>
       <DangerAction
-        title={t("appSettings.danger.actionTitle")}
+        title={adopted ? t("runtime.adopted.stopManagingSettings") : t("appSettings.danger.actionTitle")}
         description={
-          app.path
-            ? t.rich("appSettings.danger.actionDescriptionWithPath", { path: <Mono tone="muted">{app.path}</Mono> })
-            : t("appSettings.danger.actionDescription")
+          adopted
+            ? app.path
+              ? t.rich("runtime.adopted.stopManagingSettingsDescription", { path: <Mono tone="muted">{app.path}</Mono> })
+              : t("runtime.adopted.stopManagingSettingsDescriptionNoPath")
+            : app.path
+              ? t.rich("appSettings.danger.actionDescriptionWithPath", { path: <Mono tone="muted">{app.path}</Mono> })
+              : t("appSettings.danger.actionDescription")
         }
         action={
           <Button variant="danger" icon={<Delete aria-hidden="true" />} onClick={start}>
-            {t("appSettings.danger.deleteButton")}
+            {adopted ? t("runtime.adopted.stopManagingButton") : t("appSettings.danger.deleteButton")}
           </Button>
         }
       />
       </DangerZone>
-      <CommandHint command={`noust delete ${domain} --keep-files`} label={t("appSettings.fromTerminal")} />
+      <CommandHint command={adopted ? `noust delete ${domain}` : `noust delete ${domain} --keep-files`} label={t("appSettings.fromTerminal")} />
       <DeleteAppDialog app={app} open={open} onOpenChange={setOpen} />
     </>
   );

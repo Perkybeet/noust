@@ -1,0 +1,2741 @@
+{
+  "deploy.started": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "◐ Deploying · shop.example.com",
+        "color": "#e3a73c",
+        "title": "◐ Deploying · shop.example.com",
+        "text": "Noust is building the new version and will tell you how it ends.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Commit",
+            "value": "a1b2c3d (main)"
+          },
+          {
+            "short": true,
+            "title": "Started by",
+            "value": "Webhook"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "deploy.succeeded": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Deployed · shop.example.com",
+        "color": "#4dc47e",
+        "title": "● Deployed · shop.example.com",
+        "text": "The new version is live.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Release",
+            "value": "20260929-104449"
+          },
+          {
+            "short": true,
+            "title": "Commit",
+            "value": "a1b2c3d (main): Fix cart total"
+          },
+          {
+            "short": true,
+            "title": "Started by",
+            "value": "Webhook"
+          },
+          {
+            "short": true,
+            "title": "Duration",
+            "value": "42 s"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "deploy.failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Deploy failed · shop.example.com",
+        "color": "#cf3a30",
+        "title": "✕ Deploy failed · shop.example.com",
+        "text": "It stopped at an error before the new version could take over.\n\n**Inspect with:** `noust diagnose shop.example.com`\n\n*What the system reported*\n```\nnpm run build failed\n> shop@1.4.2 build\n> next build\nFailed to compile.\n./app/cart/page.tsx\nType error: Property 'total' does not exist on type 'Cart'.\nnpm error Lifecycle script `build` failed with error:\nnpm error code 1\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Release",
+            "value": "20260929-104449"
+          },
+          {
+            "short": true,
+            "title": "Commit",
+            "value": "a1b2c3d (main): Fix cart total"
+          },
+          {
+            "short": true,
+            "title": "Started by",
+            "value": "Webhook"
+          },
+          {
+            "short": true,
+            "title": "Duration",
+            "value": "1 min 12 s"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "deploy.rolled_back": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Rolled back · shop.example.com",
+        "color": "#e3a73c",
+        "title": "▲ Rolled back · shop.example.com",
+        "text": "The new version did not answer its health check, so the previous one is serving again.\n\n**Inspect with:** `noust diagnose shop.example.com`\n\n*Last lines of the journal of shop-example-com*\n```\nSep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 17 earlier lines omitted\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Release",
+            "value": "20260929-104449"
+          },
+          {
+            "short": true,
+            "title": "Commit",
+            "value": "a1b2c3d (main): Fix cart total"
+          },
+          {
+            "short": true,
+            "title": "Started by",
+            "value": "Webhook"
+          },
+          {
+            "short": true,
+            "title": "Duration",
+            "value": "1 min 12 s"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "update.started": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "◐ Updating · shop.example.com",
+        "color": "#e3a73c",
+        "title": "◐ Updating · shop.example.com",
+        "text": "Noust is fetching and building the latest code and will tell you how it ends.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Commit",
+            "value": "a1b2c3d (main)"
+          },
+          {
+            "short": true,
+            "title": "Started by",
+            "value": "Webhook"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "update.succeeded": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Updated · shop.example.com",
+        "color": "#4dc47e",
+        "title": "● Updated · shop.example.com",
+        "text": "The application runs the new version.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Release",
+            "value": "20260929-104449"
+          },
+          {
+            "short": true,
+            "title": "Commit",
+            "value": "a1b2c3d (main): Fix cart total"
+          },
+          {
+            "short": true,
+            "title": "Started by",
+            "value": "Webhook"
+          },
+          {
+            "short": true,
+            "title": "Duration",
+            "value": "42 s"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "update.failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Update failed · shop.example.com",
+        "color": "#cf3a30",
+        "title": "✕ Update failed · shop.example.com",
+        "text": "It stopped at an error before the new version could take over.\n\n**Inspect with:** `noust diagnose shop.example.com`\n\n*What the system reported*\n```\nnpm run build failed\n> shop@1.4.2 build\n> next build\nFailed to compile.\n./app/cart/page.tsx\nType error: Property 'total' does not exist on type 'Cart'.\nnpm error Lifecycle script `build` failed with error:\nnpm error code 1\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Release",
+            "value": "20260929-104449"
+          },
+          {
+            "short": true,
+            "title": "Commit",
+            "value": "a1b2c3d (main): Fix cart total"
+          },
+          {
+            "short": true,
+            "title": "Started by",
+            "value": "Webhook"
+          },
+          {
+            "short": true,
+            "title": "Duration",
+            "value": "1 min 12 s"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "update.rolled_back": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Rolled back · shop.example.com",
+        "color": "#e3a73c",
+        "title": "▲ Rolled back · shop.example.com",
+        "text": "The new version did not answer its health check, so the previous one is serving again.\n\n**Inspect with:** `noust diagnose shop.example.com`\n\n*Last lines of the journal of shop-example-com*\n```\nSep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 17 earlier lines omitted\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Release",
+            "value": "20260929-104449"
+          },
+          {
+            "short": true,
+            "title": "Commit",
+            "value": "a1b2c3d (main): Fix cart total"
+          },
+          {
+            "short": true,
+            "title": "Started by",
+            "value": "Webhook"
+          },
+          {
+            "short": true,
+            "title": "Duration",
+            "value": "1 min 12 s"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "rollback.started": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "◐ Reverting · shop.example.com",
+        "color": "#e3a73c",
+        "title": "◐ Reverting · shop.example.com",
+        "text": "Noust is putting an earlier version back and will tell you how it ends.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Commit",
+            "value": "a1b2c3d (main)"
+          },
+          {
+            "short": true,
+            "title": "Started by",
+            "value": "Webhook"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "rollback.succeeded": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Reverted · shop.example.com",
+        "color": "#4dc47e",
+        "title": "● Reverted · shop.example.com",
+        "text": "The earlier version is serving again.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Release",
+            "value": "20260929-104449"
+          },
+          {
+            "short": true,
+            "title": "Commit",
+            "value": "a1b2c3d (main): Fix cart total"
+          },
+          {
+            "short": true,
+            "title": "Started by",
+            "value": "Webhook"
+          },
+          {
+            "short": true,
+            "title": "Duration",
+            "value": "42 s"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "rollback.failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Revert failed · shop.example.com",
+        "color": "#cf3a30",
+        "title": "✕ Revert failed · shop.example.com",
+        "text": "Going back stopped at an error before the earlier version could take over.\n\n**Inspect with:** `noust diagnose shop.example.com`\n\n*What the system reported*\n```\nrollback step failed\nsystemctl: Job for shop-example-com.service failed\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Release",
+            "value": "20260929-104449"
+          },
+          {
+            "short": true,
+            "title": "Commit",
+            "value": "a1b2c3d (main): Fix cart total"
+          },
+          {
+            "short": true,
+            "title": "Started by",
+            "value": "Webhook"
+          },
+          {
+            "short": true,
+            "title": "Duration",
+            "value": "1 min 12 s"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "rollback.rolled_back": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Revert failed · shop.example.com",
+        "color": "#e3a73c",
+        "title": "▲ Revert failed · shop.example.com",
+        "text": "The earlier version did not answer its health check, so the one serving before is serving again.\n\n**Inspect with:** `noust diagnose shop.example.com`\n\n*Last lines of the journal of shop-example-com*\n```\nSep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 17 earlier lines omitted\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Release",
+            "value": "20260929-104449"
+          },
+          {
+            "short": true,
+            "title": "Commit",
+            "value": "a1b2c3d (main): Fix cart total"
+          },
+          {
+            "short": true,
+            "title": "Started by",
+            "value": "Webhook"
+          },
+          {
+            "short": true,
+            "title": "Duration",
+            "value": "1 min 12 s"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "activate.started": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "◐ Activating release · shop.example.com",
+        "color": "#e3a73c",
+        "title": "◐ Activating release · shop.example.com",
+        "text": "Noust is switching to the chosen release and will tell you how it ends.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Commit",
+            "value": "a1b2c3d (main)"
+          },
+          {
+            "short": true,
+            "title": "Started by",
+            "value": "Webhook"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "activate.succeeded": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Release activated · shop.example.com",
+        "color": "#4dc47e",
+        "title": "● Release activated · shop.example.com",
+        "text": "The chosen release is serving.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Release",
+            "value": "20260929-104449"
+          },
+          {
+            "short": true,
+            "title": "Commit",
+            "value": "a1b2c3d (main): Fix cart total"
+          },
+          {
+            "short": true,
+            "title": "Started by",
+            "value": "Webhook"
+          },
+          {
+            "short": true,
+            "title": "Duration",
+            "value": "42 s"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "activate.failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Activation failed · shop.example.com",
+        "color": "#cf3a30",
+        "title": "✕ Activation failed · shop.example.com",
+        "text": "Switching stopped at an error before the chosen release could take over.\n\n**Inspect with:** `noust diagnose shop.example.com`\n\n*What the system reported*\n```\nactivate step failed\nsystemctl: Job for shop-example-com.service failed\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Release",
+            "value": "20260929-104449"
+          },
+          {
+            "short": true,
+            "title": "Commit",
+            "value": "a1b2c3d (main): Fix cart total"
+          },
+          {
+            "short": true,
+            "title": "Started by",
+            "value": "Webhook"
+          },
+          {
+            "short": true,
+            "title": "Duration",
+            "value": "1 min 12 s"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "activate.rolled_back": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Activation failed · shop.example.com",
+        "color": "#e3a73c",
+        "title": "▲ Activation failed · shop.example.com",
+        "text": "The chosen release did not answer its health check, so the previous one is serving again.\n\n**Inspect with:** `noust diagnose shop.example.com`\n\n*Last lines of the journal of shop-example-com*\n```\nSep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 17 earlier lines omitted\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Release",
+            "value": "20260929-104449"
+          },
+          {
+            "short": true,
+            "title": "Commit",
+            "value": "a1b2c3d (main): Fix cart total"
+          },
+          {
+            "short": true,
+            "title": "Started by",
+            "value": "Webhook"
+          },
+          {
+            "short": true,
+            "title": "Duration",
+            "value": "1 min 12 s"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "migrate.started": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "◐ Migrating to releases · shop.example.com",
+        "color": "#e3a73c",
+        "title": "◐ Migrating to releases · shop.example.com",
+        "text": "Noust is moving the application to releases and will tell you how it ends.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Commit",
+            "value": "a1b2c3d (main)"
+          },
+          {
+            "short": true,
+            "title": "Started by",
+            "value": "Webhook"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "migrate.succeeded": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Migrated to releases · shop.example.com",
+        "color": "#4dc47e",
+        "title": "● Migrated to releases · shop.example.com",
+        "text": "Every deploy now builds in its own release, and going back takes seconds.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Release",
+            "value": "20260929-104449"
+          },
+          {
+            "short": true,
+            "title": "Commit",
+            "value": "a1b2c3d (main): Fix cart total"
+          },
+          {
+            "short": true,
+            "title": "Started by",
+            "value": "Webhook"
+          },
+          {
+            "short": true,
+            "title": "Duration",
+            "value": "42 s"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "migrate.failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Migration failed · shop.example.com",
+        "color": "#cf3a30",
+        "title": "✕ Migration failed · shop.example.com",
+        "text": "It stopped at an error; Noust puts the in-place layout back when that happens.\n\n**Inspect with:** `noust diagnose shop.example.com`\n\n*What the system reported*\n```\nmigrate step failed\nsystemctl: Job for shop-example-com.service failed\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Release",
+            "value": "20260929-104449"
+          },
+          {
+            "short": true,
+            "title": "Commit",
+            "value": "a1b2c3d (main): Fix cart total"
+          },
+          {
+            "short": true,
+            "title": "Started by",
+            "value": "Webhook"
+          },
+          {
+            "short": true,
+            "title": "Duration",
+            "value": "1 min 12 s"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "deploy.hook_failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Deployed with warnings · shop.example.com",
+        "color": "#e3a73c",
+        "title": "▲ Deployed with warnings · shop.example.com",
+        "text": "The new version is serving, but a post-deploy hook failed once it took over.\n\n**Inspect with:** `noust app hooks show shop.example.com`\n\n*What the system reported*\n```\ncurl: (22) The requested URL returned error: 403\npurge failed\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Command",
+            "value": "`./scripts/purge-cache.sh --all`"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "restore.completed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Restored · shop.example.com",
+        "color": "#4dc47e",
+        "title": "● Restored · shop.example.com",
+        "text": "The application's files are back as the backup had them.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Backup",
+            "value": "`20260928-020000`"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
+  "restore.failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Restore failed · shop.example.com",
+        "color": "#cf3a30",
+        "title": "✕ Restore failed · shop.example.com",
+        "text": "It stopped at an error, so the application's files may be only partly restored.\n\n*What the system reported*\n```\ntar: Unexpected EOF in archive\ntar: Error is not recoverable: exiting now\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Backup",
+            "value": "`20260928-020000`"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
+  "backup.failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Backup failed · shop.example.com",
+        "color": "#cf3a30",
+        "title": "✕ Backup failed · shop.example.com",
+        "text": "No new copy of the application was saved.\n\n*What the system reported*\n```\ntar: /var/www/apps/shop-example-com/shared/uploads: Cannot write: No space left on device\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
+  "backup.upload_failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Backup upload failed · shop.example.com",
+        "color": "#e3a73c",
+        "title": "▲ Backup upload failed · shop.example.com",
+        "text": "The copy was kept on this server but could not be uploaded.\n\n*What the system reported*\n```\n2026/09/29 02:00:14 Failed to copy: AccessDenied: Access Denied\n    status code: 403\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Destination",
+            "value": "s3-eu"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
+  "backup.schedule_missing": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Backup schedule missing · shop.example.com",
+        "color": "#e3a73c",
+        "title": "▲ Backup schedule missing · shop.example.com",
+        "text": "The timer fired but Noust has no schedule stored for this application, so the backup ran with the default settings.\n\n**Save it again with:** `noust backup schedule update shop.example.com`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
+  "backup.completed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Backup completed · shop.example.com",
+        "color": "#4dc47e",
+        "title": "● Backup completed · shop.example.com",
+        "text": "A new copy of the application was saved.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Backup",
+            "value": "`20260929-020000`"
+          },
+          {
+            "short": true,
+            "title": "Size",
+            "value": "48.0 MB"
+          },
+          {
+            "short": true,
+            "title": "Uploaded to",
+            "value": "s3-eu"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
+  "cert.expiring": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Certificate expiring · shop.example.com",
+        "color": "#e3a73c",
+        "title": "▲ Certificate expiring · shop.example.com",
+        "text": "Expires in 7 days (6 Oct 2026).\n\n**Renew with:** `noust cert renew shop.example.com`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Covers",
+            "value": "shop.example.com, www.shop.example.com"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/domains"
+      }
+    ]
+  },
+  "cert.expired": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Certificate expired · shop.example.com",
+        "color": "#cf3a30",
+        "title": "✕ Certificate expired · shop.example.com",
+        "text": "Expired 80 days ago (11 Jul 2026).\n\n**Renew with:** `noust cert renew shop.example.com`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Covers",
+            "value": "shop.example.com, www.shop.example.com"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/domains"
+      }
+    ]
+  },
+  "unit.failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Service failed · shop-example-com",
+        "color": "#cf3a30",
+        "title": "✕ Service failed · shop-example-com",
+        "text": "systemd marked it as failed.\n\n**Inspect with:** `journalctl -u shop-example-com -n 50`\n\n*Last lines of the journal of shop-example-com*\n```\nSep 29 10:45:13 web-1 npm[48211]: > shop@1.4.2 start\nSep 29 10:45:13 web-1 npm[48211]: > next start -p 3004\nSep 29 10:45:14 web-1 npm[48227]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1.\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server/services/shop-example-com"
+      }
+    ]
+  },
+  "unit.crash_loop": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Service crash-looping · shop-example-com",
+        "color": "#cf3a30",
+        "title": "✕ Service crash-looping · shop-example-com",
+        "text": "systemd restarted it 3 times since the last check and it still does not stay up.\n\n**Inspect with:** `journalctl -u shop-example-com -n 50`\n\n*Last lines of the journal of shop-example-com*\n```\nSep 29 10:45:14 web-1 npm[48227]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1.\nSep 29 10:45:18 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:19 web-1 npm[48287]: > shop@1.4.2 start\nSep 29 10:45:19 web-1 npm[48287]: > next start -p 3004\nSep 29 10:45:20 web-1 npm[48303]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:24 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 2.\n… 3 earlier lines omitted\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Restarts",
+            "value": "9"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server/services/shop-example-com"
+      }
+    ]
+  },
+  "unit.stopped_on_failure": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Service stopped on a failure · shop-example-com",
+        "color": "#cf3a30",
+        "title": "✕ Service stopped on a failure · shop-example-com",
+        "text": "It stopped after a run that failed, and systemd is not restarting it.\n\n**Inspect with:** `journalctl -u shop-example-com -n 50`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Result",
+            "value": "`signal`"
+          },
+          {
+            "short": true,
+            "title": "Exit status",
+            "value": "9"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server/services/shop-example-com"
+      }
+    ]
+  },
+  "unit.recovered": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Service recovered · shop-example-com",
+        "color": "#4dc47e",
+        "title": "● Service recovered · shop-example-com",
+        "text": "It is running again and has not restarted since the last check.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server/services/shop-example-com"
+      }
+    ]
+  },
+  "disk.threshold": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Disk almost full · /",
+        "color": "#e3a73c",
+        "title": "▲ Disk almost full · /",
+        "text": "It is past the 90% alert threshold, and a full disk stops deployments, logs and databases on this server.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Used",
+            "value": "91.7% (18.3 GB / 20.0 GB)"
+          },
+          {
+            "short": true,
+            "title": "Free",
+            "value": "1.7 GB"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "disk.recovered": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Disk space recovered · /",
+        "color": "#4dc47e",
+        "title": "● Disk space recovered · /",
+        "text": "Usage is back under the alert threshold.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Used",
+            "value": "71.2%"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "test": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "○ Test notification · Telegram",
+        "color": "#9e9e9e",
+        "title": "○ Test notification · Telegram",
+        "text": "If you can read this, the Telegram channel is configured correctly.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          }
+        ],
+        "footer": "Noust · web-1"
+      }
+    ]
+  },
+  "node.unreachable": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Server unreachable · web-2",
+        "color": "#cf3a30",
+        "title": "✕ Server unreachable · web-2",
+        "text": "Noust cannot reach this server through its tunnel.\n\n*What the system reported*\n```\nssh: connect to host 10.0.0.2 port 22: Connection timed out\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Address",
+            "value": "`10.0.0.2`"
+          },
+          {
+            "short": true,
+            "title": "Unreachable since",
+            "value": "2026-09-29 10:30 UTC"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/fleet"
+      }
+    ]
+  },
+  "node.recovered": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Server reachable again · web-2",
+        "color": "#4dc47e",
+        "title": "● Server reachable again · web-2",
+        "text": "The tunnel is open again and the server answers.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Was unreachable for",
+            "value": "12 min 34 s"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/n/web-2/"
+      }
+    ]
+  },
+  "drill.failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Restore drill failed · shop.example.com",
+        "color": "#cf3a30",
+        "title": "✕ Restore drill failed · shop.example.com",
+        "text": "The newest backup could not be shown to restore: do not count on it.\n\n**Diagnose with:** `noust backup drill shop.example.com`\n\n*What the system reported*\n```\nArchive cannot be restored: refusing a link to /etc/passwd\nnothing was changed\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Backup",
+            "value": "`shop-example-com_20261010_030000`"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
+  "drill.passed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Restore drill passed · shop.example.com",
+        "color": "#4dc47e",
+        "title": "● Restore drill passed · shop.example.com",
+        "text": "The newest backup unpacked and its databases loaded into temporary ones.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Backup",
+            "value": "`shop-example-com_20261010_030000`"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
+  "destination.unreachable": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Backup destination unreachable · nas",
+        "color": "#e3a73c",
+        "title": "▲ Backup destination unreachable · nas",
+        "text": "Backups cannot be sent to it until it answers again; they stay on this server.\n\n**Take one now with:** `noust backup destination test nas`\n\n*What the system reported*\n```\nCould not reach backup destination 'nas'\nssh: connect to host nas.example.com port 22: Connection timed out\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/backups/destinations"
+      }
+    ]
+  },
+  "destination.recovered": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Backup destination back · nas",
+        "color": "#4dc47e",
+        "title": "● Backup destination back · nas",
+        "text": "It answers again; the next backups are sent to it.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/backups/destinations"
+      }
+    ]
+  },
+  "node.host_key_changed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Host key changed · web-2",
+        "color": "#cf3a30",
+        "title": "✕ Host key changed · web-2",
+        "text": "The server presented a different SSH host key, so the tunnel stays closed until someone checks it.\n\n**Check it with:** `noust node trust web-2`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Address",
+            "value": "`10.0.0.2`"
+          },
+          {
+            "short": false,
+            "title": "Pinned key",
+            "value": "`SHA256:kQ3vP1xN0m0e5sYt3n2c1H0b9k2q3Wz8nq0w1d0aAbc`"
+          },
+          {
+            "short": false,
+            "title": "Presented key",
+            "value": "`SHA256:Zr9LmTq7bV2d8Yh1uJ0aXc4eF6gH3iK5oP7sRtUvWxy`"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/fleet"
+      }
+    ]
+  },
+  "report.observations": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Process observations",
+        "color": "#e3a73c",
+        "title": "▲ Process observations",
+        "text": "The monitor only reports: no process was signalled and no file was touched. Review each entry before acting.\n\n**Warning: xmrig (PID 1234)**\n\nSignal: name-pattern\n\nUser: nobody\n\nCPU: 97.5%\n\nDetail: Executable name matches the known-malware pattern 'xmrig'.\n\nCommand: `/tmp/.x/xmrig -o pool.example.org:3333`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Processes",
+            "value": "1"
+          },
+          {
+            "short": true,
+            "title": "Warnings",
+            "value": "1"
+          }
+        ],
+        "footer": "Noust · web-1"
+      }
+    ]
+  },
+  "server.rebooted": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Server restarted · web-1",
+        "color": "#e3a73c",
+        "title": "▲ Server restarted · web-1",
+        "text": "Nobody asked for this restart from Noust: check that every application came back.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Back at",
+            "value": "2026-09-29 04:02 UTC"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "server.back": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Server back · web-1",
+        "color": "#4dc47e",
+        "title": "● Server back · web-1",
+        "text": "The restart asked from Noust is done and the console is running again.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Asked by",
+            "value": "alice"
+          },
+          {
+            "short": true,
+            "title": "Scheduled for",
+            "value": "2026-09-29 04:00 UTC"
+          },
+          {
+            "short": true,
+            "title": "Took",
+            "value": "2 min 10 s"
+          },
+          {
+            "short": true,
+            "title": "Back at",
+            "value": "2026-09-29 04:02 UTC"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "approval.requested": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "◐ Approval requested · #12",
+        "color": "#e3a73c",
+        "title": "◐ Approval requested · #12",
+        "text": "A change that needs a second person is waiting for someone to decide it.\n\n**Decide with:** `noust approval approve 12`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Request",
+            "value": "​#12"
+          },
+          {
+            "short": true,
+            "title": "Change",
+            "value": "`fleet.node.add`"
+          },
+          {
+            "short": true,
+            "title": "Call",
+            "value": "`POST /api/nodes`"
+          },
+          {
+            "short": true,
+            "title": "Asked by",
+            "value": "alice"
+          },
+          {
+            "short": false,
+            "title": "Reason",
+            "value": "Adding the new database server of the shop"
+          },
+          {
+            "short": true,
+            "title": "Decide before",
+            "value": "2026-09-30 10:45 UTC"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/settings/security"
+      }
+    ]
+  },
+  "approval.approved": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Request approved · #12",
+        "color": "#4dc47e",
+        "title": "● Request approved · #12",
+        "text": "The person who asked can make the change once, before the approval runs out.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Request",
+            "value": "​#12"
+          },
+          {
+            "short": true,
+            "title": "Change",
+            "value": "`fleet.node.add`"
+          },
+          {
+            "short": true,
+            "title": "Call",
+            "value": "`POST /api/nodes`"
+          },
+          {
+            "short": true,
+            "title": "Asked by",
+            "value": "alice"
+          },
+          {
+            "short": true,
+            "title": "Decided by",
+            "value": "bob"
+          },
+          {
+            "short": true,
+            "title": "Comment",
+            "value": "Checked with the shop's owner"
+          },
+          {
+            "short": true,
+            "title": "Use it before",
+            "value": "2026-09-29 11:15 UTC"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/settings/security"
+      }
+    ]
+  },
+  "approval.rejected": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Request rejected · #12",
+        "color": "#e3a73c",
+        "title": "▲ Request rejected · #12",
+        "text": "The change will not be made; whoever asked can ask again with more context.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Request",
+            "value": "​#12"
+          },
+          {
+            "short": true,
+            "title": "Change",
+            "value": "`fleet.node.add`"
+          },
+          {
+            "short": true,
+            "title": "Call",
+            "value": "`POST /api/nodes`"
+          },
+          {
+            "short": true,
+            "title": "Asked by",
+            "value": "alice"
+          },
+          {
+            "short": true,
+            "title": "Decided by",
+            "value": "bob"
+          },
+          {
+            "short": true,
+            "title": "Comment",
+            "value": "Not before the maintenance window"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/settings/security"
+      }
+    ]
+  },
+  "database.backup.failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Backup failed · postgresql/shop",
+        "color": "#cf3a30",
+        "title": "✕ Backup failed · postgresql/shop",
+        "text": "No new copy of the database was saved.\n\n*What the system reported*\n```\nThe dump was taken but failed its check\npg_restore: error: could not read input file: end of file\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ]
+  },
+  "database.backup.upload_failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Backup upload failed · postgresql/shop",
+        "color": "#e3a73c",
+        "title": "▲ Backup upload failed · postgresql/shop",
+        "text": "The copy of the database was kept on this server but could not be uploaded.\n\n*What the system reported*\n```\nFailed to copy: AccessDenied: Access Denied\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Destination",
+            "value": "offsite-s3"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ]
+  },
+  "database.backup.completed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Backup completed · postgresql/shop",
+        "color": "#4dc47e",
+        "title": "● Backup completed · postgresql/shop",
+        "text": "A new copy of the database was saved.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Backup",
+            "value": "`shop-20260929-104551.dump`"
+          },
+          {
+            "short": true,
+            "title": "Size",
+            "value": "48.0 MB"
+          },
+          {
+            "short": true,
+            "title": "Uploaded to",
+            "value": "offsite-s3"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ]
+  },
+  "database.restore.completed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Restored · postgresql/shop",
+        "color": "#4dc47e",
+        "title": "● Restored · postgresql/shop",
+        "text": "The database is back as the dump had it.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Backup",
+            "value": "`shop-20260929-104551.dump`"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ]
+  },
+  "database.restore.failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Restore failed · postgresql/shop",
+        "color": "#cf3a30",
+        "title": "✕ Restore failed · postgresql/shop",
+        "text": "It stopped at an error, so the database may be only partly restored.\n\n*What the system reported*\n```\npg_restore: error: relation \"orders\" already exists\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Backup",
+            "value": "`shop-20260929-104551.dump`"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ]
+  },
+  "sandbox.trial_failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Sandbox build failed · shop.example.com",
+        "color": "#e3a73c",
+        "title": "▲ Sandbox build failed · shop.example.com",
+        "text": "Its build was tried without root before the update and failed, so the update built as root, as it did before.\n\n**Inspect with:** `noust app sandbox status shop.example.com`\n\n*What the system reported*\n```\nnpm ci failed (exit code 1)\nnpm ERR! code E401\nnpm ERR! 401 Unauthorized - GET https://npm.registry.local/@​shop%2fui\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Commit",
+            "value": "`4f2a9c1`"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ]
+  },
+  "app.unreachable": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Application not answering · shop.example.com",
+        "color": "#cf3a30",
+        "title": "✕ Application not answering · shop.example.com",
+        "text": "Its service is running, but the application does not answer its health check.\n\n**Diagnose with:** `noust diagnose shop.example.com`\n\n*The last probe*\n```\nGET http://127.0.0.1:3004/ -> <urlopen error [Errno 111] Connection refused>\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Unreachable since",
+            "value": "2026-10-02 14:05 UTC"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ]
+  },
+  "app.recovered": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Application answering again · shop.example.com",
+        "color": "#4dc47e",
+        "title": "● Application answering again · shop.example.com",
+        "text": "It passes its health check again.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Was unreachable for",
+            "value": "12 min 34 s"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ]
+  },
+  "app.outside_unit": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Application running outside Noust · shop.example.com",
+        "color": "#e3a73c",
+        "title": "▲ Application running outside Noust · shop.example.com",
+        "text": "Its containers run, but its unit is stopped: Noust is not supervising it, and a restart of the server would not bring it back.\n\n**Hand it back with:** `noust app reclaim shop.example.com`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Unit",
+            "value": "`shop-example-com`"
+          },
+          {
+            "short": false,
+            "title": "Containers",
+            "value": "`shop-example-com-web-1, shop-example-com-db-1`"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ]
+  },
+  "alert.above": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Alert firing · cpu-high",
+        "color": "#e3a73c",
+        "title": "▲ Alert firing · cpu-high",
+        "text": "CPU of the server has stayed above 90% for 15 min.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Rule",
+            "value": "cpu-high"
+          },
+          {
+            "short": true,
+            "title": "Now",
+            "value": "93.4%"
+          },
+          {
+            "short": true,
+            "title": "Limit",
+            "value": "90%"
+          },
+          {
+            "short": true,
+            "title": "Unreachable since",
+            "value": "2026-10-12 09:30 UTC"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "alert.below": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Alert firing · shop.example.com",
+        "color": "#cf3a30",
+        "title": "✕ Alert firing · shop.example.com",
+        "text": "Free memory of shop.example.com has stayed below 256 MB for 5 min.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Rule",
+            "value": "memory-free"
+          },
+          {
+            "short": true,
+            "title": "Now",
+            "value": "112 MB"
+          },
+          {
+            "short": true,
+            "title": "Limit",
+            "value": "256 MB"
+          },
+          {
+            "short": true,
+            "title": "Unreachable since",
+            "value": "2026-10-12 09:30 UTC"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ]
+  },
+  "alert.resolved": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Alert resolved · cpu-high",
+        "color": "#4dc47e",
+        "title": "● Alert resolved · cpu-high",
+        "text": "CPU of the server is back to 41.0%, inside the 90% limit.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Rule",
+            "value": "cpu-high"
+          },
+          {
+            "short": true,
+            "title": "Now",
+            "value": "41.0%"
+          },
+          {
+            "short": true,
+            "title": "Firing for",
+            "value": "45 min 12 s"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "backup.missing": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ No recent backup · shop.example.com",
+        "color": "#e3a73c",
+        "title": "▲ No recent backup · shop.example.com",
+        "text": "No backup of this application was made in the last 3 days, although a backup schedule is set. Nothing failed: nothing ran.\n\n**Back it up now:** `noust backup create shop.example.com`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Last backup",
+            "value": "9 Oct 2026"
+          },
+          {
+            "short": true,
+            "title": "Schedule",
+            "value": "`daily`"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
+  "backup.never": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Never backed up · blog.example.com",
+        "color": "#e3a73c",
+        "title": "▲ Never backed up · blog.example.com",
+        "text": "A backup schedule is set, but not one backup of this application exists. Nothing failed: nothing ran.\n\n**Back it up now:** `noust backup create blog.example.com`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Schedule",
+            "value": "`daily`"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
+  "cron.failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Scheduled task failed · shop-sync",
+        "color": "#cf3a30",
+        "title": "✕ Scheduled task failed · shop-sync",
+        "text": "The task ended with an error, so whatever it does was not done.\n\n**See the runs:** `noust cron runs shop-sync`\n\n*Last lines of the output of shop-sync*\n```\nTraceback (most recent call last):\n  File \"sync.py\", line 9\nKeyError: 'sku'\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Ran",
+            "value": "2026-10-13 03:00 UTC"
+          },
+          {
+            "short": true,
+            "title": "Exit status",
+            "value": "1"
+          },
+          {
+            "short": true,
+            "title": "Result",
+            "value": "exit-code"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/cron"
+      }
+    ]
+  },
+  "cron.succeeded": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Scheduled task ran · shop-sync",
+        "color": "#4dc47e",
+        "title": "● Scheduled task ran · shop-sync",
+        "text": "The task ran and ended without an error.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Ran",
+            "value": "2026-10-13 03:00 UTC"
+          },
+          {
+            "short": true,
+            "title": "Exit status",
+            "value": "0"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/cron"
+      }
+    ]
+  },
+  "patches.available": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "○ Updates available",
+        "color": "#9e9e9e",
+        "title": "○ Updates available",
+        "text": "5 updates waiting to be installed.\n\n**List them:** `noust server updates list`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Updates",
+            "value": "5"
+          },
+          {
+            "short": false,
+            "title": "Detail",
+            "value": "openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "patches.security": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Security updates available",
+        "color": "#e3a73c",
+        "title": "▲ Security updates available",
+        "text": "3 of the 12 updates waiting are security updates.\n\n**List them:** `noust server updates list`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Updates",
+            "value": "12"
+          },
+          {
+            "short": true,
+            "title": "Security",
+            "value": "3"
+          },
+          {
+            "short": false,
+            "title": "Detail",
+            "value": "openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4"
+          },
+          {
+            "short": true,
+            "title": "Reboot",
+            "value": "Pending, after the updates"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "patches.check_failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Update check failed",
+        "color": "#e3a73c",
+        "title": "▲ Update check failed",
+        "text": "Noust could not list the updates this server is waiting for.\n\n**List them:** `noust server updates list`\n\n```\nE: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 2211 (apt-get)\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "token.expiring": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ API token expiring · ci-deploy",
+        "color": "#e3a73c",
+        "title": "▲ API token expiring · ci-deploy",
+        "text": "The token stops working in 7 days. Whatever uses it will be refused.\n\n**Replace it:** `noust token create`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Expires",
+            "value": "20 Oct 2026"
+          },
+          {
+            "short": true,
+            "title": "Owner",
+            "value": "alice"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/settings/tokens"
+      }
+    ]
+  },
+  "token.today": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ API token expires today · ci-deploy",
+        "color": "#e3a73c",
+        "title": "▲ API token expires today · ci-deploy",
+        "text": "The token stops working today. Whatever uses it will be refused.\n\n**Replace it:** `noust token create`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Expires",
+            "value": "13 Oct 2026"
+          },
+          {
+            "short": true,
+            "title": "Owner",
+            "value": "alice"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/settings/tokens"
+      }
+    ]
+  },
+  "token.expired": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ API token expired · ci-deploy",
+        "color": "#cf3a30",
+        "title": "✕ API token expired · ci-deploy",
+        "text": "The token has expired. Whatever still uses it is being refused.\n\n**Replace it:** `noust token create`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Expires",
+            "value": "1 Oct 2026"
+          },
+          {
+            "short": true,
+            "title": "Owner",
+            "value": "alice"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/settings/tokens"
+      }
+    ]
+  },
+  "digest.held": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Held notifications",
+        "color": "#e3a73c",
+        "title": "▲ Held notifications",
+        "text": "3 notifications arrived while this channel was quiet.\n\n**Disk almost full · /**\n\nWhen: 2026-09-29 10:45 UTC\n\nDetail: It is past the 90% alert threshold, and a full disk stops deployments, logs and databases on this server.\n\n**Certificate expiring · shop.example.com**\n\nWhen: 2026-09-29 11:05 UTC\n\nDetail: Expires in 7 days (6 Oct 2026).\n\n**Backup completed · shop.example.com**\n\nWhen: 2026-09-29 11:25 UTC\n\nDetail: A new copy of the application was saved.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Notifications",
+            "value": "3"
+          },
+          {
+            "short": false,
+            "title": "Between",
+            "value": "2026-09-29 10:45 UTC - 2026-09-29 11:25 UTC"
+          }
+        ],
+        "footer": "Noust · web-1"
+      }
+    ]
+  },
+  "cleanup.completed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Disk cleaned · /",
+        "color": "#4dc47e",
+        "title": "● Disk cleaned · /",
+        "text": "The server's cleanup policy ran and freed space.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Used",
+            "value": "91% -> 64%"
+          },
+          {
+            "short": true,
+            "title": "Freed",
+            "value": "11.5 GB"
+          },
+          {
+            "short": true,
+            "title": "Actions",
+            "value": "journal, pkg-cache, releases"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "cleanup.partial": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Disk cleanup partly failed · /",
+        "color": "#e3a73c",
+        "title": "▲ Disk cleanup partly failed · /",
+        "text": "The cleanup policy ran, but some of its actions failed.\n\n**See what ran:** `noust server cleanup-schedule history`\n\n*What releases reported*\n```\nrm: cannot remove '/var/www/apps/shop/releases/x': Permission denied\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Used",
+            "value": "91% -> 88%"
+          },
+          {
+            "short": true,
+            "title": "Freed",
+            "value": "2.0 GB"
+          },
+          {
+            "short": true,
+            "title": "Actions",
+            "value": "journal, pkg-cache, releases"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "cleanup.failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Disk cleanup failed · /",
+        "color": "#cf3a30",
+        "title": "✕ Disk cleanup failed · /",
+        "text": "The cleanup policy ran and every one of its actions failed, so the disk is as it was.\n\n**See what ran:** `noust server cleanup-schedule history`\n\n*What journal reported*\n```\nFailed to vacuum: Read-only file system\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Used",
+            "value": "93% -> 93%"
+          },
+          {
+            "short": true,
+            "title": "Actions",
+            "value": "journal"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "cron.timer_stopped": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Scheduled task will not run · shop-sync",
+        "color": "#e3a73c",
+        "title": "▲ Scheduled task will not run · shop-sync",
+        "text": "The task is enabled but its timer is not running, so it will not start. Nothing failed: nothing runs.\n\n**Start it again with:** `noust cron enable shop-sync`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Schedule",
+            "value": "*​-*​-*​ 03:​00:00"
+          },
+          {
+            "short": true,
+            "title": "Timer",
+            "value": "failed"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/cron"
+      }
+    ]
+  },
+  "cron.timer_running": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Scheduled task runs again · shop-sync",
+        "color": "#4dc47e",
+        "title": "● Scheduled task runs again · shop-sync",
+        "text": "The task's timer is running again.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Schedule",
+            "value": "*​-*​-*​ 03:​00:00"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/cron"
+      }
+    ]
+  },
+  "probe.failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Address not answering · shop-site",
+        "color": "#cf3a30",
+        "title": "✕ Address not answering · shop-site",
+        "text": "The address stopped answering what the probe asks of it.\n\n**Probe it now with:** `noust probe run shop-site`\n\n*What came back*\n```\nHTTP 503 Service Unavailable\nretry-after: 30\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Address",
+            "value": "https://shop.example.com/health"
+          },
+          {
+            "short": true,
+            "title": "Unreachable since",
+            "value": "2026-10-16 08:14 UTC"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/settings/probes"
+      }
+    ]
+  },
+  "probe.recovered": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Address answering again · shop-site",
+        "color": "#4dc47e",
+        "title": "● Address answering again · shop-site",
+        "text": "The address answers what the probe asks of it again.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Address",
+            "value": "https://shop.example.com/health"
+          },
+          {
+            "short": true,
+            "title": "Was unreachable for",
+            "value": "7 min 42 s"
+          },
+          {
+            "short": true,
+            "title": "Answered in",
+            "value": "184 ms"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/settings/probes"
+      }
+    ]
+  },
+  "alert.acknowledged": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "○ Alert taken · cpu-high",
+        "color": "#9e9e9e",
+        "title": "○ Alert taken · cpu-high",
+        "text": "alice is looking into it: CPU of the server is still beyond the 90% limit.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Rule",
+            "value": "cpu-high"
+          },
+          {
+            "short": true,
+            "title": "Taken by",
+            "value": "alice"
+          },
+          {
+            "short": true,
+            "title": "Firing for",
+            "value": "21 min"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "digest.flood": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "○ Notifications held back",
+        "color": "#9e9e9e",
+        "title": "○ Notifications held back",
+        "text": "3 notifications passed this channel's limit and were held back until now.\n\n**Disk cleaned · /**\n\nWhen: 2026-09-29 10:45 UTC\n\nDetail: The server's cleanup policy ran and freed space.\n\n**Scheduled task runs again · shop-sync**\n\nWhen: 2026-09-29 10:48 UTC\n\nDetail: The task's timer is running again.\n\n**Address answering again · shop-site**\n\nWhen: 2026-09-29 10:51 UTC\n\nDetail: The address answers what the probe asks of it again.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Notifications",
+            "value": "3"
+          },
+          {
+            "short": false,
+            "title": "Between",
+            "value": "2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC"
+          }
+        ],
+        "footer": "Noust · web-1"
+      }
+    ]
+  },
+  "digest.summary": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "○ Scheduled summary",
+        "color": "#9e9e9e",
+        "title": "○ Scheduled summary",
+        "text": "3 notifications since the last summary.\n\n**Disk cleaned · /**\n\nWhen: 2026-09-29 10:45 UTC\n\nDetail: The server's cleanup policy ran and freed space.\n\n**Scheduled task runs again · shop-sync**\n\nWhen: 2026-09-29 10:48 UTC\n\nDetail: The task's timer is running again.\n\n**Address answering again · shop-site**\n\nWhen: 2026-09-29 10:51 UTC\n\nDetail: The address answers what the probe asks of it again.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Notifications",
+            "value": "3"
+          },
+          {
+            "short": false,
+            "title": "Between",
+            "value": "2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC"
+          }
+        ],
+        "footer": "Noust · web-1"
+      }
+    ]
+  },
+  "hostile.deploy_failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Deploy failed · shop.example.com",
+        "color": "#cf3a30",
+        "title": "✕ Deploy failed · shop.example.com",
+        "text": "It stopped at an error before the new version could take over.\n\n**Inspect with:** `noust diagnose shop.example.com`\n\n*What the system reported*\n```\nRelease did not pass <its> health & check\n<urlopen error [Errno 111] Connection refused>\n'''\n@​everyone <!channel> <@​U123|admin> &lt;b&gt;\nred *bold* _italic_ ~strike~ `code`\nnoitcnuf\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…\n```",
+        "fields": [
+          {
+            "short": false,
+            "title": "Server",
+            "value": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+          },
+          {
+            "short": true,
+            "title": "Release",
+            "value": "20260929-104449"
+          },
+          {
+            "short": false,
+            "title": "Commit",
+            "value": "a1b2c3d (<b>x</b>&amp;<!channel> @​everyone `​tick`​ _​under_​ *​star*​ ~​tilde~​ [a]​(http://evil.example)): fixgnp.exe @​here <@​U123> <#C1> red emoji 🚀"
+          },
+          {
+            "short": true,
+            "title": "Started by",
+            "value": "Webhook"
+          },
+          {
+            "short": true,
+            "title": "Duration",
+            "value": "1 min 12 s"
+          }
+        ],
+        "footer": "Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "hostile.long_output": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Update failed · shop.example.com",
+        "color": "#cf3a30",
+        "title": "✕ Update failed · shop.example.com",
+        "text": "It stopped at an error before the new version could take over.\n\n**Inspect with:** `noust diagnose shop.example.com`\n\n*What the system reported*\n```\nnpm run build failed\nline 495: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 496: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 497: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 498: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 499: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n… 495 earlier lines omitted\n```",
+        "fields": [
+          {
+            "short": false,
+            "title": "Server",
+            "value": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+          },
+          {
+            "short": true,
+            "title": "Release",
+            "value": "20260929-104449"
+          },
+          {
+            "short": true,
+            "title": "Commit",
+            "value": "a1b2c3d (main): Fix cart total"
+          },
+          {
+            "short": true,
+            "title": "Started by",
+            "value": "Webhook"
+          },
+          {
+            "short": true,
+            "title": "Duration",
+            "value": "1 min 12 s"
+          }
+        ],
+        "footer": "Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "hostile.no_link": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Deployed · shop.example.com",
+        "color": "#4dc47e",
+        "title": "● Deployed · shop.example.com",
+        "text": "The new version is live.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Release",
+            "value": "20260929-104449"
+          },
+          {
+            "short": true,
+            "title": "Commit",
+            "value": "a1b2c3d (main): Fix cart total"
+          },
+          {
+            "short": true,
+            "title": "Started by",
+            "value": "Webhook"
+          },
+          {
+            "short": true,
+            "title": "Duration",
+            "value": "42 s"
+          }
+        ],
+        "footer": "Noust · web-1"
+      }
+    ]
+  },
+  "hostile.preview": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Deployed · pr-12.shop.example.com",
+        "color": "#4dc47e",
+        "title": "● Deployed · pr-12.shop.example.com",
+        "text": "The new version is live.",
+        "fields": [
+          {
+            "short": false,
+            "title": "Server",
+            "value": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+          },
+          {
+            "short": true,
+            "title": "Preview of",
+            "value": "shop.example.com #12"
+          },
+          {
+            "short": true,
+            "title": "Release",
+            "value": "20260929-104449"
+          },
+          {
+            "short": true,
+            "title": "Commit",
+            "value": "a1b2c3d (main): Fix cart total"
+          },
+          {
+            "short": true,
+            "title": "Started by",
+            "value": "Webhook"
+          },
+          {
+            "short": true,
+            "title": "Duration",
+            "value": "42 s"
+          }
+        ],
+        "footer": "Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "title_link": "https://console.example.com/n/web-1/apps/pr-12.shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "hostile.no_commit": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Updated · shop.example.com",
+        "color": "#4dc47e",
+        "title": "● Updated · shop.example.com",
+        "text": "The application runs the new version.",
+        "fields": [
+          {
+            "short": false,
+            "title": "Server",
+            "value": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+          },
+          {
+            "short": true,
+            "title": "Started by",
+            "value": "Webhook"
+          },
+          {
+            "short": true,
+            "title": "Duration",
+            "value": "42 s"
+          }
+        ],
+        "footer": "Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ]
+  },
+  "hostile.huge_subject": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Backup failed · ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd…",
+        "color": "#cf3a30",
+        "title": "✕ Backup failed · ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd…",
+        "text": "No new copy of the application was saved.\n\n*What the system reported*\n```\nboom\n```",
+        "fields": [
+          {
+            "short": false,
+            "title": "Server",
+            "value": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+          }
+        ],
+        "footer": "Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+        "title_link": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  }
+}

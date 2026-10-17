@@ -191,7 +191,7 @@ export function ClientCertsCard({ form, domain }: { form: ReturnType<typeof useA
           checked={draft.client_certs}
           onCheckedChange={(checked) => edit("client_certs", checked)}
         />
-        {form.errorOf("client_certs") !== undefined ? <p className="text-13 text-danger">{form.errorOf("client_certs")}</p> : null}
+        {form.errorOf("client_certs") !== undefined ? <p className="text-13 text-fail">{form.errorOf("client_certs")}</p> : null}
         {list.isError ? <ErrorBlock compact error={list.error} title={t("network.access.clients.readFailed")} /> : null}
         {list.data !== undefined ? (
           certificates.length === 0 ? (
