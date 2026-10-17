@@ -3198,3 +3198,18 @@ def _attach_replica_commands() -> None:
 
 
 _attach_replica_commands()
+
+
+def _attach_transfer_command() -> None:
+    """
+    Add ``transfer``: a database moved to another server of the fleet.
+
+    It lives in :mod:`noust.cli.commands.db_transfer`, which imports this module only at call
+    time, like the other command modules.
+    """
+    from noust.cli.commands import db_transfer
+
+    db_transfer.register(cli)
+
+
+_attach_transfer_command()

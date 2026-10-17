@@ -545,6 +545,15 @@ to a newer version*, and the Engines page lists the moves with the way back. The
 `POST /api/databases/instances/migrate/plan` and `POST /api/databases/instances/migrate` (sudo mode, jobs),
 `GET /api/databases/instances/migrations` and `POST .../migrations/{id}/rollback` (sudo mode, a job).
 
+### To another server of the fleet
+
+`noust db move` stays on one server. To take a database to another server of the fleet, from the central, use
+`noust db transfer shop_db --from db-1 --to db-2` (add `--accounts` for the accounts that had access to it,
+`--drop-source` to drop it from the first server after a last dump). The source dumps it, the central carries
+the dump in chunks that resume and keeps none of it, and the target loads it with its own import, as the
+database's owner and never as the superuser. How it works, what is checked before anything is dumped and what
+becomes of the accounts' passwords: [CENTRAL.md](CENTRAL.md#moving-a-database-to-another-server).
+
 ## TLS for an instance, and for a link
 
 An instance can serve TLS with a certificate signed by an authority of Noust's own, and an application

@@ -639,6 +639,54 @@ target serves says which machine built it while the target's own repository cach
 commit, an update whose application does not start is refused behind the target's health gate with what
 served still serving, and the target goes back to its previous release with one command.
 
+## Moving a database to another server
+
+A database can be moved from one server of the fleet to another in one step, from the central:
+
+```bash
+noust db transfer shop_db --from db-1 --to db-2 --plan       # what it would do, nothing else
+noust db transfer shop_db --from db-1 --to db-2              # asks, then does it
+noust db transfer shop_db -e postgresql@pg17 --from db-1 --to db-2 --to-engine postgresql@pg17 --as shop_copy
+noust db transfer shop_db --from db-1 --to db-2 --accounts   # and the accounts that had access to it
+noust db transfer shop_db --from db-1 --to db-2 --drop-source --replace
+```
+
+In the API it is `POST /api/fleet/databases/transfer` (see [api.md](api.md)), and any client of `POST
+/api/fleet/actions` can name the action `database_transfer`. Moving a database between engines of one
+server is `noust db move` ([databases.md](databases.md#moving-a-database-or-an-engine-to-a-newer-version)).
+
+- **The source dumps, the target loads, the central only carries.** The source takes the dump with its own
+  backups (checked and hashed there), the central reads it by ranges and writes it to the target as an upload
+  that resumes from where it stopped, through the two tunnels, a chunk at a time, and the target loads it with
+  its own import. Nothing of it is written on the central. The SHA-256 the source reports is declared when the
+  upload starts and checked when it completes. A dump made for the move is removed from the source when it
+  ends, whatever the outcome. The carrying is the same code as a release shipped from a build server.
+- **It loads as the database's owner, never as the superuser.** It is the import any dump from elsewhere gets
+  on the target (`noust db import`): a dump cannot run programs on the server as root because it came from the
+  fleet. `--as-superuser` stays a decision an operator takes on the target, not one the central takes for them.
+- **The accounts follow when asked (`--accounts`).** Those with access to the database on the source are made
+  on the target with the password the source holds for each and the profile they had, after the data; one the
+  source holds no password for is made with a new one the target keeps, and shows with sudo mode (the account's page
+  there, or `POST /api/databases/users/{engine}/{username}/password/reveal`).
+  The passwords pass through the central in memory and are kept nowhere: not in a log, not in the job's result,
+  not in an audit event. The engine's own accounts and those the target already has are left as they are. An
+  account that cannot be made fails the server after the others were tried, with the target's words; the data is
+  there by then, and the source is not dropped on the strength of half a move.
+- **The source keeps the database** unless `--drop-source` is given, and then the source itself drops it, after
+  a last dump kept there, and refuses while an application uses it (the move still counts: the database is on
+  the target, and the record says the source kept it). The copy is the database at the moment of the dump:
+  writes after it are not carried, so stop what writes first when that matters. The applications that use it are
+  not pointed at the new server: that is a decision about a network, not about a database.
+- **It is checked before anything is dumped:** the source holds the database and offers what moving needs, the
+  engine runs on both, the target is not older than the source (a dump of a newer server does not load into an
+  older one), it does not hold a database by that name (unless `--replace`, which takes a safety copy of it on
+  the target first), and the database is of an engine whose databases travel as a dump (PostgreSQL, MySQL,
+  MariaDB, MongoDB; a Redis snapshot is the whole instance). A source whose ceiling does not let this central
+  dump and read its dumps (`admin`) is refused with the reason.
+- **Every step is the server's own API call, as the same operator**, so each server's ceiling and permissions
+  apply, sudo mode is asked once for the job (the target's import marks it), and a server older than this is
+  skipped as `unsupported` like any bulk action.
+
 ## A fleet on different versions
 
 A 3.1 central drives 3.0 servers, and a 3.0 central drives 3.1 servers. A 3.0 server shows as
