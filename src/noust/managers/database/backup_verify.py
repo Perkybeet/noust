@@ -35,7 +35,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-from noust.core.exceptions import DatabaseBackupError, DatabaseError
+from noust.core.backup_files import open_backup
+from noust.core.exceptions import BackupError, DatabaseBackupError, DatabaseError
 from noust.core.runner import CommandResult
 from noust.managers.database.base import BaseDatabaseManager, backup_format
 from noust.managers.database.clickhouse import backup_problem
@@ -435,6 +436,10 @@ def check_dump(manager: BaseDatabaseManager, path: Path) -> DumpCheck:
     """
     Say whether a dump is whole, as the engine's own tool reads it.
 
+    A sealed dump is opened first (:func:`~noust.core.backup_files.open_backup`): its envelope is
+    authenticated whole, which already proves it is the file that was written, and the engine's
+    tool then reads the plain dump.
+
     Args:
         manager: The engine's manager.
         path: The dump.
@@ -442,6 +447,24 @@ def check_dump(manager: BaseDatabaseManager, path: Path) -> DumpCheck:
     Returns:
         The check; never raises for a dump that is bad, since a bad dump is
         the answer.
+    """
+    try:
+        with open_backup(path) as readable:
+            return _check_plain(manager, readable)
+    except BackupError as exc:
+        return _fail("sealed", f"{exc.message}. {exc.details or ''}".strip())
+
+
+def _check_plain(manager: BaseDatabaseManager, path: Path) -> DumpCheck:
+    """
+    Check a dump that is in clear.
+
+    Args:
+        manager: The engine's manager.
+        path: The dump.
+
+    Returns:
+        The check.
     """
     try:
         size = path.stat().st_size

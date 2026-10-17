@@ -1294,6 +1294,240 @@ def scenario_host_tls(sc: Any) -> None:
         )
 
 
+SEAL_MARKER = "customer-secret-marker-7731"
+SEAL_DOMAIN = "seal.test"
+SEAL_APP = "seal-test"
+MAGIC_LINE = "NOUST-ENVELOPE 1"
+
+
+def newest(sc: Any, pattern: str) -> str:
+    """
+    Args:
+        sc: The scenario.
+        pattern: A shell glob.
+
+    Returns:
+        The newest file matching it.
+    """
+    return sc.run(f"ls -t {pattern} | head -n 1", label=f"newest {pattern}").stdout.strip()
+
+
+def stored_as(sc: Any, path: str) -> str:
+    """
+    Args:
+        sc: The scenario.
+        path: A file on the machine.
+
+    Returns:
+        ``sealed`` when it is an envelope, ``clear`` otherwise.
+    """
+    first = sc.run(f"head -c 16 {path}", label=f"first bytes of {path}").stdout
+    return "sealed" if first.startswith(MAGIC_LINE[:16]) else "clear"
+
+
+@engines_scenario("sealed_backups")
+def scenario_sealed_backups(sc: Any) -> None:
+    """
+    H-08: backups sealed on the server's disk, opened by one door, with real engines.
+
+    A PostgreSQL dump, an application's archive, an application's data, and the safety copy a
+    restore takes are envelopes that do not contain their plaintext; each is checked, restored and
+    sent to a destination as the stored file; a dump made before sealing still restores; a backup
+    whose key is gone is refused with the fix and opens again when the key is put back.
+    """
+    key_file = "/root/kept-elsewhere"
+    try:
+        noust(sc, "db uninstall postgresql --purge -f", timeout=900, check=False)
+        noust(sc, "db install postgresql", timeout=1800)
+        noust(sc, "db create shop --engine postgresql")
+        psql(
+            sc,
+            "shop",
+            f"create table t(note text); insert into t select '{SEAL_MARKER}-' || g "  # noqa: S608
+            "from generate_series(1, 50) g",
+        )
+
+        # --- before: a dump is plain text anyone with the disk can read
+        noust(sc, "db backup shop --engine postgresql --format plain --no-compress")
+        before = newest(sc, "/var/backups/noust/databases/postgresql-shop-*.sql")
+        sc.check(stored_as(sc, before) == "clear", "a dump made before sealing is in clear")
+        sc.check(int(sc.run(f"grep -c {SEAL_MARKER} {before}").stdout) > 0, "and readable")
+        status = json_of(noust(sc, "backup encryption status --json"), "status")
+        sc.check(
+            status["enabled"] is False and status["clear"] >= 1, f"nothing sealed yet: {status}"
+        )
+
+        # --- on: the key is shown once and kept
+        enabled = noust(sc, "backup encryption enable --yes")
+        key_id = next(
+            line.split()[1].rstrip(":")
+            for line in enabled.stdout.splitlines()
+            if line.startswith("Key ")
+        )
+        passphrase = next(
+            line.strip() for line in enabled.stdout.splitlines() if len(line.strip()) == 48
+        )
+        sc.run(f"printf '%s\\n' '{passphrase}' > {key_file} && chmod 600 {key_file}")
+
+        # --- a dump an engine makes is sealed whatever its format
+        noust(sc, "db backup shop --engine postgresql --format plain --no-compress")
+        plain_dump = newest(sc, "/var/backups/noust/databases/postgresql-shop-*.sql")
+        sc.check(stored_as(sc, plain_dump) == "sealed", "a plain dump made now is sealed")
+        sc.check(
+            sc.run(f"grep -c {SEAL_MARKER} {plain_dump}", check=False).stdout.strip() == "0",
+            "and holds none of the plaintext",
+        )
+        noust(sc, "db backup shop --engine postgresql")
+        custom_dump = newest(sc, "/var/backups/noust/databases/postgresql-shop-*.dump*")
+        sc.check(stored_as(sc, custom_dump) == "sealed", "a custom-format dump is sealed too")
+        status = json_of(noust(sc, "backup encryption status --json"), "status")
+        sc.check(status["sealed"] >= 2 and status["current_key"] == key_id, f"counted: {status}")
+
+        # --- checked and restored through the one door
+        verified = noust(
+            sc,
+            f"db backup-verify {Path(custom_dump).name} --engine postgresql --restore-test",
+            timeout=300,
+        )
+        sc.check("ok" in verified.stdout.lower() or verified.returncode == 0, verified.stdout)
+        psql(sc, "shop", "delete from t")
+        sc.check(psql(sc, "shop", "select count(*) from t") == "0", "the data was lost")
+        noust(
+            sc,
+            f"db restore shop {custom_dump} --engine postgresql --drop -f",
+            timeout=600,
+        )
+        sc.check(psql(sc, "shop", "select count(*) from t") == "50", "a sealed dump restores")
+        # Taken after the delete, so it holds an empty table: it proves sealing, not the data.
+        safety = newest(sc, "/var/backups/noust/databases/postgresql-shop-*.dump*")
+        sc.check(stored_as(sc, safety) == "sealed", "the safety copy a restore takes is sealed")
+        sc.check(
+            int(sc.run("find /var/backups/noust/.open -type f 2>/dev/null | wc -l").stdout) == 0,
+            "no decrypted copy is left behind",
+        )
+
+        # --- and the dump made before sealing was turned on is still opened the same way
+        noust(sc, f"db restore shop {before} --engine postgresql --drop -f", timeout=600)
+        sc.check(
+            psql(sc, "shop", "select count(*) from t") == "50", "a dump in clear still restores"
+        )
+
+        # --- an application and its data
+        create = f"noust create -d {SEAL_DOMAIN} -s /root/fixtures/static-site -t static --no-ssl"
+        sc.run(create, timeout=run.DEPLOY_TIMEOUT, label=create)
+        sc.run(
+            f"mkdir -p /var/www/apps/{SEAL_APP}/shared/uploads && "
+            f"echo '{SEAL_MARKER}' > /var/www/apps/{SEAL_APP}/shared/uploads/a.txt"
+        )
+        noust(sc, f"backup create {SEAL_DOMAIN}", timeout=300)
+        archive = newest(sc, f"/var/backups/noust/{SEAL_APP}/*.tar.gz")
+        sc.check(stored_as(sc, archive) == "sealed", "an application's archive is sealed")
+        backup_id = Path(archive).name.removesuffix(".tar.gz")
+        noust(sc, f"backup verify {backup_id}", timeout=300)
+        root = sc.run(
+            f"readlink -e /var/www/apps/{SEAL_APP}/current || echo /var/www/apps/{SEAL_APP}"
+        ).stdout.strip()
+        sc.run(f"echo tampered > {root}/index.html")
+        noust(sc, f"backup restore {backup_id} -f", timeout=300)
+        page = sc.run(f"curl -fsS -H 'Host: {SEAL_DOMAIN}' http://127.0.0.1/").stdout
+        sc.check(
+            "tampered" not in page,
+            f"the restore from a sealed archive brought the page back: {page[:120]}",
+        )
+
+        noust(sc, f"backup volumes create {SEAL_DOMAIN} --path uploads", timeout=300)
+        data = sc.run(
+            f"find /var/backups/noust -name '{SEAL_APP}.path-uploads_*.tar.gz' | sort | tail -n 1",
+            label="the data backup",
+        ).stdout.strip()
+        sc.check(stored_as(sc, data) == "sealed", "an application's data backup is sealed")
+        data_id = Path(data).name.removesuffix(".tar.gz")
+        noust(sc, f"backup volumes verify {data_id} --deep", timeout=300)
+        sc.run(f"echo lost > /var/www/apps/{SEAL_APP}/shared/uploads/a.txt")
+        noust(sc, f"backup volumes restore {data_id} -f", timeout=300)
+        sc.check(
+            sc.run(f"cat /var/www/apps/{SEAL_APP}/shared/uploads/a.txt").stdout.strip()
+            == SEAL_MARKER,
+            "the data came back from a sealed archive",
+        )
+
+        # --- sent as it is stored, and restored from the destination on a server with no copy
+        sc.run("rm -rf /srv/noust-test-ch-seal && mkdir -p /srv/noust-test-ch-seal")
+        noust(sc, "backup destination add chseal --type local --field path=/srv/noust-test-ch-seal")
+        noust(
+            sc,
+            f"db backup-push {Path(custom_dump).name} --engine postgresql --to chseal",
+            timeout=300,
+        )
+        remote = sc.run(
+            "find /srv/noust-test-ch-seal -name 'postgresql-shop-*.dump*' ! -name '*.json'"
+        ).stdout.split()
+        sc.check(
+            len(remote) == 1 and stored_as(sc, remote[0]) == "sealed",
+            f"the destination holds the stored file: {remote}",
+        )
+        sc.run(f"rm -f {custom_dump}")
+        psql(sc, "shop", "delete from t")
+        noust(
+            sc,
+            f"db restore-remote shop {Path(custom_dump).name} --engine postgresql --from chseal --drop -f",
+            timeout=600,
+        )
+        sc.check(
+            psql(sc, "shop", "select count(*) from t") == "50",
+            "a sealed dump restores from a destination",
+        )
+
+        # --- the key is gone: refused with the fix, and the key put back opens it again
+        # (the first dump was deleted above to prove the restore from a destination)
+        noust(sc, "db backup shop --engine postgresql")
+        custom_dump = newest(sc, "/var/backups/noust/databases/postgresql-shop-*.dump*")
+        sc.check(stored_as(sc, custom_dump) == "sealed", "the dump to lose the key for is sealed")
+        # The store sits beside the account's data directory when no unit runs the command, so
+        # the key is looked for rather than assumed at the system path.
+        key_path = sc.run(
+            f"find / -xdev -path '*/secrets/backups/local-encryption/{key_id}' | head -n 1"
+        ).stdout.strip()
+        sc.check(bool(key_path), "the key is a file of the secret store")
+        sc.run(f"mv {key_path} /root/key-moved")
+        gone = noust(
+            sc,
+            f"db restore shop {custom_dump} --engine postgresql --drop -f",
+            timeout=600,
+            check=False,
+        )
+        text = gone.stdout + gone.stderr
+        sc.check(
+            gone.returncode != 0
+            and "does not hold its key" in text
+            and f"import-key {key_id}" in text,
+            f"a backup whose key is gone is refused with the fix: {text}",
+        )
+        sc.check(psql(sc, "shop", "select count(*) from t") == "50", "nothing was touched")
+        noust(sc, f"backup encryption import-key {key_id} --passphrase-file {key_file}")
+        noust(sc, f"db restore shop {custom_dump} --engine postgresql --drop -f", timeout=600)
+        sc.check(psql(sc, "shop", "select count(*) from t") == "50", "the key put back opens it")
+
+        # --- off again: nothing new is sealed, and everything sealed still opens
+        noust(sc, "backup encryption disable --yes")
+        noust(sc, "db backup shop --engine postgresql --format plain --no-compress")
+        later = newest(sc, "/var/backups/noust/databases/postgresql-shop-*.sql")
+        sc.check(stored_as(sc, later) == "clear", "with sealing off a new dump is in clear")
+        noust(sc, f"db restore shop {custom_dump} --engine postgresql --drop -f", timeout=600)
+        sc.check(psql(sc, "shop", "select count(*) from t") == "50", "what was sealed still opens")
+    finally:
+        sc.run(
+            "noust backup encryption disable --yes; "
+            "noust backup destination remove chseal -f; "
+            f"noust delete {SEAL_DOMAIN} -f; "
+            f"rm -rf /srv/noust-test-ch-seal {key_file} /root/key-moved /var/backups/noust/{SEAL_APP} "
+            f"/var/backups/noust/volumes/{SEAL_APP}",
+            timeout=300,
+            check=False,
+            label="cleanup",
+        )
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------

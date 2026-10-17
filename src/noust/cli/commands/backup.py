@@ -1686,10 +1686,11 @@ def _attach_volume_commands() -> None:
     import this module at load time, so the order the two are imported in
     never matters.
     """
-    from noust.cli.commands import backup_drill, backup_volumes
+    from noust.cli.commands import backup_drill, backup_encryption, backup_volumes
 
     backup_volumes.register(backup)
     backup_drill.register(backup)
+    backup_encryption.register(backup)
 
 
 _attach_volume_commands()

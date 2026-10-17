@@ -47,6 +47,7 @@ from typing import Any, TypeVar
 
 from noust.core import audit, paths
 from noust.core.applock import AppBusyError, app_lock
+from noust.core.backup_files import open_backup, seal_in_place
 from noust.core.exceptions import (
     BackupError,
     DatabaseBackupError,
@@ -1208,6 +1209,9 @@ class PitrManager:
             return self._rehearsal_base(policy, started, identifier)
         record = self._wait_for_backup_record(policy, label)
         self.fs.rename(partial, archive)
+        # Sealed before it is measured, when backups are sealed on this server: the size and
+        # the digest recorded, and checked before every recovery, are those of the stored file.
+        seal_in_place(archive, fs=self.fs)
         base = BaseBackup(
             id=identifier,
             started_at=record.started_at,
@@ -1796,12 +1800,13 @@ class PitrManager:
         """
         self.fs.make_dir(data, mode=0o700)
         self.fs.set_owner(data, user=ENGINE_ACCOUNT, group=ENGINE_ACCOUNT, mode=0o700)
-        result = self.manager._exec(
-            ["tar", "-xzf", "-", "-C", str(data)],
-            stdin_path=self.base_path(policy.system_id, plan.base),
-            timeout=BASE_BACKUP_TIMEOUT,
-            user=ENGINE_ACCOUNT,
-        )
+        with open_backup(self.base_path(policy.system_id, plan.base)) as readable:
+            result = self.manager._exec(
+                ["tar", "-xzf", "-", "-C", str(data)],
+                stdin_path=readable,
+                timeout=BASE_BACKUP_TIMEOUT,
+                user=ENGINE_ACCOUNT,
+            )
         if not result.success:
             raise DatabaseBackupError(
                 "The base backup could not be extracted",

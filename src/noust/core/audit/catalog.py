@@ -383,6 +383,8 @@ EVENTS: dict[str, EventSpec] = {
             "db.backup.push": "A database dump was sent to a remote destination.",
             "db.backup.delete": "A database dump was deleted from here or from a destination.",
             "db.restore": "A database dump was restored.",
+            "backup.encryption.key": "A key for sealing the backups kept on this server was made.",
+            "backup.encryption.stop": "Backups kept on this server stopped being sealed.",
             "db.tls.enable": "A host database engine was given a certificate to serve TLS with.",
             "db.tls.refresh": "A host database engine loaded the renewed certificate it serves.",
             "db.tls.disable": "A host database engine was taken off the certificate Noust gave it.",

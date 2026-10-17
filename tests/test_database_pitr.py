@@ -32,7 +32,7 @@ from noust.core.exceptions import (
     DatabaseEngineError,
     ValidationError,
 )
-from noust.core.runner import CommandResult, set_runner
+from noust.core.runner import CommandResult, SubprocessRunner, set_runner
 from noust.core.store import NoustStore, get_store
 from noust.managers.backup_destination_files import DestinationFileManager, file_sha256
 from noust.managers.database import flavours
@@ -89,6 +89,8 @@ class SimulatedPostgres(RcloneRunner):
         self.fail_start = False
         self.now: Any = lambda: START
         self.statements: list[str] = []
+        #: What each extraction of a base backup was given on its standard input.
+        self.extracted: list[bytes] = []
         self.restarts = 0
         self.facts = {
             "wal_level": "replica",
@@ -131,6 +133,11 @@ class SimulatedPostgres(RcloneRunner):
         check: bool = False,
         secrets: Sequence[str] = (),
     ) -> CommandResult:
+        if argv and argv[0] == "openssl":
+            # Sealing is proved with the real program, by the tests that turn it on.
+            return SubprocessRunner().run(
+                argv, cwd=cwd, env=env, timeout=timeout, input=input, user=user, check=check
+            )
         scripted = super().run(
             argv,
             cwd=cwd,
@@ -143,6 +150,8 @@ class SimulatedPostgres(RcloneRunner):
             secrets=secrets,
         )
         words = tuple(argv)
+        if words[:1] == ("tar",) and stdin_path is not None:
+            self.extracted.append(stdin_path.read_bytes())
         if words[:2] == ("systemctl", "is-active"):
             return CommandResult(
                 argv=words,
@@ -1027,3 +1036,56 @@ def test_the_lock_is_free_again_after_an_operation(
     enabled.take_base()
 
     assert len(enabled.list_bases(SYSTEM_ID)) == 3
+
+
+# ------------------------------------------------------------------ sealed on the disk
+
+
+@pytest.fixture
+def sealing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
+    """Sealing on for the backups this server keeps, in a secret store of the test's own."""
+    from noust.core import backup_files
+    from noust.core.backup_files import BackupKeys
+    from noust.core.ens import envelope
+    from noust.core.secrets import SecretStore
+
+    store = SecretStore(root=tmp_path / "sealing-secrets")
+    monkeypatch.setattr(backup_files, "SecretStore", lambda: store)
+    monkeypatch.setattr(backup_files.paths, "backup_dir", lambda: tmp_path / "scratch-root")
+    monkeypatch.setattr(envelope, "SCRYPT_N", 2**10)
+    keys = BackupKeys(store)
+    keys.make_key()
+    return keys
+
+
+@pytest.mark.allow_subprocess
+def test_a_base_backup_is_sealed_when_backups_are_and_recorded_as_stored(
+    enabled: PitrManager, engine: SimulatedPostgres, clock: Clock, sealing: Any
+) -> None:
+    from noust.core.backup_files import is_sealed
+
+    clock.advance(hours=1)
+    base = enabled.take_base()
+
+    archive = enabled.base_path(SYSTEM_ID, base)
+    assert is_sealed(archive)
+    assert base.size == archive.stat().st_size and base.sha256 == file_sha256(archive)
+    assert enabled.plan_restore(None).base.id == base.id, "the digest checked is the stored file's"
+
+
+@pytest.mark.allow_subprocess
+def test_a_recovery_extracts_the_plain_base_backup_of_a_sealed_one(
+    enabled: PitrManager, engine: SimulatedPostgres, clock: Clock, sealing: Any
+) -> None:
+    from noust.core.backup_files import is_sealed
+    from noust.core.ens import envelope
+
+    clock.advance(hours=1)
+    base = enabled.take_base()
+    assert is_sealed(enabled.base_path(SYSTEM_ID, base))
+
+    enabled.restore(None, confirmed=True, base_id=base.id)
+
+    (given,) = engine.extracted
+    assert not given.startswith(envelope.MAGIC)
+    assert given[:2] == b"\x1f\x8b", "the gzip the engine's tar reads"

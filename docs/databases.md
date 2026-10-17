@@ -640,7 +640,7 @@ noust db pitr disable                          # settings back; --delete-archive
 - **What it does not do yet.** PostgreSQL of the server only (not an instance); a cluster with
   tablespaces besides the two every cluster has is refused; the archive directory is the engine's
   own and is not encrypted (the base backups and the destinations are subject to the encryption of
-  [backups](#local-backups-encrypted-at-rest) and of the destination); a recovery is not
+  [backups](disaster-recovery.md#backups-sealed-on-this-servers-disk) and of the destination); a recovery is not
   tried automatically in a scratch directory first (a restore drill of the archive).
 
 The API is `GET /api/databases/pitr`, `POST .../pitr/enable/plan` and `.../pitr/restore/plan`, and, as

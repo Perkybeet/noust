@@ -30,6 +30,7 @@ only says how its dumps are checked and loaded.
 from __future__ import annotations
 
 import csv
+import functools
 import gzip
 import io
 import os
@@ -40,13 +41,14 @@ import time
 from abc import abstractmethod
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, NoReturn, TypeVar
 
 from noust.central import require_server_role
 from noust.core import paths
+from noust.core.backup_files import open_backup, seal_in_place
 from noust.core.exceptions import (
     DatabaseAccessError,
     DatabaseBackupError,
@@ -761,6 +763,62 @@ def console_statement(query: str, *, read_only: bool) -> str:
 _Manager = TypeVar("_Manager", bound="BaseDatabaseManager")
 
 
+def _sealing(method: Callable[..., BackupInfo]) -> Callable[..., BackupInfo]:
+    """
+    Seal what an engine's ``backup`` just wrote, when backups are sealed on this server.
+
+    Applied to every engine's ``backup`` by :meth:`BaseDatabaseManager.__init_subclass__`, so
+    the guard is at the one place a dump is made (rule 4) and an engine that is added later
+    cannot forget it. Sealing is idempotent, so a ``backup`` that calls its parent's is fine.
+
+    Args:
+        method: An engine's ``backup``.
+
+    Returns:
+        The same method, followed by the sealing.
+    """
+
+    @functools.wraps(method)
+    def sealed(self: BaseDatabaseManager, *args: Any, **kwargs: Any) -> BackupInfo:
+        info = method(self, *args, **kwargs)
+        if isinstance(info, BackupInfo) and seal_in_place(info.path):
+            info.size = info.path.stat().st_size
+        return info
+
+    sealed.__noust_sealing__ = True  # type: ignore[attr-defined]
+    return sealed
+
+
+def _opening(method: Callable[..., RestoreOutcome]) -> Callable[..., RestoreOutcome]:
+    """
+    Give an engine's ``restore`` the plain file of a backup that is sealed.
+
+    Applied to every engine's ``restore`` by :meth:`BaseDatabaseManager.__init_subclass__`. The
+    outcome still names the file the caller gave, not the decrypted copy, which is removed when
+    the restore ends.
+
+    Args:
+        method: An engine's ``restore``.
+
+    Returns:
+        The same method, run over the opened file.
+    """
+
+    @functools.wraps(method)
+    def opened(
+        self: BaseDatabaseManager, database: str, backup_path: Path, *args: Any, **kwargs: Any
+    ) -> RestoreOutcome:
+        given = Path(backup_path)
+        with open_backup(given) as readable:
+            outcome = method(self, database, readable, *args, **kwargs)
+        if isinstance(outcome, RestoreOutcome) and outcome.source != given:
+            outcome = replace(outcome, source=given)
+        return outcome
+
+    opened.__noust_opening__ = True  # type: ignore[attr-defined]
+    return opened
+
+
 class BaseDatabaseManager(BaseManager):
     """
     Base class for database engine managers.
@@ -820,6 +878,22 @@ class BaseDatabaseManager(BaseManager):
     #: The container this manager drives, or None for the host's engine.
     #: Set by :meth:`bind`; see :mod:`noust.managers.database.instances`.
     instance: DatabaseInstance | None = None
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """
+        Put every engine's dump and restore behind the one door backups go through.
+
+        Raises:
+            TypeError: Never; the signature follows ``object.__init_subclass__``.
+        """
+        super().__init_subclass__(**kwargs)
+        for name, wrap, mark in (
+            ("backup", _sealing, "__noust_sealing__"),
+            ("restore", _opening, "__noust_opening__"),
+        ):
+            method = cls.__dict__.get(name)
+            if method is not None and not getattr(method, mark, False):
+                setattr(cls, name, wrap(method))
 
     # ==================== Instances ====================
 
@@ -2730,6 +2804,7 @@ class BaseDatabaseManager(BaseManager):
             DatabaseBackupError: When the backup fails.
         """
 
+    @_opening
     def restore(
         self,
         database: str,
@@ -2857,7 +2932,10 @@ class BaseDatabaseManager(BaseManager):
         """
         said = failure.details or str(failure)
         try:
-            with self._restore_input(database, safety) as loadable:
+            with (
+                open_backup(safety) as readable,
+                self._restore_input(database, readable) as loadable,
+            ):
                 self.drop_database(database, force=True)
                 self._create_for_restore(database, owner)
                 self._load_backup(database, loadable)
