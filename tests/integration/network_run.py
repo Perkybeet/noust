@@ -54,6 +54,7 @@ import json
 import os
 import re
 import secrets
+import shlex
 import subprocess
 import sys
 import tarfile
@@ -103,7 +104,9 @@ if not TYPE_CHECKING:
 # Names. Everything this harness creates starts with PREFIX and has the label.
 # ---------------------------------------------------------------------------
 
-PREFIX = "noust-test-de"
+#: Overridable, so that two work streams sharing one Docker keep their containers apart
+#: (``NOUST_IT_NETWORK_PREFIX=noust-test-w6r-net``); it must still start with ``noust-test-``.
+PREFIX = os.environ.get("NOUST_IT_NETWORK_PREFIX", "noust-test-de")
 LABEL = "noust.test=1"
 NETWORK = f"{PREFIX}-net"
 SERVER = f"{PREFIX}-server"
@@ -2464,6 +2467,253 @@ def scenario_internal_ca(env: Env) -> None:
         env.srv("test ! -e /etc/noust/ca", check=False).returncode == 0,
         "the authority's directory should be gone",
     )
+
+
+# ---------------------------------------------------------------------------
+# The web application firewall, against the real ModSecurity and the real Core Rule Set (E-19)
+# ---------------------------------------------------------------------------
+
+WAF_SITE = "waf.test"
+WAF_OTHER = "waf-open.test"
+
+#: Attacks the Core Rule Set at its default paranoia level knows by name, as a query string.
+WAF_XSS = "/?q=%3Cscript%3Ealert(1)%3C/script%3E"
+WAF_SQLI = "/?id=1%27%20OR%20%271%27=%271"
+WAF_TRAVERSAL = "/?file=../../../../etc/passwd"
+WAF_COMMAND = "/?cmd=;cat%20/etc/passwd"
+WAF_CLEAN = "/search?q=blue+shoes&page=2"
+
+
+def waf_audit_path(env: Env) -> str:
+    """
+    Read where ModSecurity writes its audit log from the rules file Noust wrote.
+
+    Args:
+        env: The environment.
+
+    Returns:
+        The path ``SecAuditLog`` names.
+    """
+    line = env.srv("grep -m1 '^SecAuditLog ' /etc/nginx/noust-waf/rules.conf").stdout.strip()
+    return line.split(None, 1)[1]
+
+
+def status_of(env: Env, domain: str, path: str, *, extra: str = "", label: str = "") -> int:
+    """
+    Ask for ``domain`` from the client and return the HTTP status alone.
+
+    Args:
+        env: The environment.
+        domain: The Host header.
+        path: The path and query, sent exactly as given.
+        extra: More curl options (``-d`` for a body, ``-H`` for a header).
+        label: What to call it in the evidence.
+
+    Returns:
+        The status code, 0 when nothing answered.
+    """
+    url = shlex.quote(f"http://{env.server_ip}{path}")
+    out = env.cli(
+        f"curl -sS --path-as-is -o /dev/null -w '%{{http_code}}' {extra} -H 'Host: {domain}' {url}",
+        check=False,
+        label=label or f"http {domain}{path} {extra}".strip(),
+    ).stdout.strip()
+    return int(out) if out.isdigit() else 0
+
+
+def waf_events(env: Env, domain: str) -> list[dict[str, Any]]:
+    """
+    Read what the rules judged for a site, through Noust's own command.
+
+    Args:
+        env: The environment.
+        domain: The site.
+
+    Returns:
+        The events, newest first, as ``noust app policy waf events --json`` prints them.
+    """
+    proc = env.srv(f"noust app policy waf events {domain} --limit 200 --json", check=False)
+    if proc.returncode != 0:
+        return []
+    answer = json_of(proc, f"waf events {domain}")
+    events = answer.get("events", answer) if isinstance(answer, dict) else answer
+    return list(events)
+
+
+@scenario("waf_modsecurity_blocks_real_attacks")
+def scenario_waf(env: Env) -> None:
+    """nginx with ModSecurity and the Core Rule Set: attacks refused, clean traffic served, the log read."""
+    for domain in (WAF_SITE, WAF_OTHER):
+        if env.srv(f"noust status {domain}", check=False).returncode == 0:
+            env.srv(f"noust delete {domain} -y", label="(a re-run) start from nothing")
+    env.srv("rm -f /var/log/nginx/noust-waf-audit.*", label="(a re-run) a clean audit log")
+    ensure_app(env, WAF_SITE)
+    ensure_app(env, WAF_OTHER)
+
+    # -- a server without the module says so, in words, and nothing is written
+    shown = json_of(env.srv(f"noust app policy waf show {WAF_SITE} --json"), "waf show")
+    if not shown["available"]:
+        env.check(
+            "ModSecurity" in shown["problem"] and shown["installable"],
+            f"an nginx without the module should say so and offer the packages: {shown}",
+        )
+        refused = env.srv(f"noust app policy set {WAF_SITE} --waf block", check=False)
+        env.check(
+            refused.returncode != 0, "a policy asking for the WAF without the module was kept"
+        )
+        env.check(
+            "ModSecurity" in refused.stdout + refused.stderr,
+            "the refusal does not name what is missing",
+        )
+        env.check(
+            env.srv("test ! -e /etc/nginx/noust-waf", check=False).returncode == 0,
+            "a refused policy left the shared rules behind",
+        )
+        env.srv("noust app policy waf install", timeout=900, label="noust app policy waf install")
+    else:
+        env.note("the packages were already installed by an earlier run")
+    shown = json_of(env.srv(f"noust app policy waf show {WAF_SITE} --json"), "waf show")
+    env.check(shown["available"], f"after the install the WAF is still unavailable: {shown}")
+
+    # -- detect: every attack is answered by the application, and written down
+    env.srv(f"noust app policy set {WAF_SITE} --waf detect")
+    env.check(status_of(env, WAF_SITE, WAF_CLEAN) == 200, "a clean request was refused in detect")
+    for name, path in (("xss", WAF_XSS), ("sqli", WAF_SQLI)):
+        env.check(
+            status_of(env, WAF_SITE, path, label=f"{name} in detect mode") == 200,
+            f"{name} was refused in detect mode: nothing may be refused there",
+        )
+    events = waf_events(env, WAF_SITE)
+    would = [e for e in events if e.get("would_block")]
+    env.check(len(would) >= 2, f"detect wrote down {len(would)} attacks it would have blocked")
+    rule_ids = {rule["id"] for event in events for rule in event["rules"]}
+    env.check(
+        {"941100", "942100"} <= rule_ids,
+        f"the rules that should have matched did not: {sorted(rule_ids)}",
+    )
+
+    # -- block: the same attacks get a 403 from the module, clean traffic still passes
+    env.srv(f"noust app policy set {WAF_SITE} --waf block")
+    for name, path in (
+        ("xss", WAF_XSS),
+        ("sqli", WAF_SQLI),
+        ("path traversal", WAF_TRAVERSAL),
+        ("command injection", WAF_COMMAND),
+    ):
+        got = status_of(env, WAF_SITE, path, label=f"{name} in block mode")
+        env.check(got == 403, f"{name} was answered {got}, not refused with 403")
+    env.check(status_of(env, WAF_SITE, "/") == 200, "block mode refused the home page")
+    env.check(status_of(env, WAF_SITE, WAF_CLEAN) == 200, "block mode refused a search")
+    body_attack = status_of(
+        env,
+        WAF_SITE,
+        "/login",
+        extra="-d 'user=ana&password=hunter2-body&bio=%3Cscript%3Ealert(1)%3C/script%3E'",
+        label="an attack in a POST body",
+    )
+    env.check(body_attack == 403, f"an attack in a form body was answered {body_attack}")
+    env.check(
+        status_of(env, WAF_SITE, "/login", extra="-d 'user=ana&password=hunter2-body'") == 200,
+        "an ordinary login form was refused",
+    )
+
+    # -- the firewall is per site: the other site shares the rules and is not judged
+    env.check(
+        status_of(env, WAF_OTHER, WAF_XSS, label="the same attack at a site without the WAF")
+        == 200,
+        "a site that did not turn the WAF on was judged by it",
+    )
+    env.check(
+        env.srv(
+            "grep -c '^modsecurity_rules_file' /etc/nginx/sites-enabled/00-noust-waf"
+        ).stdout.strip()
+        == "1",
+        "the rules should be loaded once for every site",
+    )
+
+    # -- what the log keeps: blocked, with the rules; never the body; readable by root alone
+    audit_log = waf_audit_path(env)
+    events = waf_events(env, WAF_SITE)
+    blocked = [e for e in events if e.get("blocked")]
+    env.check(
+        len(blocked) >= 4, f"the log shows {len(blocked)} blocked requests, expected 4 or more"
+    )
+    env.check(
+        env.srv(f"grep -c 'hunter2-body' {audit_log}", check=False).stdout.strip() == "0",
+        "a password typed into a form reached the audit log",
+    )
+    mode = env.srv(f"stat -c '%a' {audit_log}").stdout.strip()
+    env.check(
+        int(mode, 8) & 0o007 == 0,
+        f"the audit log is mode {mode}: it holds the headers of every flagged request, "
+        "cookies and credentials included, and other accounts on the server can read it",
+    )
+
+    # -- an exclusion is per site and per rule number
+    env.srv(f"noust app policy set {WAF_SITE} --waf-exclude 942100")
+    env.check(
+        status_of(env, WAF_SITE, WAF_SQLI, label="sqli with 942100 left out") == 200,
+        "a rule left out still refused the request it alone matched",
+    )
+    env.check(
+        status_of(env, WAF_SITE, WAF_XSS, label="xss with 942100 left out") == 403,
+        "leaving a SQL rule out stopped the cross-site scripting rules",
+    )
+    env.srv(f"noust app policy set {WAF_SITE} --clear-waf-exclusions")
+    env.check(
+        status_of(env, WAF_SITE, WAF_SQLI, label="sqli, nothing left out") == 403,
+        "clearing the exclusions did not bring the rule back",
+    )
+
+    # -- the web server's own rotation must not leave the WAF writing to a file nobody reads
+    env.srv(
+        "command -v logrotate >/dev/null || apt-get install -y --no-install-recommends logrotate",
+        timeout=300,
+        label="(the image is minimal) logrotate, which a Debian server has",
+    )
+    env.srv(
+        "logrotate -f /etc/logrotate.d/nginx; "
+        "if [ -f /etc/logrotate.d/noust-waf ]; then logrotate -f /etc/logrotate.d/noust-waf; fi",
+        label="logrotate -f, as the daily run does",
+    )
+    status_of(env, WAF_SITE, WAF_XSS.replace("alert(1)", "alert(rotated)"), label="after rotation")
+    after = [e for e in waf_events(env, WAF_SITE) if "alert(rotated)" in e["uri"]]
+    env.check(
+        len(after) == 1,
+        "after the log was rotated the firewall wrote to a file nobody reads: "
+        "`waf events` shows nothing new",
+    )
+
+    # -- off: the attack passes again; the shared rules go with the last site that used them
+    env.srv(f"noust app policy set {WAF_OTHER} --waf detect")
+    env.srv(f"noust app policy set {WAF_SITE} --waf off")
+    env.check(status_of(env, WAF_SITE, WAF_XSS) == 200, "the firewall is off and still refuses")
+    env.check(
+        env.srv("test -f /etc/nginx/noust-waf/rules.conf", check=False).returncode == 0,
+        "the shared rules went while another site still used them",
+    )
+    env.srv(f"noust app policy set {WAF_OTHER} --waf off")
+    env.check(
+        env.srv(
+            "test ! -e /etc/nginx/noust-waf/rules.conf && test ! -e /etc/nginx/sites-enabled/00-noust-waf",
+            check=False,
+        ).returncode
+        == 0,
+        "the shared rules stayed after the last site turned the WAF off",
+    )
+    env.check(
+        env.srv(
+            "nginx -T 2>/dev/null | grep -c '^modsecurity_rules_file'", check=False
+        ).stdout.strip()
+        == "0",
+        "nginx still has the rules loaded after they were removed",
+    )
+    env.check(
+        env.srv("test ! -e /etc/logrotate.d/noust-waf", check=False).returncode == 0,
+        "the WAF's rotation rule stayed after the rules went",
+    )
+    for domain in (WAF_SITE, WAF_OTHER):
+        env.srv(f"noust delete {domain} -y", label=f"(leave the server as found) delete {domain}")
 
 
 # ---------------------------------------------------------------------------
