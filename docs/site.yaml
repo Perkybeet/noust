@@ -132,7 +132,10 @@ sections:
         summary: "A typed Python client of the API, generated from its schema: authentication, errors, jobs."
       - source: docs/terraform.md
         slug: terraform
-        summary: "What a Terraform and OpenTofu provider is built from, which resources it has, and what is left to write."
+        summary: "The Terraform and OpenTofu provider: installing it, the token it needs, its resources, and how it is proved."
+      - source: docs/terraform-registry.md
+        slug: terraform-registry
+        summary: "Publishing the provider to the Terraform Registry: the repository, the signing key and the release, for the owner."
       - source: docs/MONITOR.md
         slug: monitor
         summary: The resource monitor and the metrics history.

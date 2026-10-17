@@ -180,14 +180,47 @@ def hand_written(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return config["x_noust"]["hand_written"]  # type: ignore[no-any-return]
 
 
+STEPS = ("create", "read", "update", "delete")
+
+
+def calls(resource: dict[str, Any], step: str) -> list[dict[str, str]]:
+    """
+    Args:
+        resource: One entry of ``x_noust.hand_written``.
+        step: ``create``, ``read``, ``update`` or ``delete``.
+
+    Returns:
+        The operations the step is made of: one, or several when the map writes a list (an application
+        is updated by one call per thing that can change).
+    """
+    found = resource.get(step)
+    if found is None:
+        return []
+    return list(found) if isinstance(found, list) else [found]
+
+
+def jobs(resource: dict[str, Any]) -> set[str]:
+    """
+    Args:
+        resource: One entry of ``x_noust.hand_written``.
+
+    Returns:
+        The steps whose call answers 202 with a job: ``async: true`` is all of them, a list names them.
+    """
+    marked = resource.get("async")
+    if marked is True:
+        return {"create", "update", "delete"}
+    return set(marked or [])
+
+
 class TestWhatTheProviderWritesByHand:
     def test_every_operation_is_an_operation_of_the_api(
         self, config: dict[str, Any], document: dict[str, Any]
     ) -> None:
         for name, resource in hand_written(config).items():
-            for step in ("create", "read", "update", "delete"):
-                if step in resource:
-                    operation_of(document, resource[step])
+            for step in STEPS:
+                for location in calls(resource, step):
+                    operation_of(document, location)
             assert "read" in resource and "delete" in resource, name
 
     def test_none_is_also_a_generated_resource(self, config: dict[str, Any]) -> None:
@@ -220,26 +253,27 @@ class TestWhatTheProviderWritesByHand:
                 answer = answer_schema(document, operation_of(document, resource["read"]))
                 assert answer.get("type") == "object", name
 
-    def test_a_job_backed_call_answers_202(
+    def test_a_step_marked_as_a_job_answers_202(
         self, config: dict[str, Any], document: dict[str, Any]
     ) -> None:
-        asynchronous = {n: r for n, r in hand_written(config).items() if r.get("async")}
-        assert asynchronous, "applications are the one resource made by a job"
+        asynchronous = {n: r for n, r in hand_written(config).items() if jobs(r)}
+        assert asynchronous, "applications are made by a job"
         for name, resource in asynchronous.items():
-            for step in ("create", "update", "delete"):
-                if step in resource:
-                    codes = success_codes(operation_of(document, resource[step]))
+            for step in jobs(resource):
+                assert step in STEPS and calls(resource, step), (name, step)
+                for location in calls(resource, step):
+                    codes = success_codes(operation_of(document, location))
                     assert codes == ["202"], (name, step, codes)
 
-    def test_what_the_others_do_is_not_a_job(
+    def test_what_is_not_marked_is_not_a_job(
         self, config: dict[str, Any], document: dict[str, Any]
     ) -> None:
         for name, resource in hand_written(config).items():
-            if resource.get("async"):
-                continue
             for step in ("create", "update", "delete"):
-                if step in resource:
-                    codes = success_codes(operation_of(document, resource[step]))
+                if step in jobs(resource):
+                    continue
+                for location in calls(resource, step):
+                    codes = success_codes(operation_of(document, location))
                     assert "202" not in codes, (name, step, codes)
 
     def test_what_is_marked_sensitive_is_a_field_of_the_api(
@@ -248,8 +282,8 @@ class TestWhatTheProviderWritesByHand:
         for name, resource in hand_written(config).items():
             fields: set[str] = set()
             for step in ("create", "update"):
-                if step in resource:
-                    operation = operation_of(document, resource[step])
+                for location in calls(resource, step):
+                    operation = operation_of(document, location)
                     if operation.get("requestBody"):
                         fields |= set(body_schema(document, operation).get("properties", {}))
                     fields |= set(answer_schema(document, operation).get("properties", {}))
@@ -259,6 +293,15 @@ class TestWhatTheProviderWritesByHand:
     def test_the_identity_names_what_the_paths_are_made_of(self, config: dict[str, Any]) -> None:
         for name, resource in hand_written(config).items():
             assert re.fullmatch(r"[a-z_]+(/[a-z_]+)*", resource["id"]), name
+
+    def test_the_list_data_sources_read_an_address_of_the_api(
+        self, config: dict[str, Any], document: dict[str, Any]
+    ) -> None:
+        for name, source in config["x_noust"]["list_data_sources"].items():
+            operation_of(document, source["read"])
+            assert name not in config["data_sources"], (
+                f"{name} is derived: it has a read of one object"
+            )
 
 
 class TestThePageSaysWhatIsInTheMap:
@@ -271,3 +314,75 @@ class TestThePageSaysWhatIsInTheMap:
         missing = sorted(name for name in names if f"noust_{name}" not in text)
 
         assert missing == [], f"docs/terraform.md does not name noust_{missing}"
+
+
+PROVIDER = ROOT / "terraform-provider-noust"
+
+
+def provided(config: dict[str, Any]) -> tuple[set[str], set[str]]:
+    """
+    Returns:
+        The resources and data sources the map says the provider offers, with the ``noust_`` prefix.
+    """
+    offered = config["x_noust"]["provided"]
+    return (
+        {f"noust_{name}" for name in offered["resources"]},
+        {f"noust_{name}" for name in offered["data_sources"]},
+    )
+
+
+@pytest.fixture(scope="module")
+def report() -> dict[str, Any]:
+    """terraform-provider-noust/permissions.json: computed from the operations the Go code calls."""
+    return json.loads((PROVIDER / "permissions.json").read_text(encoding="utf-8"))  # type: ignore[no-any-return]
+
+
+class TestTheProviderOffersWhatTheMapSays:
+    def test_the_resources_and_data_sources_are_the_ones_in_the_map(
+        self, config: dict[str, Any], report: dict[str, Any]
+    ) -> None:
+        resources, data_sources = provided(config)
+        found = set(report["resources"]) - {"provider"}
+
+        assert {name for name in found if not name.startswith("data.")} == resources
+        assert {
+            name.removeprefix("data.") for name in found if name.startswith("data.")
+        } == data_sources
+
+    def test_every_resource_it_offers_is_in_the_map(self, config: dict[str, Any]) -> None:
+        resources, data_sources = provided(config)
+        mapped = {f"noust_{name}" for name in set(config["resources"]) | set(hand_written(config))}
+        listed = {f"noust_{name}" for name in config["x_noust"]["list_data_sources"]}
+        derived = {f"noust_{name}" for name in config["data_sources"]}
+
+        assert resources <= mapped
+        assert data_sources <= derived | listed
+
+    def test_every_permission_the_provider_asks_for_is_one_of_the_servers(
+        self, report: dict[str, Any], document: dict[str, Any]
+    ) -> None:
+        held = {
+            operation.get("x-noust-permission")
+            for item in document["paths"].values()
+            for verb, operation in item.items()
+            if verb in {"get", "post", "put", "patch", "delete"}
+        }
+
+        assert set(report["all"]) <= held
+
+    def test_the_guide_lists_what_each_resource_needs(self, report: dict[str, Any]) -> None:
+        text = DOC.read_text(encoding="utf-8")
+        rows = {}
+        for line in text.splitlines():
+            cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+            if len(cells) == 3 and cells[0].startswith("`") and cells[2] in {"yes", "no"}:
+                rows[cells[0].strip("`")] = (
+                    sorted(part.strip("` ") for part in cells[1].split(",")),
+                    cells[2] == "yes",
+                )
+
+        for name, needs in report["resources"].items():
+            if name == "provider":
+                continue
+            assert name in rows, f"docs/terraform.md does not say what {name} needs"
+            assert rows[name] == (sorted(needs["permissions"]), needs["sudo"]), name

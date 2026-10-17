@@ -28,8 +28,9 @@ job = client.wait_for_job(queued)            # returns when the health gate has 
   the token would cross the network in clear, and a redirect is an error rather than a place to send it.
 * **The error contract.** The API answers every refusal as `{error, detail, hint, fields, output}`; it becomes
   `APIError` with `status`, `code`, `detail`, `hint` and `output` (nginx's or systemd's own words, verbatim).
-  A call that needs sudo mode raises `ElevationRequired`: a token enters sudo mode only when it was made with
-  `--allow-elevated`. The rate limit raises `RateLimited` with `retry_after`.
+  A call that needs sudo mode raises `ElevationRequired`: a token enters sudo mode only when it was issued with
+  `allow_elevated` ("Allow sudo mode" in the console, `"allow_elevated": true` in `POST /api/auth/tokens`).
+  The rate limit raises `RateLimited` with `retry_after`.
 * **Retries.** A read is repeated after a `429` or a gateway error, waiting what the server asked. A change is
   never repeated: it may have been made.
 * **Jobs.** Deployments, updates, backups and deletions answer `202` with a job. `wait_for_job` follows it to
@@ -43,7 +44,19 @@ job = client.wait_for_job(queued)            # returns when the health gate has 
 `scripts/generate_sdk.py` writes `_models.py` and `_operations.py`; CI fails when they are out of date
 (`--check`), and `tests/test_sdk_python.py` holds the client to the schema (every operation is a method with
 its own verb and path), to the real application (a team member sees its team's applications, a viewer's
-refusal arrives as an exception with the server's words) and to `mypy --strict`. After any change to the API:
+refusal arrives as an exception with the server's words) and to `mypy --strict`.
+
+`tests/integration/sdk_live.py` is the other half: the same client over real HTTP, against a live API
+(`scripts/console_server.py`, seeded and sandboxed, the server the [Terraform provider](terraform.md) is
+proved with). With tokens narrowed to the permissions they need, it makes a team, deploys an application and
+waits for the job, changes its variables and branch, adds a name, a backup schedule and a deploy key, makes
+and drops a database, and sees the refusals a script meets arrive as the documented exceptions with the
+server's words: a token that may only look (`APIError`, `permission_denied`, naming `teams.manage`), a token
+that cannot enter sudo mode (`ElevationRequired`) and a deployment the health gate refuses (`JobFailed`).
+`python tests/integration/terraform_run.py --stage sdk` runs it in containers; run by hand it starts a
+server of its own. CI runs it.
+
+After any change to the API:
 
 ```bash
 python scripts/export_openapi.py      # panel/openapi.json
