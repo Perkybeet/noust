@@ -69,11 +69,9 @@ from noust.core.store import (
     get_store,
 )
 from noust.core.utils import domain_to_app_name
-from noust.core.variables import expressions as variable_expressions
 from noust.core.variables.model import BUILD
 from noust.core.variables.predefined import RELEASE_ENV_NAME, Deployment
-from noust.core.variables.resolver import Resolver, context_for
-from noust.core.variables.store import VariableStore
+from noust.core.variables.resolver import Resolver
 from noust.core.versions import RuntimeRequest
 from noust.deployers.bluegreen import BlueGreen, adopt_for_new_app
 from noust.deployers.helpers import (
@@ -85,7 +83,6 @@ from noust.deployers.helpers import (
     preflight,
 )
 from noust.deployers.helpers import sandbox as build_sandbox
-from noust.deployers.helpers.app_env import read_environment_of, refresh_app_env
 from noust.deployers.helpers.build_config import (
     BuildConfig,
     project_dir,
@@ -93,7 +90,7 @@ from noust.deployers.helpers.build_config import (
     resolve_build,
     set_operator_build,
 )
-from noust.deployers.helpers.env_variables import record_given
+from noust.deployers.helpers.deployment_variables import DeploymentVariables
 from noust.deployers.helpers.health import failure_output, wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
 from noust.deployers.helpers.hooks import (
@@ -322,9 +319,9 @@ class BaseDeployer(AppDeployer):
         #: Which part of a deployment each variable given at create time is for
         #: (``build`` or ``runtime``; the rest are for both); see ``configure``.
         self._env_audience: dict[str, str] = {}
-        #: What an install and a build are given beyond the ``.env`` and what
-        #: they are not (see :meth:`_build_environment`); read once a deployment.
-        self._build_environment_cache: tuple[dict[str, str], tuple[str, ...]] | None = None
+        #: The deployment's variables (references, audiences, what the build is
+        #: given), shared by every type of application; built on first use.
+        self._deployment_variables: DeploymentVariables | None = None
         self.trigger: str = DeploymentTrigger.CLI.value
         #: The background job that started this deployment, when one did.
         #: None for the CLI and for a webhook, which run with nothing queuing
@@ -590,6 +587,8 @@ class BaseDeployer(AppDeployer):
             for path, mode in dict(options.get("seed_modes") or {}).items()
         }
         self._env_audience = dict(options.get("env_audience") or {})
+        # Built again for this application: the domain and the audience just changed.
+        self._deployment_variables = None
         # An in-place update that must restart behind the health gate itself
         # (going back to a deployment), rather than leave the restart to the
         # caller; see _update_in_place.
@@ -1995,18 +1994,7 @@ class BaseDeployer(AppDeployer):
             UnresolvedReferenceError: A reference that cannot be resolved.
             SecretProviderError: A secret manager could not give a secret.
         """
-        values = dict(asked)
-        written_as: dict[str, str] = {}
-        resolver: Resolver | None = None
-        for name, raw in asked.items():
-            if not variable_expressions.has_markup(raw):
-                continue
-            for reference in variable_expressions.find_references(raw):
-                variable_expressions.check_reference(reference)
-            resolver = resolver or self._variables_resolver()
-            written_as[name] = raw
-            values[name] = resolver.resolve(raw)
-        return values, written_as
+        return self._variables.expand(asked)
 
     def _record_variables(
         self, everything: Mapping[str, str], written_as: Mapping[str, str], *, names: set[str]
@@ -2019,24 +2007,27 @@ class BaseDeployer(AppDeployer):
             written_as: The text of the ones made of references.
             names: The names the create-time set speaks for.
         """
-        app = self._app_row()
-        if app is None or app.id is None or isinstance(self.fs, DryRunFileSystem):
-            return
-        if not (
-            written_as or self._env_audience or VariableStore(self.store).app_variables(app.id)
-        ):
-            return
-        self._build_environment_cache = None
-        try:
-            record_given(
-                app,
-                values=everything,
-                expressions=written_as,
+        self._variables.remember(everything, written_as, names=names)
+
+    @property
+    def _variables(self) -> DeploymentVariables:
+        """
+        Returns:
+            The variables of this deployment, the one implementation every type of application
+            shares (:mod:`noust.deployers.helpers.deployment_variables`).
+        """
+        if self._deployment_variables is None:
+            self._deployment_variables = DeploymentVariables(
+                store=self.store,
+                domain=self.domain,
+                logger=self.logger,
+                fs=lambda: self.fs,
+                manager=lambda: self._env_manager,
+                row=self._app_row,
+                deployment=self._deployment,
                 audience=self._env_audience,
-                names=names,
             )
-        except _RECORDING_ERRORS as exc:
-            self.logger.warning(f"Could not record what the variables are made of: {exc}")
+        return self._deployment_variables
 
     def _deployment(self) -> Deployment:
         """
@@ -2070,7 +2061,7 @@ class BaseDeployer(AppDeployer):
         Returns:
             The resolver of this application's references for this deployment.
         """
-        return Resolver(context_for(self.domain, self._deployment(), store=self.store))
+        return self._variables.resolver()
 
     def _refresh_variables(self) -> None:
         """
@@ -2086,18 +2077,8 @@ class BaseDeployer(AppDeployer):
                 deployment stops here, with what served before untouched.
             SecretProviderError: A secret manager could not give a secret.
         """
-        app = self._app_row()
-        if app is None or app.id is None or isinstance(self.fs, DryRunFileSystem):
-            return
-        if not VariableStore(self.store).app_variables(app.id):
-            return
-        resolver = self._variables_resolver()
-        plan = refresh_app_env(
-            app, resolver=resolver, manager=self._env_manager, fs=self.fs, logger=self.logger
-        )
-        self._build_environment_cache = None
-        if plan.changed:
-            self.logger.substep(f"Resolved {len(plan.changed)} variable(s) again")
+        plan = self._variables.refresh()
+        if plan is not None and plan.changed:
             # What this deployment resolved is what its commands run with, and
             # what its log is scrubbed of: the recorder watches this mapping.
             self.env_vars = {
@@ -2120,16 +2101,8 @@ class BaseDeployer(AppDeployer):
         """
         if phase not in (BuildPhase.INSTALL, BuildPhase.BUILD) or not self.domain:
             return {}, ()
-        if self._build_environment_cache is None:
-            extra: dict[str, str] = {}
-            hidden: tuple[str, ...] = ()
-            row = self._app_row()
-            if row is not None and row.id is not None:
-                environment = read_environment_of(row, manager=self._env_manager)
-                extra = {**self._deployment().environment(build=True), **environment.build_only}
-                hidden = tuple(environment.runtime_only_names)
-            self._build_environment_cache = (extra, hidden)
-        return self._build_environment_cache
+        built = self._variables.build_environment()
+        return dict(built.extra), built.hidden
 
     def _write_env_file(self, values: Mapping[str, str]) -> None:
         """
