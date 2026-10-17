@@ -161,8 +161,10 @@ export function ElevateDialog() {
   // The server's own numbers: what the operator configured, or the ENS profile's.
   const idleMinutes = session?.elevation_idle_minutes;
   const maxMinutes = session?.elevation_max_minutes;
+  // Read only when the dialog is open: it is mounted for the whole session, and its sentence uses the
+  // duration words of Settings, which a page that never opens it should not have to wait for.
   const keepsOpen =
-    typeof idleMinutes === "number" && typeof maxMinutes === "number"
+    open && typeof idleMinutes === "number" && typeof maxMinutes === "number"
       ? t("auth.elevate.keepsOpen", { max: spokenDuration(maxMinutes * 60, t.locale), idle: spokenDuration(idleMinutes * 60, t.locale) })
       : null;
   const showForm = factor !== "account" || acceptsCode;
