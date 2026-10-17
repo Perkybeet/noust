@@ -191,13 +191,20 @@ class Http3:
         state = firewall.state()
         if not state.active:
             return None, ""
-        if any(rule.covers(443, "udp") for rule in state.rules):
+        covering = [rule for rule in state.rules if rule.covers(443, "udp")]
+        if any(rule.action in ("allow", "limit") for rule in covering):
+            return True, ""
+        # Without a rule that names the port the default decides: Docker puts nftables rules on
+        # a plain server that all end in "accept", and that firewall filters nothing.
+        if state.default_incoming == "allow" and not covering:
             return True, ""
         commands = {
             "ufw": "ufw allow 443/udp",
             "firewalld": "firewall-cmd --permanent --add-port=443/udp",
         }
-        return False, commands.get(state.backend, "")
+        return False, commands.get(
+            state.backend, "Allow 443/udp in your firewall's rules; Noust does not edit them"
+        )
 
     def render_anchor(self) -> str:
         """
@@ -252,9 +259,10 @@ class Http3:
         """
         Take the socket's own site away, when no site uses HTTP/3 any more.
 
-        The caller has checked that none does. nginx is not reloaded here: the site that
-        stopped using QUIC is being rendered and reloaded by the caller, which is the
-        reload that lets go of the socket.
+        The caller has checked that none does. nginx is reloaded here, after the file is gone: the
+        reload of the site that stopped using QUIC came first, while the socket's own site was
+        still there, so without this one the UDP sockets stayed open (and the server block that
+        refuses handshakes stayed loaded) until some later reload.
 
         Returns:
             True when this call removed it.
@@ -264,4 +272,9 @@ class Http3:
         self._web.fs.remove(self.link, missing_ok=True)
         self._web.fs.remove(self.file, missing_ok=True)
         audit.record("sites.http3", target="server", details={"anchor": "removed"})
+        if not self._web.reload():
+            self._web.logger.warning(
+                "nginx did not reload after the QUIC socket's site was removed: "
+                "the UDP port stays open until it does"
+            )
         return True

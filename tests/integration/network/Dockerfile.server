@@ -1,0 +1,84 @@
+# Debian 13 with systemd as PID 1, for the real-software network scenarios
+# (tests/integration/network_run.py).
+#
+# Debian 13 is chosen on purpose: its nginx (1.26) is built with --with-http_v3_module, which is
+# what the HTTP/3 scenario needs, and its fail2ban (1.1) ships the three nginx filters the web
+# jails use. The scenario that proves what Noust says about a server WITHOUT HTTP/3 uses
+# the Ubuntu 24.04 image run.py builds (nginx 1.24).
+#
+# fail2ban is deliberately NOT installed: `noust server security fail2ban install` installs it,
+# and the scenario proves that path too.
+#
+# Docker Engine and the Compose plugin run inside the container as its own daemon (data in a
+# named volume mounted on /var/lib/docker, see network_run.py), for the Coolify-template
+# scenario. Nothing of the host's Docker is shared: no docker.sock, no host volumes.
+
+FROM debian:13
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=C.UTF-8
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        systemd \
+        systemd-sysv \
+        dbus \
+        nginx \
+        openssh-server \
+        git \
+        curl \
+        ca-certificates \
+        openssl \
+        python3 \
+        python3-venv \
+        python3-pip \
+        nodejs \
+        npm \
+        sqlite3 \
+        procps \
+        iproute2 \
+        iptables \
+        nftables \
+        docker.io \
+        docker-compose \
+    && apt-get clean
+
+# docker.io on Debian 13 is the daemon only; the command is its own package. A separate layer so
+# the one above stays cached.
+RUN apt-get install -y --no-install-recommends docker-cli && apt-get clean
+
+RUN systemctl mask \
+        getty.target \
+        getty-static.service \
+        console-getty.service \
+        systemd-udevd.service \
+        systemd-udev-trigger.service \
+        systemd-udevd-kernel.socket \
+        systemd-udevd-control.socket \
+        systemd-modules-load.service \
+        systemd-random-seed.service \
+        sys-kernel-config.mount \
+        sys-kernel-debug.mount \
+        sys-kernel-tracing.mount \
+        systemd-remount-fs.service \
+        tmp.mount \
+    && systemctl set-default multi-user.target
+
+# tmp.mount is masked above on purpose: Debian 13 mounts a tmpfs on /tmp, and `docker cp` writes
+# into the container's root filesystem, under that mount, so a wheel copied to /tmp would vanish.
+
+# The packaged default site would answer on port 80 before Noust writes anything.
+RUN rm -f /etc/nginx/sites-enabled/default
+
+# The classic overlay2 store on the volume network_run.py mounts on /var/lib/docker.
+RUN mkdir -p /etc/docker \
+    && printf '{\n  "storage-driver": "overlay2",\n  "features": {"containerd-snapshotter": false}\n}\n' \
+        > /etc/docker/daemon.json
+
+# sshd with passwords on: the SSH jail scenario sends wrong passwords from another container.
+RUN mkdir -p /run/sshd \
+    && printf 'PasswordAuthentication yes\nPermitRootLogin yes\n' > /etc/ssh/sshd_config.d/10-noust-test.conf \
+    && systemctl enable ssh docker.socket docker.service
+
+STOPSIGNAL SIGRTMIN+3
+
+CMD ["/sbin/init"]

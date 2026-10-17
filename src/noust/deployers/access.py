@@ -39,6 +39,7 @@ from noust.deployers import domains
 from noust.managers import trusted_proxies
 from noust.managers.client_certs import ClientCertificates, IssuedClientCertificate
 from noust.managers.http3 import Http3, Http3Support
+from noust.managers.nginx_manager import NginxManager
 from noust.managers.site_forward_auth import check_service
 from noust.managers.site_policy import (
     MAX_USERS,
@@ -81,6 +82,8 @@ class AccessView:
         headers: The response headers the site sends, as worked out.
         real_ip_networks: The networks the client address is believed from.
         real_ip_source: ``fetched``, ``built-in`` or empty.
+        serves_tls: The site is served over HTTPS, so a policy that needs a certificate (HTTP/3,
+            client certificates) has something to act on.
     """
 
     app: str
@@ -92,6 +95,7 @@ class AccessView:
     headers: tuple[tuple[str, str], ...] = ()
     real_ip_networks: tuple[str, ...] = ()
     real_ip_source: str = ""
+    serves_tls: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -110,6 +114,7 @@ class AccessView:
             "headers": [{"name": name, "value": value} for name, value in self.headers],
             "real_ip_networks": list(self.real_ip_networks),
             "real_ip_source": self.real_ip_source,
+            "serves_tls": self.serves_tls,
         }
 
 
@@ -157,6 +162,7 @@ def describe(app_domain: str, *, verbose: bool = False) -> AccessView:
         headers=tuple(response_headers(policy, ssl=ssl)),
         real_ip_networks=ranges.networks if ranges else tuple(policy.trusted_proxies),
         real_ip_source=ranges.source if ranges else "",
+        serves_tls=ssl,
     )
 
 
@@ -495,8 +501,19 @@ def forget(app_domain: str) -> None:
     Args:
         app_domain: The application's primary domain.
     """
-    SitePolicyManager().forget(app_domain)
+    manager = SitePolicyManager()
+    leaving = manager.get(app_domain)
+    manager.forget(app_domain)
     ClientCertificates().forget(app_domain)
+    # The socket's site and the firewall's rules are shared; the last site to use them takes
+    # them away, and a deletion is as much a way of leaving as a policy change.
+    if leaving.http3 or leaving.waf:
+        app = get_store().get_app(app_domain)
+        web = _web_server(app, verbose=False) if app is not None else NginxManager()
+        if leaving.http3 and not _any_site_uses("http3"):
+            Http3(web).release_anchor()
+        if leaving.waf and not _any_site_uses("waf"):
+            Waf(web).release_anchor()
 
 
 # -- Internals --------------------------------------------------------------------
@@ -593,6 +610,23 @@ def _web_server(app: App, *, verbose: bool) -> Any:
     return domains.site_deployer(app, verbose=verbose).webserver_manager()
 
 
+def _any_site_uses(field: str, *, besides: str | None = None) -> bool:
+    """
+    Args:
+        field: A boolean part of the policy: ``http3`` or ``waf``.
+        besides: An application to leave out of the question.
+
+    Returns:
+        Whether the policy of any other application has it on.
+    """
+    manager = SitePolicyManager()
+    return any(
+        getattr(manager.get(name), field)
+        for name in manager.records.domains_with_policy()
+        if name != besides
+    )
+
+
 def _other_sites_use_http3(app: App) -> bool:
     """
     Args:
@@ -601,12 +635,7 @@ def _other_sites_use_http3(app: App) -> bool:
     Returns:
         Whether another application's site is served over HTTP/3.
     """
-    manager = SitePolicyManager()
-    return any(
-        manager.get(name).http3
-        for name in manager.records.domains_with_policy()
-        if name != app.domain
-    )
+    return _any_site_uses("http3", besides=app.domain)
 
 
 def _other_sites_use_waf(app: App) -> bool:
@@ -617,12 +646,7 @@ def _other_sites_use_waf(app: App) -> bool:
     Returns:
         Whether another application's site has the web application firewall on.
     """
-    manager = SitePolicyManager()
-    return any(
-        manager.get(name).waf
-        for name in manager.records.domains_with_policy()
-        if name != app.domain
-    )
+    return _any_site_uses("waf", besides=app.domain)
 
 
 def _hold_waf_rules(app: App, before: SitePolicy, after: SitePolicy, *, verbose: bool) -> bool:

@@ -90,6 +90,13 @@ def _print(ctx: Context, view: access.AccessView) -> None:
         {"www": "www", "apex": "without www", "": "both as they are"}[policy.canonical],
     )
     logger.key_value("Search engines", "told not to index" if policy.noindex else "may index")
+    if policy.http3:
+        logger.key_value(
+            "HTTP/3",
+            "on: QUIC beside HTTPS, and browsers are told with Alt-Svc"
+            if view.serves_tls
+            else "asked, and served once this site has a certificate",
+        )
     if policy.client_certs:
         valid = [c for c in access.client_certificates(view.app) if not c.revoked]
         logger.key_value(

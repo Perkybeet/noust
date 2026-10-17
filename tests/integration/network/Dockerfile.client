@@ -1,0 +1,15 @@
+# The visitor of the real-software network scenarios: a curl built with HTTP/3 (quiche), an SSH
+# client with a password helper, and iproute2 to take a second address, which the scenarios use
+# as "a CDN in front of the server".
+#
+# The curl comes from a community image pinned by digest: the stock curlimages/curl and the
+# distributions' curl are built without HTTP/3.
+
+FROM ghcr.io/macbre/curl-http3@sha256:c3a360869a4e132180f458f83af2ce67b873b2302739eda27274dad4f62155f8
+
+USER root
+RUN apk add --no-cache openssh-client sshpass iproute2 bash python3 openssl
+
+# curl is the image's entrypoint; the scenarios run `docker exec` into a container that just waits.
+ENTRYPOINT []
+CMD ["sleep", "infinity"]
