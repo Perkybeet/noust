@@ -4074,6 +4074,9 @@ class BaseDeployer(AppDeployer):
         the ``.env`` live; the repository cache and the application directory
         itself stay root's, because the service never writes there.
         """
+        # Written first, so that the hand-over below covers it: a file created after it is
+        # root's, the one thing in the tree the service account does not own.
+        self._write_release_env()
         if not self.uses_releases:
             hand_over_tree(
                 self.app_path,
@@ -4084,7 +4087,6 @@ class BaseDeployer(AppDeployer):
                 logger=self.logger,
                 env_files=self._env_files(),
             )
-            self._write_release_env()
             return
 
         shared = self.releases.shared_dir
@@ -4099,7 +4101,6 @@ class BaseDeployer(AppDeployer):
                 logger=self.logger,
                 env_files=_dotenv_files(tree),
             )
-        self._write_release_env()
 
     def _write_release_env(self) -> None:
         """
