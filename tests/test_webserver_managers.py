@@ -1724,6 +1724,7 @@ def test_renewal_names_the_lineage(certs: CertManager, runner: FakeRunner) -> No
             "certbot",
             "renew",
             "--non-interactive",
+            "--no-random-sleep-on-renew",
             "--cert-name",
             "example.com",
             "--force-renewal",

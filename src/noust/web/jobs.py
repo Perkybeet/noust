@@ -3136,6 +3136,7 @@ def cert_create_job(
     Raises:
         CertificateError: When certbot fails.
     """
+    from noust.deployers.certificates import serve_ordered
     from noust.managers.cert_manager import DEFAULT_WEBROOT, CertManager
 
     context = _require_context(job_context)
@@ -3164,8 +3165,15 @@ def cert_create_job(
     )
 
     covered = manager.certificate_domains(domain, domains, include_www)
+    context.update("Serving it", 90)
+    served = serve_ordered(domain)
     context.update("Certificate created", 100)
-    return {"domain": domain, "domains": covered, "status": "certificate_created"}
+    return {
+        "domain": domain,
+        "domains": covered,
+        "status": "certificate_created",
+        "served": served,
+    }
 
 
 def exec_app_job(

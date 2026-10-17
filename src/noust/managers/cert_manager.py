@@ -1264,6 +1264,10 @@ class CertManager(BaseManager):
                 output=output or None,
             )
 
+        if not dry_run:
+            # Every order, whatever proves it: certbot reloads the web server after a renewal
+            # only through the installer plugin, which a DNS order does not use.
+            self._install_deploy_hook()
         paths = self.get_cert_path(primary)
         # Record TLS on the site only once the files are actually there. A
         # rehearsal reports success without issuing anything - --dry-run is
@@ -1473,6 +1477,7 @@ class CertManager(BaseManager):
                 details=output or "Check that the remaining names resolve to this host.",
                 output=output or None,
             )
+        self._install_deploy_hook()
         audit.record(
             "certs.create",
             target=f"cert:{primary}",
@@ -1826,7 +1831,11 @@ class CertManager(BaseManager):
             CertificateError: When the domain is invalid or renewal fails.
         """
         require_server_role("Certificates")
-        cmd = ["certbot", "renew", "--non-interactive"]
+        # Every caller is a command or a console job somebody is waiting on. certbot, run
+        # without a terminal, sleeps a random time of up to eight minutes first (it is meant for
+        # the cron and the timer, and spreads the load on the authority): with nothing printed,
+        # that looks like a hang. The timer certbot ships is certbot's own and keeps the sleep.
+        cmd = ["certbot", "renew", "--non-interactive", "--no-random-sleep-on-renew"]
 
         validated = self._validated(domain) if domain else None
         if validated:
