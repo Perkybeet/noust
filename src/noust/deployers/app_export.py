@@ -61,6 +61,7 @@ from noust.deployers.importers.base import MAX_NESTING, nesting_depth
 from noust.deployers.lifecycle import set_health_check, set_release_retention, set_stop_policy
 from noust.managers.backup_scheduler import BackupSchedule, BackupScheduler
 from noust.managers.cron_manager import CronJob, CronManager
+from noust.managers.port_claims import claimed_ports
 from noust.managers.previews import enable_previews
 from noust.managers.source_manager import redact_git_text
 from noust.managers.update_scheduler import UpdateScheduler
@@ -981,7 +982,7 @@ def plan_import(
     health = _checked_health(app.get("health") or {})
     limits = app.get("limits") or {}
     port = app.get("port")
-    if port is not None and port in store.ports_owned_by_apps():
+    if port is not None and port in claimed_ports(store):
         port = None
     www = bool(app.get("include_www"))
     create = CreateSpec(

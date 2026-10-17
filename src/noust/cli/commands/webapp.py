@@ -87,6 +87,7 @@ from noust.managers.app_processes import ProcessManager
 from noust.managers.app_replicas import ReplicaManager
 from noust.managers.database.service import OWN_DATABASE_TYPES, DatabaseService
 from noust.managers.nginx_manager import NginxManager
+from noust.managers.port_claims import PortClaims
 from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.managers.source_manager import SourceManager
 from noust.recipes import RecipeError, get_recipe
@@ -98,7 +99,6 @@ from noust.recipes.deploy import (
 )
 from noust.validators.domain import should_include_www, validate_domain
 from noust.validators.environment import is_valid_env_name
-from noust.validators.port import find_available_port, validate_port, validate_unclaimed_port
 
 #: Larger than any environment file a person writes; a bigger one is an
 #: archive or a build artefact passed by mistake.
@@ -324,13 +324,13 @@ def _create_app(
         choose_layout(None, layout, app_type=app_type, supports_releases=False)
 
     if port:
-        port = validate_unclaimed_port(validate_port(port), get_store().ports_owned_by_apps())
+        port = PortClaims().validated(port)
     elif app_type == "docker-compose":
         # A stack publishes its own ports, and the site goes to the one it publishes for `/`
         # (docs/compose.md); a free port Noust picked would be one nothing listens on.
         port = None
     else:
-        port = find_available_port(preferred=3000, exclude=get_store().ports_owned_by_apps())
+        port = PortClaims().choose(preferred=3000)
         if not port:
             raise DeploymentError(
                 "No available port found",
@@ -723,11 +723,9 @@ def _create_from_recipe(
         )
 
     if port:
-        port = validate_unclaimed_port(validate_port(port), get_store().ports_owned_by_apps())
+        port = PortClaims().validated(port)
     else:
-        port = find_available_port(
-            preferred=chosen.port or 3000, exclude=get_store().ports_owned_by_apps()
-        )
+        port = PortClaims().choose(preferred=chosen.port or 3000)
         if not port:
             raise DeploymentError(
                 "No available port found",

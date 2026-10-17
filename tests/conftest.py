@@ -60,6 +60,10 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "real_requirements: let a recipe's install really ask what runtimes and engines exist",
     )
+    config.addinivalue_line(
+        "markers",
+        "real_listeners: let the registry of held ports read the sockets the runner reports",
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -142,6 +146,30 @@ def recipe_requirements_unchecked(
     if request.node.get_closest_marker("real_requirements"):
         return
     monkeypatch.setattr("noust.recipes.deploy.refuse_unmet", lambda *args, **kwargs: None)
+
+
+@pytest.fixture(autouse=True)
+def machine_ports_unread(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Keep a test that picks a port from asking the machine which sockets listen.
+
+    The registry of who holds which port (:class:`~noust.managers.port_claims.PortClaims`)
+    reads what the kernel says listens, through the runner, and the compose file of every
+    stack. A test about something else that creates an application or a preview neither has
+    a runner to answer nor wants the answer to depend on the machine it runs on, so by
+    default nothing listens, no stack publishes a port and SSH is on 22. The
+    tests of the registry and of the checks built on it read the sockets a ``FakeRunner``
+    reports and opt out with ``@pytest.mark.real_listeners``.
+
+    Args:
+        request: The pytest request, used to honour the opt-out marker.
+        monkeypatch: Patching helper, scoped to the test.
+    """
+    if request.node.get_closest_marker("real_listeners"):
+        return
+    monkeypatch.setattr("noust.managers.port_claims.listening_sockets", lambda *a, **k: [])
+    monkeypatch.setattr("noust.managers.port_claims.ssh_port", lambda *a, **k: 22)
+    monkeypatch.setattr("noust.managers.port_claims.stack_published_ports", lambda *a, **k: [])
 
 
 @pytest.fixture(autouse=True)

@@ -40,6 +40,7 @@ from noust.managers import trusted_proxies
 from noust.managers.client_certs import ClientCertificates, IssuedClientCertificate
 from noust.managers.http3 import Http3, Http3Support
 from noust.managers.nginx_manager import NginxManager
+from noust.managers.port_claims import reserved_ports
 from noust.managers.site_forward_auth import check_service
 from noust.managers.site_policy import (
     MAX_USERS,
@@ -51,7 +52,6 @@ from noust.managers.site_policy import (
     response_headers,
     validated,
 )
-from noust.managers.stream_exposure import reserved_ports
 from noust.managers.waf import Waf, WafEvent, WafSupport, noisy_rules
 from noust.validators.domain import validate_domain
 

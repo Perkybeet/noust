@@ -88,12 +88,12 @@ from noust.managers.app_processes import ProcessManager
 from noust.managers.app_replicas import ReplicaManager
 from noust.managers.backup_manager import RollbackManager
 from noust.managers.database.service import OWN_DATABASE_TYPES, DatabaseService
+from noust.managers.port_claims import PortClaims
 from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.recipes import RecipeError, get_recipe
 from noust.recipes.deploy import refuse_conflicts, with_database
 from noust.terminal.targets import validate_service
 from noust.validators.environment import EnvironmentValidationError
-from noust.validators.port import find_available_port, validate_port, validate_unclaimed_port
 from noust.validators.source import is_upload_tree, validate_source
 from noust.web.api.app_container import ContainerSettingsRequest, request_to_changes
 from noust.web.api.auth import get_current_session
@@ -1269,18 +1269,15 @@ def create_app(
     )
 
     if body.port is not None:
-        port: int | None = validate_unclaimed_port(
-            validate_port(body.port), get_store().ports_owned_by_apps()
-        )
+        port: int | None = PortClaims().validated(body.port)
     elif app_type == "docker-compose" and recipe is None:
         # The stack publishes its own ports, and its site goes to the one it publishes for `/`
         # (docs/compose.md): a free port picked here would be one nothing listens on. A recipe's
         # stack is rendered with the port it is given, so it gets one.
         port = None
     else:
-        port = find_available_port(
-            preferred=(recipe.port if recipe is not None and recipe.port else DEFAULT_PORT),
-            exclude=get_store().ports_owned_by_apps(),
+        port = PortClaims().choose(
+            preferred=(recipe.port if recipe is not None and recipe.port else DEFAULT_PORT)
         )
         if port is None:
             raise HTTPException(status_code=503, detail="No available port found")

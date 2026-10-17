@@ -99,7 +99,7 @@ def is_port_available(port: int, host: str = "127.0.0.1") -> bool:
 
 
 def validate_port(
-    port: int,
+    port: int | str,
     check_available: bool = True,
     allow_privileged: bool = False,
 ) -> int:

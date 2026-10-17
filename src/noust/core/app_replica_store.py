@@ -173,6 +173,30 @@ def delete_record(domain: str, *, store: NoustStore | None = None) -> bool:
         return cursor.rowcount > 0
 
 
+def reserved_ports_by_app(*, store: NoustStore | None = None) -> list[tuple[int, str, str]]:
+    """
+    List every port reserved for an extra copy, running or not, and whose it is.
+
+    Args:
+        store: The store; the process-wide one when None.
+
+    Returns:
+        ``(port, domain, "extra copy")`` for each.
+    """
+    with (store or get_store())._transaction() as cursor:
+        cursor.execute(
+            "SELECT a.domain, r.ports FROM app_replicas r JOIN apps a ON a.id = r.app_id"
+        )
+        rows = cursor.fetchall()
+    taken: list[tuple[int, str, str]] = []
+    for domain, raw in rows:
+        try:
+            taken.extend((int(port), domain, "extra copy") for port in json.loads(raw or "[]"))
+        except (ValueError, TypeError):
+            continue
+    return taken
+
+
 def reserved_ports(*, store: NoustStore | None = None) -> set[int]:
     """
     List every port reserved for an extra copy, running or not.
@@ -183,13 +207,4 @@ def reserved_ports(*, store: NoustStore | None = None) -> set[int]:
     Returns:
         The ports.
     """
-    with (store or get_store())._transaction() as cursor:
-        cursor.execute("SELECT ports FROM app_replicas")
-        rows = cursor.fetchall()
-    taken: set[int] = set()
-    for (raw,) in rows:
-        try:
-            taken.update(int(port) for port in json.loads(raw or "[]"))
-        except (ValueError, TypeError):
-            continue
-    return taken
+    return {port for port, _domain, _detail in reserved_ports_by_app(store=store)}

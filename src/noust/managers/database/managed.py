@@ -70,7 +70,6 @@ from noust.core.runner import CommandRunner, get_runner
 from noust.managers.database import instance_layout as layout
 from noust.managers.database.base import BaseDatabaseManager
 from noust.managers.database.eol import support_notice
-from noust.managers.database.exposure import listening_sockets
 from noust.managers.database.instance_catalog import (
     EngineSpec,
     ImagePin,
@@ -88,6 +87,7 @@ from noust.managers.database.instance_records import key_of, stub_instance
 from noust.managers.database.instances import instance_key, storage_name
 from noust.managers.database.service import DatabaseService
 from noust.managers.database.settings import Resources, server_resources
+from noust.managers.port_claims import PortClaims
 from noust.managers.service_manager import ServiceManager
 from noust.validators.db_instance import (
     check_host_port,
@@ -648,10 +648,7 @@ class ManagedInstances:
             Every port something holds: an instance's, an open socket, the
             public port of a database made reachable.
         """
-        held = {record.host_port for record in self.records.all()}
-        held |= {listener.port for listener in listening_sockets(self.runner)}
-        held |= {exposure.port for exposure in ExposureStore(self.service.store).all()}
-        return held
+        return PortClaims(self.runner, self.service.store).taken_ports()
 
     def _choose_port(self, port: int | None, spec: EngineSpec) -> int:
         """

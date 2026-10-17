@@ -4647,28 +4647,44 @@ class NoustStore:
             )
             return cursor.rowcount > 0
 
+    def app_port_claims(self) -> list[tuple[int, str, str]]:
+        """
+        List every port an application holds, and whose it is.
+
+        The one reading of "which ports do the applications own": a port nothing listens on
+        can still be an application's (one that is stopped, or the idle instance of one in
+        zero-downtime mode, which answers on the port after its own). The registry of who
+        holds a port (:class:`~noust.managers.port_claims.PortClaims`) is built on this.
+
+        Returns:
+            ``(port, domain, detail)`` for every application's port, the second port of each
+            application in zero-downtime mode (``detail`` says ``idle copy``) and the ports of
+            the extra copies of the ones scaled out (``extra copy``); ``detail`` is empty for
+            an application's own port.
+        """
+        from noust.core.app_replica_store import reserved_ports_by_app
+
+        claims: list[tuple[int, str, str]] = []
+        for app in self.list_apps():
+            if app.port:
+                claims.append((app.port, app.domain, ""))
+                if app.zero_downtime:
+                    claims.append((app.port + 1, app.domain, "idle copy"))
+        claims.extend(reserved_ports_by_app(store=self))
+        return claims
+
     def ports_owned_by_apps(self) -> set[int]:
         """
         List the ports stored applications own, whether or not they listen now.
 
-        A port nothing listens on can still be an application's: one that is
-        stopped, or the idle instance of one in zero-downtime mode, which
-        answers on the port after its own. Every port picker skips these.
+        Every port picker skips these (see :meth:`app_port_claims`).
 
         Returns:
             Every application's port, the second port of each application
             in zero-downtime mode and the ports of the extra copies of the
             ones scaled out.
         """
-        from noust.core.app_replica_store import reserved_ports
-
-        taken: set[int] = set()
-        for app in self.list_apps():
-            if app.port:
-                taken.add(app.port)
-                if app.zero_downtime:
-                    taken.add(app.port + 1)
-        return taken | reserved_ports(store=self)
+        return {port for port, _domain, _detail in self.app_port_claims()}
 
     def set_zero_downtime(
         self, domain: str, enabled: bool, *, drain_seconds: int | None = None

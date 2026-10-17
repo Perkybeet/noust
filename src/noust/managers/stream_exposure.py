@@ -48,8 +48,6 @@ from typing import Any
 
 from noust.central import require_server_role
 from noust.core import audit
-from noust.core.config import Config
-from noust.core.database_exposures import ExposureStore
 from noust.core.exceptions import (
     NoustError,
     PrerequisiteError,
@@ -61,7 +59,8 @@ from noust.core.package_family import PackageFamily, install_hint
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import NoustStore, get_store
 from noust.core.stream_store import CLOSING, OPEN, OPENING, StreamExposure, StreamStore
-from noust.managers.database.exposure import listening_sockets, ssh_port
+from noust.managers.database.exposure import listening_sockets
+from noust.managers.port_claims import PortClaims
 from noust.managers.server.security_firewall import Firewall, RuleRequest
 from noust.managers.server.security_probe import SecurityProbe
 from noust.managers.siteconf import ParseError, parse
@@ -88,9 +87,6 @@ MAX_SOURCES = 20
 MIN_TIMEOUT = 1
 MAX_TIMEOUT = 86400
 DEFAULT_TIMEOUT = 3600
-
-#: Ports that belong to the web server itself.
-WEB_PORTS = frozenset({80, 443})
 
 _PROBE_TIMEOUT = 15
 _FIREWALL_COMMENT = "noust stream"
@@ -658,16 +654,14 @@ class StreamExposures:
             created_by=actor,
         )
 
-    def _reserved(self) -> dict[int, str]:
-        """
-        Returns:
-            The ports nothing else may take, and whose they are.
-        """
-        return reserved_ports(self.runner)
-
     def _check_port(self, exposure: StreamExposure, existing: StreamExposure | None) -> None:
         """
         Refuse a port that is not free to publish, and say who holds it.
+
+        The question is the registry's (:class:`~noust.managers.port_claims.PortClaims`):
+        the web server's, SSH's and the console's ports, applications and their copies, the
+        ports a Compose stack publishes, other exposures, databases made reachable, the
+        engines Noust runs, and whatever the kernel says listens.
 
         Args:
             exposure: The exposure asked for.
@@ -687,50 +681,15 @@ class StreamExposures:
                 f"Close it first: noust stream remove {exposure.name}",
                 field="name",
             )
-        port = exposure.listen_port
-        held = self.records.on_port(port, exposure.protocol)
-        if held is not None and held.name != exposure.name:
-            raise ValidationError(
-                f"{exposure.protocol.upper()} {port} is already published as {held.name}",
-                details="Choose another port.",
-                field="listen_port",
-            )
-        reason = self._reserved().get(port)
-        if reason is not None:
-            raise ValidationError(
-                f"Port {port} is {reason}",
-                details="Publishing it would take that service down. Choose another port.",
-                field="listen_port",
-            )
-        database = ExposureStore(self._store).on_port(port)
-        if database is not None and exposure.protocol == "tcp":
-            raise ValidationError(
-                f"TCP {port} is the public port of the database "
-                f"{database.engine}/{database.db_name}",
-                details="Choose another port.",
-                field="listen_port",
-            )
-        if exposure.protocol == "tcp":
-            for app in (self._store or get_store()).list_apps():
-                if app.port == port:
-                    raise ValidationError(
-                        f"Port {port} is the port of {app.domain}",
-                        details="An application listens there; publishing it would stop "
-                        "one of the two from starting. Choose another port.",
-                        field="listen_port",
-                    )
-        mine = existing is not None and existing.state == OPENING
-        for socket in listening_sockets(self.runner, exposure.protocol):
-            if socket.port != port:
-                continue
-            if mine and "nginx" in socket.processes:
-                continue
-            holder = ", ".join(socket.processes) or "another process"
-            raise ValidationError(
-                f"{exposure.protocol.upper()} {port} is already in use ({holder})",
-                details="Choose another port, or stop what holds it.",
-                field="listen_port",
-            )
+        PortClaims(self.runner, self._store).require_free(
+            exposure.listen_port,
+            exposure.protocol,
+            owner=exposure.name,
+            field="listen_port",
+            # An opening that was interrupted left nginx listening on its own port.
+            ignore_processes=("nginx",) if existing is not None else (),
+            reveal=True,
+        )
 
     def _warnings(self, exposure: StreamExposure) -> tuple[str, ...]:
         """
@@ -1087,25 +1046,6 @@ class StreamExposures:
 
 #: Ports of services that commonly have no authentication of their own.
 _AUTH_FREE_PORTS = frozenset({6379, 11211, 27017, 9200, 5984, 2375})
-
-
-def reserved_ports(runner: CommandRunner) -> dict[int, str]:
-    """
-    Name the ports that belong to the machine's own services.
-
-    The one answer to "may a port be published, or proxied to": the web server's,
-    SSH's and the console's are never for a service an operator adds.
-
-    Args:
-        runner: Reads SSH's configured port.
-
-    Returns:
-        Port to whose it is.
-    """
-    reserved = dict.fromkeys(WEB_PORTS, "the web server's")
-    reserved[ssh_port(runner)] = "SSH's"
-    reserved[int(Config().get("web.port", 8080) or 8080)] = "the console's"
-    return reserved
 
 
 def _loads_stream_module(tree: Tree) -> bool:

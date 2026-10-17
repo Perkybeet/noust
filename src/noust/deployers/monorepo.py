@@ -122,6 +122,7 @@ from noust.managers import app_identity
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
+from noust.managers.port_claims import claimed_ports
 from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.managers.source_manager import SourceManager
 from noust.managers.webserver import hsts_header
@@ -1206,7 +1207,7 @@ class MonorepoDeployer(AppDeployer):
         Raises:
             DeploymentError: There is no free port left to give a workspace.
         """
-        taken = set(self.store.ports_owned_by_apps())
+        taken = claimed_ports(self.store, self.runner)
         claimed: set[int] = set()
         for workspace in self.workspaces:
             if (

@@ -394,6 +394,15 @@ class PortError(NoustError):
     pass
 
 
+class PortConflictError(PortError, ValidationError):
+    """
+    Raised when a port is already held by something else.
+
+    Both a port problem and a validation problem: the CLI and the old callers catch
+    ``PortError``, and the exposures answer a refused field with ``ValidationError``.
+    """
+
+
 class DomainError(NoustError):
     """Raised when there are domain-related issues."""
 
