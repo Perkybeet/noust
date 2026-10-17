@@ -83116,9 +83116,54 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/scim/v2/.search": {
+      "post": {
+        "description": "Search users and groups together, with the query in the body (RFC 7644 section 3.4.3).\n\nA filter that only one of them can answer is answered by that one. The window is applied to\nthe users first and then the groups, up to 200 of each.\n\nArgs:\n    request: The request.\n    source: The authenticated source.\n    body: A SearchRequest.\n\nReturns:\n    A ListResponse of both kinds.",
+        "operationId": "search_everything_api_scim_v2__search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/scim+json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Everything",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
     "/api/scim/v2/Groups": {
       "get": {
-        "description": "Args:\n    request: The request.\n    source: The authenticated source.\n    filter: ``attribute eq \"value\"``.\n    startIndex: The 1-based index of the first result.\n    count: How many, at most 200.\n\nReturns:\n    A ListResponse.",
+        "description": "Args:\n    request: The request.\n    source: The authenticated source.\n    filter: ``attribute eq \"value\"``.\n    startIndex: The 1-based index of the first result.\n    count: How many, at most 200.\n    shape: ``attributes`` and ``excludedAttributes``.\n\nReturns:\n    A ListResponse.",
         "operationId": "list_groups_api_scim_v2_Groups_get",
         "parameters": [
           {
@@ -83173,6 +83218,40 @@
               ],
               "title": "Count"
             }
+          },
+          {
+            "in": "query",
+            "name": "attributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Attributes"
+            }
+          },
+          {
+            "in": "query",
+            "name": "excludedAttributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Excludedattributes"
+            }
           }
         ],
         "responses": {
@@ -83204,8 +83283,44 @@
         "x-noust-permission": "public"
       },
       "post": {
-        "description": "Args:\n    request: The request.\n    source: The authenticated source.\n    body: The group document.\n\nReturns:\n    201 with the group and its ``Location``.",
+        "description": "Args:\n    request: The request.\n    source: The authenticated source.\n    body: The group document.\n    shape: ``attributes`` and ``excludedAttributes``.\n\nReturns:\n    201 with the group and its ``Location``.",
         "operationId": "create_group_api_scim_v2_Groups_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "attributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Attributes"
+            }
+          },
+          {
+            "in": "query",
+            "name": "excludedAttributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Excludedattributes"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -83241,6 +83356,51 @@
           }
         },
         "summary": "Create Group",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/scim/v2/Groups/.search": {
+      "post": {
+        "description": "List groups with the query in the body.\n\nArgs:\n    request: The request.\n    source: The authenticated source.\n    body: A SearchRequest.\n\nReturns:\n    A ListResponse.",
+        "operationId": "search_groups_api_scim_v2_Groups__search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/scim+json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Groups",
         "tags": [
           "SCIM provisioning"
         ],
@@ -83284,7 +83444,7 @@
         "x-noust-permission": "public"
       },
       "get": {
-        "description": "Args:\n    group_id: The id the provider uses.\n    request: The request.\n    source: The authenticated source.\n\nReturns:\n    The group.",
+        "description": "Args:\n    group_id: The id the provider uses.\n    request: The request.\n    source: The authenticated source.\n    shape: ``attributes`` and ``excludedAttributes``.\n\nReturns:\n    The group.",
         "operationId": "get_group_api_scim_v2_Groups__group_id__get",
         "parameters": [
           {
@@ -83294,6 +83454,40 @@
             "schema": {
               "title": "Group Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "attributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Attributes"
+            }
+          },
+          {
+            "in": "query",
+            "name": "excludedAttributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Excludedattributes"
             }
           }
         ],
@@ -83336,6 +83530,40 @@
             "schema": {
               "title": "Group Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "attributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Attributes"
+            }
+          },
+          {
+            "in": "query",
+            "name": "excludedAttributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Excludedattributes"
             }
           }
         ],
@@ -83391,6 +83619,40 @@
               "title": "Group Id",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "attributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Attributes"
+            }
+          },
+          {
+            "in": "query",
+            "name": "excludedAttributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Excludedattributes"
+            }
           }
         ],
         "requestBody": {
@@ -83436,7 +83698,7 @@
     },
     "/api/scim/v2/ResourceTypes": {
       "get": {
-        "description": "Args:\n    _source: The authenticated source.\n\nReturns:\n    The two resource types: User and Group.",
+        "description": "Args:\n    request: The request.\n    _source: The authenticated source.\n\nReturns:\n    A ListResponse of the two resource types: User and Group.",
         "operationId": "resource_types_api_scim_v2_ResourceTypes_get",
         "responses": {
           "200": {
@@ -83457,9 +83719,53 @@
         "x-noust-permission": "public"
       }
     },
+    "/api/scim/v2/ResourceTypes/{name}": {
+      "get": {
+        "description": "Args:\n    name: ``User`` or ``Group``.\n    request: The request.\n    _source: The authenticated source.\n\nReturns:\n    The resource type.\n\nRaises:\n    ScimError: 404 when there is none of that name.",
+        "operationId": "resource_type_api_scim_v2_ResourceTypes__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/scim+json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resource Type",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
     "/api/scim/v2/Schemas": {
       "get": {
-        "description": "Args:\n    _source: The authenticated source.\n\nReturns:\n    The attributes this server models.",
+        "description": "Args:\n    request: The request.\n    _source: The authenticated source.\n\nReturns:\n    A ListResponse of the attributes this server models.",
         "operationId": "schemas_api_scim_v2_Schemas_get",
         "responses": {
           "200": {
@@ -83474,6 +83780,50 @@
           }
         },
         "summary": "Schemas",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/scim/v2/Schemas/{schema_id}": {
+      "get": {
+        "description": "Args:\n    schema_id: The schema's URN.\n    request: The request.\n    _source: The authenticated source.\n\nReturns:\n    The schema.\n\nRaises:\n    ScimError: 404 when there is none of that id.",
+        "operationId": "schema_api_scim_v2_Schemas__schema_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schema_id",
+            "required": true,
+            "schema": {
+              "title": "Schema Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/scim+json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Schema",
         "tags": [
           "SCIM provisioning"
         ],
@@ -83505,7 +83855,7 @@
     },
     "/api/scim/v2/Users": {
       "get": {
-        "description": "List the users this source provisioned, or find one by ``userName`` or ``externalId``.\n\nArgs:\n    request: The request.\n    source: The authenticated source.\n    filter: ``attribute eq \"value\"``.\n    startIndex: The 1-based index of the first result.\n    count: How many, at most 200.\n\nReturns:\n    A ListResponse.",
+        "description": "List the users this source provisioned, or find one by ``userName`` or ``externalId``.\n\nArgs:\n    request: The request.\n    source: The authenticated source.\n    filter: ``attribute eq \"value\"``.\n    startIndex: The 1-based index of the first result.\n    count: How many, at most 200.\n    shape: ``attributes`` and ``excludedAttributes``.\n\nReturns:\n    A ListResponse.",
         "operationId": "list_users_api_scim_v2_Users_get",
         "parameters": [
           {
@@ -83560,6 +83910,40 @@
               ],
               "title": "Count"
             }
+          },
+          {
+            "in": "query",
+            "name": "attributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Attributes"
+            }
+          },
+          {
+            "in": "query",
+            "name": "excludedAttributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Excludedattributes"
+            }
           }
         ],
         "responses": {
@@ -83591,8 +83975,44 @@
         "x-noust-permission": "public"
       },
       "post": {
-        "description": "Provision a person.\n\nArgs:\n    request: The request.\n    source: The authenticated source.\n    body: The user document.\n\nReturns:\n    201 with the user and its ``Location``.",
+        "description": "Provision a person.\n\nArgs:\n    request: The request.\n    source: The authenticated source.\n    body: The user document.\n    shape: ``attributes`` and ``excludedAttributes``.\n\nReturns:\n    201 with the user and its ``Location``.",
         "operationId": "create_user_api_scim_v2_Users_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "attributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Attributes"
+            }
+          },
+          {
+            "in": "query",
+            "name": "excludedAttributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Excludedattributes"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -83628,6 +84048,51 @@
           }
         },
         "summary": "Create User",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/scim/v2/Users/.search": {
+      "post": {
+        "description": "List users with the query in the body, as providers do when it is too long for an address.\n\nArgs:\n    request: The request.\n    source: The authenticated source.\n    body: A SearchRequest.\n\nReturns:\n    A ListResponse.",
+        "operationId": "search_users_api_scim_v2_Users__search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/scim+json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Users",
         "tags": [
           "SCIM provisioning"
         ],
@@ -83671,7 +84136,7 @@
         "x-noust-permission": "public"
       },
       "get": {
-        "description": "Args:\n    user_id: The id the provider uses.\n    request: The request.\n    source: The authenticated source.\n\nReturns:\n    The user.",
+        "description": "Args:\n    user_id: The id the provider uses.\n    request: The request.\n    source: The authenticated source.\n    shape: ``attributes`` and ``excludedAttributes``.\n\nReturns:\n    The user.",
         "operationId": "get_user_api_scim_v2_Users__user_id__get",
         "parameters": [
           {
@@ -83681,6 +84146,40 @@
             "schema": {
               "title": "User Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "attributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Attributes"
+            }
+          },
+          {
+            "in": "query",
+            "name": "excludedAttributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Excludedattributes"
             }
           }
         ],
@@ -83723,6 +84222,40 @@
             "schema": {
               "title": "User Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "attributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Attributes"
+            }
+          },
+          {
+            "in": "query",
+            "name": "excludedAttributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Excludedattributes"
             }
           }
         ],
@@ -83777,6 +84310,40 @@
             "schema": {
               "title": "User Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "attributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Attributes"
+            }
+          },
+          {
+            "in": "query",
+            "name": "excludedAttributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Excludedattributes"
             }
           }
         ],

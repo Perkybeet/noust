@@ -58,6 +58,7 @@ from noust.core.accounts.model import (
 )
 from noust.core.accounts.oidc_model import IdentityClaims, OidcRefused, validate_name
 from noust.core.accounts.oidc_store import OidcStore
+from noust.core.accounts.scim_schema import SCHEMA_GROUP, SCHEMA_LIST, SCHEMA_USER
 from noust.core.accounts.scim_store import (
     PROTOCOL_SCIM,
     ScimGroup,
@@ -74,9 +75,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_USER = "urn:ietf:params:scim:schemas:core:2.0:User"
-SCHEMA_GROUP = "urn:ietf:params:scim:schemas:core:2.0:Group"
-SCHEMA_LIST = "urn:ietf:params:scim:api:messages:2.0:ListResponse"
 SCHEMA_PATCH = "urn:ietf:params:scim:api:messages:2.0:PatchOp"
 SCHEMA_ERROR = "urn:ietf:params:scim:api:messages:2.0:Error"
 
@@ -642,13 +640,14 @@ class ScimService:
         fields = user_fields(doc)
         if not fields.user_name:
             raise ScimError(400, "userName is required", "invalidValue")
-        if not fields.email:
+        if fields.email:
+            self._check_domain(fields.email)
+        elif self.source.allowed_domains:
             raise ScimError(
                 400,
-                "An e-mail is required: it is how the person's sign-in is tied to their account",
+                "This source provisions only some e-mail domains, so a person needs an e-mail",
                 "invalidValue",
             )
-        self._check_domain(fields.email)
         name = self.source.name
         if self.data.find_user(name, user_name=fields.user_name) or (
             fields.external_id and self.data.find_user(name, external_id=fields.external_id)
@@ -661,9 +660,12 @@ class ScimService:
             subject=user_id,
             email=fields.email,
             name=fields.display_name,
-            username=fields.email.split("@", 1)[0],
+            username=(fields.email or fields.user_name).split("@", 1)[0],
         )
-        existing = self.accounts.find_by_person(fields.email)
+        # A person without an e-mail is made, invited: nobody can sign in as them until the
+        # provider sends one or an administrator links them, because the e-mail is what ties a
+        # sign-in to an account.
+        existing = self.accounts.find_by_person(fields.email) if fields.email else []
         if existing:
             account = self._attach(existing, fields)
             event, detail = "auth.scim.link", "attached to the account of the same e-mail"
@@ -775,6 +777,8 @@ class ScimService:
             if op == "remove":
                 if lowered in ("externalid", "displayname"):
                     clears.append("externalId" if lowered == "externalid" else "displayName")
+                elif lowered in ("name", "name.formatted", "name.givenname", "name.familyname"):
+                    clears.append("displayName")
                 continue
             plain = {
                 "active": "active",
@@ -846,11 +850,14 @@ class ScimService:
                 except ValidationError as exc:
                     raise ScimError(400, exc.message, "invalidValue") from exc
         if fields.email and fields.email != account.person_ref:
-            self._audit(
-                "auth.scim.update",
-                account.username,
-                "the provider changed the e-mail; the account's reference is not changed by it",
-            )
+            if account.person_ref:
+                self._audit(
+                    "auth.scim.update",
+                    account.username,
+                    "the provider changed the e-mail; the account's reference is not changed by it",
+                )
+            else:
+                account = self._give_email(account, fields.email)
         refreshed = self.data.get_user(self.source.name, user.id) or user
         if fields.active is False and account.status != STATUS_DISABLED:
             self._deactivate(refreshed, account)
@@ -859,6 +866,36 @@ class ScimService:
         self.data.update_user(user.id)
         final = self.data.get_user(self.source.name, user.id)
         return self.render_user(final or refreshed)
+
+    def _give_email(self, account: Account, email: str) -> Account:
+        """
+        Give an account its first e-mail: the one it was provisioned without.
+
+        Once an account has one it is not changed from here; this is the single time a provider
+        sets it, with the checks creating a person would have had.
+
+        Args:
+            account: An account of this source's roster that has no e-mail.
+            email: The address the provider sent.
+
+        Returns:
+            The account after.
+
+        Raises:
+            ScimError: 400 for a domain not allowed, 409 ``uniqueness`` when another account has
+                the address.
+        """
+        self._check_domain(email)
+        if self.accounts.find_by_person(email):
+            raise ScimError(409, "Another account already has this e-mail", "uniqueness")
+        try:
+            account = self.accounts.update_profile(account.username, person_ref=email)
+        except (AccountError, ValidationError) as exc:
+            raise ScimError(409, exc.message, "uniqueness") from exc
+        self._audit(
+            "auth.scim.update", account.username, "the provider gave the account its e-mail"
+        )
+        return account
 
     def _deactivate(self, user: ScimUser, account: Account) -> None:
         """

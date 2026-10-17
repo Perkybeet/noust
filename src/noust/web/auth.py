@@ -5617,6 +5617,48 @@ def _is_guess(credential: str) -> bool:
     return manager is None or not manager.signed_session_token(credential)
 
 
+#: Paths whose endpoints authenticate a bearer token of their own, which is none of the
+#: console's credentials: a provisioning source's. The limiter must not take that token for a
+#: wrong credential of the console (every request would then count against the lockout, and a
+#: provider's first sync would lock its own address out), and the endpoints count their own
+#: wrong tokens (:func:`record_auth_failure`).
+SELF_AUTHENTICATING_PREFIXES = ("/api/scim", "/api/v1/scim")
+
+
+def authenticates_itself(path: str) -> bool:
+    """
+    Args:
+        path: A request path.
+
+    Returns:
+        Whether the endpoints below it check a bearer token that is theirs alone.
+    """
+    return any(
+        path == prefix or path.startswith(prefix + "/") for prefix in SELF_AUTHENTICATING_PREFIXES
+    )
+
+
+def provisioning_identity(connection: HTTPConnection) -> str | None:
+    """
+    Name the provisioning source a request's bearer token belongs to.
+
+    Args:
+        connection: The incoming request.
+
+    Returns:
+        ``scim:<source>`` for a token of a source that is on, else None. A token that is not one
+        is not noted for the lockout here: the endpoint it was presented to refuses and counts it.
+    """
+    token = bearer_token(connection)
+    manager = get_global_token_manager()
+    if not token or manager is None:
+        return None
+    from noust.core.accounts.scim import ScimManager
+
+    source = ScimManager(manager.accounts.store, accounts=manager.accounts).authenticate(token)
+    return f"scim:{source.name}" if source is not None else None
+
+
 def rate_limit_identity(connection: HTTPConnection, client_ip: str) -> str | None:
     """
     Name the valid credential a request carries, for the rate limiter.
@@ -5637,6 +5679,8 @@ def rate_limit_identity(connection: HTTPConnection, client_ip: str) -> str | Non
         :func:`credential_key` of the first valid credential, or None when the
         request carries none, in which case it is counted by address.
     """
+    if authenticates_itself(connection.url.path):
+        return provisioning_identity(connection)
     candidates = [("cookie", connection.cookies.get(SESSION_COOKIE_NAME))]
     if connection.scope["type"] == "websocket":
         candidates.append(("websocket", subprotocol_token(connection)))

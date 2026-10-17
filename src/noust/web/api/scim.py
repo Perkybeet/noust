@@ -25,12 +25,18 @@ from typing import Any, TypeVar
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, Response
 
 from noust.core.accounts.scim import (
-    SCHEMA_GROUP,
-    SCHEMA_USER,
     ScimError,
     ScimManager,
     ScimService,
     hash_token,
+)
+from noust.core.accounts.scim_schema import (
+    list_response,
+    parse_attribute_list,
+    project,
+    project_list,
+    resource_type_documents,
+    schema_documents,
 )
 from noust.core.accounts.scim_store import ScimSource
 from noust.web.api.sso_flow import origin_of
@@ -173,30 +179,6 @@ def finish(service: ScimService) -> None:
 
 # ---------------------------------------------------------------- discovery
 
-_RESOURCE_SCHEMAS = [
-    {
-        "id": SCHEMA_USER,
-        "name": "User",
-        "description": "A person who may have an account here.",
-        "attributes": [
-            {"name": "userName", "type": "string", "required": True, "mutability": "readWrite"},
-            {"name": "externalId", "type": "string", "required": False},
-            {"name": "displayName", "type": "string", "required": False},
-            {"name": "emails", "type": "complex", "multiValued": True, "required": True},
-            {"name": "active", "type": "boolean", "required": False},
-        ],
-    },
-    {
-        "id": SCHEMA_GROUP,
-        "name": "Group",
-        "description": "A group whose members get the roles the source's mapping says.",
-        "attributes": [
-            {"name": "displayName", "type": "string", "required": True},
-            {"name": "members", "type": "complex", "multiValued": True, "required": False},
-        ],
-    },
-]
-
 
 @router.get("/ServiceProviderConfig")
 @scim_endpoint
@@ -233,39 +215,181 @@ def service_provider_config(_source: ScimSource = Depends(scim_source)) -> Respo
 
 @router.get("/ResourceTypes")
 @scim_endpoint
-def resource_types(_source: ScimSource = Depends(scim_source)) -> Response:
+def resource_types(request: Request, _source: ScimSource = Depends(scim_source)) -> Response:
     """
     Args:
+        request: The request.
         _source: The authenticated source.
 
     Returns:
-        The two resource types: User and Group.
+        A ListResponse of the two resource types: User and Group.
     """
-    return reply(
-        [
-            {
-                "schemas": ["urn:ietf:params:scim:schemas:core:2.0:ResourceType"],
-                "id": name,
-                "name": name,
-                "endpoint": f"/{name}s",
-                "schema": schema,
-            }
-            for name, schema in (("User", SCHEMA_USER), ("Group", SCHEMA_GROUP))
-        ]
-    )
+    return reply(list_response(resource_type_documents(origin_of(request) + BASE_PATH)))
+
+
+@router.get("/ResourceTypes/{name}")
+@scim_endpoint
+def resource_type(
+    name: str, request: Request, _source: ScimSource = Depends(scim_source)
+) -> Response:
+    """
+    Args:
+        name: ``User`` or ``Group``.
+        request: The request.
+        _source: The authenticated source.
+
+    Returns:
+        The resource type.
+
+    Raises:
+        ScimError: 404 when there is none of that name.
+    """
+    for document in resource_type_documents(origin_of(request) + BASE_PATH):
+        if document["id"] == name:
+            return reply(document)
+    raise ScimError(404, f"No resource type {name[:64]!r}")
 
 
 @router.get("/Schemas")
 @scim_endpoint
-def schemas(_source: ScimSource = Depends(scim_source)) -> Response:
+def schemas(request: Request, _source: ScimSource = Depends(scim_source)) -> Response:
     """
     Args:
+        request: The request.
         _source: The authenticated source.
 
     Returns:
-        The attributes this server models.
+        A ListResponse of the attributes this server models.
     """
-    return reply(_RESOURCE_SCHEMAS)
+    return reply(list_response(schema_documents(origin_of(request) + BASE_PATH)))
+
+
+@router.get("/Schemas/{schema_id}")
+@scim_endpoint
+def schema(
+    schema_id: str, request: Request, _source: ScimSource = Depends(scim_source)
+) -> Response:
+    """
+    Args:
+        schema_id: The schema's URN.
+        request: The request.
+        _source: The authenticated source.
+
+    Returns:
+        The schema.
+
+    Raises:
+        ScimError: 404 when there is none of that id.
+    """
+    for document in schema_documents(origin_of(request) + BASE_PATH):
+        if document["id"] == schema_id:
+            return reply(document)
+    raise ScimError(404, f"No schema {schema_id[:128]!r}")
+
+
+Shape = tuple[list[str], list[str]]
+
+
+def shaping(
+    attributes: str | None = Query(default=None, max_length=512),
+    excludedAttributes: str | None = Query(default=None, max_length=512),
+) -> Shape:
+    """
+    Args:
+        attributes: What to return besides what is always returned.
+        excludedAttributes: What not to return.
+
+    Returns:
+        Both, parsed.
+    """
+    return parse_attribute_list(attributes), parse_attribute_list(excludedAttributes)
+
+
+def search_request(body: dict[str, Any]) -> tuple[str | None, int | None, int | None, Shape]:
+    """
+    Read a SearchRequest (RFC 7644 section 3.4.3): the query of a list, in a body.
+
+    Args:
+        body: The posted document.
+
+    Returns:
+        The filter, ``startIndex``, ``count`` and the projection.
+
+    Raises:
+        ScimError: 400 ``invalidValue`` for one that is not what it should be.
+    """
+    filter_text = body.get("filter")
+    if filter_text is not None and (not isinstance(filter_text, str) or len(filter_text) > 512):
+        raise ScimError(400, "filter must be a string of at most 512 characters", "invalidFilter")
+    numbers: list[int | None] = []
+    for key, low, high in (("startIndex", 1, 1_000_000), ("count", 0, 10_000)):
+        value = body.get(key)
+        if value is not None and (
+            isinstance(value, bool) or not isinstance(value, int) or not low <= value <= high
+        ):
+            raise ScimError(
+                400, f"{key} must be a whole number from {low} to {high}", "invalidValue"
+            )
+        numbers.append(value)
+    return (
+        filter_text,
+        numbers[0],
+        numbers[1],
+        (
+            parse_attribute_list(body.get("attributes")),
+            parse_attribute_list(body.get("excludedAttributes")),
+        ),
+    )
+
+
+@router.post("/.search")
+@scim_endpoint
+def search_everything(
+    request: Request,
+    source: ScimSource = Depends(scim_source),
+    body: dict[str, Any] = Body(...),
+) -> Response:
+    """
+    Search users and groups together, with the query in the body (RFC 7644 section 3.4.3).
+
+    A filter that only one of them can answer is answered by that one. The window is applied to
+    the users first and then the groups, up to 200 of each.
+
+    Args:
+        request: The request.
+        source: The authenticated source.
+        body: A SearchRequest.
+
+    Returns:
+        A ListResponse of both kinds.
+    """
+    filter_text, start, count, shape = search_request(body)
+    service = service_for(request, source)
+    found: list[dict[str, Any]] = []
+    total = 0
+    for listing in (service.list_users, service.list_groups):
+        try:
+            answer = listing(filter_text, 1, 200)
+        except ScimError as exc:
+            if exc.scim_type == "invalidFilter":
+                continue
+            raise
+        found.extend(answer["Resources"])
+        total += int(answer["totalResults"])
+    first = (start or 1) - 1
+    window = found[first : first + count] if count is not None else found[first:]
+    return reply(
+        project_list(
+            {
+                "schemas": ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
+                "totalResults": total,
+                "startIndex": first + 1,
+                "itemsPerPage": len(window),
+                "Resources": window,
+            },
+            *shape,
+        )
+    )
 
 
 # -------------------------------------------------------------------- users
@@ -279,6 +403,7 @@ def list_users(
     filter: str | None = Query(default=None, max_length=512),
     startIndex: int | None = Query(default=None, ge=1, le=1_000_000),
     count: int | None = Query(default=None, ge=0, le=10_000),
+    shape: Shape = Depends(shaping),
 ) -> Response:
     """
     List the users this source provisioned, or find one by ``userName`` or ``externalId``.
@@ -289,11 +414,38 @@ def list_users(
         filter: ``attribute eq "value"``.
         startIndex: The 1-based index of the first result.
         count: How many, at most 200.
+        shape: ``attributes`` and ``excludedAttributes``.
 
     Returns:
         A ListResponse.
     """
-    return reply(service_for(request, source).list_users(filter, startIndex, count))
+    return reply(
+        project_list(service_for(request, source).list_users(filter, startIndex, count), *shape)
+    )
+
+
+@router.post("/Users/.search")
+@scim_endpoint
+def search_users(
+    request: Request,
+    source: ScimSource = Depends(scim_source),
+    body: dict[str, Any] = Body(...),
+) -> Response:
+    """
+    List users with the query in the body, as providers do when it is too long for an address.
+
+    Args:
+        request: The request.
+        source: The authenticated source.
+        body: A SearchRequest.
+
+    Returns:
+        A ListResponse.
+    """
+    filter_text, start, count, shape = search_request(body)
+    return reply(
+        project_list(service_for(request, source).list_users(filter_text, start, count), *shape)
+    )
 
 
 @router.post("/Users", status_code=201)
@@ -302,6 +454,7 @@ def create_user(
     request: Request,
     source: ScimSource = Depends(scim_source),
     body: dict[str, Any] = Body(...),
+    shape: Shape = Depends(shaping),
 ) -> Response:
     """
     Provision a person.
@@ -310,6 +463,7 @@ def create_user(
         request: The request.
         source: The authenticated source.
         body: The user document.
+        shape: ``attributes`` and ``excludedAttributes``.
 
     Returns:
         201 with the user and its ``Location``.
@@ -317,22 +471,28 @@ def create_user(
     service = service_for(request, source)
     created = service.create_user(body)
     finish(service)
-    return reply(created, 201, {"Location": created["meta"]["location"]})
+    return reply(project(created, *shape), 201, {"Location": created["meta"]["location"]})
 
 
 @router.get("/Users/{user_id}")
 @scim_endpoint
-def get_user(user_id: str, request: Request, source: ScimSource = Depends(scim_source)) -> Response:
+def get_user(
+    user_id: str,
+    request: Request,
+    source: ScimSource = Depends(scim_source),
+    shape: Shape = Depends(shaping),
+) -> Response:
     """
     Args:
         user_id: The id the provider uses.
         request: The request.
         source: The authenticated source.
+        shape: ``attributes`` and ``excludedAttributes``.
 
     Returns:
         The user.
     """
-    return reply(service_for(request, source).get_user(user_id))
+    return reply(project(service_for(request, source).get_user(user_id), *shape))
 
 
 @router.put("/Users/{user_id}")
@@ -342,6 +502,7 @@ def replace_user(
     request: Request,
     source: ScimSource = Depends(scim_source),
     body: dict[str, Any] = Body(...),
+    shape: Shape = Depends(shaping),
 ) -> Response:
     """
     Args:
@@ -356,7 +517,7 @@ def replace_user(
     service = service_for(request, source)
     changed = service.replace_user(user_id, body)
     finish(service)
-    return reply(changed)
+    return reply(project(changed, *shape))
 
 
 @router.patch("/Users/{user_id}")
@@ -366,6 +527,7 @@ def patch_user(
     request: Request,
     source: ScimSource = Depends(scim_source),
     body: dict[str, Any] = Body(...),
+    shape: Shape = Depends(shaping),
 ) -> Response:
     """
     Args:
@@ -380,7 +542,7 @@ def patch_user(
     service = service_for(request, source)
     changed = service.patch_user(user_id, body)
     finish(service)
-    return reply(changed)
+    return reply(project(changed, *shape))
 
 
 @router.delete("/Users/{user_id}", status_code=204, response_class=Response)
@@ -416,6 +578,7 @@ def list_groups(
     filter: str | None = Query(default=None, max_length=512),
     startIndex: int | None = Query(default=None, ge=1, le=1_000_000),
     count: int | None = Query(default=None, ge=0, le=10_000),
+    shape: Shape = Depends(shaping),
 ) -> Response:
     """
     Args:
@@ -424,11 +587,38 @@ def list_groups(
         filter: ``attribute eq "value"``.
         startIndex: The 1-based index of the first result.
         count: How many, at most 200.
+        shape: ``attributes`` and ``excludedAttributes``.
 
     Returns:
         A ListResponse.
     """
-    return reply(service_for(request, source).list_groups(filter, startIndex, count))
+    return reply(
+        project_list(service_for(request, source).list_groups(filter, startIndex, count), *shape)
+    )
+
+
+@router.post("/Groups/.search")
+@scim_endpoint
+def search_groups(
+    request: Request,
+    source: ScimSource = Depends(scim_source),
+    body: dict[str, Any] = Body(...),
+) -> Response:
+    """
+    List groups with the query in the body.
+
+    Args:
+        request: The request.
+        source: The authenticated source.
+        body: A SearchRequest.
+
+    Returns:
+        A ListResponse.
+    """
+    filter_text, start, count, shape = search_request(body)
+    return reply(
+        project_list(service_for(request, source).list_groups(filter_text, start, count), *shape)
+    )
 
 
 @router.post("/Groups", status_code=201)
@@ -437,12 +627,14 @@ def create_group(
     request: Request,
     source: ScimSource = Depends(scim_source),
     body: dict[str, Any] = Body(...),
+    shape: Shape = Depends(shaping),
 ) -> Response:
     """
     Args:
         request: The request.
         source: The authenticated source.
         body: The group document.
+        shape: ``attributes`` and ``excludedAttributes``.
 
     Returns:
         201 with the group and its ``Location``.
@@ -450,24 +642,28 @@ def create_group(
     service = service_for(request, source)
     created = service.create_group(body)
     finish(service)
-    return reply(created, 201, {"Location": created["meta"]["location"]})
+    return reply(project(created, *shape), 201, {"Location": created["meta"]["location"]})
 
 
 @router.get("/Groups/{group_id}")
 @scim_endpoint
 def get_group(
-    group_id: str, request: Request, source: ScimSource = Depends(scim_source)
+    group_id: str,
+    request: Request,
+    source: ScimSource = Depends(scim_source),
+    shape: Shape = Depends(shaping),
 ) -> Response:
     """
     Args:
         group_id: The id the provider uses.
         request: The request.
         source: The authenticated source.
+        shape: ``attributes`` and ``excludedAttributes``.
 
     Returns:
         The group.
     """
-    return reply(service_for(request, source).get_group(group_id))
+    return reply(project(service_for(request, source).get_group(group_id), *shape))
 
 
 @router.put("/Groups/{group_id}")
@@ -477,6 +673,7 @@ def replace_group(
     request: Request,
     source: ScimSource = Depends(scim_source),
     body: dict[str, Any] = Body(...),
+    shape: Shape = Depends(shaping),
 ) -> Response:
     """
     Args:
@@ -491,7 +688,7 @@ def replace_group(
     service = service_for(request, source)
     changed = service.replace_group(group_id, body)
     finish(service)
-    return reply(changed)
+    return reply(project(changed, *shape))
 
 
 @router.patch("/Groups/{group_id}")
@@ -501,6 +698,7 @@ def patch_group(
     request: Request,
     source: ScimSource = Depends(scim_source),
     body: dict[str, Any] = Body(...),
+    shape: Shape = Depends(shaping),
 ) -> Response:
     """
     Args:
@@ -515,7 +713,7 @@ def patch_group(
     service = service_for(request, source)
     changed = service.patch_group(group_id, body)
     finish(service)
-    return reply(changed)
+    return reply(project(changed, *shape))
 
 
 @router.delete("/Groups/{group_id}", status_code=204, response_class=Response)

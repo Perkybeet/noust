@@ -638,17 +638,22 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("registries", "change_registry_login"): ("PATCH", "/api/registries/{name}", "apps.manage", True),
     ("registries", "remove_registry_login"): ("DELETE", "/api/registries/{name}", "apps.manage", True),
     ("registries", "test_registry_login"): ("POST", "/api/registries/{name}/test", "apps.manage", True),
+    ("scim_provisioning", "search_everything"): ("POST", "/api/scim/v2/.search", "public", False),
     ("scim_provisioning", "list_groups"): ("GET", "/api/scim/v2/Groups", "public", False),
     ("scim_provisioning", "create_group"): ("POST", "/api/scim/v2/Groups", "public", False),
+    ("scim_provisioning", "search_groups"): ("POST", "/api/scim/v2/Groups/.search", "public", False),
     ("scim_provisioning", "get_group"): ("GET", "/api/scim/v2/Groups/{group_id}", "public", False),
     ("scim_provisioning", "replace_group"): ("PUT", "/api/scim/v2/Groups/{group_id}", "public", False),
     ("scim_provisioning", "patch_group"): ("PATCH", "/api/scim/v2/Groups/{group_id}", "public", False),
     ("scim_provisioning", "delete_group"): ("DELETE", "/api/scim/v2/Groups/{group_id}", "public", False),
     ("scim_provisioning", "resource_types"): ("GET", "/api/scim/v2/ResourceTypes", "public", False),
+    ("scim_provisioning", "resource_type"): ("GET", "/api/scim/v2/ResourceTypes/{name}", "public", False),
     ("scim_provisioning", "schemas"): ("GET", "/api/scim/v2/Schemas", "public", False),
+    ("scim_provisioning", "schema"): ("GET", "/api/scim/v2/Schemas/{schema_id}", "public", False),
     ("scim_provisioning", "service_provider_config"): ("GET", "/api/scim/v2/ServiceProviderConfig", "public", False),
     ("scim_provisioning", "list_users"): ("GET", "/api/scim/v2/Users", "public", False),
     ("scim_provisioning", "create_user"): ("POST", "/api/scim/v2/Users", "public", False),
+    ("scim_provisioning", "search_users"): ("POST", "/api/scim/v2/Users/.search", "public", False),
     ("scim_provisioning", "get_user"): ("GET", "/api/scim/v2/Users/{user_id}", "public", False),
     ("scim_provisioning", "replace_user"): ("PUT", "/api/scim/v2/Users/{user_id}", "public", False),
     ("scim_provisioning", "patch_user"): ("PATCH", "/api/scim/v2/Users/{user_id}", "public", False),
@@ -6049,50 +6054,66 @@ class Registries:
 
 
 class SCIMProvisioning:
-    """SCIM provisioning: 15 operations."""
+    """SCIM provisioning: 20 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
 
-    def list_groups(self, *, filter: Union[str, None] = None, startIndex: Union[int, None] = None, count: Union[int, None] = None) -> bytes:
+    def search_everything(self, body: dict[str, Any]) -> bytes:
+        """POST /api/scim/v2/.search
+
+        Search Everything
+
+        Needs: permission `public`."""
+        return self._call("POST", "/api/scim/v2/.search", query=None, body=body, binary=True)
+
+    def list_groups(self, *, filter: Union[str, None] = None, startIndex: Union[int, None] = None, count: Union[int, None] = None, attributes: Union[str, None] = None, excludedAttributes: Union[str, None] = None) -> bytes:
         """GET /api/scim/v2/Groups
 
         List Groups
 
         Needs: permission `public`."""
-        return self._call("GET", "/api/scim/v2/Groups", query={"filter": filter, "startIndex": startIndex, "count": count}, body=None, binary=True)
+        return self._call("GET", "/api/scim/v2/Groups", query={"filter": filter, "startIndex": startIndex, "count": count, "attributes": attributes, "excludedAttributes": excludedAttributes}, body=None, binary=True)
 
-    def create_group(self, body: dict[str, Any]) -> bytes:
+    def create_group(self, body: dict[str, Any], *, attributes: Union[str, None] = None, excludedAttributes: Union[str, None] = None) -> bytes:
         """POST /api/scim/v2/Groups
 
         Create Group
 
         Needs: permission `public`."""
-        return self._call("POST", "/api/scim/v2/Groups", query=None, body=body, binary=True)
+        return self._call("POST", "/api/scim/v2/Groups", query={"attributes": attributes, "excludedAttributes": excludedAttributes}, body=body, binary=True)
 
-    def get_group(self, group_id: str) -> bytes:
+    def search_groups(self, body: dict[str, Any]) -> bytes:
+        """POST /api/scim/v2/Groups/.search
+
+        Search Groups
+
+        Needs: permission `public`."""
+        return self._call("POST", "/api/scim/v2/Groups/.search", query=None, body=body, binary=True)
+
+    def get_group(self, group_id: str, *, attributes: Union[str, None] = None, excludedAttributes: Union[str, None] = None) -> bytes:
         """GET /api/scim/v2/Groups/{group_id}
 
         Get Group
 
         Needs: permission `public`."""
-        return self._call("GET", f"/api/scim/v2/Groups/{quote(str(group_id), safe='')}", query=None, body=None, binary=True)
+        return self._call("GET", f"/api/scim/v2/Groups/{quote(str(group_id), safe='')}", query={"attributes": attributes, "excludedAttributes": excludedAttributes}, body=None, binary=True)
 
-    def replace_group(self, group_id: str, body: dict[str, Any]) -> bytes:
+    def replace_group(self, group_id: str, body: dict[str, Any], *, attributes: Union[str, None] = None, excludedAttributes: Union[str, None] = None) -> bytes:
         """PUT /api/scim/v2/Groups/{group_id}
 
         Replace Group
 
         Needs: permission `public`."""
-        return self._call("PUT", f"/api/scim/v2/Groups/{quote(str(group_id), safe='')}", query=None, body=body, binary=True)
+        return self._call("PUT", f"/api/scim/v2/Groups/{quote(str(group_id), safe='')}", query={"attributes": attributes, "excludedAttributes": excludedAttributes}, body=body, binary=True)
 
-    def patch_group(self, group_id: str, body: dict[str, Any]) -> bytes:
+    def patch_group(self, group_id: str, body: dict[str, Any], *, attributes: Union[str, None] = None, excludedAttributes: Union[str, None] = None) -> bytes:
         """PATCH /api/scim/v2/Groups/{group_id}
 
         Patch Group
 
         Needs: permission `public`."""
-        return self._call("PATCH", f"/api/scim/v2/Groups/{quote(str(group_id), safe='')}", query=None, body=body, binary=True)
+        return self._call("PATCH", f"/api/scim/v2/Groups/{quote(str(group_id), safe='')}", query={"attributes": attributes, "excludedAttributes": excludedAttributes}, body=body, binary=True)
 
     def delete_group(self, group_id: str) -> Any:
         """DELETE /api/scim/v2/Groups/{group_id}
@@ -6110,6 +6131,14 @@ class SCIMProvisioning:
         Needs: permission `public`."""
         return self._call("GET", "/api/scim/v2/ResourceTypes", query=None, body=None, binary=True)
 
+    def resource_type(self, name: str) -> bytes:
+        """GET /api/scim/v2/ResourceTypes/{name}
+
+        Resource Type
+
+        Needs: permission `public`."""
+        return self._call("GET", f"/api/scim/v2/ResourceTypes/{quote(str(name), safe='')}", query=None, body=None, binary=True)
+
     def schemas(self) -> bytes:
         """GET /api/scim/v2/Schemas
 
@@ -6117,6 +6146,14 @@ class SCIMProvisioning:
 
         Needs: permission `public`."""
         return self._call("GET", "/api/scim/v2/Schemas", query=None, body=None, binary=True)
+
+    def schema(self, schema_id: str) -> bytes:
+        """GET /api/scim/v2/Schemas/{schema_id}
+
+        Schema
+
+        Needs: permission `public`."""
+        return self._call("GET", f"/api/scim/v2/Schemas/{quote(str(schema_id), safe='')}", query=None, body=None, binary=True)
 
     def service_provider_config(self) -> bytes:
         """GET /api/scim/v2/ServiceProviderConfig
@@ -6126,45 +6163,53 @@ class SCIMProvisioning:
         Needs: permission `public`."""
         return self._call("GET", "/api/scim/v2/ServiceProviderConfig", query=None, body=None, binary=True)
 
-    def list_users(self, *, filter: Union[str, None] = None, startIndex: Union[int, None] = None, count: Union[int, None] = None) -> bytes:
+    def list_users(self, *, filter: Union[str, None] = None, startIndex: Union[int, None] = None, count: Union[int, None] = None, attributes: Union[str, None] = None, excludedAttributes: Union[str, None] = None) -> bytes:
         """GET /api/scim/v2/Users
 
         List Users
 
         Needs: permission `public`."""
-        return self._call("GET", "/api/scim/v2/Users", query={"filter": filter, "startIndex": startIndex, "count": count}, body=None, binary=True)
+        return self._call("GET", "/api/scim/v2/Users", query={"filter": filter, "startIndex": startIndex, "count": count, "attributes": attributes, "excludedAttributes": excludedAttributes}, body=None, binary=True)
 
-    def create_user(self, body: dict[str, Any]) -> bytes:
+    def create_user(self, body: dict[str, Any], *, attributes: Union[str, None] = None, excludedAttributes: Union[str, None] = None) -> bytes:
         """POST /api/scim/v2/Users
 
         Create User
 
         Needs: permission `public`."""
-        return self._call("POST", "/api/scim/v2/Users", query=None, body=body, binary=True)
+        return self._call("POST", "/api/scim/v2/Users", query={"attributes": attributes, "excludedAttributes": excludedAttributes}, body=body, binary=True)
 
-    def get_user(self, user_id: str) -> bytes:
+    def search_users(self, body: dict[str, Any]) -> bytes:
+        """POST /api/scim/v2/Users/.search
+
+        Search Users
+
+        Needs: permission `public`."""
+        return self._call("POST", "/api/scim/v2/Users/.search", query=None, body=body, binary=True)
+
+    def get_user(self, user_id: str, *, attributes: Union[str, None] = None, excludedAttributes: Union[str, None] = None) -> bytes:
         """GET /api/scim/v2/Users/{user_id}
 
         Get User
 
         Needs: permission `public`."""
-        return self._call("GET", f"/api/scim/v2/Users/{quote(str(user_id), safe='')}", query=None, body=None, binary=True)
+        return self._call("GET", f"/api/scim/v2/Users/{quote(str(user_id), safe='')}", query={"attributes": attributes, "excludedAttributes": excludedAttributes}, body=None, binary=True)
 
-    def replace_user(self, user_id: str, body: dict[str, Any]) -> bytes:
+    def replace_user(self, user_id: str, body: dict[str, Any], *, attributes: Union[str, None] = None, excludedAttributes: Union[str, None] = None) -> bytes:
         """PUT /api/scim/v2/Users/{user_id}
 
         Replace User
 
         Needs: permission `public`."""
-        return self._call("PUT", f"/api/scim/v2/Users/{quote(str(user_id), safe='')}", query=None, body=body, binary=True)
+        return self._call("PUT", f"/api/scim/v2/Users/{quote(str(user_id), safe='')}", query={"attributes": attributes, "excludedAttributes": excludedAttributes}, body=body, binary=True)
 
-    def patch_user(self, user_id: str, body: dict[str, Any]) -> bytes:
+    def patch_user(self, user_id: str, body: dict[str, Any], *, attributes: Union[str, None] = None, excludedAttributes: Union[str, None] = None) -> bytes:
         """PATCH /api/scim/v2/Users/{user_id}
 
         Patch User
 
         Needs: permission `public`."""
-        return self._call("PATCH", f"/api/scim/v2/Users/{quote(str(user_id), safe='')}", query=None, body=body, binary=True)
+        return self._call("PATCH", f"/api/scim/v2/Users/{quote(str(user_id), safe='')}", query={"attributes": attributes, "excludedAttributes": excludedAttributes}, body=body, binary=True)
 
     def delete_user(self, user_id: str) -> Any:
         """DELETE /api/scim/v2/Users/{user_id}

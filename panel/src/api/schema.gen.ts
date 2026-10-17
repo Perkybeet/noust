@@ -18077,6 +18077,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/scim/v2/.search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search Everything
+         * @description Search users and groups together, with the query in the body (RFC 7644 section 3.4.3).
+         *
+         *     A filter that only one of them can answer is answered by that one. The window is applied to
+         *     the users first and then the groups, up to 200 of each.
+         *
+         *     Args:
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: A SearchRequest.
+         *
+         *     Returns:
+         *         A ListResponse of both kinds.
+         */
+        post: operations["search_everything_api_scim_v2__search_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/scim/v2/Groups": {
         parameters: {
             query?: never;
@@ -18092,6 +18123,7 @@ export interface paths {
          *         filter: ``attribute eq "value"``.
          *         startIndex: The 1-based index of the first result.
          *         count: How many, at most 200.
+         *         shape: ``attributes`` and ``excludedAttributes``.
          *
          *     Returns:
          *         A ListResponse.
@@ -18104,11 +18136,40 @@ export interface paths {
          *         request: The request.
          *         source: The authenticated source.
          *         body: The group document.
+         *         shape: ``attributes`` and ``excludedAttributes``.
          *
          *     Returns:
          *         201 with the group and its ``Location``.
          */
         post: operations["create_group_api_scim_v2_Groups_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/Groups/.search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search Groups
+         * @description List groups with the query in the body.
+         *
+         *     Args:
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: A SearchRequest.
+         *
+         *     Returns:
+         *         A ListResponse.
+         */
+        post: operations["search_groups_api_scim_v2_Groups__search_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -18128,6 +18189,7 @@ export interface paths {
          *         group_id: The id the provider uses.
          *         request: The request.
          *         source: The authenticated source.
+         *         shape: ``attributes`` and ``excludedAttributes``.
          *
          *     Returns:
          *         The group.
@@ -18183,12 +18245,42 @@ export interface paths {
         /**
          * Resource Types
          * @description Args:
+         *         request: The request.
          *         _source: The authenticated source.
          *
          *     Returns:
-         *         The two resource types: User and Group.
+         *         A ListResponse of the two resource types: User and Group.
          */
         get: operations["resource_types_api_scim_v2_ResourceTypes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/ResourceTypes/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resource Type
+         * @description Args:
+         *         name: ``User`` or ``Group``.
+         *         request: The request.
+         *         _source: The authenticated source.
+         *
+         *     Returns:
+         *         The resource type.
+         *
+         *     Raises:
+         *         ScimError: 404 when there is none of that name.
+         */
+        get: operations["resource_type_api_scim_v2_ResourceTypes__name__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -18207,12 +18299,42 @@ export interface paths {
         /**
          * Schemas
          * @description Args:
+         *         request: The request.
          *         _source: The authenticated source.
          *
          *     Returns:
-         *         The attributes this server models.
+         *         A ListResponse of the attributes this server models.
          */
         get: operations["schemas_api_scim_v2_Schemas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/Schemas/{schema_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Schema
+         * @description Args:
+         *         schema_id: The schema's URN.
+         *         request: The request.
+         *         _source: The authenticated source.
+         *
+         *     Returns:
+         *         The schema.
+         *
+         *     Raises:
+         *         ScimError: 404 when there is none of that id.
+         */
+        get: operations["schema_api_scim_v2_Schemas__schema_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -18264,6 +18386,7 @@ export interface paths {
          *         filter: ``attribute eq "value"``.
          *         startIndex: The 1-based index of the first result.
          *         count: How many, at most 200.
+         *         shape: ``attributes`` and ``excludedAttributes``.
          *
          *     Returns:
          *         A ListResponse.
@@ -18278,11 +18401,40 @@ export interface paths {
          *         request: The request.
          *         source: The authenticated source.
          *         body: The user document.
+         *         shape: ``attributes`` and ``excludedAttributes``.
          *
          *     Returns:
          *         201 with the user and its ``Location``.
          */
         post: operations["create_user_api_scim_v2_Users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/Users/.search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search Users
+         * @description List users with the query in the body, as providers do when it is too long for an address.
+         *
+         *     Args:
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: A SearchRequest.
+         *
+         *     Returns:
+         *         A ListResponse.
+         */
+        post: operations["search_users_api_scim_v2_Users__search_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -18302,6 +18454,7 @@ export interface paths {
          *         user_id: The id the provider uses.
          *         request: The request.
          *         source: The authenticated source.
+         *         shape: ``attributes`` and ``excludedAttributes``.
          *
          *     Returns:
          *         The user.
@@ -71247,12 +71400,49 @@ export interface operations {
             };
         };
     };
+    search_everything_api_scim_v2__search_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_groups_api_scim_v2_Groups_get: {
         parameters: {
             query?: {
                 filter?: string | null;
                 startIndex?: number | null;
                 count?: number | null;
+                attributes?: string | null;
+                excludedAttributes?: string | null;
             };
             header?: never;
             path?: never;
@@ -71282,7 +71472,10 @@ export interface operations {
     };
     create_group_api_scim_v2_Groups_post: {
         parameters: {
-            query?: never;
+            query?: {
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -71315,9 +71508,47 @@ export interface operations {
             };
         };
     };
-    get_group_api_scim_v2_Groups__group_id__get: {
+    search_groups_api_scim_v2_Groups__search_post: {
         parameters: {
             query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_group_api_scim_v2_Groups__group_id__get: {
+        parameters: {
+            query?: {
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
             header?: never;
             path: {
                 group_id: string;
@@ -71348,7 +71579,10 @@ export interface operations {
     };
     replace_group_api_scim_v2_Groups__group_id__put: {
         parameters: {
-            query?: never;
+            query?: {
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
             header?: never;
             path: {
                 group_id: string;
@@ -71414,7 +71648,10 @@ export interface operations {
     };
     patch_group_api_scim_v2_Groups__group_id__patch: {
         parameters: {
-            query?: never;
+            query?: {
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
             header?: never;
             path: {
                 group_id: string;
@@ -71469,6 +71706,37 @@ export interface operations {
             };
         };
     };
+    resource_type_api_scim_v2_ResourceTypes__name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     schemas_api_scim_v2_Schemas_get: {
         parameters: {
             query?: never;
@@ -71485,6 +71753,37 @@ export interface operations {
                 };
                 content: {
                     "application/scim+json": string;
+                };
+            };
+        };
+    };
+    schema_api_scim_v2_Schemas__schema_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                schema_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -71515,6 +71814,8 @@ export interface operations {
                 filter?: string | null;
                 startIndex?: number | null;
                 count?: number | null;
+                attributes?: string | null;
+                excludedAttributes?: string | null;
             };
             header?: never;
             path?: never;
@@ -71544,7 +71845,10 @@ export interface operations {
     };
     create_user_api_scim_v2_Users_post: {
         parameters: {
-            query?: never;
+            query?: {
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -71577,9 +71881,47 @@ export interface operations {
             };
         };
     };
-    get_user_api_scim_v2_Users__user_id__get: {
+    search_users_api_scim_v2_Users__search_post: {
         parameters: {
             query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_user_api_scim_v2_Users__user_id__get: {
+        parameters: {
+            query?: {
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
             header?: never;
             path: {
                 user_id: string;
@@ -71610,7 +71952,10 @@ export interface operations {
     };
     replace_user_api_scim_v2_Users__user_id__put: {
         parameters: {
-            query?: never;
+            query?: {
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
             header?: never;
             path: {
                 user_id: string;
@@ -71676,7 +72021,10 @@ export interface operations {
     };
     patch_user_api_scim_v2_Users__user_id__patch: {
         parameters: {
-            query?: never;
+            query?: {
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
             header?: never;
             path: {
                 user_id: string;

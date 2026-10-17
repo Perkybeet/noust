@@ -44,6 +44,7 @@ from tests.test_oidc_manager import (  # noqa: F401 - the fixtures of the manage
     configure,
     idp,
     manager,
+    refused,
     run,
     secure,
     store,
@@ -207,14 +208,76 @@ class TestProvisioning:
         [event] = events("auth.scim.provision")
         assert event["who"]["name"] == "scim:entra" and event["who"]["via"] == "scim"
 
-    def test_a_user_without_a_user_name_or_an_e_mail_is_refused(self, entra: Source) -> None:
+    def test_a_user_without_a_user_name_is_refused(self, entra: Source) -> None:
         with pytest.raises(ScimError) as no_name:
             entra.service.create_user({"emails": [{"value": "a@acme.test"}]})
-        with pytest.raises(ScimError) as no_mail:
-            entra.service.create_user({"userName": "maria"})
 
-        assert no_name.value.status == 400 and no_mail.value.status == 400
-        assert "e-mail is required" in no_mail.value.message
+        assert no_name.value.status == 400
+
+    def test_a_user_without_an_e_mail_is_made_but_nobody_can_sign_in_as_them(
+        self, entra: Source, accounts: AccountManager, idp: FakeIdP, manager: OidcManager
+    ) -> None:
+        created = entra.service.create_user({"schemas": [SCHEMA_USER], "userName": "abc-123"})
+
+        account = accounts.require("abc-123")
+        assert account.status == STATUS_INVITED and account.person_ref is None
+        assert "emails" not in created
+        # The e-mail is what ties a sign-in to an account: nothing a provider says without one
+        # can be the way in.
+        configure(manager, idp, provisioning="invite")
+        assert refused(manager, idp).reason == "not_invited"
+
+    def test_a_source_limited_to_some_domains_needs_an_e_mail(
+        self, scim: ScimManager, admin: Any
+    ) -> None:
+        source = Source(scim, "entra", allowed_domains=["acme.test"])
+
+        with pytest.raises(ScimError, match="needs an e-mail"):
+            source.service.create_user({"userName": "abc-123"})
+
+    def test_the_provider_gives_the_first_e_mail_once_and_not_a_second(
+        self, entra: Source, accounts: AccountManager
+    ) -> None:
+        created = entra.service.create_user({"userName": "abc-123"})
+
+        entra.service.patch_user(
+            created["id"],
+            patch_doc({"op": "add", "path": "emails", "value": [{"value": "Maria@Acme.test"}]}),
+        )
+        assert accounts.require("abc-123").person_ref == "maria@acme.test"
+        entra.service.patch_user(
+            created["id"],
+            patch_doc(
+                {"op": "replace", "path": 'emails[type eq "work"].value', "value": "x@acme.test"}
+            ),
+        )
+
+        assert accounts.require("abc-123").person_ref == "maria@acme.test"
+
+    def test_the_first_e_mail_cannot_be_one_another_account_has(
+        self, entra: Source, accounts: AccountManager
+    ) -> None:
+        entra.service.create_user(user_doc())
+        created = entra.service.create_user({"userName": "abc-123"})
+
+        with pytest.raises(ScimError) as caught:
+            entra.service.patch_user(
+                created["id"],
+                patch_doc({"op": "add", "path": "emails", "value": [{"value": "maria@acme.test"}]}),
+            )
+
+        assert caught.value.status == 409 and caught.value.scim_type == "uniqueness"
+        assert accounts.require("abc-123").person_ref is None
+
+    def test_removing_the_name_removes_how_the_person_is_greeted(self, entra: Source) -> None:
+        created = entra.service.create_user(user_doc())
+        assert created["displayName"] == "Maria Lopez" and "name" in created
+
+        changed = entra.service.patch_user(
+            created["id"], patch_doc({"op": "remove", "path": "name"})
+        )
+
+        assert "displayName" not in changed and "name" not in changed
 
     def test_the_user_name_may_be_the_e_mail(self, entra: Source, accounts: AccountManager) -> None:
         entra.service.create_user({"userName": "Maria@Acme.test"})

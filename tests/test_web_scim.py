@@ -19,7 +19,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from noust.core.accounts.scim import SCHEMA_PATCH, SCHEMA_USER, ScimManager
+from noust.core.accounts.scim import SCHEMA_GROUP, SCHEMA_PATCH, SCHEMA_USER, ScimManager
 from noust.web.auth import CSRF_HEADER_NAME
 from noust.web.server import get_token_manager
 from tests.test_web_accounts import (  # noqa: F401 - the fixtures of the account tests
@@ -66,6 +66,55 @@ class TestTheProviderIsAuthenticatedByItsOwnToken:
         _, self.token = manager().configure("entra", {"label": "Entra ID"})
         assert self.token is not None
         self.bearer = {"Authorization": f"Bearer {self.token}"}
+
+    def test_a_provider_that_makes_many_calls_is_never_locked_out_for_it(self) -> None:
+        # A real synchronisation is hundreds of calls, some of them answered 404 or 405. None of
+        # them is a wrong credential: the lockout counts guesses, and this is a valid token.
+        for _ in range(3):
+            assert (
+                self.client.get(f"{SCIM}/ServiceProviderConfig", headers=self.bearer).status_code
+                == 200
+            )
+            assert (
+                self.client.post(f"{SCIM}/ServiceProviderConfig", headers=self.bearer).status_code
+                == 405
+            )
+            assert self.client.get(f"{SCIM}/Users/missing", headers=self.bearer).status_code == 404
+            assert self.client.delete(f"{SCIM}/Nowhere", headers=self.bearer).status_code in (
+                404,
+                405,
+            )
+        for _ in range(20):
+            assert self.client.get(f"{SCIM}/Users", headers=self.bearer).status_code == 200
+
+        from noust.web.server import get_brute_force
+
+        assert not get_brute_force().is_locked("testclient")
+
+    def test_a_valid_token_is_counted_in_the_budget_of_the_authenticated(self) -> None:
+        anonymous = self.client.get(f"{SCIM}/Users")
+        valid = self.client.get(f"{SCIM}/Users", headers=self.bearer)
+
+        from noust.web.server import get_authenticated_rate_limiter, get_rate_limiter
+
+        assert anonymous.status_code == 401 and valid.status_code == 200
+        assert int(anonymous.headers["x-ratelimit-limit"]) == get_rate_limiter().max_requests
+        assert (
+            int(valid.headers["x-ratelimit-limit"]) == get_authenticated_rate_limiter().max_requests
+        )
+
+    def test_guessing_tokens_still_locks_the_address_out(self) -> None:
+        for number in range(12):
+            self.client.get(
+                f"{SCIM}/Users", headers={"Authorization": f"Bearer noust_scim_guess{number}"}
+            )
+
+        refused = self.client.get(f"{SCIM}/Users", headers=self.bearer)
+
+        assert refused.status_code == 429 and refused.json()["error"] == "locked_out"
+        from noust.web.server import get_brute_force
+
+        get_brute_force().record_success("testclient")
 
     def test_the_token_of_a_source_reads_what_it_supports(self) -> None:
         response = self.client.get(f"{SCIM}/ServiceProviderConfig", headers=self.bearer)
@@ -272,6 +321,164 @@ class TestAnEntraSynchronisation:
         actions = {e["action"]: e for e in entries if e["action"].startswith("auth.scim.")}
         assert {"auth.scim.provision", "auth.scim.deprovision"} <= set(actions)
         assert actions["auth.scim.deprovision"]["actor"].endswith("scim:entra")
+
+
+class TestWhatAClientLibraryExpects:
+    """
+    Found by running a SCIM conformance client written by other people against the server
+    (tests/integration/identity.py): each of these was wrong before.
+    """
+
+    @pytest.fixture(autouse=True)
+    def ready(self, sandbox: Path) -> None:
+        self.client = build(sandbox, trusted_proxies=[])
+        make_account("root-admin", "admin")
+        _, token = manager().configure("entra", {})
+        self.headers = {"Authorization": f"Bearer {token}", **JSON}
+
+    def made(self) -> dict[str, Any]:
+        created = self.client.post(
+            f"{SCIM}/Users", content=json.dumps(user_doc()), headers=self.headers
+        )
+        assert created.status_code == 201, created.text
+        return dict(created.json())
+
+    def test_resource_types_and_schemas_are_list_responses(self) -> None:
+        for path, expected in (("/ResourceTypes", {"User", "Group"}), ("/Schemas", None)):
+            answer = self.client.get(f"{SCIM}{path}", headers=self.headers).json()
+
+            assert answer["schemas"] == ["urn:ietf:params:scim:api:messages:2.0:ListResponse"]
+            assert answer["totalResults"] == len(answer["Resources"]) == 2
+            if expected:
+                assert {item["id"] for item in answer["Resources"]} == expected
+        user = next(
+            item
+            for item in self.client.get(f"{SCIM}/Schemas", headers=self.headers).json()["Resources"]
+            if item["id"] == SCHEMA_USER
+        )
+        name = next(
+            attribute for attribute in user["attributes"] if attribute["name"] == "userName"
+        )
+        assert name["required"] is True and name["uniqueness"] == "server"
+        assert user["meta"]["location"].endswith(f"{SCIM}/Schemas/{SCHEMA_USER}")
+
+    def test_one_resource_type_or_schema_is_found_by_its_id(self) -> None:
+        one = self.client.get(f"{SCIM}/ResourceTypes/User", headers=self.headers)
+        schema = self.client.get(f"{SCIM}/Schemas/{SCHEMA_USER}", headers=self.headers)
+        missing = self.client.get(f"{SCIM}/ResourceTypes/Nobody", headers=self.headers)
+
+        assert one.status_code == 200 and one.json()["endpoint"] == "/Users"
+        assert schema.status_code == 200 and schema.json()["name"] == "User"
+        assert missing.status_code == 404 and missing.json()["status"] == "404"
+
+    def test_a_path_or_a_method_the_server_does_not_have_answers_in_the_protocols_error(
+        self,
+    ) -> None:
+        nothing = self.client.get(f"{SCIM}/Nowhere", headers=self.headers)
+        wrong_method = self.client.delete(f"{SCIM}/ServiceProviderConfig", headers=self.headers)
+
+        for answer, status in ((nothing, 404), (wrong_method, 405)):
+            assert answer.status_code == status
+            assert answer.headers["content-type"].startswith("application/scim+json")
+            assert answer.json()["schemas"] == ["urn:ietf:params:scim:api:messages:2.0:Error"]
+            assert answer.json()["status"] == str(status)
+
+    def test_excluded_attributes_are_left_out_and_the_identifier_never(self) -> None:
+        user = self.made()
+
+        plain = self.client.get(f"{SCIM}/Users/{user['id']}", headers=self.headers).json()
+        shaped = self.client.get(
+            f"{SCIM}/Users/{user['id']}",
+            params={"excludedAttributes": "name,displayName,meta,id"},
+            headers=self.headers,
+        ).json()
+
+        assert {"name", "displayName", "meta"} <= set(plain)
+        assert not ({"name", "displayName", "meta"} & set(shaped))
+        assert shaped["id"] == user["id"] and shaped["userName"] == "maria@acme.test"
+
+    def test_attributes_name_what_comes_back_besides_the_identifier(self) -> None:
+        user = self.made()
+
+        shaped = self.client.get(
+            f"{SCIM}/Users/{user['id']}",
+            params={"attributes": "userName,emails.value"},
+            headers=self.headers,
+        ).json()
+
+        assert set(shaped) == {"schemas", "id", "userName", "emails"}
+        assert shaped["emails"] == [{"value": "maria@acme.test"}]
+
+    def test_the_projection_reaches_a_list_and_a_created_user(self) -> None:
+        created = self.client.post(
+            f"{SCIM}/Users",
+            params={"attributes": "userName"},
+            content=json.dumps(user_doc("olga@acme.test")),
+            headers=self.headers,
+        ).json()
+        listed = self.client.get(
+            f"{SCIM}/Users", params={"excludedAttributes": "emails"}, headers=self.headers
+        ).json()
+
+        assert set(created) == {"schemas", "id", "userName"}
+        assert all("emails" not in item for item in listed["Resources"])
+
+    def test_a_query_can_be_posted_in_a_body(self) -> None:
+        user = self.made()
+        self.client.post(
+            f"{SCIM}/Users", content=json.dumps(user_doc("olga@acme.test")), headers=self.headers
+        )
+
+        found = self.client.post(
+            f"{SCIM}/Users/.search",
+            content=json.dumps(
+                {
+                    "schemas": ["urn:ietf:params:scim:api:messages:2.0:SearchRequest"],
+                    "filter": 'userName eq "maria@acme.test"',
+                    "attributes": ["userName"],
+                }
+            ),
+            headers=self.headers,
+        )
+
+        assert found.status_code == 200, found.text
+        body = found.json()
+        assert body["totalResults"] == 1
+        assert body["Resources"][0]["id"] == user["id"]
+        assert set(body["Resources"][0]) == {"schemas", "id", "userName"}
+
+    def test_a_search_over_everything_answers_users_and_groups(self) -> None:
+        self.made()
+        self.client.post(
+            f"{SCIM}/Groups",
+            content=json.dumps({"schemas": [SCHEMA_GROUP], "displayName": "noust-ops"}),
+            headers=self.headers,
+        )
+
+        both = self.client.post(f"{SCIM}/.search", content=json.dumps({}), headers=self.headers)
+        users_only = self.client.post(
+            f"{SCIM}/.search",
+            content=json.dumps({"filter": 'userName eq "maria@acme.test"'}),
+            headers=self.headers,
+        )
+
+        assert both.status_code == 200, both.text
+        assert both.json()["totalResults"] == 2
+        assert {tuple(item["schemas"]) for item in both.json()["Resources"]} == {
+            (SCHEMA_USER,),
+            (SCHEMA_GROUP,),
+        }
+        # A filter only users can answer is answered by them, not refused for the groups.
+        assert users_only.status_code == 200 and users_only.json()["totalResults"] == 1
+
+    def test_a_search_request_that_is_not_one_is_a_400_in_the_protocols_error(self) -> None:
+        for body in ({"startIndex": 0}, {"count": "many"}, {"filter": 12}):
+            answer = self.client.post(
+                f"{SCIM}/Groups/.search", content=json.dumps(body), headers=self.headers
+            )
+
+            assert answer.status_code == 400, body
+            assert answer.json()["status"] == "400"
 
 
 class TestTheAdministration:

@@ -95,6 +95,7 @@ from noust.validators.domain import validate_domain, validate_server_name
 from noust.web.auth import (
     SCOPE_RANK,
     actor_label,
+    authenticates_itself,
     ensure_permission,
     ensure_scope,
     extend_elevation,
@@ -498,6 +499,21 @@ async def handle_http_exception(request: Request, exc: StarletteHTTPException) -
 
     headers = getattr(exc, "headers", None)
     detail = exc.detail
+
+    if authenticates_itself(request.url.path):
+        # The provisioning surface answers in RFC 7644's own error body, which a provider's
+        # client parses; a path or a method it does not have is no exception.
+        scim_headers = dict(headers or {})
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"],
+                "status": str(exc.status_code),
+                "detail": detail if isinstance(detail, str) else "Request refused",
+            },
+            headers=scim_headers,
+            media_type="application/scim+json",
+        )
 
     if isinstance(detail, Mapping) and "error" in detail:
         body: dict[str, Any] = {

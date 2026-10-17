@@ -67,11 +67,16 @@ PUBLIC_API_PATHS = frozenset(
         # A provisioning source presents the bearer token issued for it, checked by the handlers
         # once; a wrong one is counted against the address.
         "/api/scim/v2/ServiceProviderConfig",
+        "/api/scim/v2/.search",
         "/api/scim/v2/ResourceTypes",
+        "/api/scim/v2/ResourceTypes/{name}",
         "/api/scim/v2/Schemas",
+        "/api/scim/v2/Schemas/{schema_id}",
         "/api/scim/v2/Users",
+        "/api/scim/v2/Users/.search",
         "/api/scim/v2/Users/{user_id}",
         "/api/scim/v2/Groups",
+        "/api/scim/v2/Groups/.search",
         "/api/scim/v2/Groups/{group_id}",
     }
 )
