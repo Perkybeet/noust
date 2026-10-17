@@ -373,3 +373,17 @@ def test_the_queue_is_json_and_can_be_narrowed_to_an_application(store: NoustSto
         ("wait0001", 1, "queued")
     ]
     assert narrowed["queued"] == []
+
+
+def test_the_queue_says_how_long_a_build_may_take(store: NoustStore) -> None:
+    store.create_job(
+        JobRecord(id="run00001", type="update", name="Update", status="running", domain=DOMAIN)
+    )
+
+    text = invoke("deploy", "queue")
+    as_json = json.loads(invoke("deploy", "queue", "--json").output)
+
+    assert (
+        "A build is stopped after 60 minutes (noust config set deploy.max_minutes N)" in text.output
+    )
+    assert as_json["max_minutes"] == 60

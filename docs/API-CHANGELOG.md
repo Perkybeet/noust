@@ -58,6 +58,19 @@ API version 1.
 - Log shipping: `GET /api/log-drains`, `PUT` and `DELETE /api/log-drains/{name}` and
   `POST /api/log-drains/{name}/test` (`settings.read`, `settings.manage`). A token is only
   written: the destination reports `has_secret`, never the secret.
+- An application on several servers ([CENTRAL.md](CENTRAL.md#an-application-on-several-servers)):
+  `GET /api/fleet/placements`, `GET`, `PUT` and `DELETE /api/fleet/placements/{domain}` (the servers
+  compared, and the record of where it runs), `POST .../rollout` and `POST .../copy` (fleet jobs, with
+  `plan: true` to see the plan first) and `GET .../upstreams` (the servers written for a load balancer).
+  A rollout takes `commit`, `tag` or `image_tag`.
+- How the central connects to a server: `GET` and `PUT /api/nodes/{node}/ssh` (the wait for the
+  connection and a bastion; `PUT` needs sudo mode and is tried before it is kept) and the node's
+  inventory, `GET` and `POST /api/nodes/{node}/inventory`, to move a server to another central.
+- `POST` and `DELETE /api/fleet/cloud/servers/{node}/link`: link a server to its machine at a
+  provider, or forget it (sudo mode).
+- `GET` and `PUT /api/config/delivery`: `max_minutes`, the longest a build may take (60 by default; 0
+  is no limit), beside `max_concurrent_builds` and `queue_limit`. A build past it fails with the time
+  limit as the reason; its job and deployment are `failed`, not `cancelled`.
 - `GET /api/apps/{domain}/health` reads the health check with the defaults marked, and
   `PATCH /api/apps/{domain}/health` (and the response) gain `kind`, `command`, `service`,
   `method`, `scheme`, `host`, `port`, `interval`, `retries`, `start_period` and
@@ -170,6 +183,17 @@ API version 1.
   `POST /api/apps/{domain}/clone` makes another application with this one's settings.
 - Tags on applications: `GET` and `PUT /api/apps/{domain}/tags`, `GET /api/tags`,
   `POST /api/tags/{tag}/deploy`, and a `tags` field and a `tag` filter on the applications list.
+- Holding, freezing and scheduling deploys ([delivery.md](delivery.md)):
+  `GET` and `PUT /api/apps/{domain}/rollout` (the deploy history kept, the stop policy, whether a
+  rollback pauses), `POST .../rollout/pause` and `.../rollout/resume`; `GET` and `POST
+  /api/deploy-freezes` and `DELETE /api/deploy-freezes/{id}`; `GET`, `PUT` and `DELETE
+  /api/apps/{domain}/update-schedule`; `POST .../releases/stage` (build without serving) and
+  `POST .../releases/{id}/promote` (make it serve), both jobs. A release lists `waiting`.
+  A deploy during a freeze, or by a pipeline during a pause, answers `409` with the code
+  `deploys_frozen` or `deploys_paused`; `UpdateRequest` and the deploy options take `frozen_ok`.
+- Previews: the settings take and answer `domain_template`, `noindex` and `fork_policy`, and
+  `data_mode` may be `clone`; a preview may have the status `awaiting` (a fork's commit that waits
+  for an operator), and `POST .../previews/{number}/approve` and `.../reject` decide it.
 - `POST /api/manifest/apply` (sudo mode, `apps.manage`): applies a manifest as a job made of the
   caller's own API calls, refused with `409 plan_changed` when the `expect` digest of the preview
   is not the plan's now, and with `409 apply_running` while another is being applied. The preview

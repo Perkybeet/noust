@@ -145,10 +145,11 @@ withFleet("the Fleet's views show this server and the node, each row naming its 
     ["Servers", "Servers of this fleet"],
     ["Certificates", "Certificates on every server"],
     ["Backups", "Backups of every application"],
-    ["Updates", "Noust and system updates of every server"],
+    ["Noust and system updates", "Noust and system updates of every server"],
     ["Activity", "What happened lately on every server"],
   ] as const) {
-    await tabs.getByRole("link", { name: tab }).click();
+    // Exact: "On several servers" contains the name of "Servers".
+    await tabs.getByRole("link", { name: tab, exact: true }).click();
     await expect(page.getByRole("region", { name: caption })).toBeVisible();
     await settle(page);
     await expectNoA11yViolations(page, `the Fleet's ${tab.toLowerCase()}`);

@@ -31,8 +31,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from noust.core import deploy_guard
 from noust.core.container_store import ContainerStore
-from noust.core.exceptions import QueueFullError, ValidationError
+from noust.core.exceptions import DeploysFrozenError, QueueFullError, ValidationError
 from noust.core.store import App
 from noust.core.teams import scoped_store
 from noust.deployers.helpers.container_settings import change_container
@@ -41,7 +42,7 @@ from noust.validators.container import METHOD_IMAGE, with_tag
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, strict_domain
 from noust.web.api.jobs import queue_update, refuse_if_nothing_new
-from noust.web.auth import actor_label
+from noust.web.auth import API_TOKEN_SID_PREFIX, actor_label
 from noust.web.pydantic_compat import dump_model
 
 router = APIRouter(route_class=NoustErrorRoute)
@@ -74,6 +75,11 @@ class DeployOptions(BaseModel):
         default=None,
         description="Rebuild the preview of this pull request instead of the application",
     )
+    frozen_ok: bool = Field(
+        default=False,
+        description="Deploy although deploys are frozen for the application: a person's "
+        "decision, recorded in the audit trail",
+    )
 
 
 class BatchDeployRequest(DeployOptions):
@@ -90,7 +96,9 @@ class DeployResult(BaseModel):
     domain: str
     status: str = Field(
         description="queued; joined (an update already waiting will do it); nothing_new; "
-        "queue_full; not_found; failed"
+        "queue_full; frozen (deploys are frozen and frozen_ok was not given); paused (a "
+        "token's deploy while the application's automatic deploys are paused; force "
+        "deploys anyway); not_found; failed"
     )
     job_id: str | None = Field(default=None, description="The job to follow, when one was queued")
     detail: str | None = Field(default=None, description="Why, for anything but queued")
@@ -168,7 +176,23 @@ def _queue_image_tag(app: App, tag: str, actor: str) -> None:
     change_container(app.domain, {"image": with_tag(settings.image, tag)}, actor=actor)
 
 
-def deploy_one(domain: str, options: DeployOptions, actor: str) -> DeployResult:
+def _is_pipeline(session: dict[str, Any]) -> bool:
+    """
+    Args:
+        session: The authenticated payload.
+
+    Returns:
+        Whether a token made the call, which is a machine and not a person at the
+        console: what a pause of automatic deploys holds.
+    """
+    return session.get("type") == "api_token" or str(session.get("sid") or "").startswith(
+        API_TOKEN_SID_PREFIX
+    )
+
+
+def deploy_one(
+    domain: str, options: DeployOptions, actor: str, *, automatic: bool = False
+) -> DeployResult:
     """
     Queue what a deploy asks for, for one application.
 
@@ -176,6 +200,8 @@ def deploy_one(domain: str, options: DeployOptions, actor: str) -> DeployResult:
         domain: A validated domain.
         options: What was asked.
         actor: Who asked.
+        automatic: A pipeline asked, not a person: a pause of automatic deploys holds
+            it, unless ``force`` says it is meant.
 
     Returns:
         What came of it. A nothing-to-do or a full queue is a result, not an
@@ -191,6 +217,13 @@ def deploy_one(domain: str, options: DeployOptions, actor: str) -> DeployResult:
         if options.pull_request is not None:
             job = rebuild_preview(domain, options.pull_request, actor=actor)
             return DeployResult(domain=domain, status="queued", job_id=str(job.id))
+        gate = (
+            deploy_guard.gate_for(domain, automatic=True)
+            if automatic and not options.force
+            else None
+        )
+        if gate is not None and gate.kind == "paused":
+            return DeployResult(domain=domain, status="paused", detail=gate.message)
         if options.image_tag is not None:
             _queue_image_tag(app, options.image_tag, actor)
         explicit = options.commit is not None or options.tag is not None
@@ -209,9 +242,12 @@ def deploy_one(domain: str, options: DeployOptions, actor: str) -> DeployResult:
             no_cache=options.no_cache,
             commit=options.commit,
             tag=options.tag,
+            frozen_ok=options.frozen_ok,
         )
     except QueueFullError as exc:
         return DeployResult(domain=domain, status="queue_full", detail=exc.message)
+    except DeploysFrozenError as exc:
+        return DeployResult(domain=domain, status="frozen", detail=exc.message)
     return DeployResult(
         domain=domain,
         status="joined" if joined else "queued",
@@ -265,9 +301,21 @@ def deploy_app(
     options = body or DeployOptions()
     check_options(options)
     validated = strict_domain(domain)
-    result = deploy_one(validated, options, actor_label(session))
+    result = deploy_one(validated, options, actor_label(session), automatic=_is_pipeline(session))
     if result.status == "not_found":
         raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
+    if result.status in ("frozen", "paused"):
+        # Not a 2xx: a pipeline that reads success would think the deploy happened.
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": f"deploys_{result.status}",
+                "detail": result.detail or f"Deploys are {result.status}",
+                "hint": "Lift the freeze (noust deploy unfreeze) or resume the application "
+                "(noust deploy resume); a person can also deploy with frozen_ok, a pipeline "
+                "with force once its application is paused.",
+            },
+        )
     if result.status == "queue_full":
         raise_queue_full(result)
     response = DeployResponse(message=_message([result]), results=[result])
@@ -331,7 +379,8 @@ def deploy_apps(
         )
     domains = list(dict.fromkeys(strict_domain(item) for item in body.apps))
     actor = actor_label(session)
-    results = [deploy_one(domain, options, actor) for domain in domains]
+    automatic = _is_pipeline(session)
+    results = [deploy_one(domain, options, actor, automatic=automatic) for domain in domains]
     queued = any(result.status in ("queued", "joined") for result in results)
     if all(result.status == "queue_full" for result in results):
         raise_queue_full(results[0])

@@ -359,6 +359,7 @@ export const FLEET_TABS: readonly FleetTabItem[] = [
   { label: "fleet.tabs.summary", to: "/fleet", exact: true, keywords: "fleet.tabs.keywords.summary", command: "fleet.tabs.command.summary" },
   { label: "fleet.tabs.servers", to: "/fleet/servers", keywords: "fleet.tabs.keywords.servers", command: "fleet.tabs.command.servers" },
   { label: "fleet.tabs.apps", to: "/fleet/apps", keywords: "fleet.tabs.keywords.apps", command: "fleet.tabs.command.apps" },
+  { label: "placements.tab", to: "/fleet/placements", keywords: "placements.tabKeywords", command: "placements.tabCommand" },
   {
     label: "fleet.tabs.certificates",
     to: "/fleet/certificates",

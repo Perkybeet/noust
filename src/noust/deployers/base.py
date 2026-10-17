@@ -57,6 +57,7 @@ from noust.core.exceptions import (
 )
 from noust.core.fs import SECRET_MODE, DryRunFileSystem, FileSystem
 from noust.core.logger import Icons
+from noust.core.preview_store import preview_identity
 from noust.core.runner import SANDBOX_PATH, CommandResult, CommandRunner, SandboxSpec, get_runner
 from noust.core.store import (
     DEFAULT_KEEP_RELEASES,
@@ -2003,6 +2004,13 @@ class BaseDeployer(AppDeployer):
         """
         commit, branch = self._git_info()
         row = self._app_row()
+        # A preview's row is linked to its application from the start, so a
+        # first build already knows which pull request it is for.
+        pull_request, preview_of = (
+            preview_identity(self.store, self.domain)
+            if row is not None and row.preview_parent
+            else (None, None)
+        )
         return Deployment(
             domain=self.domain,
             ssl=bool(row.ssl_enabled) if row is not None else self.ssl,
@@ -2010,6 +2018,8 @@ class BaseDeployer(AppDeployer):
             commit=commit,
             release=self._staged.id if self._staged is not None else None,
             port=self.port,
+            pull_request=pull_request,
+            preview_of=preview_of,
         )
 
     def _variables_resolver(self) -> Resolver:
@@ -4211,8 +4221,69 @@ class BaseDeployer(AppDeployer):
         self.last_deployment_id = recorder.deployment_id
         return self._with_hook_result(result)
 
+    def stage(self, on_step: StepReporter | None = None) -> StagedRelease:
+        """
+        Build the latest source as a new release and leave it there, not serving.
+
+        What a staged deployment is (checklist B-18): the release is fetched, linked to
+        ``shared/``, installed and built exactly as an update would, and then nothing
+        else happens. ``current`` stays where it is, no hook runs (a ``pre_deploy`` hook
+        migrates a database, which is for the moment the release serves), Prisma's client
+        is generated and its migrations are not applied, and nothing restarts. The release
+        is recorded as ``built``; :meth:`deploy_prebuilt` activates it later, running the
+        hooks and the migrations then, behind the health gate, without building it again.
+
+        Args:
+            on_step: Called as each step begins.
+
+        Returns:
+            The release, built.
+
+        Raises:
+            DeploymentError: The application is not on the release layout.
+            NoustError: A step failed; the half-built release is removed.
+        """
+        require_server_role("Applications")
+        report = on_step or (lambda _message: None)
+        if self.resolve_layout() != RELEASES:
+            raise DeploymentError(
+                f"{self.domain} is not on the release layout",
+                details="Only an application that builds releases can build one without "
+                f"serving it: noust app migrate {self.domain}",
+            )
+        self._forget_hooks()
+        built = False
+        try:
+            report("Fetching into a new release")
+            self._step_fetch_release()
+            self._sandbox_by_default(report)
+            cancellation.checkpoint()
+            report("Installing dependencies")
+            with self._in_phase(BuildPhase.INSTALL):
+                self._install_release_dependencies()
+            cancellation.checkpoint()
+            if self.has_prisma:
+                report("Generating the Prisma client")
+                with self._in_phase(BuildPhase.INSTALL):
+                    self.generate_prisma()
+            cancellation.checkpoint()
+            report("Building")
+            with self._in_phase(BuildPhase.BUILD):
+                self.build()
+            cancellation.checkpoint()
+            self._set_permissions()
+            built = True
+        finally:
+            if not built:
+                self._abandon_release()
+        return self._require_staged()
+
     def deploy_prebuilt(
-        self, staged: StagedRelease, on_step: StepReporter | None = None
+        self,
+        staged: StagedRelease,
+        on_step: StepReporter | None = None,
+        *,
+        apply_migrations: bool = False,
     ) -> UpdateResult:
         """
         Activate a release that someone else built, in this application.
@@ -4229,6 +4300,9 @@ class BaseDeployer(AppDeployer):
         Args:
             staged: The release, in place.
             on_step: Called as each step begins.
+            apply_migrations: The release was staged by this application (:meth:`stage`)
+                and has not met its database: apply Prisma's migrations before it serves,
+                as an update does.
 
         Returns:
             What was done.
@@ -4254,7 +4328,7 @@ class BaseDeployer(AppDeployer):
                 recorder, git_branch=self.branch, on_failure=lambda _e: self._abandon_release()
             ):
                 try:
-                    result = self._activate_prebuilt(report)
+                    result = self._activate_prebuilt(report, apply_migrations=apply_migrations)
                 except DeploymentError as exc:
                     self.deploy_hooks.say_schema_changed(exc)
                     raise
@@ -4266,12 +4340,16 @@ class BaseDeployer(AppDeployer):
         self.last_deployment_id = recorder.deployment_id
         return self._with_hook_result(result)
 
-    def _activate_prebuilt(self, report: StepReporter) -> UpdateResult:
+    def _activate_prebuilt(
+        self, report: StepReporter, *, apply_migrations: bool = False
+    ) -> UpdateResult:
         """
         Bring a copied release into line with this application and switch to it.
 
         Args:
             report: Called as each step begins.
+            apply_migrations: Apply Prisma's migrations before the release serves, as an
+                update does.
 
         Returns:
             What was done.
@@ -4287,6 +4365,13 @@ class BaseDeployer(AppDeployer):
         cancellation.checkpoint()
         self._set_permissions()
         cancellation.checkpoint()
+        prisma_updated = False
+        if apply_migrations:
+            # A release staged earlier has not met this application's database yet: Prisma's
+            # migrations, which an update applies as it activates, are applied now (unless
+            # hooks are declared, which win).
+            self.pre_install()
+            prisma_updated = self._update_prisma(report)
         self._run_pre_deploy_hooks(report)
         report(f"Activating release {staged.id}")
         put_unit_back = self._undo_both(self._refresh_unit(), self._attach_release_env())
@@ -4298,7 +4383,7 @@ class BaseDeployer(AppDeployer):
             if put_unit_back is not None and not activated:
                 put_unit_back()
                 self._restart_and_probe()
-        return self._update_result(False)
+        return self._update_result(prisma_updated)
 
     def _update_in_place(self, report: StepReporter) -> UpdateResult:
         """

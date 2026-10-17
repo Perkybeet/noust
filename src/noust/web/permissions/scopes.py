@@ -252,6 +252,10 @@ RULES: tuple[Rule, ...] = (
     _rule(
         "/api/deployments/{deployment_id}/**", RESOURCE, Ref(DEPLOYMENT, PATH, ("deployment_id",))
     ),
+    # A freeze covers the server or one application: the list shows a team the server's and its
+    # own, and the handler holds a team to its own applications.
+    _rule("/api/deploy-freezes", SCOPED),
+    _rule("/api/deploy-freezes/{freeze_id}", SCOPED),
     # Several applications in one call: a token that sees every team. A team's token deploys
     # its own applications one at a time, at /api/apps/{domain}/deploy.
     _rule("/api/deploy", INSTANCE, methods=("POST",)),

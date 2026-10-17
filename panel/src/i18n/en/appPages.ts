@@ -140,8 +140,8 @@ export const appPages = {
     noBackups: "There is no backup of this app to go back to. One is taken before every deploy, and on the schedules set in Backups.",
     noReleases: "There is no earlier version on disk. Each deploy keeps the ones before it, up to the number set in Settings.",
     title: "Roll back {domain}",
-    inPlaceDescription: "This app is kept in a single folder, so going back restores a backup and restarts it. Anything written since the backup is replaced.",
-    releasesDescription: "The app switches to the version you choose and restarts; if it does not pass its startup check, the one live now is put back.",
+    inPlaceDescription: "This app is kept in a single folder, so going back restores a backup and restarts it. Anything written since the backup is replaced. The database stays as it is: going back puts code back, never data.",
+    releasesDescription: "The app switches to the version you choose and restarts; if it does not pass its startup check, the one live now is put back. The database stays as it is: going back puts code back, never data.",
     notStarted: "The rollback did not start",
   },
 
@@ -319,9 +319,9 @@ export const appPages = {
       rebuildInPlaceWordsNoBranch:
         "A backup of the app is taken, the checkout is put on {commit}, and the app is rebuilt and restarted. Untracked files such as uploads stay. The next update follows its branch again.",
       rollbackReleasesWords:
-        "Version {id} is switched to in seconds and the app restarts; if it does not pass its startup check, the version live now is put back. Nothing is rebuilt, and .env and the kept folders stay as they are.",
+        "Version {id} is switched to in seconds and the app restarts; if it does not pass its startup check, the version live now is put back. Nothing is rebuilt, and .env and the kept folders stay as they are. The database stays as it is: going back puts code back, never data.",
       rollbackInPlaceWords:
-        "The app's files are restored from backup {snapshot}, which holds what deployment {id} produced, then it is rebuilt and restarted. A backup of the current state is taken first. Anything written to the app's folder since is replaced.",
+        "The app's files are restored from backup {snapshot}, which holds what deployment {id} produced, then it is rebuilt and restarted. A backup of the current state is taken first. Anything written to the app's folder since is replaced. The database stays as it is: going back puts code back, never data.",
       rebuildDialogTitle: "Rebuild commit {commit}?",
       rebuild: "Rebuild",
       rebuildNotStarted: "The rebuild did not start",
@@ -423,12 +423,12 @@ export const appPages = {
       rollbackTitle: "Go back to this version?",
       activateTitle: "Switch to this version?",
       activateDescriptionWithCommit:
-        "{domain} switches to {id} (commit {commit}) and restarts. If it does not pass its startup check, the version live now is put back.",
-      activateDescriptionNoCommit: "{domain} switches to {id} and restarts. If it does not pass its startup check, the version live now is put back.",
+        "{domain} switches to {id} (commit {commit}) and restarts. If it does not pass its startup check, the version live now is put back. The database stays as it is: going back puts code back, never data.",
+      activateDescriptionNoCommit: "{domain} switches to {id} and restarts. If it does not pass its startup check, the version live now is put back. The database stays as it is: going back puts code back, never data.",
       srBackup: ": backup {id}",
       restoreTitle: "Go back to this backup?",
       restoreDescription:
-        "{domain} is restored from {id} and restarted, as a job. A backup of how it is now is taken first. Files written since the backup are replaced.",
+        "{domain} is restored from {id} and restarted, as a job. A backup of how it is now is taken first. Files written since the backup are replaced. The database stays as it is: going back puts code back, never data.",
       rollbackPointsTitle: "Backups you can go back to",
       rollbackPointsDescription: "This app is kept in a single folder, so going back restores a backup. {enableReleases} to go back in seconds instead.",
       enableReleases: "Turn on instant rollback",

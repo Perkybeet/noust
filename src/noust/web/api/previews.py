@@ -61,8 +61,16 @@ class PreviewSettingsOut(BaseModel):
             the set defined for previews) or ``all`` (every variable less
             ``exclude_env``, as before 3.4).
         allow_env: The variables an ``allowlist`` preview copies.
-        data_mode: ``shared`` (a preview uses the application's databases) or
-            ``empty`` (a database of its own).
+        data_mode: ``shared`` (a preview uses the application's databases),
+            ``empty`` (a database of its own) or ``clone`` (a database of its own
+            that starts as a copy of the application's).
+        domain_template: How a preview is named, with ``{{pr_id}}``, ``{{random}}``,
+            ``{{domain}}``, ``{{name}}`` and ``{{base}}``; null is
+            ``pr-<n>-<name>.<base>``.
+        noindex: Previews tell search engines to leave them alone.
+        fork_policy: ``refuse`` (a pull request from a fork, or from someone not trusted
+            with the repository, gets no preview) or ``approve`` (it waits for an
+            operator to approve each commit).
     """
 
     base_domain: str
@@ -73,6 +81,9 @@ class PreviewSettingsOut(BaseModel):
     inherit_env: str = "all"
     allow_env: list[str] = Field(default_factory=list)
     data_mode: str = "shared"
+    domain_template: str | None = None
+    noindex: bool = True
+    fork_policy: str = "refuse"
     created_at: str | None = None
     updated_at: str | None = None
 
@@ -91,8 +102,8 @@ class PreviewOut(BaseModel):
         head_sha: The commit last deployed or asked for.
         provider: ``github``, ``gitlab``, ``gitea`` or ``bitbucket``.
         repository: ``owner/repo``.
-        status: ``pending``, ``deploying``, ``ready``, ``failed`` or
-            ``removing``.
+        status: ``pending``, ``deploying``, ``ready``, ``failed``, ``stopped``,
+            ``removing`` or ``awaiting`` (an operator has to approve its commit).
         error: Why the last build failed.
         expires_at: When it is removed unless pushed to again.
         kind: ``pr`` (a pull request), ``branch`` or ``tag`` (made by hand).
@@ -160,8 +171,13 @@ class PreviewSettingsRequest(BaseModel):
             (``allowlist`` for previews turned on now).
         allow_env: The variables an ``allowlist`` preview copies; null keeps
             the current list (none for previews turned on now).
-        data_mode: ``shared`` or ``empty``; null keeps the current
+        data_mode: ``shared``, ``empty`` or ``clone``; null keeps the current
             way (``empty`` for an application that has a database).
+        domain_template: How previews are named; an empty string goes back to the
+            default; null keeps the current one.
+        noindex: Previews tell search engines to leave them alone; null keeps the
+            current choice.
+        fork_policy: ``refuse`` or ``approve``; null keeps the current one.
     """
 
     base_domain: str
@@ -172,6 +188,9 @@ class PreviewSettingsRequest(BaseModel):
     inherit_env: str | None = None
     allow_env: list[str] | None = None
     data_mode: str | None = None
+    domain_template: str | None = None
+    noindex: bool | None = None
+    fork_policy: str | None = None
 
 
 class PreviewsDisabledResponse(BaseModel):
@@ -209,6 +228,9 @@ def _settings_out(settings: PreviewSettings) -> PreviewSettingsOut:
         inherit_env=options.inherit_env,
         allow_env=list(options.allow_env),
         data_mode=options.data_mode,
+        domain_template=options.domain_template,
+        noindex=options.noindex,
+        fork_policy=options.fork_policy,
         created_at=settings.created_at,
         updated_at=settings.updated_at,
     )
@@ -358,6 +380,9 @@ def put_preview_settings(
         inherit_env=body.inherit_env,
         allow_env=body.allow_env,
         data_mode=body.data_mode,
+        domain_template=body.domain_template,
+        noindex=body.noindex,
+        fork_policy=body.fork_policy,
     )
     _audit(
         request,
@@ -367,7 +392,8 @@ def put_preview_settings(
         f"{stored.ttl_hours} h, bots {'allowed' if stored.allow_bots else 'refused'}, "
         f"{len(stored.exclude_env)} variable(s) excluded, "
         f"{PreviewStore().options(stored.app_domain).inherit_env} variables, "
-        f"{PreviewStore().options(stored.app_domain).data_mode} data",
+        f"{PreviewStore().options(stored.app_domain).data_mode} data, "
+        f"forks {PreviewStore().options(stored.app_domain).fork_policy}",
     )
     return _settings_out(stored)
 
@@ -857,6 +883,80 @@ def get_preview(
         else None
     )
     return PreviewDetailResponse(preview=_preview_out(record), active=active, last_deployment=last)
+
+
+@router.post(
+    "/{domain}/previews/{number}/approve", response_model=PreviewQueuedResponse, status_code=202
+)
+def approve_preview(
+    domain: str,
+    number: int,
+    request: Request,
+    session: Annotated[dict, Depends(require_elevated)],
+) -> PreviewQueuedResponse:
+    """
+    Approve the commit of a pull request that waits, and build it.
+
+    Only a pull request from a fork, or from someone not trusted with the repository,
+    waits, and only for an application whose previews ask for approvals. The approval is
+    of the commit the preview names; a push of another one waits again.
+
+    Args:
+        domain: The application.
+        number: The preview's number.
+        request: The request, for the audit record.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The preview, pending, and the job that builds it.
+
+    Raises:
+        HTTPException: 404 when the application or the preview is unknown.
+        ValidationError: It is not waiting for approval (400).
+    """
+    _validated, record = _known_preview(domain, number)
+    created = previews.approve_preview(record.domain, actor=actor_label(session))
+    _audit(
+        request,
+        session,
+        "previews.approve",
+        f"approved {(record.head_sha or '')[:12]} of {record.domain} (#{number})",
+    )
+    return PreviewQueuedResponse(preview=_preview_out(created.record), job_id=created.job_id)
+
+
+@router.post("/{domain}/previews/{number}/reject", response_model=PreviewOut)
+def reject_preview(
+    domain: str,
+    number: int,
+    request: Request,
+    session: Annotated[dict, Depends(require_elevated)],
+) -> PreviewOut:
+    """
+    Turn down the commit of a pull request that waits.
+
+    Args:
+        domain: The application.
+        number: The preview's number.
+        request: The request, for the audit record.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The preview as it was; it is forgotten, and the pull request is told.
+
+    Raises:
+        HTTPException: 404 when the application or the preview is unknown.
+        ValidationError: It is not waiting for approval (400).
+    """
+    _validated, record = _known_preview(domain, number)
+    previews.reject_preview(record.domain, actor=actor_label(session))
+    _audit(
+        request,
+        session,
+        "previews.reject",
+        f"rejected {(record.head_sha or '')[:12]} of {record.domain} (#{number})",
+    )
+    return _preview_out(record)
 
 
 @router.post(

@@ -35,13 +35,33 @@ SCHEMA_31: dict[str, dict[str, Any]] = {
     "/api/system/update": {"get": {}, "post": {"x-noust-requires-elevation": True}},
     "/api/server/updates/apply": {"post": {"x-noust-requires-elevation": True}},
     "/api/server/updates/refresh": {"post": {"x-noust-requires-elevation": True}},
+    # An application on several servers (3.4): rolled out by commit, put back by release,
+    # and copied from one server to another through its export.
+    "/api/apps/{domain}/deploy": {"post": {}},
+    "/api/deployments/{deployment_id}": {"get": {}},
+    "/api/apps/{domain}/releases": {"get": {}},
+    "/api/apps/{domain}/releases/{release_id}/activate": {"post": {}},
+    "/api/apps/{domain}/export": {"get": {}},
+    "/api/apps/import": {"post": {"x-noust-requires-elevation": True}},
 }
+
+#: The paths 3.4 added for an application on several servers.
+PLACEMENT_PATHS = frozenset(
+    {
+        "/api/apps/{domain}/deploy",
+        "/api/deployments/{deployment_id}",
+        "/api/apps/{domain}/releases",
+        "/api/apps/{domain}/releases/{release_id}/activate",
+        "/api/apps/{domain}/export",
+        "/api/apps/import",
+    }
+)
 
 #: What a 3.0 node offers of the same: no self-update, no server area.
 SCHEMA_30 = {
     path: methods
     for path, methods in SCHEMA_31.items()
-    if not path.startswith(("/api/system/update", "/api/server"))
+    if not path.startswith(("/api/system/update", "/api/server")) and path not in PLACEMENT_PATHS
 }
 
 
