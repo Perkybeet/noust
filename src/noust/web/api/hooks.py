@@ -604,8 +604,8 @@ def _verify_provider(secret: str, body: bytes, request: Request) -> str | None:
         request: The incoming request.
 
     Returns:
-        ``github``, ``gitea``, ``bitbucket`` or ``gitlab`` when a credential
-        verified, else None. Which header failed is deliberately not reported.
+        ``github``, ``forgejo``, ``gitea``, ``gogs``, ``bitbucket`` or ``gitlab`` when a
+        credential verified, else None. Which header failed is deliberately not reported.
     """
     headers = request.headers
 
@@ -615,9 +615,20 @@ def _verify_provider(secret: str, body: bytes, request: Request) -> str | None:
         if hmac.compare_digest(_hmac_hex(secret, body), presented):
             return "github"
 
+    # Forgejo sends its own header and Gitea's too, so its own is read first: the log then says
+    # which of the two it was. Gitea sends Gogs's as well, so Gogs's is read last of the three.
+    forgejo = headers.get("X-Forgejo-Signature")
+    if forgejo and hmac.compare_digest(_hmac_hex(secret, body), forgejo.strip().lower()):
+        return "forgejo"
+
     gitea = headers.get("X-Gitea-Signature")
     if gitea and hmac.compare_digest(_hmac_hex(secret, body), gitea.strip().lower()):
         return "gitea"
+
+    # Gogs signs the body the same way, in its own header, with no prefix.
+    gogs = headers.get("X-Gogs-Signature")
+    if gogs and hmac.compare_digest(_hmac_hex(secret, body), gogs.strip().lower()):
+        return "gogs"
 
     # Bitbucket Cloud signs with the secret too, in the header GitHub used
     # for its SHA-1 signature: only a ``sha256=`` value is ever accepted.
@@ -646,7 +657,9 @@ def _delivery_id(request: Request) -> str | None:
     """
     return (
         request.headers.get("X-GitHub-Delivery")
+        or request.headers.get("X-Forgejo-Delivery")
         or request.headers.get("X-Gitea-Delivery")
+        or request.headers.get("X-Gogs-Delivery")
         or request.headers.get("X-Gitlab-Event-UUID")
         or request.headers.get("X-Request-UUID")
     )
@@ -711,7 +724,8 @@ def _event_kind(provider: str, request: Request, payload: dict[str, Any]) -> str
     sends ``X-GitHub-Event`` for compatibility, which is read after its own.
 
     Args:
-        provider: ``github``, ``gitea``, ``gitlab`` or ``bitbucket``, as verified.
+        provider: ``github``, ``gitea``, ``forgejo``, ``gogs``, ``gitlab`` or ``bitbucket``,
+            as verified.
         request: The delivery.
         payload: Its parsed body.
 
@@ -729,8 +743,16 @@ def _event_kind(provider: str, request: Request, payload: dict[str, Any]) -> str
             return None
         lowered = named.strip().lower()
         return _GITLAB_EVENTS.get(lowered, lowered)
-    if provider == "gitea":
+    if provider == "forgejo":
+        named = (
+            headers.get("X-Forgejo-Event")
+            or headers.get("X-Gitea-Event")
+            or headers.get("X-GitHub-Event")
+        )
+    elif provider == "gitea":
         named = headers.get("X-Gitea-Event") or headers.get("X-GitHub-Event")
+    elif provider == "gogs":
+        named = headers.get("X-Gogs-Event") or headers.get("X-GitHub-Event")
     else:
         named = headers.get("X-GitHub-Event")
     if not named or not named.strip():
@@ -1486,7 +1508,7 @@ class WebhookReceivedOut(BaseModel):
         id: Row id; larger is newer.
         received_at: When it arrived (the last of a burst, for a folded row),
             with a UTC offset.
-        provider: ``github``, ``gitea``, ``gitlab``, ``bitbucket`` or ``github-app``; None
+        provider: ``github``, ``gitea``, ``forgejo``, ``gogs``, ``gitlab``, ``bitbucket`` or ``github-app``; None
             when no credential verified.
         event: The forge's name for the event.
         outcome: ``deploy_started``, ``preview_started``, ``ping``,

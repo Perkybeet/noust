@@ -756,6 +756,8 @@ to send push events to `hook_url`, which is `https://<console>/hooks/deploy/{dom
 |---|---|
 | GitHub | `X-Hub-Signature-256: sha256=<HMAC-SHA256 of the body>` (set the webhook secret) |
 | Gitea | `X-Gitea-Signature: <HMAC-SHA256 of the body>` |
+| Forgejo (Codeberg) | `X-Forgejo-Signature: <HMAC-SHA256 of the body>`; it sends Gitea's headers too, and the delivery log says `forgejo` |
+| Gogs | `X-Gogs-Signature: <HMAC-SHA256 of the body>`, no prefix; the event is in `X-Gogs-Event` (and `X-GitHub-Event`) |
 | GitLab | `X-Gitlab-Token: <secret>` |
 | Bitbucket Cloud | `X-Hub-Signature: sha256=<HMAC-SHA256 of the body>` (set the webhook's secret); the event is in `X-Event-Key` |
 
@@ -776,7 +778,7 @@ pin, the branch its checkout is on in place or its recorded branch on releases) 
 deploys. A forge's ping is answered and recorded; a forge retry of the same delivery answers `"reason": "duplicate"`.
 An application that **follows tags** (`noust app follow-tags DOMAIN 'v*'`, `PATCH
 /api/apps/{domain}/follow-tags`) reads its deliveries differently (3.2): a published `release` of
-GitHub or Gitea (not a draft or a pre-release) and a pushed tag (GitHub, Gitea, GitLab or Bitbucket)
+GitHub, Gitea or Forgejo (not a draft or a pre-release) and a pushed tag (GitHub, Gitea, Forgejo, Gogs, GitLab or Bitbucket)
 deploy that tag, once even though a forge may send both for one version (`202 {job_id,
 status}`); a draft or a pre-release, a tag that does not match the pattern, is not a version,
 or is not newer than what is deployed answers `200 {"status":

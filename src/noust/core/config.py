@@ -419,6 +419,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # every earlier version did - see _validate_allowed_hosts.
         "allowed_hosts": [],
     },
+    "integrations": {
+        # Code hosts whose kind their address does not say: "git.example.com=gitea",
+        # "code.example.com=forgejo", "scm.example.com=gogs", "git.example.org=gitlab". A host
+        # named gitlab..., gitea..., forgejo..., gogs... or bitbucket... is known by its name, and
+        # codeberg.org and gitea.com by being what they are. See noust.integrations.forges.hosts.
+        "forge_hosts": [],
+    },
     "github": {
         # The GitHub this server's GitHub App talks to: empty is github.com; a host
         # name (ghe.example.com for GitHub Enterprise Server, acme.ghe.com for
@@ -1389,6 +1396,24 @@ def _validate_github_host(value: Any) -> str:
     return validate_host(value)
 
 
+def _validate_forge_hosts(value: Any) -> list[str]:
+    """
+    Accept the code hosts whose kind is told here (``integrations.forge_hosts``).
+
+    Args:
+        value: The candidate list of ``host=kind``, from either front end.
+
+    Returns:
+        The normalised entries.
+
+    Raises:
+        ConfigError: When an entry is not ``host=kind`` with a kind Noust speaks.
+    """
+    from noust.integrations.forges.hosts import normalise_declared
+
+    return normalise_declared(value)
+
+
 def _validate_public_url(value: Any) -> str:
     """
     Accept the console's public URL, or leave it unset.
@@ -2069,6 +2094,7 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "web.public_url": _validate_public_url,
     "web.api_enabled": _validate_flag("web.api_enabled"),
     "github.host": _validate_github_host,
+    "integrations.forge_hosts": _validate_forge_hosts,
     "web.hooks_url": _validate_hooks_url,
     "web.allowed_hosts": _validate_allowed_hosts,
     "security.allow_private_hosts": _validate_private_hosts,

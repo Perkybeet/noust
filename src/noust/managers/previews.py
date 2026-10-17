@@ -926,13 +926,17 @@ def _upsert_comment(
     number: int,
     body: str,
     comment_ref: str | None = None,
+    *,
+    parent_domain: str | None = None,
 ) -> str | None:
     """
     Post or refresh a pull request comment, never failing the caller.
 
-    Only GitHub is written to (through this server's GitHub App); GitLab and
-    Gitea deliveries reach an application's own webhook, which has no
-    credential to answer with.
+    GitHub is written to through this server's GitHub App. GitLab, Gitea, Forgejo, Gogs and
+    Bitbucket Cloud are written to with the credential the application's repository is cloned
+    with (:mod:`noust.integrations.forges`): the host is the one the previewed application's
+    source names, so ``parent_domain`` says which application it is. A repository with no
+    credential gets no comment.
 
     Args:
         provider: The forge the pull request is on.
@@ -940,13 +944,27 @@ def _upsert_comment(
         number: The pull request number.
         body: Markdown.
         comment_ref: The comment to update, if one was posted before.
+        parent_domain: The application previewed.
 
     Returns:
         The comment's id: the new one, or ``comment_ref`` when nothing was
         posted or posting failed.
     """
-    if provider != Forge.GITHUB.value or not repository:
+    if not repository:
         return comment_ref
+    if provider != Forge.GITHUB.value:
+        if parent_domain is None:
+            return comment_ref
+        from noust.integrations.forges import statuses
+
+        try:
+            posted = statuses.upsert_pr_comment(
+                parent_domain, repository, number, body, comment_ref
+            )
+        except (IntegrationError, OSError) as exc:
+            _log.warning("Could not comment on %s#%d: %s", repository, number, exc)
+            return comment_ref
+        return posted or comment_ref
     from noust.integrations.github import comments
 
     try:
@@ -977,6 +995,7 @@ def _refresh_comment(record: PreviewRecord, *, removed_because: str | None = Non
         record.number,
         preview_comment(record, removed_because=removed_because),
         record.comment_ref,
+        parent_domain=record.parent_domain,
     )
     if ref == record.comment_ref or removed_because is not None:
         return record
@@ -1620,6 +1639,7 @@ def _refuse(parent: App, event: PullRequestEvent, reason: str, explanation: str)
             f"server with a copy of `{parent.domain}`'s environment variables, production "
             "secrets included, so only pull requests from people trusted with this "
             "repository get one.",
+            parent_domain=parent.domain,
         )
 
 
@@ -1700,6 +1720,7 @@ def _record_and_queue(
                     f"No preview for this pull request: the limit of {settings.max_previews} "
                     "previews at once is reached. Close another pull request, or raise the "
                     f"limit with `noust preview enable {parent.domain} --max N`, and push again.",
+                    parent_domain=parent.domain,
                 )
             return None
         try:

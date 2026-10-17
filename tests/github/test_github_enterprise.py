@@ -258,13 +258,13 @@ class TestThePushAndTheHooks:
         assert event.clone_url == "https://ghe.corp.example/you/app.git"
 
     def test_the_webhook_page_is_the_hosts(self, enterprise: str) -> None:
-        info = hooks_info._forge_of("https://ghe.corp.example/you/app.git")
+        info = hooks_info.forge_of("https://ghe.corp.example/you/app.git")
 
         assert (info.forge, info.host, info.repository) == ("github", HOST, "you/app")
         assert info.settings_url == "https://ghe.corp.example/you/app/settings/hooks/new"
 
     def test_a_repository_on_github_com_is_still_github(self, enterprise: str) -> None:
-        info = hooks_info._forge_of("https://github.com/you/app.git")
+        info = hooks_info.forge_of("https://github.com/you/app.git")
 
         assert (info.forge, info.host) == ("github", "github.com")
 
