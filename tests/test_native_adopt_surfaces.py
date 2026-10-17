@@ -308,3 +308,58 @@ def test_the_application_is_listed_with_its_unit_state(
 
     assert info.app_type == "adopted"
     assert info.status == "failed", info.status
+
+
+# -- Deleting from the command line ---------------------------------------------------------------
+
+
+def test_deleting_from_the_command_line_says_it_only_forgets_and_removes_nothing(
+    world: Server, store: NoustStore, machine: Machine
+) -> None:
+    CliRunner().invoke(root_cli, ["app", "adopt-site", "legacy.example.com", "--yes"])
+    before = (tree(world.units), tree(world.nginx.sites_available), tree(world.legacy))
+
+    asked = CliRunner().invoke(root_cli, ["delete", "legacy.example.com"], input="n\n")
+    result = CliRunner().invoke(root_cli, ["delete", "legacy.example.com", "--force"])
+
+    assert "This forgets legacy.example.com" in asked.output
+    assert "Nothing is removed" in asked.output and "the service" not in asked.output
+    assert result.exit_code == 0, result.output
+    assert "legacy.example.com is no longer managed" in result.output
+    assert f"{UNIT}.service keeps running" in result.output
+    assert store.get_app("legacy.example.com") is None
+    assert (tree(world.units), tree(world.nginx.sites_available), tree(world.legacy)) == before
+    assert machine.changing() == []
+
+
+def test_a_rehearsed_deletion_of_an_adopted_site_forgets_nothing(
+    world: Server, store: NoustStore
+) -> None:
+    CliRunner().invoke(root_cli, ["app", "adopt-site", "legacy.example.com", "--yes"])
+
+    result = CliRunner().invoke(root_cli, ["--dry-run", "delete", "legacy.example.com"])
+
+    assert result.exit_code == 0, result.output
+    assert "Would forget legacy.example.com" in result.output
+    assert store.get_app("legacy.example.com") is not None
+
+
+def test_the_directory_of_an_adopted_site_is_never_named_for_removal(
+    world: Server, store: NoustStore
+) -> None:
+    CliRunner().invoke(root_cli, ["app", "adopt-site", "legacy.example.com", "--yes"])
+
+    result = CliRunner().invoke(
+        root_cli,
+        [
+            "delete",
+            "legacy.example.com",
+            "--force",
+            "--remove-adopted-directory",
+            str(world.legacy),
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "never removes its files" in str(result.exception)
+    assert store.get_app("legacy.example.com") is not None
