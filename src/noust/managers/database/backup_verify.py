@@ -105,12 +105,14 @@ class RestoreTest:
         detail: The evidence: tables found and how long it took, or the
             loader's own words when it failed.
         seconds: How long the load took.
+        skipped: It was not tried (``ok`` is then True) and ``detail`` says why.
     """
 
     ok: bool
     database: str
     detail: str
     seconds: float
+    skipped: bool = False
 
 
 def _fail(method: str, detail: str) -> DumpCheck:

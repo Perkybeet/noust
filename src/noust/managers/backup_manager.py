@@ -292,8 +292,10 @@ class UnpackedBackup:
         dumps: ``(engine, database, file)`` of each database dump it carries,
             files that are inside ``root``.
         stack_dumps: How many dumps of a Compose stack's own databases it
-            carries; those are put back through the stack's containers and
-            cannot be tried on the side.
+            carries; those are put back through the stack's containers.
+        stack: Each of those a restore can use, with its file: the database as
+            the manifest describes it (the image it ran included) and the dump.
+            A drill loads them into a throwaway container of that image.
     """
 
     metadata: BackupMetadata
@@ -301,6 +303,7 @@ class UnpackedBackup:
     manifest: dict[str, Any] | None
     dumps: tuple[tuple[str, str, Path], ...]
     stack_dumps: int = 0
+    stack: tuple[tuple[StackDatabase, Path], ...] = ()
 
 
 @dataclass
@@ -4209,8 +4212,18 @@ class BackupManager:
                 )
                 if not isinstance(entry.get("stack"), dict)
             ]
-            stack = len(self._stack_entries(manifest, metadata))
-            yield UnpackedBackup(metadata, extracted, manifest, tuple(dumps), stack)
+            stack_entries = self._stack_entries(manifest, metadata)
+            stack = tuple(
+                (
+                    database,
+                    self._resolve_payload_file(extracted, entry, f"dump of {entry.get('name')}"),
+                )
+                for entry in stack_entries
+                if (database := StackDatabase.from_entry(entry["stack"])) is not None
+            )
+            yield UnpackedBackup(
+                metadata, extracted, manifest, tuple(dumps), len(stack_entries), stack
+            )
 
     def get_storage_usage(self) -> dict[str, Any]:
         """

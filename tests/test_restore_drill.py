@@ -195,7 +195,33 @@ class TestADrill:
 
         assert not report.ok and "not installed" in report.summary
 
-    def test_a_redis_snapshot_is_skipped_because_it_cannot_be_loaded_on_the_side(
+    def test_a_redis_snapshot_is_loaded_into_a_second_server_never_the_real_one(
+        self,
+        manager: BackupManager,
+        engines: Engines,
+        records: NoustStore,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        take(manager, monkeypatch)
+        engines.engine_type = "redis"
+        tried: list[tuple[str, str, str]] = []
+
+        def load(runner: Any, dump: Path, *, server: str, client: str, **kwargs: Any) -> Any:
+            from noust.managers.database.backup_verify import RestoreTest
+
+            tried.append((dump.name, server, client))
+            return RestoreTest(True, "", "Loaded into a second server (4 keys)", 0.2)
+
+        monkeypatch.setattr("noust.managers.restore_drill.redis_restore_test", load)
+
+        report = drill(manager, engines, records)
+
+        step = next(step for step in report.steps if step.name == "postgresql/shop")
+        assert step.ok and not step.skipped and "4 keys" in step.detail
+        assert tried and tried[0][1:] == ("redis-server", "redis-cli")
+        assert engines.loaded == []
+
+    def test_a_snapshot_the_second_server_refuses_fails_the_drill(
         self,
         manager: BackupManager,
         engines: Engines,
@@ -205,10 +231,16 @@ class TestADrill:
         take(manager, monkeypatch)
         engines.engine_type = "redis"
 
+        def refuse(runner: Any, dump: Path, **kwargs: Any) -> Any:
+            from noust.managers.database.backup_verify import RestoreTest
+
+            return RestoreTest(False, "", "Can't handle RDB format version 12", 0.1)
+
+        monkeypatch.setattr("noust.managers.restore_drill.redis_restore_test", refuse)
+
         report = drill(manager, engines, records)
 
-        step = next(step for step in report.steps if step.name == "postgresql/shop")
-        assert step.ok and step.skipped and engines.loaded == []
+        assert not report.ok and "RDB format version 12" in report.summary
 
     def test_a_backup_with_no_database_checks_the_files_only(
         self,
@@ -660,3 +692,137 @@ class TestTheApi:
 
         assert ROUTES[("GET", "/api/apps/{domain}/restore-drills")] == Permission.BACKUPS_READ
         assert ROUTES[("POST", "/api/apps/{domain}/restore-drills")] == Permission.BACKUPS_RUN
+
+
+class StackDrills:
+    """What loading a stack's dump into a throwaway container answers, per database."""
+
+    def __init__(self) -> None:
+        self.tried: list[tuple[str, str, str]] = []
+        self.answers: dict[str, Any] = {}
+
+    def __call__(self, runner: Any, database: Any, dump: Path, **kwargs: Any) -> Any:
+        from noust.managers.stack_drill import StackRestoreTest
+
+        self.tried.append((database.service, database.engine, database.image))
+        return self.answers.get(
+            database.service, StackRestoreTest(True, f"{database.label} loaded", 0.5)
+        )
+
+
+@pytest.fixture
+def stack_drills(monkeypatch: pytest.MonkeyPatch) -> StackDrills:
+    """The throwaway-container test, answering what the test says."""
+    fake = StackDrills()
+    monkeypatch.setattr("noust.managers.restore_drill.restore_test_stack_dump", fake)
+    return fake
+
+
+def take_with_stack(
+    manager: BackupManager, monkeypatch: pytest.MonkeyPatch, *entries: dict[str, str]
+) -> Any:
+    """Take a real backup whose stack holds the databases ``entries`` describe."""
+    _use_store(monkeypatch, FakeApp(1, DOMAIN), [])
+
+    def dump_stack(
+        self: BackupManager, domain: str, app_path: Path, destination: Path, *, explicit: bool
+    ) -> list[dict[str, Any]]:
+        destination.mkdir(parents=True, exist_ok=True)
+        found = []
+        for entry in entries:
+            name = f"stack-{entry['service']}-{entry['engine']}.dump.gz"
+            (destination / name).write_bytes(b"PGDMP stack dump")
+            found.append(
+                {
+                    "engine": entry["engine"],
+                    "name": entry.get("database", ""),
+                    "archive_path": f"wasm-backup/databases/{name}",
+                    "size_bytes": 16,
+                    "created": "2026-10-17T02:00:00",
+                    "stack": entry,
+                }
+            )
+        return found
+
+    monkeypatch.setattr(BackupManager, "_dump_stack_databases", dump_stack)
+    return manager.create(DOMAIN, include_databases=True)
+
+
+POSTGRES_ENTRY = {
+    "service": "db",
+    "engine": "postgres",
+    "database": "shop",
+    "user": "shop",
+    "image": "postgres:16-alpine",
+}
+
+
+class TestAStacksOwnDatabases:
+    def test_each_dump_is_loaded_into_a_throwaway_container_of_its_own_image(
+        self,
+        manager: BackupManager,
+        engines: Engines,
+        records: NoustStore,
+        stack_drills: StackDrills,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        take_with_stack(manager, monkeypatch, POSTGRES_ENTRY)
+
+        report = drill(manager, engines, records)
+
+        assert report.ok, report.summary
+        assert stack_drills.tried == [("db", "postgres", "postgres:16-alpine")]
+        step = next(step for step in report.steps if step.name == "stack/db")
+        assert step.ok and not step.skipped and "loaded" in step.detail
+
+    def test_a_dump_that_does_not_load_fails_the_drill_and_says_whose(
+        self,
+        manager: BackupManager,
+        engines: Engines,
+        records: NoustStore,
+        stack_drills: StackDrills,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from noust.managers.stack_drill import StackRestoreTest
+
+        take_with_stack(manager, monkeypatch, POSTGRES_ENTRY)
+        stack_drills.answers["db"] = StackRestoreTest(False, 'role "ghost" does not exist', 1.0)
+
+        report = drill(manager, engines, records)
+
+        assert not report.ok
+        assert report.summary == 'stack/db: role "ghost" does not exist'
+        assert DrillRecords(records).last_good(DOMAIN) is None
+
+    def test_one_that_could_not_be_tried_is_said_and_does_not_fail_the_drill(
+        self,
+        manager: BackupManager,
+        engines: Engines,
+        records: NoustStore,
+        stack_drills: StackDrills,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from noust.managers.stack_drill import StackRestoreTest
+
+        take_with_stack(manager, monkeypatch, {**POSTGRES_ENTRY, "image": ""})
+        stack_drills.answers["db"] = StackRestoreTest(
+            True, "the backup does not record the image", skipped=True
+        )
+
+        report = drill(manager, engines, records)
+
+        step = next(step for step in report.steps if step.name == "stack/db")
+        assert report.ok and step.ok and step.skipped
+
+    def test_the_manifest_of_an_older_backup_still_unpacks(
+        self,
+        manager: BackupManager,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        legacy = {key: value for key, value in POSTGRES_ENTRY.items() if key != "image"}
+        backup = take_with_stack(manager, monkeypatch, legacy)
+
+        with manager.unpacked(backup.id) as unpacked:
+            [(database, path)] = unpacked.stack
+            assert database.image == "" and database.service == "db"
+            assert path.is_file() and unpacked.stack_dumps == 1
