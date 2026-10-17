@@ -3098,3 +3098,18 @@ def _attach_limits_command() -> None:
 
 
 _attach_limits_command()
+
+
+def _attach_pitr_commands() -> None:
+    """
+    Add ``pitr``: recover PostgreSQL to an instant.
+
+    It lives in :mod:`noust.cli.commands.db_pitr`, which imports this module only at call
+    time, like the other command modules.
+    """
+    from noust.cli.commands import db_pitr
+
+    db_pitr.register(cli)
+
+
+_attach_pitr_commands()

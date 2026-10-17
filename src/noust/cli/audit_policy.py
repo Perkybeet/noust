@@ -153,6 +153,7 @@ SYSTEM_ENTRY_POINTS: frozenset[str] = DAEMON_COMMANDS | frozenset(
         # Timers and oneshot units. 'db backup-run' is not here: 3.1 wrote
         # its timers with --reason in the line, and by hand it needs one.
         "backup run-schedule",
+        "db pitr run",
         "deploy schedule run",
         "preview sweep",
         # Debian postinst/prerm, RPM %posttrans/%preun.

@@ -480,6 +480,10 @@ DBINSTANCES_COLUMNS: list[tuple[str, str, str]] = [
 # app_update_policy: whether an application's update is refused when its backup
 #   fails (noust.core.update_policy_store). No row means the default: required
 #   for an application with a database.
+# db_pitr: the continuous archiving of an engine's write-ahead log, which a point-in-time
+#   recovery is made from (noust.managers.database.pitr_records): one row per engine, with
+#   the cluster it archives (its system identifier), where the archive is, how often a base
+#   backup is taken, what is kept and where it is sent, and how the last run ended.
 BACKUPS_SQL = """
 CREATE TABLE IF NOT EXISTS volume_backup_policies (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -533,6 +537,24 @@ CREATE TABLE IF NOT EXISTS app_update_policy (
     backup_required INTEGER NOT NULL CHECK (backup_required IN (0, 1)),
     updated_by TEXT,
     updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS db_pitr (
+    engine TEXT PRIMARY KEY,
+    system_id TEXT NOT NULL,
+    archive_path TEXT NOT NULL,
+    base_every_hours INTEGER NOT NULL,
+    retention_count INTEGER,
+    retention_days INTEGER,
+    destinations TEXT NOT NULL DEFAULT '[]',
+    wal_level_was TEXT,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    last_run_at TEXT,
+    last_status TEXT,
+    last_error TEXT,
+    last_base_at TEXT,
+    last_sync_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 """
 BACKUPS_COLUMNS: list[tuple[str, str, str]] = [

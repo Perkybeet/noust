@@ -41,6 +41,7 @@ import argparse
 import importlib.util
 import json
 import os
+import shlex
 import subprocess
 import sys
 import time
@@ -792,6 +793,262 @@ def scenario_remote_only_backups(sc: Any) -> None:
             f"noust delete {BK_DOMAIN} -f; rm -rf {BK_REMOTE} /root/not-a-directory "
             f"/var/backups/noust/{BK_APP}",
             timeout=180,
+            check=False,
+            label="cleanup",
+        )
+
+
+PSQL = "runuser -u postgres -- psql -X -tA"
+PITR_REMOTE = "/srv/noust-test-ch-pitr"
+
+
+def psql(sc: Any, database: str, sql: str) -> str:
+    """
+    Run SQL as the postgres account of the scenario's machine.
+
+    Args:
+        sc: The scenario.
+        database: The database to connect to.
+        sql: The statement.
+
+    Returns:
+        psql's output, stripped.
+    """
+    done = sc.run(f"{PSQL} -d {database} -c {shlex.quote(sql)}", label=f"psql {database}: {sql}")
+    return done.stdout.strip()
+
+
+def utc_now(sc: Any) -> str:
+    """
+    Args:
+        sc: The scenario.
+
+    Returns:
+        The container's clock as ``YYYY-MM-DD HH:MM:SS`` (UTC): the instant a recovery names.
+    """
+    return sc.run("date -u +'%Y-%m-%d %H:%M:%S'", label="the time").stdout.strip()
+
+
+def wait_archived(sc: Any, *, timeout: int = 150) -> None:
+    """
+    Make the engine finish its segment and wait until the archive holds it.
+
+    Args:
+        sc: The scenario.
+        timeout: Seconds to wait.
+
+    Raises:
+        AssertionError: Nothing new reached the archive.
+    """
+    newest = "ls -t /var/lib/postgresql/noust-wal/*/ | head -n 1"
+    before = sc.run(newest, label="newest archived file").stdout.strip()
+    sc.run(f"{PSQL} -c \"select pg_create_restore_point('chtest'); select pg_switch_wal()\"")
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        now = sc.run(newest, label="newest archived file").stdout.strip()
+        if now != before:
+            return
+        time.sleep(3)
+    raise AssertionError("the engine did not archive the segment it was asked to switch")
+
+
+def pitr_status(sc: Any) -> dict[str, Any]:
+    """
+    Args:
+        sc: The scenario.
+
+    Returns:
+        ``noust db pitr status --json``, parsed.
+    """
+    data = json_of(noust(sc, "db pitr status --json"), "db pitr status")
+    assert isinstance(data, dict)
+    return data
+
+
+@engines_scenario("pitr_postgresql")
+def scenario_pitr_postgresql(sc: Any) -> None:
+    """
+    H-32: a PostgreSQL recovered to an instant, from the log it archived and a base backup.
+
+    The real engine, installed by Noust: archiving is turned on (one restart) and proved; a
+    mistake is made after an instant; the cluster is recovered to that instant and holds exactly
+    what it held then; a recovery that fails puts the previous data back; the same instant can
+    be asked for again; retention drops the oldest base backup and the log only it needed; the
+    archive, sent to a destination, brings a server whose archive is gone back to the instant.
+    """
+    try:
+        sc.run("noust db pitr disable -y --delete-archive", check=False, timeout=300)
+        noust(sc, "db uninstall postgresql --purge -f", timeout=900, check=False)
+        noust(sc, "db install postgresql", timeout=1800)
+        sc.run(f"rm -rf {PITR_REMOTE} && mkdir -p {PITR_REMOTE}")
+        noust(sc, f"backup destination add chpitr --type local --field path={PITR_REMOTE}")
+
+        # --- off: nothing to recover from, and the refusal says what to do
+        sc.check(pitr_status(sc)["enabled"] is False, "archiving should start off")
+        refused = noust(sc, "db pitr restore --latest -y", check=False)
+        sc.check(refused.returncode != 0, "a recovery with no archive must be refused")
+        sc.check(
+            "noust db pitr enable" in refused.stdout + refused.stderr,
+            f"the refusal should name the command: {refused.stdout} {refused.stderr}",
+        )
+
+        # --- on: one restart, proved by the engine's own archiver
+        planned = json_of(noust(sc, "db pitr enable --plan --json"), "enable --plan")
+        sc.check(planned["restart"] is True, "turning archiving on restarts the engine")
+        noust(sc, "db pitr enable --to chpitr:2 --keep 2 --keep-days none -y", timeout=600)
+        sc.check(psql(sc, "postgres", "show archive_mode") == "on", "archive_mode should be on")
+        status = pitr_status(sc)
+        sc.check(status["enabled"] and len(status["bases"]) == 1, f"one base backup: {status}")
+        sc.check(status["archiver"]["failed"] == 0, f"the archiver failed: {status['archiver']}")
+        sc.check(not status["warnings"], f"a fresh setup should warn of nothing: {status}")
+        owner = sc.run(f"stat -c '%U %a' {status['archive']['path']}").stdout.strip()
+        sc.check(owner == "postgres 700", f"the archive belongs to the engine alone: {owner}")
+        base_file = status["bases"][0]["start_wal_file"]
+        archive = status["archive"]["path"]
+
+        # --- the data, an instant, and a mistake
+        noust(sc, "db create shop --engine postgresql")
+        psql(sc, "shop", "create table t(id int, tag text)")
+        psql(sc, "shop", "insert into t select g, 'a' from generate_series(1, 100) g")
+        psql(sc, "shop", "insert into t select g, 'b' from generate_series(1, 100) g")
+        time.sleep(3)
+        instant = utc_now(sc)
+        time.sleep(3)
+        psql(sc, "shop", "insert into t select g, 'c' from generate_series(1, 100) g")
+        time.sleep(2)
+        psql(sc, "shop", "delete from t")
+        sc.check(psql(sc, "shop", "select count(*) from t") == "0", "the mistake was made")
+        wait_archived(sc)
+
+        # --- the plan, and what is refused before anything is touched
+        plan = json_of(noust(sc, f"db pitr restore --time '{instant}' --plan --json"), "plan")
+        sc.check(
+            plan["missing"] == [] and plan["segments"] >= 2, f"the log should be whole: {plan}"
+        )
+        sc.check(plan["base"]["id"] == status["bases"][0]["id"], "the only base backup is used")
+        early = noust(sc, "db pitr restore --time '2000-01-01 00:00:00' --plan", check=False)
+        sc.check(
+            early.returncode != 0 and "No base backup is old enough" in early.stdout + early.stderr,
+            "an instant before the first base backup is refused",
+        )
+        late = noust(sc, "db pitr restore --time '2999-01-01 00:00:00' --plan", check=False)
+        sc.check(
+            late.returncode != 0 and "later than the archive reaches" in late.stdout + late.stderr,
+            "an instant after the archive is refused",
+        )
+        sc.check(
+            noust(sc, "db pitr restore --plan", check=False).returncode != 0,
+            "a recovery with neither --time nor --latest is refused",
+        )
+        sc.check(psql(sc, "shop", "select count(*) from t") == "0", "refusals changed nothing")
+
+        # --- a recovery that cannot finish puts the previous data back
+        sc.run(f"cp {archive}/{base_file} /root/first-segment")
+        sc.run(f"truncate -s 1048576 {archive}/{base_file}")
+        broken = noust(sc, f"db pitr restore --time '{instant}' -y", timeout=900, check=False)
+        sc.run(f"cp /root/first-segment {archive}/{base_file}")
+        sc.run(f"chown postgres:postgres {archive}/{base_file} && chmod 600 {archive}/{base_file}")
+        sc.check(broken.returncode != 0, "a recovery over a truncated segment must fail")
+        sc.check(
+            "the previous data is back" in broken.stdout + broken.stderr,
+            f"the failure should say the data is back: {broken.stdout} {broken.stderr}",
+        )
+        sc.check(
+            psql(sc, "shop", "select count(*) from t") == "0",
+            "the engine should run on what it held before the attempt",
+        )
+        kept = sc.run("ls -d /var/lib/postgresql/16/main.noust-failed-recovery").returncode
+        sc.check(kept == 0, "the failed attempt should be kept for inspection")
+
+        # --- the recovery
+        noust(sc, f"db pitr restore --time '{instant}' -y", timeout=900)
+        rows = psql(sc, "shop", "select tag || ':' || count(*) from t group by tag order by tag")
+        sc.check(rows.split() == ["a:100", "b:100"], f"the cluster should hold a and b: {rows!r}")
+        sc.check(psql(sc, "postgres", "select pg_is_in_recovery()") == "f", "recovery ended")
+        sc.check(
+            psql(sc, "postgres", "select timeline_id from pg_control_checkpoint()") == "2",
+            "a new timeline",
+        )
+        settings = sc.run(
+            "grep -c recovery_target /var/lib/postgresql/16/main/postgresql.auto.conf", check=False
+        )
+        sc.check(settings.stdout.strip() == "0", "the recovery settings should be gone afterwards")
+        saved = sc.run("ls -d /var/lib/postgresql/16/main.noust-before-recovery-*").stdout.split()
+        sc.check(len(saved) >= 1, "the replaced data directory should be kept")
+        sc.run(
+            "rm -rf /var/lib/postgresql/16/main.noust-before-recovery-* /var/lib/postgresql/16/main.noust-failed-recovery"
+        )
+
+        # --- archiving goes on, on the new timeline, and the same instant can be asked for again
+        psql(sc, "shop", "insert into t select g, 'd' from generate_series(1, 10) g")
+        wait_archived(sc)
+        newest = sc.run(f"ls {archive}").stdout.split()
+        sc.check(any(n.startswith("00000002") for n in newest), f"timeline 2 is archived: {newest}")
+        noust(sc, f"db pitr restore --time '{instant}' -y", timeout=900)
+        rows = psql(sc, "shop", "select tag || ':' || count(*) from t group by tag order by tag")
+        sc.check(rows.split() == ["a:100", "b:100"], f"the same instant again: {rows!r}")
+        sc.check(
+            psql(sc, "postgres", "select timeline_id from pg_control_checkpoint()") == "3",
+            "timeline 3",
+        )
+        sc.run("rm -rf /var/lib/postgresql/16/main.noust-before-recovery-*")
+
+        # --- more base backups: retention drops the oldest and the log only it needed
+        first = pitr_status(sc)["bases"][0]
+        psql(sc, "shop", "insert into t select g, 'e' from generate_series(1, 20) g")
+        noust(sc, "db pitr base", timeout=900)
+        time.sleep(2)
+        psql(sc, "shop", "insert into t select g, 'f' from generate_series(1, 30) g")
+        time.sleep(3)
+        second_instant = utc_now(sc)
+        time.sleep(3)
+        psql(sc, "shop", "delete from t where tag = 'f'")
+        noust(sc, "db pitr base", timeout=900)
+        wait_archived(sc)
+        status = pitr_status(sc)
+        ids = [b["id"] for b in status["bases"]]
+        sc.check(len(ids) == 2 and first["id"] not in ids, f"keep 2 drops the oldest: {ids}")
+        left = sc.run(f"ls {archive}").stdout.split()
+        sc.check(first["start_wal_file"] not in left, "the log only the oldest base needed is gone")
+        sc.check(any(n.endswith(".history") for n in left), "timeline histories are never pruned")
+
+        # --- the archive on the destination, and a server that lost its own
+        report = json_of(noust(sc, "db pitr sync --json", timeout=900), "sync")
+        sc.check("chpitr" in report, f"the destination was sent to: {report}")
+        remote_bases = sc.run(f"ls {PITR_REMOTE}/databases/postgresql/pitr/*/base").stdout.split()
+        sc.check(
+            sorted(n for n in remote_bases if n.endswith(".tar.gz"))
+            == sorted(f"{i}.tar.gz" for i in ids),
+            f"the destination keeps the same base backups: {remote_bases}",
+        )
+        sc.run(f"rm -rf {archive}/* /var/backups/noust/databases/pitr/postgresql/*/*")
+        fetched = json_of(noust(sc, "db pitr fetch chpitr --json", timeout=900), "fetch")
+        sc.check(len(fetched["bases"]) == 2 and fetched["segments"], f"fetched: {fetched}")
+        noust(sc, f"db pitr restore --time '{second_instant}' -y", timeout=900)
+        rows = psql(sc, "shop", "select tag || ':' || count(*) from t group by tag order by tag")
+        sc.check(
+            rows.split() == ["a:100", "b:100", "e:20", "f:30"],
+            f"recovered from the destination to the instant: {rows!r}",
+        )
+
+        # --- off again: the engine is as it was, and the destination is cleared
+        noust(sc, "db pitr disable -y --delete-archive", timeout=600)
+        sc.check(psql(sc, "postgres", "show archive_mode") == "off", "archive_mode should be off")
+        sc.check(pitr_status(sc)["enabled"] is False, "archiving should be off")
+        left = sc.run(f"find {PITR_REMOTE} -type f | wc -l").stdout.strip()
+        sc.check(left == "0", f"the destination should be empty: {left}")
+        sc.check(
+            sc.run("systemctl list-timers --all | grep -c pitr", check=False).stdout.strip() == "0",
+            "the upkeep timer should be gone",
+        )
+    finally:
+        sc.run(
+            "noust db pitr disable -y --delete-archive; "
+            "noust backup destination remove chpitr -f; "
+            f"rm -rf {PITR_REMOTE} /root/first-segment "
+            "/var/lib/postgresql/16/main.noust-before-recovery-* "
+            "/var/lib/postgresql/16/main.noust-failed-recovery",
+            timeout=300,
             check=False,
             label="cleanup",
         )

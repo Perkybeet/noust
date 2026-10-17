@@ -238,6 +238,8 @@ RULES: tuple[Rule, ...] = (
     # Loading a dump into an engine creates databases and may replace one: the server's.
     _rule("/api/databases/imports/**", INSTANCE),
     _rule("/api/databases/backup-policies/**", INSTANCE),
+    # Archiving the engine's log and recovering the whole cluster are the server's.
+    _rule("/api/databases/pitr/**", INSTANCE),
     # --- backups --------------------------------------------------------------
     _rule("/api/backup-schedules", SCOPED, methods=("GET",)),
     _rule("/api/backup-schedules", RESOURCE, _BODY_DOMAIN, methods=("POST",)),

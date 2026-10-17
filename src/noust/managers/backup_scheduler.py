@@ -111,6 +111,13 @@ _DATABASE_DESCRIPTION_PREFIX = "Noust database backup timer for "
 _VOLUME_DESCRIPTION_PREFIX = "Noust volume backup timer for "
 _SELF_DESCRIPTION_PREFIX = "Noust self-backup timer for "
 
+#: The timer that sends an engine's archived write-ahead log to its destinations and takes its
+#: base backups (``noust db pitr``).
+_PITR_DESCRIPTION_PREFIX = "Noust point-in-time recovery timer for "
+
+#: How often it runs: the log is sent as it is archived, a minute behind at the most per run.
+PITR_CALENDAR = "*-*-* *:0/5:00"
+
 #: The unit of Noust's own state backup. An application's units are named after
 #: its domain, which always has a dot and so a dash: this name has none.
 SELF_BACKUP_UNIT = f"{paths.BACKUP_UNIT_PREFIX}self"
@@ -557,6 +564,7 @@ class BackupScheduler:
                         _DATABASE_DESCRIPTION_PREFIX,
                         _VOLUME_DESCRIPTION_PREFIX,
                         _SELF_DESCRIPTION_PREFIX,
+                        _PITR_DESCRIPTION_PREFIX,
                     )
                 ):
                     # A database's, a volume policy's or Noust's own timer (see
@@ -1111,6 +1119,73 @@ class BackupScheduler:
             ``installed``, ``next_run`` and ``last_run``.
         """
         return self.unit_state(SELF_BACKUP_UNIT)
+
+    @staticmethod
+    def pitr_timer_name(engine: str) -> str:
+        """
+        Name the timer of an engine's point-in-time recovery.
+
+        Args:
+            engine: Canonical engine name.
+
+        Returns:
+            ``noust-backup-pitr-<engine>``.
+        """
+        return f"{paths.BACKUP_UNIT_PREFIX}pitr-{engine}"
+
+    def install_pitr_timer(self, engine: str) -> str:
+        """
+        Create or replace the timer that runs an engine's point-in-time recovery upkeep.
+
+        The service runs ``noust db pitr run``, which reads everything else
+        (when a base backup is due, what is kept, where the log is sent) from the store.
+
+        Args:
+            engine: Canonical engine name.
+
+        Returns:
+            The timer's unit name.
+
+        Raises:
+            BackupError: When the unit name belongs to something else, a unit cannot be
+                written or the timer cannot be enabled.
+        """
+        require_server_role("Point-in-time recovery")
+        unit = self.pitr_timer_name(engine)
+        self.install_unit_pair(
+            unit,
+            _PITR_DESCRIPTION_PREFIX,
+            "point-in-time recovery",
+            "pitr-timer.j2",
+            "pitr-service.j2",
+            validate_calendar(PITR_CALENDAR),
+            target=engine,
+        )
+        return unit
+
+    def remove_pitr_timer(self, engine: str) -> bool:
+        """
+        Remove the timer of an engine's point-in-time recovery upkeep.
+
+        Args:
+            engine: Canonical engine name.
+
+        Returns:
+            True when a timer was there to remove.
+        """
+        return self.remove_unit_pair(self.pitr_timer_name(engine), _PITR_DESCRIPTION_PREFIX)
+
+    def pitr_timer_state(self, engine: str) -> dict[str, Any]:
+        """
+        Ask systemd about the timer of an engine's point-in-time recovery upkeep.
+
+        Args:
+            engine: Canonical engine name.
+
+        Returns:
+            ``installed``, ``next_run`` and ``last_run``.
+        """
+        return self.unit_state(self.pitr_timer_name(engine))
 
     def _render(self, template_name: str, **values: str) -> str:
         """
