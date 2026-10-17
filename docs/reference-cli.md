@@ -11192,7 +11192,7 @@ noust store compat [OPTIONS]
 
 ### noust store export
 
-Dump every record as JSON, to a file or to stdout.
+Dump every record as JSON, to a file or to stdout, without secret values.
 
 ```
 noust store export [OPTIONS]
@@ -11201,6 +11201,7 @@ noust store export [OPTIONS]
 | Option | What it does | Default |
 |---|---|---|
 | `-o`, `--output` | Write to this file instead of stdout. |  |
+| `--with-secrets` | Keep the values of secret variables and the credentials of source addresses (needed to move a server; audited). |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust store import

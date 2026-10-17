@@ -362,8 +362,8 @@ but `audit.manage`, and, where a framework asks for it (ENS MEDIA does), only wh
 ### The routes
 
 <!-- generated:routes -->
-- **815** API operations. **786** need a permission (`x-noust-permission`) and **29** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **275** operations need sudo mode and **35** can need a second person.
+- **816** API operations. **787** need a permission (`x-noust-permission`) and **29** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **276** operations need sudo mode and **35** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
@@ -371,7 +371,7 @@ but `audit.manage`, and, where a framework asks for it (ENS MEDIA does), only wh
 | `accounts.manage` | 24 |
 | `accounts.read` | 10 |
 | `apps.deploy` | 16 |
-| `apps.manage` | 109 |
+| `apps.manage` | 110 |
 | `apps.operate` | 28 |
 | `apps.read` | 105 |
 | `apps.terminal` | 12 |
@@ -488,15 +488,15 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **416** events.
+The catalogue holds **418** events.
 
 | Category | Events |
 |---|---|
 | access | 40 |
 | account | 36 |
 | config | 20 |
-| change | 261 |
-| read | 19 |
+| change | 262 |
+| read | 20 |
 | denial | 16 |
 | system | 21 |
 | host | 3 |

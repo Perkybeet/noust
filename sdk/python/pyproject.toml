@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "noust-sdk"
+version = "0.1.0"
+description = "A typed Python client of the Noust API, generated from its OpenAPI schema"
+readme = "README.md"
+license = { text = "AGPL-3.0-or-later" }
+requires-python = ">=3.11"
+dependencies = []
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Repository = "https://github.com/Perkybeet/noust"
+
+[tool.setuptools.packages.find]
+include = ["noust_sdk*"]
+
+[tool.setuptools.package-data]
+noust_sdk = ["py.typed"]
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+
+# The generated methods return what the transport decoded: the API's schema, not mypy, vouches for it.
+[[tool.mypy.overrides]]
+module = "noust_sdk._operations"
+warn_return_any = false

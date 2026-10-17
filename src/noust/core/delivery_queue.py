@@ -58,6 +58,11 @@ VISIBLE_STATES = {
 #: round trip is not something to run beside a build.
 BUILD_JOB_TYPES = frozenset({"deploy", "update"})
 
+#: Job types that only call the API to have other jobs queued and then wait for
+#: them (applying a manifest). They take no slot and wait for nothing: held in
+#: the line like a restore, one would wait for the very builds it queued.
+ORCHESTRATION_JOB_TYPES = frozenset({"manifest"})
+
 
 def visible_state(status: str) -> str:
     """

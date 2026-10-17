@@ -121,6 +121,12 @@ sections:
       - source: docs/remote.md
         slug: remote
         summary: "Driving a server from a laptop or a pipeline with a context and a token."
+      - source: docs/sdk.md
+        slug: sdk
+        summary: "A typed Python client of the API, generated from its schema: authentication, errors, jobs."
+      - source: docs/terraform.md
+        slug: terraform
+        summary: "What a Terraform and OpenTofu provider is built from, which resources it has, and what is left to write."
       - source: docs/MONITOR.md
         slug: monitor
         summary: The resource monitor and the metrics history.
@@ -133,6 +139,9 @@ sections:
       - source: docs/SECURITY-MODEL.md
         slug: security-model
         summary: The promises Noust makes about itself, how each can be checked, and the failure each one prevents.
+      - source: docs/reproducible-builds.md
+        slug: reproducible-builds
+        summary: Rebuild the wheel and the source distribution of a release from its tag and compare them byte for byte.
       - source: docs/ENS.md
         slug: ens
         summary: Spain's Esquema Nacional de Seguridad, category medium (in Spanish, with an English summary).
