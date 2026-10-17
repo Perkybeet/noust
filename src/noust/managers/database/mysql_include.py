@@ -70,7 +70,7 @@ def render_include(purpose: str, settings: Mapping[str, str]) -> str:
         The file's text.
     """
     body = "".join(f"{key} = {value}\n" for key, value in settings.items())
-    return f"{MARKER} (noust db replica): {purpose}\n[mysqld]\n{body}"
+    return f"{MARKER}: {purpose} (see: noust db replica status)\n[mysqld]\n{body}"
 
 
 def parse_include(text: str) -> dict[str, str]:

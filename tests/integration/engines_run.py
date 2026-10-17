@@ -438,12 +438,12 @@ def install_noust_wheel(machine: Machine, wheel: Path) -> None:
         wheel: The wheel built from the working tree.
     """
     box = machine.container
-    sh(["docker", "cp", str(wheel), f"{box}:/tmp/{wheel.name}"], timeout=60)
+    sh(["docker", "cp", str(wheel), f"{box}:/root/{wheel.name}"], timeout=60)
     docker_exec(box, f"{machine.python} -m venv /opt/noust", timeout=60)
     docker_exec(box, "/opt/noust/bin/pip install --quiet --upgrade pip", timeout=180)
     docker_exec(
         box,
-        f"/opt/noust/bin/pip install --quiet '/tmp/{wheel.name}[all]'",
+        f"/opt/noust/bin/pip install --quiet '/root/{wheel.name}[all]'",
         timeout=run.PIP_INSTALL_TIMEOUT,
     )
     for name in ("noust", "wasm"):
