@@ -26,6 +26,8 @@ ROUTES: dict[tuple[str, str], str] = {
     ("PUT", "/api/nodes/{node}/ssh"): Permission.FLEET_MANAGE,
     ("POST", "/api/nodes/{node}/test"): Permission.FLEET_READ,
     ("PUT", "/api/nodes/{node}/team"): Permission.FLEET_MANAGE,
+    ("POST", "/api/nodes/{node}/rekey"): Permission.FLEET_MANAGE,
+    ("POST", "/api/nodes/{node}/migrate-tunnel"): Permission.FLEET_MANAGE,
     ("GET", "/api/nodes/{node}/key"): Permission.FLEET_MANAGE,
     ("GET", "/api/nodes/{node}/api/{path}"): Permission.FLEET_READ,
     ("HEAD", "/api/nodes/{node}/api/{path}"): Permission.FLEET_READ,

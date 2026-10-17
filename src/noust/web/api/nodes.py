@@ -407,6 +407,36 @@ class NodeKeyResponse(BaseModel):
     authorize_command: str
 
 
+class NodeRotationRequest(BaseModel):
+    """
+    Body of ``POST /api/nodes/{node}/rekey`` and ``POST /api/nodes/{node}/migrate-tunnel``.
+
+    Attributes:
+        join_code: What ``noust fleet authorize`` printed on the node for the command the
+            first step gave. Omitted, the call is the first step and changes nothing there.
+    """
+
+    join_code: str | None = Field(default=None, min_length=1, max_length=8192)
+
+
+class NodeRotationResponse(BaseModel):
+    """
+    Response of either step of a rotation.
+
+    Attributes:
+        name: The node.
+        step: ``authorize`` while the command is still to be run on the node, ``done`` once
+            this central reaches it with the new key or account.
+        authorize_command: The command to run on the node, as root, in the first step.
+        node: The node as it is reached afterwards, in the second.
+    """
+
+    name: str
+    step: str
+    authorize_command: str | None = None
+    node: NodeResponse | None = None
+
+
 def describe(
     node: NodeRecord,
     teams: dict[str, str] | None = None,
@@ -466,6 +496,7 @@ def _audit(
     action: str,
     node: str,
     detail: str | None = None,
+    result: str = "ok",
 ) -> None:
     """
     Record a fleet action with its node.
@@ -476,13 +507,14 @@ def _audit(
         action: What was done, such as ``fleet.node.add``.
         node: The node it was done to.
         detail: Extra context. Never a credential.
+        result: ``ok``, or ``failure`` for an attempt that changed nothing.
     """
     audit = get_audit_logger()
     if audit is None:
         return
     audit.record(
         action=action,
-        result="ok",
+        result=result,
         client_ip=get_client_ip(request),
         actor=actor_label(session),
         resource=f"node:{node}",
@@ -869,6 +901,122 @@ def set_node_team(
         assignments.assign(record.name, body.team, actor=actor_label(session))
     _audit(request, session, "fleet.node.team", record.name, detail=f"team {body.team or 'none'}")
     return describe(record)
+
+
+def _rotate(
+    node: str,
+    body: NodeRotationRequest,
+    request: Request,
+    session: dict[str, Any],
+    *,
+    what: str,
+) -> NodeRotationResponse:
+    """
+    Run either step of a key rotation or of the move to the tunnel account.
+
+    The same two steps as ``noust node rekey`` and ``noust node migrate-tunnel``, on the
+    same registry: the first prepares the command to run on the node, the second switches
+    to what the node printed once it answers. Only the second changes anything, so only it
+    is audited, and the join code, which carries the node's token, goes no further than the
+    manager.
+
+    Args:
+        node: The node's name.
+        body: The join code, or nothing for the first step.
+        request: The incoming request, for the audit record.
+        session: The authenticated, elevated session.
+        what: ``rekey`` or ``migrate``.
+
+    Returns:
+        The command to run, or the node as it is reached now.
+
+    Raises:
+        NodeError: 400 when the code is for another key or server, or still names root;
+            502 when the node does not answer (everything is put back first).
+    """
+    record = find_node(node)
+    manager = node_manager()
+    if body.join_code is None:
+        command = (
+            manager.rekey_command(record.name)
+            if what == "rekey"
+            else manager.migrate_tunnel_command(record.name)
+        )
+        return NodeRotationResponse(name=record.name, step="authorize", authorize_command=command)
+    action = f"fleet.node.{what}"
+    actor = actor_label(session)
+    try:
+        updated = (
+            manager.rekey(record.name, join_code=body.join_code, actor=actor)
+            if what == "rekey"
+            else manager.migrate_tunnel(record.name, join_code=body.join_code, actor=actor)
+        )
+    except NodeError as exc:
+        _audit(request, session, action, record.name, detail=exc.message, result="failure")
+        raise
+    _audit(
+        request,
+        session,
+        action,
+        record.name,
+        detail=f"{updated.ssh_user}@{updated.ssh_host}:{updated.ssh_port}",
+    )
+    return NodeRotationResponse(name=record.name, step="done", node=describe(updated))
+
+
+@router.post("/{node}/rekey", response_model=NodeRotationResponse)
+def rekey_node(
+    node: str,
+    body: NodeRotationRequest,
+    request: Request,
+    session: Annotated[dict[str, Any], Depends(require_elevated)],
+) -> NodeRotationResponse:
+    """
+    Give a server a new key, in two steps.
+
+    Without a join code, a new key pair is generated (once: asking again gives the same)
+    and the command that authorizes it is returned, to run on the server as root; that
+    also removes the old key there. With the join code it printed, this central switches
+    to the new key once the server answers with it and the new token; otherwise nothing
+    changes here and the same code can be sent again.
+
+    Args:
+        node: The node's name.
+        body: The join code, or nothing for the first step.
+        request: The incoming request, for the audit record.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The command to run, or the node reached with its new key.
+    """
+    return _rotate(node, body, request, session, what="rekey")
+
+
+@router.post("/{node}/migrate-tunnel", response_model=NodeRotationResponse)
+def migrate_node_tunnel(
+    node: str,
+    body: NodeRotationRequest,
+    request: Request,
+    session: Annotated[dict[str, Any], Depends(require_elevated)],
+) -> NodeRotationResponse:
+    """
+    Move a server a 3.0 central authorized as root onto the unprivileged tunnel account.
+
+    Without a join code, the command to run on the server as root is returned: it creates
+    the restricted account, installs this central's key for it and takes that key out of
+    root's authorized_keys. With the code it printed, this central switches to it once the
+    server answers; otherwise nothing changes here and the same code can be sent again.
+
+    Args:
+        node: The node's name.
+        body: The join code, or nothing for the first step.
+        request: The incoming request, for the audit record.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The command to run, or the node reached as the tunnel account.
+    """
+    return _rotate(node, body, request, session, what="migrate")
 
 
 @router.get("/{node}/key", response_model=NodeKeyResponse)
