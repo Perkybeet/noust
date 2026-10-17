@@ -386,6 +386,22 @@ class AlertRules:
             )
         return rule
 
+    def _stored_id(self, name: str) -> int:
+        """
+        Args:
+            name: A rule's name.
+
+        Returns:
+            Its row.
+
+        Raises:
+            ValidationError: There is no such rule.
+        """
+        rule_id = self.require(name).id
+        if rule_id is None:  # pragma: no cover - a rule read from the store has its row
+            raise ValidationError(f"The rule {name!r} was never stored", field="name")
+        return rule_id
+
     def acknowledge(self, name: str, subject: str = "", *, by: str) -> tuple[AlertState, bool]:
         """
         Say that somebody took a firing alert.
@@ -406,17 +422,17 @@ class AlertRules:
         Raises:
             ValidationError: No such rule, or the subject is not firing now.
         """
-        rule = self.require(name)
+        rule_id = self._stored_id(name)
         who = " ".join(by.split())[:MAX_ACKNOWLEDGER] or "unknown"
         with self.store._transaction() as cursor:
             cursor.execute(
                 "UPDATE alert_states SET acknowledged_at = ?, acknowledged_by = ? "
                 "WHERE rule_id = ? AND subject = ? AND state = 'firing' "
                 "AND acknowledged_at IS NULL",
-                (self._clock(), who, rule.id, subject),
+                (self._clock(), who, rule_id, subject),
             )
             took = cursor.rowcount == 1
-        state = self.state(rule.id, subject)
+        state = self.state(rule_id, subject)
         if state is None or state.state != FIRING:
             raise ValidationError(
                 f"{name} is not firing{f' for {subject}' if subject else ''}",
@@ -439,14 +455,14 @@ class AlertRules:
         Raises:
             ValidationError: No such rule, or the subject is not firing now.
         """
-        rule = self.require(name)
+        rule_id = self._stored_id(name)
         with self.store._transaction() as cursor:
             cursor.execute(
                 "UPDATE alert_states SET acknowledged_at = NULL, acknowledged_by = NULL "
                 "WHERE rule_id = ? AND subject = ? AND state = 'firing'",
-                (rule.id, subject),
+                (rule_id, subject),
             )
-        state = self.state(rule.id, subject)
+        state = self.state(rule_id, subject)
         if state is None or state.state != FIRING:
             raise ValidationError(
                 f"{name} is not firing{f' for {subject}' if subject else ''}",
