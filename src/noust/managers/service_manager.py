@@ -1560,6 +1560,29 @@ class ServiceManager(BaseManager):
         """
         return self._resolve_service_file(name).exists()
 
+    def unit_exists(self, name: str) -> bool:
+        """
+        Check whether there is a unit to control under an application's name.
+
+        Unlike :meth:`service_exists`, which asks about the file of that very name (a switch to
+        zero-downtime mode asks it to find the leftover of one that did not finish), this follows
+        an application in zero-downtime mode to the instance that serves. That instance runs
+        from its template and has no file of its own, so asked about by file it looked absent,
+        and ``noust stop``, ``start`` and ``restart`` answered "service not found" for every
+        application that updates without a cut.
+
+        Args:
+            name: Service name, an application's included.
+
+        Returns:
+            True when the unit file, or the template of the serving instance, is in the managed
+            directory.
+
+        Raises:
+            ValidationError: When the name is not a safe unit name.
+        """
+        return self._unit_path(self._resolve_service_name(name)).exists()
+
     @staticmethod
     def state_is_running(raw_state: str) -> bool:
         """

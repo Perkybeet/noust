@@ -1228,7 +1228,7 @@ def _control_service(domain: str, action: str, logger: Logger) -> int:
 
     service_manager = ServiceManager(verbose=logger.verbose)
 
-    if not service_manager.service_exists(app_name):
+    if not service_manager.unit_exists(app_name):
         logger.warning(f"Service not found for: {domain}")
         logger.info("This may be a static application or the service was not created")
         return 1
