@@ -15,6 +15,7 @@ export { approvals } from "./approvals";
 export { apps } from "./apps";
 export { appSettings } from "./appSettings";
 export { appTags } from "./appTags";
+export { appTraffic } from "./appTraffic";
 export { audit } from "./audit";
 export { auditEvents } from "./auditEvents";
 export { auth } from "./auth";
