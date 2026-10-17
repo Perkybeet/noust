@@ -174,3 +174,45 @@ def test_a_proxy_site_does_not_need_it(apache: ApacheManager, runner: FakeRunner
     apache.create_site("example.com", "proxy", {"port": 3000})
 
     assert ("a2enmod", "proxy_fcgi") not in runner.calls
+
+
+def test_a_password_and_the_lists_protect_a_php_site_too(apache: ApacheManager) -> None:
+    """A policy the operator saved for a PHP site is in its virtual host, not only in the store."""
+    policy = {
+        "auth": {
+            "site": True,
+            "realm": "Restricted",
+            "file": "/etc/apache2/noust-auth/example-com.users",
+        },
+        "require": [
+            "<RequireAll>",
+            "    Require valid-user",
+            "    Require not ip 203.0.113.66",
+            "</RequireAll>",
+        ],
+    }
+
+    text = render(apache, policy=policy)
+
+    assert "AuthType Basic" in text
+    assert "AuthUserFile /etc/apache2/noust-auth/example-com.users" in text
+    assert "Require not ip 203.0.113.66" in text
+    # The certificate authority is still let through to renew the certificate.
+    assert '<Location "/.well-known/acme-challenge/">' in text
+
+
+def test_the_headers_a_php_site_declares_are_the_ones_it_sends(apache: ApacheManager) -> None:
+    headers = [("X-Robots-Tag", "noindex"), ("X-Frame-Options", "DENY")]
+
+    text = render(apache, response_headers=headers)
+
+    assert 'Header always set X-Robots-Tag "noindex"' in text
+    assert 'Header always set X-Frame-Options "DENY"' in text
+    assert 'X-Frame-Options "SAMEORIGIN"' not in text
+
+
+def test_a_php_site_without_a_policy_says_nothing_of_one(apache: ApacheManager) -> None:
+    text = render(apache)
+
+    assert "AuthType" not in text
+    assert 'Header always set X-Frame-Options "SAMEORIGIN"' in text
