@@ -24,6 +24,8 @@ no new dependency):
   folders are made of;
 - the units Noust wrote (``/etc/systemd/system``: its own, every
   application's, their drop-ins), and which of them were enabled;
+- the roles of each PostgreSQL server a database lives on (``pg_dumpall --globals-only``), which
+  no database dump carries and a restored database needs for its owners;
 - the web server's configuration (``/etc/nginx``, Apache's directory) with each file's mode
   and its links, because a site edited by hand, the site of an adopted application and the
   settings an operator added to the http block are in no store and cannot be rendered again.
@@ -136,6 +138,10 @@ MAX_RETENTION_DAYS = 3650
 #: Members and bytes an extraction takes at most.
 MAX_ENTRIES = 2_000_000
 MAX_BYTES = 256 * 1024**3
+
+#: What the roles of the PostgreSQL servers are called in a bundle, and the directory of the
+#: state they are put back into for ``restore-server`` to read.
+PG_GLOBALS_LABEL = "pg-globals"
 
 #: The largest file of a web server's directory a bundle takes: a configuration file, never a
 #: log or a cache someone left there.
@@ -297,6 +303,7 @@ class SelfBackupManager:
         letsencrypt: Path | None = None,
         systemd_dir: Path | None = None,
         webservers: dict[str, Path] | None = None,
+        database_service: Callable[[], Any] | None = None,
     ) -> None:
         """
         Args:
@@ -317,6 +324,8 @@ class SelfBackupManager:
             webservers: The web servers' configuration directories by label (``nginx``,
                 ``apache2``, ``httpd``); the server's own by default. One that does not
                 exist is not in the bundle.
+            database_service: Builds the service that resolves an engine to its manager,
+                for the roles of the PostgreSQL servers; the real one by default.
         """
         self._runner = runner
         self._fs = fs
@@ -331,6 +340,7 @@ class SelfBackupManager:
         self._sources = sources
         self.letsencrypt = letsencrypt if letsencrypt is not None else CertManager.LETSENCRYPT_DIR
         self.systemd_dir = systemd_dir if systemd_dir is not None else SYSTEMD_DIR
+        self._database_service = database_service
         self.webservers = (
             dict(webservers) if webservers is not None else dict(paths.WEBSERVER_CONFIG_DIRS)
         )
@@ -474,6 +484,7 @@ class SelfBackupManager:
         known["letsencrypt"] = self.letsencrypt
         known["units"] = self.systemd_dir
         known.update(self.webservers)
+        known[PG_GLOBALS_LABEL] = known["state"] / PG_GLOBALS_LABEL
         return known
 
     def _stage_letsencrypt(self, staging: Path, manifest: dict[str, Any]) -> None:
@@ -580,6 +591,65 @@ class SelfBackupManager:
                         entry["mode"] = stat.S_IMODE(status.st_mode)
                     manifest["files"].append(entry)
 
+    def _stage_pg_globals(self, staging: Path, manifest: dict[str, Any]) -> None:
+        """
+        Dump the roles of each PostgreSQL server a database of the store lives on.
+
+        A database dump carries none of its roles, and the restore of a server needs them
+        before it loads a dump. They are in the bundle because it is sealed: the file holds
+        the roles' password hashes. A server whose roles cannot be dumped is said in the
+        manifest and does not fail the bundle.
+
+        Args:
+            staging: The archive's root directory.
+            manifest: Filled with ``pg_globals``, ``files``, ``skipped`` and ``sources``.
+        """
+        from noust.managers.database.instances import engine_of, storage_name
+
+        manifest["pg_globals"] = []
+        try:
+            engines = sorted({row.engine for row in self.store.list_databases()})
+        except (NoustError, sqlite3.Error) as exc:
+            self.logger.warning(f"Could not list the databases to dump their roles: {exc}")
+            return
+        engines = [engine for engine in engines if engine_of(engine) == "postgresql"]
+        if not engines:
+            return
+        if self._database_service is not None:
+            service = self._database_service()
+        else:
+            from noust.managers.database.service import DatabaseService
+
+            service = DatabaseService(logger=self.logger)
+        for engine in engines:
+            relative = f"{PG_GLOBALS_LABEL}/{storage_name(engine)}.sql"
+            target = staging / relative
+            self.fs.make_dir(target.parent, mode=SECRET_DIR_MODE, parents=True)
+            try:
+                manager = service.manager(engine)
+                if not getattr(manager, "HAS_GLOBALS", False):
+                    continue
+                info = manager.backup_globals(output_path=target, compress=False)
+                if Path(info.path) != target:
+                    shutil.move(str(info.path), target)
+            except (NoustError, OSError) as exc:
+                manifest["skipped"].append(
+                    {
+                        "path": relative,
+                        "reason": f"the roles of {engine} could not be dumped: {exc}",
+                    }
+                )
+                self.fs.remove(target)
+                continue
+            os.chmod(target, SECRET_MODE)
+            manifest["sources"][PG_GLOBALS_LABEL] = str(
+                self._labels().get("state", paths.state_dir()) / PG_GLOBALS_LABEL
+            )
+            manifest["files"].append(
+                {"path": relative, "size": target.stat().st_size, "sha256": file_sha256(target)}
+            )
+            manifest["pg_globals"].append({"engine": engine, "path": relative})
+
     def _enabled_names(self) -> set[str]:
         """
         Name the units enabled by a symbolic link in a ``*.wants`` directory.
@@ -679,6 +749,7 @@ class SelfBackupManager:
             "webservers": sorted(
                 label for label in paths.WEBSERVER_CONFIG_DIRS if label in manifest["sources"]
             ),
+            "pg_globals": len(manifest.get("pg_globals", [])),
         }
 
     def _store_version(self, snapshot: Path) -> int | None:
@@ -772,6 +843,7 @@ class SelfBackupManager:
                     )
                 self._stage_letsencrypt(staging, manifest)
                 self._stage_webservers(staging, manifest)
+                self._stage_pg_globals(staging, manifest)
                 self._stage_units(staging, manifest)
                 manifest["contains"] = self._contains(manifest)
                 snapshot = next(

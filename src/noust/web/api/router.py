@@ -122,6 +122,7 @@ from noust.web.api.secret_providers import router as secret_providers_router
 from noust.web.api.self_backup import router as self_backup_router
 from noust.web.api.server import router as server_router
 from noust.web.api.server_migration import router as server_migration_router
+from noust.web.api.server_restore import router as server_restore_router
 from noust.web.api.services import router as services_router
 from noust.web.api.site_history import router as site_history_router
 from noust.web.api.site_logs import router as site_logs_router
@@ -209,6 +210,7 @@ router.include_router(services_router, prefix="/services", tags=["Services"])
 router.include_router(server_router, prefix="/server", tags=["Server"])
 # Moving this server's applications, data and state to another server (3.4).
 router.include_router(server_migration_router, prefix="/server/migration", tags=["Server"])
+router.include_router(server_restore_router, prefix="/server/restore", tags=["Server"])
 router.include_router(sites_router, prefix="/sites", tags=["Sites"])
 # The earlier texts of a site's file; sites.py owns the rest of "/{domain}/config".
 router.include_router(site_history_router, prefix="/sites", tags=["Sites"])

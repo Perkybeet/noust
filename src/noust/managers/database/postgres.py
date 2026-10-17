@@ -82,7 +82,7 @@ from noust.managers.database.base import (
     validate_name,
 )
 from noust.managers.database.instances import storage_name
-from noust.managers.database.pg_globals import filter_missing
+from noust.managers.database.pg_globals import GlobalsRestore, filter_missing
 from noust.managers.database.psql_script import check_plain_dump, strip_owners
 from noust.managers.database.registry import DatabaseRegistry
 from noust.managers.database.settings import read_config_file, write_config_file
@@ -117,24 +117,6 @@ TABLE_PRIVILEGES = frozenset(
 
 #: What psql prints for a statement the server refused.
 _PSQL_ERROR = re.compile(r"ERROR:\s*(.+)")
-
-
-@dataclass(frozen=True)
-class GlobalsRestore:
-    """
-    What putting the roles of a dump back did.
-
-    Attributes:
-        created: The roles that were missing and were created, unquoted.
-        present: The roles the file names that the server already had (left as they were).
-        left_out: What could not be put back yet and why.
-        errors: What the server refused, in its own words.
-    """
-
-    created: tuple[str, ...]
-    present: tuple[str, ...]
-    left_out: tuple[str, ...]
-    errors: tuple[str, ...]
 
 
 #: pg_dump output formats that can be streamed to stdout. "directory" cannot.

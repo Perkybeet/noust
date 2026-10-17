@@ -207,6 +207,32 @@ def add_state(made: Server, *, apps: tuple[str, ...] = ()) -> None:
     NoustStore.reset_instance()
 
 
+class Machine:
+    """A server that has the web server and Docker, so a test about something else is not about them."""
+
+    def _present(self, name: str) -> Any:
+        from noust.managers.server_provision import ProvisionStep
+
+        return ProvisionStep(name, "present", f"{name} is installed")
+
+    def check_webserver(self, name: str) -> Any:
+        return self._present(name)
+
+    ensure_webserver = check_webserver
+
+    def check_docker(self) -> Any:
+        return self._present("docker")
+
+    ensure_docker = check_docker
+
+
+class NoOrphans:
+    """A server whose store has no database that no application owns."""
+
+    def restore(self, store: Any, *, from_destination: str | None = None) -> list[Any]:
+        return []
+
+
 class Flow:
     """A target server, the flow over it, and every fake it runs with."""
 
@@ -228,6 +254,10 @@ class Flow:
             gate=lambda app: self.gates.get(app.domain, (True, "")),
             refresh_site=lambda app: self.sites.append(app.domain),
             engine_installed=lambda engine: engine in self.installed,
+            provisioner=Machine(),  # type: ignore[arg-type]
+            orphans=NoOrphans(),  # type: ignore[arg-type]
+            apply_roles=lambda engine, path: None,
+            webserver_name=lambda: "nginx",
         )
 
     def run(self, **kwargs: Any) -> restore_server.ServerRestoreReport:

@@ -812,6 +812,7 @@ def register(group: click.Group) -> None:
     ):
         group.add_command(command)
     # A dump from another provider; its module imports this one for the helpers.
-    from noust.cli.commands import db_import
+    from noust.cli.commands import db_globals, db_import
 
     db_import.register(group)
+    db_globals.register(group)

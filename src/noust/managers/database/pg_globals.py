@@ -24,7 +24,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-__all__ = ["GlobalsPlan", "filter_missing", "role_names"]
+__all__ = ["GlobalsPlan", "GlobalsRestore", "filter_missing", "role_names"]
 
 #: The session settings ``pg_dumpall`` starts a file with; any other ``SET`` is dropped.
 _ALLOWED_SET = (
@@ -95,6 +95,24 @@ class GlobalsPlan:
     created: tuple[str, ...]
     present: tuple[str, ...]
     left_out: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class GlobalsRestore:
+    """
+    What putting the roles of a dump back did.
+
+    Attributes:
+        created: The roles that were missing and were created, unquoted.
+        present: The roles the file names that the server already had (left as they were).
+        left_out: What could not be put back yet and why.
+        errors: What the server refused, in its own words.
+    """
+
+    created: tuple[str, ...]
+    present: tuple[str, ...]
+    left_out: tuple[str, ...]
+    errors: tuple[str, ...]
 
 
 def _statements(text: str) -> list[str]:

@@ -91,6 +91,13 @@ def runner(tmp_path: Path) -> Iterator[Runner]:
         set_runner(None)
 
 
+class NoRoles:
+    """A database service whose engines have no roles of their own to dump."""
+
+    def manager(self, engine: str) -> Any:
+        return object()
+
+
 @dataclass
 class Server:
     """One server's directories, and the database connection it keeps open."""
@@ -105,6 +112,8 @@ class Server:
     def manager(self, runner: Runner, **extra: Any) -> SelfBackupManager:
         # A test server is isolated: the web server of the machine running the tests is not its own.
         extra.setdefault("webservers", {})
+        # ...and so are its database servers: no engine of the machine running the tests is asked.
+        extra.setdefault("database_service", lambda: NoRoles())
         return SelfBackupManager(
             runner=runner,
             sources={"config": self.config, "state": self.state},
@@ -272,6 +281,7 @@ class TestCreate:
             "certificates": True,
             "units": 3,
             "webservers": [],
+            "pg_globals": 0,
         }
 
     def test_what_regenerates_and_what_is_not_noust_s_is_left_out(
