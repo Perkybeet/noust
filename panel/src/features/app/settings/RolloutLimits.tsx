@@ -17,6 +17,7 @@ import { Card } from "../../../components/ui/Card";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Select } from "../../../components/ui/Select";
+import type { SelectOption } from "../../../components/ui/Select";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import { splitErrors } from "../../settings/formErrors";
@@ -142,6 +143,10 @@ export function RolloutLimitsCard({ limits }: { limits: RolloutLimitsPart }) {
     );
   }
   const data = query.data;
+  const signalOptions: readonly SelectOption[] = [
+    { value: DEFAULT_SIGNAL, label: t("rollout.limits.stopSignalDefault") },
+    ...STOP_SIGNALS.map((signal) => ({ value: signal, label: signal })),
+  ];
 
   return (
     <Card title={title} description={t("rollout.limits.description")}>
@@ -175,7 +180,7 @@ export function RolloutLimitsCard({ limits }: { limits: RolloutLimitsPart }) {
               <Field label={t("rollout.limits.stopSignalLabel")} nativeLabel={false} error={errors.stop_signal}>
                 <Select
                   mono
-                  options={[{ value: DEFAULT_SIGNAL, label: t("rollout.limits.stopSignalDefault") }, ...STOP_SIGNALS.map((signal) => ({ value: signal as string, label: signal }))]}
+                  options={signalOptions}
                   value={draft.stop_signal}
                   onValueChange={(value) => edit("stop_signal", value)}
                 />

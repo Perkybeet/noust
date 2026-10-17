@@ -25,10 +25,10 @@ export const ROLLOUT_FIELDS: readonly RolloutField[] = ["history_keep", "stop_ti
 /** The form for the settings an app has. */
 export function rolloutDraftOf(rollout: Pick<Rollout, "history_keep" | "stop_timeout" | "stop_signal">): RolloutDraft {
   return {
-    history_keep: rollout.history_keep === null || rollout.history_keep === undefined ? "" : String(rollout.history_keep),
-    stop_timeout: rollout.stop_timeout === null || rollout.stop_timeout === undefined ? "" : String(rollout.stop_timeout),
+    history_keep: rollout.history_keep === null ? "" : String(rollout.history_keep),
+    stop_timeout: rollout.stop_timeout === null ? "" : String(rollout.stop_timeout),
     // SIGTERM is the default, so an explicit one is the same choice as none.
-    stop_signal: rollout.stop_signal === null || rollout.stop_signal === undefined || rollout.stop_signal === "SIGTERM" ? DEFAULT_SIGNAL : rollout.stop_signal,
+    stop_signal: rollout.stop_signal === null || rollout.stop_signal === "SIGTERM" ? DEFAULT_SIGNAL : rollout.stop_signal,
   };
 }
 
