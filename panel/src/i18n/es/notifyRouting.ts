@@ -56,6 +56,33 @@ export const notifyRouting: Catalog<typeof en> = {
     digestDescription: "Una lista breve en vez de un mensaje por evento.",
     badTime: "Usa una hora como 22:00.",
   },
+  flood: {
+    title: "Tope de mensajes",
+    description: "Un servidor que se reinicia o una caída que afecta a treinta aplicaciones son treinta mensajes en un segundo. Pasado el tope, el resto se retiene y llega después como un solo mensaje que los enumera.",
+    switchLabel: "Limitar lo que dice este canal",
+    maxLabel: "Como máximo este número de mensajes",
+    minutesLabel: "En cualquier este número de minutos",
+    bad: "Usa números enteros: hasta 1000 mensajes, en hasta 1440 minutos.",
+  },
+  recap: {
+    title: "Resumen",
+    description: "Guarda lo que no es un problema para un mensaje al día, en vez de uno a uno durante todo el día. Un aviso o un fallo siguen saliendo al momento.",
+    switchLabel: "Enviar lo no urgente como un resumen diario",
+    atLabel: "Enviarlo a las",
+    belowLabel: "Qué espera al resumen",
+    below: {
+      warning: "Lo que no es un problema: éxitos, recuperaciones, informes",
+      failed: "Todo menos los fallos",
+    },
+    daysLegend: "Días",
+    everyDay: "Ningún día elegido: sale todos los días.",
+    someDays: "Sale solo los días elegidos.",
+    day: { mon: "Lun", tue: "Mar", wed: "Mié", thu: "Jue", fri: "Vie", sat: "Sáb", sun: "Dom" },
+  },
+  pager: {
+    title: "Tope y resumen",
+    description: "Un canal de localización no tiene tope ni resumen: ya agrupa las repeticiones por incidente, y un incidente que esperase a un resumen sería uno del que nadie fue avisado.",
+  },
   topic: {
     label: "Tema de Telegram",
     description: "El número de un tema de un grupo con foros. Vacío publica en el hilo general del grupo.",
@@ -68,6 +95,8 @@ export const notifyRouting: Catalog<typeof en> = {
     failedOnly: "Solo fallos",
     warningUp: "Avisos y fallos",
     quiet: "En silencio de {start} a {end}",
+    flood: "Como máximo {max} cada {minutes} min",
+    recap: "Resumen diario a las {at}",
     ownEvents: { one: "Interruptor propio para {count} evento", other: "Interruptores propios para {count} eventos" },
   },
   more: {
@@ -107,9 +136,14 @@ export const notifyRouting: Catalog<typeof en> = {
       held: "Retenida",
       failed: "Abandonada",
     },
+    heldFor: {
+      quiet: "horas de silencio",
+      flood: "tope alcanzado",
+      summary: "para el resumen",
+    },
     counts: {
       retrying: { one: "{count} espera un nuevo intento", other: "{count} esperan un nuevo intento" },
-      held: { one: "{count} retenida por las horas de silencio", other: "{count} retenidas por las horas de silencio" },
+      held: { one: "{count} retenida", other: "{count} retenidas" },
       failed: { one: "{count} abandonada", other: "{count} abandonadas" },
     },
     allWell: "Todo lo reciente se entregó.",

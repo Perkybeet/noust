@@ -57,6 +57,33 @@ export const notifyRouting = {
     digestDescription: "A short list instead of one message for each event.",
     badTime: "Use a time such as 22:00.",
   },
+  flood: {
+    title: "Cap on messages",
+    description: "A server that reboots or an outage that touches thirty applications is thirty messages in a second. Past the cap the rest are held and arrive later as one message that lists them.",
+    switchLabel: "Limit how much this channel says",
+    maxLabel: "At most this many messages",
+    minutesLabel: "In any this many minutes",
+    bad: "Use whole numbers: up to 1000 messages, in up to 1440 minutes.",
+  },
+  recap: {
+    title: "Summary",
+    description: "Keep what is not a problem for one message a day, instead of one at a time all day. A warning or a failure still goes at once.",
+    switchLabel: "Send what is not urgent as a daily summary",
+    atLabel: "Send it at",
+    belowLabel: "What waits for the summary",
+    below: {
+      warning: "What is not a problem: successes, recoveries, reports",
+      failed: "Everything but failures",
+    },
+    daysLegend: "Days",
+    everyDay: "No day chosen: it goes out every day.",
+    someDays: "It goes out only on the days chosen.",
+    day: { mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu", fri: "Fri", sat: "Sat", sun: "Sun" },
+  },
+  pager: {
+    title: "Cap and summary",
+    description: "A paging channel is neither capped nor summarised: it already collapses repeats by the incident, and an incident that waited for a summary would be one nobody was paged for.",
+  },
   topic: {
     label: "Telegram topic",
     description: "The number of a topic in a forum group. Empty posts to the group's general thread.",
@@ -69,6 +96,8 @@ export const notifyRouting = {
     failedOnly: "Failures only",
     warningUp: "Warnings and failures",
     quiet: "Quiet from {start} to {end}",
+    flood: "At most {max} per {minutes} min",
+    recap: "Daily summary at {at}",
     ownEvents: { one: "Own switch for {count} event", other: "Own switches for {count} events" },
   },
   more: {
@@ -108,9 +137,14 @@ export const notifyRouting = {
       held: "Held",
       failed: "Gave up",
     },
+    heldFor: {
+      quiet: "quiet hours",
+      flood: "cap reached",
+      summary: "for the summary",
+    },
     counts: {
       retrying: { one: "{count} waiting to be tried again", other: "{count} waiting to be tried again" },
-      held: { one: "{count} held for quiet hours", other: "{count} held for quiet hours" },
+      held: { one: "{count} held back", other: "{count} held back" },
       failed: { one: "{count} given up on", other: "{count} given up on" },
     },
     allWell: "Everything recent was delivered.",
