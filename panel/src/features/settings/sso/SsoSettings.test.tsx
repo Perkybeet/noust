@@ -122,11 +122,49 @@ const DIRECTORY = {
   created_by: "ana",
 };
 
+const SAML_PEM = "-----BEGIN CERTIFICATE-----\nMIICvDCCAaSgAwIBAgIU\n-----END CERTIFICATE-----";
+const SAML_PROVIDER = {
+  name: "entra",
+  label: "Entra ID",
+  enabled: true,
+  idp_entity_id: "https://sts.windows.net/tenant/",
+  sso_url: "https://login.microsoftonline.com/tenant/saml2",
+  certificates: [SAML_PEM],
+  certificate_details: [{ subject: "CN=Microsoft Azure Federated SSO Certificate", fingerprint: "ab".repeat(32), not_after: 4_000_000_000 }],
+  sp_entity_id: "",
+  entity_id: "https://noust.acme.test/api/auth/saml/metadata/entra",
+  acs_url: "https://noust.acme.test/api/auth/saml/acs",
+  metadata_url: "https://noust.acme.test/api/auth/saml/metadata/entra",
+  subject_attribute: "",
+  email_attribute: "email",
+  name_attribute: "displayName",
+  username_attribute: "",
+  groups_attribute: "groups",
+  clock_skew_seconds: 60,
+  provisioning: "invite",
+  default_role: "viewer",
+  default_team: null,
+  default_team_role: null,
+  link_by_email: false,
+  allowed_domains: ["acme.test"],
+  require_email_verified: false,
+  assume_email_verified: true,
+  require_amr: [],
+  group_sync: true,
+  group_mappings: [{ group: "ops", role: "operator", team: null, team_role: null, bind: null, project: null, environment: null }],
+  created_at: 1_790_000_000,
+  created_by: "ana",
+  updated_at: 1_790_000_000,
+  updated_by: null,
+};
+
 interface Fixture {
   providers: unknown[];
   identities: unknown[];
   scim: unknown[];
   directories: unknown[];
+  saml: unknown[];
+  secure: boolean;
   local: { enabled: boolean; exempt: string[]; providers: number; survivors: string[] };
 }
 
@@ -137,6 +175,8 @@ function ssoBackend(initial: Partial<Fixture> = {}, extra: Record<string, RouteH
     identities: [IDENTITY],
     scim: [],
     directories: [],
+    saml: [],
+    secure: true,
     local: { enabled: true, exempt: [], providers: 1, survivors: ["ana"] },
     ...initial,
   };
@@ -146,6 +186,8 @@ function ssoBackend(initial: Partial<Fixture> = {}, extra: Record<string, RouteH
     "GET /api/auth/oidc/identities": () => json(200, { identities: state.identities }),
     "GET /api/auth/scim/sources": () => json(200, { base_url: SCIM_URL, sources: state.scim }),
     "GET /api/auth/ldap/directories": () => json(200, { directories: state.directories }),
+    "GET /api/auth/saml/config": () =>
+      json(200, { providers: state.saml, acs_url: "https://noust.acme.test/api/auth/saml/acs", secure: state.secure }),
     "GET /api/auth/oidc/local-login": () => json(200, state.local),
     "PUT /api/auth/oidc/local-login": (call: RecordedCall) => {
       const body = call.body as { enabled?: boolean; exempt?: string[] };
@@ -534,6 +576,193 @@ describe("Settings > Single sign-on", () => {
       await act(() => setLocale("es"));
       expect(await screen.findByRole("button", { name: "Probar ad" })).toBeInTheDocument();
       expect(screen.getByRole("region", { name: "Directorios configurados" })).toBeInTheDocument();
+      await act(() => setLocale("en"));
+    });
+  });
+
+  describe("SAML providers", () => {
+    it("offers to add the first provider, and says the account's second factor still follows", { timeout: 30_000 }, async () => {
+      await pageAt();
+      const empty = await screen.findByRole("heading", { name: "No SAML provider yet" });
+      const section = screen.getByRole("region", { name: "SAML providers" });
+      expect(within(section).getByRole("heading", { name: "No SAML provider yet" })).toBe(empty);
+      expect(within(section).getByText(/second factor still follows/)).toBeInTheDocument();
+      expect(within(section).getByRole("button", { name: "Add a SAML provider" })).toBeInTheDocument();
+    });
+
+    it("lists the providers with their entity id and when the certificate stops being good, and passes axe", { timeout: 30_000 }, async () => {
+      await pageAt({ saml: [SAML_PROVIDER] });
+      await screen.findByText("Entra ID");
+      const table = screen.getByRole("region", { name: "Configured SAML providers" });
+      const row = within(table).getAllByRole("row")[1];
+      if (!row) throw new Error("no provider row");
+      expect(within(row).getByText("https://sts.windows.net/tenant/")).toBeInTheDocument();
+      expect(within(row).getByText("Enabled")).toHaveAttribute("data-state", "running");
+      expect(within(row).getByRole("time")).toBeInTheDocument();
+      expect(screen.queryByText("This console is not served over HTTPS")).not.toBeInTheDocument();
+      await expectNoAxeViolations(screen.getByRole("main"));
+    });
+
+    it("says why a console over plain HTTP cannot take a SAML answer", { timeout: 30_000 }, async () => {
+      await pageAt({ saml: [SAML_PROVIDER], secure: false });
+      expect(await screen.findByText("This console is not served over HTTPS")).toBeInTheDocument();
+      expect(screen.getByText(/no SAML sign-in can finish until the console is served over TLS/)).toBeInTheDocument();
+    });
+
+    it("adds a provider from its metadata alone, leaving the rest for the server to read", { timeout: 30_000 }, async () => {
+      const { backend, state, user } = await pageAt();
+      backend.on("PUT /api/auth/saml/config/entra", () => {
+        state.saml = [SAML_PROVIDER];
+        return json(200, SAML_PROVIDER);
+      });
+      await user.click(await screen.findByRole("button", { name: "Add a SAML provider" }));
+      const drawer = await screen.findByRole("dialog", { name: "Add a SAML provider" });
+      const add = within(drawer).getByRole("button", { name: "Add provider" });
+      await user.type(within(drawer).getByLabelText(/^Name/), "entra");
+      // Nothing yet says who the provider is: the button waits.
+      expect(add).toBeDisabled();
+      await user.type(within(drawer).getByRole("textbox", { name: /^Its metadata/ }), "<md:EntityDescriptor entityID='x'/>");
+      expect(add).toBeEnabled();
+      await user.click(add);
+
+      await waitFor(() => {
+        expect(backend.callsTo("PUT /api/auth/saml/config/entra")).toHaveLength(1);
+      });
+      const body = backend.callsTo("PUT /api/auth/saml/config/entra")[0]?.body as Record<string, unknown>;
+      expect(body).toMatchObject({
+        idp_metadata: "<md:EntityDescriptor entityID='x'/>",
+        provisioning: "off",
+        // The organisation's own provider: its address is taken as verified.
+        assume_email_verified: true,
+        require_email_verified: false,
+        email_attribute: "email",
+        groups_attribute: "groups",
+        clock_skew_seconds: 60,
+      });
+      expect(body).not.toHaveProperty("idp_entity_id");
+      expect(body).not.toHaveProperty("sso_url");
+      expect(body).not.toHaveProperty("certificates");
+      expect(await screen.findByText("Entra ID")).toBeInTheDocument();
+    });
+
+    it("adds a provider from its three settings, the certificates split into blocks", { timeout: 30_000 }, async () => {
+      const { backend, user } = await pageAt(
+        {},
+        { "PUT /api/auth/saml/config/entra": () => json(200, SAML_PROVIDER) },
+      );
+      await user.click(await screen.findByRole("button", { name: "Add a SAML provider" }));
+      const drawer = await screen.findByRole("dialog", { name: "Add a SAML provider" });
+      await user.type(within(drawer).getByLabelText(/^Name/), "entra");
+      await user.type(within(drawer).getByPlaceholderText("https://idp.acme.test/metadata"), "https://sts.windows.net/tenant/");
+      await user.type(within(drawer).getByLabelText(/^Sign-in address/), "https://login.microsoftonline.com/tenant/saml2");
+      await user.type(
+        within(drawer).getByLabelText(/^Signing certificates/),
+        `${SAML_PEM}\n${SAML_PEM.replace("MIICvD", "MIICvE")}`,
+      );
+      await user.click(within(drawer).getByRole("button", { name: "Add provider" }));
+
+      await waitFor(() => {
+        expect(backend.callsTo("PUT /api/auth/saml/config/entra")).toHaveLength(1);
+      });
+      const body = backend.callsTo("PUT /api/auth/saml/config/entra")[0]?.body as Record<string, unknown>;
+      expect(body["idp_entity_id"]).toBe("https://sts.windows.net/tenant/");
+      expect(body["sso_url"]).toBe("https://login.microsoftonline.com/tenant/saml2");
+      expect(body["certificates"]).toEqual([SAML_PEM, SAML_PEM.replace("MIICvD", "MIICvE")]);
+      expect(body).not.toHaveProperty("idp_metadata");
+    });
+
+    it("shows what to register with the provider, and reads the group mappings back as lines", { timeout: 30_000 }, async () => {
+      const { backend, user } = await pageAt(
+        { saml: [SAML_PROVIDER] },
+        { "PUT /api/auth/saml/config/entra": () => json(200, SAML_PROVIDER) },
+      );
+      await user.click(await screen.findByRole("button", { name: "Edit entra" }));
+      const drawer = await screen.findByRole("dialog", { name: "Edit entra" });
+      const register = within(drawer).getByRole("region", { name: "Register this server with the provider" });
+      expect(within(register).getAllByText("https://noust.acme.test/api/auth/saml/metadata/entra").length).toBeGreaterThan(0);
+      expect(within(register).getAllByText("https://noust.acme.test/api/auth/saml/acs").length).toBeGreaterThan(0);
+      expect(within(drawer).getByLabelText(/^What each group means/)).toHaveValue("ops=operator");
+      await user.click(within(drawer).getByRole("button", { name: "Save provider" }));
+
+      await waitFor(() => {
+        expect(backend.callsTo("PUT /api/auth/saml/config/entra")).toHaveLength(1);
+      });
+      const body = backend.callsTo("PUT /api/auth/saml/config/entra")[0]?.body as Record<string, unknown>;
+      // What is on screen is what is saved, the certificates included; no metadata was pasted.
+      expect(body["certificates"]).toEqual([SAML_PEM]);
+      expect(body["idp_entity_id"]).toBe("https://sts.windows.net/tenant/");
+      expect(body["group_mappings"]).toEqual([{ group: "ops", role: "operator" }]);
+      expect(body).not.toHaveProperty("idp_metadata");
+    });
+
+    it("says what the server refused beside the field it is about", { timeout: 30_000 }, async () => {
+      const { user } = await pageAt(
+        {},
+        {
+          "PUT /api/auth/saml/config/entra": () =>
+            problem(422, "validation_error", "Invalid", { fields: { certificates: "Not a certificate: no start line." } }),
+        },
+      );
+      await user.click(await screen.findByRole("button", { name: "Add a SAML provider" }));
+      const drawer = await screen.findByRole("dialog", { name: "Add a SAML provider" });
+      await user.type(within(drawer).getByLabelText(/^Name/), "entra");
+      await user.type(within(drawer).getByRole("textbox", { name: /^Its metadata/ }), "<x/>");
+      await user.click(within(drawer).getByRole("button", { name: "Add provider" }));
+      expect((await within(drawer).findAllByText("Not a certificate: no start line.")).length).toBeGreaterThan(0);
+    });
+
+    it("says which mappings line is wrong instead of sending it", { timeout: 30_000 }, async () => {
+      const { backend, user } = await pageAt({ saml: [SAML_PROVIDER] });
+      await user.click(await screen.findByRole("button", { name: "Edit entra" }));
+      const drawer = await screen.findByRole("dialog", { name: "Edit entra" });
+      const box = within(drawer).getByLabelText(/^What each group means/);
+      await user.clear(box);
+      await user.type(box, "not a mapping");
+      await user.click(within(drawer).getByRole("button", { name: "Save provider" }));
+      expect(await within(drawer).findByText(/Line 1 is not a mapping/)).toBeInTheDocument();
+      expect(backend.callsTo("PUT /api/auth/saml/config/entra")).toHaveLength(0);
+    });
+
+    it("tests a provider and shows each check as it answered", { timeout: 30_000 }, async () => {
+      const { user } = await pageAt(
+        { saml: [SAML_PROVIDER] },
+        {
+          "POST /api/auth/saml/config/entra/test": () =>
+            json(200, {
+              ok: false,
+              checks: [
+                { name: "certificate", ok: true, detail: "CN=Microsoft: good for 600 more days" },
+                { name: "assertion consumer address", ok: false, detail: "http://noust.acme.test/api/auth/saml/acs: serve the console over TLS" },
+              ],
+            }),
+        },
+      );
+      await user.click(await screen.findByRole("button", { name: "Test entra" }));
+      const dialog = await screen.findByRole("dialog", { name: "Test of entra" });
+      expect(within(dialog).getByText(/serve the console over TLS/)).toBeInTheDocument();
+      expect(within(dialog).getByText("Failed")).toHaveAttribute("data-state", "failed");
+    });
+
+    it("removes a provider after asking, and reads the list again", { timeout: 30_000 }, async () => {
+      const { backend, state, user } = await pageAt(
+        { saml: [SAML_PROVIDER] },
+        { "DELETE /api/auth/saml/config/entra": () => json(200, { success: true, removed: "entra" }) },
+      );
+      await user.click(await screen.findByRole("button", { name: "Remove entra" }));
+      const dialog = await screen.findByRole("alertdialog", { name: "Remove entra?" });
+      state.saml = [];
+      await user.click(within(dialog).getByRole("button", { name: "Remove provider" }));
+      await waitFor(() => {
+        expect(backend.callsTo("DELETE /api/auth/saml/config/entra")).toHaveLength(1);
+      });
+      expect(await screen.findByRole("heading", { name: "No SAML provider yet" })).toBeInTheDocument();
+    });
+
+    it("speaks Spanish", { timeout: 30_000 }, async () => {
+      await pageAt({ saml: [SAML_PROVIDER] });
+      await act(() => setLocale("es"));
+      expect(await screen.findByRole("button", { name: "Probar entra" })).toBeInTheDocument();
+      expect(screen.getByRole("region", { name: "Proveedores SAML configurados" })).toBeInTheDocument();
       await act(() => setLocale("en"));
     });
   });

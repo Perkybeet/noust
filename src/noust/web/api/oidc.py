@@ -893,6 +893,33 @@ def list_identities(
     )
 
 
+#: The audit event of a link made by hand, by the protocol of the source it was made at.
+LINK_EVENTS = {"oidc": "auth.oidc.link", "saml": "auth.saml.link", "ldap": "auth.ldap.link"}
+
+
+def _link_by_hand(oidc: OidcManager, body: LinkRequest, actor: str) -> Any:
+    """
+    Link a person to an account at whichever source has the name: names are shared by every way
+    of signing in, so the name says which.
+
+    Args:
+        oidc: The OpenID Connect manager.
+        body: The source, the account and the source's id for the person.
+        actor: Who links it.
+
+    Returns:
+        The identity.
+    """
+    if oidc.provider(body.provider) is None:
+        saml = saml_manager()
+        if saml.provider(body.provider) is not None:
+            return saml.link(body.provider, body.username, body.subject, actor=actor)
+        directories = directory_manager()
+        if directories.directory(body.provider) is not None:
+            return directories.link(body.provider, body.username, body.subject, actor=actor)
+    return oidc.link(body.provider, body.username, body.subject, actor=actor)
+
+
 @router.post("/identities", response_model=IdentityInfo, status_code=201)
 def link_identity(
     request: Request, body: LinkRequest, session: dict[str, Any] = Depends(require_elevated)
@@ -915,11 +942,11 @@ def link_identity(
     """
     oidc = manager()
     try:
-        identity = oidc.link(body.provider, body.username, body.subject, actor=actor_label(session))
+        identity = _link_by_hand(oidc, body, actor_label(session))
     except ConfigError as exc:
         raise _not_found(exc) from exc
     audit_event(
-        "auth.oidc.link",
+        LINK_EVENTS.get(identity.protocol, "auth.oidc.link"),
         "success",
         client_ip=get_client_ip(request),
         session=session,

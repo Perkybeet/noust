@@ -9,6 +9,7 @@ import { DirectoriesSection } from "./DirectoriesSection";
 import { IdentitiesSection } from "./IdentitiesSection";
 import { LocalSignInSection } from "./LocalSignInSection";
 import { ProvidersSection } from "./ProvidersSection";
+import { SamlSection } from "./SamlSection";
 import { ScimSection } from "./ScimSection";
 
 /**
@@ -43,6 +44,7 @@ export function SsoSettings() {
   return (
     <Sections>
       <ProvidersSection />
+      <SamlSection />
       <DirectoriesSection />
       <LocalSignInSection />
       <IdentitiesSection />

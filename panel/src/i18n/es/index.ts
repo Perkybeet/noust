@@ -58,6 +58,7 @@ export { selfBackup } from "./selfBackup";
 export { server } from "./server";
 export { scimAdmin } from "./scimAdmin";
 export { ldapAdmin } from "./ldapAdmin";
+export { samlAdmin } from "./samlAdmin";
 export { servers } from "./servers";
 export { services } from "./services";
 export { settings } from "./settings";

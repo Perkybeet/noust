@@ -31,10 +31,11 @@ export const ssoProvidersQuery = () =>
  * Where the button goes: a plain navigation, because the browser leaves for the provider and
  * comes back to the server, which sends it to the sign-in page again with what to do next.
  */
-export function ssoStartHref(provider: string, next: string): string {
+export function ssoStartHref(provider: string, next: string, protocol = "oidc"): string {
   const query = new URLSearchParams({ provider });
   if (next !== "/") query.set("next", next);
-  return `/api/auth/oidc/start?${query.toString()}`;
+  // Each protocol starts where it keeps its own state; the answer ends at the same ticket.
+  return `/api/auth/${protocol === "saml" ? "saml" : "oidc"}/start?${query.toString()}`;
 }
 
 /**

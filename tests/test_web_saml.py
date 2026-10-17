@@ -557,6 +557,41 @@ class TestAdministration:
         )
         assert missing.status_code == 404
 
+    def test_a_person_is_linked_by_hand_at_a_saml_provider_through_the_shared_route(
+        self, app: Any, idp: FakeIdp, sandbox: Path
+    ) -> None:
+        make_account("maria", "operator", mfa=False)
+        configure()
+        client = self.sign_in_as_security(app)
+        self.elevate(client)
+
+        linked = client.post(
+            "/api/auth/oidc/identities",
+            json={"provider": "corp", "username": "maria", "subject": "uuid-maria"},
+            headers={CSRF_HEADER_NAME: client.csrf},
+        )
+
+        assert linked.status_code == 201, linked.text
+        assert (linked.json()["account"], linked.json()["issuer"]) == ("maria", ISSUER)
+        recorded = logged(sandbox, "auth.saml.link")
+        assert recorded and recorded[-1]["actor"] == "sofia"
+        # And that is all it takes for the provider to recognise her.
+        ticket = ticket_of(through_the_provider(browser(app), idp))
+        assert ticket
+
+    def test_a_provider_that_does_not_exist_anywhere_is_a_404(self, app: Any) -> None:
+        make_account("maria", "operator", mfa=False)
+        client = self.sign_in_as_security(app)
+        self.elevate(client)
+
+        missing = client.post(
+            "/api/auth/oidc/identities",
+            json={"provider": "nope", "username": "maria", "subject": "x"},
+            headers={CSRF_HEADER_NAME: client.csrf},
+        )
+
+        assert missing.status_code == 404
+
     def test_the_provider_is_removed_in_sudo_mode(self, app: Any, sandbox: Path) -> None:
         make_account("root-admin", "admin")
         configure()

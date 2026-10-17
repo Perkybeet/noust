@@ -126,6 +126,24 @@ describe("the sign-in page with an identity provider", () => {
     expect(links.map((link) => link.textContent)).toEqual(["Sign in with Acme SSO", "Sign in with Google"]);
   });
 
+  it("starts a SAML provider where the SAML sign-in keeps its state, with the same destination", async () => {
+    ssoBackend({
+      providers: {
+        providers: [
+          { name: "corp", label: "Acme SSO", protocol: "oidc" },
+          { name: "entra", label: "Entra ID", protocol: "saml" },
+        ],
+      },
+    });
+    renderConsole("/login?next=%2Fapps");
+
+    const oidc = await screen.findByRole("link", { name: "Sign in with Acme SSO" });
+    const saml = screen.getByRole("link", { name: "Sign in with Entra ID" });
+
+    expect(oidc).toHaveAttribute("href", "/api/auth/oidc/start?provider=corp&next=%2Fapps");
+    expect(saml).toHaveAttribute("href", "/api/auth/saml/start?provider=entra&next=%2Fapps");
+  });
+
   it("shows no button when no provider is configured, and none when the server cannot say", async () => {
     ssoBackend({ providers: { providers: [] } });
     const first = renderConsole("/login");
