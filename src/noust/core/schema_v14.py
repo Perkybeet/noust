@@ -786,9 +786,15 @@ NETWORK_COLUMNS: list[tuple[str, str, str]] = [
 #   breached and ``ok`` once it cleared; the row stays so the cooldown
 #   (announced_at, the last time a firing message went out) survives a clear.
 #   ``announced`` says whether the current firing was told: one that fired
-#   inside the cooldown is silent, and so is its end.
+#   inside the cooldown is silent, and so is its end. ``acknowledged_at`` and
+#   ``acknowledged_by`` say that somebody took the firing: it is kept for as long
+#   as it goes on firing and forgotten the moment it clears or starts again.
 # notification_state: small facts a check of the monitor must keep between scans
 #   (the last cron invocation seen, when a missing backup was last announced).
+# probes, probe_state, probe_results, probe_daily, probe_incidents: the addresses
+#   the monitor asks from outside the machine and what they answered
+#   (noust.core.probe_store). The result rows are kept a week; probe_daily, one
+#   row per probe and day, is what uptime is read from, kept past a year.
 NOTIFY_SQL = """
 CREATE TABLE IF NOT EXISTS notification_deliveries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -847,8 +853,71 @@ CREATE TABLE IF NOT EXISTS notification_state (
     updated_at REAL NOT NULL,
     PRIMARY KEY (scope, item)
 );
+CREATE TABLE IF NOT EXISTS probes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    url TEXT NOT NULL,
+    method TEXT NOT NULL DEFAULT 'GET' CHECK (method IN ('GET', 'HEAD')),
+    expect_status TEXT NOT NULL DEFAULT '200-399',
+    expect_text TEXT,
+    interval_s INTEGER NOT NULL DEFAULT 60,
+    timeout_s INTEGER NOT NULL DEFAULT 10,
+    fail_after INTEGER NOT NULL DEFAULT 3,
+    public INTEGER NOT NULL DEFAULT 0,
+    title TEXT,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at REAL NOT NULL,
+    created_by TEXT,
+    updated_at REAL NOT NULL,
+    updated_by TEXT
+);
+CREATE TABLE IF NOT EXISTS probe_state (
+    probe_id INTEGER PRIMARY KEY REFERENCES probes(id) ON DELETE CASCADE,
+    state TEXT NOT NULL DEFAULT 'unknown' CHECK (state IN ('unknown', 'up', 'down')),
+    since REAL NOT NULL DEFAULT 0,
+    failures INTEGER NOT NULL DEFAULT 0,
+    announced INTEGER NOT NULL DEFAULT 0,
+    failing_since REAL,
+    last_checked REAL,
+    last_status INTEGER,
+    last_latency_ms INTEGER,
+    last_error TEXT
+);
+CREATE TABLE IF NOT EXISTS probe_results (
+    probe_id INTEGER NOT NULL REFERENCES probes(id) ON DELETE CASCADE,
+    ts REAL NOT NULL,
+    ok INTEGER NOT NULL,
+    status INTEGER,
+    latency_ms INTEGER,
+    error TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_probe_results_time ON probe_results(probe_id, ts);
+CREATE TABLE IF NOT EXISTS probe_daily (
+    probe_id INTEGER NOT NULL REFERENCES probes(id) ON DELETE CASCADE,
+    day INTEGER NOT NULL,
+    checks INTEGER NOT NULL DEFAULT 0,
+    good INTEGER NOT NULL DEFAULT 0,
+    latency_sum INTEGER NOT NULL DEFAULT 0,
+    latency_max INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (probe_id, day)
+);
+CREATE TABLE IF NOT EXISTS probe_incidents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    probe_id INTEGER NOT NULL REFERENCES probes(id) ON DELETE CASCADE,
+    started_at REAL NOT NULL,
+    ended_at REAL,
+    reason TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_probe_incidents_probe ON probe_incidents(probe_id, started_at);
 """
-NOTIFY_COLUMNS: list[tuple[str, str, str]] = []
+# held_for: why a delivery is held (``quiet`` hours, a ``flood`` of messages, the
+#   ``summary`` of the day); NULL for a delivery that is not held, and for one held
+#   by the quiet hours before 3.4.
+NOTIFY_COLUMNS: list[tuple[str, str, str]] = [
+    ("notification_deliveries", "held_for", "TEXT"),
+    ("alert_states", "acknowledged_at", "REAL"),
+    ("alert_states", "acknowledged_by", "TEXT"),
+]
 
 # Owned by the single sign-on lane (noust.core.accounts.oidc_store).
 #

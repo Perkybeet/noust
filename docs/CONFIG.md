@@ -214,6 +214,12 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `monitor.smtp.use_tls` | `false` | STARTTLS, usually port 587. Not together with `use_ssl`. |
 | `monitor.smtp.from_address` | empty | The sender; empty uses the account name. |
 | `monitor.smtp.timeout` | `30` | Seconds before a connection to the SMTP server is given up. Not in the defaults. |
+| `monitor.email_api.provider` | empty | Send mail through a provider's API instead of SMTP: `resend`, `postmark`, `brevo` or `ses`. Empty is SMTP. |
+| `monitor.email_api.from_address` | empty | The sender, which the provider must have verified. |
+| `monitor.email_api.api_key` | empty | Resend, Postmark (server token) or Brevo key (a secret). |
+| `monitor.email_api.region` | empty | Amazon SES: the AWS region, such as `eu-west-1`. |
+| `monitor.email_api.access_key_id` | empty | Amazon SES access key id (a secret). |
+| `monitor.email_api.secret_access_key` | empty | Amazon SES secret access key (a secret). |
 | `monitor.email_recipients` | empty list | Who receives email notifications: a list of addresses, or `a@x.com,b@y.com` from the command line. |
 | `monitor.notify` | `false` | Also mail the monitor's raw observations. Not in the defaults. |
 | `monitor.watch_units` | none | Extra systemd units the monitor watches besides the applications'. Not in the defaults. |
@@ -246,6 +252,7 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `notifications.events.approval_decided` | `true` | A request for approval was approved or rejected. |
 | `notifications.events.alert_firing` | `true` | A user-defined alert rule (`noust alert`) has been breached for its whole duration. |
 | `notifications.events.alert_resolved` | `true` | An alert that was announced is back inside its limit. |
+| `notifications.events.alert_acknowledged` | `true` | Somebody took an alert that is firing (`noust alert ack`); a PagerDuty channel acknowledges the incident. |
 | `notifications.events.backup_missing` | `true` | A scheduled backup did not run (an application's, a database's, an application's data or Noust's own state): nothing failed, so `backup_failed` never says so. |
 | `notifications.events.cron_failed` | `true` | A cron job (`noust cron`) ended with an error, with the last lines it printed. |
 | `notifications.events.cron_success` | `false` | Every successful run of every cron job: a heartbeat, off like `backup_success`. |
@@ -268,6 +275,14 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `notifications.channels.gotify.webhook_url` | empty | The Gotify server's URL (a secret). |
 | `notifications.channels.gotify.token` | empty | The Gotify application's token, sent as `X-Gotify-Key` (a secret). |
 | `notifications.channels.teams.webhook_url` | empty | A Microsoft Teams Workflows webhook (a secret); the message is an Adaptive Card. |
+| `notifications.channels.mattermost.webhook_url` | empty | A Mattermost incoming webhook (a secret). |
+| `notifications.channels.matrix.homeserver` | empty | The Matrix homeserver's base URL. |
+| `notifications.channels.matrix.room_id` | empty | The room's id, `!abc:example.org` (Room settings, Advanced). |
+| `notifications.channels.matrix.access_token` | empty | The posting account's access token (a secret), sent as a bearer header. |
+| `notifications.channels.lark.webhook_url` | empty | A Lark (Feishu) custom bot's webhook (a secret). |
+| `notifications.channels.lark.secret` | empty | The bot's signing secret, when signature verification is on (a secret). |
+| `notifications.channels.pagerduty.routing_key` | empty | The 32-character integration key of a service (Events API v2) (a secret). |
+| `notifications.channels.pagerduty.region` | `us` | The account's service region, `us` or `eu`. |
 
 Any other key under `notifications.channels` is a **further channel** of one of those types, with its own events, route and quiet hours: see [notifications.md](notifications.md).
 

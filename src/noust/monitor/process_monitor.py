@@ -82,6 +82,7 @@ from noust.monitor.watch_backups import BackupWatch
 from noust.monitor.watch_cron import CronWatch
 from noust.monitor.watch_destinations import DestinationWatch
 from noust.monitor.watch_patches import PatchWatch
+from noust.monitor.watch_probes import ProbeWatch
 from noust.monitor.watch_tokens import TokenWatch
 from noust.monitor.watches import Watch, WatchServices, run_due
 
@@ -478,7 +479,14 @@ class ProcessMonitor:
         self._watches = (
             watches
             if watches is not None
-            else [CronWatch(), BackupWatch(), DestinationWatch(), PatchWatch(), TokenWatch()]
+            else [
+                CronWatch(),
+                BackupWatch(),
+                DestinationWatch(),
+                PatchWatch(),
+                TokenWatch(),
+                ProbeWatch(),
+            ]
         )
         self._alert_engine = alert_engine
         self._notification_state = notification_state

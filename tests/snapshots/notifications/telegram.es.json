@@ -1318,6 +1318,176 @@
     "disable_notification": false,
     "parse_mode": "HTML"
   },
+  "cleanup.completed": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Disco limpiado</b> · /\nLa política de limpieza del servidor se ha ejecutado y ha liberado espacio.\n\n<b>Servidor:</b> web-1\n<b>Usado:</b> 91% -&gt; 64%\n<b>Liberado:</b> 11.5 GB\n<b>Acciones:</b> journal, pkg-cache, releases",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "cleanup.partial": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>La limpieza del disco ha fallado en parte</b> · /\nLa política de limpieza se ha ejecutado, pero algunas de sus acciones han fallado.\n\n<b>Servidor:</b> web-1\n<b>Usado:</b> 91% -&gt; 88%\n<b>Liberado:</b> 2.0 GB\n<b>Acciones:</b> journal, pkg-cache, releases\n<b>Ver lo ejecutado:</b> <code>noust server cleanup-schedule runs</code>\n\n<i>Lo que ha dicho releases</i>\n<pre>rm: cannot remove '/var/www/apps/shop/releases/x': Permission denied</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "cleanup.failed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Ha fallado la limpieza del disco</b> · /\nLa política de limpieza se ha ejecutado y todas sus acciones han fallado, así que el disco sigue como estaba.\n\n<b>Servidor:</b> web-1\n<b>Usado:</b> 93% -&gt; 93%\n<b>Acciones:</b> journal\n<b>Ver lo ejecutado:</b> <code>noust server cleanup-schedule runs</code>\n\n<i>Lo que ha dicho journal</i>\n<pre>Failed to vacuum: Read-only file system</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "cron.timer_stopped": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>La tarea programada no se ejecutará</b> · shop-sync\nLa tarea está activada pero su temporizador no está en marcha, así que no arrancará. Nada ha fallado: nada se ejecuta.\n\n<b>Servidor:</b> web-1\n<b>Programación:</b> *-*-* 03:00:00\n<b>Temporizador:</b> failed\n<b>Actívala de nuevo con:</b> <code>noust cron enable shop-sync</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/cron"
+          }
+        ]
+      ]
+    }
+  },
+  "cron.timer_running": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>La tarea programada vuelve a ejecutarse</b> · shop-sync\nEl temporizador de la tarea vuelve a estar en marcha.\n\n<b>Servidor:</b> web-1\n<b>Programación:</b> *-*-* 03:00:00",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/cron"
+          }
+        ]
+      ]
+    }
+  },
+  "probe.failed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Dirección sin respuesta</b> · shop-site\nLa dirección ha dejado de responder lo que le pide la sonda.\n\n<b>Servidor:</b> web-1\n<b>Dirección:</b> https://shop.example.com/health\n<b>Inaccesible desde:</b> 2026-10-16 08:14 UTC\n<b>Pruébala ahora con:</b> <code>noust probe run shop-site</code>\n\n<i>Lo que ha respondido</i>\n<pre>HTTP 503 Service Unavailable\nretry-after: 30</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/settings/probes"
+          }
+        ]
+      ]
+    }
+  },
+  "probe.recovered": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>La dirección vuelve a responder</b> · shop-site\nContesta otra vez a lo que le pide la sonda.\n\n<b>Servidor:</b> web-1\n<b>Dirección:</b> https://shop.example.com/health\n<b>Estuvo inaccesible durante:</b> 7 min 42 s\n<b>Respondió en:</b> 184 ms",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/settings/probes"
+          }
+        ]
+      ]
+    }
+  },
+  "alert.acknowledged": {
+    "chat_id": "-1001234567890",
+    "text": "○ <b>Alerta atendida</b> · cpu-high\nalice se ocupa: CPU del servidor sigue fuera del límite de 90%.\n\n<b>Servidor:</b> web-1\n<b>Regla:</b> cpu-high\n<b>Atendida por:</b> alice\n<b>Activa desde hace:</b> 21 min",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "digest.flood": {
+    "chat_id": "-1001234567890",
+    "text": "○ <b>Avisos contenidos</b>\n3 avisos pasaron el límite de este canal y se contuvieron hasta ahora.\n\n<b>Servidor:</b> web-1\n<b>Avisos:</b> 3\n<b>Entre:</b> 2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC\n\n<b>Disco limpiado · /</b>\n<b>Cuándo:</b> 2026-09-29 10:45 UTC\n<b>Detalle:</b> La política de limpieza del servidor se ha ejecutado y ha liberado espacio.\n\n<b>La tarea programada vuelve a ejecutarse · shop-sync</b>\n<b>Cuándo:</b> 2026-09-29 10:48 UTC\n<b>Detalle:</b> El temporizador de la tarea vuelve a estar en marcha.\n\n<b>La dirección vuelve a responder · shop-site</b>\n<b>Cuándo:</b> 2026-09-29 10:51 UTC\n<b>Detalle:</b> Contesta otra vez a lo que le pide la sonda.",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML"
+  },
+  "digest.summary": {
+    "chat_id": "-1001234567890",
+    "text": "○ <b>Resumen programado</b>\n3 avisos desde el último resumen.\n\n<b>Servidor:</b> web-1\n<b>Avisos:</b> 3\n<b>Entre:</b> 2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC\n\n<b>Disco limpiado · /</b>\n<b>Cuándo:</b> 2026-09-29 10:45 UTC\n<b>Detalle:</b> La política de limpieza del servidor se ha ejecutado y ha liberado espacio.\n\n<b>La tarea programada vuelve a ejecutarse · shop-sync</b>\n<b>Cuándo:</b> 2026-09-29 10:48 UTC\n<b>Detalle:</b> El temporizador de la tarea vuelve a estar en marcha.\n\n<b>La dirección vuelve a responder · shop-site</b>\n<b>Cuándo:</b> 2026-09-29 10:51 UTC\n<b>Detalle:</b> Contesta otra vez a lo que le pide la sonda.",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML"
+  },
   "hostile.deploy_failed": {
     "chat_id": "-1001234567890",
     "text": "✕ <b>Despliegue fallido</b> · shop.example.com\nSe ha detenido por un error antes de que la nueva versión tomara el relevo.\n\n<b>Servidor:</b> wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n<b>Versión:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (&lt;b&gt;x&lt;/b&gt;&amp;amp;&lt;!channel&gt; @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here &lt;@U123&gt; &lt;#C1&gt; red emoji 🚀\n<b>Iniciado por:</b> Webhook\n<b>Duración:</b> 1 min 12 s\n<b>Revísalo con:</b> <code>noust diagnose shop.example.com</code>\n\n<i>Lo que ha informado el sistema</i>\n<pre>Release did not pass &lt;its&gt; health &amp; check\n&lt;urlopen error [Errno 111] Connection refused&gt;\n```\n@everyone &lt;!channel&gt; &lt;@U123|admin&gt; &amp;lt;b&amp;gt;\nred *bold* _italic_ ~strike~ `code`\nnoitcnuf\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…</pre>",

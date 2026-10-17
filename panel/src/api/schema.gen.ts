@@ -251,6 +251,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/alerts/rules/{name}/acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Acknowledge Rule
+         * @description Take an alert that is firing.
+         *
+         *     Its reminders stop, the channels are told who took it and a pager channel
+         *     acknowledges the incident, which stops it escalating. It still clears, and
+         *     says so, when the metric is back inside its limit. Taking one that is taken
+         *     changes nothing.
+         *
+         *     Args:
+         *         name: The rule's name.
+         *         session: The authenticated session.
+         *         subject: The application, or empty for the server.
+         *
+         *     Returns:
+         *         The rule, with where each subject stands.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such rule.
+         *         ValidationError: 400 when the subject is not firing.
+         */
+        post: operations["acknowledge_rule_api_alerts_rules__name__acknowledge_post"];
+        /**
+         * Hand Back Rule
+         * @description Hand a firing alert back: its reminder speaks again.
+         *
+         *     Args:
+         *         name: The rule's name.
+         *         session: The authenticated session.
+         *         subject: The application, or empty for the server.
+         *
+         *     Returns:
+         *         The rule, with where each subject stands.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such rule.
+         *         ValidationError: 400 when the subject is not firing.
+         */
+        delete: operations["hand_back_rule_api_alerts_rules__name__acknowledge_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/alerts/rules/{name}/disable": {
         parameters: {
             query?: never;
@@ -5867,6 +5920,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/traffic": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * App Traffic
+         * @description Say what the proxy's access log says about an application.
+         *
+         *     Requests and how they ended by the hour (by the day beyond two days), bytes
+         *     served, and the pages asked for most, the networks they came from, the
+         *     status codes and the referrers' hosts. Query strings are never kept and a
+         *     client is its network (a /24 or a /48), not its address.
+         *
+         *     Args:
+         *         domain: The application's domain.
+         *         session: Authenticated session, injected.
+         *         window: How far back to look.
+         *         top: Entries in each ranking.
+         *
+         *     Returns:
+         *         The traffic, and whether the log is being read at all.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such application.
+         */
+        get: operations["app_traffic_api_apps__domain__traffic_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/tuning": {
         parameters: {
             query?: never;
@@ -9636,6 +9726,56 @@ export interface paths {
          *         HTTPException: If the configuration cannot be written.
          */
         put: operations["update_delivery_config_api_config_delivery_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/config/email-api": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Email Api Config
+         * @description Get the email provider settings.
+         *
+         *     Args:
+         *         session: Authenticated session, injected by the dependency.
+         *
+         *     Returns:
+         *         The provider, its region and sender, the providers Noust speaks and
+         *         which credentials are stored - never a credential.
+         */
+        get: operations["get_email_api_config_api_config_email_api_get"];
+        /**
+         * Update Email Api Config
+         * @description Update the email provider settings.
+         *
+         *     Goes through :meth:`~noust.core.config.Config.set`, so the rules of
+         *     ``noust config set monitor.email_api.*`` (a provider Noust speaks, a region
+         *     that is one, a valid sender) apply here in the same words. A blank
+         *     credential keeps the stored one while the provider stays the same and is
+         *     cleared when it changes. Choosing a provider replaces SMTP; choosing none
+         *     goes back to it.
+         *
+         *     Args:
+         *         body: Body carrying the settings.
+         *         request: The incoming request, for the audit record.
+         *         session: Authenticated session, injected by the dependency.
+         *
+         *     Returns:
+         *         Confirmation message.
+         *
+         *     Raises:
+         *         ConfigError: 400, through the error boundary, for a provider or region
+         *             that does not exist or a sender that is not an address.
+         */
+        put: operations["update_email_api_config_api_config_email_api_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -15180,6 +15320,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/fleet/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fleet Logs
+         * @description Search the logs of the applications of every server at once, newest first.
+         *
+         *     Each server decides what this operator may read of its logs (a team's own
+         *     applications, never another's) and judges the query and the window itself;
+         *     a server that cannot search is a note on the view, not an error.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *         q: The search.
+         *         since: Start of the window.
+         *         until: End of the window.
+         *         level: The worst level kept.
+         *         limit: Lines per server.
+         *
+         *     Returns:
+         *         One row per line (``type: line``) and one per note (``type: note``).
+         */
+        get: operations["fleet_logs_api_fleet_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fleet Metrics
+         * @description One metric of every server over the same window, to compare them.
+         *
+         *     Each server answers from its own recorded history (nothing is stored on the
+         *     central), so a server that is down is a gap in the comparison, said so in
+         *     ``nodes``, not an error. Memory, swap and disk are the share of what each
+         *     server has.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *         metric: What to compare.
+         *         window: How far back.
+         *
+         *     Returns:
+         *         One row per server: its points, latest value, average and peak.
+         */
+        get: operations["fleet_metrics_api_fleet_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/fleet/placements": {
         parameters: {
             query?: never;
@@ -16645,6 +16859,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/logs/retention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Retention
+         * @description Say how long the logs are kept.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The retention the drop-in sets, whether the journal survives a reboot
+         *         and how much disk it takes.
+         */
+        get: operations["get_retention_api_logs_retention_get"];
+        /**
+         * Set Retention
+         * @description Keep the logs this long, using at most this much disk.
+         *
+         *     Args:
+         *         body: What to keep.
+         *         session: The authenticated session in sudo mode (journald is restarted).
+         *
+         *     Returns:
+         *         The retention afterwards.
+         *
+         *     Raises:
+         *         ValidationError: 400 when nothing is named or a number is out of range.
+         */
+        put: operations["set_retention_api_logs_retention_put"];
+        post?: never;
+        /**
+         * Clear Retention
+         * @description Go back to journald's own defaults.
+         *
+         *     Args:
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         The retention afterwards.
+         */
+        delete: operations["clear_retention_api_logs_retention_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/logs/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Logs
+         * @description Search the logs of the applications the caller sees.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         q: The query.
+         *         app: Narrow to these applications (domains); any the caller does not see
+         *             is simply not searched.
+         *         since: Start of the window.
+         *         until: End of the window.
+         *         level: The worst level kept.
+         *         limit: Most lines to return.
+         *
+         *     Returns:
+         *         The lines, newest first, and how much was examined.
+         *
+         *     Raises:
+         *         ValidationError: 400 naming what in the query or the window is not acceptable,
+         *             and where in the query when it is the query.
+         */
+        get: operations["search_logs_api_logs_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/manifest/apply": {
         parameters: {
             query?: never;
@@ -16875,6 +17177,40 @@ export interface paths {
          *         lives and whether a collector is recording it.
          */
         get: operations["list_metrics_api_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/metrics/prometheus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Prometheus
+         * @description Export the newest value of every metric for a scraper (Prometheus, Grafana
+         *     Agent, an OpenTelemetry Collector, Netdata...).
+         *
+         *     The credential a scraper holds is an API token with the ``read`` scope, which
+         *     cannot change anything; there is no separate export secret to leak. Send
+         *     ``Accept: application/openmetrics-text`` for OpenMetrics.
+         *
+         *     Args:
+         *         request: The incoming request, for the ``Accept`` header.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The exposition. Values older than two minutes are left out, and
+         *         ``noust_metrics_recording`` says whether the history is being recorded
+         *         at all.
+         */
+        get: operations["export_prometheus_api_metrics_prometheus_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -18004,6 +18340,258 @@ export interface paths {
          *         The tailnet, when there is one, and each WireGuard interface.
          */
         get: operations["list_networks_api_private_networks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/probes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Probes
+         * @description List the probes with where each stands and how it has done.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The probes, how many are down, and the status page.
+         */
+        get: operations["list_probes_api_probes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/probes/status-page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Status Page
+         * @description Say how the public status page is set up and whether it is on a name.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The settings and the publication.
+         */
+        get: operations["get_status_page_api_probes_status_page_get"];
+        /**
+         * Set Status Page
+         * @description Change the status page's settings.
+         *
+         *     Args:
+         *         body: What to change.
+         *         session: The authenticated session in sudo mode (the monitor, as root,
+         *             writes the files where the directory says).
+         *
+         *     Returns:
+         *         The settings as they now stand.
+         *
+         *     Raises:
+         *         ConfigError: 400 naming the setting that is not acceptable.
+         */
+        put: operations["set_status_page_api_probes_status_page_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/probes/status-page/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish Status Page
+         * @description Put the status page on a name of its own, over TLS.
+         *
+         *     Args:
+         *         body: The name.
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["publish_status_page_api_probes_status_page_publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/probes/status-page/site": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unpublish Status Page
+         * @description Take the status page off its name, removing exactly what publishing made.
+         *
+         *     Args:
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        delete: operations["unpublish_status_page_api_probes_status_page_site_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/probes/status-page/write": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write Status Page
+         * @description Write the status page's files now, instead of at the monitor's next scan.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The files written.
+         */
+        post: operations["write_status_page_api_probes_status_page_write_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/probes/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Probe
+         * @description Create a probe or replace the one of that name.
+         *
+         *     Replacing it asks the address afresh: what the old settings had decided is
+         *     forgotten.
+         *
+         *     Args:
+         *         name: The probe's name.
+         *         body: What it is.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The probe as stored.
+         *
+         *     Raises:
+         *         ValidationError: 400 naming the field that is not acceptable, an
+         *             address on this server's own network included.
+         */
+        put: operations["save_probe_api_probes__name__put"];
+        post?: never;
+        /**
+         * Remove Probe
+         * @description Remove a probe with what it kept.
+         *
+         *     Args:
+         *         name: The probe.
+         *         session: The authenticated session.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such probe.
+         */
+        delete: operations["remove_probe_api_probes__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/probes/{name}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Probe
+         * @description Ask a probe now, whatever its interval, and keep the answer.
+         *
+         *     Args:
+         *         name: The probe.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         What it answered, and the probe as it now stands.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such probe.
+         */
+        post: operations["check_probe_api_probes__name__check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/probes/{name}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Probe History
+         * @description Say what one probe has done lately.
+         *
+         *     Args:
+         *         name: The probe.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its incidents and its latest answers.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such probe.
+         */
+        get: operations["probe_history_api_probes__name__history_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -25444,6 +26032,29 @@ export interface components {
             measured_at?: string | null;
         };
         /**
+         * AnswerModel
+         * @description One answer an address gave.
+         *
+         *     Attributes:
+         *         ts: Epoch seconds.
+         *         ok: Whether it was good.
+         *         status: The HTTP status.
+         *         latency_ms: How long it took.
+         *         error: What was wrong.
+         */
+        AnswerModel: {
+            /** Error */
+            error?: string | null;
+            /** Latency Ms */
+            latency_ms?: number | null;
+            /** Ok */
+            ok: boolean;
+            /** Status */
+            status?: number | null;
+            /** Ts */
+            ts: number;
+        };
+        /**
          * ApiTokenCreated
          * @description A freshly issued API token. The only response that ever carries the token.
          *
@@ -26286,12 +26897,16 @@ export interface components {
          *         series: Role (``cpu``, ``memory``, ``requests``, ``errors_5xx``) to the
          *             metric name that holds it, for the roles that exist for this kind
          *             of application.
+         *         containers: For a Compose stack, each container with the series of its
+         *             own, so a chart can say which service reads the disk.
          *         traffic: Whether requests are being counted.
          *         last_sample_at: The newest sample of any of its series.
          *         collector: Whether history is being recorded at all.
          */
         AppMetricsResponse: {
             collector: components["schemas"]["CollectorModel"];
+            /** Containers */
+            containers?: components["schemas"]["ContainerSeriesModel"][];
             /** Domain */
             domain: string;
             /** Kind */
@@ -26328,6 +26943,49 @@ export interface components {
         AppRegistryLoginsRequest: {
             /** Logins */
             logins?: string[];
+        };
+        /**
+         * AppTrafficResponse
+         * @description What an application's access log said over a window.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         window: The window asked for.
+         *         start: Where the first point starts, epoch seconds.
+         *         end: Where the window ends.
+         *         step: Seconds per point: an hour up to two days, a day beyond.
+         *         available: True when the log is being read now.
+         *         log: The access log it is read from.
+         *         reason: Why not, when the site should have one.
+         *         totals: The window summed.
+         *         points: By step, oldest first, every step present.
+         *         top: Rankings by ``paths``, ``networks``, ``statuses`` and ``referrers``.
+         *         collector: Whether history is being recorded.
+         */
+        AppTrafficResponse: {
+            /** Available */
+            available: boolean;
+            collector: components["schemas"]["CollectorModel"];
+            /** Domain */
+            domain: string;
+            /** End */
+            end: number;
+            /** Log */
+            log?: string | null;
+            /** Points */
+            points: components["schemas"]["TrafficPointModel"][];
+            reason?: components["schemas"]["ReasonModel"] | null;
+            /** Start */
+            start: number;
+            /** Step */
+            step: number;
+            /** Top */
+            top: {
+                [key: string]: components["schemas"]["RankedKeyModel"][];
+            };
+            totals: components["schemas"]["TrafficPointModel"];
+            /** Window */
+            window: string;
         };
         /**
          * AppTypeInfo
@@ -28764,6 +29422,8 @@ export interface components {
          *         events: Replaces the channel's own event switches (empty clears them).
          *         route: Replaces its route (empty clears it).
          *         quiet: Replaces its quiet hours (empty clears them).
+         *         flood: Replaces its anti-flood cap (empty clears it).
+         *         summary: Replaces its periodic summary (empty clears it).
          */
         ChannelBody: {
             /** Enabled */
@@ -28771,6 +29431,10 @@ export interface components {
             /** Events */
             events?: {
                 [key: string]: boolean;
+            } | null;
+            /** Flood */
+            flood?: {
+                [key: string]: unknown;
             } | null;
             /** Quiet */
             quiet?: {
@@ -28784,6 +29448,10 @@ export interface components {
             settings?: {
                 [key: string]: unknown;
             };
+            /** Summary */
+            summary?: {
+                [key: string]: unknown;
+            } | null;
             /** Type */
             type?: string | null;
         };
@@ -28839,6 +29507,11 @@ export interface components {
          *         route: What it is limited to (applications, projects, environments,
          *             tags, a minimum severity).
          *         quiet: When it stays silent, or null for never.
+         *         flood: The most it says in a stretch of time (``max`` messages in
+         *             ``minutes``), or null for no cap; what passes it arrives later as
+         *             one message.
+         *         summary: What waits for a periodic summary (``at``, ``timezone``,
+         *             ``below``, ``days``), or null for none.
          */
         ChannelModel: {
             /** Configured */
@@ -28851,6 +29524,10 @@ export interface components {
             events?: {
                 [key: string]: boolean;
             };
+            /** Flood */
+            flood?: {
+                [key: string]: unknown;
+            } | null;
             /** Name */
             name: string;
             /** Quiet */
@@ -28865,6 +29542,10 @@ export interface components {
             settings?: {
                 [key: string]: unknown;
             };
+            /** Summary */
+            summary?: {
+                [key: string]: unknown;
+            } | null;
             /** Type */
             type: string;
         };
@@ -28950,6 +29631,28 @@ export interface components {
             name: string;
             /** Ok */
             ok: boolean;
+        };
+        /**
+         * CheckResponse
+         * @description What asking a probe now got.
+         *
+         *     Attributes:
+         *         ok: It answered well.
+         *         status: The HTTP status.
+         *         latency_ms: How long it took.
+         *         error: What was wrong, in one line.
+         *         probe: The probe as it stands now.
+         */
+        CheckResponse: {
+            /** Error */
+            error?: string | null;
+            /** Latency Ms */
+            latency_ms?: number | null;
+            /** Ok */
+            ok: boolean;
+            probe: components["schemas"]["ProbeModel"];
+            /** Status */
+            status?: number | null;
         };
         /**
          * ChecksOut
@@ -29982,6 +30685,23 @@ export interface components {
             name: string;
             /** Type */
             type: string;
+        };
+        /**
+         * ContainerSeriesModel
+         * @description One container of a Compose stack and the series it has of its own.
+         *
+         *     Attributes:
+         *         name: The container's name as Docker prints it.
+         *         series: Role (``cpu``, ``memory``, ``disk_read``, ``disk_write``,
+         *             ``net_rx``, ``net_tx``) to the metric name that holds it.
+         */
+        ContainerSeriesModel: {
+            /** Name */
+            name: string;
+            /** Series */
+            series?: {
+                [key: string]: string;
+            };
         };
         /**
          * ContainerSettingsRequest
@@ -31541,6 +32261,7 @@ export interface components {
          *         next_attempt_at: When it is tried (or released) next.
          *         last_error: The failure, in the destination's own words.
          *         can_retry: It can be sent again by hand.
+         *         held_for: Why a held one waits: ``quiet``, ``flood`` or ``summary``.
          */
         DeliveryModel: {
             /** Attempts */
@@ -31558,6 +32279,8 @@ export interface components {
             code: string;
             /** Created At */
             created_at: number;
+            /** Held For */
+            held_for?: string | null;
             /** Id */
             id: number;
             /** Kind */
@@ -32877,6 +33600,80 @@ export interface components {
         ElevateResponse: {
             /** Elevated Until */
             elevated_until: string;
+        };
+        /**
+         * EmailApiConfig
+         * @description The email provider the monitor's mail goes through instead of SMTP.
+         *
+         *     Every credential is write-only, like the SMTP password: it is never sent
+         *     back by ``GET /config/email-api``, and a blank one keeps the stored one,
+         *     but only for the same provider. Switching provider with a blank key
+         *     clears it, so a key is never kept for a service it was not entered for.
+         */
+        EmailApiConfig: {
+            /**
+             * Access Key Id
+             * @description Amazon SES: the access key id; blank keeps the one stored
+             * @default
+             */
+            access_key_id: string;
+            /**
+             * Api Key
+             * @description The provider's API key; blank keeps the one stored (Resend, Postmark, Brevo)
+             * @default
+             */
+            api_key: string;
+            /**
+             * From Address
+             * @description Sender address, which the provider must verify
+             * @default
+             */
+            from_address: string;
+            /**
+             * Provider
+             * @description resend, postmark, brevo or ses; empty means the SMTP relay
+             * @default
+             */
+            provider: string;
+            /**
+             * Region
+             * @description Amazon SES: the AWS region, such as eu-west-1
+             * @default
+             */
+            region: string;
+            /**
+             * Secret Access Key
+             * @description Amazon SES: the secret access key; blank keeps the one stored
+             * @default
+             */
+            secret_access_key: string;
+        };
+        /**
+         * EmailApiSettingsResponse
+         * @description The configured email provider.
+         *
+         *     Like :class:`SMTPSettingsResponse`, no credential is a field here: the
+         *     ``*_set`` flags say whether one is stored.
+         */
+        EmailApiSettingsResponse: {
+            /** Access Key Id Set */
+            access_key_id_set: boolean;
+            /** Api Key Set */
+            api_key_set: boolean;
+            /** Configured */
+            configured: boolean;
+            /** From Address */
+            from_address: string;
+            /** Provider */
+            provider: string;
+            /** Providers */
+            providers: string[];
+            /** Recipients */
+            recipients: string[];
+            /** Region */
+            region: string;
+            /** Secret Access Key Set */
+            secret_access_key_set: boolean;
         };
         /**
          * EncryptionKey
@@ -35932,6 +36729,26 @@ export interface components {
             upload_id?: string | null;
         };
         /**
+         * IncidentModel
+         * @description A stretch an address did not answer.
+         *
+         *     Attributes:
+         *         started_at: Epoch seconds of the first bad answer.
+         *         ended_at: When it answered again; null while it is down.
+         *         reason: What the first bad answer said.
+         */
+        IncidentModel: {
+            /** Ended At */
+            ended_at?: number | null;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /** Started At */
+            started_at: number;
+        };
+        /**
          * IndexResponse
          * @description One index.
          */
@@ -37491,6 +38308,73 @@ export interface components {
             reason?: string | null;
             /** Since */
             since?: string | null;
+        };
+        /**
+         * LogLineModel
+         * @description One line of a log.
+         *
+         *     Attributes:
+         *         ts: Epoch seconds.
+         *         app: The application; empty for a system unit.
+         *         source: ``journal`` or ``container``.
+         *         unit: The unit, or the container's service.
+         *         process: The application's process.
+         *         level: The journal's level; null for a container's line.
+         *         message: The text, with credentials masked.
+         */
+        LogLineModel: {
+            /** App */
+            app: string;
+            /** Level */
+            level?: string | null;
+            /** Message */
+            message: string;
+            /** Process */
+            process: string;
+            /** Source */
+            source: string;
+            /** Ts */
+            ts: number;
+            /** Unit */
+            unit: string;
+        };
+        /**
+         * LogSearchResponse
+         * @description What a search found.
+         *
+         *     Attributes:
+         *         lines: The matching lines, newest first.
+         *         matched: How many matched in all (of the entries examined).
+         *         scanned: How many entries were examined.
+         *         truncated: The scan stopped at its limit, so older matches may exist.
+         *         since: Start of the window, epoch seconds.
+         *         until: End of the window.
+         *         notes: What was left out and why.
+         *         apps: The applications that were searched.
+         *         understood: The query written back in full, so the caller sees what was asked.
+         */
+        LogSearchResponse: {
+            /** Apps */
+            apps: string[];
+            /** Lines */
+            lines: components["schemas"]["LogLineModel"][];
+            /** Matched */
+            matched: number;
+            /** Notes */
+            notes: string[];
+            /** Scanned */
+            scanned: number;
+            /** Since */
+            since: number;
+            /** Truncated */
+            truncated: boolean;
+            /**
+             * Understood
+             * @default
+             */
+            understood: string;
+            /** Until */
+            until: number;
         };
         /**
          * LoginOptionsRequest
@@ -40950,6 +41834,156 @@ export interface components {
             privileges: string[];
         };
         /**
+         * ProbeBody
+         * @description What a probe is, to create or replace it.
+         *
+         *     Attributes:
+         *         url: What to ask: ``http://`` or ``https://``, no credentials in it.
+         *         method: ``GET`` or ``HEAD``.
+         *         expect_status: The statuses that mean well: ``200-399`` or ``200,204``.
+         *         expect_text: A word the page must contain (GET only).
+         *         interval_s: Seconds between two asks (30 to 3600).
+         *         timeout_s: Seconds an answer may take (1 to 60, under the interval).
+         *         fail_after: Bad answers in a row that make it down (1 to 10).
+         *         public: Show it on the status page.
+         *         title: What the status page calls it.
+         *         enabled: Whether it is asked.
+         */
+        ProbeBody: {
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Expect Status
+             * @default 200-399
+             */
+            expect_status: string;
+            /**
+             * Expect Text
+             * @default
+             */
+            expect_text: string;
+            /**
+             * Fail After
+             * @default 3
+             */
+            fail_after: number;
+            /**
+             * Interval S
+             * @default 60
+             */
+            interval_s: number;
+            /**
+             * Method
+             * @default GET
+             */
+            method: string;
+            /**
+             * Public
+             * @default false
+             */
+            public: boolean;
+            /**
+             * Timeout S
+             * @default 10
+             */
+            timeout_s: number;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /** Url */
+            url: string;
+        };
+        /**
+         * ProbeHistoryResponse
+         * @description What one probe has done lately.
+         *
+         *     Attributes:
+         *         name: The probe.
+         *         incidents: Its newest incidents first.
+         *         answers: Its newest answers, oldest first.
+         */
+        ProbeHistoryResponse: {
+            /** Answers */
+            answers: components["schemas"]["AnswerModel"][];
+            /** Incidents */
+            incidents: components["schemas"]["IncidentModel"][];
+            /** Name */
+            name: string;
+        };
+        /**
+         * ProbeListResponse
+         * @description The probes.
+         *
+         *     Attributes:
+         *         items: Every probe by name.
+         *         down: How many are down now.
+         *         status_page: The public status page.
+         */
+        ProbeListResponse: {
+            /** Down */
+            down: number;
+            /** Items */
+            items: components["schemas"]["ProbeModel"][];
+            status_page: components["schemas"]["StatusPageModel"];
+        };
+        /**
+         * ProbeModel
+         * @description One probe, where it stands and how it has done.
+         *
+         *     Attributes:
+         *         name: Its identifier.
+         *         url: What is asked.
+         *         address: The same without its query: what notifications and the status
+         *             page may show.
+         *         method: ``GET`` or ``HEAD``.
+         *         expect_status: The statuses that mean well.
+         *         expect_text: A word the page must contain.
+         *         interval_s: Seconds between two asks.
+         *         timeout_s: Seconds an answer may take.
+         *         fail_after: Bad answers in a row that make it down.
+         *         public: Shown on the status page.
+         *         title: What the status page calls it.
+         *         enabled: Whether it is asked.
+         *         status: Where it stands.
+         *         uptime: By window (``24h``, ``7d``, ``30d``, ``90d``).
+         */
+        ProbeModel: {
+            /** Address */
+            address: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Expect Status */
+            expect_status: string;
+            /** Expect Text */
+            expect_text: string;
+            /** Fail After */
+            fail_after: number;
+            /** Interval S */
+            interval_s: number;
+            /** Method */
+            method: string;
+            /** Name */
+            name: string;
+            /** Public */
+            public: boolean;
+            status: components["schemas"]["StatusModel"];
+            /** Timeout S */
+            timeout_s: number;
+            /** Title */
+            title: string;
+            /** Uptime */
+            uptime: {
+                [key: string]: components["schemas"]["UptimeModel"];
+            };
+            /** Url */
+            url: string;
+        };
+        /**
          * ProbeResult
          * @description The last probe Docker ran.
          */
@@ -41969,6 +43003,23 @@ export interface components {
             tls?: string | null;
         };
         /**
+         * PublishBody
+         * @description Where to put the page.
+         *
+         *     Attributes:
+         *         domain: A name of its own that points at this server.
+         *         skip_dns_check: Do not require the name to resolve to this server (NAT).
+         */
+        PublishBody: {
+            /** Domain */
+            domain: string;
+            /**
+             * Skip Dns Check
+             * @default false
+             */
+            skip_dns_check: boolean;
+        };
+        /**
          * PullRequestOut
          * @description An open pull request of the application's repository.
          *
@@ -42449,6 +43500,21 @@ export interface components {
             source: string;
             /** Stale */
             stale: boolean;
+        };
+        /**
+         * RankedKeyModel
+         * @description One entry of a ranking.
+         *
+         *     Attributes:
+         *         key: What was counted: a page (``GET /orders/:n``), a network
+         *             (``203.0.113.0/24``), a status code or a referrer's host.
+         *         count: How many times in the window.
+         */
+        RankedKeyModel: {
+            /** Count */
+            count: number;
+            /** Key */
+            key: string;
         };
         /**
          * ReasonModel
@@ -44121,6 +45187,70 @@ export interface components {
             held: number;
             /** Was Paused */
             was_paused: boolean;
+        };
+        /**
+         * RetentionBody
+         * @description What to keep; a field left out is kept as it is.
+         *
+         *     Attributes:
+         *         days: Drop entries older than this many days (1 to 3650).
+         *         max_use_mb: Use at most this many megabytes (16 to 1048576).
+         *         persistent: Keep the journal across reboots.
+         */
+        RetentionBody: {
+            /** Days */
+            days?: number | null;
+            /** Max Use Mb */
+            max_use_mb?: number | null;
+            /** Persistent */
+            persistent?: boolean | null;
+        };
+        /**
+         * RetentionModel
+         * @description How long the logs are kept.
+         *
+         *     Attributes:
+         *         days: The age past which entries are dropped; null for journald's default.
+         *         max_use_mb: The most disk the journal may use; null for the default.
+         *         persistent: The drop-in asks to keep the journal across reboots.
+         *         journal_on_disk: The journal survives a reboot now.
+         *         disk_usage: What the journal takes now, in journald's words.
+         *         configured: A Noust drop-in is in place.
+         *         foreign: A drop-in of that name that Noust did not write is in the way.
+         *         notes: What an operator should know.
+         */
+        RetentionModel: {
+            /**
+             * Configured
+             * @default false
+             */
+            configured: boolean;
+            /** Days */
+            days?: number | null;
+            /**
+             * Disk Usage
+             * @default
+             */
+            disk_usage: string;
+            /**
+             * Foreign
+             * @default false
+             */
+            foreign: boolean;
+            /**
+             * Journal On Disk
+             * @default false
+             */
+            journal_on_disk: boolean;
+            /** Max Use Mb */
+            max_use_mb?: number | null;
+            /** Notes */
+            notes: string[];
+            /**
+             * Persistent
+             * @default false
+             */
+            persistent: boolean;
         };
         /**
          * RetentionResponse
@@ -47957,8 +49087,14 @@ export interface components {
          *         since: Epoch seconds the state began.
          *         last_value: The reading that last decided it.
          *         announced: Whether the current firing was told to the channels.
+         *         acknowledged_at: Epoch seconds somebody took the firing, or null.
+         *         acknowledged_by: Who took it.
          */
         StateModel: {
+            /** Acknowledged At */
+            acknowledged_at?: number | null;
+            /** Acknowledged By */
+            acknowledged_by?: string | null;
             /**
              * Announced
              * @default false
@@ -47972,6 +49108,98 @@ export interface components {
             state: string;
             /** Subject */
             subject: string;
+        };
+        /**
+         * StatusModel
+         * @description Where a probe stands.
+         *
+         *     Attributes:
+         *         state: ``unknown``, ``up`` or ``down``.
+         *         since: Epoch seconds the state began.
+         *         failures: Bad answers in a row.
+         *         last_checked: When it was last asked.
+         *         last_status: The HTTP status of the last answer.
+         *         last_latency_ms: How long it took.
+         *         last_error: What was wrong with the last answer, in one line.
+         */
+        StatusModel: {
+            /** Failures */
+            failures: number;
+            /** Last Checked */
+            last_checked?: number | null;
+            /** Last Error */
+            last_error?: string | null;
+            /** Last Latency Ms */
+            last_latency_ms?: number | null;
+            /** Last Status */
+            last_status?: number | null;
+            /** Since */
+            since: number;
+            /** State */
+            state: string;
+        };
+        /**
+         * StatusPageBody
+         * @description What to change of the status page; a field left out is kept.
+         *
+         *     Attributes:
+         *         enabled: The monitor writes the page's files.
+         *         title: What the page is called (80 characters at most).
+         *         directory: Where the files go; empty for the default.
+         */
+        StatusPageBody: {
+            /** Directory */
+            directory?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Title */
+            title?: string | null;
+        };
+        /**
+         * StatusPageFilesResponse
+         * @description The files of the status page after writing them.
+         *
+         *     Attributes:
+         *         files: Their paths.
+         */
+        StatusPageFilesResponse: {
+            /** Files */
+            files: string[];
+        };
+        /**
+         * StatusPageModel
+         * @description The public status page.
+         *
+         *     Attributes:
+         *         enabled: The monitor writes its files.
+         *         directory: Where they go.
+         *         title: What the page is called.
+         *         components: How many probes are marked public.
+         *         domain: The name it is published on, when it is.
+         *         site_created: Publishing made the nginx site.
+         *         certificate_created: Publishing made the certificate.
+         */
+        StatusPageModel: {
+            /**
+             * Certificate Created
+             * @default false
+             */
+            certificate_created: boolean;
+            /** Components */
+            components: number;
+            /** Directory */
+            directory: string;
+            /** Domain */
+            domain?: string | null;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Site Created
+             * @default false
+             */
+            site_created: boolean;
+            /** Title */
+            title: string;
         };
         /**
          * StepsOut
@@ -48399,7 +49627,7 @@ export interface components {
          *         delivered: Deliveries that went out.
          *         retried: Deliveries that failed again and wait.
          *         failed: Deliveries given up on.
-         *         digests: Digest messages sent for what the quiet hours held.
+         *         digests: Digest messages sent for what the channels held.
          */
         SweepResponse: {
             /** Delivered */
@@ -49386,6 +50614,35 @@ export interface components {
             /** Log */
             log?: string | null;
             reason?: components["schemas"]["ReasonModel"] | null;
+        };
+        /**
+         * TrafficPointModel
+         * @description One hour (or day) of an application's traffic.
+         *
+         *     Attributes:
+         *         ts: Where it starts, epoch seconds UTC.
+         *         requests: Requests.
+         *         s2xx: Answered 2xx.
+         *         s3xx: Answered 3xx.
+         *         s4xx: Answered 4xx.
+         *         s5xx: Answered 5xx.
+         *         bytes: Bytes of response bodies.
+         */
+        TrafficPointModel: {
+            /** Bytes */
+            bytes: number;
+            /** Requests */
+            requests: number;
+            /** S2Xx */
+            s2xx: number;
+            /** S3Xx */
+            s3xx: number;
+            /** S4Xx */
+            s4xx: number;
+            /** S5Xx */
+            s5xx: number;
+            /** Ts */
+            ts: number;
         };
         /**
          * TuningHealth
@@ -50812,6 +52069,29 @@ export interface components {
             servers: components["schemas"]["UpstreamServerOut"][];
             /** Text */
             text: string;
+        };
+        /**
+         * UptimeModel
+         * @description How often an address answered over a window.
+         *
+         *     Attributes:
+         *         checks: Times it was asked.
+         *         good: Times it answered well.
+         *         percent: Good answers as a percentage; null when it was never asked.
+         *         mean_ms: The mean latency of the good answers.
+         *         max_ms: The slowest.
+         */
+        UptimeModel: {
+            /** Checks */
+            checks: number;
+            /** Good */
+            good: number;
+            /** Max Ms */
+            max_ms?: number | null;
+            /** Mean Ms */
+            mean_ms?: number | null;
+            /** Percent */
+            percent?: number | null;
         };
         /**
          * UsageResponse
@@ -54139,6 +55419,74 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    acknowledge_rule_api_alerts_rules__name__acknowledge_post: {
+        parameters: {
+            query?: {
+                /** @description The application, or empty for the server */
+                subject?: string;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hand_back_rule_api_alerts_rules__name__acknowledge_delete: {
+        parameters: {
+            query?: {
+                /** @description The application, or empty for the server */
+                subject?: string;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleModel"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -60544,6 +61892,42 @@ export interface operations {
             };
         };
     };
+    app_traffic_api_apps__domain__traffic_get: {
+        parameters: {
+            query?: {
+                /** @description How far back to look. */
+                window?: "24h" | "7d" | "30d" | "90d";
+                /** @description Entries in each ranking. */
+                top?: number;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppTrafficResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_tuning_api_apps__domain__tuning_get: {
         parameters: {
             query?: never;
@@ -64312,6 +65696,59 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DeliveryConfig"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_email_api_config_api_config_email_api_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailApiSettingsResponse"];
+                };
+            };
+        };
+    };
+    update_email_api_config_api_config_email_api_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailApiConfig"];
             };
         };
         responses: {
@@ -70759,6 +72196,88 @@ export interface operations {
             };
         };
     };
+    fleet_logs_api_fleet_logs_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+                /** @description The search: words, fields, -excluded, a OR b */
+                q?: string;
+                /** @description Start: 15m, 2h, 7d, a date, epoch seconds */
+                since?: string | null;
+                /** @description End, in the same forms */
+                until?: string | null;
+                /** @description The worst level kept */
+                level?: string | null;
+                /** @description Lines per server */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fleet_metrics_api_fleet_metrics_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+                /** @description What to put side by side */
+                metric?: "cpu" | "memory" | "swap" | "disk" | "load" | "net_rx" | "net_tx";
+                /** @description How far back */
+                window?: "1h" | "6h" | "24h" | "7d" | "30d";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_placements_api_fleet_placements_get: {
         parameters: {
             query?: never;
@@ -72291,6 +73810,120 @@ export interface operations {
             };
         };
     };
+    get_retention_api_logs_retention_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionModel"];
+                };
+            };
+        };
+    };
+    set_retention_api_logs_retention_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RetentionBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_retention_api_logs_retention_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionModel"];
+                };
+            };
+        };
+    };
+    search_logs_api_logs_search_get: {
+        parameters: {
+            query?: {
+                /** @description Words ("quoted phrases", -excluded, a OR b, groups) and fields (@app:, @unit:, @level:, @pid:). */
+                q?: string;
+                /** @description Search only these applications (their domains). */
+                app?: string[] | null;
+                /** @description Start: epoch seconds, a time ago (15m, 2h, 7d) or a date. An hour ago. */
+                since?: string | null;
+                /** @description End: the same forms. Now. */
+                until?: string | null;
+                /** @description The worst level kept: err, warning, info... */
+                level?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogSearchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     apply_api_manifest_apply_post: {
         parameters: {
             query?: never;
@@ -72528,6 +74161,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MetricsListResponse"];
+                };
+            };
+        };
+    };
+    export_prometheus_api_metrics_prometheus_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The newest value of every metric, in the Prometheus text exposition format, or OpenMetrics when the request asks for it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/openmetrics-text; version=1.0.0; charset=utf-8": string;
+                    "text/plain; version=0.0.4; charset=utf-8": string;
                 };
             };
         };
@@ -73592,6 +75246,278 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NetworksResponse"];
+                };
+            };
+        };
+    };
+    list_probes_api_probes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProbeListResponse"];
+                };
+            };
+        };
+    };
+    get_status_page_api_probes_status_page_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusPageModel"];
+                };
+            };
+        };
+    };
+    set_status_page_api_probes_status_page_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusPageBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusPageModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_status_page_api_probes_status_page_publish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unpublish_status_page_api_probes_status_page_site_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+        };
+    };
+    write_status_page_api_probes_status_page_write_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusPageFilesResponse"];
+                };
+            };
+        };
+    };
+    save_probe_api_probes__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProbeBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProbeModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_probe_api_probes__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_probe_api_probes__name__check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    probe_history_api_probes__name__history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProbeHistoryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

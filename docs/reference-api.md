@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-888 operations.
+910 operations.
 
 ## Access
 
@@ -29,6 +29,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/alerts/rules` | List Rules | `server.read` |  |  |
 | PUT | `/api/alerts/rules/{name}` | Save Rule | `server.manage` |  |  |
 | DELETE | `/api/alerts/rules/{name}` | Remove Rule | `server.manage` |  |  |
+| POST | `/api/alerts/rules/{name}/acknowledge` | Acknowledge Rule | `apps.operate` |  |  |
+| DELETE | `/api/alerts/rules/{name}/acknowledge` | Hand Back Rule | `apps.operate` |  |  |
 | POST | `/api/alerts/rules/{name}/disable` | Disable Rule | `server.manage` |  |  |
 | POST | `/api/alerts/rules/{name}/enable` | Enable Rule | `server.manage` |  |  |
 
@@ -351,6 +353,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/config/defaults` | Get Defaults | `settings.read` |  |  |
 | GET | `/api/config/delivery` | Get Delivery Config | `settings.read` |  |  |
 | PUT | `/api/config/delivery` | Update Delivery Config | `settings.manage` | yes |  |
+| GET | `/api/config/email-api` | Get Email Api Config | `settings.read` |  |  |
+| PUT | `/api/config/email-api` | Update Email Api Config | `settings.manage` | yes |  |
 | GET | `/api/config/notifications/telegram` | Get Telegram Config | `settings.read` |  |  |
 | PUT | `/api/config/notifications/telegram` | Update Telegram Config | `settings.manage` | yes |  |
 | POST | `/api/config/notifications/telegram/chats` | List Telegram Chats | `settings.manage` |  |  |
@@ -621,6 +625,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/fleet/link/accept` | Accept Server | `fleet.manage` | yes | yes |
 | POST | `/api/fleet/link/invites` | Invite Server | `fleet.manage` | yes |  |
 | DELETE | `/api/fleet/link/invites/{name}` | Cancel Invite | `fleet.manage` | yes |  |
+| GET | `/api/fleet/logs` | Fleet Logs | `fleet.read` |  |  |
+| GET | `/api/fleet/metrics` | Fleet Metrics | `fleet.read` |  |  |
 | GET | `/api/fleet/placements` | List Placements | `fleet.read` |  |  |
 | GET | `/api/fleet/placements/{domain}` | Get Placement | `fleet.read` |  |  |
 | PUT | `/api/fleet/placements/{domain}` | Save Placement | `fleet.manage` |  |  |
@@ -695,6 +701,15 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | DELETE | `/api/log-drains/{name}` | Delete Drain | `settings.manage` | yes |  |
 | POST | `/api/log-drains/{name}/test` | Test Drain | `settings.manage` | yes |  |
 
+## Logs
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/logs/retention` | Get Retention | `server.read` |  |  |
+| PUT | `/api/logs/retention` | Set Retention | `server.manage` | yes |  |
+| DELETE | `/api/logs/retention` | Clear Retention | `server.manage` | yes |  |
+| GET | `/api/logs/search` | Search Logs | `apps.read` |  |  |
+
 ## MCP
 
 | Method | Path | What it does | Permission | Sudo | Approval |
@@ -723,7 +738,9 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | Method | Path | What it does | Permission | Sudo | Approval |
 |---|---|---|---|---|---|
 | GET | `/api/apps/{domain}/metrics` | App Metrics | `apps.read` |  |  |
+| GET | `/api/apps/{domain}/traffic` | App Traffic | `apps.read` |  |  |
 | GET | `/api/metrics` | List Metrics | `server.read` |  |  |
+| GET | `/api/metrics/prometheus` | Export Prometheus | `server.read` |  |  |
 | GET | `/api/metrics/query` | Query Metrics | `server.read` |  |  |
 | GET | `/api/metrics/{metric}` | Metric History | `server.read` |  |  |
 
@@ -826,6 +843,21 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/apps/{domain}/previews/{number}/reject` | Reject Preview | `apps.deploy` | yes |  |
 | POST | `/api/apps/{domain}/previews/{number}/start` | Start Preview | `apps.operate` | yes |  |
 | POST | `/api/apps/{domain}/previews/{number}/stop` | Stop Preview | `apps.operate` | yes |  |
+
+## Probes
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/probes` | List Probes | `server.read` |  |  |
+| GET | `/api/probes/status-page` | Get Status Page | `server.read` |  |  |
+| PUT | `/api/probes/status-page` | Set Status Page | `server.manage` | yes |  |
+| POST | `/api/probes/status-page/publish` | Publish Status Page | `server.host_access` | yes |  |
+| DELETE | `/api/probes/status-page/site` | Unpublish Status Page | `server.host_access` | yes |  |
+| POST | `/api/probes/status-page/write` | Write Status Page | `server.manage` |  |  |
+| PUT | `/api/probes/{name}` | Save Probe | `server.manage` |  |  |
+| DELETE | `/api/probes/{name}` | Remove Probe | `server.manage` |  |  |
+| POST | `/api/probes/{name}/check` | Check Probe | `server.manage` |  |  |
+| GET | `/api/probes/{name}/history` | Probe History | `server.read` |  |  |
 
 ## Recipes
 

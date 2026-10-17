@@ -80,6 +80,13 @@ def _describe(view: ChannelView) -> str:
         parts.append("route " + ", ".join(f"{k}={v}" for k, v in view.route.items()))
     if view.quiet:
         parts.append(f"quiet {view.quiet['start']}-{view.quiet['end']} {view.quiet['timezone']}")
+    if view.flood:
+        parts.append(f"at most {view.flood['max']} per {view.flood['minutes']} min")
+    if view.summary:
+        parts.append(
+            f"below {view.summary['below']} in a summary at {view.summary['at']} "
+            f"{view.summary['timezone']}"
+        )
     if view.events:
         parts.append(f"{len(view.events)} event switch(es)")
     return "; ".join(parts) or "everything"
@@ -261,6 +268,30 @@ def channel_group() -> None:
 )
 @click.option("--no-digest", is_flag=True, help="Deliver what the quiet hours held one by one.")
 @click.option("--clear-quiet", is_flag=True, help="Remove the channel's quiet hours.")
+@click.option(
+    "--flood",
+    "flood_cap",
+    metavar="MAX/MINUTES",
+    help="At most MAX messages in any MINUTES minutes, such as 20/10; the rest arrive as one.",
+)
+@click.option("--clear-flood", is_flag=True, help="Remove the channel's anti-flood cap.")
+@click.option(
+    "--summary-at",
+    metavar="HH:MM",
+    help="Send everything below --summary-below once a day at this time, as one message.",
+)
+@click.option("--summary-timezone", metavar="ZONE", help="The time zone of the summary.")
+@click.option(
+    "--summary-below",
+    type=click.Choice(SEVERITIES[1:]),
+    help="What waits for the summary: what is below this severity (warning by default).",
+)
+@click.option(
+    "--summary-days",
+    metavar="DAYS",
+    help="The days it goes out on, such as mon,wed,fri (every day by default).",
+)
+@click.option("--clear-summary", is_flag=True, help="Remove the channel's summary.")
 @pass_context
 def channel_set(
     ctx: Context,
@@ -280,6 +311,13 @@ def channel_set(
     quiet_allow: str | None,
     no_digest: bool,
     clear_quiet: bool,
+    flood_cap: str | None,
+    clear_flood: bool,
+    summary_at: str | None,
+    summary_timezone: str | None,
+    summary_below: str | None,
+    summary_days: str | None,
+    clear_summary: bool,
     **route_lists: tuple[str, ...],
 ) -> None:
     """
@@ -291,6 +329,8 @@ def channel_set(
       noust notify channel set slack-staging --type slack --secret webhook_url
       noust notify channel set oncall --type pushover --secret user_key --secret app_token
       noust notify channel set oncall --min-severity failed --quiet 22:00-07:00
+      noust notify channel set oncall --flood 20/10
+      noust notify channel set slack-ops --summary-at 08:00 --summary-timezone Europe/Madrid
       noust notify channel set slack-shop --route-project shop --event deploy_started=on
     """
     admin = ChannelAdmin()
@@ -345,6 +385,31 @@ def channel_set(
         if no_digest:
             quiet["digest"] = False
 
+    flood: dict[str, Any] | None = None
+    if clear_flood:
+        flood = {}
+    elif flood_cap:
+        maximum, separator, minutes = flood_cap.partition("/")
+        if not separator or not maximum.strip().isdigit() or not minutes.strip().isdigit():
+            raise click.UsageError("--flood must be MAX/MINUTES, such as 20/10")
+        flood = {"max": int(maximum), "minutes": int(minutes)}
+
+    summary: dict[str, Any] | None = None
+    if clear_summary:
+        summary = {}
+    elif summary_at or summary_timezone or summary_below or summary_days:
+        summary = dict(existing.summary or {}) if existing else {}
+        if summary_at:
+            summary["at"] = summary_at
+        if summary_timezone:
+            summary["timezone"] = summary_timezone
+        if summary_below:
+            summary["below"] = summary_below
+        if summary_days:
+            summary["days"] = [day.strip() for day in summary_days.split(",") if day.strip()]
+        if "at" not in summary:
+            raise click.UsageError("a summary needs a time: add --summary-at HH:MM")
+
     try:
         view = admin.save(
             name,
@@ -354,6 +419,8 @@ def channel_set(
             events=switches,
             route=route,
             quiet=quiet,
+            flood=flood,
+            summary=summary,
         )
     except NoustError as exc:
         ctx.logger.error(exc.message, details=exc.details)
@@ -433,7 +500,9 @@ def deliveries_command(ctx: Context, state: str | None, channel: str | None, lim
                 item.channel,
                 item.kind,
                 item.subject[:30],
-                item.state,
+                f"{item.state} ({item.held_for})"
+                if item.state == "held" and item.held_for
+                else item.state,
                 str(item.attempts),
                 (item.last_error or "")[:60],
             ]

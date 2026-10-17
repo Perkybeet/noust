@@ -242,6 +242,18 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "use_tls": False,
             "from_address": "",
         },
+        # Mail through a provider's HTTP API instead of the SMTP relay above:
+        # "resend", "postmark", "brevo" or "ses" (empty: SMTP). It replaces
+        # SMTP, never adds to it. api_key is the provider's key (the server
+        # token for Postmark); Amazon SES takes a region and an access key.
+        "email_api": {
+            "provider": "",
+            "api_key": "",
+            "region": "",
+            "access_key_id": "",
+            "secret_access_key": "",
+            "from_address": "",
+        },
         "email_recipients": [],
     },
     "notifications": {
@@ -300,6 +312,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
             # breaching its threshold.
             "alert_firing": True,
             "alert_resolved": True,
+            "alert_acknowledged": True,
             # A scheduled backup that did not run for days: nothing failed, so
             # backup_failed never says so.
             "backup_missing": True,
@@ -311,6 +324,14 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "os_patches": True,
             # An API token about to expire.
             "token_expiring": True,
+            # The disk cleanup a policy ran by itself (the success is a heartbeat,
+            # off like the others), a task whose timer is not running, and an
+            # address that stopped answering a probe.
+            "cleanup_success": False,
+            "cleanup_failed": True,
+            "cron_missed": True,
+            "probe_failed": True,
+            "probe_recovered": True,
         },
         "channels": {
             # A webhook URL is a capability: Slack and Discord embed the
@@ -336,11 +357,24 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "ntfy": {"webhook_url": "", "token": ""},
             "gotify": {"webhook_url": "", "token": ""},
             "teams": {"webhook_url": ""},
+            # Mattermost: an incoming webhook's URL. Matrix: the homeserver,
+            # the room's id (!abc:example.org) and the posting account's
+            # access token. Lark: the custom bot's URL and, if it asks for
+            # signature verification, its signing secret. PagerDuty: the
+            # service's Events API v2 integration key and its region (us/eu).
+            "mattermost": {"webhook_url": ""},
+            "matrix": {"homeserver": "", "room_id": "", "access_token": ""},
+            "lark": {"webhook_url": "", "secret": ""},
+            "pagerduty": {"routing_key": "", "region": "us"},
             # Any other key is a further instance with a "type" (a second
             # Slack, a staging Discord) and may carry its own "events",
             # "route" and "quiet"; see noust.core.notifications.instances.
         },
     },
+    # The public status page of the probes marked public: static files the
+    # monitor rewrites, served by any web server (noust probe status-page).
+    # directory empty is /var/lib/noust/status-page.
+    "status_page": {"enabled": False, "directory": "", "title": ""},
     "web": {
         "enabled": False,
         "host": "127.0.0.1",
@@ -1045,6 +1079,90 @@ def _validate_smtp_host(value: Any) -> str:
             details=f"Got {text!r}. Use a hostname such as smtp.example.com.",
         )
     return text
+
+
+def _validate_email_provider(value: Any) -> str:
+    """
+    Accept the name of an email API provider, or leave it unset (SMTP).
+
+    Args:
+        value: The candidate value, from either front end.
+
+    Returns:
+        The provider, lower-cased.
+
+    Raises:
+        ConfigError: When it names a provider Noust does not speak.
+    """
+    from noust.core.email_api import validate_provider
+
+    try:
+        return validate_provider(value)
+    except ValueError as exc:
+        raise ConfigError(str(exc)) from exc
+
+
+def _validate_email_region(value: Any) -> str:
+    """
+    Accept an AWS region name, or leave it unset.
+
+    Args:
+        value: The candidate value, from either front end.
+
+    Returns:
+        The region.
+
+    Raises:
+        ConfigError: When it is not the name of a region.
+    """
+    from noust.core.email_api import validate_region
+
+    try:
+        return validate_region(value)
+    except ValueError as exc:
+        raise ConfigError(str(exc)) from exc
+
+
+def _validate_status_directory(value: Any) -> str:
+    """
+    Accept where the status page's files are written, or leave the default.
+
+    Args:
+        value: The candidate value, from either front end.
+
+    Returns:
+        An absolute path, or an empty string for the default.
+
+    Raises:
+        ConfigError: When it is not an absolute path without ``..``.
+    """
+    from noust.managers.status_page import validate_directory
+
+    try:
+        return validate_directory(value)
+    except ValueError as exc:
+        raise ConfigError(str(exc)) from exc
+
+
+def _validate_status_title(value: Any) -> str:
+    """
+    Accept what the status page is called.
+
+    Args:
+        value: The candidate value, from either front end.
+
+    Returns:
+        The title, trimmed.
+
+    Raises:
+        ConfigError: When it is too long.
+    """
+    from noust.managers.status_page import validate_title
+
+    try:
+        return validate_title(value)
+    except ValueError as exc:
+        raise ConfigError(str(exc)) from exc
 
 
 def _validate_smtp_section(smtp: dict[str, Any]) -> None:
@@ -1881,6 +1999,11 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "monitor.smtp.port": _int_range_validator("monitor.smtp.port", 1, 65535),
     "monitor.smtp.from_address": _validate_optional_email("monitor.smtp.from_address"),
     "monitor.email_recipients": _validate_email_list("monitor.email_recipients"),
+    "status_page.directory": _validate_status_directory,
+    "status_page.title": _validate_status_title,
+    "monitor.email_api.provider": _validate_email_provider,
+    "monitor.email_api.region": _validate_email_region,
+    "monitor.email_api.from_address": _validate_optional_email("monitor.email_api.from_address"),
     "notifications.channels.telegram.chat_id": _validate_telegram_chat_id,
     "notifications.channels.discord.mention_role_id": _validate_discord_id(
         "notifications.channels.discord.mention_role_id", "role"

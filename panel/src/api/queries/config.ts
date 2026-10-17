@@ -26,11 +26,14 @@ export type NotificationTestResult = ResponseOf<"/api/config/notifications/{chan
 /** The monitor's SMTP account, which email notifications go through. The password never comes back. */
 export type SmtpSettings = ResponseOf<"/api/config/smtp", "get">;
 export type SmtpBody = BodyOf<"/api/config/smtp", "put">;
+/** The email service the monitor's mail goes through instead of SMTP. No credential ever comes back. */
+export type EmailApiSettings = ResponseOf<"/api/config/email-api", "get">;
+export type EmailApiBody = BodyOf<"/api/config/email-api", "put">;
 export type TelegramBody = BodyOf<"/api/config/notifications/telegram", "put">;
 export type TelegramChat = ResponseOf<"/api/config/notifications/telegram/chats", "post">["chats"][number];
 
 /** The typed sections, each one GET and one PUT of its own. */
-export type ConfigSection = "apps-directory" | "webserver" | "backup" | "ssl" | "web" | "smtp" | "delivery";
+export type ConfigSection = "apps-directory" | "webserver" | "backup" | "ssl" | "web" | "smtp" | "email-api" | "delivery";
 
 export const configKeys = {
   all: ["config"] as const,
@@ -94,6 +97,12 @@ export const smtpSettingsQuery = () =>
     queryFn: ({ signal }) => request("get", "/api/config/smtp", { signal }),
   });
 
+export const emailApiQuery = () =>
+  queryOptions({
+    queryKey: configKeys.section("email-api"),
+    queryFn: ({ signal }) => request("get", "/api/config/email-api", { signal }),
+  });
+
 export function saveAppsDirectory(body: AppsDirectoryBody) {
   return request("put", "/api/config/apps-directory", { body });
 }
@@ -137,6 +146,15 @@ export function testNotificationChannel(channel: string) {
  */
 export function saveSmtpSettings(body: SmtpBody) {
   return request("put", "/api/config/smtp", { body });
+}
+
+/**
+ * Writes the email service (Resend, Postmark, Brevo or Amazon SES) in place of SMTP, or none to go
+ * back to it. A blank key keeps the stored one while the service stays the same. Needs a recent
+ * "Confirm it's you"; the client asks for it.
+ */
+export function saveEmailApiSettings(body: EmailApiBody) {
+  return request("put", "/api/config/email-api", { body });
 }
 
 /**

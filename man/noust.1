@@ -253,6 +253,22 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 .SS noust alert
 Alert rules on CPU, memory, disk, load and traffic.
 
+.SS noust alert ack
+Take an alert that is firing: its reminders stop and the channels are told.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-app
+The application the alert is about; leave out for the server's. Default: .
+.TP
+.B \-\-by
+Who is taking it, as the channels will say. Default: cli.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust alert disable
 Turn a rule off; what it had decided is forgotten.
 .TP
@@ -379,6 +395,19 @@ Never emit colour.
 .TP
 .B \-\-json
 Print the firing alerts as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust alert unack
+Hand a firing alert back: its reminder speaks again.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-app
+The application the alert is about; leave out for the server's. Default: .
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -2818,6 +2847,25 @@ Make an application carry exactly these tags (none clears them).
 \fIdomain\fR
 .br
 \fItags\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app traffic
+Show the requests an application served, and what was asked of it.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-window
+How far back to look. Default: 24h.
+.TP
+.B \-\-top
+Entries in each ranking. Default: 10.
+.TP
+.B \-\-json
+Print the traffic as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -8290,6 +8338,52 @@ Print the result, link code included, as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust fleet logs
+Search the logs of every node at once, newest first.
+.TP
+.B Arguments
+.br
+\fIwords\fR
+.TP
+.B \-\-node
+Only this node (repeat for more).
+.TP
+.B \-\-since
+Start: 15m, 2h, 7d ago or a date (1h).
+.TP
+.B \-\-until
+End, in the same forms (now).
+.TP
+.B \-\-level
+The worst level kept: err, warning, info...
+.TP
+.B \-\-limit
+Lines per node. Default: 100.
+.TP
+.B \-\-json
+Print the view as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust fleet metrics
+Compare one metric of every node over the same window.
+.TP
+.B \-\-node
+Only this node (repeat for more).
+.TP
+.B \-\-metric
+What to compare. Default: cpu.
+.TP
+.B \-\-window
+How far back. Default: 24h.
+.TP
+.B \-\-json
+Print the view as JSON, with every point.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust fleet placement
 An application that runs on several servers: where, how it looks, rolling it out.
 
@@ -8899,6 +8993,91 @@ Never emit colour.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust log
+Search the logs of every application, and set how long the journal keeps them.
+
+.SS noust log retention
+How long the journal keeps the logs.
+
+.SS noust log retention clear
+Remove Noust's retention: journald goes back to its own defaults.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust log retention set
+Keep the logs this long and/or within this much disk; journald is restarted (it keeps what it has).
+.TP
+.B \-\-days
+Drop entries older than this many days.
+.TP
+.B \-\-max\-use
+Use at most this many megabytes of disk.
+.TP
+.B \-\-persistent, \-\-volatile
+Keep the journal across reboots (or only in memory).
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust log retention show
+Show how long the logs are kept and how much disk they take.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the retention as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust log search
+Search the logs of the applications, newest first.
+.TP
+.B Arguments
+.br
+\fIwords\fR
+.TP
+.B \-\-app
+Only this application (repeat).
+.TP
+.B \-\-not
+Leave out lines with this word (repeat).
+.TP
+.B \-\-since
+Start: 15m, 2h, 7d ago, a date or epoch seconds (1h).
+.TP
+.B \-\-until
+End, in the same forms (now).
+.TP
+.B \-\-level
+The worst level kept.
+.TP
+.B \-\-limit
+Most lines to print. Default: 200.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the result as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust logdrain
 Ship the logs of applications to Loki, Axiom, Fluent Bit, OTLP or a remote syslog.
 
@@ -9275,6 +9454,15 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 
 .SS noust monitor enable
 Start the monitor now and on every boot, installing it if needed.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust monitor export
+Print the newest value of every metric the way a scraper reads it.
+.TP
+.B \-\-format
+The text format to write. Default: prometheus.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -9720,6 +9908,27 @@ Deliver what the quiet hours held one by one.
 .TP
 .B \-\-clear\-quiet
 Remove the channel's quiet hours.
+.TP
+.B \-\-flood
+At most MAX messages in any MINUTES minutes, such as 20/10; the rest arrive as one.
+.TP
+.B \-\-clear\-flood
+Remove the channel's anti\-flood cap.
+.TP
+.B \-\-summary\-at
+Send everything below \-\-summary\-below once a day at this time, as one message.
+.TP
+.B \-\-summary\-timezone
+The time zone of the summary.
+.TP
+.B \-\-summary\-below
+What waits for the summary: what is below this severity (warning by default).
+.TP
+.B \-\-summary\-days
+The days it goes out on, such as mon,wed,fri (every day by default).
+.TP
+.B \-\-clear\-summary
+Remove the channel's summary.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -10229,6 +10438,182 @@ Stop giving previews variables.
 \fIdomain\fR
 .br
 \fInames\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust probe
+Probes of an address from outside the application, and the public status page.
+
+.SS noust probe history
+Show the incidents of a probe, newest first.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the history as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust probe list
+List the probes, where each stands and how often it answered.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the probes as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust probe remove
+Remove a probe with its answers, its days and its incidents.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust probe run
+Ask a probe now (every one with no name), whatever its interval.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the answers as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust probe set
+Create a probe, or change the one of that name; what is not named is kept.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-url
+What to ask: https://example.com/health.
+.TP
+.B \-\-method
+GET (default) or HEAD.
+.TP
+.B \-\-expect\-status
+The statuses that mean well: 200\-399 (default) or 200,204.
+.TP
+.B \-\-expect\-text
+A word the page must contain (GET only, first 64 kB).
+.TP
+.B \-\-interval
+Seconds between two asks (default 60).
+.TP
+.B \-\-timeout
+Seconds an answer may take (default 10).
+.TP
+.B \-\-fail\-after
+Bad answers in a row that make it down (default 3).
+.TP
+.B \-\-public, \-\-private
+Show it on the status page.
+.TP
+.B \-\-title
+What the status page calls it.
+.TP
+.B \-\-enable, \-\-disable
+Ask it, or stop asking.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust probe status\-page
+The public status page of the probes marked public.
+
+.SS noust probe status\-page publish
+Serve the page on a name of its own, over TLS, with a certificate.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-skip\-dns\-check
+Do not require the name to resolve to this server (behind NAT).
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust probe status\-page set
+Change the status page's settings.
+.TP
+.B \-\-enable, \-\-disable
+Let the monitor write the page.
+.TP
+.B \-\-title
+What the page is called.
+.TP
+.B \-\-directory
+Where the files go (empty: /var/lib/noust/status\-page).
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust probe status\-page show
+Show how the status page is set up and whether it is on a name.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the settings as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust probe status\-page unpublish
+Take the page off its name, removing exactly what publishing made.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust probe status\-page write
+Write the page's files now, instead of at the monitor's next scan.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.

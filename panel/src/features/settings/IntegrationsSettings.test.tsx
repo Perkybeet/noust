@@ -7,6 +7,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
+import { EXPORT_PATH, scrapeConfig } from "./MetricsExportSection";
 
 const NOT_CONFIGURED: GitHubStatus = { configured: false, installations: [], hooks_url: null, hooks_active: false, host: "github.com" };
 
@@ -87,6 +88,25 @@ async function expectToast(text: string): Promise<void> {
   });
 }
 
+describe("the scrape entry", () => {
+  it("names the server it was opened from, the path and a file for the credential", () => {
+    expect(scrapeConfig("noust.example.com", "https")).toBe(
+      [
+        "scrape_configs:",
+        "  - job_name: noust",
+        "    scheme: https",
+        "    metrics_path: /api/metrics/prometheus",
+        "    authorization:",
+        "      credentials_file: /etc/prometheus/noust.token",
+        "    static_configs:",
+        '      - targets: ["noust.example.com"]',
+      ].join("\n"),
+    );
+    expect(scrapeConfig("10.0.0.5:8080", "http")).toContain("scheme: http\n");
+    expect(scrapeConfig("10.0.0.5:8080", "http")).toContain('targets: ["10.0.0.5:8080"]');
+  });
+});
+
 describe("Settings > Integrations", () => {
   it("is a settings tab", async () => {
     integrations(NOT_CONFIGURED);
@@ -95,6 +115,21 @@ describe("Settings > Integrations", () => {
     expect(within(tabs).getByRole("link", { name: "Integrations" })).toHaveAttribute("aria-current", "page");
     // About is the last section on a lone server, after everything that is configured.
     expect(within(tabs).getAllByRole("link").at(-1)).toHaveAccessibleName("About");
+  });
+
+  it("gives a scraper the address to ask, an entry to paste and what credential it needs, and never a token", { timeout: 20_000 }, async () => {
+    integrations(NOT_CONFIGURED);
+    renderConsole("/settings/integrations");
+    const section = (await screen.findByRole("heading", { name: "Metrics for a scraper", level: 2 })).closest("section") ?? document.body;
+    const { host, protocol } = window.location;
+    const scheme = protocol === "http:" ? "http" : "https";
+    expect(within(section).getByRole("group", { name: "Address to scrape" })).toHaveTextContent(`${scheme}://${host}${EXPORT_PATH}`);
+    const entry = within(section).getByRole("group", { name: "A Prometheus entry for it" });
+    expect(entry).toHaveTextContent("metrics_path: /api/metrics/prometheus");
+    expect(entry).toHaveTextContent("credentials_file: /etc/prometheus/noust.token");
+    expect(within(section).getByRole("link", { name: "API tokens" })).toHaveAttribute("href", "/settings/tokens");
+    expect(within(section).getByText("noust token create prometheus --scope read")).toBeInTheDocument();
+    expect(section.textContent).not.toMatch(/noust_tok_|wasm_tok_|Bearer [A-Za-z0-9]/);
   });
 
   it("explains what an App gives before there is one, and passes axe", { timeout: 20_000 }, async () => {

@@ -145,6 +145,12 @@ sections:
       - source: docs/notifications.md
         slug: notifications
         summary: "Where Noust tells you what happened: channels, events, routes, quiet hours and alert rules."
+      - source: docs/probes.md
+        slug: probes
+        summary: "Asking an address from outside the application, being told when it stops answering, and a public status page."
+      - source: docs/logs.md
+        slug: logs
+        summary: "Searching the logs of every application and server at once, and how long the journal keeps them."
       - source: docs/security.md
         slug: security
         summary: The threat model, roles and permissions, controls, and how to report a vulnerability.

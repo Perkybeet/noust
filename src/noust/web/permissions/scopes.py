@@ -251,6 +251,11 @@ RULES: tuple[Rule, ...] = (
     # Volumes, and Noust's own backup, are copies of the machine's disks and of its state.
     _rule("/api/volume-backups/**", INSTANCE),
     _rule("/api/self-backup/**", INSTANCE),
+    # --- logs -----------------------------------------------------------------------
+    # A search over the logs of the applications the caller sees; a system unit is the server's.
+    _rule("/api/logs/search", SCOPED),
+    # How long the journal keeps what the applications wrote: the server's.
+    _rule("/api/logs/retention", INSTANCE),
     # --- tags -----------------------------------------------------------------------
     # Which applications carry a tag, and deploying them, are the caller's own: the handler
     # asks the scoped store, so a tag in one team is not the same tag in another.
@@ -356,6 +361,8 @@ RULES: tuple[Rule, ...] = (
     # The rules watch the server's metrics, and the channels hold the keys to the
     # places its alerts go; the record of deliveries names every team's applications.
     _rule("/api/alerts/**", INSTANCE),
+    # What the monitor asks from outside, and the public page of it: the server's.
+    _rule("/api/probes/**", INSTANCE),
     _rule("/api/notifications/**", INSTANCE),
     _rule("/api/overview", INSTANCE),
     _rule("/api/timeline", INSTANCE),

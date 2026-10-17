@@ -32,6 +32,8 @@ ROUTES: dict[tuple[str, str], str] = {
     ("PUT", "/api/config/web"): Permission.SECURITY_MANAGE,
     ("GET", "/api/config/smtp"): Permission.SETTINGS_READ,
     ("PUT", "/api/config/smtp"): Permission.SETTINGS_MANAGE,
+    ("GET", "/api/config/email-api"): Permission.SETTINGS_READ,
+    ("PUT", "/api/config/email-api"): Permission.SETTINGS_MANAGE,
     ("POST", "/api/config/reload"): Permission.SETTINGS_MANAGE,
     ("GET", "/api/config/defaults"): Permission.SETTINGS_READ,
     ("GET", "/api/config/notifications/telegram"): Permission.SETTINGS_READ,

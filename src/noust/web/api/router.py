@@ -83,6 +83,7 @@ from noust.web.api.import_remote import router as import_remote_router
 from noust.web.api.integrations import router as integrations_router
 from noust.web.api.jobs import router as jobs_router
 from noust.web.api.log_drains import router as log_drains_router
+from noust.web.api.log_search import router as log_search_router
 from noust.web.api.manifest import router as manifest_router
 from noust.web.api.map import router as map_router
 from noust.web.api.mcp import router as mcp_router
@@ -100,6 +101,7 @@ from noust.web.api.passkeys import router as passkeys_router
 from noust.web.api.previews import router as previews_router
 from noust.web.api.private_access import networks_router as private_networks_router
 from noust.web.api.private_access import router as private_access_router
+from noust.web.api.probes import router as probes_router
 from noust.web.api.push import apps_router as app_push_router
 from noust.web.api.push import router as push_router
 from noust.web.api.recipes import router as recipes_router
@@ -209,6 +211,7 @@ router.include_router(system_router, prefix="/system", tags=["System"])
 router.include_router(monitor_router, prefix="/monitor", tags=["Monitor"])
 router.include_router(metrics_router, prefix="/metrics", tags=["Metrics"])
 # Rules on the recorded metrics (3.4), and the channels their messages leave by.
+router.include_router(probes_router, prefix="/probes", tags=["Probes"])
 router.include_router(alerts_router, prefix="/alerts", tags=["Alerts"])
 router.include_router(notifications_router, prefix="/notifications", tags=["Notifications"])
 router.include_router(overview_router, prefix="/overview", tags=["Overview"])
@@ -275,6 +278,7 @@ router.include_router(integrations_router, prefix="/integrations", tags=["Integr
 # gitlab.py owns "/integrations/gitlab/**".
 router.include_router(gitlab_router, prefix="/integrations", tags=["Integrations"])
 router.include_router(log_drains_router, prefix="/log-drains", tags=["Log drains"])
+router.include_router(log_search_router, prefix="/logs", tags=["Logs"])
 # Same composition as diagnose: each owns paths under "/{domain}/..." that
 # apps.py does not define ("/zero-downtime", "/previews").
 router.include_router(zero_downtime_router, prefix="/apps", tags=["Applications"])

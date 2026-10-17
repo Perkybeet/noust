@@ -100,6 +100,8 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "backups-noust", path: "/backups/noust" },
   { name: "backups-destinations", path: "/backups/destinations" },
   { name: "activity", path: "/activity" },
+  // 3.4: one search over the logs of every application.
+  { name: "logs", path: "/logs" },
   { name: "map", path: "/map" },
   { name: "server", path: "/server" },
   { name: "server-updates", path: "/server/updates" },
@@ -118,8 +120,10 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "settings-tokens", path: "/settings/tokens" },
   { name: "settings-integrations", path: "/settings/integrations" },
   { name: "settings-console", path: "/settings/console" },
-  // 3.4: where the logs of applications are shipped.
+  // 3.4: where the logs of applications are shipped, and how long the journal keeps them.
   { name: "settings-log-shipping", path: "/settings/log-shipping" },
+  // 3.4: addresses asked from outside the application, and the public status page.
+  { name: "settings-probes", path: "/settings/probes" },
   // 3.4: roles where they are needed, single sign-on, the MCP endpoint, a manifest and the API.
   { name: "settings-access", path: "/settings/access" },
   { name: "settings-sso", path: "/settings/sso" },

@@ -443,6 +443,7 @@ class TestEveryRouteIsHeldToTheScope:
             "DELETE /api/terminal/sessions/{session_id}",
             "GET /api/jobs/active",
             "GET /api/jobs/queue",
+            "GET /api/logs/search",
             "POST /api/jobs/update-many",
             "POST /api/manifest/apply",
             "GET /api/recipes/installed",
@@ -466,6 +467,13 @@ TEAMS_FRAGMENT = "TEAMS"
 #: database: ``(method, route, how the route is classified)``. Each route must be served and must
 #: be classified as said, so a route that drifts to "open" or loses its resource fails here.
 OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
+    # The record of deliveries names every team's applications and keeps what was sent about
+    # them: the server's, like the channels it went through.
+    "notification_deliveries": (
+        ("GET", "/api/notifications/deliveries", INSTANCE),
+        ("POST", "/api/notifications/deliveries/sweep", INSTANCE),
+        ("POST", "/api/notifications/deliveries/{delivery_id}/retry", INSTANCE),
+    ),
     # The text a site's file held: reached through the site, which names its application.
     "site_config_versions": (
         ("GET", "/api/sites/{domain}/config/versions", RESOURCE),
@@ -484,6 +492,13 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("GET", "/api/alerts/rules", INSTANCE),
         ("PUT", "/api/alerts/rules/{name}", INSTANCE),
         ("DELETE", "/api/alerts/rules/{name}", INSTANCE),
+    ),
+    # Where each application a rule watches stands, and who took it: read with the rules and
+    # taken through them, the server's like the monitor.
+    "alert_states": (
+        ("GET", "/api/alerts/rules", INSTANCE),
+        ("POST", "/api/alerts/rules/{name}/acknowledge", INSTANCE),
+        ("DELETE", "/api/alerts/rules/{name}/acknowledge", INSTANCE),
     ),
     # An application's own routes: another team's reads as absent before the handler runs.
     "app_build": (

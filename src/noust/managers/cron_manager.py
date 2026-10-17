@@ -325,6 +325,9 @@ class CronOutcome:
             ``exit-code``, ``timeout``, ``signal``, ``core-dump``...
         exit_code: The exit status of the command, when it exited.
         app_domain: The application the job belongs to, when it has one.
+        timer: systemd's ``ActiveState`` of the job's timer (``active``,
+            ``inactive``, ``failed``); empty when it was not asked.
+        timer_enabled: The timer is enabled, so it is meant to be running.
     """
 
     name: str
@@ -333,6 +336,8 @@ class CronOutcome:
     result: str = ""
     exit_code: int | None = None
     app_domain: str = ""
+    timer: str = ""
+    timer_enabled: bool = True
 
     @property
     def ok(self) -> bool:
@@ -1258,7 +1263,8 @@ class CronManager:
 
         The monitor asks this every minute, so it must not cost a few commands
         per job the way :meth:`list_jobs` does: one ``list-unit-files`` names
-        the jobs and one ``show`` of all their services answers for every one.
+        the jobs (and says which timers are enabled) and one ``show`` of all
+        their services and timers answers for every one.
 
         Returns:
             One outcome per owned job, by name. Empty when systemd cannot be
@@ -1270,8 +1276,10 @@ class CronManager:
         if not listed.success:
             return []
         names: list[str] = []
+        enabled_timers: dict[str, bool] = {}
         for line in listed.stdout.strip().splitlines():
-            unit = next((part for part in line.split() if part.endswith(".timer")), None)
+            parts = line.split()
+            unit = next((part for part in parts if part.endswith(".timer")), None)
             if unit is None:
                 continue
             name = unit[len(UNIT_PREFIX) : -len(".timer")]
@@ -1281,12 +1289,15 @@ class CronManager:
                 continue
             if self._is_owned_unit(name):
                 names.append(name)
+                state = parts[parts.index(unit) + 1] if parts.index(unit) + 1 < len(parts) else ""
+                enabled_timers[name] = state in ("enabled", "enabled-runtime", "")
         if not names:
             return []
 
         shown = self._systemctl(
             "show",
             *(f"{UNIT_PREFIX}{name}.service" for name in names),
+            *(f"{UNIT_PREFIX}{name}.timer" for name in names),
             "--property=Id,InvocationID,ActiveState,Result,ExecMainStatus",
         )
         if not shown.success:
@@ -1300,6 +1311,7 @@ class CronManager:
         outcomes: list[CronOutcome] = []
         for name in names:
             properties = by_id.get(f"{UNIT_PREFIX}{name}.service", {})
+            timer = by_id.get(f"{UNIT_PREFIX}{name}.timer", {}).get("ActiveState", "")
             try:
                 exit_code: int | None = int(properties.get("ExecMainStatus", ""))
             except ValueError:
@@ -1313,6 +1325,8 @@ class CronManager:
                     result=properties.get("Result", "") if invocation else "",
                     exit_code=exit_code if invocation else None,
                     app_domain=self._read_service_fields(name)["app_domain"],
+                    timer=timer,
+                    timer_enabled=enabled_timers.get(name, True),
                 )
             )
         return outcomes

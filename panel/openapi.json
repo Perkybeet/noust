@@ -1522,6 +1522,58 @@
         "title": "AnalysisOut",
         "type": "object"
       },
+      "AnswerModel": {
+        "description": "One answer an address gave.\n\nAttributes:\n    ts: Epoch seconds.\n    ok: Whether it was good.\n    status: The HTTP status.\n    latency_ms: How long it took.\n    error: What was wrong.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "ts": {
+            "title": "Ts",
+            "type": "number"
+          }
+        },
+        "required": [
+          "ts",
+          "ok"
+        ],
+        "title": "AnswerModel",
+        "type": "object"
+      },
       "ApiTokenCreated": {
         "description": "A freshly issued API token. The only response that ever carries the token.\n\nAttributes:\n    id: Record id, used to revoke it.\n    name: The token's name.\n    scope: The token's scope.\n    token: The credential, shown exactly once - only its salted hash is\n        stored, so it cannot be shown again.\n    created_at: Creation time as a UNIX timestamp.\n    expires_at: Expiry as a UNIX timestamp, or None for no expiry.\n    owner_account_id: The account it acts for, or None.\n    permissions: What it may do at most, or None for its scope's.\n    allowed_cidrs: Networks it is accepted from, or None.\n    allow_elevated: Whether it may act where sudo mode is asked.\n    bound: The team, project or environment it is bound to, as people\n        write it (``acme``, ``acme/web``, ``acme/web/staging``), or None.",
         "properties": {
@@ -3220,10 +3272,17 @@
         "type": "object"
       },
       "AppMetricsResponse": {
-        "description": "Why an application's metrics are, or are not, there.\n\nAttributes:\n    domain: The application.\n    kind: ``unit``, ``legacy``, ``blue_green``, ``monorepo``, ``compose``,\n        ``php_fpm`` or ``static``.\n    sampled: True when its CPU and memory are being recorded now.\n    source: Where they come from: ``cgroup``, ``docker``, ``fpm`` or\n        ``none``.\n    reason: Why they are not; null when they are.\n    units: What each unit or container looks like right now.\n    series: Role (``cpu``, ``memory``, ``requests``, ``errors_5xx``) to the\n        metric name that holds it, for the roles that exist for this kind\n        of application.\n    traffic: Whether requests are being counted.\n    last_sample_at: The newest sample of any of its series.\n    collector: Whether history is being recorded at all.",
+        "description": "Why an application's metrics are, or are not, there.\n\nAttributes:\n    domain: The application.\n    kind: ``unit``, ``legacy``, ``blue_green``, ``monorepo``, ``compose``,\n        ``php_fpm`` or ``static``.\n    sampled: True when its CPU and memory are being recorded now.\n    source: Where they come from: ``cgroup``, ``docker``, ``fpm`` or\n        ``none``.\n    reason: Why they are not; null when they are.\n    units: What each unit or container looks like right now.\n    series: Role (``cpu``, ``memory``, ``requests``, ``errors_5xx``) to the\n        metric name that holds it, for the roles that exist for this kind\n        of application.\n    containers: For a Compose stack, each container with the series of its\n        own, so a chart can say which service reads the disk.\n    traffic: Whether requests are being counted.\n    last_sample_at: The newest sample of any of its series.\n    collector: Whether history is being recorded at all.",
         "properties": {
           "collector": {
             "$ref": "#/components/schemas/CollectorModel"
+          },
+          "containers": {
+            "items": {
+              "$ref": "#/components/schemas/ContainerSeriesModel"
+            },
+            "title": "Containers",
+            "type": "array"
           },
           "domain": {
             "title": "Domain",
@@ -3325,6 +3384,93 @@
           }
         },
         "title": "AppRegistryLoginsRequest",
+        "type": "object"
+      },
+      "AppTrafficResponse": {
+        "description": "What an application's access log said over a window.\n\nAttributes:\n    domain: The application.\n    window: The window asked for.\n    start: Where the first point starts, epoch seconds.\n    end: Where the window ends.\n    step: Seconds per point: an hour up to two days, a day beyond.\n    available: True when the log is being read now.\n    log: The access log it is read from.\n    reason: Why not, when the site should have one.\n    totals: The window summed.\n    points: By step, oldest first, every step present.\n    top: Rankings by ``paths``, ``networks``, ``statuses`` and ``referrers``.\n    collector: Whether history is being recorded.",
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "collector": {
+            "$ref": "#/components/schemas/CollectorModel"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "end": {
+            "title": "End",
+            "type": "integer"
+          },
+          "log": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Log"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/TrafficPointModel"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReasonModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "start": {
+            "title": "Start",
+            "type": "integer"
+          },
+          "step": {
+            "title": "Step",
+            "type": "integer"
+          },
+          "top": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/RankedKeyModel"
+              },
+              "type": "array"
+            },
+            "title": "Top",
+            "type": "object"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/TrafficPointModel"
+          },
+          "window": {
+            "title": "Window",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "window",
+          "start",
+          "end",
+          "step",
+          "available",
+          "totals",
+          "points",
+          "top",
+          "collector"
+        ],
+        "title": "AppTrafficResponse",
         "type": "object"
       },
       "AppTypeInfo": {
@@ -7722,7 +7868,7 @@
         "type": "object"
       },
       "ChannelBody": {
-        "description": "What to set on a channel; whatever is left out stays as it is.\n\nAttributes:\n    type: The type; needed for a new channel that is not the default of a\n        type.\n    enabled: On or off.\n    settings: The type's settings to set. ``***`` keeps a stored credential,\n        an empty string clears a setting.\n    events: Replaces the channel's own event switches (empty clears them).\n    route: Replaces its route (empty clears it).\n    quiet: Replaces its quiet hours (empty clears them).",
+        "description": "What to set on a channel; whatever is left out stays as it is.\n\nAttributes:\n    type: The type; needed for a new channel that is not the default of a\n        type.\n    enabled: On or off.\n    settings: The type's settings to set. ``***`` keeps a stored credential,\n        an empty string clears a setting.\n    events: Replaces the channel's own event switches (empty clears them).\n    route: Replaces its route (empty clears it).\n    quiet: Replaces its quiet hours (empty clears them).\n    flood: Replaces its anti-flood cap (empty clears it).\n    summary: Replaces its periodic summary (empty clears it).",
         "properties": {
           "enabled": {
             "anyOf": [
@@ -7748,6 +7894,18 @@
               }
             ],
             "title": "Events"
+          },
+          "flood": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flood"
           },
           "quiet": {
             "anyOf": [
@@ -7777,6 +7935,18 @@
             "additionalProperties": true,
             "title": "Settings",
             "type": "object"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
           },
           "type": {
             "anyOf": [
@@ -7848,7 +8018,7 @@
         "type": "object"
       },
       "ChannelModel": {
-        "description": "One notification channel, without its credentials.\n\nAttributes:\n    name: What the channel is called.\n    type: One of the types (``slack``, ``pushover``...).\n    enabled: Whether it is on.\n    configured: Whether it has what its type needs to deliver.\n    default: It is the default channel of its type: it cannot be removed,\n        only emptied.\n    settings: The type's own settings; a credential reads ``***`` when one\n        is stored and an empty string when none is.\n    events: This channel's own switch per event (those it does not name\n        follow ``notifications.events``).\n    route: What it is limited to (applications, projects, environments,\n        tags, a minimum severity).\n    quiet: When it stays silent, or null for never.",
+        "description": "One notification channel, without its credentials.\n\nAttributes:\n    name: What the channel is called.\n    type: One of the types (``slack``, ``pushover``...).\n    enabled: Whether it is on.\n    configured: Whether it has what its type needs to deliver.\n    default: It is the default channel of its type: it cannot be removed,\n        only emptied.\n    settings: The type's own settings; a credential reads ``***`` when one\n        is stored and an empty string when none is.\n    events: This channel's own switch per event (those it does not name\n        follow ``notifications.events``).\n    route: What it is limited to (applications, projects, environments,\n        tags, a minimum severity).\n    quiet: When it stays silent, or null for never.\n    flood: The most it says in a stretch of time (``max`` messages in\n        ``minutes``), or null for no cap; what passes it arrives later as\n        one message.\n    summary: What waits for a periodic summary (``at``, ``timezone``,\n        ``below``, ``days``), or null for none.",
         "properties": {
           "configured": {
             "title": "Configured",
@@ -7868,6 +8038,18 @@
             },
             "title": "Events",
             "type": "object"
+          },
+          "flood": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flood"
           },
           "name": {
             "title": "Name",
@@ -7894,6 +8076,18 @@
             "additionalProperties": true,
             "title": "Settings",
             "type": "object"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
           },
           "type": {
             "title": "Type",
@@ -8063,6 +8257,57 @@
           "detail"
         ],
         "title": "CheckInfo",
+        "type": "object"
+      },
+      "CheckResponse": {
+        "description": "What asking a probe now got.\n\nAttributes:\n    ok: It answered well.\n    status: The HTTP status.\n    latency_ms: How long it took.\n    error: What was wrong, in one line.\n    probe: The probe as it stands now.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "probe": {
+            "$ref": "#/components/schemas/ProbeModel"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "required": [
+          "ok",
+          "probe"
+        ],
+        "title": "CheckResponse",
         "type": "object"
       },
       "ChecksOut": {
@@ -10021,6 +10266,27 @@
           "type"
         ],
         "title": "ConstraintResponse",
+        "type": "object"
+      },
+      "ContainerSeriesModel": {
+        "description": "One container of a Compose stack and the series it has of its own.\n\nAttributes:\n    name: The container's name as Docker prints it.\n    series: Role (``cpu``, ``memory``, ``disk_read``, ``disk_write``,\n        ``net_rx``, ``net_tx``) to the metric name that holds it.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "series": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Series",
+            "type": "object"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ContainerSeriesModel",
         "type": "object"
       },
       "ContainerSettingsRequest": {
@@ -12876,7 +13142,7 @@
         "type": "object"
       },
       "DeliveryModel": {
-        "description": "One notification on its way to one channel.\n\nAttributes:\n    id: The row.\n    notification_id: The notification's own id.\n    kind: The event kind.\n    code: What happened, fine-grained.\n    subject: What it is about.\n    channel: The channel's name.\n    channel_type: Its type.\n    state: ``retrying``, ``held``, ``sent`` or ``failed``.\n    attempts: Tries so far.\n    created_at: Epoch seconds.\n    updated_at: Epoch seconds.\n    next_attempt_at: When it is tried (or released) next.\n    last_error: The failure, in the destination's own words.\n    can_retry: It can be sent again by hand.",
+        "description": "One notification on its way to one channel.\n\nAttributes:\n    id: The row.\n    notification_id: The notification's own id.\n    kind: The event kind.\n    code: What happened, fine-grained.\n    subject: What it is about.\n    channel: The channel's name.\n    channel_type: Its type.\n    state: ``retrying``, ``held``, ``sent`` or ``failed``.\n    attempts: Tries so far.\n    created_at: Epoch seconds.\n    updated_at: Epoch seconds.\n    next_attempt_at: When it is tried (or released) next.\n    last_error: The failure, in the destination's own words.\n    can_retry: It can be sent again by hand.\n    held_for: Why a held one waits: ``quiet``, ``flood`` or ``summary``.",
         "properties": {
           "attempts": {
             "title": "Attempts",
@@ -12902,6 +13168,17 @@
           "created_at": {
             "title": "Created At",
             "type": "number"
+          },
+          "held_for": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Held For"
           },
           "id": {
             "title": "Id",
@@ -15432,6 +15709,109 @@
           "elevated_until"
         ],
         "title": "ElevateResponse",
+        "type": "object"
+      },
+      "EmailApiConfig": {
+        "description": "The email provider the monitor's mail goes through instead of SMTP.\n\nEvery credential is write-only, like the SMTP password: it is never sent\nback by ``GET /config/email-api``, and a blank one keeps the stored one,\nbut only for the same provider. Switching provider with a blank key\nclears it, so a key is never kept for a service it was not entered for.",
+        "properties": {
+          "access_key_id": {
+            "default": "",
+            "description": "Amazon SES: the access key id; blank keeps the one stored",
+            "title": "Access Key Id",
+            "type": "string"
+          },
+          "api_key": {
+            "default": "",
+            "description": "The provider's API key; blank keeps the one stored (Resend, Postmark, Brevo)",
+            "title": "Api Key",
+            "type": "string"
+          },
+          "from_address": {
+            "default": "",
+            "description": "Sender address, which the provider must verify",
+            "title": "From Address",
+            "type": "string"
+          },
+          "provider": {
+            "default": "",
+            "description": "resend, postmark, brevo or ses; empty means the SMTP relay",
+            "title": "Provider",
+            "type": "string"
+          },
+          "region": {
+            "default": "",
+            "description": "Amazon SES: the AWS region, such as eu-west-1",
+            "title": "Region",
+            "type": "string"
+          },
+          "secret_access_key": {
+            "default": "",
+            "description": "Amazon SES: the secret access key; blank keeps the one stored",
+            "title": "Secret Access Key",
+            "type": "string"
+          }
+        },
+        "title": "EmailApiConfig",
+        "type": "object"
+      },
+      "EmailApiSettingsResponse": {
+        "description": "The configured email provider.\n\nLike :class:`SMTPSettingsResponse`, no credential is a field here: the\n``*_set`` flags say whether one is stored.",
+        "properties": {
+          "access_key_id_set": {
+            "title": "Access Key Id Set",
+            "type": "boolean"
+          },
+          "api_key_set": {
+            "title": "Api Key Set",
+            "type": "boolean"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "from_address": {
+            "title": "From Address",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "providers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Providers",
+            "type": "array"
+          },
+          "recipients": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Recipients",
+            "type": "array"
+          },
+          "region": {
+            "title": "Region",
+            "type": "string"
+          },
+          "secret_access_key_set": {
+            "title": "Secret Access Key Set",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "provider",
+          "providers",
+          "from_address",
+          "region",
+          "api_key_set",
+          "access_key_id_set",
+          "secret_access_key_set",
+          "recipients",
+          "configured"
+        ],
+        "title": "EmailApiSettingsResponse",
         "type": "object"
       },
       "EncryptionKey": {
@@ -21211,6 +21591,36 @@
         "title": "ImportRequest",
         "type": "object"
       },
+      "IncidentModel": {
+        "description": "A stretch an address did not answer.\n\nAttributes:\n    started_at: Epoch seconds of the first bad answer.\n    ended_at: When it answered again; null while it is down.\n    reason: What the first bad answer said.",
+        "properties": {
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "number"
+          }
+        },
+        "required": [
+          "started_at"
+        ],
+        "title": "IncidentModel",
+        "type": "object"
+      },
       "IndexResponse": {
         "description": "One index.",
         "properties": {
@@ -24231,6 +24641,119 @@
           "locked"
         ],
         "title": "LockdownResponse",
+        "type": "object"
+      },
+      "LogLineModel": {
+        "description": "One line of a log.\n\nAttributes:\n    ts: Epoch seconds.\n    app: The application; empty for a system unit.\n    source: ``journal`` or ``container``.\n    unit: The unit, or the container's service.\n    process: The application's process.\n    level: The journal's level; null for a container's line.\n    message: The text, with credentials masked.",
+        "properties": {
+          "app": {
+            "title": "App",
+            "type": "string"
+          },
+          "level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "process": {
+            "title": "Process",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "ts": {
+            "title": "Ts",
+            "type": "number"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ts",
+          "app",
+          "source",
+          "unit",
+          "process",
+          "message"
+        ],
+        "title": "LogLineModel",
+        "type": "object"
+      },
+      "LogSearchResponse": {
+        "description": "What a search found.\n\nAttributes:\n    lines: The matching lines, newest first.\n    matched: How many matched in all (of the entries examined).\n    scanned: How many entries were examined.\n    truncated: The scan stopped at its limit, so older matches may exist.\n    since: Start of the window, epoch seconds.\n    until: End of the window.\n    notes: What was left out and why.\n    apps: The applications that were searched.\n    understood: The query written back in full, so the caller sees what was asked.",
+        "properties": {
+          "apps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/LogLineModel"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "matched": {
+            "title": "Matched",
+            "type": "integer"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "scanned": {
+            "title": "Scanned",
+            "type": "integer"
+          },
+          "since": {
+            "title": "Since",
+            "type": "number"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          },
+          "understood": {
+            "default": "",
+            "title": "Understood",
+            "type": "string"
+          },
+          "until": {
+            "title": "Until",
+            "type": "number"
+          }
+        },
+        "required": [
+          "lines",
+          "matched",
+          "scanned",
+          "truncated",
+          "since",
+          "until",
+          "notes",
+          "apps"
+        ],
+        "title": "LogSearchResponse",
         "type": "object"
       },
       "LoginOptionsRequest": {
@@ -30809,6 +31332,202 @@
         "title": "PrivilegesResponse",
         "type": "object"
       },
+      "ProbeBody": {
+        "description": "What a probe is, to create or replace it.\n\nAttributes:\n    url: What to ask: ``http://`` or ``https://``, no credentials in it.\n    method: ``GET`` or ``HEAD``.\n    expect_status: The statuses that mean well: ``200-399`` or ``200,204``.\n    expect_text: A word the page must contain (GET only).\n    interval_s: Seconds between two asks (30 to 3600).\n    timeout_s: Seconds an answer may take (1 to 60, under the interval).\n    fail_after: Bad answers in a row that make it down (1 to 10).\n    public: Show it on the status page.\n    title: What the status page calls it.\n    enabled: Whether it is asked.",
+        "properties": {
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "expect_status": {
+            "default": "200-399",
+            "title": "Expect Status",
+            "type": "string"
+          },
+          "expect_text": {
+            "default": "",
+            "title": "Expect Text",
+            "type": "string"
+          },
+          "fail_after": {
+            "default": 3,
+            "title": "Fail After",
+            "type": "integer"
+          },
+          "interval_s": {
+            "default": 60,
+            "title": "Interval S",
+            "type": "integer"
+          },
+          "method": {
+            "default": "GET",
+            "title": "Method",
+            "type": "string"
+          },
+          "public": {
+            "default": false,
+            "title": "Public",
+            "type": "boolean"
+          },
+          "timeout_s": {
+            "default": 10,
+            "title": "Timeout S",
+            "type": "integer"
+          },
+          "title": {
+            "default": "",
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "ProbeBody",
+        "type": "object"
+      },
+      "ProbeHistoryResponse": {
+        "description": "What one probe has done lately.\n\nAttributes:\n    name: The probe.\n    incidents: Its newest incidents first.\n    answers: Its newest answers, oldest first.",
+        "properties": {
+          "answers": {
+            "items": {
+              "$ref": "#/components/schemas/AnswerModel"
+            },
+            "title": "Answers",
+            "type": "array"
+          },
+          "incidents": {
+            "items": {
+              "$ref": "#/components/schemas/IncidentModel"
+            },
+            "title": "Incidents",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "incidents",
+          "answers"
+        ],
+        "title": "ProbeHistoryResponse",
+        "type": "object"
+      },
+      "ProbeListResponse": {
+        "description": "The probes.\n\nAttributes:\n    items: Every probe by name.\n    down: How many are down now.\n    status_page: The public status page.",
+        "properties": {
+          "down": {
+            "title": "Down",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProbeModel"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "status_page": {
+            "$ref": "#/components/schemas/StatusPageModel"
+          }
+        },
+        "required": [
+          "items",
+          "down",
+          "status_page"
+        ],
+        "title": "ProbeListResponse",
+        "type": "object"
+      },
+      "ProbeModel": {
+        "description": "One probe, where it stands and how it has done.\n\nAttributes:\n    name: Its identifier.\n    url: What is asked.\n    address: The same without its query: what notifications and the status\n        page may show.\n    method: ``GET`` or ``HEAD``.\n    expect_status: The statuses that mean well.\n    expect_text: A word the page must contain.\n    interval_s: Seconds between two asks.\n    timeout_s: Seconds an answer may take.\n    fail_after: Bad answers in a row that make it down.\n    public: Shown on the status page.\n    title: What the status page calls it.\n    enabled: Whether it is asked.\n    status: Where it stands.\n    uptime: By window (``24h``, ``7d``, ``30d``, ``90d``).",
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "expect_status": {
+            "title": "Expect Status",
+            "type": "string"
+          },
+          "expect_text": {
+            "title": "Expect Text",
+            "type": "string"
+          },
+          "fail_after": {
+            "title": "Fail After",
+            "type": "integer"
+          },
+          "interval_s": {
+            "title": "Interval S",
+            "type": "integer"
+          },
+          "method": {
+            "title": "Method",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "public": {
+            "title": "Public",
+            "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StatusModel"
+          },
+          "timeout_s": {
+            "title": "Timeout S",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "uptime": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/UptimeModel"
+            },
+            "title": "Uptime",
+            "type": "object"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "url",
+          "address",
+          "method",
+          "expect_status",
+          "expect_text",
+          "interval_s",
+          "timeout_s",
+          "fail_after",
+          "public",
+          "title",
+          "enabled",
+          "status",
+          "uptime"
+        ],
+        "title": "ProbeModel",
+        "type": "object"
+      },
       "ProbeResult": {
         "description": "The last probe Docker ran.",
         "properties": {
@@ -32756,6 +33475,27 @@
         "title": "PublicRequest",
         "type": "object"
       },
+      "PublishBody": {
+        "description": "Where to put the page.\n\nAttributes:\n    domain: A name of its own that points at this server.\n    skip_dns_check: Do not require the name to resolve to this server (NAT).",
+        "properties": {
+          "domain": {
+            "maxLength": 253,
+            "minLength": 1,
+            "title": "Domain",
+            "type": "string"
+          },
+          "skip_dns_check": {
+            "default": false,
+            "title": "Skip Dns Check",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "domain"
+        ],
+        "title": "PublishBody",
+        "type": "object"
+      },
       "PullRequestOut": {
         "description": "An open pull request of the application's repository.\n\nAttributes:\n    number: Its number.\n    title: Its title.\n    branch: Its source branch.\n    head_sha: The commit at the tip of its branch.\n    author: Who opened it.\n    draft: Whether it is a draft.\n    from_fork: Whether its branch lives in another repository (a preview of\n        it is refused unless asked for).\n    trusted: Whether Noust would build it on its own: its author is an\n        owner, member or collaborator, and it is not from a fork.\n    url: Its page on the code host.\n    preview: The domain of the preview it already has, if any.\n    status: That preview's status.",
         "properties": {
@@ -33570,6 +34310,25 @@
           "stale"
         ],
         "title": "RangesResponse",
+        "type": "object"
+      },
+      "RankedKeyModel": {
+        "description": "One entry of a ranking.\n\nAttributes:\n    key: What was counted: a page (``GET /orders/:n``), a network\n        (``203.0.113.0/24``), a status code or a referrer's host.\n    count: How many times in the window.",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "count"
+        ],
+        "title": "RankedKeyModel",
         "type": "object"
       },
       "ReasonModel": {
@@ -36828,6 +37587,114 @@
           "held"
         ],
         "title": "ResumeResponse",
+        "type": "object"
+      },
+      "RetentionBody": {
+        "description": "What to keep; a field left out is kept as it is.\n\nAttributes:\n    days: Drop entries older than this many days (1 to 3650).\n    max_use_mb: Use at most this many megabytes (16 to 1048576).\n    persistent: Keep the journal across reboots.",
+        "properties": {
+          "days": {
+            "anyOf": [
+              {
+                "maximum": 3650.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days"
+          },
+          "max_use_mb": {
+            "anyOf": [
+              {
+                "maximum": 1048576.0,
+                "minimum": 16.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Use Mb"
+          },
+          "persistent": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Persistent"
+          }
+        },
+        "title": "RetentionBody",
+        "type": "object"
+      },
+      "RetentionModel": {
+        "description": "How long the logs are kept.\n\nAttributes:\n    days: The age past which entries are dropped; null for journald's default.\n    max_use_mb: The most disk the journal may use; null for the default.\n    persistent: The drop-in asks to keep the journal across reboots.\n    journal_on_disk: The journal survives a reboot now.\n    disk_usage: What the journal takes now, in journald's words.\n    configured: A Noust drop-in is in place.\n    foreign: A drop-in of that name that Noust did not write is in the way.\n    notes: What an operator should know.",
+        "properties": {
+          "configured": {
+            "default": false,
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days"
+          },
+          "disk_usage": {
+            "default": "",
+            "title": "Disk Usage",
+            "type": "string"
+          },
+          "foreign": {
+            "default": false,
+            "title": "Foreign",
+            "type": "boolean"
+          },
+          "journal_on_disk": {
+            "default": false,
+            "title": "Journal On Disk",
+            "type": "boolean"
+          },
+          "max_use_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Use Mb"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "persistent": {
+            "default": false,
+            "title": "Persistent",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "notes"
+        ],
+        "title": "RetentionModel",
         "type": "object"
       },
       "RetentionResponse": {
@@ -43970,8 +44837,30 @@
         "type": "object"
       },
       "StateModel": {
-        "description": "Where one subject of one rule stands.\n\nAttributes:\n    subject: The application, or empty for the server.\n    state: ``firing`` or ``ok``.\n    since: Epoch seconds the state began.\n    last_value: The reading that last decided it.\n    announced: Whether the current firing was told to the channels.",
+        "description": "Where one subject of one rule stands.\n\nAttributes:\n    subject: The application, or empty for the server.\n    state: ``firing`` or ``ok``.\n    since: Epoch seconds the state began.\n    last_value: The reading that last decided it.\n    announced: Whether the current firing was told to the channels.\n    acknowledged_at: Epoch seconds somebody took the firing, or null.\n    acknowledged_by: Who took it.",
         "properties": {
+          "acknowledged_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged At"
+          },
+          "acknowledged_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged By"
+          },
           "announced": {
             "default": false,
             "title": "Announced",
@@ -44007,6 +44896,181 @@
           "since"
         ],
         "title": "StateModel",
+        "type": "object"
+      },
+      "StatusModel": {
+        "description": "Where a probe stands.\n\nAttributes:\n    state: ``unknown``, ``up`` or ``down``.\n    since: Epoch seconds the state began.\n    failures: Bad answers in a row.\n    last_checked: When it was last asked.\n    last_status: The HTTP status of the last answer.\n    last_latency_ms: How long it took.\n    last_error: What was wrong with the last answer, in one line.",
+        "properties": {
+          "failures": {
+            "title": "Failures",
+            "type": "integer"
+          },
+          "last_checked": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Checked"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "last_latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Latency Ms"
+          },
+          "last_status": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Status"
+          },
+          "since": {
+            "title": "Since",
+            "type": "number"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "since",
+          "failures"
+        ],
+        "title": "StatusModel",
+        "type": "object"
+      },
+      "StatusPageBody": {
+        "description": "What to change of the status page; a field left out is kept.\n\nAttributes:\n    enabled: The monitor writes the page's files.\n    title: What the page is called (80 characters at most).\n    directory: Where the files go; empty for the default.",
+        "properties": {
+          "directory": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Directory"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "StatusPageBody",
+        "type": "object"
+      },
+      "StatusPageFilesResponse": {
+        "description": "The files of the status page after writing them.\n\nAttributes:\n    files: Their paths.",
+        "properties": {
+          "files": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Files",
+            "type": "array"
+          }
+        },
+        "required": [
+          "files"
+        ],
+        "title": "StatusPageFilesResponse",
+        "type": "object"
+      },
+      "StatusPageModel": {
+        "description": "The public status page.\n\nAttributes:\n    enabled: The monitor writes its files.\n    directory: Where they go.\n    title: What the page is called.\n    components: How many probes are marked public.\n    domain: The name it is published on, when it is.\n    site_created: Publishing made the nginx site.\n    certificate_created: Publishing made the certificate.",
+        "properties": {
+          "certificate_created": {
+            "default": false,
+            "title": "Certificate Created",
+            "type": "boolean"
+          },
+          "components": {
+            "title": "Components",
+            "type": "integer"
+          },
+          "directory": {
+            "title": "Directory",
+            "type": "string"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "site_created": {
+            "default": false,
+            "title": "Site Created",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "directory",
+          "title",
+          "components"
+        ],
+        "title": "StatusPageModel",
         "type": "object"
       },
       "StepsOut": {
@@ -44875,7 +45939,7 @@
         "type": "object"
       },
       "SweepResponse": {
-        "description": "What a pass over the due deliveries did.\n\nAttributes:\n    delivered: Deliveries that went out.\n    retried: Deliveries that failed again and wait.\n    failed: Deliveries given up on.\n    digests: Digest messages sent for what the quiet hours held.",
+        "description": "What a pass over the due deliveries did.\n\nAttributes:\n    delivered: Deliveries that went out.\n    retried: Deliveries that failed again and wait.\n    failed: Deliveries given up on.\n    digests: Digest messages sent for what the channels held.",
         "properties": {
           "delivered": {
             "title": "Delivered",
@@ -46787,6 +47851,50 @@
           "available"
         ],
         "title": "TrafficModel",
+        "type": "object"
+      },
+      "TrafficPointModel": {
+        "description": "One hour (or day) of an application's traffic.\n\nAttributes:\n    ts: Where it starts, epoch seconds UTC.\n    requests: Requests.\n    s2xx: Answered 2xx.\n    s3xx: Answered 3xx.\n    s4xx: Answered 4xx.\n    s5xx: Answered 5xx.\n    bytes: Bytes of response bodies.",
+        "properties": {
+          "bytes": {
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "requests": {
+            "title": "Requests",
+            "type": "integer"
+          },
+          "s2xx": {
+            "title": "S2Xx",
+            "type": "integer"
+          },
+          "s3xx": {
+            "title": "S3Xx",
+            "type": "integer"
+          },
+          "s4xx": {
+            "title": "S4Xx",
+            "type": "integer"
+          },
+          "s5xx": {
+            "title": "S5Xx",
+            "type": "integer"
+          },
+          "ts": {
+            "title": "Ts",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ts",
+          "requests",
+          "s2xx",
+          "s3xx",
+          "s4xx",
+          "s5xx",
+          "bytes"
+        ],
+        "title": "TrafficPointModel",
         "type": "object"
       },
       "TuningHealth": {
@@ -49674,6 +50782,58 @@
           "servers"
         ],
         "title": "UpstreamsOut",
+        "type": "object"
+      },
+      "UptimeModel": {
+        "description": "How often an address answered over a window.\n\nAttributes:\n    checks: Times it was asked.\n    good: Times it answered well.\n    percent: Good answers as a percentage; null when it was never asked.\n    mean_ms: The mean latency of the good answers.\n    max_ms: The slowest.",
+        "properties": {
+          "checks": {
+            "title": "Checks",
+            "type": "integer"
+          },
+          "good": {
+            "title": "Good",
+            "type": "integer"
+          },
+          "max_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Ms"
+          },
+          "mean_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Ms"
+          },
+          "percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percent"
+          }
+        },
+        "required": [
+          "checks",
+          "good"
+        ],
+        "title": "UptimeModel",
         "type": "object"
       },
       "UsageResponse": {
@@ -55612,6 +56772,118 @@
           "Alerts"
         ],
         "x-noust-permission": "server.manage"
+      }
+    },
+    "/api/alerts/rules/{name}/acknowledge": {
+      "delete": {
+        "description": "Hand a firing alert back: its reminder speaks again.\n\nArgs:\n    name: The rule's name.\n    session: The authenticated session.\n    subject: The application, or empty for the server.\n\nReturns:\n    The rule, with where each subject stands.\n\nRaises:\n    HTTPException: 404 when there is no such rule.\n    ValidationError: 400 when the subject is not firing.",
+        "operationId": "hand_back_rule_api_alerts_rules__name__acknowledge_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The application, or empty for the server",
+            "in": "query",
+            "name": "subject",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "The application, or empty for the server",
+              "maxLength": 253,
+              "title": "Subject",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Hand Back Rule",
+        "tags": [
+          "Alerts"
+        ],
+        "x-noust-permission": "apps.operate"
+      },
+      "post": {
+        "description": "Take an alert that is firing.\n\nIts reminders stop, the channels are told who took it and a pager channel\nacknowledges the incident, which stops it escalating. It still clears, and\nsays so, when the metric is back inside its limit. Taking one that is taken\nchanges nothing.\n\nArgs:\n    name: The rule's name.\n    session: The authenticated session.\n    subject: The application, or empty for the server.\n\nReturns:\n    The rule, with where each subject stands.\n\nRaises:\n    HTTPException: 404 when there is no such rule.\n    ValidationError: 400 when the subject is not firing.",
+        "operationId": "acknowledge_rule_api_alerts_rules__name__acknowledge_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The application, or empty for the server",
+            "in": "query",
+            "name": "subject",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "The application, or empty for the server",
+              "maxLength": 253,
+              "title": "Subject",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Acknowledge Rule",
+        "tags": [
+          "Alerts"
+        ],
+        "x-noust-permission": "apps.operate"
       }
     },
     "/api/alerts/rules/{name}/disable": {
@@ -65593,6 +66865,82 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/apps/{domain}/traffic": {
+      "get": {
+        "description": "Say what the proxy's access log says about an application.\n\nRequests and how they ended by the hour (by the day beyond two days), bytes\nserved, and the pages asked for most, the networks they came from, the\nstatus codes and the referrers' hosts. Query strings are never kept and a\nclient is its network (a /24 or a /48), not its address.\n\nArgs:\n    domain: The application's domain.\n    session: Authenticated session, injected.\n    window: How far back to look.\n    top: Entries in each ranking.\n\nReturns:\n    The traffic, and whether the log is being read at all.\n\nRaises:\n    HTTPException: 404 when there is no such application.",
+        "operationId": "app_traffic_api_apps__domain__traffic_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "description": "How far back to look.",
+            "in": "query",
+            "name": "window",
+            "required": false,
+            "schema": {
+              "default": "24h",
+              "description": "How far back to look.",
+              "enum": [
+                "24h",
+                "7d",
+                "30d",
+                "90d"
+              ],
+              "title": "Window",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Entries in each ranking.",
+            "in": "query",
+            "name": "top",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "description": "Entries in each ranking.",
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Top",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppTrafficResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "App Traffic",
+        "tags": [
+          "Metrics"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
     "/api/apps/{domain}/tuning": {
       "get": {
         "description": "Show how an application's unit is tuned. Changes nothing.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The options, the lines they become and what can be asked for.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
@@ -71006,6 +72354,71 @@
           }
         },
         "summary": "Update Delivery Config",
+        "tags": [
+          "Configuration"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/config/email-api": {
+      "get": {
+        "description": "Get the email provider settings.\n\nArgs:\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    The provider, its region and sender, the providers Noust speaks and\n    which credentials are stored - never a credential.",
+        "operationId": "get_email_api_config_api_config_email_api_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailApiSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Email Api Config",
+        "tags": [
+          "Configuration"
+        ],
+        "x-noust-permission": "settings.read"
+      },
+      "put": {
+        "description": "Update the email provider settings.\n\nGoes through :meth:`~noust.core.config.Config.set`, so the rules of\n``noust config set monitor.email_api.*`` (a provider Noust speaks, a region\nthat is one, a valid sender) apply here in the same words. A blank\ncredential keeps the stored one while the provider stays the same and is\ncleared when it changes. Choosing a provider replaces SMTP; choosing none\ngoes back to it.\n\nArgs:\n    body: Body carrying the settings.\n    request: The incoming request, for the audit record.\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    Confirmation message.\n\nRaises:\n    ConfigError: 400, through the error boundary, for a provider or region\n        that does not exist or a sender that is not an address.",
+        "operationId": "update_email_api_config_api_config_email_api_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailApiConfig"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Email Api Config",
         "tags": [
           "Configuration"
         ],
@@ -81250,6 +82663,263 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/fleet/logs": {
+      "get": {
+        "description": "Search the logs of the applications of every server at once, newest first.\n\nEach server decides what this operator may read of its logs (a team's own\napplications, never another's) and judges the query and the window itself;\na server that cannot search is a note on the view, not an error.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n    q: The search.\n    since: Start of the window.\n    until: End of the window.\n    level: The worst level kept.\n    limit: Lines per server.\n\nReturns:\n    One row per line (``type: line``) and one per note (``type: note``).",
+        "operationId": "fleet_logs_api_fleet_logs_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "The search: words, fields, -excluded, a OR b",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "The search: words, fields, -excluded, a OR b",
+              "maxLength": 1000,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Start: 15m, 2h, 7d, a date, epoch seconds",
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Start: 15m, 2h, 7d, a date, epoch seconds",
+              "title": "Since"
+            }
+          },
+          {
+            "description": "End, in the same forms",
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "End, in the same forms",
+              "title": "Until"
+            }
+          },
+          {
+            "description": "The worst level kept",
+            "in": "query",
+            "name": "level",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The worst level kept",
+              "title": "Level"
+            }
+          },
+          {
+            "description": "Lines per server",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Lines per server",
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fleet Logs",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.read"
+      }
+    },
+    "/api/fleet/metrics": {
+      "get": {
+        "description": "One metric of every server over the same window, to compare them.\n\nEach server answers from its own recorded history (nothing is stored on the\ncentral), so a server that is down is a gap in the comparison, said so in\n``nodes``, not an error. Memory, swap and disk are the share of what each\nserver has.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n    metric: What to compare.\n    window: How far back.\n\nReturns:\n    One row per server: its points, latest value, average and peak.",
+        "operationId": "fleet_metrics_api_fleet_metrics_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "What to put side by side",
+            "in": "query",
+            "name": "metric",
+            "required": false,
+            "schema": {
+              "default": "cpu",
+              "description": "What to put side by side",
+              "enum": [
+                "cpu",
+                "memory",
+                "swap",
+                "disk",
+                "load",
+                "net_rx",
+                "net_tx"
+              ],
+              "title": "Metric",
+              "type": "string"
+            }
+          },
+          {
+            "description": "How far back",
+            "in": "query",
+            "name": "window",
+            "required": false,
+            "schema": {
+              "default": "24h",
+              "description": "How far back",
+              "enum": [
+                "1h",
+                "6h",
+                "24h",
+                "7d",
+                "30d"
+              ],
+              "title": "Window",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fleet Metrics",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.read"
+      }
+    },
     "/api/fleet/placements": {
       "get": {
         "description": "List the applications that run on several servers.\n\nAsks no server: it is the central's own record. Use the status of one for how it looks.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Every placement, with the servers it runs on now.",
@@ -83533,6 +85203,228 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/logs/retention": {
+      "delete": {
+        "description": "Go back to journald's own defaults.\n\nArgs:\n    session: The authenticated session in sudo mode.\n\nReturns:\n    The retention afterwards.",
+        "operationId": "clear_retention_api_logs_retention_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Clear Retention",
+        "tags": [
+          "Logs"
+        ],
+        "x-noust-permission": "server.manage",
+        "x-noust-requires-elevation": true
+      },
+      "get": {
+        "description": "Say how long the logs are kept.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The retention the drop-in sets, whether the journal survives a reboot\n    and how much disk it takes.",
+        "operationId": "get_retention_api_logs_retention_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Retention",
+        "tags": [
+          "Logs"
+        ],
+        "x-noust-permission": "server.read"
+      },
+      "put": {
+        "description": "Keep the logs this long, using at most this much disk.\n\nArgs:\n    body: What to keep.\n    session: The authenticated session in sudo mode (journald is restarted).\n\nReturns:\n    The retention afterwards.\n\nRaises:\n    ValidationError: 400 when nothing is named or a number is out of range.",
+        "operationId": "set_retention_api_logs_retention_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetentionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Retention",
+        "tags": [
+          "Logs"
+        ],
+        "x-noust-permission": "server.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/logs/search": {
+      "get": {
+        "description": "Search the logs of the applications the caller sees.\n\nArgs:\n    session: The authenticated session.\n    q: The query.\n    app: Narrow to these applications (domains); any the caller does not see\n        is simply not searched.\n    since: Start of the window.\n    until: End of the window.\n    level: The worst level kept.\n    limit: Most lines to return.\n\nReturns:\n    The lines, newest first, and how much was examined.\n\nRaises:\n    ValidationError: 400 naming what in the query or the window is not acceptable,\n        and where in the query when it is the query.",
+        "operationId": "search_logs_api_logs_search_get",
+        "parameters": [
+          {
+            "description": "Words (\"quoted phrases\", -excluded, a OR b, groups) and fields (@app:, @unit:, @level:, @pid:).",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "Words (\"quoted phrases\", -excluded, a OR b, groups) and fields (@app:, @unit:, @level:, @pid:).",
+              "maxLength": 1000,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Search only these applications (their domains).",
+            "in": "query",
+            "name": "app",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Search only these applications (their domains).",
+              "title": "App"
+            }
+          },
+          {
+            "description": "Start: epoch seconds, a time ago (15m, 2h, 7d) or a date. An hour ago.",
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Start: epoch seconds, a time ago (15m, 2h, 7d) or a date. An hour ago.",
+              "title": "Since"
+            }
+          },
+          {
+            "description": "End: the same forms. Now.",
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "End: the same forms. Now.",
+              "title": "Until"
+            }
+          },
+          {
+            "description": "The worst level kept: err, warning, info...",
+            "in": "query",
+            "name": "level",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The worst level kept: err, warning, info...",
+              "title": "Level"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Logs",
+        "tags": [
+          "Logs"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
     "/api/manifest/apply": {
       "post": {
         "description": "Queue the application of a manifest, made as the caller.\n\nCreates what is missing and brings what exists to what is written, with the\ncalls the caller would make by hand; it never deletes anything. The calls\nare checked by the routes they reach, so the caller's role, team, sudo mode\nand approvals decide each step, and a refusal stops the run there. Follow\nthe job: it waits for the deployments it queues.\n\nArgs:\n    request: The request.\n    response: To answer 200 when there is nothing to apply.\n    body: The manifest, the digest previewed, and whether to restart.\n    session: The authenticated, elevated session.\n\nReturns:\n    The job, or the news that the server already matches the manifest.\n\nRaises:\n    ManifestError: 400, naming the field that is not valid, or because a\n        variable is read from an environment or a file.\n    HTTPException: 409 ``plan_changed`` when the plan is not the one previewed,\n        or ``apply_running`` while another manifest is being applied; the\n        status of the route that refused a read.",
@@ -83856,6 +85748,34 @@
           }
         },
         "summary": "List Metrics",
+        "tags": [
+          "Metrics"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
+    "/api/metrics/prometheus": {
+      "get": {
+        "description": "Export the newest value of every metric for a scraper (Prometheus, Grafana\nAgent, an OpenTelemetry Collector, Netdata...).\n\nThe credential a scraper holds is an API token with the ``read`` scope, which\ncannot change anything; there is no separate export secret to leak. Send\n``Accept: application/openmetrics-text`` for OpenMetrics.\n\nArgs:\n    request: The incoming request, for the ``Accept`` header.\n    session: Authenticated session, injected.\n\nReturns:\n    The exposition. Values older than two minutes are left out, and\n    ``noust_metrics_recording`` says whether the history is being recorded\n    at all.",
+        "operationId": "export_prometheus_api_metrics_prometheus_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/openmetrics-text; version=1.0.0; charset=utf-8": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/plain; version=0.0.4; charset=utf-8": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The newest value of every metric, in the Prometheus text exposition format, or OpenMetrics when the request asks for it."
+          }
+        },
+        "summary": "Export Prometheus",
         "tags": [
           "Metrics"
         ],
@@ -85437,6 +87357,362 @@
           "Domains"
         ],
         "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/probes": {
+      "get": {
+        "description": "List the probes with where each stands and how it has done.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The probes, how many are down, and the status page.",
+        "operationId": "list_probes_api_probes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProbeListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Probes",
+        "tags": [
+          "Probes"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
+    "/api/probes/status-page": {
+      "get": {
+        "description": "Say how the public status page is set up and whether it is on a name.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The settings and the publication.",
+        "operationId": "get_status_page_api_probes_status_page_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusPageModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Status Page",
+        "tags": [
+          "Probes"
+        ],
+        "x-noust-permission": "server.read"
+      },
+      "put": {
+        "description": "Change the status page's settings.\n\nArgs:\n    body: What to change.\n    session: The authenticated session in sudo mode (the monitor, as root,\n        writes the files where the directory says).\n\nReturns:\n    The settings as they now stand.\n\nRaises:\n    ConfigError: 400 naming the setting that is not acceptable.",
+        "operationId": "set_status_page_api_probes_status_page_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatusPageBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusPageModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Status Page",
+        "tags": [
+          "Probes"
+        ],
+        "x-noust-permission": "server.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/probes/status-page/publish": {
+      "post": {
+        "description": "Put the status page on a name of its own, over TLS.\n\nArgs:\n    body: The name.\n    session: The authenticated session in sudo mode.\n\nReturns:\n    The queued job.",
+        "operationId": "publish_status_page_api_probes_status_page_publish_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publish Status Page",
+        "tags": [
+          "Probes"
+        ],
+        "x-noust-permission": "server.host_access",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/probes/status-page/site": {
+      "delete": {
+        "description": "Take the status page off its name, removing exactly what publishing made.\n\nArgs:\n    session: The authenticated session in sudo mode.\n\nReturns:\n    The queued job.",
+        "operationId": "unpublish_status_page_api_probes_status_page_site_delete",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Unpublish Status Page",
+        "tags": [
+          "Probes"
+        ],
+        "x-noust-permission": "server.host_access",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/probes/status-page/write": {
+      "post": {
+        "description": "Write the status page's files now, instead of at the monitor's next scan.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The files written.",
+        "operationId": "write_status_page_api_probes_status_page_write_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusPageFilesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Write Status Page",
+        "tags": [
+          "Probes"
+        ],
+        "x-noust-permission": "server.manage"
+      }
+    },
+    "/api/probes/{name}": {
+      "delete": {
+        "description": "Remove a probe with what it kept.\n\nArgs:\n    name: The probe.\n    session: The authenticated session.\n\nRaises:\n    HTTPException: 404 when there is no such probe.",
+        "operationId": "remove_probe_api_probes__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Probe",
+        "tags": [
+          "Probes"
+        ],
+        "x-noust-permission": "server.manage"
+      },
+      "put": {
+        "description": "Create a probe or replace the one of that name.\n\nReplacing it asks the address afresh: what the old settings had decided is\nforgotten.\n\nArgs:\n    name: The probe's name.\n    body: What it is.\n    session: The authenticated session.\n\nReturns:\n    The probe as stored.\n\nRaises:\n    ValidationError: 400 naming the field that is not acceptable, an\n        address on this server's own network included.",
+        "operationId": "save_probe_api_probes__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProbeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProbeModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Probe",
+        "tags": [
+          "Probes"
+        ],
+        "x-noust-permission": "server.manage"
+      }
+    },
+    "/api/probes/{name}/check": {
+      "post": {
+        "description": "Ask a probe now, whatever its interval, and keep the answer.\n\nArgs:\n    name: The probe.\n    session: The authenticated session.\n\nReturns:\n    What it answered, and the probe as it now stands.\n\nRaises:\n    HTTPException: 404 when there is no such probe.",
+        "operationId": "check_probe_api_probes__name__check_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Probe",
+        "tags": [
+          "Probes"
+        ],
+        "x-noust-permission": "server.manage"
+      }
+    },
+    "/api/probes/{name}/history": {
+      "get": {
+        "description": "Say what one probe has done lately.\n\nArgs:\n    name: The probe.\n    session: The authenticated session.\n\nReturns:\n    Its incidents and its latest answers.\n\nRaises:\n    HTTPException: 404 when there is no such probe.",
+        "operationId": "probe_history_api_probes__name__history_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProbeHistoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Probe History",
+        "tags": [
+          "Probes"
+        ],
+        "x-noust-permission": "server.read"
       }
     },
     "/api/projects": {

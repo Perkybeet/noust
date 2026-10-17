@@ -270,6 +270,14 @@ AnalysisOut = TypedDict("AnalysisOut", {
     "measured_at": NotRequired[Union[str, None]],
 })
 
+AnswerModel = TypedDict("AnswerModel", {
+    "error": NotRequired[Union[str, None]],
+    "latency_ms": NotRequired[Union[int, None]],
+    "ok": Required[bool],
+    "status": NotRequired[Union[int, None]],
+    "ts": Required[float],
+})
+
 ApiTokenCreated = TypedDict("ApiTokenCreated", {
     "allow_elevated": NotRequired[Union[bool, None]],
     "allowed_cidrs": NotRequired[Union[list[str], None]],
@@ -516,6 +524,7 @@ AppLogsResponse = TypedDict("AppLogsResponse", {
 
 AppMetricsResponse = TypedDict("AppMetricsResponse", {
     "collector": Required["CollectorModel"],
+    "containers": NotRequired[list["ContainerSeriesModel"]],
     "domain": Required[str],
     "kind": Required[str],
     "last_sample_at": NotRequired[Union[int, None]],
@@ -534,6 +543,21 @@ AppRegistryLogins = TypedDict("AppRegistryLogins", {
 
 AppRegistryLoginsRequest = TypedDict("AppRegistryLoginsRequest", {
     "logins": NotRequired[list[str]],
+})
+
+AppTrafficResponse = TypedDict("AppTrafficResponse", {
+    "available": Required[bool],
+    "collector": Required["CollectorModel"],
+    "domain": Required[str],
+    "end": Required[int],
+    "log": NotRequired[Union[str, None]],
+    "points": Required[list["TrafficPointModel"]],
+    "reason": NotRequired[Union["ReasonModel", None]],
+    "start": Required[int],
+    "step": Required[int],
+    "top": Required[dict[str, list["RankedKeyModel"]]],
+    "totals": Required["TrafficPointModel"],
+    "window": Required[str],
 })
 
 AppTypeInfo = TypedDict("AppTypeInfo", {
@@ -1327,9 +1351,11 @@ ChangelogOut = TypedDict("ChangelogOut", {
 ChannelBody = TypedDict("ChannelBody", {
     "enabled": NotRequired[Union[bool, None]],
     "events": NotRequired[Union[dict[str, bool], None]],
+    "flood": NotRequired[Union[dict[str, Any], None]],
     "quiet": NotRequired[Union[dict[str, Any], None]],
     "route": NotRequired[Union[dict[str, Any], None]],
     "settings": NotRequired[dict[str, Any]],
+    "summary": NotRequired[Union[dict[str, Any], None]],
     "type": NotRequired[Union[str, None]],
 })
 
@@ -1350,10 +1376,12 @@ ChannelModel = TypedDict("ChannelModel", {
     "default": Required[bool],
     "enabled": Required[bool],
     "events": NotRequired[dict[str, bool]],
+    "flood": NotRequired[Union[dict[str, Any], None]],
     "name": Required[str],
     "quiet": NotRequired[Union[dict[str, Any], None]],
     "route": NotRequired[dict[str, Any]],
     "settings": NotRequired[dict[str, Any]],
+    "summary": NotRequired[Union[dict[str, Any], None]],
     "type": Required[str],
 })
 
@@ -1386,6 +1414,14 @@ CheckInfo = TypedDict("CheckInfo", {
     "detail": Required[str],
     "name": Required[str],
     "ok": Required[bool],
+})
+
+CheckResponse = TypedDict("CheckResponse", {
+    "error": NotRequired[Union[str, None]],
+    "latency_ms": NotRequired[Union[int, None]],
+    "ok": Required[bool],
+    "probe": Required["ProbeModel"],
+    "status": NotRequired[Union[int, None]],
 })
 
 ChecksOut = TypedDict("ChecksOut", {
@@ -1734,6 +1770,11 @@ ConstraintResponse = TypedDict("ConstraintResponse", {
     "definition": NotRequired[Union[str, None]],
     "name": Required[str],
     "type": Required[str],
+})
+
+ContainerSeriesModel = TypedDict("ContainerSeriesModel", {
+    "name": Required[str],
+    "series": NotRequired[dict[str, str]],
 })
 
 ContainerSettingsRequest = TypedDict("ContainerSettingsRequest", {
@@ -2178,6 +2219,7 @@ DeliveryModel = TypedDict("DeliveryModel", {
     "channel_type": Required[str],
     "code": Required[str],
     "created_at": Required[float],
+    "held_for": NotRequired[Union[str, None]],
     "id": Required[int],
     "kind": Required[str],
     "last_error": NotRequired[Union[str, None]],
@@ -2617,6 +2659,27 @@ ElevateRequest = TypedDict("ElevateRequest", {
 
 ElevateResponse = TypedDict("ElevateResponse", {
     "elevated_until": Required[str],
+})
+
+EmailApiConfig = TypedDict("EmailApiConfig", {
+    "access_key_id": NotRequired[str],
+    "api_key": NotRequired[str],
+    "from_address": NotRequired[str],
+    "provider": NotRequired[str],
+    "region": NotRequired[str],
+    "secret_access_key": NotRequired[str],
+})
+
+EmailApiSettingsResponse = TypedDict("EmailApiSettingsResponse", {
+    "access_key_id_set": Required[bool],
+    "api_key_set": Required[bool],
+    "configured": Required[bool],
+    "from_address": Required[str],
+    "provider": Required[str],
+    "providers": Required[list[str]],
+    "recipients": Required[list[str]],
+    "region": Required[str],
+    "secret_access_key_set": Required[bool],
 })
 
 EncryptionKey = TypedDict("EncryptionKey", {
@@ -3639,6 +3702,12 @@ ImportRequest = TypedDict("ImportRequest", {
     "upload_id": NotRequired[Union[str, None]],
 })
 
+IncidentModel = TypedDict("IncidentModel", {
+    "ended_at": NotRequired[Union[float, None]],
+    "reason": NotRequired[str],
+    "started_at": Required[float],
+})
+
 IndexResponse = TypedDict("IndexResponse", {
     "columns": NotRequired[list[str]],
     "definition": NotRequired[Union[str, None]],
@@ -4179,6 +4248,28 @@ LockdownResponse = TypedDict("LockdownResponse", {
     "package": NotRequired[Union[str, None]],
     "reason": NotRequired[Union[str, None]],
     "since": NotRequired[Union[str, None]],
+})
+
+LogLineModel = TypedDict("LogLineModel", {
+    "app": Required[str],
+    "level": NotRequired[Union[str, None]],
+    "message": Required[str],
+    "process": Required[str],
+    "source": Required[str],
+    "ts": Required[float],
+    "unit": Required[str],
+})
+
+LogSearchResponse = TypedDict("LogSearchResponse", {
+    "apps": Required[list[str]],
+    "lines": Required[list["LogLineModel"]],
+    "matched": Required[int],
+    "notes": Required[list[str]],
+    "scanned": Required[int],
+    "since": Required[float],
+    "truncated": Required[bool],
+    "understood": NotRequired[str],
+    "until": Required[float],
 })
 
 LoginOptionsRequest = TypedDict("LoginOptionsRequest", {
@@ -5328,6 +5419,48 @@ PrivilegesResponse = TypedDict("PrivilegesResponse", {
     "privileges": Required[list[str]],
 })
 
+ProbeBody = TypedDict("ProbeBody", {
+    "enabled": NotRequired[bool],
+    "expect_status": NotRequired[str],
+    "expect_text": NotRequired[str],
+    "fail_after": NotRequired[int],
+    "interval_s": NotRequired[int],
+    "method": NotRequired[str],
+    "public": NotRequired[bool],
+    "timeout_s": NotRequired[int],
+    "title": NotRequired[str],
+    "url": Required[str],
+})
+
+ProbeHistoryResponse = TypedDict("ProbeHistoryResponse", {
+    "answers": Required[list["AnswerModel"]],
+    "incidents": Required[list["IncidentModel"]],
+    "name": Required[str],
+})
+
+ProbeListResponse = TypedDict("ProbeListResponse", {
+    "down": Required[int],
+    "items": Required[list["ProbeModel"]],
+    "status_page": Required["StatusPageModel"],
+})
+
+ProbeModel = TypedDict("ProbeModel", {
+    "address": Required[str],
+    "enabled": Required[bool],
+    "expect_status": Required[str],
+    "expect_text": Required[str],
+    "fail_after": Required[int],
+    "interval_s": Required[int],
+    "method": Required[str],
+    "name": Required[str],
+    "public": Required[bool],
+    "status": Required["StatusModel"],
+    "timeout_s": Required[int],
+    "title": Required[str],
+    "uptime": Required[dict[str, "UptimeModel"]],
+    "url": Required[str],
+})
+
 ProbeResult = TypedDict("ProbeResult", {
     "exit_code": NotRequired[Union[int, None]],
     "output": NotRequired[str],
@@ -5664,6 +5797,11 @@ PublicRequest = TypedDict("PublicRequest", {
     "tls": NotRequired[Union[str, None]],
 })
 
+PublishBody = TypedDict("PublishBody", {
+    "domain": Required[str],
+    "skip_dns_check": NotRequired[bool],
+})
+
 PullRequestOut = TypedDict("PullRequestOut", {
     "author": Required[str],
     "base_branch": NotRequired[str],
@@ -5806,6 +5944,11 @@ RangesResponse = TypedDict("RangesResponse", {
     "networks": Required[list[str]],
     "source": Required[str],
     "stale": Required[bool],
+})
+
+RankedKeyModel = TypedDict("RankedKeyModel", {
+    "count": Required[int],
+    "key": Required[str],
 })
 
 ReasonModel = TypedDict("ReasonModel", {
@@ -6365,6 +6508,23 @@ ResumeResponse = TypedDict("ResumeResponse", {
     "domain": Required[str],
     "held": Required[int],
     "was_paused": Required[bool],
+})
+
+RetentionBody = TypedDict("RetentionBody", {
+    "days": NotRequired[Union[int, None]],
+    "max_use_mb": NotRequired[Union[int, None]],
+    "persistent": NotRequired[Union[bool, None]],
+})
+
+RetentionModel = TypedDict("RetentionModel", {
+    "configured": NotRequired[bool],
+    "days": NotRequired[Union[int, None]],
+    "disk_usage": NotRequired[str],
+    "foreign": NotRequired[bool],
+    "journal_on_disk": NotRequired[bool],
+    "max_use_mb": NotRequired[Union[int, None]],
+    "notes": Required[list[str]],
+    "persistent": NotRequired[bool],
 })
 
 RetentionResponse = TypedDict("RetentionResponse", {
@@ -7552,11 +7712,43 @@ StageRequest = TypedDict("StageRequest", {
 })
 
 StateModel = TypedDict("StateModel", {
+    "acknowledged_at": NotRequired[Union[float, None]],
+    "acknowledged_by": NotRequired[Union[str, None]],
     "announced": NotRequired[bool],
     "last_value": NotRequired[Union[float, None]],
     "since": Required[float],
     "state": Required[str],
     "subject": Required[str],
+})
+
+StatusModel = TypedDict("StatusModel", {
+    "failures": Required[int],
+    "last_checked": NotRequired[Union[float, None]],
+    "last_error": NotRequired[Union[str, None]],
+    "last_latency_ms": NotRequired[Union[int, None]],
+    "last_status": NotRequired[Union[int, None]],
+    "since": Required[float],
+    "state": Required[str],
+})
+
+StatusPageBody = TypedDict("StatusPageBody", {
+    "directory": NotRequired[Union[str, None]],
+    "enabled": NotRequired[Union[bool, None]],
+    "title": NotRequired[Union[str, None]],
+})
+
+StatusPageFilesResponse = TypedDict("StatusPageFilesResponse", {
+    "files": Required[list[str]],
+})
+
+StatusPageModel = TypedDict("StatusPageModel", {
+    "certificate_created": NotRequired[bool],
+    "components": Required[int],
+    "directory": Required[str],
+    "domain": NotRequired[Union[str, None]],
+    "enabled": Required[bool],
+    "site_created": NotRequired[bool],
+    "title": Required[str],
 })
 
 StepsOut = TypedDict("StepsOut", {
@@ -8091,6 +8283,16 @@ TrafficModel = TypedDict("TrafficModel", {
     "reason": NotRequired[Union["ReasonModel", None]],
 })
 
+TrafficPointModel = TypedDict("TrafficPointModel", {
+    "bytes": Required[int],
+    "requests": Required[int],
+    "s2xx": Required[int],
+    "s3xx": Required[int],
+    "s4xx": Required[int],
+    "s5xx": Required[int],
+    "ts": Required[int],
+})
+
 TuningHealth = TypedDict("TuningHealth", {
     "failing_streak": NotRequired[int],
     "last": NotRequired[Union["ProbeResult", None]],
@@ -8561,6 +8763,14 @@ UpstreamsOut = TypedDict("UpstreamsOut", {
     "port": Required[int],
     "servers": Required[list["UpstreamServerOut"]],
     "text": Required[str],
+})
+
+UptimeModel = TypedDict("UptimeModel", {
+    "checks": Required[int],
+    "good": Required[int],
+    "max_ms": NotRequired[Union[int, None]],
+    "mean_ms": NotRequired[Union[float, None]],
+    "percent": NotRequired[Union[float, None]],
 })
 
 UsageResponse = TypedDict("UsageResponse", {

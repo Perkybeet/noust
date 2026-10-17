@@ -68,6 +68,12 @@ Every configuration key and the value it has until you change it. Set one with `
 | `monitor.disk_check_seconds` | `0` |
 | `monitor.disk_renotify_hours` | `0` |
 | `monitor.disk_threshold` | `90.0` |
+| `monitor.email_api.access_key_id` | `""` |
+| `monitor.email_api.api_key` | `""` |
+| `monitor.email_api.from_address` | `""` |
+| `monitor.email_api.provider` | `""` |
+| `monitor.email_api.region` | `""` |
+| `monitor.email_api.secret_access_key` | `""` |
 | `monitor.email_recipients` | `[]` |
 | `monitor.enabled` | `false` |
 | `monitor.log_file` | `"/var/log/noust/monitor.log"` |
@@ -88,8 +94,16 @@ Every configuration key and the value it has until you change it. Set one with `
 | `notifications.channels.email.enabled` | `false` |
 | `notifications.channels.gotify.token` | `""` |
 | `notifications.channels.gotify.webhook_url` | `""` |
+| `notifications.channels.lark.secret` | `""` |
+| `notifications.channels.lark.webhook_url` | `""` |
+| `notifications.channels.matrix.access_token` | `""` |
+| `notifications.channels.matrix.homeserver` | `""` |
+| `notifications.channels.matrix.room_id` | `""` |
+| `notifications.channels.mattermost.webhook_url` | `""` |
 | `notifications.channels.ntfy.token` | `""` |
 | `notifications.channels.ntfy.webhook_url` | `""` |
+| `notifications.channels.pagerduty.region` | `"us"` |
+| `notifications.channels.pagerduty.routing_key` | `""` |
 | `notifications.channels.pushover.app_token` | `""` |
 | `notifications.channels.pushover.device` | `""` |
 | `notifications.channels.pushover.user_key` | `""` |
@@ -100,6 +114,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `notifications.channels.webhook.secret` | `""` |
 | `notifications.channels.webhook.webhook_url` | `""` |
 | `notifications.enabled` | `false` |
+| `notifications.events.alert_acknowledged` | `true` |
 | `notifications.events.alert_firing` | `true` |
 | `notifications.events.alert_resolved` | `true` |
 | `notifications.events.app_recovered` | `true` |
@@ -110,7 +125,10 @@ Every configuration key and the value it has until you change it. Set one with `
 | `notifications.events.backup_missing` | `true` |
 | `notifications.events.backup_success` | `false` |
 | `notifications.events.cert_expiring` | `true` |
+| `notifications.events.cleanup_failed` | `true` |
+| `notifications.events.cleanup_success` | `false` |
 | `notifications.events.cron_failed` | `true` |
+| `notifications.events.cron_missed` | `true` |
 | `notifications.events.cron_success` | `false` |
 | `notifications.events.deploy_failed` | `true` |
 | `notifications.events.deploy_hook_failed` | `true` |
@@ -123,6 +141,8 @@ Every configuration key and the value it has until you change it. Set one with `
 | `notifications.events.node_recovered` | `true` |
 | `notifications.events.node_unreachable` | `true` |
 | `notifications.events.os_patches` | `true` |
+| `notifications.events.probe_failed` | `true` |
+| `notifications.events.probe_recovered` | `true` |
 | `notifications.events.restore_failed` | `true` |
 | `notifications.events.restore_success` | `true` |
 | `notifications.events.server_back` | `true` |
@@ -147,6 +167,9 @@ Every configuration key and the value it has until you change it. Set one with `
 | `ssl.hsts` | `false` |
 | `ssl.provider` | `"certbot"` |
 | `ssl.reuse_wildcard` | `true` |
+| `status_page.directory` | `""` |
+| `status_page.enabled` | `false` |
+| `status_page.title` | `""` |
 | `terminal.enabled` | `true` |
 | `terminal.exec.max_seconds` | `1800` |
 | `terminal.idle_minutes` | `10` |

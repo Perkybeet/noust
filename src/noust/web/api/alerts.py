@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from noust.core import audit
@@ -32,6 +32,7 @@ from noust.core.alerts import (
 )
 from noust.core.alerts.model import DEFAULT_COOLDOWN_S, DEFAULT_DURATION_S
 from noust.core.exceptions import ValidationError
+from noust.monitor.alert_engine import Publish, acknowledge_alert
 from noust.web.api.auth import get_current_session
 from noust.web.api.databases.common import session_actor
 from noust.web.api.deps import NoustErrorRoute
@@ -67,6 +68,8 @@ class StateModel(BaseModel):
         since: Epoch seconds the state began.
         last_value: The reading that last decided it.
         announced: Whether the current firing was told to the channels.
+        acknowledged_at: Epoch seconds somebody took the firing, or null.
+        acknowledged_by: Who took it.
     """
 
     subject: str
@@ -74,6 +77,8 @@ class StateModel(BaseModel):
     since: float
     last_value: float | None = None
     announced: bool = False
+    acknowledged_at: float | None = None
+    acknowledged_by: str | None = None
 
 
 class RuleModel(BaseModel):
@@ -328,6 +333,110 @@ def disable_rule(name: str, session: Session) -> RuleModel:
         The rule as it is now.
     """
     return _switch(name, False, session)
+
+
+def _publish() -> Publish:
+    """
+    Returns:
+        How a notification is composed and delivered. Module level so a test can
+        stand in another.
+    """
+    from noust.core.notifier import notify_composed
+
+    return notify_composed
+
+
+def _known(rules: AlertRules, name: str) -> AlertRule:
+    """
+    Args:
+        rules: The rules.
+        name: A rule's name.
+
+    Returns:
+        The rule.
+
+    Raises:
+        HTTPException: 404 when there is no such rule.
+    """
+    rule = rules.get(name)
+    if rule is None:
+        raise HTTPException(status_code=404, detail=f"No alert rule named {name!r}")
+    return rule
+
+
+@router.post("/rules/{name}/acknowledge", response_model=RuleModel)
+def acknowledge_rule(
+    name: str,
+    session: Session,
+    subject: Annotated[
+        str, Query(max_length=253, description="The application, or empty for the server")
+    ] = "",
+) -> RuleModel:
+    """
+    Take an alert that is firing.
+
+    Its reminders stop, the channels are told who took it and a pager channel
+    acknowledges the incident, which stops it escalating. It still clears, and
+    says so, when the metric is back inside its limit. Taking one that is taken
+    changes nothing.
+
+    Args:
+        name: The rule's name.
+        session: The authenticated session.
+        subject: The application, or empty for the server.
+
+    Returns:
+        The rule, with where each subject stands.
+
+    Raises:
+        HTTPException: 404 when there is no such rule.
+        ValidationError: 400 when the subject is not firing.
+    """
+    rules = _rules()
+    rule = _known(rules, name)
+    acknowledge_alert(rules, name, subject, by=actor_label(session), publish=_publish())
+    audit.record(
+        "alert.rule.acknowledge",
+        actor=session_actor(session),
+        target=f"alert:{name}",
+        details={"subject": subject, "taken": True},
+    )
+    return _model(rule, rules.states(rule.id))
+
+
+@router.delete("/rules/{name}/acknowledge", response_model=RuleModel)
+def hand_back_rule(
+    name: str,
+    session: Session,
+    subject: Annotated[
+        str, Query(max_length=253, description="The application, or empty for the server")
+    ] = "",
+) -> RuleModel:
+    """
+    Hand a firing alert back: its reminder speaks again.
+
+    Args:
+        name: The rule's name.
+        session: The authenticated session.
+        subject: The application, or empty for the server.
+
+    Returns:
+        The rule, with where each subject stands.
+
+    Raises:
+        HTTPException: 404 when there is no such rule.
+        ValidationError: 400 when the subject is not firing.
+    """
+    rules = _rules()
+    rule = _known(rules, name)
+    rules.unacknowledge(name, subject)
+    audit.record(
+        "alert.rule.acknowledge",
+        actor=session_actor(session),
+        target=f"alert:{name}",
+        details={"subject": subject, "taken": False},
+    )
+    return _model(rule, rules.states(rule.id))
 
 
 @router.delete("/rules/{name}", status_code=204)

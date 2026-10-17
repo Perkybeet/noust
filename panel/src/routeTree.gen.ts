@@ -18,6 +18,7 @@ import { Route as ConsoleIndexRouteImport } from "./routes/_console/index"
 import { Route as ConsoleActivityRouteImport } from "./routes/_console/activity"
 import { Route as ConsoleCronRouteImport } from "./routes/_console/cron"
 import { Route as ConsoleFleetRouteImport } from "./routes/_console/fleet"
+import { Route as ConsoleLogsRouteImport } from "./routes/_console/logs"
 import { Route as ConsoleMapRouteImport } from "./routes/_console/map"
 import { Route as ConsoleServerRouteImport } from "./routes/_console/server"
 import { Route as ConsoleSettingsRouteImport } from "./routes/_console/settings"
@@ -74,6 +75,7 @@ import { Route as ConsoleSettingsLogShippingRouteImport } from "./routes/_consol
 import { Route as ConsoleSettingsManifestRouteImport } from "./routes/_console/settings/manifest"
 import { Route as ConsoleSettingsMcpRouteImport } from "./routes/_console/settings/mcp"
 import { Route as ConsoleSettingsNotificationsRouteImport } from "./routes/_console/settings/notifications"
+import { Route as ConsoleSettingsProbesRouteImport } from "./routes/_console/settings/probes"
 import { Route as ConsoleSettingsSecretManagersRouteImport } from "./routes/_console/settings/secret-managers"
 import { Route as ConsoleSettingsSecurityRouteImport } from "./routes/_console/settings/security"
 import { Route as ConsoleSettingsServersRouteImport } from "./routes/_console/settings/servers"
@@ -177,6 +179,11 @@ const ConsoleCronRoute = ConsoleCronRouteImport.update({
 const ConsoleFleetRoute = ConsoleFleetRouteImport.update({
   id: "/fleet",
   path: "/fleet",
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleLogsRoute = ConsoleLogsRouteImport.update({
+  id: "/logs",
+  path: "/logs",
   getParentRoute: () => ConsoleRoute,
 } as any)
 const ConsoleMapRoute = ConsoleMapRouteImport.update({
@@ -466,6 +473,11 @@ const ConsoleSettingsNotificationsRoute =
     path: "/notifications",
     getParentRoute: () => ConsoleSettingsRoute,
   } as any)
+const ConsoleSettingsProbesRoute = ConsoleSettingsProbesRouteImport.update({
+  id: "/probes",
+  path: "/probes",
+  getParentRoute: () => ConsoleSettingsRoute,
+} as any)
 const ConsoleSettingsSecretManagersRoute =
   ConsoleSettingsSecretManagersRouteImport.update({
     id: "/secret-managers",
@@ -823,6 +835,7 @@ export interface FileRoutesByFullPath {
   "/activity": typeof ConsoleActivityRoute
   "/cron": typeof ConsoleCronRoute
   "/fleet": typeof ConsoleFleetRouteWithChildren
+  "/logs": typeof ConsoleLogsRoute
   "/map": typeof ConsoleMapRoute
   "/server": typeof ConsoleServerRouteWithChildren
   "/settings": typeof ConsoleSettingsRouteWithChildren
@@ -869,6 +882,7 @@ export interface FileRoutesByFullPath {
   "/settings/manifest": typeof ConsoleSettingsManifestRoute
   "/settings/mcp": typeof ConsoleSettingsMcpRoute
   "/settings/notifications": typeof ConsoleSettingsNotificationsRoute
+  "/settings/probes": typeof ConsoleSettingsProbesRoute
   "/settings/secret-managers": typeof ConsoleSettingsSecretManagersRoute
   "/settings/security": typeof ConsoleSettingsSecurityRoute
   "/settings/servers": typeof ConsoleSettingsServersRoute
@@ -947,6 +961,7 @@ export interface FileRoutesByTo {
   "/welcome": typeof WelcomeRoute
   "/activity": typeof ConsoleActivityRoute
   "/cron": typeof ConsoleCronRoute
+  "/logs": typeof ConsoleLogsRoute
   "/map": typeof ConsoleMapRoute
   "/": typeof ConsoleIndexRoute
   "/apps/new": typeof ConsoleAppsNewRoute
@@ -991,6 +1006,7 @@ export interface FileRoutesByTo {
   "/settings/manifest": typeof ConsoleSettingsManifestRoute
   "/settings/mcp": typeof ConsoleSettingsMcpRoute
   "/settings/notifications": typeof ConsoleSettingsNotificationsRoute
+  "/settings/probes": typeof ConsoleSettingsProbesRoute
   "/settings/secret-managers": typeof ConsoleSettingsSecretManagersRoute
   "/settings/security": typeof ConsoleSettingsSecurityRoute
   "/settings/servers": typeof ConsoleSettingsServersRoute
@@ -1068,6 +1084,7 @@ export interface FileRoutesById {
   "/_console/activity": typeof ConsoleActivityRoute
   "/_console/cron": typeof ConsoleCronRoute
   "/_console/fleet": typeof ConsoleFleetRouteWithChildren
+  "/_console/logs": typeof ConsoleLogsRoute
   "/_console/map": typeof ConsoleMapRoute
   "/_console/server": typeof ConsoleServerRouteWithChildren
   "/_console/settings": typeof ConsoleSettingsRouteWithChildren
@@ -1115,6 +1132,7 @@ export interface FileRoutesById {
   "/_console/settings/manifest": typeof ConsoleSettingsManifestRoute
   "/_console/settings/mcp": typeof ConsoleSettingsMcpRoute
   "/_console/settings/notifications": typeof ConsoleSettingsNotificationsRoute
+  "/_console/settings/probes": typeof ConsoleSettingsProbesRoute
   "/_console/settings/secret-managers": typeof ConsoleSettingsSecretManagersRoute
   "/_console/settings/security": typeof ConsoleSettingsSecurityRoute
   "/_console/settings/servers": typeof ConsoleSettingsServersRoute
@@ -1197,6 +1215,7 @@ export interface FileRouteTypes {
     | "/activity"
     | "/cron"
     | "/fleet"
+    | "/logs"
     | "/map"
     | "/server"
     | "/settings"
@@ -1243,6 +1262,7 @@ export interface FileRouteTypes {
     | "/settings/manifest"
     | "/settings/mcp"
     | "/settings/notifications"
+    | "/settings/probes"
     | "/settings/secret-managers"
     | "/settings/security"
     | "/settings/servers"
@@ -1321,6 +1341,7 @@ export interface FileRouteTypes {
     | "/welcome"
     | "/activity"
     | "/cron"
+    | "/logs"
     | "/map"
     | "/"
     | "/apps/new"
@@ -1365,6 +1386,7 @@ export interface FileRouteTypes {
     | "/settings/manifest"
     | "/settings/mcp"
     | "/settings/notifications"
+    | "/settings/probes"
     | "/settings/secret-managers"
     | "/settings/security"
     | "/settings/servers"
@@ -1441,6 +1463,7 @@ export interface FileRouteTypes {
     | "/_console/activity"
     | "/_console/cron"
     | "/_console/fleet"
+    | "/_console/logs"
     | "/_console/map"
     | "/_console/server"
     | "/_console/settings"
@@ -1488,6 +1511,7 @@ export interface FileRouteTypes {
     | "/_console/settings/manifest"
     | "/_console/settings/mcp"
     | "/_console/settings/notifications"
+    | "/_console/settings/probes"
     | "/_console/settings/secret-managers"
     | "/_console/settings/security"
     | "/_console/settings/servers"
@@ -1631,6 +1655,13 @@ declare module "@tanstack/react-router" {
       path: "/fleet"
       fullPath: "/fleet"
       preLoaderRoute: typeof ConsoleFleetRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/logs": {
+      id: "/_console/logs"
+      path: "/logs"
+      fullPath: "/logs"
+      preLoaderRoute: typeof ConsoleLogsRouteImport
       parentRoute: typeof ConsoleRoute
     }
     "/_console/map": {
@@ -2023,6 +2054,13 @@ declare module "@tanstack/react-router" {
       path: "/notifications"
       fullPath: "/settings/notifications"
       preLoaderRoute: typeof ConsoleSettingsNotificationsRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
+    "/_console/settings/probes": {
+      id: "/_console/settings/probes"
+      path: "/probes"
+      fullPath: "/settings/probes"
+      preLoaderRoute: typeof ConsoleSettingsProbesRouteImport
       parentRoute: typeof ConsoleSettingsRoute
     }
     "/_console/settings/secret-managers": {
@@ -2517,6 +2555,7 @@ interface ConsoleSettingsRouteChildren {
   ConsoleSettingsManifestRoute: typeof ConsoleSettingsManifestRoute
   ConsoleSettingsMcpRoute: typeof ConsoleSettingsMcpRoute
   ConsoleSettingsNotificationsRoute: typeof ConsoleSettingsNotificationsRoute
+  ConsoleSettingsProbesRoute: typeof ConsoleSettingsProbesRoute
   ConsoleSettingsSecretManagersRoute: typeof ConsoleSettingsSecretManagersRoute
   ConsoleSettingsSecurityRoute: typeof ConsoleSettingsSecurityRoute
   ConsoleSettingsServersRoute: typeof ConsoleSettingsServersRoute
@@ -2543,6 +2582,7 @@ const ConsoleSettingsRouteChildren: ConsoleSettingsRouteChildren = {
   ConsoleSettingsManifestRoute: ConsoleSettingsManifestRoute,
   ConsoleSettingsMcpRoute: ConsoleSettingsMcpRoute,
   ConsoleSettingsNotificationsRoute: ConsoleSettingsNotificationsRoute,
+  ConsoleSettingsProbesRoute: ConsoleSettingsProbesRoute,
   ConsoleSettingsSecretManagersRoute: ConsoleSettingsSecretManagersRoute,
   ConsoleSettingsSecurityRoute: ConsoleSettingsSecurityRoute,
   ConsoleSettingsServersRoute: ConsoleSettingsServersRoute,
@@ -2709,6 +2749,7 @@ interface ConsoleRouteChildren {
   ConsoleActivityRoute: typeof ConsoleActivityRoute
   ConsoleCronRoute: typeof ConsoleCronRoute
   ConsoleFleetRoute: typeof ConsoleFleetRouteWithChildren
+  ConsoleLogsRoute: typeof ConsoleLogsRoute
   ConsoleMapRoute: typeof ConsoleMapRoute
   ConsoleServerRoute: typeof ConsoleServerRouteWithChildren
   ConsoleSettingsRoute: typeof ConsoleSettingsRouteWithChildren
@@ -2751,6 +2792,7 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
   ConsoleActivityRoute: ConsoleActivityRoute,
   ConsoleCronRoute: ConsoleCronRoute,
   ConsoleFleetRoute: ConsoleFleetRouteWithChildren,
+  ConsoleLogsRoute: ConsoleLogsRoute,
   ConsoleMapRoute: ConsoleMapRoute,
   ConsoleServerRoute: ConsoleServerRouteWithChildren,
   ConsoleSettingsRoute: ConsoleSettingsRouteWithChildren,

@@ -46,6 +46,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("alerts", "list_rules"): ("GET", "/api/alerts/rules", "server.read", False),
     ("alerts", "save_rule"): ("PUT", "/api/alerts/rules/{name}", "server.manage", False),
     ("alerts", "remove_rule"): ("DELETE", "/api/alerts/rules/{name}", "server.manage", False),
+    ("alerts", "acknowledge_rule"): ("POST", "/api/alerts/rules/{name}/acknowledge", "apps.operate", False),
+    ("alerts", "hand_back_rule"): ("DELETE", "/api/alerts/rules/{name}/acknowledge", "apps.operate", False),
     ("alerts", "disable_rule"): ("POST", "/api/alerts/rules/{name}/disable", "server.manage", False),
     ("alerts", "enable_rule"): ("POST", "/api/alerts/rules/{name}/enable", "server.manage", False),
     ("applications", "list_apps"): ("GET", "/api/apps", "apps.read", False),
@@ -308,6 +310,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("configuration", "get_defaults"): ("GET", "/api/config/defaults", "settings.read", False),
     ("configuration", "get_delivery_config"): ("GET", "/api/config/delivery", "settings.read", False),
     ("configuration", "update_delivery_config"): ("PUT", "/api/config/delivery", "settings.manage", True),
+    ("configuration", "get_email_api_config"): ("GET", "/api/config/email-api", "settings.read", False),
+    ("configuration", "update_email_api_config"): ("PUT", "/api/config/email-api", "settings.manage", True),
     ("configuration", "get_telegram_config"): ("GET", "/api/config/notifications/telegram", "settings.read", False),
     ("configuration", "update_telegram_config"): ("PUT", "/api/config/notifications/telegram", "settings.manage", True),
     ("configuration", "list_telegram_chats"): ("POST", "/api/config/notifications/telegram/chats", "settings.manage", False),
@@ -538,6 +542,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("fleet", "accept_server"): ("POST", "/api/fleet/link/accept", "fleet.manage", True),
     ("fleet", "invite_server"): ("POST", "/api/fleet/link/invites", "fleet.manage", True),
     ("fleet", "cancel_invite"): ("DELETE", "/api/fleet/link/invites/{name}", "fleet.manage", True),
+    ("fleet", "fleet_logs"): ("GET", "/api/fleet/logs", "fleet.read", False),
+    ("fleet", "fleet_metrics"): ("GET", "/api/fleet/metrics", "fleet.read", False),
     ("fleet", "list_placements"): ("GET", "/api/fleet/placements", "fleet.read", False),
     ("fleet", "get_placement"): ("GET", "/api/fleet/placements/{domain}", "fleet.read", False),
     ("fleet", "save_placement"): ("PUT", "/api/fleet/placements/{domain}", "fleet.manage", False),
@@ -591,6 +597,10 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("log_drains", "save_drain"): ("PUT", "/api/log-drains/{name}", "settings.manage", True),
     ("log_drains", "delete_drain"): ("DELETE", "/api/log-drains/{name}", "settings.manage", True),
     ("log_drains", "test_drain"): ("POST", "/api/log-drains/{name}/test", "settings.manage", True),
+    ("logs", "get_retention"): ("GET", "/api/logs/retention", "server.read", False),
+    ("logs", "set_retention"): ("PUT", "/api/logs/retention", "server.manage", True),
+    ("logs", "clear_retention"): ("DELETE", "/api/logs/retention", "server.manage", True),
+    ("logs", "search_logs"): ("GET", "/api/logs/search", "apps.read", False),
     ("mcp", "mcp_get"): ("GET", "/api/mcp", "self", False),
     ("mcp", "mcp_post"): ("POST", "/api/mcp", "self", False),
     ("mcp", "mcp_delete"): ("DELETE", "/api/mcp", "self", False),
@@ -600,7 +610,9 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("manifest", "preview"): ("POST", "/api/manifest/plan", "apps.read", False),
     ("map", "read_map"): ("GET", "/api/map", "apps.read", False),
     ("metrics", "app_metrics"): ("GET", "/api/apps/{domain}/metrics", "apps.read", False),
+    ("metrics", "app_traffic"): ("GET", "/api/apps/{domain}/traffic", "apps.read", False),
     ("metrics", "list_metrics"): ("GET", "/api/metrics", "server.read", False),
+    ("metrics", "export_prometheus"): ("GET", "/api/metrics/prometheus", "server.read", False),
     ("metrics", "query_metrics"): ("GET", "/api/metrics/query", "server.read", False),
     ("metrics", "metric_history"): ("GET", "/api/metrics/{metric}", "server.read", False),
     ("monitor", "get_monitor_config"): ("GET", "/api/monitor/config", "server.read", False),
@@ -663,6 +675,16 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("previews", "reject_preview"): ("POST", "/api/apps/{domain}/previews/{number}/reject", "apps.deploy", True),
     ("previews", "start_preview"): ("POST", "/api/apps/{domain}/previews/{number}/start", "apps.operate", True),
     ("previews", "stop_preview"): ("POST", "/api/apps/{domain}/previews/{number}/stop", "apps.operate", True),
+    ("probes", "list_probes"): ("GET", "/api/probes", "server.read", False),
+    ("probes", "get_status_page"): ("GET", "/api/probes/status-page", "server.read", False),
+    ("probes", "set_status_page"): ("PUT", "/api/probes/status-page", "server.manage", True),
+    ("probes", "publish_status_page"): ("POST", "/api/probes/status-page/publish", "server.host_access", True),
+    ("probes", "unpublish_status_page"): ("DELETE", "/api/probes/status-page/site", "server.host_access", True),
+    ("probes", "write_status_page"): ("POST", "/api/probes/status-page/write", "server.manage", False),
+    ("probes", "save_probe"): ("PUT", "/api/probes/{name}", "server.manage", False),
+    ("probes", "remove_probe"): ("DELETE", "/api/probes/{name}", "server.manage", False),
+    ("probes", "check_probe"): ("POST", "/api/probes/{name}/check", "server.manage", False),
+    ("probes", "probe_history"): ("GET", "/api/probes/{name}/history", "server.read", False),
     ("recipes", "get_recipes"): ("GET", "/api/recipes", "apps.read", False),
     ("recipes", "get_catalog_state"): ("GET", "/api/recipes/catalog", "apps.read", False),
     ("recipes", "remove_catalog_package"): ("DELETE", "/api/recipes/catalog", "server.manage", True),
@@ -1019,7 +1041,7 @@ class Access:
 
 
 class Alerts:
-    """Alerts: 5 operations."""
+    """Alerts: 7 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -1047,6 +1069,22 @@ class Alerts:
 
         Needs: permission `server.manage`."""
         return self._call("DELETE", f"/api/alerts/rules/{quote(str(name), safe='')}", query=None, body=None)
+
+    def acknowledge_rule(self, name: str, *, subject: Union[str, None] = None) -> "RuleModel":
+        """POST /api/alerts/rules/{name}/acknowledge
+
+        Acknowledge Rule
+
+        Needs: permission `apps.operate`."""
+        return self._call("POST", f"/api/alerts/rules/{quote(str(name), safe='')}/acknowledge", query={"subject": subject}, body=None)
+
+    def hand_back_rule(self, name: str, *, subject: Union[str, None] = None) -> "RuleModel":
+        """DELETE /api/alerts/rules/{name}/acknowledge
+
+        Hand Back Rule
+
+        Needs: permission `apps.operate`."""
+        return self._call("DELETE", f"/api/alerts/rules/{quote(str(name), safe='')}/acknowledge", query={"subject": subject}, body=None)
 
     def disable_rule(self, name: str) -> "RuleModel":
         """POST /api/alerts/rules/{name}/disable
@@ -3155,7 +3193,7 @@ class Compose:
 
 
 class Configuration:
-    """Configuration: 23 operations."""
+    """Configuration: 25 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -3239,6 +3277,22 @@ class Configuration:
 
         Needs: permission `settings.manage`, sudo mode."""
         return self._call("PUT", "/api/config/delivery", query=None, body=body)
+
+    def get_email_api_config(self) -> "EmailApiSettingsResponse":
+        """GET /api/config/email-api
+
+        Get Email Api Config
+
+        Needs: permission `settings.read`."""
+        return self._call("GET", "/api/config/email-api", query=None, body=None)
+
+    def update_email_api_config(self, body: "EmailApiConfig") -> "MessageResponse":
+        """PUT /api/config/email-api
+
+        Update Email Api Config
+
+        Needs: permission `settings.manage`, sudo mode."""
+        return self._call("PUT", "/api/config/email-api", query=None, body=body)
 
     def get_telegram_config(self) -> "TelegramSettingsResponse":
         """GET /api/config/notifications/telegram
@@ -4859,7 +4913,7 @@ class Domains:
 
 
 class Fleet:
-    """Fleet: 46 operations."""
+    """Fleet: 48 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -5143,6 +5197,22 @@ class Fleet:
 
         Needs: permission `fleet.manage`, sudo mode."""
         return self._call("DELETE", f"/api/fleet/link/invites/{quote(str(name), safe='')}", query=None, body=None)
+
+    def fleet_logs(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None, q: Union[str, None] = None, since: Union[str, None] = None, until: Union[str, None] = None, level: Union[str, None] = None, limit: Union[int, None] = None) -> "FleetViewOut":
+        """GET /api/fleet/logs
+
+        Fleet Logs
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", "/api/fleet/logs", query={"node": node, "refresh": refresh, "q": q, "since": since, "until": until, "level": level, "limit": limit}, body=None)
+
+    def fleet_metrics(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None, metric: Union[Literal["cpu", "memory", "swap", "disk", "load", "net_rx", "net_tx"], None] = None, window: Union[Literal["1h", "6h", "24h", "7d", "30d"], None] = None) -> "FleetViewOut":
+        """GET /api/fleet/metrics
+
+        Fleet Metrics
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", "/api/fleet/metrics", query={"node": node, "refresh": refresh, "metric": metric, "window": window}, body=None)
 
     def list_placements(self) -> "PlacementListOut":
         """GET /api/fleet/placements
@@ -5602,6 +5672,46 @@ class LogDrains:
 
 
 
+class Logs:
+    """Logs: 4 operations."""
+
+    def __init__(self, call: Call) -> None:
+        self._call = call
+
+    def get_retention(self) -> "RetentionModel":
+        """GET /api/logs/retention
+
+        Get Retention
+
+        Needs: permission `server.read`."""
+        return self._call("GET", "/api/logs/retention", query=None, body=None)
+
+    def set_retention(self, body: "RetentionBody") -> "RetentionModel":
+        """PUT /api/logs/retention
+
+        Set Retention
+
+        Needs: permission `server.manage`, sudo mode."""
+        return self._call("PUT", "/api/logs/retention", query=None, body=body)
+
+    def clear_retention(self) -> "RetentionModel":
+        """DELETE /api/logs/retention
+
+        Clear Retention
+
+        Needs: permission `server.manage`, sudo mode."""
+        return self._call("DELETE", "/api/logs/retention", query=None, body=None)
+
+    def search_logs(self, *, q: Union[str, None] = None, app: Union[list[str], None] = None, since: Union[str, None] = None, until: Union[str, None] = None, level: Union[str, None] = None, limit: Union[int, None] = None) -> "LogSearchResponse":
+        """GET /api/logs/search
+
+        Search Logs
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/logs/search", query={"q": q, "app": app, "since": since, "until": until, "level": level, "limit": limit}, body=None)
+
+
+
 class MCP:
     """MCP: 5 operations."""
 
@@ -5691,7 +5801,7 @@ class Map:
 
 
 class Metrics:
-    """Metrics: 4 operations."""
+    """Metrics: 6 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -5704,6 +5814,14 @@ class Metrics:
         Needs: permission `apps.read`."""
         return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/metrics", query=None, body=None)
 
+    def app_traffic(self, domain: str, *, window: Union[Literal["24h", "7d", "30d", "90d"], None] = None, top: Union[int, None] = None) -> "AppTrafficResponse":
+        """GET /api/apps/{domain}/traffic
+
+        App Traffic
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/traffic", query={"window": window, "top": top}, body=None)
+
     def list_metrics(self) -> "MetricsListResponse":
         """GET /api/metrics
 
@@ -5711,6 +5829,14 @@ class Metrics:
 
         Needs: permission `server.read`."""
         return self._call("GET", "/api/metrics", query=None, body=None)
+
+    def export_prometheus(self) -> bytes:
+        """GET /api/metrics/prometheus
+
+        Export Prometheus
+
+        Needs: permission `server.read`."""
+        return self._call("GET", "/api/metrics/prometheus", query=None, body=None, binary=True)
 
     def query_metrics(self, *, metric: list[str], window: Union[Literal["1h", "6h", "24h", "7d", "30d", "90d", "1y"], None] = None, from_: Union[int, None] = None, to: Union[int, None] = None, step: Union[int, None] = None) -> "MetricQueryResponse":
         """GET /api/metrics/query
@@ -6271,6 +6397,94 @@ class Previews:
 
         Needs: permission `apps.operate`, sudo mode."""
         return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/previews/{quote(str(number), safe='')}/stop", query=None, body=None)
+
+
+
+class Probes:
+    """Probes: 10 operations."""
+
+    def __init__(self, call: Call) -> None:
+        self._call = call
+
+    def list_probes(self) -> "ProbeListResponse":
+        """GET /api/probes
+
+        List Probes
+
+        Needs: permission `server.read`."""
+        return self._call("GET", "/api/probes", query=None, body=None)
+
+    def get_status_page(self) -> "StatusPageModel":
+        """GET /api/probes/status-page
+
+        Get Status Page
+
+        Needs: permission `server.read`."""
+        return self._call("GET", "/api/probes/status-page", query=None, body=None)
+
+    def set_status_page(self, body: "StatusPageBody") -> "StatusPageModel":
+        """PUT /api/probes/status-page
+
+        Set Status Page
+
+        Needs: permission `server.manage`, sudo mode."""
+        return self._call("PUT", "/api/probes/status-page", query=None, body=body)
+
+    def publish_status_page(self, body: "PublishBody") -> "JobAcceptedResponse":
+        """POST /api/probes/status-page/publish
+
+        Publish Status Page
+
+        Needs: permission `server.host_access`, sudo mode."""
+        return self._call("POST", "/api/probes/status-page/publish", query=None, body=body)
+
+    def unpublish_status_page(self) -> "JobAcceptedResponse":
+        """DELETE /api/probes/status-page/site
+
+        Unpublish Status Page
+
+        Needs: permission `server.host_access`, sudo mode."""
+        return self._call("DELETE", "/api/probes/status-page/site", query=None, body=None)
+
+    def write_status_page(self) -> "StatusPageFilesResponse":
+        """POST /api/probes/status-page/write
+
+        Write Status Page
+
+        Needs: permission `server.manage`."""
+        return self._call("POST", "/api/probes/status-page/write", query=None, body=None)
+
+    def save_probe(self, name: str, body: "ProbeBody") -> "ProbeModel":
+        """PUT /api/probes/{name}
+
+        Save Probe
+
+        Needs: permission `server.manage`."""
+        return self._call("PUT", f"/api/probes/{quote(str(name), safe='')}", query=None, body=body)
+
+    def remove_probe(self, name: str) -> Any:
+        """DELETE /api/probes/{name}
+
+        Remove Probe
+
+        Needs: permission `server.manage`."""
+        return self._call("DELETE", f"/api/probes/{quote(str(name), safe='')}", query=None, body=None)
+
+    def check_probe(self, name: str) -> "CheckResponse":
+        """POST /api/probes/{name}/check
+
+        Check Probe
+
+        Needs: permission `server.manage`."""
+        return self._call("POST", f"/api/probes/{quote(str(name), safe='')}/check", query=None, body=None)
+
+    def probe_history(self, name: str) -> "ProbeHistoryResponse":
+        """GET /api/probes/{name}/history
+
+        Probe History
+
+        Needs: permission `server.read`."""
+        return self._call("GET", f"/api/probes/{quote(str(name), safe='')}/history", query=None, body=None)
 
 
 
@@ -8494,6 +8708,7 @@ class Api:
     integrations: Integrations
     jobs: Jobs
     log_drains: LogDrains
+    logs: Logs
     mcp: MCP
     manifest: Manifest
     map: Map
@@ -8506,6 +8721,7 @@ class Api:
     overview: Overview
     passkeys: Passkeys
     previews: Previews
+    probes: Probes
     recipes: Recipes
     registries: Registries
     self_backup: SelfBackup
@@ -8551,6 +8767,7 @@ class Api:
         self.integrations = Integrations(call)
         self.jobs = Jobs(call)
         self.log_drains = LogDrains(call)
+        self.logs = Logs(call)
         self.mcp = MCP(call)
         self.manifest = Manifest(call)
         self.map = Map(call)
@@ -8563,6 +8780,7 @@ class Api:
         self.overview = Overview(call)
         self.passkeys = Passkeys(call)
         self.previews = Previews(call)
+        self.probes = Probes(call)
         self.recipes = Recipes(call)
         self.registries = Registries(call)
         self.self_backup = SelfBackup(call)

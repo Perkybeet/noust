@@ -165,13 +165,42 @@ API version 1.
   events, route and quiet hours, `GET /api/notifications/events`, `GET /api/notifications/deliveries`,
   `POST /api/notifications/deliveries/sweep` and `POST /api/notifications/deliveries/{id}/retry`.
   `POST /api/config/notifications/{channel}/test` takes the name of any channel, and the channel
-  types `pushover`, `ntfy`, `gotify` and `teams` exist besides the five of 3.3.
+  types `pushover`, `ntfy`, `gotify` and `teams` exist besides the five of 3.3; `mattermost`, `matrix`,
+  `lark` and `pagerduty` are further types.
+- `GET` and `PUT /api/config/email-api`: the provider the monitor's mail goes through instead of SMTP
+  (`resend`, `postmark`, `brevo` or `ses`). Credentials are write-only: the answer says whether one is
+  stored. `PUT` needs sudo mode.
 - Alert rules: `GET /api/alerts/rules`, `PUT` and `DELETE /api/alerts/rules/{name}`, and
-  `POST /api/alerts/rules/{name}/enable` and `/disable`.
+  `POST /api/alerts/rules/{name}/enable` and `/disable`. `POST` and `DELETE
+  /api/alerts/rules/{name}/acknowledge` take a firing alert (`apps.operate`) or hand it back, and a
+  state carries `acknowledged_at` and `acknowledged_by`.
 - `GET /api/apps/{domain}/site-logs`: the end of a site's access or error log, masked.
+- `GET /api/fleet/metrics`: on a central, one metric of every server over the same window, from each server's own
+  history (`fleet.read`).
+- `GET /api/logs/search` and, on a central, `GET /api/fleet/logs`: one search over the logs of the applications the
+  caller sees (`apps.read`, `fleet.read`). `GET`, `PUT`, `DELETE /api/logs/retention`: how long the journal keeps them
+  (`server.read`, `server.manage`; sudo mode to change). See [logs.md](logs.md).
+- A notification channel (`GET /api/notifications/channels`, `PUT .../{name}`) carries `flood` (at most `max`
+  messages in `minutes` minutes, the rest arriving as one) and `summary` (what is below a severity waits for
+  a message once a day); a delivery carries `held_for` (`quiet`, `flood` or `summary`).
+- `GET /api/probes`, `PUT`, `DELETE /api/probes/{name}`, `POST /api/probes/{name}/check` and
+  `GET /api/probes/{name}/history`: addresses the monitor asks from outside the application. The status page
+  (`GET`, `PUT /api/probes/status-page`, `POST /api/probes/status-page/write`) and its publication on a name
+  (`POST /api/probes/status-page/publish`, `DELETE /api/probes/status-page/site`, jobs). See
+  [probes.md](probes.md).
+- `GET /api/apps/{domain}/traffic`: an application's requests by the hour (by the day beyond two
+  days), how they ended, bytes served, and its top pages, networks, status codes and referrers
+  (`apps.read`). `GET /api/apps/{domain}/metrics` now names the `requests` and `errors_5xx` series of
+  any application whose site has an access log, not only a static site's or a PHP application's.
+- `GET /api/metrics/prometheus`: the newest value of every metric in the Prometheus text
+  exposition format, or OpenMetrics when `Accept` asks for it (server `server.read`).
+- `GET /api/apps/{domain}/metrics` answers `containers` for a Compose stack: each container and the
+  metric names of its own CPU, memory, disk and network series.
 - `GET /api/apps/{domain}/metrics`: `series` may also name `disk_read`, `disk_write`, `net_rx` and
   `net_tx`, the series of an application's disk and network traffic; `GET /api/metrics/query` serves
   them like the others.
+- The notification events `cron_missed`, `cleanup_success`, `cleanup_failed`, `probe_failed` and
+  `probe_recovered` (`GET /api/notifications/events` lists them).
 - The notification events `alert_firing`, `alert_resolved`, `backup_missing`, `cron_failed`,
   `cron_success`, `os_patches` and `token_expiring`, and the configuration keys `monitor.disk_*`,
   `monitor.cert_warning_days`, `monitor.backup_*`, `monitor.os_patches_check_hours` and

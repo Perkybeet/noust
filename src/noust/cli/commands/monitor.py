@@ -295,6 +295,47 @@ def _print_history(logger: Logger) -> None:
         logger.key_value("Last error", history.last_error)
 
 
+#: Values older than this are left out of an export, like the API's.
+EXPORT_MAX_AGE_SECONDS = 120
+
+
+def _export_metrics(*, openmetrics: bool) -> int:
+    """
+    Write the metrics exposition to the standard output.
+
+    Args:
+        openmetrics: Write OpenMetrics rather than the classic text.
+
+    Returns:
+        Exit code 0.
+
+    Raises:
+        click.ClickException: When there is no history to read.
+    """
+    from noust import __version__
+    from noust.core.config import Config
+    from noust.core.notifications.context import server_name
+    from noust.monitor import exposition
+
+    path = default_metrics_db_path()
+    if not path.is_file():
+        raise click.ClickException(
+            "There is no metrics history yet. Run 'noust monitor enable' to record it."
+        )
+    store = MetricsStore(path)
+    history = _history_status()
+    click.echo(
+        exposition.render(
+            exposition.samples(store.latest_values(max_age_s=EXPORT_MAX_AGE_SECONDS)),
+            info={"version": __version__, "server": server_name(Config())},
+            recording=history.recording if history is not None else False,
+            openmetrics=openmetrics,
+        ),
+        nl=False,
+    )
+    return 0
+
+
 def _watched_units_label(extras: Any) -> str:
     """
     Describe which units a scan checks.
@@ -628,6 +669,19 @@ def _show_config(verbose: bool = False) -> int:
     return 0
 
 
+def _export(verbose: bool = False) -> int:
+    """
+    Write the metrics exposition, the way ``noust monitor export`` does by default.
+
+    Args:
+        verbose: Accepted for the shape every action shares.
+
+    Returns:
+        Exit code.
+    """
+    return _export_metrics(openmetrics=False)
+
+
 #: Every action ``noust monitor`` accepts. Exported so the parser, the Click
 #: group and the tests agree on one list instead of three that drift. Every
 #: entry takes ``verbose``; ``scan`` also takes ``ignored_flags``.
@@ -643,6 +697,7 @@ ACTIONS: dict[str, Callable[..., int]] = {
     "uninstall": _uninstall,
     "test-email": _test_email,
     "config": _show_config,
+    "export": _export,
 }
 
 
@@ -801,6 +856,26 @@ def uninstall(ctx: Context, yes: bool) -> int:
 def test_email(ctx: Context) -> int:
     """Send one email to the configured recipients to prove the settings work."""
     return _test_email(verbose=ctx.verbose)
+
+
+@cli.command("export", read_only=True)
+@click.option(
+    "--format",
+    "form",
+    type=click.Choice(["prometheus", "openmetrics"]),
+    default="prometheus",
+    show_default=True,
+    help="The text format to write.",
+)
+@pass_context
+def export_metrics(ctx: Context, form: str) -> int:
+    """
+    Print the newest value of every metric the way a scraper reads it.
+
+    The same text `GET /api/metrics/prometheus` serves, for a node exporter's
+    textfile collector or a quick look: nothing is sent anywhere.
+    """
+    return _export_metrics(openmetrics=form == "openmetrics")
 
 
 @cli.command("config")

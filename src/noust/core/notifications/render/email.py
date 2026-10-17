@@ -257,12 +257,17 @@ def _button(n: Notification) -> str:
     )
 
 
-def _logo() -> str:
+def _logo(inline_images: bool = True) -> str:
     """
+    Args:
+        inline_images: The message can carry the wordmark as an attachment the
+            HTML refers to by ``cid:``. A provider's JSON API cannot.
+
     Returns:
-        The wordmark image, or the word when it could not be loaded.
+        The wordmark image, or the word when it could not be loaded or the
+        message cannot carry it.
     """
-    image = wordmark()
+    image = wordmark() if inline_images else None
     if image is None:
         return (
             f'<span class="txt" style="font-size:20px;font-weight:700;color:{_LIGHT["text"]};">'
@@ -303,12 +308,13 @@ def _dark_css(n: Notification) -> str:
     )
 
 
-def render_html(n: Notification) -> str:
+def render_html(n: Notification, *, inline_images: bool = True) -> str:
     """
     Lay a notification out as the HTML part.
 
     Args:
         n: The notification.
+        inline_images: Refer to the wordmark by ``cid:``; otherwise the word.
 
     Returns:
         A complete HTML document.
@@ -359,7 +365,7 @@ def render_html(n: Notification) -> str:
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="bg" style="background-color:{_LIGHT["page"]};">
 <tr><td align="center" style="padding:24px 12px;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;font-family:{_FONT};">
-<tr><td style="padding:0 4px 12px;">{_logo()}</td></tr>
+<tr><td style="padding:0 4px 12px;">{_logo(inline_images)}</td></tr>
 <tr><td class="card" style="background-color:{_LIGHT["card"]};border:1px solid {_LIGHT["line"]};border-radius:8px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
 <tr><td class="bar" height="4" style="height:4px;line-height:4px;font-size:0;background-color:{light};border-radius:8px 8px 0 0;">&nbsp;</td></tr>
@@ -380,21 +386,23 @@ def render_html(n: Notification) -> str:
 """
 
 
-def render(n: Notification) -> RenderedEmail:
+def render(n: Notification, *, inline_images: bool = True) -> RenderedEmail:
     """
     Render a notification as an email.
 
     Args:
         n: The notification.
+        inline_images: Attach the wordmark and refer to it by ``cid:``. Off for
+            a provider whose API takes only text and HTML: the word stands in.
 
     Returns:
         The subject, both parts, the headers and the inline image.
     """
-    image = wordmark()
+    image = wordmark() if inline_images else None
     return RenderedEmail(
         subject=subject_line(n),
         text=render_text(n, footer=True) + "\n",
-        html=render_html(n),
+        html=render_html(n, inline_images=inline_images),
         headers={
             "Auto-Submitted": "auto-generated",
             "X-Auto-Response-Suppress": "All",

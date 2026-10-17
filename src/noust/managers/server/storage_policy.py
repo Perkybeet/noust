@@ -38,6 +38,7 @@ from typing import Any
 
 from noust.core import paths
 from noust.core.exceptions import NoustError, ValidationError
+from noust.core.notifications.composers_watch import compose_cleanup
 from noust.core.store import NoustStore, get_store
 from noust.managers.server.errors import ServerError
 from noust.managers.server.storage import CLEANUP_ACTIONS, StorageManager
@@ -574,7 +575,44 @@ class CleanupSchedule:
         if after is not None:
             run.percent_after = after[1]
         run.finish()
-        return self.history.record(run)
+        recorded = self.history.record(run)
+        if trigger == "schedule":
+            self._announce(recorded)
+        return recorded
+
+    @staticmethod
+    def _announce(run: CleanupRun) -> None:
+        """
+        Tell the notification channels how a cleanup the timer ran ended.
+
+        Only a run that did something is told (a skipped one found the disk
+        below the threshold), and only the timer's: an operator who ran the
+        policy by hand is looking at the answer.
+
+        Args:
+            run: The run, written to the history.
+        """
+        if run.status not in ("ok", "partial", "failed"):
+            return
+        # Deferred import: the notifier's own modules read the configuration
+        # this package is configured through.
+        from noust.core.notifier import notify_composed
+
+        failures = [
+            (action.action, action.error or "") for action in run.actions if action.status != "ok"
+        ]
+        notify_composed(
+            lambda ctx: compose_cleanup(
+                run.status,
+                ctx,
+                mount=run.mount,
+                percent_before=run.percent_before,
+                percent_after=run.percent_after,
+                freed_bytes=run.freed_bytes,
+                actions=[action.action for action in run.actions],
+                failures=failures,
+            )
+        )
 
     def _act(
         self, policy: CleanupPolicy, action: str, on_line: Callable[[str], None] | None

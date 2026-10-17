@@ -91,7 +91,7 @@ test("a second Slack by name, set up in the drawer it opens, limited to an appli
 });
 
 test("a channel hears the events it was given instead of the server's, and the page says so", async ({ page, consoleServer, problems }) => {
-  problems.expect(/status of 403 .* \/api\/config$/);
+  problems.expect(/status of 403 .* \/api\/notifications\/channels\/slack$/);
   await signIn(page, consoleServer, "/settings/notifications");
   // Slack has nowhere to send yet: set it up so it has routing to set.
   await row(page, "Slack").getByRole("button", { name: "Set up Slack" }).click();
@@ -111,7 +111,7 @@ test("a channel hears the events it was given instead of the server's, and the p
   await routing.getByRole("button", { name: "Save" }).click();
   await expect(routing.getByRole("button", { name: "Save" })).toBeDisabled();
   await routing.getByRole("button", { name: "Done" }).click();
-  await expect(row(page, "Slack")).toContainText("Own switches for 29 events");
+  await expect(row(page, "Slack")).toContainText("Own switches for 35 events");
 });
 
 test("the new channel types have a row each, and the record of deliveries says nothing has been sent on a fresh server", async ({
@@ -119,7 +119,7 @@ test("the new channel types have a row each, and the record of deliveries says n
   consoleServer,
   problems,
 }) => {
-  problems.expect(/status of 403 .* \/api\/config$/);
+  problems.expect(/status of 403 .* \/api\/notifications\/channels\/pushover$/);
   await signIn(page, consoleServer, "/settings/notifications");
   for (const name of ["Pushover", "ntfy", "Gotify", "Microsoft Teams"]) {
     await expect(row(page, name).getByText("Off", { exact: true })).toBeVisible();

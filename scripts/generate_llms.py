@@ -77,6 +77,8 @@ DOCUMENTS: tuple[tuple[str, str], ...] = (
     ("terminal.md", "The terminal and one-off commands in the browser"),
     ("CENTRAL.md", "Running a central that manages several servers"),
     ("MONITOR.md", "The monitor, observations and notifications"),
+    ("probes.md", "Probes of an address from outside the application, and a public status page"),
+    ("logs.md", "Searching the logs of every application and server, and how long they are kept"),
     ("ENS.md", "The ENS category MEDIUM profile and its evidence"),
     ("PLATFORMS.md", "Supported operating systems, processors and the installer"),
 )

@@ -57,6 +57,7 @@ from noust.cli.commands.app_sandbox import sandbox as sandbox_group
 from noust.cli.commands.app_source import source as source_group
 from noust.cli.commands.app_stop_grace import stop_grace_command
 from noust.cli.commands.app_tag import tag as tag_group
+from noust.cli.commands.app_traffic import traffic_command
 from noust.cli.commands.app_webhook import webhook as webhook_group
 from noust.cli.commands.webapp import _create_app, _read_env_file
 from noust.core.app_health_store import HealthExtras
@@ -139,6 +140,7 @@ cli.add_command(sandbox_group)
 cli.add_command(identity_group)
 cli.add_command(hooks_group)
 cli.add_command(tag_group)
+cli.add_command(traffic_command)
 cli.add_command(promote_command)
 cli.add_command(promotion_command)
 cli.add_command(clone_command)
