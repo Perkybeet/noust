@@ -6,7 +6,7 @@ The data explorer and the row editor: the one implementation behind the CLI and 
 
 Reading is **read-only by the server's own rules**: every catalog, structure
 and page query signs in as the database's least-privilege account
-(``wasm_ro_<database>`` on PostgreSQL and MySQL/MariaDB, never
+(``noust_ro_<database>`` on PostgreSQL and MySQL/MariaDB, never
 ``pg_read_all_data``) inside a read-only transaction. Nothing here decides
 what a statement may do by looking at it.
 

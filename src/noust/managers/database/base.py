@@ -47,7 +47,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, NoReturn, TypeVar
 
 from noust.central import require_server_role
-from noust.core import paths
+from noust.core import legacy_names, paths
 from noust.core.backup_files import open_backup, seal_in_place
 from noust.core.exceptions import (
     DatabaseAccessError,
@@ -124,9 +124,13 @@ Profile = Literal["owner", "read_write", "read_only"]
 #: Every profile, in order of decreasing privilege.
 PROFILES: tuple[Profile, ...] = ("owner", "read_write", "read_only")
 
-#: Prefix of the least-privilege account the read-only console signs in as.
-#: A legacy name kept through 3.x: servers already hold roles called this.
-READ_ONLY_ACCOUNT_PREFIX = "wasm_ro_"
+#: Prefix of the least-privilege account the read-only console signs in as, and the one it had
+#: before 4.0. A server updated from before holds accounts under the old one until each
+#: database is read from again; both are Noust's own, so neither is listed as an account of
+#: somebody else or altered through Noust.
+READ_ONLY_ACCOUNT_PREFIX = "noust_ro_"
+LEGACY_READ_ONLY_ACCOUNT_PREFIX = legacy_names.READ_ONLY_PREFIX
+READ_ONLY_ACCOUNT_PREFIXES = (READ_ONLY_ACCOUNT_PREFIX, LEGACY_READ_ONLY_ACCOUNT_PREFIX)
 
 #: Where apt is found, and the programs of the other two package managers an engine is
 #: installed through (see install()), by the name a plan gives its family.
@@ -2252,7 +2256,7 @@ class BaseDatabaseManager(BaseManager):
 
         Such an account is listed but never altered or dropped through Noust:
         the superuser, the engine's maintenance accounts, and the read-only
-        console's ``wasm_ro_`` accounts, which Noust re-provisions on its own.
+        console's ``noust_ro_`` accounts, which Noust re-provisions on its own.
         In a container, the account Noust signs in as is one too: the image
         created it, and its compose file holds its password.
 
@@ -2264,7 +2268,7 @@ class BaseDatabaseManager(BaseManager):
         """
         if self.instance is not None and username == self.instance.admin_user:
             return True
-        return username in self.INTERNAL_USERS or username.startswith(READ_ONLY_ACCOUNT_PREFIX)
+        return username in self.INTERNAL_USERS or username.startswith(READ_ONLY_ACCOUNT_PREFIXES)
 
     def apply_profile(
         self, username: str, database: str, profile: str, host: str = "localhost"
@@ -2321,13 +2325,29 @@ class BaseDatabaseManager(BaseManager):
         Remove the read-only console's account of a database that is gone.
 
         PostgreSQL roles and MySQL accounts are cluster-wide: dropping the
-        database leaves ``wasm_ro_<database>`` behind, and a database created
-        later under the same name would inherit it. Engines without such an
-        account have nothing to do.
+        database leaves ``noust_ro_<database>`` behind, and a database created
+        later under the same name would inherit it. The account an earlier
+        release made under the old prefix goes with it. Engines without such
+        an account have nothing to do.
 
         Args:
             database: The dropped database.
         """
+
+    def drop_legacy_read_only_account(self, database: str) -> bool:
+        """
+        Remove the account the read-only console had for a database before 4.0.
+
+        The next read provisions the account under the current name, so removing the old one
+        loses nothing: its password was never kept anywhere that survives a read.
+
+        Args:
+            database: The database.
+
+        Returns:
+            Whether an account was removed. Engines without such an account answer False.
+        """
+        return False
 
     def listen_addresses(self) -> ListenAddress | None:
         """

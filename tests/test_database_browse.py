@@ -6,7 +6,7 @@ The data explorer and the row editor, end to end over the fake runner.
 
 What is defended (research/3.1/databases.md, M4 and S1):
 
-- **Read-only is the server's**: every read signs in as ``wasm_ro_<db>`` in a
+- **Read-only is the server's**: every read signs in as ``noust_ro_<db>`` in a
   read-only transaction, and the statement travels on stdin, never in argv.
 - **Names come from the catalog**: a relation the read-only session did not
   list is refused before any statement names it.
@@ -145,7 +145,7 @@ def test_the_catalog_is_read_as_the_read_only_role_on_stdin(
 
     assert [relation.name for relation in relations] == ["users", "report", "log"]
     call = read_only_calls(sql_runner)[-1]
-    assert call[call.index("-U") + 1] == "wasm_ro_shop"
+    assert call[call.index("-U") + 1] == "noust_ro_shop"
     assert ("-f", "-") == call[-2:]
     script = sql_runner.sent("'relations'")[-1]
     assert script.startswith("BEGIN READ ONLY;\n")
@@ -385,7 +385,7 @@ def test_mysql_reads_as_its_read_only_account_with_raw_output(sql_runner: SqlRun
     assert [relation.name for relation in relations] == ["users"]
     call = sql_runner.calls_carrying("'relation', TABLE_SCHEMA")[-1]
     assert "--raw" in call and "--binary-mode" in call
-    assert any(arg.startswith("--user=wasm_ro_shop") for arg in call)
+    assert any(arg.startswith("--user=noust_ro_shop") for arg in call)
     script = sql_runner.sent("'relation', TABLE_SCHEMA")[-1]
     assert script.startswith(
         "SET SESSION max_execution_time = 30000;\nSTART TRANSACTION READ ONLY;\n"

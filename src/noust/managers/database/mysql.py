@@ -30,6 +30,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from noust.core import legacy_names
 from noust.core.exceptions import (
     DatabaseBackupError,
     DatabaseError,
@@ -178,8 +179,10 @@ def escape_option_file_value(value: str) -> str:
     return '"' + value.translate(OPTION_FILE_ESCAPES) + '"'
 
 
-#: Prefix of the least-privilege account the read-only console connects as.
-_READ_ONLY_USER_PREFIX = "wasm_ro_"
+#: Prefix of the least-privilege account the read-only console connects as, and the one it
+#: had before 4.0 (an account made then is dropped by the next read, which makes it again).
+_READ_ONLY_USER_PREFIX = "noust_ro_"
+_LEGACY_READ_ONLY_USER_PREFIX = legacy_names.READ_ONLY_PREFIX
 
 #: The privileges each access profile grants on one database.
 PROFILE_PRIVILEGES: dict[str, tuple[str, ...]] = {
@@ -289,7 +292,7 @@ def _refuse_client_commands(statement: str) -> None:
         )
 
 
-def _read_only_user_name(database: str) -> str:
+def _read_only_user_name(database: str, prefix: str = _READ_ONLY_USER_PREFIX) -> str:
     """
     Build the deterministic, length-safe user name for a database's console.
 
@@ -301,18 +304,20 @@ def _read_only_user_name(database: str) -> str:
 
     Args:
         database: The database the account is scoped to.
+        prefix: The account's prefix; the current one by default, the one before 4.0 to name
+            the account an earlier release made.
 
     Returns:
-        ``wasm_ro_<database>``, unchanged when it fits within the limit;
+        ``noust_ro_<database>``, unchanged when it fits within the limit;
         otherwise truncated and suffixed with an 8-character digest of the
         full database name.
     """
-    candidate = f"{_READ_ONLY_USER_PREFIX}{database}"
+    candidate = f"{prefix}{database}"
     if len(candidate) <= _USER_NAME_MAX_LENGTH:
         return candidate
     digest = hashlib.sha256(database.encode()).hexdigest()[:8]
-    budget = _USER_NAME_MAX_LENGTH - len(_READ_ONLY_USER_PREFIX) - len(digest) - 1
-    return f"{_READ_ONLY_USER_PREFIX}{database[:budget]}_{digest}"
+    budget = _USER_NAME_MAX_LENGTH - len(prefix) - len(digest) - 1
+    return f"{prefix}{database[:budget]}_{digest}"
 
 
 class MySQLManager(BaseDatabaseManager):
@@ -588,7 +593,7 @@ class MySQLManager(BaseDatabaseManager):
 
         # mkstemp creates the file 0600, so the password is never briefly
         # world readable the way a write-then-chmod would leave it.
-        fd, path = tempfile.mkstemp(prefix="wasm_mysql_", suffix=".cnf")
+        fd, path = tempfile.mkstemp(prefix="noust_mysql_", suffix=".cnf")
         try:
             with os.fdopen(fd, "w") as handle:
                 handle.write(content)
@@ -607,7 +612,7 @@ class MySQLManager(BaseDatabaseManager):
         table, but not a call to ``LOAD_FILE`` or a clause that writes to the
         filesystem instead of a table, and the account the write path
         connects as typically carries ``FILE`` (needed for restores) and
-        often more. ``wasm_ro_<database>`` is a dedicated account, granted
+        often more. ``noust_ro_<database>`` is a dedicated account, granted
         nothing but ``SELECT`` on this one database - no ``FILE``, no
         ``SUPER``, no ``PROCESS``, no access to any other schema - with a
         password rotated on every call and never persisted.
@@ -629,12 +634,18 @@ class MySQLManager(BaseDatabaseManager):
         username = _read_only_user_name(database)
         password = secrets_module.token_urlsafe(24)
         account = f"{self._escape_literal(username)}@{self._escape_literal('localhost')}"
+        legacy = self._account(
+            _read_only_user_name(database, _LEGACY_READ_ONLY_USER_PREFIX), "localhost"
+        )
         provision = (
             f"CREATE USER IF NOT EXISTS {account} IDENTIFIED BY "
             f"{self._escape_literal(password)};\n"
             f"ALTER USER {account} IDENTIFIED BY {self._escape_literal(password)};\n"
             f"REVOKE ALL PRIVILEGES, GRANT OPTION FROM {account};\n"
             f"GRANT SELECT ON {self._escape_identifier(database)}.* TO {account};\n"
+            # The account an earlier release made under the old prefix: its password was never
+            # kept, so nothing is lost by removing it.
+            f"DROP USER IF EXISTS {legacy};\n"
             "FLUSH PRIVILEGES;\n"
         )
         success, output = self._execute_sql(provision, secrets=(password,))
@@ -689,7 +700,7 @@ class MySQLManager(BaseDatabaseManager):
         )
         # mkdtemp creates the directory 0700 and the file is created 0600
         # inside it, so the password is never briefly readable by anyone else.
-        home = tempfile.mkdtemp(prefix="wasm_mysql_ro_")
+        home = tempfile.mkdtemp(prefix="noust_mysql_ro_")
         path = Path(home) / "client.cnf"
         try:
             fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -1809,6 +1820,31 @@ class MySQLManager(BaseDatabaseManager):
         success, output = self._execute_sql(f"DROP USER IF EXISTS {account};")
         if not success:
             self.logger.warning(f"Could not drop the read-only account {account}: {output.strip()}")
+        self.drop_legacy_read_only_account(database)
+
+    def drop_legacy_read_only_account(self, database: str) -> bool:
+        """
+        Drop the account the read-only console had for a database before 4.0.
+
+        Args:
+            database: The database.
+
+        Returns:
+            Whether an account was dropped.
+        """
+        legacy = self._account(
+            _read_only_user_name(database, _LEGACY_READ_ONLY_USER_PREFIX), "localhost"
+        )
+        success, output = self._execute_sql(
+            "SELECT 1 FROM mysql.user WHERE User = "  # noqa: S608 - quoted literal, not data
+            f"{self._escape_literal(_read_only_user_name(database, _LEGACY_READ_ONLY_USER_PREFIX))};"
+        )
+        if not success or not output.strip():
+            return False
+        removed, detail = self._execute_sql(f"DROP USER IF EXISTS {legacy};")
+        if not removed:
+            self.logger.warning(f"Could not drop the read-only account {legacy}: {detail.strip()}")
+        return removed
 
     # ==================== Remote access ====================
 

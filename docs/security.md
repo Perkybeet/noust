@@ -769,14 +769,14 @@ The console's SQL runner is read-only unless told otherwise, and that is enforce
 database server, not by inspecting the statement:
 
 - **PostgreSQL**: the statement runs in a `READ ONLY` transaction in a session that signs in
-  over `127.0.0.1`, with a password, as a dedicated role `wasm_ro_<database>`: not a
+  over `127.0.0.1`, with a password, as a dedicated role `noust_ro_<database>`: not a
   superuser, `default_transaction_read_only` on, granted only `CONNECT`, `USAGE` and `SELECT`.
   Because the login itself is the limit, `SET ROLE`, `RESET ROLE`, `set_config('role', ...)`
   and `SET SESSION AUTHORIZATION` have nothing to return to, and the server refuses
   superuser-only functions such as `pg_read_file` and `COPY ... TO PROGRAM`. The password is
   random, set as a SCRAM verifier, and kept in a 0600 root-owned file under
   `/var/lib/noust/secrets/postgresql/`. `pg_hba.conf` must allow
-  `host <database> wasm_ro_<database> 127.0.0.1/32 scram-sha-256` (the Debian and Ubuntu
+  `host <database> noust_ro_<database> 127.0.0.1/32 scram-sha-256` (the Debian and Ubuntu
   default `host all all 127.0.0.1/32` line does); if it does not, read mode fails with that
   line in the error and never falls back to the superuser.
 - **MySQL and MariaDB**: the statement runs in a `READ ONLY` transaction as a dedicated

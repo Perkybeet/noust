@@ -136,6 +136,38 @@ def test_the_read_only_user_holds_the_read_only_profile(
     assert all(stored not in arg for arg in call)
 
 
+def test_the_read_only_user_is_called_after_noust() -> None:
+    assert READ_ONLY_USER == "noust_ro_redis"
+    assert READ_ONLY_SECRET == "databases/redis/noust_ro_redis"
+
+
+def test_the_user_an_earlier_release_made_is_removed_with_its_password(
+    browser: KeyBrowser, sql_runner: SqlRunner
+) -> None:
+    """Its password was kept, which is how Noust knows there is a user to remove."""
+    legacy_secret = "databases/redis/" + keys_module.LEGACY_READ_ONLY_USER
+    browser.service.secrets.write(legacy_secret, "the-password-of-before")
+    sql_runner.answer(hexed("SCAN"), '"0",\n')
+
+    browser.scan("redis", "0")
+
+    removed = sql_runner.sent(hexed("DELUSER"))
+    assert len(removed) == 1
+    assert hexed(keys_module.LEGACY_READ_ONLY_USER) in removed[0]
+    assert browser.service.secrets.read(legacy_secret) is None
+    assert browser.service.secrets.read(READ_ONLY_SECRET)
+
+
+def test_nothing_is_removed_when_no_user_was_made_before(
+    browser: KeyBrowser, sql_runner: SqlRunner
+) -> None:
+    sql_runner.answer(hexed("SCAN"), '"0",\n')
+
+    browser.scan("redis", "0")
+
+    assert sql_runner.sent(hexed("DELUSER")) == []
+
+
 def test_the_read_only_user_is_reused_while_fresh(
     browser: KeyBrowser, sql_runner: SqlRunner
 ) -> None:
