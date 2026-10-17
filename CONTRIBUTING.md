@@ -168,7 +168,17 @@ tests/integration/identity.py         SAML, OpenID Connect, LDAP and SCIM agains
 tests/integration/network_run.py      fail2ban, HTTP/3, forward-auth, prefix routes, a site's history,
                             Coolify templates and the private certificate authority against the real
                             programs and real clients (Debian server, Alpine client, AlmaLinux device);
+                            nginx with ModSecurity and the Core Rule Set blocking real attacks; certbot
+                            against Pebble (HTTP-01, DNS-01 through Noust's hooks and through the RFC 2136
+                            plugin on a real BIND, and a wildcard); the time from `apt install` to a first
+                            deploy over HTTPS, measured and kept in tests/integration/results/first-deploy.json;
                             not part of pytest
+tests/integration/fleet_run.py        a central and a node over real SSH: enrollment, the restricted key,
+                            a server reached through a bastion and one that dials in (`fleet link`);
+                            not part of pytest
+tests/integration/toolchains_run.py   the JVM, .NET, Elixir, Deno, Go, Rust, Rails and the Node frameworks
+                            (Nuxt, SvelteKit, Astro, Remix, Angular) built and served, and the runtimes
+                            downloaded and installed (Node, Python with uv, PHP with apt); not part of pytest
 packaging/install.sh        the one-line installer (POSIX sh, shellcheck-clean), published with a
                             signed SHA256SUMS; its platform table is generated, never edited
 ```

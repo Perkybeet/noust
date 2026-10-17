@@ -16,7 +16,7 @@ price of whatever changed since.
 This module is that answer: :data:`SCHEMA_RELEASES` says which release first wrote each schema
 (a test fails when the store's schema has no entry, so a release cannot ship without declaring
 its own), :func:`plan` says what to do to reach a release, and :func:`kept_copies` finds the
-copies. ``noust store compat`` prints it; ``docs/DOWNGRADING.md`` explains it.
+copies. ``noust store compat`` prints it; ``docs/downgrading.md`` explains it.
 """
 
 from __future__ import annotations

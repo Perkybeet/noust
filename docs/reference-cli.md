@@ -7662,6 +7662,7 @@ Arguments: `name`
 
 | Option | What it does | Default |
 |---|---|---|
+| `--json` | Print the zones as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust dns records
@@ -10406,7 +10407,7 @@ Arguments: `name`
 | `--bastion-host-key` | The bastion's ssh-ed25519 host key line. |  |
 | `--no-bastion` | Connect to the node directly. |  |
 | `--no-test` | Keep the change without opening the tunnel first (a node that is down now). |  |
-| `--show` | Print the authorized_keys line to add on the bastion: one stream to the node, no shell. |  |
+| `--show` | Print the authorized_keys line to add on the bastion: one stream to the node, no shell. With --bastion it is the line for that bastion, and nothing is changed: ask for it first, then change the bastion once it lets the central in. |  |
 | `--json` | Print the options as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
