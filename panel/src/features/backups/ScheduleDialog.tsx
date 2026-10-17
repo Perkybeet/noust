@@ -19,6 +19,7 @@ import { Select } from "../../components/ui/Select";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { gbValue, validGb } from "./policy/limits";
+import { RemoteOnlyField } from "./policy/RemoteOnlyField";
 import type { CreateScheduleInput, ScheduleDestinationInput } from "./useBackupActions";
 import { useBackupActions } from "./useBackupActions";
 
@@ -153,6 +154,9 @@ export function ScheduleDialog({ existing, domain: preset0, open, onOpenChange }
   const [retentionDays, setRetentionDays] = useState(existing ? limitText(existing.retention_days) : String(NEW_SCHEDULE_MAX_AGE));
   const [retentionGb, setRetentionGb] = useState(existing ? limitText(existing.retention_gb) : "");
   const [includeDatabases, setIncludeDatabases] = useState(existing?.include_databases ?? true);
+  // Read from the schedule and given back: a schedule set to keep nothing here from the terminal
+  // must not be turned back into one that does by saving it in the console.
+  const [remoteOnly, setRemoteOnly] = useState(existing?.remote_only ?? false);
   const [scheduleDestinations, setScheduleDestinations] = useState<ScheduleDestinationInput[]>(
     (existing?.destinations ?? []).map((entry) => ({
       name: entry.name,
@@ -189,6 +193,7 @@ export function ScheduleDialog({ existing, domain: preset0, open, onOpenChange }
       retentionDays: retentionMode === "server" ? null : (optionalNumber(retentionDays) ?? null),
       retentionGb: retentionMode === "server" ? null : gbValue(retentionGb),
       includeDatabases,
+      remoteOnly,
       destinations: scheduleDestinations,
     });
     if (everyApp) {
@@ -351,6 +356,16 @@ export function ScheduleDialog({ existing, domain: preset0, open, onOpenChange }
               </Button>
             </div>
           )}
+          <RemoteOnlyField
+            words={{
+              label: t("backups.scheduleDialog.remoteOnly"),
+              help: t("backups.scheduleDialog.remoteOnlyHelp"),
+              needsDestination: t("backups.scheduleDialog.remoteOnlyNeedsDestination"),
+            }}
+            value={remoteOnly}
+            onChange={setRemoteOnly}
+            destinations={scheduleDestinations.length}
+          />
         </fieldset>
 
         {save.isError ? (

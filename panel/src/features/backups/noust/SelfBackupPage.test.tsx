@@ -21,6 +21,7 @@ const OFF: SelfSchedule = {
   retention_count: null,
   retention_days: null,
   destinations: [],
+  remote_only: false,
   enabled: false,
   passphrase_stored: false,
   timer: {},
@@ -209,6 +210,7 @@ describe("the Noust tab", () => {
       retention_days: 30,
       retention_gb: null,
       destinations: [{ name: "nas", retention_count: null, retention_days: null }],
+      remote_only: false,
       passphrase: PASSPHRASE,
       enabled: true,
     });
@@ -222,6 +224,59 @@ describe("the Noust tab", () => {
     await user.click(within(drawer).getByRole("button", { name: "Save schedule" }));
     await waitFor(() => expect(backend.callsTo("PUT /api/self-backup/schedule")).toHaveLength(1));
     expect(backend.callsTo("PUT /api/self-backup/schedule")[0]?.body).toMatchObject({ passphrase: null, schedule: "*-*-* 03:00:00" });
+  });
+
+  it("gives back a schedule that keeps nothing on this server, as the server reported it", async () => {
+    const stored = { ...ON, remote_only: true };
+    const { user, backend } = await pageAt(stored, [bundle(NAME)], { "PUT /api/self-backup/schedule": (call) => json(200, { ...stored, ...(call.body as object) }) });
+    await user.click(await screen.findByRole("button", { name: "Edit the schedule" }));
+    const drawer = await screen.findByRole("dialog", { name: "Backups of Noust's own state" });
+    expect(within(drawer).getByRole("checkbox", { name: "Keep nothing on this server" })).toBeChecked();
+    await user.click(within(drawer).getByRole("button", { name: "Save schedule" }));
+    await waitFor(() => expect(backend.callsTo("PUT /api/self-backup/schedule")).toHaveLength(1));
+    expect(backend.callsTo("PUT /api/self-backup/schedule")[0]?.body).toMatchObject({ remote_only: true, destinations: [{ name: "nas" }] });
+  });
+
+  it("sends false for a schedule that keeps its bundles here, and true once the box is ticked", async () => {
+    const { user, backend } = await pageAt(ON, [bundle(NAME)], { "PUT /api/self-backup/schedule": (call) => json(200, { ...ON, ...(call.body as object) }) });
+    await user.click(await screen.findByRole("button", { name: "Edit the schedule" }));
+    const drawer = await screen.findByRole("dialog", { name: "Backups of Noust's own state" });
+    const box = within(drawer).getByRole("checkbox", { name: "Keep nothing on this server" });
+    expect(box).not.toBeChecked();
+    expect(box).not.toHaveAttribute("aria-disabled", "true");
+    await user.click(box);
+    expect(box).toBeChecked();
+    await expectNoAxeViolations(drawer);
+    await user.click(within(drawer).getByRole("button", { name: "Save schedule" }));
+    await waitFor(() => expect(backend.callsTo("PUT /api/self-backup/schedule")).toHaveLength(1));
+    expect(backend.callsTo("PUT /api/self-backup/schedule")[0]?.body).toMatchObject({ remote_only: true });
+  });
+
+  it("sends false when the schedule keeps its bundles here and the box is left alone", async () => {
+    const { user, backend } = await pageAt(ON, [bundle(NAME)], { "PUT /api/self-backup/schedule": (call) => json(200, { ...ON, ...(call.body as object) }) });
+    await user.click(await screen.findByRole("button", { name: "Edit the schedule" }));
+    const drawer = await screen.findByRole("dialog", { name: "Backups of Noust's own state" });
+    await user.click(within(drawer).getByRole("button", { name: "Save schedule" }));
+    await waitFor(() => expect(backend.callsTo("PUT /api/self-backup/schedule")).toHaveLength(1));
+    expect(backend.callsTo("PUT /api/self-backup/schedule")[0]?.body).toMatchObject({ remote_only: false });
+  });
+
+  it("shows the box off and disabled, with the reason, while there is no destination", async () => {
+    const stored = { ...ON, remote_only: true };
+    const { user, backend } = await pageAt(stored, [bundle(NAME)], { "PUT /api/self-backup/schedule": (call) => json(200, { ...stored, ...(call.body as object) }) });
+    await user.click(await screen.findByRole("button", { name: "Edit the schedule" }));
+    const drawer = await screen.findByRole("dialog", { name: "Backups of Noust's own state" });
+    const box = within(drawer).getByRole("checkbox", { name: "Keep nothing on this server" });
+    expect(box).toBeChecked();
+    // The server refuses it without a destination: taking the last one off puts the box off.
+    await user.click(within(drawer).getByRole("checkbox", { name: "nas" }));
+    expect(box).not.toBeChecked();
+    expect(box).toHaveAttribute("aria-disabled", "true");
+    expect(within(drawer).getByText("Add at least one destination to turn this on; with none, the bundles stay on this server.")).toBeInTheDocument();
+    await expectNoAxeViolations(drawer);
+    await user.click(within(drawer).getByRole("button", { name: "Save schedule" }));
+    await waitFor(() => expect(backend.callsTo("PUT /api/self-backup/schedule")).toHaveLength(1));
+    expect(backend.callsTo("PUT /api/self-backup/schedule")[0]?.body).toMatchObject({ remote_only: false, destinations: [] });
   });
 
   it("is read in Spanish", async () => {
