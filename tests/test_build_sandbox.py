@@ -402,6 +402,67 @@ def test_the_full_profile_keeps_the_network_and_the_variables(
     assert (runner.envs[0] or {})["SECRET_KEY"] == "s3cret"
 
 
+class WatchingEnvFile(FakeRunner):
+    """A runner that notes what the release's ``.env`` is when each command runs."""
+
+    def __init__(self, release: Path) -> None:
+        super().__init__()
+        self.release = release
+        self.seen: list[tuple[str, str]] = []
+
+    def _lookup(self, argv: Any, user: str | None = None, env: Any = None) -> Any:
+        link = self.release / ".env"
+        kind = "link" if link.is_symlink() else "file" if link.is_file() else "none"
+        self.seen.append((kind, link.read_text() if kind == "file" else ""))
+        return super()._lookup(argv, user, env)
+
+
+@pytest.mark.parametrize(("sandboxed", "wanted"), [(True, ""), (False, "SECRET=1\n")])
+def test_a_build_reads_the_env_file_as_a_file_and_the_link_comes_back(
+    tmp_path: Path, store: NoustStore, sandboxed: bool, wanted: str
+) -> None:
+    """A tool that copies the tree keeps a relative link's text and leaves it pointing nowhere.
+
+    Next.js 15.5 writes its standalone server that way and then copies the ``.env`` onto its own
+    dangling copy: ENOENT, found deploying Umami from its recipe. The command sees a plain file
+    (empty in the sandbox, which masks the secrets; the content in a build as root), and the link
+    to ``shared/`` is back when it ends, whatever it did.
+    """
+    root = tmp_path / "apps" / "x"
+    primed(root)
+    release = primed(root).build_path
+    (root / "shared").mkdir(parents=True)
+    (root / "shared" / ".env").write_text("SECRET=1\n")
+    release.mkdir(parents=True, exist_ok=True)
+    target = os.path.relpath(root / "shared" / ".env", release)
+    (release / ".env").symlink_to(target)
+    runner = WatchingEnvFile(release)
+    deployer = primed(root, runner=runner)
+    if not sandboxed:
+        deployer._sandbox_regime = None  # a build as root, which the regime can say
+
+    deployer._run(["npm", "run", "build"], phase=BuildPhase.BUILD)
+
+    assert runner.seen[-1] == ("file", wanted)
+    assert (release / ".env").is_symlink()
+    assert os.readlink(release / ".env") == target
+
+
+def test_the_env_link_comes_back_when_the_build_fails(tmp_path: Path, store: NoustStore) -> None:
+    root = tmp_path / "apps" / "x"
+    release = primed(root).build_path
+    (root / "shared").mkdir(parents=True)
+    (root / "shared" / ".env").write_text("SECRET=1\n")
+    release.mkdir(parents=True, exist_ok=True)
+    (release / ".env").symlink_to("../../shared/.env")
+    runner = FakeRunner().script(["npm", "run", "build"], exit_code=1)
+    deployer = primed(root, runner=runner)
+
+    deployer._run(["npm", "run", "build"], phase=BuildPhase.BUILD)
+
+    assert (release / ".env").is_symlink()
+
+
 def test_a_migration_runs_as_the_application_not_as_the_build(
     tmp_path: Path, store: NoustStore
 ) -> None:

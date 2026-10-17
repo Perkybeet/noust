@@ -1496,6 +1496,41 @@ class BlueGreen:
                 self.log.warning(f"Could not put everything back: {exc}")
 
 
+def ensure_upstream_file(app: App, *, web: WebServerManager | None = None) -> bool:
+    """
+    Write the upstream file that names the serving instance, when an application lacks it.
+
+    The site of an application in zero-downtime mode proxies to its upstream only while the
+    upstream file is in place (a site that includes a file that is not there is one nginx
+    refuses), and the file belongs to the web server, not to the store or to a bundle of Noust's
+    own state. On a machine that was brought back from a bundle the store says the application
+    is blue/green and serves ``green``, the units are back, and the site is rendered again from
+    the store: without the file it proxies to the first instance's port, which is not the one
+    that answers.
+
+    Args:
+        app: The application's row.
+        web: The web server manager. A new one by default.
+
+    Returns:
+        Whether the file was written (False when the application is not in the mode, has no
+        serving instance recorded, or the file was already there).
+    """
+    if not runs_as_instances(app) or app.active_color not in BLUE_GREEN_COLORS:
+        return False
+    port = serving_port(app)
+    if port is None:
+        return False
+    if web is None:
+        from noust.managers.nginx_manager import NginxManager
+
+        web = NginxManager()
+    if web.read_upstream(app.domain) is not None:
+        return False
+    web.write_upstream(app.domain, port)
+    return True
+
+
 def _refresh_site(app: App) -> None:
     """
     Render an application's site again from the store, and reload nginx.

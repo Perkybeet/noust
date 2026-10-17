@@ -591,6 +591,10 @@ class UploadStore:
             upload_id: The identifier.
         """
         directory = self._directory(upload_id)
+        if not os.path.lexists(directory):
+            # Already gone: a refused archive is discarded by the extraction and again by the
+            # caller that sent it, and the second is not a failure to warn about.
+            return
         try:
             self.fs.remove_tree(directory)
         except OSError as exc:

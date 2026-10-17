@@ -146,6 +146,17 @@ _INSPECT_FORMAT = (
 #: A container id as ``docker compose ps -q`` prints it.
 _CONTAINER_ID = re.compile(r"^[0-9a-f]{12,64}$")
 
+#: A restart policy that keeps bringing a container back hides a crash from any one look at it:
+#: between two runs the container is ``running`` for as long as the program lives. Restarts
+#: counted by Docker, with a current run younger than ``CRASH_LOOP_RUN_SECONDS``, are the loop.
+#: Ten seconds is Docker's own: a container that has run that long starts its back-off over.
+CRASH_LOOP_RESTARTS = 3
+CRASH_LOOP_RUN_SECONDS = 10
+
+#: What ``docker inspect`` is asked about a running container to tell a loop from a steady one:
+#: its name, how many times Docker restarted it, and when the current run began.
+_RESTART_FORMAT = "{{.Name}}|{{.RestartCount}}|{{.State.StartedAt}}"
+
 # Compose file priority order
 COMPOSE_FILE_PRIORITY = [
     "docker-compose.prod.yml",
@@ -3383,6 +3394,8 @@ def headless_stack_state(
         )
     containers = parse_compose_ps(result.stdout)
     problems = tuple(p for p in map(container_problem, containers) if p is not None)
+    if not problems:
+        problems = _crash_loops(deployer, containers)
     if not containers:
         summary = "none of its containers exists; start it with: noust start " + app.domain
         return HeadlessStackState(False, summary, (), result.stdout.strip(), recorded)
@@ -3401,6 +3414,80 @@ def headless_stack_state(
         result.stdout.strip(),
         recorded,
     )
+
+
+#: A moment as Docker prints it: RFC 3339 in UTC with as many fractional digits as it has (Go trims
+#: trailing zeros), which ``datetime.fromisoformat`` of Python 3.10 reads only at 3 or 6 digits.
+_DOCKER_TIME = re.compile(r"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d+))?Z")
+
+
+def _docker_time(text: str) -> datetime:
+    """
+    Read a timestamp as ``docker inspect`` prints it.
+
+    Args:
+        text: Such as ``2026-10-17T04:17:13.66889812Z``.
+
+    Returns:
+        The moment, in UTC.
+
+    Raises:
+        ValueError: The text is not in that shape.
+    """
+    match = _DOCKER_TIME.fullmatch(text.strip())
+    if match is None:
+        raise ValueError(f"not a Docker timestamp: {text!r}")
+    microseconds = (match.group(2) or "").ljust(6, "0")[:6]
+    return datetime.fromisoformat(f"{match.group(1)}.{microseconds}+00:00")
+
+
+def _crash_loops(
+    deployer: DockerComposeDeployer, containers: Sequence[dict[str, Any]]
+) -> tuple[str, ...]:
+    """
+    Name the running containers Docker keeps restarting.
+
+    ``docker compose ps`` is one instant: a container in a crash loop is ``running`` for the
+    second it takes to fail, and looks fine in about half the looks. Docker counts the restarts
+    its policy made, and when the current run began; a container restarted several times whose
+    current run is young is in a loop whatever the instant says.
+
+    Args:
+        deployer: The stack's deployer, which runs docker.
+        containers: What :func:`parse_compose_ps` read.
+
+    Returns:
+        A line per container in a loop, naming how often it restarted and for how long it has
+        run; empty when none is, or when Docker could not say (the instant's verdict stands).
+    """
+    ids = [
+        str(entry["ID"])
+        for entry in containers
+        if entry.get("ID") and str(entry.get("State") or "").lower() == "running"
+    ]
+    if not ids:
+        return ()
+    inspected = deployer._run(["docker", "inspect", "--format", _RESTART_FORMAT, *ids])
+    if not inspected.success:
+        deployer.logger.debug(f"Could not read the restart counts: {inspected.stderr.strip()}")
+        return ()
+    now = datetime.now(timezone.utc)
+    loops: list[str] = []
+    for line in inspected.stdout.splitlines():
+        name, _, rest = line.strip().partition("|")
+        count, _, started = rest.partition("|")
+        try:
+            restarts = int(count)
+            began = _docker_time(started)
+        except ValueError:
+            continue
+        ran = (now - began).total_seconds()
+        if restarts >= CRASH_LOOP_RESTARTS and ran < CRASH_LOOP_RUN_SECONDS:
+            loops.append(
+                f"{name.lstrip('/')}: restarting in a loop ({restarts} restarts, "
+                f"the current run began {ran:.0f} s ago)"
+            )
+    return tuple(loops)
 
 
 @dataclass(frozen=True)

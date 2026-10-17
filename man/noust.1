@@ -5790,7 +5790,7 @@ Write a database to a backup file.
 Engine the database is on.
 .TP
 .B \-\-output, \-o
-Where to write the file. Defaults to the engine's backup directory.
+Where to write the file. Defaults to the engine's backup directory. A name ending in .gz is gzipped; any other is written as the engine dumps it.
 .TP
 .B \-\-no\-compress
 Write the dump without gzip.

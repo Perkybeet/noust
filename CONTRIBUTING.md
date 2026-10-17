@@ -152,8 +152,15 @@ terraform-provider-noust/   the Terraform and OpenTofu provider (Go, Plugin Fram
                             (docs/terraform-registry.md, scripts/prepare_terraform_registry.py)
 scripts/reproducible_build.py   the wheel and the sdist of a commit, byte for byte
                             (docs/reproducible-builds.md); CI and the release workflow build with it
-tests/integration/run.py    real deploys in a systemd container (Docker); not part of pytest
-tests/integration/install_matrix.py   the installer on one container per release; not part of pytest
+tests/integration/run.py    real deploys in a systemd container (Docker); not part of pytest. The 3.4
+                            features' scenarios are in scenarios_34.py (loaded by run.py), and
+                            `--upgrade-from-3.3` (scenarios_upgrade.py) upgrades a 3.3.1 server that
+                            carries every legacy name. Everything it creates on the machine's Docker
+                            carries the label `noust.test=1`; the rest runs in the harness container's
+                            own Docker (NOUST_IT_IMAGE, NOUST_IT_DOCKER_VOLUME and NOUST_IT_PREFIX name the
+                            image, the volume and the containers when the Docker is shared)
+tests/integration/install_matrix.py   the installer on one container per release (run through
+                            `run.py --install-matrix`, inside the harness container); not part of pytest
 tests/integration/terraform_run.py    the provider and the Python SDK against the live API of
                             scripts/console_server.py, Go and Terraform in containers; not part of pytest
 tests/integration/identity.py         SAML, OpenID Connect, LDAP and SCIM against Keycloak, OpenLDAP and a
@@ -444,6 +451,22 @@ mypy                            # types (blocking in CI)
 
 python scripts/release.py --check         # version consistency
 python scripts/security_model.py --write  # regenerate docs/SECURITY-MODEL.md after changing a role, a header, a route or a guarantee
+```
+
+The integration harness deploys for real (nginx, systemd, Docker, a database) inside one privileged
+container, and is not part of pytest. On a machine whose Docker is shared, name what a run makes so
+it can be found and removed by that name and by the label `noust.test=1` (never a prune):
+
+```bash
+export NOUST_IT_PREFIX=noust-test-me NOUST_IT_IMAGE=noust-test-me-image:latest \
+       NOUST_IT_DOCKER_VOLUME=noust-test-me-docker NOUST_IT_MEMORY=10g
+python tests/integration/run.py                          # every scenario but the optional ones
+python tests/integration/run.py --scenario procfile --keep   # one (a substring); leave the container
+python tests/integration/run.py --reuse <container> --skip-image-build --scenario procfile
+                                                         # again, in the kept container, in seconds
+NOUST_IT_PROGGEST=~/src/proggest python tests/integration/run.py --scenario proggest   # slow
+python tests/integration/run.py --upgrade-from-3.3       # 3.3.1 with every legacy name -> this tree
+python tests/integration/run.py --install-matrix         # the installer on each release (network)
 ```
 
 The console needs Node 22 (the major in `panel/.nvmrc`); CI runs every one of these:

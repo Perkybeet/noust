@@ -152,6 +152,47 @@ def test_a_redeploy_makes_sure_the_account_exists(
     assert app is not None and app.identity == ACCOUNT
 
 
+def test_a_restore_finds_the_account_it_runs_as_made_when_the_machine_lacks_it(
+    store: NoustStore, runner: FakeRunner
+) -> None:
+    """
+    The account is in ``/etc/passwd``, not in the store or in a bundle of Noust's state.
+
+    ``noust restore-server`` on a machine the application never ran on brought the store back
+    naming ``noust-app-shop``, could not hand the files over to it ("invalid user") and left a
+    unit that could not start. Found by the real-machine harness.
+    """
+    store.create_app(App(domain=DOMAIN, app_path="/var/www/apps/rel-example-com", identity=ACCOUNT))
+    runner.script(["getent", "passwd", ACCOUNT], exit_code=2)
+
+    who = app_identity.ensure_service_account(DOMAIN, runner)
+
+    assert who == (ACCOUNT, ACCOUNT)
+    made = runner.calls_to("useradd")
+    assert len(made) == 1 and made[0][-1] == ACCOUNT
+
+
+def test_an_account_that_exists_is_left_as_it_is(store: NoustStore, runner: FakeRunner) -> None:
+    store.create_app(App(domain=DOMAIN, app_path="/var/www/apps/rel-example-com", identity=ACCOUNT))
+    runner.script(
+        ["getent", "passwd", ACCOUNT], stdout=f"{ACCOUNT}:x:998:998::/nonexistent:/bin/sh"
+    )
+
+    assert app_identity.ensure_service_account(DOMAIN, runner) == (ACCOUNT, ACCOUNT)
+    assert not runner.calls_to("useradd")
+
+
+def test_an_application_on_the_shared_account_gets_no_account_made(
+    store: NoustStore, runner: FakeRunner
+) -> None:
+    store.create_app(App(domain=DOMAIN, app_path="/var/www/apps/rel-example-com"))
+
+    who = app_identity.ensure_service_account(DOMAIN, runner)
+
+    assert who == (app_identity.Config().service_user, app_identity.Config().service_group)
+    assert runner.calls == []
+
+
 def test_without_root_nothing_changes(
     tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace
 ) -> None:

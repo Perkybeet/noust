@@ -2780,7 +2780,8 @@ def choices(ctx: Context) -> None:
     "--output",
     "-o",
     type=click.Path(dir_okay=False, path_type=Path),
-    help="Where to write the file. Defaults to the engine's backup directory.",
+    help="Where to write the file. Defaults to the engine's backup directory. A name "
+    "ending in .gz is gzipped; any other is written as the engine dumps it.",
 )
 @click.option("--no-compress", is_flag=True, help="Write the dump without gzip.")
 @click.option(

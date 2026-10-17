@@ -1,0 +1,3 @@
+web: node server.js
+release: node release.js
+clock: node clock.js

@@ -1009,6 +1009,32 @@ def test_set_permissions_keeps_env_files_owner_only(tmp_path: Path, store: Noust
     assert stat.S_IMODE(env_file.stat().st_mode) == SECRET_MODE
 
 
+@pytest.mark.parametrize("layout", ["inplace", "releases"])
+def test_the_release_environment_is_written_before_the_tree_is_handed_over(
+    tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch, layout: str
+) -> None:
+    """A file written after the chown is root's: the one thing the service account does not own.
+
+    ``.noust-env`` is created by the deployment, as root. The real-machine harness found it left
+    root-owned in the tree of an in-place update and in every release, because the hand-over had
+    already run when it was written.
+    """
+    order: list[str] = []
+    deployer = NodeJSDeployer(runner=FakeRunner(), fs=RecordingFileSystem())
+    deployer.configure("app.example.com", "src", app_path=tmp_path / "app")
+    (tmp_path / "app").mkdir(parents=True)
+    deployer._layout = layout
+    monkeypatch.setattr(deployer, "_write_release_env", lambda: order.append("write"))
+    monkeypatch.setattr(
+        "noust.deployers.base.hand_over_tree", lambda *args, **kwargs: order.append("hand over")
+    )
+
+    deployer._set_permissions()
+
+    assert order and order[0] == "write"
+    assert "hand over" in order
+
+
 def test_monorepo_set_permissions_chowns_like_the_base(tmp_path: Path, store: NoustStore) -> None:
     """Both deployers hand the tree over through the same implementation."""
     runner = FakeRunner()

@@ -307,8 +307,11 @@ class RestoreServer:
         if self._refresh_site is not None:
             self._refresh_site(app)
             return
+        from noust.deployers.bluegreen import ensure_upstream_file
         from noust.deployers.domains import refresh_site
 
+        # The upstream file is the web server's, and a bundle of Noust's state does not hold it.
+        ensure_upstream_file(app)
         refresh_site(app)
 
     def _installed(self, engine: str) -> bool:

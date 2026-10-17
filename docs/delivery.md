@@ -42,9 +42,11 @@ noust deploy held shop.example.com          # what holds it, if anything
 noust deploy resume shop.example.com
 ```
 
-While an application is paused a push, a tag or a schedule is not deployed. Each one is counted
-instead, and resuming says how many arrived meanwhile, so nothing is lost without a word: the next
-push deploys the newest, or `noust update` does now. The console shows who paused it and why in the
+While an application is paused a push, a tag or a schedule is not deployed. Each push and tag is
+counted instead, and resuming says how many arrived meanwhile, so nothing is lost without a word: the
+next push deploys the newest, or `noust update` does now. A schedule's held run is not counted, because
+nothing may have arrived: it is the schedule's last outcome (`noust deploy schedule show`), and its
+next run after resuming deploys whatever is new. The console shows who paused it and why in the
 application's **Deployments** and **Deploys** pages.
 
 ### After a rollback
@@ -130,7 +132,9 @@ Each run:
 1. asks whether the branch (or the tags it follows) has anything new, and does nothing if not
    (`--always` updates anyway);
 2. takes the backup an update needs and **refuses to update when it does not happen**
-   (`--no-backup` turns that off), because nobody is there at three in the morning to read a warning;
+   (`--no-backup` stops the schedule asking for that; an application with a database keeps its own
+   rule, which is the same refusal, until `noust app backup-required DOMAIN off`), because nobody is
+   there at three in the morning to read a warning;
 3. is held by a pause or a freeze, and says so;
 4. updates through the same code as `noust update`, behind the same health gate, which puts back what
    served when the new version does not answer.

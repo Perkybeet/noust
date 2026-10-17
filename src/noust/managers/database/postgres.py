@@ -2504,6 +2504,38 @@ class PostgresManager(BaseDatabaseManager):
         except OSError as exc:
             self.logger.warning(f"Could not remove the password file of {role}: {exc}")
 
+    def _create_for_restore(self, database: str, owner: str | None) -> None:
+        """
+        Create the empty database a dump is loaded into, and the role its grants name.
+
+        A dump of a database that the read-only console was used on grants
+        ``SELECT`` to ``wasm_ro_<database>``. The role is the cluster's, not the
+        database's, so another server, or another instance a database is moved
+        to, lacks it, and ``pg_restore`` fails at the first of those grants
+        (``role "wasm_ro_shop" does not exist``): a move to PostgreSQL 17 did
+        on the real engine, and so would a restore on a fresh server. The role
+        is made with no way to sign in; the next read gives it its login, its
+        password and its grants again, as it does for a role it finds.
+
+        Args:
+            database: The database.
+            owner: The owner it had before, if any.
+
+        Raises:
+            DatabaseError: When the database cannot be created.
+        """
+        super()._create_for_restore(database, owner)
+        role = _read_only_role_name(database)
+        literal = self._escape_literal(role)
+        success, output = self._execute_sql(
+            "DO $noust$ BEGIN "
+            f"IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = {literal}) THEN "
+            f"CREATE ROLE {self._escape_identifier(role)} NOLOGIN; END IF; END $noust$;"
+        )
+        if not success:
+            # The restore may still work: it says so itself if a grant names the role.
+            self.logger.warning(f"Could not make the read-only role {role}: {output.strip()}")
+
     def access_hint(self) -> str:
         """
         Say how Noust signs in, since there is no password to store.

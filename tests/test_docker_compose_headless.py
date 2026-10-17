@@ -21,6 +21,7 @@ import json
 import shutil
 from collections.abc import Iterator
 from dataclasses import replace
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -45,7 +46,12 @@ from noust.managers.webserver import NGINX_BACKEND
 
 DOMAIN = "licitaciones.example.com"
 FIXTURES = Path(__file__).parent / "fixtures" / "compose"
-RUNNING = {"Service": "licitaciones-avisos", "Name": "licitaciones-avisos", "State": "running"}
+RUNNING = {
+    "ID": "a1b2c3d4e5f6",
+    "Service": "licitaciones-avisos",
+    "Name": "licitaciones-avisos",
+    "State": "running",
+}
 
 
 class Docker(FakeRunner):
@@ -56,6 +62,10 @@ class Docker(FakeRunner):
         self.containers: list[dict[str, Any]] = [RUNNING]
         self.log = "licitaciones-avisos  | 12 avisos enviados\n"
         self.environment: list[str] = []
+        #: What ``docker inspect`` says of every running container: the restarts Docker made,
+        #: and how long ago the current run began.
+        self.restarts = 0
+        self.run_age = timedelta(hours=1)
 
     def _lookup(self, argv: Any, user: str | None = None, env: Any = None) -> CommandResult:
         result = super()._lookup(argv, user, env)
@@ -64,6 +74,11 @@ class Docker(FakeRunner):
             return replace(result, stdout="a1b2c3d4e5f6\n")
         if args[:2] == ("docker", "compose") and "ps" in args and "-a" in args:
             return replace(result, stdout="\n".join(json.dumps(c) for c in self.containers))
+        if args[:2] == ("docker", "inspect") and any("RestartCount" in a for a in args):
+            began = (datetime.now(timezone.utc) - self.run_age).strftime(
+                "%Y-%m-%dT%H:%M:%S.123456789Z"
+            )
+            return replace(result, stdout=f"/licitaciones-avisos|{self.restarts}|{began}\n")
         if args[:2] == ("docker", "inspect") and "{{json .Config.Env}}" in args:
             return replace(result, stdout=json.dumps(self.environment))
         if args[:2] == ("docker", "compose") and "logs" in args:
@@ -210,6 +225,57 @@ def test_a_worker_whose_container_fails_or_loops_is_not(
     state = headless_stack_state(app)
 
     assert state is not None and not state.healthy and said in state.summary
+
+
+def test_a_container_the_restart_policy_keeps_bringing_back_is_in_a_loop(
+    root: Path, store: NoustStore, docker: Docker
+) -> None:
+    """``ps`` is one instant, and a looping container is ``running`` in about half of them.
+
+    The real-machine harness diagnosed a worker that crashed every second as healthy, because
+    the look fell in the second it was up. Docker counts the restarts its policy made.
+    """
+    app = registered(store, root, port=None)
+    docker.restarts = 6
+    docker.run_age = timedelta(seconds=2)
+
+    state = headless_stack_state(app)
+
+    assert state is not None and not state.healthy
+    assert "restarting in a loop (6 restarts" in state.summary
+
+
+def test_a_container_that_restarted_long_ago_and_has_run_since_is_steady(
+    root: Path, store: NoustStore, docker: Docker
+) -> None:
+    app = registered(store, root, port=None)
+    docker.restarts = 6
+    docker.run_age = timedelta(hours=3)
+
+    state = headless_stack_state(app)
+
+    assert state is not None and state.healthy
+
+
+def test_a_few_restarts_are_not_a_loop(root: Path, store: NoustStore, docker: Docker) -> None:
+    app = registered(store, root, port=None)
+    docker.restarts = 2
+    docker.run_age = timedelta(seconds=5)
+
+    state = headless_stack_state(app)
+
+    assert state is not None and state.healthy
+
+
+@pytest.mark.parametrize(
+    "stamp",
+    ["2026-10-17T04:17:13Z", "2026-10-17T04:17:13.5Z", "2026-10-17T04:17:13.668898123Z"],
+)
+def test_docker_prints_a_moment_with_any_number_of_fraction_digits(stamp: str) -> None:
+    """Go trims trailing zeros; Python 3.10 reads only three or six digits."""
+    moment = docker_compose._docker_time(stamp)
+
+    assert moment.tzinfo is not None and moment.year == 2026 and moment.second == 13
 
 
 def test_a_one_shot_container_that_exited_cleanly_is_fine(
