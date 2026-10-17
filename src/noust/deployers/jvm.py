@@ -59,6 +59,18 @@ Flavour = Literal["spring", "quarkus", "micronaut", "ktor", "shadow", "applicati
 #: version, so the unit's command is the same for every release.
 DIST_JAR = "dist/app.jar"
 
+#: How a framework is told its port: on the command line, from ``${PORT}``, which systemd expands
+#: from the unit's own ``PORT``. A port written into the unit's environment (``SERVER_PORT=3000``)
+#: would be the same for the two instances of a zero-downtime application and for every copy of a
+#: scaled one, and the second would fail to bind; ``PORT`` is the one variable each of them is given
+#: its own value of. Spring Boot reads an argument of the program, Quarkus and Micronaut a system
+#: property of the JVM. The rest (Ktor, Shadow, the application plugin) read ``PORT`` themselves.
+_PORT_ARGUMENTS: dict[str, str] = {"spring": "--server.port=${PORT}"}
+_PORT_PROPERTIES: dict[str, str] = {
+    "quarkus": "-Dquarkus.http.port=${PORT}",
+    "micronaut": "-Dmicronaut.server.port=${PORT}",
+}
+
 #: Jars that are never the program: their names say what they are.
 _NOT_THE_PROGRAM = re.compile(
     r"(?:-sources|-javadoc|-tests?|-plain|-test-fixtures)\.jar$|^original-|\.jar\.original$"
@@ -630,7 +642,12 @@ class JavaDeployer(BaseDeployer):
         """
         kind, relative = self.launch or self._expected_launch()
         path = str(self._at_runtime(self.build_path / relative))
-        return systemd_command(["java", "-jar", path] if kind == "jar" else [path])
+        if kind != "jar":
+            return systemd_command([path])
+        flavour = self._flavour()
+        properties = [_PORT_PROPERTIES[flavour]] if flavour in _PORT_PROPERTIES else []
+        arguments = [_PORT_ARGUMENTS[flavour]] if flavour in _PORT_ARGUMENTS else []
+        return systemd_command(["java", *properties, "-jar", path, *arguments])
 
     def _expected_launch(self) -> tuple[Literal["jar", "script"], str]:
         """
@@ -658,18 +675,18 @@ class JavaDeployer(BaseDeployer):
         Say what the unit sets: the port and the loopback address, in the framework's words.
 
         Returns:
-            ``PORT`` and ``HOST`` for every program, plus the variables its framework reads
-            (Spring's ``SERVER_PORT`` and ``SERVER_ADDRESS``, Quarkus' and Micronaut's).
+            ``PORT`` and ``HOST`` for every program, plus the address variable its framework reads
+            (Spring's ``SERVER_ADDRESS``, Quarkus' and Micronaut's). The port itself reaches the
+            framework through the start command (:data:`_PORT_ARGUMENTS`), from ``PORT``.
         """
-        port = str(self.port)
-        environment = {"PORT": port, "HOST": "127.0.0.1"}
+        environment = {"PORT": str(self.port), "HOST": "127.0.0.1"}
         flavour = self._flavour()
         if flavour == "spring":
-            environment.update(SERVER_PORT=port, SERVER_ADDRESS="127.0.0.1")
+            environment["SERVER_ADDRESS"] = "127.0.0.1"
         elif flavour == "quarkus":
-            environment.update(QUARKUS_HTTP_PORT=port, QUARKUS_HTTP_HOST="127.0.0.1")
+            environment["QUARKUS_HTTP_HOST"] = "127.0.0.1"
         elif flavour == "micronaut":
-            environment.update(MICRONAUT_SERVER_PORT=port, MICRONAUT_SERVER_HOST="127.0.0.1")
+            environment["MICRONAUT_SERVER_HOST"] = "127.0.0.1"
         return environment
 
     # Steps -----------------------------------------------------------------------------

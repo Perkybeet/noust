@@ -420,8 +420,14 @@ What each does:
   multi-module build whose modules produce several programs says which with `build.start`. The JDK
   must be at least the Java the project asks for (`.java-version`, `.sdkmanrc`, the POM's
   `java.version` or `maven.compiler.release`, Gradle's compatibility); a Gradle toolchain provisions
-  its own. The unit sets `PORT`, `HOST` and the port and address the framework reads
-  (`SERVER_PORT` for Spring Boot, `QUARKUS_HTTP_PORT` for Quarkus, `MICRONAUT_SERVER_PORT`).
+  its own. The unit sets `PORT`, `HOST` and the address the framework reads
+  (`SERVER_ADDRESS` for Spring Boot, `QUARKUS_HTTP_HOST`, `MICRONAUT_SERVER_HOST`), and the port
+  reaches the framework from `PORT` on the command line (`--server.port=${PORT}` for Spring Boot,
+  `-Dquarkus.http.port` and `-Dmicronaut.server.port` as JVM properties): the two instances of a
+  zero-downtime application, each with its own `PORT`, would otherwise be told the same port.
+  The build sandbox points Maven's and Gradle's `user.home` at the build cache
+  (`MAVEN_OPTS` and `GRADLE_OPTS`), because the JVM ignores `$HOME` and `noust-build` has no home to
+  keep `~/.m2` in; an application's own `MAVEN_OPTS` is added after that.
   Maven (multi-module) and Gradle download while they build, so the `--network strict` profile
   needs `build.install` to fetch first (`./gradlew dependencies`, `mvn dependency:go-offline`).
 - **.NET** runs `dotnet restore` in the install phase (`--locked-mode` when `packages.lock.json` is
@@ -440,7 +446,11 @@ What each does:
   `RELEASE_DISTRIBUTION=none` (a release started otherwise runs `epmd` and listens on a node name),
   and for Phoenix `PHX_HOST` (the domain) and a generated `SECRET_KEY_BASE`, once. Migrations are a
   decision: declare them as a hook (`run: [./_build/prod/rel/NAME/bin/NAME, eval, MyApp.Release.migrate]`,
-  `migrates: true`).
+  `migrates: true`). The distributions ship an Elixir older than current Hex packages want (Ubuntu
+  24.04 has Elixir 1.14 on Erlang/OTP 25, and recent `plug` and `cowlib` need 1.15 and OTP 26), and Mix
+  reports that as an error from inside the dependency; when the output says a dependency requires a
+  newer Elixir, the failure names it and the two versions and says to install one system-wide or to pin
+  an older dependency.
 - **Deno** runs `deno install` (with `--entrypoint` for the files the start task runs, so imports
   written in the program are fetched too) with the module cache in the release (`.deno`, through
   `DENO_DIR`), a `build` task when the configuration has one, and the unit runs `deno task start`, or

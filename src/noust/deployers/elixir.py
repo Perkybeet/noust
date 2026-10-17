@@ -70,6 +70,12 @@ _ASSETS_SETUP = re.compile(r"""["']assets\.setup["']\s*:|\bassets\.setup\b""")
 _ASSETS_DEPLOY = re.compile(r"""["']assets\.deploy["']\s*:|\bassets\.deploy\b""")
 _ELIXIR_REQUIREMENT = re.compile(r"""\belixir\s*:\s*["']\s*(?:~>|>=|==)?\s*(\d+)\.(\d+)""")
 _ELIXIR_VERSION_OUTPUT = re.compile(r"\bElixir\s+(\d+)\.(\d+)")
+#: What Mix says when a dependency needs a newer Elixir than the server has: it compiles on and
+#: fails somewhere inside the dependency, with an error that does not mention the version.
+_DEPENDENCY_NEEDS_ELIXIR = re.compile(
+    r'the dependency :(?P<name>\w+) requires Elixir "(?P<need>[^"]+)" but you are running on '
+    r"v(?P<have>[\d.]+)"
+)
 
 
 def mix_text(project: Path) -> str:
@@ -197,6 +203,32 @@ def requested_elixir(text: str) -> tuple[int, int] | None:
     """
     found = _ELIXIR_REQUIREMENT.search(text)
     return (int(found.group(1)), int(found.group(2))) if found else None
+
+
+def newer_elixir_hint(output: str) -> str:
+    """
+    Explain a compilation that failed because the server's Elixir is older than a dependency's.
+
+    The distributions ship an Elixir that lags the Hex packages (Ubuntu 24.04 has 1.14, and a
+    current ``plug`` wants 1.15), and the failure Mix reports is an error from inside the
+    dependency, far from the line that says why.
+
+    Args:
+        output: What the failed compilation printed.
+
+    Returns:
+        A paragraph that names the dependency and the two versions and says what to do; empty when
+        the output has no such warning.
+    """
+    found = _DEPENDENCY_NEEDS_ELIXIR.search(output)
+    if found is None:
+        return ""
+    return (
+        f"\n\n{found.group('name')} asks for Elixir {found.group('need')} and this server has "
+        f"{found.group('have')}, which is the likely cause. Install a newer Elixir system-wide "
+        "(https://elixir-lang.org/install.html), or pin an older version of the dependency in "
+        "mix.exs."
+    )
 
 
 def installed_elixir(output: str) -> tuple[int, int] | None:
@@ -478,9 +510,9 @@ class ElixirDeployer(BaseDeployer):
         if self._is_phoenix() and _ASSETS_SETUP.search(text):
             result = self._run(["mix", "assets.setup"], timeout=900)
             if not result.success:
+                output = (result.stderr or result.stdout or "No output.").strip()
                 raise DeploymentError(
-                    "mix assets.setup failed",
-                    details=(result.stderr or result.stdout or "No output.").strip(),
+                    "mix assets.setup failed", details=output + newer_elixir_hint(output)
                 )
         if self._is_phoenix() and not self._hook_set().declared:
             self.logger.substep(
@@ -503,9 +535,9 @@ class ElixirDeployer(BaseDeployer):
             self.logger.substep(f"Running: {' '.join(command)}")
             result = self._run(command, timeout=2700, stream=True)
             if not result.success:
+                output = (result.stderr or result.stdout or "No output.").strip()
                 raise DeploymentError(
-                    f"{' '.join(command)} failed",
-                    details=(result.stderr or result.stdout or "No output.").strip(),
+                    f"{' '.join(command)} failed", details=output + newer_elixir_hint(output)
                 )
         return True
 

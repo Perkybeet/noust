@@ -1116,6 +1116,11 @@ def ensure_cache_dir(
     return cache
 
 
+#: The variables whose value is a list of JVM options, which an application's own value is
+#: appended to rather than replacing (see :func:`command_environment`).
+JVM_OPTION_VARIABLES: tuple[str, ...] = ("MAVEN_OPTS", "GRADLE_OPTS")
+
+
 def build_environment(cache: Path) -> dict[str, str]:
     """
     Point every package manager's cache and home at an application's cache.
@@ -1147,9 +1152,13 @@ def build_environment(cache: Path) -> dict[str, str]:
         # which a release's own directory would throw away every deploy.
         "CARGO_HOME": str(cache / "cargo"),
         "CARGO_TARGET_DIR": str(cache / "cargo-target"),
-        # Java: Maven's repository and its wrapper's distributions are under HOME
-        # (~/.m2); Gradle's home is its own variable.
+        # Java: Gradle's home is its own variable, but Maven's repository (~/.m2) and
+        # everything else a JVM keeps "at home" follow the user.home property, which the
+        # JVM reads from the password file and not from $HOME. The build account's home
+        # is /nonexistent, so each tool is told where home is.
         "GRADLE_USER_HOME": str(cache / "gradle"),
+        "MAVEN_OPTS": f"-Duser.home={cache}",
+        "GRADLE_OPTS": f"-Duser.home={cache}",
         # .NET: the SDK's per-user state and the packages restore downloads, and no
         # telemetry or welcome banner from a build nobody watches.
         "DOTNET_CLI_HOME": str(cache / "dotnet"),
@@ -1779,7 +1788,15 @@ def command_environment(
     """
     strict_install = phase is BuildPhase.INSTALL and state.network == NetworkProfile.STRICT.value
     chosen = dict(given or {}) if strict_install else dict(configured)
-    return {**build_environment(cache), **chosen}
+    environment = {**build_environment(cache), **chosen}
+    # The JVM options are the one cache setting an application's own variables extend instead of
+    # replacing: a MAVEN_OPTS that only asks for a heap must not take the build's home away.
+    defaults = build_environment(cache)
+    for name in JVM_OPTION_VARIABLES:
+        theirs = chosen.get(name)
+        if theirs:
+            environment[name] = f"{defaults[name]} {theirs}"
+    return environment
 
 
 #: What switches a package manager to a production install (devDependencies
