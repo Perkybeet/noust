@@ -746,6 +746,8 @@ class DomainRecord:
         created_at: When it was added, ISO 8601.
         port: The port of the application this name is proxied to, when it is
             not the application's own (schema v14); None for the application's.
+        enabled: Whether the name is served. A name that is switched off keeps its row and
+            its port, and the site and the certificate leave it out.
     """
 
     id: int | None = None
@@ -754,6 +756,11 @@ class DomainRecord:
     kind: str = DomainKind.PRIMARY.value
     created_at: str | None = None
     port: int | None = None
+    enabled: bool = True
+
+    def __post_init__(self) -> None:
+        """Read the flag the database stores as an integer."""
+        self.enabled = bool(self.enabled)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -2969,12 +2976,16 @@ class NoustStore:
     # Domains
     # =========================================================================
 
-    def list_domains(self, app_domain: str) -> list[DomainRecord]:
+    def list_domains(self, app_domain: str, *, include_disabled: bool = True) -> list[DomainRecord]:
         """
         List the domains an application answers on.
 
         Args:
             app_domain: The application's (primary) domain.
+            include_disabled: Also the names that are switched off. What renders the site
+                and orders the certificate passes False: a name that rests is neither
+                served nor named in a certificate, and everything else (the list the
+                operator reads, export, the DNS checks) sees it.
 
         Returns:
             The primary first, then the aliases, then the redirects, each in
@@ -3009,6 +3020,8 @@ class NoustStore:
                     created_at=app["created_at"],
                 ),
             )
+        if not include_disabled:
+            records = [record for record in records if record.enabled]
         return records
 
     def add_domain(self, app_domain: str, domain: str, kind: str) -> DomainRecord:
@@ -3112,6 +3125,60 @@ class NoustStore:
                 )
             cursor.execute("UPDATE domains SET port = ? WHERE id = ?", (port, row["id"]))
             return True
+
+    def set_domain_enabled(self, app_domain: str, domain: str, enabled: bool) -> bool:
+        """
+        Switch a name off or on without forgetting it.
+
+        Args:
+            app_domain: The application's (primary) domain.
+            domain: The alias or redirect.
+            enabled: True to serve it, False to let it rest.
+
+        Returns:
+            True when the application has that name, False when it does not.
+
+        Raises:
+            DomainError: When the name is the application's primary, which is what the
+                application answers on and cannot rest.
+        """
+        name = domain.strip().lower()
+        with self._transaction() as cursor:
+            cursor.execute(
+                "SELECT d.id, d.kind FROM domains d JOIN apps a ON a.id = d.app_id "
+                "WHERE a.domain = ? AND d.domain = ?",
+                (app_domain, name),
+            )
+            row = cursor.fetchone()
+            if row is None:
+                if name == app_domain and not enabled:
+                    self._refuse_switching_off_primary(name)
+                return False
+            if row["kind"] == DomainKind.PRIMARY.value and not enabled:
+                self._refuse_switching_off_primary(name)
+            cursor.execute(
+                "UPDATE domains SET enabled = ? WHERE id = ?", (1 if enabled else 0, row["id"])
+            )
+            return True
+
+    @staticmethod
+    def _refuse_switching_off_primary(domain: str) -> NoReturn:
+        """
+        Refuse to switch a primary domain off.
+
+        Args:
+            domain: The primary.
+
+        Raises:
+            DomainError: Always.
+        """
+        raise DomainError(
+            f"{domain} is the primary domain and cannot be switched off",
+            details=(
+                "The primary is the domain the application was deployed as. Stop the "
+                f"application to stop serving it: noust stop {domain}"
+            ),
+        )
 
     def remove_domain(self, app_domain: str, domain: str) -> bool:
         """

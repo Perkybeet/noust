@@ -129,6 +129,7 @@ def test_listing_returns_every_domain_primary_first(client: TestClient, calls: C
                 "created_at": "t0",
                 "port": None,
                 "temporary": False,
+                "enabled": True,
             },
             {
                 "domain": "shop.example.com",
@@ -136,6 +137,7 @@ def test_listing_returns_every_domain_primary_first(client: TestClient, calls: C
                 "created_at": "t1",
                 "port": None,
                 "temporary": False,
+                "enabled": True,
             },
         ],
         "canonical": "",

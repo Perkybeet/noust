@@ -274,7 +274,13 @@ def _add_domain(
             details=f"Delete it first if {app.domain} should answer on it: noust site delete {name}",
         )
 
-    retry = any(r.domain == name and r.kind == kind for r in store.list_domains(app.domain))
+    existing = {r.domain: r for r in store.list_domains(app.domain)}.get(name)
+    if existing is not None and not existing.enabled:
+        raise DomainError(
+            f"{name} is switched off",
+            details=f"Switch it on again: noust domain enable {app.domain} {name}",
+        )
+    retry = existing is not None and existing.kind == kind
     if not retry and not force:
         overlaps = find_overlaps(manager, name, own={manager.config_path(app.domain).name})
         if overlaps:
@@ -389,6 +395,8 @@ def _remove_domain(
         store.add_domain(app.domain, name, records[name].kind)
         if records[name].port:
             store.set_domain_port(app.domain, name, records[name].port)
+        if not records[name].enabled:
+            store.set_domain_enabled(app.domain, name, False)
         raise
     log.success(f"{app.domain} no longer answers on {name}")
 
@@ -397,6 +405,151 @@ def _remove_domain(
         reduced, error = _try_reduce(deployer, log)
     entries = _release_dns(app, name, log)
     return _change(app, tls, adopted, False, error, reduced=reduced, dns=entries)
+
+
+def disable_domain(
+    app_domain: str,
+    domain: str,
+    *,
+    reduce_cert: bool = True,
+    logger: Logger | None = None,
+    verbose: bool = False,
+) -> DomainChange:
+    """
+    Let a name rest: the application stops answering on it, and the name is not forgotten.
+
+    The row stays with its kind and its port, the DNS record Noust made for it is left where it
+    is (the name is meant to come back), and the site and the certificate leave it out.
+    :func:`enable_domain` brings it back. Switching off a name already off is a retry of the
+    certificate.
+
+    Args:
+        app_domain: The application's primary domain.
+        domain: The alias or redirect to switch off.
+        reduce_cert: Order the certificate again without the name, when the site serves TLS.
+            False leaves that to :func:`reduce_certificate` (the panel queues it).
+        logger: Where progress and warnings go.
+        verbose: Verbosity of the managers.
+
+    Returns:
+        What was done.
+
+    Raises:
+        NoustError: When the application is unknown.
+        DomainError: When the name is the primary or one of the canonical pair, or not
+            one of the application's domains.
+        ValidationError: When the web server refuses the new configuration; the name is on again.
+        AppBusyError: Another operation is running on the application.
+    """
+    require_server_role("Domains")
+    with app_lock(validate_domain(app_domain), "domain change"):
+        return _switch(
+            app_domain,
+            domain,
+            enabled=False,
+            certificate=reduce_cert,
+            logger=logger,
+            verbose=verbose,
+        )
+
+
+def enable_domain(
+    app_domain: str,
+    domain: str,
+    *,
+    issue_cert: bool = True,
+    logger: Logger | None = None,
+    verbose: bool = False,
+) -> DomainChange:
+    """
+    Serve a name that was switched off again.
+
+    Args:
+        app_domain: The application's primary domain.
+        domain: The alias or redirect to switch on.
+        issue_cert: Extend the certificate to cover it, when the site serves TLS. False leaves
+            that to :func:`issue_certificate` (the panel queues it).
+        logger: Where progress and warnings go.
+        verbose: Verbosity of the managers.
+
+    Returns:
+        What was done. Switching on a name already on re-renders the site and retries the
+        certificate.
+
+    Raises:
+        NoustError: When the application is unknown.
+        DomainError: When the name is not one of the application's domains.
+        ValidationError: When the web server refuses the new configuration; the name stays off.
+        AppBusyError: Another operation is running on the application.
+    """
+    require_server_role("Domains")
+    with app_lock(validate_domain(app_domain), "domain change"):
+        return _switch(
+            app_domain,
+            domain,
+            enabled=True,
+            certificate=issue_cert,
+            logger=logger,
+            verbose=verbose,
+        )
+
+
+def _switch(
+    app_domain: str,
+    domain: str,
+    *,
+    enabled: bool,
+    certificate: bool,
+    logger: Logger | None,
+    verbose: bool,
+) -> DomainChange:
+    """:func:`disable_domain` and :func:`enable_domain`, under the application's lock."""
+    log = logger or Logger(verbose=verbose)
+    app = _application(app_domain)
+    name = domain.strip().lower()
+    deployer = _site_deployer(app, verbose=verbose)
+    store = get_store()
+
+    canonical = SitePolicyManager().get(app.domain).canonical
+    if not enabled and canonical:
+        host = canonical_host(app.domain, canonical)
+        if name in (host, counterpart(host)):
+            raise DomainError(
+                f"{name} belongs to the canonical pair {app.domain} is served on",
+                details=f"Serve both as recorded first: noust domain canonical {app.domain} none",
+            )
+
+    tls = _serves_tls(app, deployer)
+    adopted = _adopt_served_names(app, deployer, log)
+    previous = {record.domain: record for record in store.list_domains(app.domain)}.get(name)
+    if previous is None or not store.set_domain_enabled(app.domain, name, enabled):
+        raise DomainError(
+            f"{name} is not a domain of {app.domain}",
+            details=f"See the domains it answers on with: noust domain list {app.domain}",
+        )
+    try:
+        deployer.refresh_site(with_ssl=tls)
+    except _APPLY_ERRORS:
+        store.set_domain_enabled(app.domain, name, previous.enabled)
+        raise
+    audit.record(
+        "domains.enabled",
+        target=f"app:{app.domain}",
+        details={"name": name, "enabled": enabled},
+    )
+    log.success(
+        f"{app.domain} answers on {name} again"
+        if enabled
+        else f"{app.domain} no longer answers on {name}; it is switched off, not removed"
+    )
+
+    issued, reduced, error = False, False, None
+    if tls and certificate:
+        if enabled:
+            issued, error = _try_certificate(deployer, log)
+        else:
+            reduced, error = _try_reduce(deployer, log)
+    return _change(app, tls, adopted, issued, error, reduced=reduced)
 
 
 def set_canonical(
@@ -461,9 +614,14 @@ def _set_canonical(
     tls = _serves_tls(app, deployer)
     adopted = _adopt_served_names(app, deployer, log)
     records = {r.domain: r for r in store.list_domains(app.domain)}
+    resting: list[str] = []
     try:
         for name, kind in wanted.items():
             existing = records.get(name)
+            if existing is not None and not existing.enabled:
+                # The pair is served whatever the rows say; a name that rests cannot be it.
+                store.set_domain_enabled(app.domain, name, True)
+                resting.append(name)
             if name == app.domain or (existing is not None and existing.kind == kind):
                 continue
             if existing is not None:
@@ -478,6 +636,8 @@ def _set_canonical(
             store.remove_domain(app.domain, name)
             if existing is not None:
                 store.add_domain(app.domain, name, existing.kind)
+        for name in resting:
+            store.set_domain_enabled(app.domain, name, False)
         raise
     audit.record(
         "domains.canonical",
