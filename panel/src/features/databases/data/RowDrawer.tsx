@@ -241,8 +241,9 @@ export function RowDrawer({ engine, name, schema, relation, columns, editable, m
                     disabled={draft.isNull}
                     onValueChange={(value) => update(column.name, { value, isNull: false })}
                     options={[
-                      { value: "true", label: "true" },
-                      { value: "false", label: "false" },
+                      // The options are the column's two values, written as the database prints them, beside a NULL checkbox.
+                      { value: "true", label: "true" }, // design-exception: boolean-select the cell's own value, not a setting
+                      { value: "false", label: "false" }, // design-exception: boolean-select the cell's own value, not a setting
                     ]}
                     mono
                   />

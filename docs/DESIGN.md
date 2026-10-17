@@ -692,6 +692,12 @@ at any character, never cut, with its `CopyButton`. Not for a fact among facts (
 
 **`Switch`** applies at once. **`Checkbox`** is a choice inside a form saved with a button, or a
 selection. They never share a form.
+A yes/no choice is one of the two, never a `Select` of two options: the rule `boolean-select`
+fails a `value: "true"`, `"false"`, `"yes"` or `"no"` outside the kit (the one exception is the
+database row editor, whose options are a column's own two values and say so in a
+`design-exception`). A few fixed exclusive choices that are not yes/no (TCP or UDP, allow or deny)
+are still a `Select` in a form: a form-height `SegmentedControl` is not in the kit yet, and where it
+goes with the rest of the form density is decided with the final UX pass, not here.
 
 **`ChoiceCards`** (`legend`, `options` with `label`, `description`, `badge`, `untranslated`). One
 of two to four exclusive choices that each need a sentence to be understood (how deploys work,

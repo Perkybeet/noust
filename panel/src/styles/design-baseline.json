@@ -38,6 +38,7 @@
       "components/page/Wizard.tsx": 2,
       "components/ui/Select.tsx": 1
     },
+    "boolean-select": {},
     "chip-radius": {
       "app/LanguageSwitch.tsx": 1,
       "app/ThemeSwitch.tsx": 1,
