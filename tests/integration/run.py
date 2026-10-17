@@ -66,7 +66,12 @@ IMAGE_TAG = "noust-integration:latest"
 #: lets overlay2 run at all; it also keeps the pulled base images between runs. Never the host's
 #: docker.sock and never a host container or volume: the host's Docker holds real data
 #: (proggest_*) that no scenario may see, name or touch.
-DOCKER_DATA_VOLUME = "noust-integration-docker"
+DOCKER_DATA_VOLUME = os.environ.get("NOUST_IT_DOCKER_VOLUME", "noust-integration-docker")
+
+#: What the harness container is named after (``NOUST_IT_PREFIX``): a machine that shares its Docker
+#: with other work asks for ``noust-test-<who>`` so what this run made can be told from what it
+#: did not. Every container is labelled ``noust.test=1`` whatever the name.
+RESOURCE_PREFIX = os.environ.get("NOUST_IT_PREFIX", "noust-it")
 
 #: What the harness container's own Docker is cleared of when a run starts and ends: every
 #: container, volume and network (the images stay, they are the cache). It runs inside the
@@ -277,6 +282,8 @@ def start_container(name: str) -> None:
             "-d",
             "--name",
             name,
+            "--label",
+            "noust.test=1",
             "--privileged",
             "--cgroupns=host",
             "-v",
@@ -8288,7 +8295,7 @@ def wait_until_health(sc: Scenario, url: str) -> None:
 
 
 def random_container_name() -> str:
-    return f"noust-it-{secrets.token_hex(4)}"
+    return f"{RESOURCE_PREFIX}-{secrets.token_hex(4)}"
 
 
 # ---------------------------------------------------------------------------
@@ -8685,6 +8692,378 @@ def parse_args() -> argparse.Namespace:
         help="With --upgrade-from-3.0: which state 3.0 leaves the monitor in (default: both).",
     )
     return parser.parse_args()
+
+
+# ---------------------------------------------------------------------------
+# 3.4: sites that were already running, and the disk an application takes
+# ---------------------------------------------------------------------------
+
+NATIVE_ROOT = "/srv/native"
+NATIVE_PORT = 18711
+NATIVE_SITES = ("native-legacy.test", "native-blog.test", "native-docs.test")
+
+NATIVE_UNIT = """[Unit]
+Description=Legacy API, written by hand
+After=network.target
+
+[Service]
+WorkingDirectory=@ROOT@/legacy
+ExecStart=@NODE@ server.js
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+"""
+
+NATIVE_SERVER_JS = """const http = require('http');
+http.createServer((request, response) => { response.end('legacy v1\\n'); }).listen(@PORT@, '127.0.0.1', () => {
+  console.log('legacy api listening on @PORT@');
+});
+"""
+
+NATIVE_PROXY_SITE = """server {
+    listen 80;
+    server_name native-legacy.test;
+    location / { proxy_pass http://127.0.0.1:@PORT@; }
+}
+"""
+
+NATIVE_PHP_SITE = """server {
+    listen 80;
+    server_name native-blog.test;
+    root @ROOT@/blog;
+    index index.php;
+    location / { try_files $uri $uri/ /index.php?$args; }
+    location ~ \\.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:@SOCKET@;
+    }
+}
+"""
+
+NATIVE_STATIC_SITE = """server {
+    listen 80;
+    server_name native-docs.test;
+    root @ROOT@/docs;
+    location / { try_files $uri $uri/ =404; }
+}
+"""
+
+
+def native_state(sc: Scenario, label: str) -> str:
+    """Checksums of everything the operator wrote, and the unit's own start, to compare."""
+    return sc.run(
+        f"find {NATIVE_ROOT} /etc/nginx/sites-available/native-* "
+        "/etc/systemd/system/native-legacy.service -type f -exec sha256sum {} + | sort; "
+        "systemctl show native-legacy -p ActiveEnterTimestampMonotonic -p MainPID",
+        timeout=30,
+        label=label,
+    ).stdout
+
+
+@scenario("native_sites_adopted_without_touching_them")
+def scenario_native_adoption(sc: Scenario) -> None:
+    """
+    A unit written by hand behind nginx, a PHP site and a folder of files are adopted as they are.
+
+    The operator's own setup, none of it deployed by Noust: a Node server run by a unit they wrote
+    and proxied by an nginx site, a PHP site served through the real PHP-FPM socket with the
+    distribution's own `fastcgi-php.conf` include, and a static folder. `noust app discover` finds
+    the unit that listens by asking the real `ss` and the real control group of the process.
+    Adopting writes the store and nothing else: every file keeps its checksum and the unit keeps
+    running with the same process. Noust then restarts the unit and reads its journal, refuses to
+    build or write its environment, and deleting the application only forgets it.
+    """
+    require_cli(sc, "app adopt-site", what="adopting sites that already run")
+    socket = sc.run(
+        "ls /run/php/php*-fpm.sock | head -1", timeout=15, label="the PHP-FPM socket"
+    ).stdout.strip()
+    sc.check(socket.endswith(".sock"), f"no PHP-FPM socket: {socket!r}")
+    node = sc.run("command -v node", timeout=15, label="node").stdout.strip()
+    fill = {"@ROOT@": NATIVE_ROOT, "@PORT@": str(NATIVE_PORT), "@SOCKET@": socket, "@NODE@": node}
+
+    def render(text: str) -> str:
+        for key, value in fill.items():
+            text = text.replace(key, value)
+        return text
+
+    def write(path: str, text: str) -> None:
+        sc.run(f"cat > {path} <<'EOF'\n{render(text)}EOF", timeout=15, label=f"write {path}")
+
+    try:
+        sc.run(
+            f"mkdir -p {NATIVE_ROOT}/legacy {NATIVE_ROOT}/blog {NATIVE_ROOT}/docs && "
+            f"echo '<?php echo \"blog php ok\\n\";' > {NATIVE_ROOT}/blog/index.php && "
+            f"echo 'docs static ok' > {NATIVE_ROOT}/docs/index.html && "
+            f"chmod -R a+rX {NATIVE_ROOT}",
+            timeout=15,
+            label="the operator's folders",
+        )
+        write(f"{NATIVE_ROOT}/legacy/server.js", NATIVE_SERVER_JS)
+        write("/etc/systemd/system/native-legacy.service", NATIVE_UNIT)
+        write("/etc/nginx/sites-available/native-legacy.test", NATIVE_PROXY_SITE)
+        write("/etc/nginx/sites-available/native-blog.test", NATIVE_PHP_SITE)
+        write("/etc/nginx/sites-available/native-docs.test", NATIVE_STATIC_SITE)
+        sc.run(
+            "for site in native-legacy.test native-blog.test native-docs.test; do "
+            "ln -sf /etc/nginx/sites-available/$site /etc/nginx/sites-enabled/$site; done && "
+            "systemctl daemon-reload && systemctl start native-legacy && nginx -t && nginx -s reload",
+            timeout=60,
+            label="the operator starts the unit and enables the sites",
+        )
+        wait_served(sc, "native-legacy.test", "legacy v1")
+        wait_served(sc, "native-blog.test", "blog php ok")
+        wait_served(sc, "native-docs.test", "docs static ok")
+        before = native_state(sc, "everything the operator wrote, before")
+
+        found = json.loads(
+            sc.run("noust --json app discover", timeout=120, label="noust --json app discover")
+            .stdout.strip()
+            .splitlines()[-1]
+        )["sites"]
+        by_site = {site["site"]: site for site in found}
+        for name in NATIVE_SITES:
+            sc.check(name in by_site, f"discover did not list {name}: {sorted(by_site)}")
+        legacy, blog, docs = (by_site[name] for name in NATIVE_SITES)
+        sc.check(
+            (legacy["kind"], legacy["unit"], legacy["port"])
+            == ("proxy", "native-legacy", NATIVE_PORT),
+            f"the unit that listens was not found from the process: {legacy}",
+        )
+        sc.check(legacy["unit_active"] is True, f"the unit is running: {legacy}")
+        sc.check(blog["kind"] == "php" and blog["root"] == f"{NATIVE_ROOT}/blog", f"php: {blog}")
+        sc.check(
+            docs["kind"] == "static" and docs["root"] == f"{NATIVE_ROOT}/docs", f"static: {docs}"
+        )
+        sc.check(all(by_site[n]["adoptable"] for n in NATIVE_SITES), "a site was not adoptable")
+
+        for name in NATIVE_SITES:
+            sc.run(
+                f"noust app adopt-site {name} --yes",
+                timeout=120,
+                label=f"noust app adopt-site {name} --yes",
+            )
+        sc.check(
+            native_state(sc, "everything the operator wrote, after adopting") == before,
+            "adopting changed a file, or restarted the unit",
+        )
+        for name, expected in (
+            ("native-legacy.test", "legacy v1"),
+            ("native-blog.test", "blog php ok"),
+            ("native-docs.test", "docs static ok"),
+        ):
+            wait_served(sc, name, expected)
+        listing = sc.run("noust --json list", timeout=60, label="noust --json list").stdout
+        apps = {row["domain"]: row for row in json.loads(listing.strip().splitlines()[-1])["items"]}
+        sc.check(
+            all(apps[name]["type"] == "adopted" for name in NATIVE_SITES),
+            f"the applications are not listed as adopted: {sorted(apps)}",
+        )
+
+        pid_before = sc.run(
+            "systemctl show native-legacy -p MainPID --value",
+            timeout=15,
+            label="the unit's process",
+        ).stdout.strip()
+        sc.run(
+            "noust restart native-legacy.test",
+            timeout=120,
+            label="noust restart native-legacy.test",
+        )
+        pid_after = sc.run(
+            "systemctl show native-legacy -p MainPID --value",
+            timeout=15,
+            label="the unit's process now",
+        ).stdout.strip()
+        sc.check(pid_before != pid_after, "noust restart did not restart the operator's unit")
+        wait_served(sc, "native-legacy.test", "legacy v1")
+        logs = sc.run(
+            "noust logs native-legacy.test -n 20", timeout=60, label="noust logs native-legacy.test"
+        )
+        sc.check("legacy api listening on" in logs.stdout, f"the unit's journal: {logs.stdout!r}")
+        status = sc.run(
+            "noust status native-legacy.test", timeout=60, check=False, label="noust status"
+        )
+        sc.check(status.returncode == 0, f"noust status failed: {status.stdout}{status.stderr}")
+
+        for command, words in (
+            ("noust update native-legacy.test", "adopted site"),
+            ("noust env set native-legacy.test A=1", "adopted site"),
+            ("noust app hardening set native-legacy.test default", "your"),
+            ("noust app tuning set native-legacy.test --cpu-weight 50", "your"),
+        ):
+            refused = sc.run(command, timeout=120, check=False, label=f"{command} (refused)")
+            sc.check(refused.returncode != 0, f"{command} was not refused")
+            sc.check(
+                words in refused.stdout + refused.stderr,
+                f"{command} did not say why: {refused.stdout}{refused.stderr}",
+            )
+        unit_text = sc.run(
+            "cat /etc/systemd/system/native-legacy.service", timeout=15, label="the unit file"
+        ).stdout
+        sc.check("Generated by Noust" not in unit_text, "the operator's unit got Noust's marker")
+
+        sc.run(
+            "noust delete native-legacy.test --force",
+            timeout=120,
+            label="noust delete native-legacy.test",
+        )
+        sc.check(
+            sc.run(
+                "systemctl is-active native-legacy", timeout=15, label="is the unit still running?"
+            ).stdout.strip()
+            == "active",
+            "deleting the application stopped the operator's unit",
+        )
+        wait_served(sc, "native-legacy.test", "legacy v1")
+        sc.check(
+            sc.run(
+                f"test -f {NATIVE_ROOT}/legacy/server.js && test -f /etc/nginx/sites-available/native-legacy.test "
+                "&& test -f /etc/systemd/system/native-legacy.service && echo kept",
+                timeout=15,
+                label="are the files still there?",
+            ).stdout.strip()
+            == "kept",
+            "deleting the application removed something of the operator's",
+        )
+        gone = store_rows(
+            sc,
+            "SELECT * FROM apps WHERE domain = @domain",
+            domain="native-legacy.test",
+            label="the row",
+        )
+        sc.check(gone == [], f"the application is still registered: {gone}")
+        for name in NATIVE_SITES[1:]:
+            sc.run(f"noust delete {name} --force", timeout=120, label=f"noust delete {name}")
+        wait_served(sc, "native-blog.test", "blog php ok")
+        wait_served(sc, "native-docs.test", "docs static ok")
+    finally:
+        sc.run(
+            "systemctl stop native-legacy; rm -f /etc/systemd/system/native-legacy.service "
+            "/etc/nginx/sites-enabled/native-* /etc/nginx/sites-available/native-*; "
+            f"rm -rf {NATIVE_ROOT}; systemctl daemon-reload; nginx -s reload; "
+            "for name in native-legacy.test native-blog.test native-docs.test; do "
+            "noust delete $name --force >/dev/null 2>&1; done; true",
+            timeout=120,
+            check=False,
+            label="cleanup: the operator's setup",
+        )
+
+
+DISK_DOMAIN = "disk.test"
+DISK_ROOT = "/var/www/apps/disk-test"
+
+
+@scenario("app_disk_measured_and_held_to_a_limit")
+def scenario_app_disk(sc: Scenario) -> None:
+    """
+    What an application takes of the disk is measured by place, and a limit holds new releases.
+
+    A Node app on releases with two releases and 80 MB in shared/. The measurement is the real
+    `du`, `findmnt` reports the container's real filesystem, and a limit under what it takes makes
+    the next update refuse before building, with the figures, while going back to the earlier
+    release works. Raising the limit lets the update through.
+    """
+    require_cli(sc, "app disk", what="the disk of an application")
+    head = sc.run(
+        f"git -C {RELEASE_REPO} rev-parse HEAD", timeout=15, label="(fixture repo) where it is"
+    ).stdout.strip()
+    sc.run(
+        f"noust create -d {DISK_DOMAIN} -s {RELEASE_URL} -t nodejs --no-ssl --layout releases",
+        timeout=DEPLOY_TIMEOUT,
+        label=f"noust create -d {DISK_DOMAIN} (releases)",
+    )
+    try:
+        wait_served(sc, DISK_DOMAIN, "ok")
+        commit_fixture(sc, "echo disk-2 > VERSION", "disk scenario: second release")
+        sc.run(
+            f"noust update {DISK_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            label=f"noust update {DISK_DOMAIN}",
+        )
+        sc.run(
+            f"fallocate -l 80M {DISK_ROOT}/shared/blob.bin && chown www-data {DISK_ROOT}/shared/blob.bin",
+            timeout=30,
+            label="80 MB of uploads in shared/",
+        )
+        measured = json.loads(
+            sc.run(
+                f"noust --json app disk {DISK_DOMAIN} --measure",
+                timeout=300,
+                label=f"noust --json app disk {DISK_DOMAIN} --measure",
+            )
+            .stdout.strip()
+            .splitlines()[-1]
+        )
+        parts = {part["name"]: part for part in measured["usage"]["parts"]}
+        sc.check({"current", "releases", "shared", "repo"} <= set(parts), f"parts: {sorted(parts)}")
+        sc.check(parts["shared"]["bytes"] >= 80 * 1024 * 1024, f"shared/ is {parts['shared']}")
+        sc.check(
+            measured["usage"]["total_bytes"] == sum(part["bytes"] for part in parts.values()),
+            "the total is not the sum of the places",
+        )
+        sc.check(measured["usage"]["errors"] == [], f"errors: {measured['usage']['errors']}")
+        sc.check(
+            measured["filesystem"]["fstype"]
+            and measured["filesystem"]["project_quota"] in ("enabled", "available", "unsupported"),
+            f"the filesystem was not read: {measured['filesystem']}",
+        )
+
+        sc.run(
+            f"noust app disk {DISK_DOMAIN} --limit 64",
+            timeout=60,
+            label=f"noust app disk {DISK_DOMAIN} --limit 64",
+        )
+        commit_fixture(sc, "echo disk-3 > VERSION", "disk scenario: third release")
+        before = active_release_of(sc, DISK_DOMAIN)
+        refused = sc.run(
+            f"noust update {DISK_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            check=False,
+            label=f"noust update {DISK_DOMAIN} (over its limit)",
+        )
+        text = refused.stdout + refused.stderr
+        sc.check(refused.returncode != 0, "the update was not held")
+        sc.check(
+            "over its disk limit" in text and "noust app disk" in text, f"the refusal: {text!r}"
+        )
+        sc.check(active_release_of(sc, DISK_DOMAIN) == before, "the held update moved current")
+
+        sc.run(
+            f"noust releases rollback {DISK_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            label=f"noust releases rollback {DISK_DOMAIN} (never held up by the limit)",
+        )
+        sc.check(active_release_of(sc, DISK_DOMAIN) != before, "going back did not go back")
+
+        sc.run(
+            f"noust app disk {DISK_DOMAIN} --limit 4096",
+            timeout=60,
+            label="noust app disk --limit 4096",
+        )
+        sc.run(
+            f"noust update {DISK_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            label=f"noust update {DISK_DOMAIN} (under the limit)",
+        )
+        sc.run(
+            f"noust app disk {DISK_DOMAIN} --no-limit",
+            timeout=60,
+            label="noust app disk --no-limit",
+        )
+    finally:
+        sc.run(
+            f"noust delete {DISK_DOMAIN} --force; true",
+            timeout=120,
+            check=False,
+            label="cleanup: disk.test",
+        )
+        sc.run(
+            f"cd {RELEASE_REPO} && git reset -q --hard {head}; true",
+            timeout=30,
+            check=False,
+            label="(fixture repo) back to before this scenario",
+        )
 
 
 #: Scenarios that run only when a --scenario pattern holds their key, never in the default

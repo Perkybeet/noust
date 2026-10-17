@@ -19,6 +19,7 @@ from typing import Any
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.exceptions import ValidationError
 from noust.deployers import unit_tuning as engine
 from noust.managers import unit_tuning
 from noust.validators.domain import validate_domain
@@ -304,6 +305,12 @@ def _apply(
         no_restart: Do not restart.
         yes: Do not ask.
     """
+    # Before the question: a unit that cannot be tuned is not something to be asked about.
+    state = engine.status(domain)
+    if not state.eligible:
+        raise ValidationError(
+            f"{domain} cannot be tuned: {state.reason}", details="Nothing was changed."
+        )
     if not (yes or ctx.json_output or ctx.dry_run or no_restart):
         click.confirm(
             f"Restart {domain} with this tuning? It is restarted behind its health check",

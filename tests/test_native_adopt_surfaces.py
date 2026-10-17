@@ -363,3 +363,21 @@ def test_the_directory_of_an_adopted_site_is_never_named_for_removal(
     assert result.exit_code != 0
     assert "never removes its files" in str(result.exception)
     assert store.get_app("legacy.example.com") is not None
+
+
+def test_a_sandbox_or_a_tuning_the_unit_cannot_have_is_refused_before_it_is_asked_about(
+    world: Server, store: NoustStore
+) -> None:
+    CliRunner().invoke(root_cli, ["app", "adopt-site", "legacy.example.com", "--yes"])
+
+    hardening = CliRunner().invoke(
+        root_cli, ["app", "hardening", "set", "legacy.example.com", "default"]
+    )
+    tuning = CliRunner().invoke(
+        root_cli, ["app", "tuning", "set", "legacy.example.com", "--cpu-weight", "50"]
+    )
+
+    for result in (hardening, tuning):
+        assert result.exit_code != 0
+        assert "Restart" not in result.output  # no question was put
+        assert "its unit is yours" in result.output + str(result.exception)
