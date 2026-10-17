@@ -21,8 +21,8 @@ lacks, it is an application the caller does not see. Every route is one of:
   permissions the principal's *instance* role holds, as before teams.
 - **instance**: it shows or changes something that belongs to the whole server,
   or to resources this release does not yet filter by team (the services and
-  their journals, cron jobs, the host's processes, backups, nodes). Only a
-  principal that sees every team may call it.
+  their journals, cron jobs, the host's processes, backups, the way the central
+  reaches its servers). Only a principal that sees every team may call it.
 
 A principal "sees every team" when it is an instance principal (the master
 token, a central's fleet token), an ``admin``, ``security`` or ``auditor``
@@ -57,6 +57,7 @@ DATABASE = "database"
 DEPLOYMENT = "deployment"
 JOB = "job"
 TEAM = "team"
+NODE = "node"
 
 
 @dataclass(frozen=True)
@@ -67,7 +68,8 @@ class Ref:
     Attributes:
         kind: :data:`APP`, :data:`DOMAIN` (an application's name, an alias or a
             site), :data:`DATABASE` (needs ``engine`` and ``name``),
-            :data:`DEPLOYMENT`, :data:`JOB` or :data:`TEAM`.
+            :data:`DEPLOYMENT`, :data:`JOB`, :data:`TEAM` or :data:`NODE` (a server of
+            the fleet, visible through the team it is assigned to).
         where: :data:`PATH`, :data:`QUERY` or :data:`BODY`.
         names: The parameters that name it, in the order the kind reads them:
             ``("domain",)``, or ``("engine", "name")`` for a database.
@@ -124,6 +126,7 @@ _DATABASE = Ref(DATABASE, PATH, ("engine", "name"))
 _BODY_DATABASE = Ref(DATABASE, BODY, ("engine", "database"))
 #: ``/api/databases/public/{engine}/{database}``: the same resource, whose path names it so.
 _PUBLIC_DATABASE = Ref(DATABASE, PATH, ("engine", "database"))
+_NODE_REF = Ref(NODE, PATH, ("node",))
 _BODY_DOMAIN = Ref(APP, BODY, ("domain",))
 #: The application a release is promoted to: named in the body, and as visible as the source.
 _BODY_TARGET = Ref(APP, BODY, ("target",))
@@ -386,6 +389,15 @@ RULES: tuple[Rule, ...] = (
     # How the console itself is exposed: the server's.
     _rule("/api/console/**", INSTANCE),
     _rule("/api/fleet/**", INSTANCE),
+    # A server assigned to a team is that team's: it sees it, tests it and works on it through the
+    # central, held at each call to the permission its role holds in that team and to what a team
+    # may reach (never a route that is the server's own: noust.web.api.scope). How the central
+    # reaches a server, its key, its removal and who it is assigned to are the instance's.
+    _rule("/api/nodes", SCOPED, methods=("GET",)),
+    _rule("/api/nodes/{node}", RESOURCE, _NODE_REF, methods=("GET",)),
+    _rule("/api/nodes/{node}/test", RESOURCE, _NODE_REF, methods=("POST",)),
+    _rule("/api/nodes/{node}/events", RESOURCE, _NODE_REF, methods=("GET",)),
+    _rule("/api/nodes/{node}/api/{path}", RESOURCE, _NODE_REF),
     _rule("/api/nodes/**", INSTANCE),
     _rule("/events", SCOPED),
 )

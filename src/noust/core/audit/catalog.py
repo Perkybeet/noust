@@ -471,6 +471,7 @@ EVENTS: dict[str, EventSpec] = {
             "fleet.builder.clear": "An application went back to being built where it runs.",
             "fleet.node.inventory": "What another central knew about a server was recorded for it here.",
             "fleet.node.ssh": "How the central connects to a node (its wait, its bastion) was changed.",
+            "fleet.node.team": "A server of the fleet was assigned to a team, or given back to the instance.",
             "fleet.node.pause": "A node's monitoring was paused for maintenance.",
             "fleet.node.resume": "A node's monitoring was resumed.",
             "fleet.link.setup": "This central was prepared to take servers that dial in.",

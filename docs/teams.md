@@ -288,6 +288,40 @@ Adding a person to a team needs an account that exists. A new person is invited 
 accounts (`POST /api/auth/invitations` with `team`), because creating a credential is the security
 role's decision, not a team's.
 
+## Servers of the fleet
+
+A central's servers (see [CENTRAL.md](CENTRAL.md)) are the instance's until one is **assigned to a team**.
+The team then sees the server in its server selector, reads its status and tests its connection, and
+works on it through the central: its members open the server's console pages (applications, sites,
+databases, backups, logs, jobs) as they open the central's own. Every other team reads the server as
+absent (`404`, the body of one that is not registered), and so does any account that belongs to no team.
+
+```
+noust node assign web-2 --team acme       # the administrator of the central
+noust node unassign web-2                 # back to the instance
+noust node list                           # the Team column
+PUT /api/nodes/web-2/team   {"team": "acme"}     # null gives it back (fleet.manage, sudo mode)
+```
+
+What a member does on a team's server is held twice, by the central, before the call is forwarded:
+
+- **The permission is held in the server's team.** An account that administers `acme` and only reads
+  `globex` deletes applications on the `acme` server and is refused on the `globex` one, even though
+  the union of its roles would allow it.
+- **Nothing about the machine.** The server takes the central's token for the instance, so the central
+  applies to the server's own path the table that already holds a team member on the central: the
+  server's services, cron jobs, processes, configuration, backups and the rest of what is "the server's"
+  answer `403` with `instance_scope_required`. A path the central cannot classify (a server newer than
+  the central) is refused with `scope_undeclared`. The server is also told the widest role the member
+  holds in full *in that team* (a team administrator is an `operator` there, a team viewer a `viewer`),
+  so it refuses what only its own administrators may do, creating or deleting applications included:
+  an administrator of the central does that, or the server's own console.
+
+How the central reaches a server (its key, SSH options, bastion, inventory, monitoring pause), adding and
+removing servers, labels, placements across servers and the fleet's aggregate views stay the
+administrator's. A team that is given a server cannot be deleted until the server is given back, and
+a server removed from the central leaves its team with it.
+
 ## What a team member cannot reach
 
 Anything that is about the whole server is closed to an account that does not see every team, and
@@ -295,7 +329,7 @@ answers `403` with `"error": "instance_scope_required"`: the server's own pages 
 `/api/system/processes`, `/api/services`, `/api/cron`, `/api/monitor`, `/api/metrics`, the
 overview and timeline), backups and their destinations (database dumps, data volumes and Noust's
 own backup, with the policies that schedule them: each writes a root timer and names a destination
-the server owns), certificates in bulk, the GitHub App, the fleet and every node, an adopted
+the server owns), certificates in bulk, the GitHub App, the fleet's own views and the way the central reaches each server, an adopted
 Compose stack, an import of an exported application and the install of a recipe (create the
 application through `POST /api/apps` with a recipe instead). These are what 3.4 does not yet
 filter by team; the pages come to a team member as each is filtered. Database engines (the
@@ -351,7 +385,7 @@ What a team member is shown of that is limited to its own applications:
 
 ## Audit
 
-Every change is on the audit trail with whoever made it: `team.create`, `team.update`,
+Every change is on the audit trail with whoever made it: `fleet.node.team`, `team.create`, `team.update`,
 `team.delete`, `team.member.add`, `team.member.remove`, `project.create`, `project.delete`,
 `project.update`, `environment.create`, `environment.update`, `environment.delete` and `apps.move`.
 

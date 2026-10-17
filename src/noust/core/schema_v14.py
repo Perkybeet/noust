@@ -1719,6 +1719,61 @@ CREATE TABLE IF NOT EXISTS fleet_builders (
 SHIPPING_COLUMNS: list[tuple[str, str, str]] = []
 
 
+# Owned by the access lane of 4.0 (noust.core.teams.nodes, noust.core.accounts.reset,
+# noust.core.resource_tags, noust.core.accounts.oauth_github).
+#
+# node_teams: the team a server of the fleet is assigned to. One row per node, so a node
+#   belongs to one team or to nobody (the instance's); a row goes with its node, and a team
+#   that still has a server cannot be deleted (RESTRICT, and the manager says so first). It is
+#   a table of its own, not a column of ``nodes``, so that ``save_node`` (which rewrites the
+#   registry's columns whenever a node answers) can never put an owner back.
+# account_password_resets: a link mailed to an account's address to choose a new password.
+#   Like an invitation only the SHA-256 of the code is stored; ``used_at`` spends it, and a
+#   new request spends the ones before it.
+# resource_tags: the free labels a database or a systemd service carries (M-07), as ``app_tags``
+#   are carried by an application. ``kind`` is ``database`` (``name`` is ``engine/database``) or
+#   ``service`` (``name`` is the unit); nothing here is an application, so a team reaches a
+#   database's tags through the database and a service's through the server.
+# accounts.email: where an invitation and a password reset are mailed; never used to sign in
+#   or to link an identity (the identity providers vouch for their own addresses).
+# oidc_providers.kind: ``oidc`` (a provider with a discovery document) or ``github`` (OAuth 2.0
+#   without OpenID Connect: fixed endpoints, and the person read from the GitHub API).
+ACCESS6_SQL = """
+CREATE TABLE IF NOT EXISTS node_teams (
+    node TEXT PRIMARY KEY REFERENCES nodes(name) ON DELETE CASCADE,
+    team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE RESTRICT,
+    assigned_at TEXT NOT NULL,
+    assigned_by TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_node_teams_team ON node_teams(team_id);
+
+CREATE TABLE IF NOT EXISTS account_password_resets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    code_hash TEXT NOT NULL UNIQUE,
+    expires_at REAL NOT NULL,
+    used_at REAL,
+    created_at REAL NOT NULL,
+    requested_ip TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_account_password_resets_account
+    ON account_password_resets(account_id);
+
+CREATE TABLE IF NOT EXISTS resource_tags (
+    kind TEXT NOT NULL CHECK (kind IN ('database', 'service')),
+    name TEXT NOT NULL,
+    tag TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (kind, name, tag)
+);
+CREATE INDEX IF NOT EXISTS idx_resource_tags_tag ON resource_tags(tag);
+"""
+ACCESS6_COLUMNS: list[tuple[str, str, str]] = [
+    ("accounts", "email", "TEXT"),
+    ("oidc_providers", "kind", "TEXT NOT NULL DEFAULT 'oidc'"),
+]
+
+
 # Owned by the federation lane (noust.core.accounts.scim_store and its siblings for SAML
 # and LDAP): the identity sources that are not OpenID Connect.
 #
@@ -1900,6 +1955,7 @@ def _fragments() -> list[str]:
         FEDERATION_SQL,
         ROLLOUT_SQL,
         SHIPPING_SQL,
+        ACCESS6_SQL,
     ]
 
 
@@ -1925,6 +1981,7 @@ def _columns() -> list[tuple[str, str, str]]:
         *FEDERATION_COLUMNS,
         *ROLLOUT_COLUMNS,
         *SHIPPING_COLUMNS,
+        *ACCESS6_COLUMNS,
     ]
 
 
