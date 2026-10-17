@@ -359,7 +359,7 @@ def logs_command(
     Search the logs of every node at once, newest first.
 
     The words are the same as `noust log search`: "quoted phrase", -excluded, a OR b,
-    app:, level:.
+    (groups), @app:, @level:.
     """
     result = _gather(
         "logs",

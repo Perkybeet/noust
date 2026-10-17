@@ -21,6 +21,7 @@ import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { Button } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { LogViewer } from "../../components/ui/LogViewer";
+import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
 import { TextLink } from "../../components/ui/TextLink";
@@ -217,6 +218,11 @@ export function LogSearchPage({ search, onSearchChange }: LogSearchPageProps) {
               ? t("logSearch.nothing", { scanned: found.scanned })
               : t("logSearch.summary", { shown: found.lines.length, matched: found.matched, scanned: found.scanned })}
           </p>
+          {search.q !== undefined && found.understood !== "" ? (
+            <p className="text-13 text-fg-muted">
+              {t("logSearch.understood")} <Mono>{found.understood}</Mono>
+            </p>
+          ) : null}
           {found.truncated ? <Notice tone="info">{t("logSearch.truncated", { scanned: found.scanned })}</Notice> : null}
           {found.notes.length > 0 ? (
             <ul className="flex flex-col gap-1 text-12 text-fg-muted">

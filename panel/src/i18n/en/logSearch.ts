@@ -14,6 +14,7 @@ export const logSearch = {
   filterLabel: "Filter the logs",
   searchLabel: "Search the logs",
   searchPlaceholder: "timeout \"connection refused\" -healthcheck",
+  understood: "Understood as",
   appLabel: "Application",
   allApps: "Every application",
   levelLabel: "Level",

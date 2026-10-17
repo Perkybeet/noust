@@ -23805,7 +23805,7 @@
         "type": "object"
       },
       "LogSearchResponse": {
-        "description": "What a search found.\n\nAttributes:\n    lines: The matching lines, newest first.\n    matched: How many matched in all (of the entries examined).\n    scanned: How many entries were examined.\n    truncated: The scan stopped at its limit, so older matches may exist.\n    since: Start of the window, epoch seconds.\n    until: End of the window.\n    notes: What was left out and why.\n    apps: The applications that were searched.",
+        "description": "What a search found.\n\nAttributes:\n    lines: The matching lines, newest first.\n    matched: How many matched in all (of the entries examined).\n    scanned: How many entries were examined.\n    truncated: The scan stopped at its limit, so older matches may exist.\n    since: Start of the window, epoch seconds.\n    until: End of the window.\n    notes: What was left out and why.\n    apps: The applications that were searched.\n    understood: The query written back in full, so the caller sees what was asked.",
         "properties": {
           "apps": {
             "items": {
@@ -23843,6 +23843,11 @@
           "truncated": {
             "title": "Truncated",
             "type": "boolean"
+          },
+          "understood": {
+            "default": "",
+            "title": "Understood",
+            "type": "string"
           },
           "until": {
             "title": "Until",
@@ -83374,17 +83379,17 @@
     },
     "/api/logs/search": {
       "get": {
-        "description": "Search the logs of the applications the caller sees.\n\nArgs:\n    session: The authenticated session.\n    q: The query.\n    app: Narrow to these applications (domains); any the caller does not see\n        is simply not searched.\n    since: Start of the window.\n    until: End of the window.\n    level: The worst level kept.\n    limit: Most lines to return.\n\nReturns:\n    The lines, newest first, and how much was examined.\n\nRaises:\n    ValidationError: 400 naming what in the query or the window is not acceptable.",
+        "description": "Search the logs of the applications the caller sees.\n\nArgs:\n    session: The authenticated session.\n    q: The query.\n    app: Narrow to these applications (domains); any the caller does not see\n        is simply not searched.\n    since: Start of the window.\n    until: End of the window.\n    level: The worst level kept.\n    limit: Most lines to return.\n\nReturns:\n    The lines, newest first, and how much was examined.\n\nRaises:\n    ValidationError: 400 naming what in the query or the window is not acceptable,\n        and where in the query when it is the query.",
         "operationId": "search_logs_api_logs_search_get",
         "parameters": [
           {
-            "description": "Words (\"quoted phrases\", -excluded, a OR b) and fields (app:, unit:, level:).",
+            "description": "Words (\"quoted phrases\", -excluded, a OR b, groups) and fields (@app:, @unit:, @level:, @pid:).",
             "in": "query",
             "name": "q",
             "required": false,
             "schema": {
               "default": "",
-              "description": "Words (\"quoted phrases\", -excluded, a OR b) and fields (app:, unit:, level:).",
+              "description": "Words (\"quoted phrases\", -excluded, a OR b, groups) and fields (@app:, @unit:, @level:, @pid:).",
               "maxLength": 1000,
               "title": "Q",
               "type": "string"

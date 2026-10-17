@@ -16586,7 +16586,8 @@ export interface paths {
          *         The lines, newest first, and how much was examined.
          *
          *     Raises:
-         *         ValidationError: 400 naming what in the query or the window is not acceptable.
+         *         ValidationError: 400 naming what in the query or the window is not acceptable,
+         *             and where in the query when it is the query.
          */
         get: operations["search_logs_api_logs_search_get"];
         put?: never;
@@ -37578,6 +37579,7 @@ export interface components {
          *         until: End of the window.
          *         notes: What was left out and why.
          *         apps: The applications that were searched.
+         *         understood: The query written back in full, so the caller sees what was asked.
          */
         LogSearchResponse: {
             /** Apps */
@@ -37594,6 +37596,11 @@ export interface components {
             since: number;
             /** Truncated */
             truncated: boolean;
+            /**
+             * Understood
+             * @default
+             */
+            understood: string;
             /** Until */
             until: number;
         };
@@ -72487,7 +72494,7 @@ export interface operations {
     search_logs_api_logs_search_get: {
         parameters: {
             query?: {
-                /** @description Words ("quoted phrases", -excluded, a OR b) and fields (app:, unit:, level:). */
+                /** @description Words ("quoted phrases", -excluded, a OR b, groups) and fields (@app:, @unit:, @level:, @pid:). */
                 q?: string;
                 /** @description Search only these applications (their domains). */
                 app?: string[] | null;

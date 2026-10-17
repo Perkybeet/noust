@@ -23,7 +23,7 @@ const LINES = [
 ];
 
 function found(extra: Record<string, unknown> = {}) {
-  return { lines: LINES, matched: 5, scanned: 340, truncated: false, since: NOW - 3600, until: NOW, notes: [], apps: ["shop.example.com", "blog.example.com"], ...extra };
+  return { lines: LINES, matched: 5, scanned: 340, truncated: false, since: NOW - 3600, until: NOW, notes: [], apps: ["shop.example.com", "blog.example.com"], understood: "", ...extra };
 }
 
 const APPS = {
@@ -119,6 +119,14 @@ describe("Logs", () => {
     });
     expect(await screen.findByText(/The search stopped after 340 lines, so older matches may exist/)).toBeInTheDocument();
     expect(screen.getByText("The unit of shop.example.com has no journal in this window.")).toBeInTheDocument();
+  });
+
+  it("says the query as the server understood it, and nothing when there is no query", { timeout: 30_000 }, async () => {
+    await pageAt("/logs?q=timeout%20-healthcheck", {
+      "GET /api/logs/search": () => json(200, found({ understood: "timeout AND NOT healthcheck" })),
+    });
+    expect(await screen.findByText("Understood as")).toBeInTheDocument();
+    expect(screen.getByText("timeout AND NOT healthcheck")).toBeInTheDocument();
   });
 
   it("says plainly when nothing matches", { timeout: 30_000 }, async () => {

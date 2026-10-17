@@ -33,10 +33,11 @@ from noust.core.store import App, NoustStore
 from noust.managers import log_search
 from noust.managers.log_search import (
     LogSearch,
+    fields_of,
     parse_moment,
-    parse_query,
     process_names,
 )
+from noust.managers.server import logquery
 from noust.web.api import log_search as log_search_api
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import install_error_handlers
@@ -79,59 +80,128 @@ def search(
     return finder.search(text, apps if apps is not None else [SHOP], **kwargs)
 
 
-class TestTheQuery:
-    def test_words_are_all_required_and_case_does_not_matter(self) -> None:
-        query = parse_query("Timeout REFUSED")
+def matched(text: str, *messages: str, apps: list[App] | None = None, **kwargs: Any) -> list[str]:
+    """
+    Args:
+        text: A query.
+        *messages: Lines of the shop's journal, newest first.
+        apps: The applications searched.
+        **kwargs: Further arguments of the search.
 
-        assert query.matches("Connect TIMEOUT: connection refused")
-        assert not query.matches("connect timeout")
+    Returns:
+        The messages that the query keeps.
+    """
+    runner = FakeRunner()
+    runner.script(
+        ["journalctl"],
+        stdout=journal(*(entry(m, at=NOW - 10 * i) for i, m in enumerate(messages, 1))),
+    )
+    return [line.message for line in search(runner, text, apps, **kwargs).lines]
+
+
+class TestTheQuery:
+    """The journal's grammar (tests/test_logquery.py defends the grammar itself)."""
+
+    def test_words_are_all_required_and_case_does_not_matter(self) -> None:
+        assert matched(
+            "Timeout REFUSED", "Connect TIMEOUT: connection refused", "connect timeout"
+        ) == ["Connect TIMEOUT: connection refused"]
 
     def test_a_quoted_phrase_stays_whole(self) -> None:
-        query = parse_query('"connection refused"')
-
-        assert query.matches("error: Connection Refused by peer")
-        assert not query.matches("connection was refused")
+        assert matched(
+            '"connection refused"', "error: Connection Refused by peer", "connection was refused"
+        ) == ["error: Connection Refused by peer"]
 
     def test_a_word_with_a_minus_is_excluded(self) -> None:
-        query = parse_query("error -healthcheck")
+        assert matched("error -healthcheck", "error in checkout", "error in healthcheck") == [
+            "error in checkout"
+        ]
 
-        assert query.matches("error in checkout")
-        assert not query.matches("error in healthcheck")
+    def test_or_offers_a_choice_and_groups_say_what_it_covers(self) -> None:
+        lines = ("redis timeout", "nginx returned 502", "redis ok", "timeout elsewhere")
 
-    def test_a_lone_minus_is_a_word(self) -> None:
-        assert parse_query("a - b").matches("a - b")
-
-    def test_or_offers_a_choice_of_ways_to_match(self) -> None:
-        query = parse_query("timeout redis OR 502 nginx")
-
-        assert query.matches("redis timeout")
-        assert query.matches("nginx returned 502")
-        assert not query.matches("redis ok")
-        assert not query.matches("timeout elsewhere")
+        assert matched("(redis OR nginx) (timeout OR 502)", *lines) == [
+            "redis timeout",
+            "nginx returned 502",
+        ]
 
     def test_the_fields_narrow_and_are_not_words(self) -> None:
-        query = parse_query("app:shop.example.com level:ERR unit:nginx.service boom")
+        runner = FakeRunner()
+        runner.script(
+            ["journalctl"],
+            stdout=journal(
+                entry("boom", priority=3, at=NOW - 10),
+                entry("boom quietly", priority=6, at=NOW - 20),
+                entry("@app:shop.example.com", priority=3, at=NOW - 30),
+            ),
+        )
 
-        assert query.apps == ("shop.example.com",)
-        assert query.level == "err" and query.units == ("nginx.service",)
-        assert query.matches("boom") and not query.matches("app:shop.example.com")
+        result = search(runner, "@app:shop.example.com @level:ERR boom")
+
+        assert [line.message for line in result.lines] == ["boom"]
+
+    def test_a_unit_and_a_process_are_fields_too(self) -> None:
+        runner = FakeRunner()
+        raw = journal(
+            entry("from the web", "shop-example-com.service"),
+            entry("from the worker", "shop-example-com-worker@1.service"),
+        )
+        runner.script(["journalctl"], stdout=raw)
+
+        result = search(
+            runner,
+            "@unit:shop-example-com-worker*",
+            processes={"shop.example.com": {"worker"}},
+        )
+
+        assert [line.message for line in result.lines] == ["from the worker"]
+
+    def test_the_process_that_logged_is_a_field(self) -> None:
+        runner = FakeRunner()
+        runner.script(
+            ["journalctl"],
+            stdout="\n".join(
+                json.dumps(
+                    {
+                        "MESSAGE": message,
+                        "PRIORITY": "6",
+                        "_SYSTEMD_UNIT": "shop-example-com.service",
+                        "_PID": pid,
+                        "__REALTIME_TIMESTAMP": str(int((NOW - 10) * 1_000_000)),
+                    }
+                )
+                for message, pid in (("mine", "4821"), ("other", "77"))
+            ),
+        )
+
+        result = search(runner, "@pid:4821")
+
+        assert [line.message for line in result.lines] == ["mine"]
 
     def test_an_empty_query_matches_everything(self) -> None:
-        assert parse_query("").matches("anything at all")
+        assert matched("", "anything", "at all") == ["anything", "at all"]
 
     @pytest.mark.parametrize(
         "text",
-        ['"unclosed', "level:loud", "unit:a;rm", f"{'x' * 201}", " ".join(["w"] * 13)],
+        ['"unclosed', "@level:loud", "@bogus:x", "@pid:abc", "x" * 501, "(a OR"],
     )
     def test_what_cannot_be_read_is_refused(self, text: str) -> None:
         with pytest.raises(ValidationError):
-            parse_query(text)
+            search(FakeRunner(), text)
 
-    def test_the_word_to_narrow_the_journal_by_is_one_every_way_has(self) -> None:
-        assert parse_query("timeout redis").first_term == "timeout"
-        assert parse_query("timeout redis OR timeout nginx").first_term == "timeout"
-        assert parse_query("redis OR nginx").first_term is None
-        assert parse_query("-nothing").first_term is None
+    def test_it_says_how_it_was_understood(self) -> None:
+        result = search(FakeRunner(), "@level:err timeout -healthcheck", [])
+
+        assert result.understood == "@level:err AND timeout AND NOT healthcheck"
+        assert result.to_dict()["understood"] == result.understood
+
+    def test_the_fields_a_query_mentions_are_found_anywhere_in_it(self) -> None:
+        assert fields_of(logquery.parse("a (@level:err OR -@app:x) @unit:y")) == {
+            "level",
+            "app",
+            "unit",
+        }
+        assert fields_of(logquery.parse("only words")) == set()
 
 
 class TestTheMoments:
@@ -175,18 +245,29 @@ class TestWhatTheJournalIsAskedFor:
         for unit in ("shop-example-com*", "wasm-shop-example-com*", "blog-example-com*"):
             assert unit in argv
         assert "--grep=timeout" in argv and "--case-sensitive=false" in argv
-        assert "--output-fields=MESSAGE,PRIORITY,_SYSTEMD_UNIT" in argv
+        assert "--output-fields=MESSAGE,PRIORITY,_SYSTEMD_UNIT,_PID" in argv
 
     def test_the_narrowing_word_is_escaped_for_the_regular_expression(self) -> None:
-        argv = self.run(text="a.b(c)")
+        argv = self.run(text='"a.b(c)"')
 
         assert "--grep=a\\.b\\(c\\)" in argv
 
+    def test_the_narrowing_word_is_one_every_line_has(self) -> None:
+        def grep(text: str) -> list[str]:
+            return [part for part in self.run(text=text) if part.startswith("--grep=")]
+
+        assert grep("timeout redis") == ["--grep=timeout"]
+        assert grep("(redis OR nginx) timeout") == ["--grep=timeout"]
+        assert grep("redis OR nginx") == []
+        assert grep("-nothing") == []
+        assert grep("@level:err") == []
+
     def test_a_level_is_a_priority(self) -> None:
         assert "--priority=3" in self.run(level="err")
-        assert "--priority=4" in self.run(text="level:warning")
+        assert "--priority=4" in self.run(text="@level:warning")
+        assert "--priority=3" in self.run(text="boom @level:err @level:warning")
 
-    def test_no_applications_and_no_unit_means_no_command(self) -> None:
+    def test_no_applications_means_no_command(self) -> None:
         runner = FakeRunner()
 
         result = search(runner, "x", [])
@@ -304,15 +385,33 @@ class TestWhatIsFound:
         runner = FakeRunner()
         runner.script(["journalctl"], stdout="")
 
-        search(runner, "app:blog", [SHOP, BLOG])
+        search(runner, "@app:blog.example.com", [SHOP, BLOG])
 
         argv = list(runner.calls[0])
         assert "blog-example-com*" in argv and "shop-example-com*" not in argv
 
     def test_an_app_nobody_can_see_is_said(self) -> None:
-        result = search(FakeRunner(), "app:nope", [SHOP])
+        result = search(FakeRunner(), "@app:nope", [SHOP])
 
         assert any("nope" in note for note in result.notes)
+
+    def test_app_is_judged_by_the_line_so_or_and_not_mean_what_they_say(self) -> None:
+        runner = FakeRunner()
+        runner.script(
+            ["journalctl"],
+            stdout=journal(
+                entry("shop boom", "shop-example-com.service", at=NOW - 10),
+                entry("blog boom", "blog-example-com.service", at=NOW - 20),
+            ),
+        )
+
+        either = search(
+            runner, "boom (@app:shop.example.com OR @app:blog.example.com)", [SHOP, BLOG]
+        )
+        neither = search(runner, "boom -@app:shop.example.com", [SHOP, BLOG])
+
+        assert [line.message for line in either.lines] == ["shop boom", "blog boom"]
+        assert [line.message for line in neither.lines] == ["blog boom"]
 
 
 class TestWhatIsShown:
@@ -383,6 +482,25 @@ class TestTheStacksContainers:
         assert result.lines == []
         assert any("no levels" in note for note in result.notes)
 
+    def test_a_level_named_in_the_query_does_the_same(self) -> None:
+        runner = self.stack_runner("2026-10-16T08:00:00Z error x\n")
+
+        result = search(runner, "error @level:err", [STACK])
+
+        assert result.lines == []
+        assert any("no levels" in note for note in result.notes)
+        assert not any(call[:2] == ("docker", "logs") for call in runner.calls)
+
+    def test_the_service_and_the_application_are_fields_of_a_containers_line(self) -> None:
+        runner = self.stack_runner("2026-10-16T08:00:00Z hello\n")
+
+        mine = search(runner, "@app:stack.example.com @unit:web", [STACK])
+        another = search(runner, "@app:other.example.com", [STACK])
+        other_service = search(runner, "@unit:worker", [STACK])
+
+        assert [line.message for line in mine.lines] == ["hello"]
+        assert another.lines == [] and other_service.lines == []
+
     def test_a_stack_that_cannot_be_listed_is_a_note(self) -> None:
         runner = FakeRunner(default_exit_code=1)
 
@@ -409,20 +527,22 @@ class TestTheLimits:
         with pytest.raises(ValidationError, match="not a level"):
             search(FakeRunner(), "", level="loud")
 
-    def test_a_system_unit_is_for_whoever_sees_the_whole_server(self) -> None:
-        with pytest.raises(ValidationError, match="whole server"):
-            search(FakeRunner(), "unit:sshd.service")
-
-    def test_and_with_that_it_is_asked_of_the_journal(self) -> None:
+    def test_a_system_unit_is_not_reachable_from_here(self) -> None:
         runner = FakeRunner()
-        runner.script(["journalctl"], stdout=journal(entry("Accepted", "sshd.service")))
+        runner.script(
+            ["journalctl"],
+            stdout=journal(
+                entry("Accepted", "sshd.service"), entry("mine", "shop-example-com.service")
+            ),
+        )
 
-        result = search(runner, "unit:sshd.service accepted", [], allow_system_units=True)
+        result = search(runner, "@unit:sshd.service")
 
+        # The Server page's search is for the machine's own units; this one reads the
+        # applications' and judges every line again, so the unit is a filter and no door.
         argv = list(runner.calls[0])
-        assert argv[argv.index("-u") + 1] == "sshd.service"
-        assert [line.message for line in result.lines] == ["Accepted"]
-        assert result.lines[0].app == ""
+        assert "sshd.service" not in argv
+        assert result.lines == []
 
 
 @pytest.fixture
@@ -479,30 +599,30 @@ class TestTheApi:
         assert body["apps"] == ["shop.example.com"]
         assert "blog-example-com*" not in list(self.runner.calls[-1])
 
-    def test_a_query_that_cannot_be_read_is_a_400_naming_the_field(
+    def test_a_query_that_cannot_be_read_is_a_400_saying_where_and_the_syntax(
         self, client: TestClient
     ) -> None:
-        response = client.get("/api/logs/search", params={"q": '"open'})
+        response = client.get("/api/logs/search", params={"q": 'boom "open'})
 
-        assert response.status_code == 400 and "q" in json.dumps(response.json())
+        assert response.status_code == 400
+        body = json.dumps(response.json())
+        assert "not closed" in body and "character 6" in body and "@unit:" in body
+
+    def test_it_says_how_the_query_was_understood(self, client: TestClient) -> None:
+        body = client.get("/api/logs/search", params={"q": "timeout -blog", "since": "1d"}).json()
+
+        assert body["understood"] == "timeout AND NOT blog"
 
     def test_a_limit_out_of_range_is_a_422(self, client: TestClient) -> None:
         assert client.get("/api/logs/search", params={"limit": 5000}).status_code == 422
 
-    def test_a_system_unit_is_refused_to_a_team_member(
-        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        from noust.core.teams.scope import Scope
+    def test_a_system_unit_is_not_a_way_in_for_anyone(self, client: TestClient) -> None:
+        body = client.get(
+            "/api/logs/search", params={"q": "@unit:sshd.service", "since": "1d"}
+        ).json()
 
-        class Restricted:
-            restricted = True
-
-        monkeypatch.setattr(log_search_api, "current_scope", lambda: Restricted())
-
-        response = client.get("/api/logs/search", params={"q": "unit:sshd.service"})
-
-        assert response.status_code == 400 and "whole server" in json.dumps(response.json())
-        assert Scope is not None
+        assert body["lines"] == []
+        assert "sshd.service" not in list(self.runner.calls[-1])
 
     def test_the_permissions_and_the_scope_are_declared(self) -> None:
         from noust.web.permissions import registry

@@ -12,6 +12,7 @@ export const logSearch: Catalog<typeof en> = {
   filterLabel: "Filtrar los registros",
   searchLabel: "Buscar en los registros",
   searchPlaceholder: "timeout \"connection refused\" -healthcheck",
+  understood: "Entendido como",
   appLabel: "Aplicación",
   allApps: "Todas las aplicaciones",
   levelLabel: "Nivel",

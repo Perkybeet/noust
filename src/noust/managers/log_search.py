@@ -9,18 +9,23 @@ or, for a Compose stack, in Docker; reading one means choosing one application a
 paging through it. This is the question an operator asks after something went wrong:
 *where did this error appear, in which of my applications, around what time?*
 
-A query is words and a few fields. ``timeout "connection refused" -healthcheck`` is
-every line with ``timeout`` and the phrase and without ``healthcheck`` (case does not
-matter); ``a OR b`` is a line that has all the words of one side or of the other;
-``app:shop.example.com`` narrows to applications, ``unit:nginx.service`` adds a system
-unit, ``level:err`` keeps lines at that level or worse (journal entries have one, a
-container's lines do not, so they are left out and the answer says so).
+The query is the journal's (rule 3: :mod:`noust.managers.server.logquery` is the one
+grammar, and the Server page's log search reads it too): ``timeout "connection refused"
+-healthcheck`` is every line with ``timeout`` and the phrase and without ``healthcheck``
+(case does not matter), ``a OR b`` either, ``( )`` groups, ``@app:shop.example.com``
+narrows to an application, ``@unit:shop-example-com-worker`` to one of its units and
+``@level:err`` keeps lines at that level or worse (journal entries have one, a container's
+lines do not, so they are left out and the answer says so). What this adds to that grammar
+is only what the journal's search does not have: the question is asked of *applications*,
+so a line is judged knowing which application it belongs to, and a stack's containers are
+read as well. A system unit is not reachable from here; the Server page's search is for that.
 
 It runs on the server, over ``journalctl`` and ``docker logs`` through the command
 runner, as argv, and:
 
-- **reads a bounded amount**: a window (``since``/``until``), a unit filter and the
-  first positive word as ``--grep`` hand ``journalctl`` the narrowing, at most
+- **reads a bounded amount**: a window (``since``/``until``), the units of the
+  applications asked for, the level and a word every line must have (as ``--grep``)
+  hand ``journalctl`` the narrowing, at most
   :data:`SCAN_LIMIT` entries are examined, and the answer says when that was reached;
 - **masks what it shows**: ANSI is stripped and both the secrets the application holds and
   anything shaped like a credential (:func:`~noust.core.secret_detection.mask_secret_shapes`)
@@ -33,7 +38,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-import shlex
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
@@ -46,23 +50,10 @@ from noust.core.runner import CommandRunner, get_runner
 from noust.core.secret_detection import mask_secret_shapes
 from noust.core.store import App, is_compose_backed
 from noust.core.utils import domain_to_app_name
+from noust.managers.server import logquery
 from noust.terminal.targets import find_stack_containers
 
 logger = logging.getLogger(__name__)
-
-#: Journal priority names, to the number journald uses.
-LEVELS: dict[str, int] = {
-    "emerg": 0,
-    "alert": 1,
-    "crit": 2,
-    "err": 3,
-    "error": 3,
-    "warning": 4,
-    "warn": 4,
-    "notice": 5,
-    "info": 6,
-    "debug": 7,
-}
 
 #: The names an answer uses for a priority.
 LEVEL_NAMES = ("emerg", "alert", "crit", "err", "warning", "notice", "info", "debug")
@@ -85,157 +76,128 @@ DOCKER_TIMEOUT = 30
 #: journal is bounded by its own retention anyway.
 MAX_WINDOW_SECONDS = 400 * 86_400
 
-#: Words a query may have, and the longest one.
-MAX_TERMS = 12
-MAX_TERM_LENGTH = 200
-
-#: A unit name a query may add.
-_UNIT = re.compile(r"[A-Za-z0-9:_.@\\-]{1,128}")
 _DURATION = re.compile(r"(\d+)\s*([smhdw])")
 _UNITS_OF_TIME = {"s": 1, "m": 60, "h": 3_600, "d": 86_400, "w": 604_800}
 _ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)?|\x1b[@-Z\\-_]")
 _CONTAINER_LINE = re.compile(r"(?P<ts>\d{4}-\d\d-\d\dT[\d:.]+Z) ?(?P<text>.*)", re.DOTALL)
 
 
-@dataclass(frozen=True)
-class Alternative:
+def fields_of(node: logquery.Node) -> set[str]:
     """
-    One way a line can match: all of these words and none of those.
-
-    Attributes:
-        terms: Words the line must contain.
-        excluded: Words it must not.
-    """
-
-    terms: tuple[str, ...] = ()
-    excluded: tuple[str, ...] = ()
-
-    def matches(self, text: str) -> bool:
-        """
-        Args:
-            text: A line, lower-cased.
-
-        Returns:
-            Whether it has every word and none of the excluded ones.
-        """
-        return all(t in text for t in self.terms) and not any(t in text for t in self.excluded)
-
-
-@dataclass(frozen=True)
-class Query:
-    """
-    What was asked.
-
-    Attributes:
-        alternatives: The ways a line can match (any one is enough). Empty
-            matches every line.
-        apps: Applications named with ``app:``.
-        units: System units named with ``unit:``.
-        level: The worst level kept, as its name, or None.
-    """
-
-    alternatives: tuple[Alternative, ...] = ()
-    apps: tuple[str, ...] = ()
-    units: tuple[str, ...] = ()
-    level: str | None = None
-
-    def matches(self, text: str) -> bool:
-        """
-        Args:
-            text: A line.
-
-        Returns:
-            Whether the words of the query allow it.
-        """
-        if not self.alternatives:
-            return True
-        lowered = text.lower()
-        return any(alternative.matches(lowered) for alternative in self.alternatives)
-
-    @property
-    def first_term(self) -> str | None:
-        """Returns: A word every matching line has, to narrow the journal by; None when no word is needed everywhere."""
-        if not self.alternatives:
-            return None
-        common = set(self.alternatives[0].terms)
-        for alternative in self.alternatives[1:]:
-            common &= set(alternative.terms)
-        return max(common, key=len) if common else None
-
-
-def parse_query(text: str) -> Query:
-    """
-    Read a query.
-
     Args:
-        text: What the operator typed.
+        node: A parsed query.
 
     Returns:
-        The query.
-
-    Raises:
-        ValidationError: The text cannot be read (an open quote, too many
-            words, a word too long, a level or a unit that is not one).
+        The names of the fields it mentions anywhere (``app``, ``unit``, ``level``, ``pid``).
     """
-    try:
-        tokens = shlex.split(text, posix=True)
-    except ValueError as exc:
-        raise ValidationError(
-            "The search has a quote that is not closed",
-            details="Close it, or use ' for a phrase that has a \" in it.",
-            field="q",
-        ) from exc
-    apps: list[str] = []
-    units: list[str] = []
-    level: str | None = None
-    alternatives: list[Alternative] = []
-    terms: list[str] = []
-    excluded: list[str] = []
-    count = 0
+    if isinstance(node, logquery.Field):
+        return {node.name}
+    if isinstance(node, logquery.Not):
+        return fields_of(node.node)
+    if isinstance(node, (logquery.And, logquery.Or)):
+        found: set[str] = set()
+        for child in node.nodes:
+            found |= fields_of(child)
+        return found
+    return set()
 
-    def close() -> None:
-        if terms or excluded:
-            alternatives.append(Alternative(tuple(terms), tuple(excluded)))
-        terms.clear()
-        excluded.clear()
 
-    for piece in tokens:
-        if piece == "OR":
-            close()
-            continue
-        field_name, separator, value = piece.partition(":")
-        if separator and field_name in ("app", "unit", "level") and value:
-            if field_name == "app":
-                apps.append(value.lower())
-            elif field_name == "unit":
-                if not _UNIT.fullmatch(value):
-                    raise ValidationError(f"{value!r} is not a unit name", field="q")
-                units.append(value)
-            else:
-                if value.lower() not in LEVELS:
-                    raise ValidationError(
-                        f"{value!r} is not a level",
-                        details=f"The levels are: {', '.join(LEVEL_NAMES)}.",
-                        field="q",
-                    )
-                level = LEVEL_NAMES[LEVELS[value.lower()]]
-            continue
-        negated = piece.startswith("-") and len(piece) > 1
-        word = (piece[1:] if negated else piece).lower()
-        if not word:
-            continue
-        if len(word) > MAX_TERM_LENGTH:
-            raise ValidationError(
-                f"A word of the search is over {MAX_TERM_LENGTH} characters", field="q"
-            )
-        count += 1
-        if count > MAX_TERMS:
-            raise ValidationError(f"The search has more than {MAX_TERMS} words", field="q")
-        (excluded if negated else terms).append(word)
-    close()
-    return Query(
-        tuple(alternatives), tuple(dict.fromkeys(apps)), tuple(dict.fromkeys(units)), level
-    )
+def _conjuncts(node: logquery.Node) -> tuple[logquery.Node, ...]:
+    """
+    Args:
+        node: A parsed query.
+
+    Returns:
+        The clauses every matching line must satisfy.
+    """
+    return node.nodes if isinstance(node, logquery.And) else (node,)
+
+
+def _with_clause(node: logquery.Node, clause: logquery.Node) -> logquery.Node:
+    """
+    Args:
+        node: A parsed query.
+        clause: One more thing every line must satisfy.
+
+    Returns:
+        The query and the clause, as one conjunction (flat, so that what is pushed to
+        journalctl is still found among the top-level clauses).
+    """
+    if isinstance(node, logquery.Anything):
+        return clause
+    return logquery.And((*_conjuncts(node), clause))
+
+
+def _named_apps(node: logquery.Node) -> set[str] | None:
+    """
+    Args:
+        node: A parsed query.
+
+    Returns:
+        The applications (lower case) that top-level ``@app:`` clauses name, or None
+        when it names none: those are the only ones whose lines can match.
+    """
+    named = {
+        clause.value.lower()
+        for clause in _conjuncts(node)
+        if isinstance(clause, logquery.Field) and clause.name == "app"
+    }
+    return named or None
+
+
+def _required_term(node: logquery.Node) -> str | None:
+    """
+    Args:
+        node: A parsed query.
+
+    Returns:
+        The longest word every matching line has, to narrow the journal by; None when
+        no word is needed everywhere.
+    """
+    words = [
+        clause.text
+        for clause in _conjuncts(node)
+        if isinstance(clause, logquery.Term) and clause.text.strip()
+    ]
+    return max(words, key=len) if words else None
+
+
+def _bind_app(node: logquery.Node, domain: str) -> logquery.Node:
+    """
+    Read a query as one application's lines see it.
+
+    The journal's grammar judges ``@app:`` by the units an application runs as; here
+    the application of a line is known (a unit of the journal, a stack's container),
+    and a container's service name is not a unit, so ``@app:`` is settled first:
+    true for the application's own lines and false for every other's.
+
+    Args:
+        node: A parsed query.
+        domain: The application the lines belong to.
+
+    Returns:
+        The query with every ``@app:`` clause replaced by its answer for that application.
+    """
+    if isinstance(node, logquery.Field):
+        if node.name != "app":
+            return node
+        return (
+            logquery.Anything()
+            if node.value.lower() == domain.lower()
+            else logquery.Not(logquery.Anything())
+        )
+    if isinstance(node, logquery.Not):
+        return logquery.Not(_bind_app(node.node, domain))
+    if isinstance(node, logquery.And):
+        return logquery.And(tuple(_bind_app(child, domain) for child in node.nodes))
+    if isinstance(node, logquery.Or):
+        return logquery.Or(tuple(_bind_app(child, domain) for child in node.nodes))
+    return node
+
+
+def _no_units(_value: str) -> tuple[str, ...]:
+    """Returns: No units: ``@app:`` is settled by :func:`_bind_app`, never by unit names."""
+    return ()
 
 
 def parse_moment(text: str | float | None, now: float, default: float) -> float:
@@ -330,6 +292,8 @@ class SearchResult:
         since: Start of the window, epoch seconds.
         until: End of the window.
         notes: What was left out and why, in a sentence each.
+        understood: The query written back in full, as the journal's search does, so
+            the operator sees what was asked.
     """
 
     lines: list[LogLine] = field(default_factory=list)
@@ -339,6 +303,7 @@ class SearchResult:
     since: float = 0.0
     until: float = 0.0
     notes: list[str] = field(default_factory=list)
+    understood: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -353,6 +318,7 @@ class SearchResult:
             "since": self.since,
             "until": self.until,
             "notes": list(self.notes),
+            "understood": self.understood,
         }
 
 
@@ -410,6 +376,20 @@ def _level(entry: dict[str, Any]) -> int:
     return value if 0 <= value <= 7 else 6
 
 
+def _pid(entry: dict[str, Any]) -> int | None:
+    """
+    Args:
+        entry: One decoded journal entry.
+
+    Returns:
+        The process that logged it; None when it says none.
+    """
+    try:
+        return int(entry["_PID"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
 class LogSearch:
     """
     Searches the journal and the containers of some applications.
@@ -447,7 +427,6 @@ class LogSearch:
         level: str | None = None,
         limit: int = DEFAULT_LIMIT,
         processes: dict[str, set[str]] | None = None,
-        allow_system_units: bool = False,
     ) -> SearchResult:
         """
         Search.
@@ -455,33 +434,32 @@ class LogSearch:
         Args:
             text: The query.
             apps: The applications whose logs may be searched (the caller has
-                already narrowed them to what the principal sees). ``app:`` in
+                already narrowed them to what the principal sees). ``@app:`` in
                 the query narrows further.
             since: Start of the window; an hour ago by default.
             until: End of the window; now by default.
-            level: The worst level kept (also writable as ``level:`` in the query).
+            level: The worst level kept (also writable as ``@level:`` in the query).
             limit: Most lines to return.
             processes: Domain to the names of its processes, to tell a worker's
                 unit from another application's.
-            allow_system_units: Whether ``unit:`` may name a system unit (only a
-                caller that sees the whole server may).
 
         Returns:
             The lines, newest first, with how much was examined.
 
         Raises:
             ValidationError: The query, the window, the level or the limit is
-                not acceptable, or ``unit:`` is used where it is not allowed.
+                not acceptable.
         """
         now = self._clock()
-        query = parse_query(text)
-        chosen_level = level or query.level
-        if chosen_level is not None and chosen_level.lower() not in LEVELS:
-            raise ValidationError(
-                f"{chosen_level!r} is not a level",
-                details=f"The levels are: {', '.join(LEVEL_NAMES)}.",
-                field="level",
-            )
+        tree = logquery.parse(text)
+        if level is not None:
+            if level.lower() not in logquery.LEVELS:
+                raise ValidationError(
+                    f"{level!r} is not a level",
+                    details=f"The levels are: {', '.join(LEVEL_NAMES)}.",
+                    field="level",
+                )
+            tree = _with_clause(tree, logquery.Field("level", level.lower()))
         if not 1 <= limit <= MAX_LIMIT:
             raise ValidationError(f"limit is a number from 1 to {MAX_LIMIT}", field="limit")
         start = parse_moment(since, now, now - 3_600)
@@ -494,38 +472,27 @@ class LogSearch:
                 details=f"Ask for at most {MAX_WINDOW_SECONDS // 86_400} days at a time.",
                 field="since",
             )
-        if query.units and not allow_system_units:
-            raise ValidationError(
-                "Searching a system unit is for whoever sees the whole server",
-                details="Search the applications you have, or ask an administrator.",
-                field="q",
-            )
 
-        selected = [
-            app
-            for app in apps
-            if not query.apps or any(wanted in app.domain.lower() for wanted in query.apps)
-        ]
-        result = SearchResult(since=start, until=end)
-        if query.apps and not selected:
-            result.notes.append("No application you can search matches " + ", ".join(query.apps))
+        named = _named_apps(tree)
+        selected = [app for app in apps if named is None or app.domain.lower() in named]
+        result = SearchResult(since=start, until=end, understood=logquery.render(tree))
+        if named is not None and not selected:
+            result.notes.append("No application you can search matches " + ", ".join(sorted(named)))
         self._scrubbers = {}
         found: list[LogLine] = []
         journal_apps = [app for app in selected if not is_compose_backed(app.app_type)]
-        if journal_apps or query.units:
-            self._journal(
-                query, journal_apps, processes or {}, start, end, chosen_level, result, found
-            )
+        if journal_apps:
+            self._journal(tree, journal_apps, processes or {}, start, end, result, found)
         stacks = [app for app in selected if is_compose_backed(app.app_type)]
         if stacks:
-            if chosen_level is not None:
+            if "level" in fields_of(tree):
                 result.notes.append(
                     "The containers of Docker stacks have no levels, so they are not searched "
-                    f"for level:{chosen_level}."
+                    "when the query names a level."
                 )
             else:
                 for app in stacks:
-                    self._containers(query, app, start, end, result, found)
+                    self._containers(tree, app, start, end, result, found)
         found.sort(key=lambda line: line.ts, reverse=True)
         result.matched = len(found)
         result.lines = found[:limit]
@@ -535,12 +502,11 @@ class LogSearch:
 
     def _journal(
         self,
-        query: Query,
+        tree: logquery.Node,
         apps: Sequence[App],
         processes: dict[str, set[str]],
         start: float,
         end: float,
-        level: str | None,
         result: SearchResult,
         found: list[LogLine],
     ) -> None:
@@ -548,12 +514,11 @@ class LogSearch:
         Search the journal for the applications that run as units.
 
         Args:
-            query: What was asked.
+            tree: What was asked.
             apps: The applications to search.
             processes: Domain to its process names.
             start: Start of the window.
             end: End of the window.
-            level: The worst level kept.
             result: Filled with what was examined and what went wrong.
             found: Filled with the lines.
         """
@@ -564,22 +529,23 @@ class LogSearch:
             "journalctl",
             "--no-pager",
             "--output=json",
-            "--output-fields=MESSAGE,PRIORITY,_SYSTEMD_UNIT",
+            "--output-fields=MESSAGE,PRIORITY,_SYSTEMD_UNIT,_PID",
             "--reverse",
             f"--lines={SCAN_LIMIT + 1}",
             f"--since=@{int(start)}",
             f"--until=@{int(end)}",
         ]
-        if level is not None:
-            argv.append(f"--priority={LEVELS[level.lower()]}")
-        term = query.first_term
+        # Only the level is taken from what the grammar can hand journalctl: the units are
+        # the applications' own, never wider, and the whole query is judged again below.
+        narrowed = logquery.pushdown(tree, _no_units)
+        if narrowed.priority is not None:
+            argv.append(f"--priority={narrowed.priority}")
+        term = _required_term(tree)
         if term:
             argv += ["--case-sensitive=false", f"--grep={re.escape(term)}"]
         for app in apps:
             base = domain_to_app_name(app.domain)
             argv += ["-u", f"{base}*", "-u", f"wasm-{base}*"]
-        for unit in query.units:
-            argv += ["-u", unit]
         done = self.runner.run(argv, timeout=JOURNAL_TIMEOUT)
         if not done.success:
             reason = (done.stderr or done.stdout).strip().splitlines()
@@ -591,6 +557,7 @@ class LogSearch:
         if len(lines) > SCAN_LIMIT:
             result.truncated = True
             lines = lines[:SCAN_LIMIT]
+        bound: dict[str, logquery.Node] = {}
         for raw in lines:
             try:
                 entry = json.loads(raw)
@@ -604,11 +571,17 @@ class LogSearch:
                 continue
             unit = str(entry.get("_SYSTEMD_UNIT") or "")
             located = index.lookup(unit)
-            if located is None and unit not in query.units:
+            if located is None:
                 continue
-            domain, process = located if located is not None else ("", "")
+            domain, process = located
             clean = self._clean(domain, text)
-            if not query.matches(clean):
+            if domain not in bound:
+                bound[domain] = _bind_app(tree, domain)
+            if not logquery.matches(
+                bound[domain],
+                logquery.Entry(unit=unit, priority=_level(entry), pid=_pid(entry), message=clean),
+                _no_units,
+            ):
                 continue
             try:
                 ts = int(entry.get("__REALTIME_TIMESTAMP", 0)) / 1_000_000
@@ -630,7 +603,7 @@ class LogSearch:
 
     def _containers(
         self,
-        query: Query,
+        tree: logquery.Node,
         app: App,
         start: float,
         end: float,
@@ -641,7 +614,7 @@ class LogSearch:
         Search what the containers of a stack printed.
 
         Args:
-            query: What was asked.
+            tree: What was asked.
             app: A Compose or container application.
             start: Start of the window.
             end: End of the window.
@@ -654,6 +627,7 @@ class LogSearch:
             # A stack that cannot be listed is a note on the answer, not a failure of it.
             result.notes.append(f"{app.domain}: its containers could not be listed ({exc.message})")
             return
+        bound = _bind_app(tree, app.domain)
         for container in containers:
             done = self.runner.run(
                 [
@@ -680,7 +654,15 @@ class LogSearch:
                     continue
                 result.scanned += 1
                 clean = self._clean(app.domain, match.group("text"))
-                if not clean.strip() or not query.matches(clean):
+                if not clean.strip():
+                    continue
+                # A container's line has no level or process of its own: the query is judged
+                # on its service and its words, and a level is never asked of it (see search).
+                if not logquery.matches(
+                    bound,
+                    logquery.Entry(unit=container.service, priority=6, pid=None, message=clean),
+                    _no_units,
+                ):
                     continue
                 found.append(
                     LogLine(

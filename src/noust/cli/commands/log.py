@@ -5,7 +5,7 @@
 The ``noust log`` command group: searching the logs of every application, and how long they are kept.
 
     noust log search timeout "connection refused" --not healthcheck --since 2h
-    noust log search 'level:err app:shop.example.com' --since 1d --json
+    noust log search '@level:err @app:shop.example.com' --since 1d --json
     noust log retention set --days 30 --max-use 2048
     noust log retention show
 
@@ -82,32 +82,36 @@ def search_command(
     Search the logs of the applications, newest first.
 
     Words must all appear (case does not matter): "quoted phrase" for a phrase,
-    `a OR b` for either; leave a word out with --not WORD. Fields: app:DOMAIN,
-    unit:NAME (a system unit), level:err.
+    `a OR b` for either, (groups); leave a word out with --not WORD. Fields:
+    @app:DOMAIN, @unit:NAME (one of the applications' units), @level:err, @pid:N.
 
     \b
       noust log search timeout "connection refused" --not healthcheck --since 2h
-      noust log search 'level:err' --app shop.example.com --since 1d
+      noust log search '@level:err' --app shop.example.com --since 1d
     """
     visible: list[App] = [a for a in get_store().list_apps() if isinstance(a, App)]
     if apps:
         wanted = {name.lower() for name in apps}
         visible = [a for a in visible if a.domain.lower() in wanted]
+    query = " ".join(
+        [*(_quote(word) for word in words), *(f"-{_quote(word)}" for word in excluded)]
+    )
     result = LogSearch().search(
-        " ".join([*(_quote(word) for word in words), *(f"-{_quote(word)}" for word in excluded)]),
+        query,
         visible,
         since=since,
         until=until,
         level=level,
         limit=limit,
         processes=process_names(visible),
-        allow_system_units=True,
     )
     if ctx.json_output:
         click.echo(json.dumps({**result.to_dict(), "apps": [a.domain for a in visible]}))
         return
     for note in result.notes:
         ctx.logger.warning(note)
+    if result.understood and result.understood != query:
+        ctx.logger.info(f"Understood as: {result.understood}")
     if not result.lines:
         ctx.logger.info(f"Nothing matched in {result.scanned} entries examined.")
         return

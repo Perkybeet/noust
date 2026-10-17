@@ -5,11 +5,11 @@
 ``/api/logs/search``: one search over the logs of every application you can see.
 
 A thin client of :class:`~noust.managers.log_search.LogSearch`, which ``noust log
-search`` uses too (rule 3). The query language and its limits are described there.
-The applications searched are the ones the caller sees (a team's own, never
-another's), and a system unit can be named only by a caller who sees the whole
-server. A central searches every server it manages through
-``/api/fleet/logs/search``.
+search`` uses too (rule 3). The query language is the journal's, the one the Server page
+searches with (:mod:`noust.managers.server.logquery`), and its limits are described there.
+The applications searched are the ones the caller sees (a team's own, never another's);
+a system unit is the Server page's to search. A central searches every server it manages
+through ``/api/fleet/logs/search``.
 """
 
 from __future__ import annotations
@@ -21,7 +21,6 @@ from pydantic import BaseModel, Field
 
 from noust.core import audit
 from noust.core.teams import scoped_store
-from noust.core.teams.scope import current_scope
 from noust.managers.log_retention import MAX_DAYS, MAX_MB, MIN_DAYS, MIN_MB, LogRetention
 from noust.managers.log_search import (
     DEFAULT_LIMIT,
@@ -75,6 +74,7 @@ class LogSearchResponse(BaseModel):
         until: End of the window.
         notes: What was left out and why.
         apps: The applications that were searched.
+        understood: The query written back in full, so the caller sees what was asked.
     """
 
     lines: list[LogLineModel]
@@ -85,6 +85,7 @@ class LogSearchResponse(BaseModel):
     until: float
     notes: list[str]
     apps: list[str]
+    understood: str = ""
 
 
 @router.get("/search", response_model=LogSearchResponse)
@@ -94,8 +95,8 @@ def search_logs(
         str,
         Query(
             max_length=1000,
-            description='Words ("quoted phrases", -excluded, a OR b) and fields '
-            "(app:, unit:, level:).",
+            description='Words ("quoted phrases", -excluded, a OR b, groups) and fields '
+            "(@app:, @unit:, @level:, @pid:).",
         ),
     ] = "",
     app: Annotated[
@@ -129,7 +130,8 @@ def search_logs(
         The lines, newest first, and how much was examined.
 
     Raises:
-        ValidationError: 400 naming what in the query or the window is not acceptable.
+        ValidationError: 400 naming what in the query or the window is not acceptable,
+            and where in the query when it is the query.
     """
     visible = scoped_store().list_apps()
     if app:
@@ -143,7 +145,6 @@ def search_logs(
         level=level,
         limit=limit,
         processes=process_names(visible),
-        allow_system_units=not current_scope().restricted,
     )
     return LogSearchResponse(**result.to_dict(), apps=[item.domain for item in visible])
 

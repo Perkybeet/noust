@@ -7,8 +7,8 @@ applications, around what time?*
 
 ```bash
 noust log search timeout "connection refused" --not healthcheck --since 2h
-noust log search 'level:err' --app shop.example.com --since 1d
-noust log search 'redis OR memcached timeout' --since 30m --json
+noust log search '@level:err' --app shop.example.com --since 1d
+noust log search '(redis OR memcached) timeout' --since 30m --json
 noust fleet logs error --since 1h            # every server of a central at once
 ```
 
@@ -18,34 +18,40 @@ of them. The API is `GET /api/logs/search` and `GET /api/fleet/logs` ([api.md](a
 
 ## The query
 
+The words are the journal's own: this search and the **Logs** tab of the Server page read one grammar
+([the Server's log query](console.md#server)), so what you learn in one works in the other.
+
 | You write | It means |
 |---|---|
 | `timeout redis` | Lines that have **both** words (case does not matter). |
 | `"connection refused"` | That phrase. |
-| `-healthcheck` (`--not healthcheck` on the command line) | Not lines that have it. |
-| `redis timeout OR nginx 502` | Lines that have all the words of one side **or** of the other. |
-| `app:shop.example.com` | Only that application (a part of the name is enough). |
-| `unit:sshd.service` | Add a system unit to the search. Only for someone who sees the whole server. |
-| `level:err` | That level or worse (`emerg alert crit err warning notice info debug`). |
+| `-healthcheck` or `NOT healthcheck` (`--not healthcheck` on the command line) | Not lines that have it. |
+| `redis OR memcached` | Either (`AND`, `OR` and `NOT` are capitals; `or` in lower case is a word). |
+| `(redis OR nginx) timeout` | Groups, as in arithmetic. |
+| `@app:shop.example.com` | Only that application's lines. |
+| `@unit:shop-example-com-worker` | Only that unit, among the applications' (`.service` is optional, `*` is a wildcard). |
+| `@level:err` | That level or worse (`emerg alert crit err warning notice info debug`, or 0 to 7). |
+| `@pid:4821` | Only what that process logged. |
 
-Fields are global to the query, not to one side of an `OR`. A query has at most twelve words. The window is the
-last hour unless `--since`/`--until` (or `since`/`until`) say otherwise: epoch seconds, a time ago (`15m`, `2h`,
-`7d`, `1w`) or a date (`2026-10-16`, `2026-10-16T08:30`, UTC), up to 400 days.
+The answer repeats the query in full (`@level:err AND timeout AND NOT healthcheck`) so you can see what was
+asked. A query has at most 500 characters. The window is the last hour unless `--since`/`--until` (or
+`since`/`until`) say otherwise: epoch seconds, a time ago (`15m`, `2h`, `7d`, `1w`) or a date (`2026-10-16`,
+`2026-10-16T08:30`, UTC), up to 400 days.
 
 ## What it reads, and what it shows
 
 It runs on the server, over `journalctl` and `docker logs` as argv through the command runner, and reads a bounded
-amount: the window, a filter on the units of the applications you can see and the first word every way of matching
-has (as journalctl's `--grep`) narrow what the journal hands over, at most 50 000 entries are examined, and the answer
+amount: the window, the units of the applications you can see, the level and a word every line must have
+(as journalctl's `--grep`) narrow what the journal hands over, at most 50 000 entries are examined, and the answer
 says when that was reached (`truncated`) so you know older matches may exist. A stack's containers are read the same
-way (the last 5 000 lines of each); they have no levels, so `level:` leaves them out and says so.
+way (the last 5 000 lines of each); they have no levels, so a search that names one leaves them out and says so.
 
 - **Masked.** Colour codes are stripped, and the secrets the application holds as variables and anything shaped like a
   credential (a token, a `password=` assignment, a private key, a password in a URL) are replaced before a line leaves,
   as in every other log Noust shows. The words are looked for in what is shown, so a search cannot be used to find out
   whether a hidden secret appears.
 - **Yours only.** It searches the applications you can see: a member of a team searches that team's applications and
-  never another's. A system unit can be named only by someone who sees the whole server.
+  never another's. The machine's own units (sshd, nginx) are the Server page's to search, not this one's.
 - **Another application's unit is never shown**, even one whose name starts the same (`shop-example-com-au` is not
   `shop-example-com`).
 
