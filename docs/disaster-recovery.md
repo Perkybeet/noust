@@ -310,7 +310,10 @@ dropped. An application that keeps its data in a SQLite file gets a step per fil
 `quick_check` runs on the unpacked copy, so a file that came back damaged fails the drill with SQLite's
 words. Nothing of the application, its databases or its units is touched, and it is not started: the
 report is dated and says what it proved (the files unpack, the data loads) and what it did not (that a
-new server would serve them). The dump of a database that lives in a Compose stack is loaded into a
+new server would serve them). Starting the application from its backup and passing its health gate is
+not part of it, on purpose: the copy would run with the backup's `.env`, which points at the real
+databases and services, and a copy that cannot reach them fails for the wrong reason, so it would need
+a restored database of its own and an environment rewritten per application type. The dump of a database that lives in a Compose stack is loaded into a
 throwaway container of **the image the service ran** (the dump's manifest records it): no network, no
 published port, a memory and process limit, a name `noust-drill-<random>` and the label `noust.drill=1`,
 a password made for the occasion that reaches Docker through its environment and never an argument, and
