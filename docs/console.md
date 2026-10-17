@@ -275,6 +275,18 @@ central waits for the node to come back and reads the result instead of counting
 node's console follows a job that runs in a transient systemd unit again after it restarts (see
 [Live updates](#live-updates)), so the job ends as the unit did.
 
+**On several servers** is the tab for an application that runs on more than one server
+([CENTRAL.md](CENTRAL.md#an-application-on-several-servers)): each application is a card with its servers
+side by side - the commit each serves, when, and whether it is current, differs, is missing or did not
+answer - and a line that says whether the fleet is in sync or which commit most servers run. Its menu
+**rolls a commit, a tag or an image tag out** (the plan first: who goes first and alone, the batches, what
+is skipped and why; then the fleet job it opens), **puts the application on a server that lacks it**
+(from one that has it, optionally under another domain), **writes the servers for the load balancer**
+(nginx, a list or JSON, with a port) and edits or stops tracking the placement; stopping touches no
+server. A server's menu on **Servers** adds **Connection options** (the wait for the connection and a
+bastion, tried before it is kept, with the line to authorize on the bastion), **Export its inventory** and
+**Apply an inventory** (to move a server to another central) and **Link to a cloud machine**.
+
 ![Fleet](assets/console/fleet.png)
 
 The server selector switches every other page to one server, and every action taken there

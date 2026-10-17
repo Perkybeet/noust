@@ -322,6 +322,11 @@ failed, and was lost. Now:
 - **The queue is bounded**: with `deploy.queue_limit` (25) builds waiting, the next is refused
   with `429 queue_full` (webhooks answer 429 too, and the application's delivery log says why,
   so the forge retries).
+- **A build has a time limit**: `deploy.max_minutes` (60; 0 is no limit) from the moment it starts.
+  Past it the build is stopped the way an operator's cancel stops it, with its release removed and
+  what served before untouched, and it ends as a failure that names the limit (not as a cancellation,
+  so the notification, the job and `noust deploy queue` say it failed). Raise it for an application
+  whose build is slow by design.
 - **A terminal's update does not make the console's queue fail**: a build waits for an
   operation another process holds, says what it waits for, and gives up (naming it) only after
   an hour.
