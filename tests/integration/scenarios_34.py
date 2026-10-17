@@ -324,6 +324,8 @@ SCHED_DOMAIN = "sched.test"
 SCHED_APP = "sched-test"
 SCHED_REPO = "sched-app"
 SCHED_TIMER = f"noust-update-{SCHED_APP}"
+#: The database `noust db provision` names after the application.
+SCHED_DB = "sched_test_db"
 
 
 def schedule_state(sc: Scenario, label: str) -> dict[str, Any]:
@@ -425,8 +427,9 @@ def scenario_scheduled_updates(sc: Scenario) -> None:
         wait_served(sc, SCHED_DOMAIN, "ok 2")
         sc.check(last_outcome(sc, "how the run ended") == "updated", "the update did not run")
         after = archives_of(sc, SCHED_APP, "the backups after the scheduled update")
+        # A new archive, by name: the number a retention keeps may be reached already.
         sc.check(
-            len(after) == len(backups) + 1,
+            len(set(after) - set(backups)) == 1,
             f"a scheduled update takes the backup an update needs: {backups!r} -> {after!r}",
         )
 
@@ -492,9 +495,11 @@ def scenario_scheduled_updates(sc: Scenario) -> None:
         resumed = sc.run(
             f"noust deploy resume {SCHED_DOMAIN}", timeout=30, label="noust deploy resume"
         )
+        # What a pause counts is the pushes and tags that arrived; a held schedule is its own
+        # last outcome (checked above) and its next run deploys what is new.
         sc.check(
-            re.search(r"\b1\b", resumed.stdout) is not None,
-            f"resuming does not say what arrived meanwhile: {resumed.stdout!r}",
+            "runs again" in resumed.stdout,
+            f"resuming does not say the application deploys by itself again: {resumed.stdout!r}",
         )
         sc.run(
             f"noust deploy schedule run {SCHED_DOMAIN}",
@@ -504,24 +509,68 @@ def scenario_scheduled_updates(sc: Scenario) -> None:
         wait_served(sc, SCHED_DOMAIN, "ok 4")
         sc.check(last_outcome(sc, "how the run ended") == "updated", "the update did not run")
 
-        # -- Without the backup first, none is taken -----------------------------------------
-        sc.run(
-            f"noust deploy schedule set {SCHED_DOMAIN} --at '*-*-* 03:00' --no-backup",
-            timeout=60,
-            label="noust deploy schedule set --no-backup",
-        )
+        # -- The backup is required: when it cannot be taken, nothing is updated -------------
+        # (nobody is there at three in the morning to read a warning). The database is what
+        # the backup of this application is made of, so a database that is down fails it.
         commit_to(sc, repo, "echo 5 > VERSION", "version 5")
-        backups = archives_of(sc, SCHED_APP, "the backups before the run without a backup")
-        sc.run(
-            f"noust deploy schedule run {SCHED_DOMAIN}",
-            timeout=DEPLOY_TIMEOUT,
-            label="a scheduled run without the backup first",
-        )
-        wait_served(sc, SCHED_DOMAIN, "ok 5")
-        sc.check(
-            archives_of(sc, SCHED_APP, "the backups after it") == backups,
-            "--no-backup still took a backup",
-        )
+        sc.run("systemctl stop mariadb", timeout=60, label="stop the database the backup dumps")
+        try:
+            sc.run(
+                f"noust deploy schedule run {SCHED_DOMAIN}",
+                timeout=DEPLOY_TIMEOUT,
+                check=False,
+                label="a scheduled run whose backup cannot be taken",
+            )
+            sc.check(
+                last_outcome(sc, "how the run ended") == "backup_failed",
+                "an update whose required backup failed was not refused",
+            )
+            wait_served(sc, SCHED_DOMAIN, "ok 4")
+
+            # -- The schedule not asking for it changes nothing for an application with a database:
+            # its own rule (on whenever it has one) is the same refusal.
+            sc.run(
+                f"noust deploy schedule set {SCHED_DOMAIN} --at '*-*-* 03:00' --no-backup",
+                timeout=60,
+                label="noust deploy schedule set --no-backup",
+            )
+            sc.run(
+                f"noust deploy schedule run {SCHED_DOMAIN}",
+                timeout=DEPLOY_TIMEOUT,
+                check=False,
+                label="a scheduled run that does not ask for the backup, of an app with a database",
+            )
+            sc.check(
+                last_outcome(sc, "how the run ended") == "backup_failed",
+                "the application's own backup rule was lifted by the schedule's --no-backup",
+            )
+            wait_served(sc, SCHED_DOMAIN, "ok 4")
+
+            # -- Only the application's own setting lets the update go on without it -----------
+            sc.run(
+                f"noust app backup-required {SCHED_DOMAIN} off",
+                timeout=60,
+                label=f"noust app backup-required {SCHED_DOMAIN} off",
+            )
+            sc.run(
+                f"noust deploy schedule run {SCHED_DOMAIN}",
+                timeout=DEPLOY_TIMEOUT,
+                check=False,
+                label="a scheduled run with the backup not required at all",
+            )
+            sc.check(
+                last_outcome(sc, "how the run ended") == "updated",
+                "an update whose backup is not required at all did not go on",
+            )
+            wait_served(sc, SCHED_DOMAIN, "ok 5")
+        finally:
+            sc.run("systemctl start mariadb", timeout=60, check=False, label="start the database")
+            sc.run(
+                f"noust app backup-required {SCHED_DOMAIN} default",
+                timeout=60,
+                check=False,
+                label="back to the default rule",
+            )
 
         # -- Removing the schedule removes the timer ------------------------------------------
         sc.run(
@@ -546,7 +595,8 @@ def scenario_scheduled_updates(sc: Scenario) -> None:
     finally:
         sc.run(
             f"noust deploy unfreeze {SCHED_DOMAIN}; noust deploy resume {SCHED_DOMAIN}; "
-            f"noust deploy schedule remove {SCHED_DOMAIN}; noust delete {SCHED_DOMAIN} -f",
+            f"noust deploy schedule remove {SCHED_DOMAIN}; noust delete {SCHED_DOMAIN} -f; "
+            f"noust db drop {SCHED_DB} --engine mysql --force",
             timeout=180,
             check=False,
             label="cleanup",
@@ -586,6 +636,38 @@ def wait_body(sc: Scenario, host: str, expected: str, *, seconds: int = PUSH_DEP
     sc.evidence.append(f"$ (until it answers) curl -H 'Host: {host}' http://127.0.0.1/\n{body}")
     sc.check(expected in body, f"{host} answered {body!r}, not {expected!r}")
     return body
+
+
+def when_idle(
+    sc: Scenario, command: str, label: str, *, seconds: int = 120
+) -> run.subprocess.CompletedProcess[str]:
+    """
+    Run a command that needs the application to be idle, retrying while an update still holds it.
+
+    A page that serves the new version does not mean the update that built it has finished: its
+    job goes on for a few seconds (the old instance drains, the old release is pruned), and a
+    command that wants the application's lock is refused until then, by design.
+
+    Args:
+        sc: The scenario.
+        command: The command.
+        label: What the evidence calls it.
+        seconds: How long to keep trying.
+
+    Returns:
+        The finished command (the last attempt's when it never got the lock).
+    """
+    deadline = time.monotonic() + seconds
+    while True:
+        proc = run.docker_exec(sc.container, command, timeout=120, check=False)
+        busy = "still running on it" in proc.stdout + proc.stderr
+        if not busy or time.monotonic() > deadline:
+            break
+        time.sleep(3)
+    sc.evidence.append(
+        f"$ {label}\n{proc.stdout.rstrip()}\n{proc.stderr.rstrip()}\n(exit={proc.returncode})"
+    )
+    return proc
 
 
 def git_push(
@@ -733,11 +815,10 @@ def scenario_git_push(sc: Scenario) -> None:
         )
 
         # -- Turning it off takes the keys away -------------------------------------------------
-        sc.run(
-            f"noust push disable {PUSH_DOMAIN}",
-            timeout=60,
-            label=f"noust push disable {PUSH_DOMAIN}",
+        disabled = when_idle(
+            sc, f"noust push disable {PUSH_DOMAIN}", f"noust push disable {PUSH_DOMAIN}"
         )
+        sc.check(disabled.returncode == 0, f"noust push disable failed: {disabled.stdout!r}")
         commit_to(sc, repo, "echo 5 > VERSION", "version 5")
         after = git_push(sc, repo, "main", "git push noust main (push turned off)")
         sc.check(after.returncode != 0, "a push was accepted after push was turned off")
@@ -746,12 +827,11 @@ def scenario_git_push(sc: Scenario) -> None:
         journal_tail(sc, "-u ssh -u sshd -u 'noust*' -u push-test", "journalctl (on failure)")
         raise
     finally:
-        sc.run(
-            f"noust web stop; noust push disable {PUSH_DOMAIN} --delete-repository; "
-            f"noust delete {PUSH_DOMAIN} -f",
-            timeout=180,
-            check=False,
-            label="cleanup",
+        when_idle(
+            sc,
+            f"noust push disable {PUSH_DOMAIN} --delete-repository; "
+            f"noust delete {PUSH_DOMAIN} -f; noust web stop",
+            "cleanup",
         )
 
 
@@ -770,6 +850,17 @@ def upload_ids(sc: Scenario, label: str) -> dict[str, dict[str, Any]]:
     return {item["source"]: item for item in listed}
 
 
+def remove_new_uploads(sc: Scenario, already: set[str]) -> None:
+    """Remove the uploads a scenario made and left (the ones that were not there before it)."""
+    listed = run.docker_exec(sc.container, "noust upload list --json", timeout=30, check=False)
+    try:
+        sources = {str(item["source"]) for item in json.loads(listed.stdout)}
+    except (ValueError, KeyError, TypeError):
+        return
+    for source in sorted(sources - already):
+        sc.run(f"noust upload remove {source}", timeout=30, check=False, label="cleanup: upload")
+
+
 @scenario("uploaded_source_archive")
 def scenario_uploaded_source(sc: Scenario) -> None:
     """
@@ -783,6 +874,7 @@ def scenario_uploaded_source(sc: Scenario) -> None:
     deleting the application removes the tree it deployed from.
     """
     run.require_cli(sc, "upload", what="uploaded sources (A-22)")
+    already = set(upload_ids(sc, "the uploads there already are"))
     sc.run(
         f"rm -rf {UPLOAD_DIR} && /usr/bin/python3 -I /root/fixtures/uploads/make_archives.py "
         f"/root/fixtures/node-app {UPLOAD_DIR}",
@@ -807,7 +899,7 @@ def scenario_uploaded_source(sc: Scenario) -> None:
             )
             sc.check(refused.returncode != 0, f"{name} was accepted as the code of an application")
         sc.check(
-            not upload_ids(sc, "nothing was kept of them"),
+            set(upload_ids(sc, "nothing was kept of them")) == already,
             "a refused archive left an upload behind",
         )
         outside = sc.run(
@@ -883,12 +975,19 @@ def scenario_uploaded_source(sc: Scenario) -> None:
         )
         wait_served(sc, UPLOAD_DOMAIN, "ok 2")
 
-        # -- What is in use stays, what is not can go ---------------------------------------
+        # -- What an application no longer names goes with the change; what is in use stays ----
         listing = upload_ids(sc, "the uploads after the change")
         sc.check(
-            listing[first["source"]]["in_use"] is False and listing[second["source"]]["in_use"],
-            f"which upload is in use: {listing!r}",
+            list(listing) == [second["source"]] and listing[second["source"]]["in_use"],
+            f"the tree the application no longer names is not gone, or the new one is not in "
+            f"use: {listing!r}",
         )
+        gone = sc.run(
+            f"test -e /var/lib/noust/uploads/{first['id']} && echo still-there || echo gone",
+            timeout=15,
+            label="the replaced upload's tree is off the disk",
+        ).stdout.strip()
+        sc.check(gone == "gone", "the tree an application stopped using is still on the disk")
         in_use = sc.run(
             f"noust upload remove {second['source']}",
             timeout=30,
@@ -896,8 +995,22 @@ def scenario_uploaded_source(sc: Scenario) -> None:
             label="noust upload remove (the one in use)",
         )
         sc.check(in_use.returncode != 0, "an upload an application deploys from was removed")
+
+        # An upload nobody uses can be removed by hand.
+        spare = json_of(
+            sc.run(
+                f"noust upload add {UPLOAD_DIR}/app-1.tar.gz --json",
+                timeout=120,
+                label="noust upload add app-1.tar.gz (one nobody uses)",
+            ),
+            "upload add",
+        )
+        sc.check(
+            upload_ids(sc, "the spare upload")[spare["source"]]["in_use"] is False,
+            "an upload no application names is said to be in use",
+        )
         sc.run(
-            f"noust upload remove {first['source']}",
+            f"noust upload remove {spare['source']}",
             timeout=30,
             label="noust upload remove (unused)",
         )
@@ -906,13 +1019,12 @@ def scenario_uploaded_source(sc: Scenario) -> None:
             "removing an unused upload removed something else, or nothing",
         )
         mode = sc.run(
-            f"stat -c '%a' /var/lib/noust/uploads/{second['id']} 2>/dev/null || "
-            f"find / -maxdepth 6 -type d -name '{second['id']}' -exec stat -c '%a' {{}} \\; 2>/dev/null | head -1",
+            f"stat -c '%a %U' /var/lib/noust/uploads/{second['id']}",
             timeout=30,
             check=False,
             label="the extracted tree is root's alone",
         ).stdout.strip()
-        sc.check(mode in ("700", ""), f"the extracted tree is {mode}, not 0700")
+        sc.check(mode == "700 root", f"the extracted tree is {mode!r}, not 0700 root")
 
         # -- Deleting the application removes the tree it deployed from ---------------------------
         sc.run(
@@ -927,19 +1039,22 @@ def scenario_uploaded_source(sc: Scenario) -> None:
         raise
     finally:
         sc.run(
-            f"noust delete {UPLOAD_DOMAIN} -f; noust upload prune; rm -rf {UPLOAD_DIR}",
+            f"noust delete {UPLOAD_DOMAIN} -f; rm -rf {UPLOAD_DIR}",
             timeout=180,
             check=False,
             label="cleanup",
         )
+        remove_new_uploads(sc, already)
 
 
 PASTE_DOMAIN = "paste.test"
 PASTE_PORT = 18213
-PASTE_IMAGES = "noust-ctr-paste-test"
+PASTE_BAD_DOMAIN = "paste-bad.test"
+PASTE_BAD_PORT = 18216
+PASTE_IMAGES = "noust-paste-test"
 PASTE_DOCKERFILE = (
     "FROM nginx:alpine\\n"
-    "RUN echo 'pasted v{version}' > /usr/share/nginx/html/index.html\\n"
+    "RUN echo pasted v{version} > /usr/share/nginx/html/index.html\\n"
     "EXPOSE 80\\n"
 )
 
@@ -950,14 +1065,17 @@ def scenario_pasted_dockerfile(sc: Scenario) -> None:
     A Dockerfile and nothing else is an application: pasted, stored, built and served.
 
     The text goes to the server as a project of one file (``noust upload add --dockerfile -``),
-    which is the source of a container application. A new Dockerfile is a new upload and a
-    change of source; a text with no ``FROM``, or an empty one, is refused before anything is
-    stored; the build context holds nothing else.
+    which is the source of a container application. A text with no ``FROM``, or an empty one, is
+    refused before anything is stored; the source of a container application is not changed in
+    place (the refusal names what is used instead), an update rebuilds the same text and keeps the
+    previous image, and the build context holds nothing else, so a ``COPY`` of a file fails the
+    deployment and leaves no application.
     """
     run.require_cli(sc, "upload", what="a pasted Dockerfile (A-22)")
     run.require_cli(sc, "app container", what="container applications")
     run.require_docker(sc)
     run.pull_images(sc, run.CONTAINER_BASE)
+    already = set(upload_ids(sc, "the uploads there already are"))
     try:
         for bad, why in (("", "empty"), ("RUN echo no-from\\n", "no FROM")):
             refused = sc.run(
@@ -967,7 +1085,9 @@ def scenario_pasted_dockerfile(sc: Scenario) -> None:
                 label=f"a pasted Dockerfile that is {why}",
             )
             sc.check(refused.returncode != 0, f"a pasted Dockerfile with {why} was accepted")
-        sc.check(not upload_ids(sc, "nothing was stored"), "a refused Dockerfile was stored")
+        sc.check(
+            set(upload_ids(sc, "nothing was stored")) == already, "a refused Dockerfile was stored"
+        )
 
         first = json_of(
             sc.run(
@@ -995,6 +1115,7 @@ def scenario_pasted_dockerfile(sc: Scenario) -> None:
         )
         sc.check(shown["method"] == "dockerfile", f"the method: {shown['method']!r}")
 
+        # -- Its source is not changed in place: a container application's image is its own ---
         second = json_of(
             sc.run(
                 f"printf '{PASTE_DOCKERFILE.format(version=2)}' | noust upload add - --dockerfile --json",
@@ -1003,25 +1124,42 @@ def scenario_pasted_dockerfile(sc: Scenario) -> None:
             ),
             "upload add",
         )
-        sc.run(
+        changed = sc.run(
             f"noust app source change {PASTE_DOMAIN} {second['source']} --yes",
             timeout=120,
-            label="noust app source change (the new text)",
+            check=False,
+            label="noust app source change (a new text for a container application)",
         )
+        said = changed.stdout + changed.stderr
+        sc.check(
+            changed.returncode != 0 and "noust app container" in said,
+            f"a container application's source was changed in place, or the refusal does not "
+            f"name what to use: {said!r}",
+        )
+
+        # -- An update rebuilds the same text, and keeps the previous image to go back to --------
+        before = sc.run(
+            f"docker images --format '{{{{.Tag}}}}' {PASTE_IMAGES}",
+            timeout=30,
+            label="the images of the application",
+        ).stdout.split()
         sc.run(
             f"noust update {PASTE_DOMAIN}",
             timeout=DEPLOY_TIMEOUT,
             label=f"noust update {PASTE_DOMAIN}",
         )
-        wait_served(sc, PASTE_DOMAIN, "pasted v2")
-        sc.run(
-            f"noust releases rollback {PASTE_DOMAIN}",
-            timeout=DEPLOY_TIMEOUT,
-            label="noust releases rollback (the image of the first text)",
-        )
         wait_served(sc, PASTE_DOMAIN, "pasted v1")
+        after = sc.run(
+            f"docker images --format '{{{{.Tag}}}}' {PASTE_IMAGES}",
+            timeout=30,
+            label="the images after the update",
+        ).stdout.split()
+        sc.check(
+            len(after) == len(before) + 1,
+            f"an update builds an image of its own and keeps the previous: {before} -> {after}",
+        )
 
-        # A COPY finds nothing: the context holds the Dockerfile alone.
+        # -- A COPY finds nothing: the context holds the Dockerfile alone --------------------------
         third = json_of(
             sc.run(
                 "printf 'FROM nginx:alpine\\nCOPY index.html /usr/share/nginx/html/\\nEXPOSE 80\\n' "
@@ -1031,22 +1169,23 @@ def scenario_pasted_dockerfile(sc: Scenario) -> None:
             ),
             "upload add",
         )
-        sc.run(
-            f"noust app source change {PASTE_DOMAIN} {third['source']} --yes",
-            timeout=120,
-            label="noust app source change (a text whose COPY finds nothing)",
-        )
         failed = sc.run(
-            f"noust update {PASTE_DOMAIN}",
+            f"noust create -d {PASTE_BAD_DOMAIN} --source {third['source']} -t container "
+            f"-p {PASTE_BAD_PORT} --no-ssl",
             timeout=DEPLOY_TIMEOUT,
             check=False,
-            label="noust update (the build cannot COPY)",
+            label="noust create (the build cannot COPY)",
         )
-        sc.check(failed.returncode != 0, "a build that cannot COPY was reported as an update")
+        sc.check(failed.returncode != 0, "a build that cannot COPY was reported as a deployment")
+        listed = sc.run("noust list --json", timeout=30, label="what is deployed").stdout
+        sc.check(
+            PASTE_BAD_DOMAIN not in listed and PASTE_DOMAIN in listed,
+            "the failed deployment left an application behind, or took the first one away",
+        )
         wait_served(sc, PASTE_DOMAIN, "pasted v1")
     finally:
         run.container_clean(sc, PASTE_DOMAIN, PASTE_IMAGES)
-        sc.run("noust upload prune", timeout=60, check=False, label="noust upload prune")
+        remove_new_uploads(sc, already)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -1059,8 +1198,43 @@ S3_NAME = "noust-it-minio"
 S3_PORT = 19000
 S3_BUCKET = "noust-it"
 S3_USER = "noustit"
-#: The release the machine's other work pins; pulled once into the inner Docker's volume.
-S3_IMAGE = "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z"
+#: MinIO stopped publishing its images (quay.io/minio/minio and minio/minio no longer have a tag
+#: to pull); this is Bitnami's last build of the same server, kept under bitnamilegacy. It listens
+#: on 9000 and keeps its objects under S3_DATA; pulled once into the inner Docker's volume.
+S3_IMAGE = "bitnamilegacy/minio:2025.7.23"
+S3_DATA = "/bitnami/minio/data"
+
+
+def start_minio(sc: Scenario, name: str, port: int, user: str, secret: str, label: str) -> None:
+    """
+    Run MinIO in the harness container's own Docker, published on its loopback only, and wait.
+
+    Args:
+        sc: The scenario.
+        name: The container's name.
+        port: The loopback port the API is published on.
+        user: The root user (the S3 access key).
+        secret: The root password (the S3 secret key); never shown.
+        label: What the evidence calls the command.
+    """
+    sc.run(
+        f"docker rm -f {name} >/dev/null 2>&1; docker run -d --name {name} "
+        f"-p 127.0.0.1:{port}:9000 -e MINIO_ROOT_USER={user} "
+        f"-e MINIO_ROOT_PASSWORD={secret} {S3_IMAGE}",
+        timeout=120,
+        label=label,
+    )
+    # Bitnami's entrypoint starts the server once to set it up, stops it and starts it again: a
+    # health check that passes during the first run is followed by connections reset. So it is ready
+    # when its S3 API (anonymously: 403) and its health endpoint have answered six seconds running.
+    sc.run(
+        "ok=0; for i in $(seq 1 120); do "
+        f"if curl -fsS http://127.0.0.1:{port}/minio/health/ready >/dev/null 2>&1 && "
+        f"[ \"$(curl -s -o /dev/null -w '%{{http_code}}' http://127.0.0.1:{port}/)\" = 403 ]; "
+        "then ok=$((ok+1)); else ok=0; fi; [ $ok -ge 6 ] && exit 0; sleep 1; done; exit 1",
+        timeout=180,
+        label="wait for MinIO to be ready, and to stay so",
+    )
 
 
 @scenario("backups_to_s3_and_restore")
@@ -1083,18 +1257,13 @@ def scenario_s3_backups(sc: Scenario) -> None:
     findings: list[str] = []
     try:
         sc.run(create, timeout=DEPLOY_TIMEOUT, label=create)
-        sc.run(
-            f"docker rm -f {S3_NAME} >/dev/null 2>&1; docker run -d --name {S3_NAME} "
-            f"-p 127.0.0.1:{S3_PORT}:9000 -e MINIO_ROOT_USER={S3_USER} "
-            f"-e MINIO_ROOT_PASSWORD={secret} {S3_IMAGE} server /data",
-            timeout=120,
-            label=f"docker run -d --name {S3_NAME} {S3_IMAGE} server /data (loopback only)",
-        )
-        sc.run(
-            f"for i in $(seq 1 60); do curl -fsS http://127.0.0.1:{S3_PORT}/minio/health/ready "
-            "&& exit 0; sleep 1; done; exit 1",
-            timeout=90,
-            label="wait for MinIO to be ready",
+        start_minio(
+            sc,
+            S3_NAME,
+            S3_PORT,
+            S3_USER,
+            secret,
+            f"docker run -d --name {S3_NAME} {S3_IMAGE} (loopback only)",
         )
 
         add = (
@@ -1164,7 +1333,7 @@ def scenario_s3_backups(sc: Scenario) -> None:
 
         # -- What the bucket holds is encrypted: names and bodies ---------------------------
         objects = sc.run(
-            f"docker exec {S3_NAME} sh -c 'find /data/{S3_BUCKET} -type f | sort'",
+            f"docker exec {S3_NAME} sh -c 'find {S3_DATA}/{S3_BUCKET} -type f | sort'",
             timeout=30,
             label="every object in the bucket, as MinIO stores it",
         ).stdout
@@ -1252,7 +1421,7 @@ def scenario_database_instances(sc: Scenario) -> None:
     PostgreSQL 16 is made from the official image pinned by digest, published on loopback only and
     held to its memory limit; a database in it takes data, is dumped and restored as a new one,
     survives a stop and a start and an upgrade of its image, and moves to PostgreSQL 17 with its
-    data (the old instance stays until it is removed). Removing an instance takes its container,
+    data (the old instance is stopped, and stays until it is removed). Removing an instance takes its container,
     its volume and its unit with it.
     """
     run.require_cli(sc, "db instance", what="managed database instances (C-01)")
@@ -1328,7 +1497,8 @@ def scenario_database_instances(sc: Scenario) -> None:
             f"the instance's password is in a file others can read, or nowhere: {secret_files!r}",
         )
         in_argv = sc.run(
-            "ps -eo args | grep -c 'POSTGRES_PASSWORD=' || true",
+            # The bracket keeps the search from finding its own command line.
+            "ps -eo args | grep -c '[P]OSTGRES_PASSWORD=' || true",
             timeout=15,
             check=False,
             label="the password is in no process's arguments",
@@ -1448,7 +1618,20 @@ def scenario_database_instances(sc: Scenario) -> None:
             "db instance migrations",
         )
         sc.check(bool(moves), f"the move is not on record: {moves!r}")
-        old = orders(sc, DBI_ENGINE, DBI_DATABASE, "the old instance is left as it was")
+        # The instance a move leaves is stopped, not removed, and starts again with its data.
+        stopped = db_query(
+            sc,
+            DBI_DATABASE,
+            "SELECT 1",
+            engine=DBI_ENGINE,
+            check=False,
+            label="a query on the instance the move left",
+        )
+        sc.check(stopped.returncode != 0, "the instance a move leaves is still running")
+        sc.run(
+            f"noust db instance start {DBI_NAME}", timeout=180, label="noust db instance start pg16"
+        )
+        old = orders(sc, DBI_ENGINE, DBI_DATABASE, "the old instance, started again")
         sc.check("10" in old, "the instance a move leaves was changed or removed by the move")
     except AssertionError:
         journal_tail(sc, "-u 'noust-db-*' -u docker", "journalctl (on failure)")
@@ -1477,7 +1660,7 @@ def scenario_database_instances(sc: Scenario) -> None:
 # ---------------------------------------------------------------------------------------------
 
 PREVB_DOMAIN = "prevb.test"
-PREVB_REPO = "prevb-app"
+PREVB_REPO = "acme/prevb-app"
 PREVB_BASE = "pvw.test"
 PREVB_PREVIEW = f"x1-prevb-test.{PREVB_BASE}"
 PREVB_FIXTURES = "/root/fixtures/previews"
@@ -1524,7 +1707,7 @@ def scenario_preview_by_hand(sc: Scenario) -> None:
         sc,
         repo,
         f"cp {PREVB_FIXTURES}/server.js {PREVB_FIXTURES}/noust.yaml {PREVB_FIXTURES}/preview-hook.js .",
-        "a server that tells what it is given, and the hooks of a preview's life",
+        "a server that tells what it is given, and the hooks of a preview life",
     )
     sc.run(
         f"cd {repo} && git checkout -q -b feature-x && echo 2 > VERSION && git add -A && "
@@ -1533,6 +1716,7 @@ def scenario_preview_by_hand(sc: Scenario) -> None:
         label="(fixture repo) a branch feature-x at version 2",
     )
     preview_db = ""
+    app_db = ""
     try:
         sc.run(
             f"noust create -d {PREVB_DOMAIN} -s {url} -t nodejs --no-ssl --layout releases",
@@ -1567,6 +1751,9 @@ def scenario_preview_by_hand(sc: Scenario) -> None:
             timeout=120,
             label="noust env set SECRET_KEY NEXT_PUBLIC_X",
         )
+        # The variables are read when the process starts: it has to be started again to have them.
+        sc.run(f"noust restart {PREVB_DOMAIN}", timeout=120, label=f"noust restart {PREVB_DOMAIN}")
+        wait_served(sc, PREVB_DOMAIN, "ok 1")
         sc.run(
             f"noust preview enable {PREVB_DOMAIN} --domain {PREVB_BASE} --max 2 --ttl 1h "
             "--data clone --env-mode allowlist --allow-env NEXT_PUBLIC_X "
@@ -1581,7 +1768,8 @@ def scenario_preview_by_hand(sc: Scenario) -> None:
         )
 
         created = sc.run(
-            f"noust preview create {PREVB_DOMAIN} --branch feature-x",
+            # -v: a hook's lines are the build's detail, which the terminal shows on request.
+            f"noust -v preview create {PREVB_DOMAIN} --branch feature-x",
             timeout=DEPLOY_TIMEOUT * 2,
             label=f"noust preview create {PREVB_DOMAIN} --branch feature-x",
         )
@@ -1674,7 +1862,7 @@ def scenario_preview_by_hand(sc: Scenario) -> None:
 
         # -- Removing it ------------------------------------------------------------------------------
         removed = sc.run(
-            f"noust preview remove {PREVB_PREVIEW}",
+            f"noust -v preview remove {PREVB_PREVIEW}",
             timeout=300,
             label=f"noust preview remove {PREVB_PREVIEW}",
         )
@@ -1710,6 +1898,16 @@ def scenario_preview_by_hand(sc: Scenario) -> None:
             check=False,
             label="cleanup",
         )
+        # Deleting an application keeps its databases (they may hold someone's data): this
+        # scenario made them, and a second run must not find the first one's rows.
+        for name in (preview_db, app_db):
+            if name:
+                sc.run(
+                    f"noust db drop {name} --engine mysql --force",
+                    timeout=120,
+                    check=False,
+                    label=f"cleanup: drop {name}",
+                )
 
 
 PREVC_DOMAIN = "prevc.test"
@@ -1730,7 +1928,7 @@ def scenario_preview_compose(sc: Scenario) -> None:
     run.require_cli(sc, "preview create", what="previews of a Compose stack")
     run.require_docker(sc)
     run.pull_images(sc, run.COMPOSE_BASE_IMAGE)
-    repo, url = run.make_compose_repo(sc, "prevc-stack", "web", port=PREVC_PORT)
+    repo, url = run.make_compose_repo(sc, "acme/prevc-stack", "web", port=PREVC_PORT)
     sc.run(
         f"cd {repo} && git checkout -q -b feature-c && printf 'v2\\n' > VERSION && git add -A && "
         "git commit -q -m 'the feature' && git checkout -q main",
@@ -1919,3 +2117,666 @@ def scenario_relay_killed(sc: Scenario) -> None:
     finally:
         sc.run(f"systemctl kill --signal=KILL {RELAYK_UNIT}; true", timeout=30, check=False)
         run.compose_clean(sc, RELAYK_DOMAIN)
+
+
+# ---------------------------------------------------------------------------------------------
+# Teams, projects and environments: what a bound token sees
+# ---------------------------------------------------------------------------------------------
+
+TEAM_ACME = "acme"
+TEAM_GLOBEX = "globex"
+TEAM_APP_A = "acme-shop.test"
+TEAM_APP_B = "globex-blog.test"
+TEAM_DB_A = "acmeshop"
+TEAM_DB_B = "globexblog"
+
+
+def domains_listed(payload: Any) -> list[str]:
+    """The domains of a listing (``{"apps": [...]}`` from the API, ``{"items": [...]}`` from the CLI)."""
+    items = payload.get("apps", payload.get("items", [])) if isinstance(payload, dict) else payload
+    return sorted(str(item["domain"]) for item in items)
+
+
+def token_from(sc: Scenario, command: str, label: str) -> str:
+    """
+    Run a command that prints ``Token: <token>`` once, and return the token.
+
+    Not through :meth:`Scenario.run`, which would keep the output as evidence.
+
+    Args:
+        sc: The scenario.
+        command: The command.
+        label: What the evidence calls it.
+
+    Returns:
+        The token.
+    """
+    proc = run.docker_exec(sc.container, command, timeout=60)
+    sc.evidence.append(f"$ {label}\n(output withheld: it holds the token)")
+    found = re.search(r"Token:\s*(\S+)", proc.stdout)
+    sc.check(found is not None, f"{label} printed no token")
+    return found.group(1) if found else ""
+
+
+@scenario("teams_projects_and_bound_tokens")
+def scenario_teams(sc: Scenario) -> None:
+    """
+    Two teams share a server: what each sees is decided in the data layer, not in the routes.
+
+    Acme has a project ``web`` with a ``staging`` environment, and Globex has its default one; each
+    has an application and a database. A token bound to Acme's ``web`` project (owned by an Acme
+    administrator) lists Acme's application and nothing of Globex's, reads Globex's application as
+    the same 404 an application that does not exist gets (for a read, a restart and a database
+    list alike), and reaches nothing of the machine. Moving an application takes its database
+    with it and the token loses sight of both at once; a team that holds something is not deleted.
+    """
+    run.require_cli(sc, "team", what="teams (I-34)")
+    run.require_cli(sc, "project", what="projects")
+    password = run.secrets.token_urlsafe(18)
+    # A token's name is never reused, not even after it is revoked, so a second run needs its own.
+    token_name = f"acme-web-ci-{run.secrets.token_hex(3)}"
+    created = False
+    try:
+        sc.run(
+            f'noust team create "Acme Corp" --slug {TEAM_ACME}; '
+            f"noust team create Globex --slug {TEAM_GLOBEX}",
+            timeout=60,
+            label="noust team create (acme, globex)",
+        )
+        created = True
+        sc.run(
+            f"noust project create Web --team {TEAM_ACME} --slug web && "
+            f"noust environment create Staging --team {TEAM_ACME} --project web --slug staging",
+            timeout=60,
+            label="noust project create web; noust environment create staging",
+        )
+        environments = sc.run(
+            f"noust environment list --team {TEAM_ACME} --project web --json",
+            timeout=30,
+            label="the environments of acme/web",
+        )
+        sc.check(
+            "staging" in environments.stdout and "production" in environments.stdout,
+            f"a project has its production and the staging made: {environments.stdout!r}",
+        )
+
+        # -- An application and a database each, placed where they belong ----------------------
+        for domain, place in (
+            (TEAM_APP_A, f"--team {TEAM_ACME} --project web --environment staging"),
+            (TEAM_APP_B, f"--team {TEAM_GLOBEX}"),
+        ):
+            create = (
+                f"noust create -d {domain} -s /root/fixtures/static-site -t static --no-ssl {place}"
+            )
+            sc.run(create, timeout=DEPLOY_TIMEOUT, label=create)
+            wait_served(sc, domain, "Noust Integration Static Fixture")
+        for database, domain in ((TEAM_DB_A, TEAM_APP_A), (TEAM_DB_B, TEAM_APP_B)):
+            sc.run(
+                f"noust db create {database} --engine mysql --app {domain}",
+                timeout=120,
+                label=f"noust db create {database} --engine mysql --app {domain}",
+            )
+        listed = json_of(
+            sc.run(
+                f"noust list --team {TEAM_ACME} --project web --env staging --json",
+                timeout=30,
+                label="noust list --team acme --project web --env staging --json",
+            ),
+            "list",
+        )
+        sc.check(
+            domains_listed(listed) == [TEAM_APP_A],
+            f"the list of acme/web/staging: {domains_listed(listed)}",
+        )
+        both = json_of(sc.run("noust list --json", timeout=30, label="noust list --json"), "list")
+        sc.check(
+            {TEAM_APP_A, TEAM_APP_B} <= set(domains_listed(both)),
+            "the instance's own CLI does not list every team's applications",
+        )
+
+        # -- An Acme administrator, and a token bound to its web project -----------------------
+        sc.run(
+            f"printf '%s' '{password}' | noust user create maria --role viewer --team {TEAM_ACME} "
+            "--team-role admin --stdin",
+            timeout=60,
+            label="noust user create maria --role viewer --team acme --team-role admin --stdin",
+        )
+        token = token_from(
+            sc,
+            f"noust token create {token_name} --scope admin --owner maria --team {TEAM_ACME} "
+            "--project web",
+            f"noust token create {token_name} --scope admin --owner maria --team acme --project web",
+        )
+        run.wait_for_console(sc)
+
+        def call(method: str, path: str, label: str) -> tuple[int, Any]:
+            return run.api_secret(sc, method, path, f"{label}: {method} {path}", bearer=token)
+
+        code, apps = call("GET", "/api/apps", "the bound token")
+        sc.check(
+            code == 200 and domains_listed(apps) == [TEAM_APP_A],
+            f"the token lists {apps!r}, not just {TEAM_APP_A}",
+        )
+        code, own = call("GET", f"/api/apps/{TEAM_APP_A}", "its own application")
+        sc.check(code == 200, f"the token cannot read its own application: {code} {own!r}")
+        code, other = call("GET", f"/api/apps/{TEAM_APP_B}", "another team's application")
+        _, absent = call(
+            "GET", "/api/apps/never-existed.test", "an application that does not exist"
+        )
+        sc.check(code == 404, f"another team's application is not absent: {code} {other!r}")
+        sc.check(
+            str(other).replace(TEAM_APP_B, "X") == str(absent).replace("never-existed.test", "X"),
+            f"another team's application reads differently from one that does not exist: "
+            f"{other!r} vs {absent!r}",
+        )
+        code, _ = call("POST", f"/api/apps/{TEAM_APP_B}/restart", "a restart of another team's")
+        sc.check(code == 404, f"a restart of another team's application answered {code}, not 404")
+        code, dbs = call("GET", "/api/databases/databases", "the databases it sees")
+        names = sorted(
+            str(item.get("name", item.get("database", "")))
+            for item in (
+                dbs.get("items", dbs.get("databases", [])) if isinstance(dbs, dict) else []
+            )
+        )
+        sc.check(
+            code == 200
+            and any(TEAM_DB_A in name for name in names)
+            and not any(TEAM_DB_B in name for name in names),
+            f"the databases the token sees: {names!r}",
+        )
+        code, _ = call("GET", f"/api/teams/{TEAM_GLOBEX}", "another team")
+        sc.check(code == 404, f"another team is not absent: {code}")
+        code, _ = call("POST", "/api/server/updates/refresh", "something of the machine")
+        sc.check(code in (403, 404), f"a team token reached the machine: {code}")
+
+        # -- Moving an application takes its database with it ------------------------------------
+        sc.run(
+            f"noust app move {TEAM_APP_A} --team {TEAM_GLOBEX}",
+            timeout=60,
+            label=f"noust app move {TEAM_APP_A} --team {TEAM_GLOBEX}",
+        )
+        code, apps = call("GET", "/api/apps", "after the move")
+        sc.check(
+            code == 200 and domains_listed(apps) == [],
+            f"the token still sees what moved out of its project: {apps!r}",
+        )
+        code, _ = call("GET", f"/api/apps/{TEAM_APP_A}", "the moved application")
+        sc.check(code == 404, f"the moved application is not absent to the token: {code}")
+        moved = json_of(
+            sc.run(
+                f"noust db list --team {TEAM_GLOBEX} --json",
+                timeout=30,
+                label="noust db list --team globex --json",
+            ),
+            "db list",
+        )
+        sc.check(TEAM_DB_A in json.dumps(moved), "the database did not move with its application")
+        wait_served(sc, TEAM_APP_A, "Noust Integration Static Fixture")
+        sc.run(
+            f"noust app move {TEAM_APP_A} --team {TEAM_ACME} --project web --env staging",
+            timeout=60,
+            label="noust app move (back)",
+        )
+        code, apps = call("GET", "/api/apps", "after moving back")
+        sc.check(domains_listed(apps) == [TEAM_APP_A], f"after moving back: {apps!r}")
+
+        # -- A team that holds something is not deleted -------------------------------------------
+        refused = sc.run(
+            f"noust team delete {TEAM_ACME} --yes",
+            timeout=30,
+            check=False,
+            label="noust team delete acme (it holds an application)",
+        )
+        sc.check(refused.returncode != 0, "a team that holds an application was deleted")
+        still = sc.run("noust team list", timeout=30, label="noust team list").stdout
+        sc.check(TEAM_ACME in still, "the refused delete removed the team all the same")
+    except AssertionError:
+        journal_tail(sc, "-u 'noust*'", "journalctl (on failure)")
+        raise
+    finally:
+        for domain in (TEAM_APP_A, TEAM_APP_B):
+            sc.run(f"noust delete {domain} -f", timeout=180, check=False, label="cleanup")
+        sc.run(
+            f"noust db drop {TEAM_DB_A} --engine mysql --force; "
+            f"noust db drop {TEAM_DB_B} --engine mysql --force; "
+            "noust token revoke $(noust token list --json | python3 -c "
+            "\"import json,sys; print(next((t['id'] for t in json.load(sys.stdin).get('tokens', []) "
+            f"if t.get('name') == '{token_name}'), 0))\") -f; "
+            "noust user remove maria -f; noust web stop",
+            timeout=180,
+            check=False,
+            label="cleanup: databases, token, account, console",
+        )
+        if created:
+            sc.run(
+                f"noust team delete {TEAM_ACME} --yes; noust team delete {TEAM_GLOBEX} --yes",
+                timeout=60,
+                check=False,
+                label="cleanup: teams",
+            )
+
+
+# ---------------------------------------------------------------------------------------------
+# How long a build may take
+# ---------------------------------------------------------------------------------------------
+
+LIMIT_DOMAIN = "limit.test"
+LIMIT_APP = "limit-test"
+LIMIT_REPO = "limit-app"
+
+
+def stray_processes(sc: Scenario, pattern: str, label: str) -> list[str]:
+    """The processes whose command line contains ``pattern`` (the search itself left out)."""
+    proc = sc.run(
+        f"pgrep -af -- '{pattern}' | grep -v pgrep || true",
+        timeout=15,
+        check=False,
+        label=label,
+    )
+    return [line for line in proc.stdout.splitlines() if line.strip()]
+
+
+@scenario("build_time_limit_per_app_and_per_server")
+def scenario_build_time_limit(sc: Scenario) -> None:
+    """
+    A build that outlasts its limit is stopped, says so, and leaves what served untouched.
+
+    The application's own limit (``noust app build set --timeout``) stops a build of 100 seconds
+    at 60: the update fails, names the limit and the two commands that give it more, no process of
+    the build is left, and the release that served still does. With room (120 seconds) the same
+    build of 3 seconds goes through. The server's default (``deploy.build_timeout``) holds for an
+    application that sets no limit of its own, and is read again without a restart.
+    """
+    run.require_cli(sc, "app build", what="build settings (A-49)")
+    repo, url = make_node_repo(sc, LIMIT_REPO)
+    create = f"noust create -d {LIMIT_DOMAIN} -s {url} -t nodejs --no-ssl --layout releases"
+    try:
+        sc.run(create, timeout=DEPLOY_TIMEOUT, label=create)
+        wait_served(sc, LIMIT_DOMAIN, "ok 1")
+        serving = active_release_of(sc, LIMIT_DOMAIN)
+
+        # -- The application's own limit stops a slow build ----------------------------------
+        sc.run(
+            f"noust app build set {LIMIT_DOMAIN} --timeout 60 --build 'sleep 100'",
+            timeout=60,
+            label=f"noust app build set {LIMIT_DOMAIN} --timeout 60 --build 'sleep 100'",
+        )
+        commit_to(sc, repo, "echo 2 > VERSION", "version 2")
+        started = time.monotonic()
+        slow = sc.run(
+            f"noust update {LIMIT_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            check=False,
+            label="noust update (the build takes 100 seconds, it may take 60)",
+        )
+        took = time.monotonic() - started
+        said = slow.stdout + slow.stderr
+        sc.check(slow.returncode != 0, "an update whose build ran out of time reported success")
+        sc.check(
+            "did not finish within 60s" in said,
+            f"the failure does not say the limit it ran out of: {said[-500:]!r}",
+        )
+        sc.check(
+            f"noust app build set {LIMIT_DOMAIN} --timeout 120" in said
+            and "deploy.build_timeout 120" in said,
+            "the failure does not name the two commands that give the build more time",
+        )
+        sc.check(
+            55 <= took <= 100, f"the build was stopped after {took:.0f}s, not at its 60s limit"
+        )
+        sc.check(
+            not stray_processes(sc, "sleep 100", "a process of the stopped build"),
+            "the stopped build left its process running",
+        )
+        sc.check(
+            active_release_of(sc, LIMIT_DOMAIN) == serving,
+            "current moved to a release whose build never finished",
+        )
+        wait_served(sc, LIMIT_DOMAIN, "ok 1")
+
+        # -- With room, the same kind of build goes through ----------------------------------
+        sc.run(
+            f"noust app build set {LIMIT_DOMAIN} --timeout 120 --build 'sleep 3'",
+            timeout=60,
+            label=f"noust app build set {LIMIT_DOMAIN} --timeout 120 --build 'sleep 3'",
+        )
+        sc.run(
+            f"noust update {LIMIT_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            label="noust update (3 seconds, 120 allowed)",
+        )
+        wait_served(sc, LIMIT_DOMAIN, "ok 2")
+        shown = json_of(
+            sc.run(
+                f"noust app build show {LIMIT_DOMAIN} --json",
+                timeout=30,
+                label="noust app build show --json",
+            ),
+            "app build show",
+        )
+        sc.evidence.append(f"(build block) {json.dumps(shown)[:400]}")
+
+        # -- The server's default holds for an application that sets none ----------------------
+        sc.run(
+            f"noust app build unset {LIMIT_DOMAIN} timeout",
+            timeout=60,
+            label="noust app build unset ... timeout",
+        )
+        sc.run(
+            f"noust app build set {LIMIT_DOMAIN} --build 'sleep 100'",
+            timeout=60,
+            label="noust app build set --build 'sleep 100' (no limit of its own)",
+        )
+        sc.run(
+            "noust config set deploy.build_timeout 60",
+            timeout=30,
+            label="noust config set deploy.build_timeout 60",
+        )
+        commit_to(sc, repo, "echo 3 > VERSION", "version 3")
+        refused = sc.run(
+            f"noust update {LIMIT_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            check=False,
+            label="noust update (the server's limit is 60 seconds)",
+        )
+        sc.check(
+            refused.returncode != 0
+            and "did not finish within 60s" in refused.stdout + refused.stderr,
+            f"the server's default did not stop the build: exit {refused.returncode}",
+        )
+        wait_served(sc, LIMIT_DOMAIN, "ok 2")
+    except AssertionError:
+        journal_tail(sc, f"-u '{LIMIT_APP}*' -u 'noust*'", "journalctl (on failure)")
+        raise
+    finally:
+        sc.run(
+            f"noust config set deploy.build_timeout 2700; noust delete {LIMIT_DOMAIN} -f",
+            timeout=180,
+            check=False,
+            label="cleanup",
+        )
+
+
+# ---------------------------------------------------------------------------------------------
+# A native build pack added in 3.4: Deno
+# ---------------------------------------------------------------------------------------------
+
+DENO_DOMAIN = "deno.test"
+DENO_APP = "deno-test"
+DENO_REPO = "deno-repo"
+DENO_FIXTURES = "/root/fixtures/deno-app"
+
+
+@scenario("deno_native_build_pack")
+def scenario_deno(sc: Scenario) -> None:
+    """
+    A repository with a ``deno.json`` is deployed natively: detected, built in the sandbox, and
+    kept behind the health gate.
+
+    The server's Deno (installed system-wide, as the docs say) runs the program the ``start`` task
+    names. The type is detected without being asked, the module cache lives in the release, an
+    update serves the new version, a version that cannot start is refused with the previous one
+    still serving, and going back brings the first version.
+    """
+    # Deno 2 is the operator's to install, system-wide: Noust installs runtimes on request and not
+    # this one. The package is what the build pack's own message recommends.
+    installed = sc.run(
+        "command -v deno >/dev/null 2>&1 || npm install -g deno >/tmp/it-deno-install.log 2>&1; "
+        "deno --version",
+        timeout=600,
+        check=False,
+        label="npm install -g deno (as the build pack's message recommends), then deno --version",
+    )
+    if installed.returncode != 0 or "deno 2." not in installed.stdout:
+        raise run.ScenarioSkipped(
+            "Deno 2 could not be installed in the harness container (no network?): "
+            f"{(installed.stdout + installed.stderr).strip()[:200]!r}"
+        )
+    repo, url = make_node_repo(sc, DENO_REPO)
+    commit_to(
+        sc,
+        repo,
+        f"git rm -q -rf . && cp {DENO_FIXTURES}/deno.json {DENO_FIXTURES}/main.ts . && echo 1 > VERSION",
+        "a Deno program",
+    )
+    try:
+        create = f"noust create -d {DENO_DOMAIN} -s {url} --no-ssl --layout releases"
+        sc.run(create, timeout=DEPLOY_TIMEOUT, label=create + "  (the type is detected)")
+        wait_served(sc, DENO_DOMAIN, "deno ok 1")
+        status = sc.run(
+            f"noust status {DENO_DOMAIN} --json", timeout=30, label=f"noust status {DENO_DOMAIN}"
+        )
+        sc.check('"deno"' in status.stdout, f"the application is not a deno one: {status.stdout!r}")
+        cache = sc.run(
+            f"ls -d /var/www/apps/{DENO_APP}/current/.deno 2>&1 | head -1",
+            timeout=15,
+            check=False,
+            label="the module cache is in the release",
+        ).stdout
+        sc.check(".deno" in cache and "No such" not in cache, f"the module cache: {cache!r}")
+        owner = sc.run(
+            f"stat -c %U /var/www/apps/{DENO_APP}/current/main.ts",
+            timeout=15,
+            label="the release belongs to the service account",
+        ).stdout.strip()
+        sc.check(owner == f"noust-app-{DENO_APP}", f"the release is {owner}'s")
+        first = active_release_of(sc, DENO_DOMAIN)
+
+        # -- An update --------------------------------------------------------------------------
+        commit_to(sc, repo, "echo 2 > VERSION", "version 2")
+        sc.run(f"noust update {DENO_DOMAIN}", timeout=DEPLOY_TIMEOUT, label="noust update")
+        wait_served(sc, DENO_DOMAIN, "deno ok 2")
+        second = active_release_of(sc, DENO_DOMAIN)
+        sc.check(second != first, "current did not move to the new release")
+
+        # -- A version that cannot start is refused, the previous one keeps serving ---------------
+        commit_to(sc, repo, "echo broken > VERSION", "a version that cannot start")
+        failed = sc.run(
+            f"noust update {DENO_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            check=False,
+            label="noust update (the program throws at start)",
+        )
+        sc.check(failed.returncode != 0, "an update of a program that cannot start succeeded")
+        sc.check(
+            active_release_of(sc, DENO_DOMAIN) == second, "current moved to a release that is down"
+        )
+        wait_served(sc, DENO_DOMAIN, "deno ok 2")
+
+        # -- Going back ----------------------------------------------------------------------------
+        sc.run(
+            f"noust releases rollback {DENO_DOMAIN} {first.split('/')[-1]}",
+            timeout=DEPLOY_TIMEOUT,
+            label="noust releases rollback (the first version)",
+        )
+        wait_served(sc, DENO_DOMAIN, "deno ok 1")
+    except AssertionError:
+        journal_tail(sc, f"-u '{DENO_APP}*' -u 'noust*'", "journalctl (on failure)")
+        raise
+    finally:
+        sc.run(f"noust delete {DENO_DOMAIN} -f", timeout=180, check=False, label="cleanup")
+
+
+# ---------------------------------------------------------------------------------------------
+# Bringing a server back from its bundle
+# ---------------------------------------------------------------------------------------------
+
+DR_DOMAIN = "dr.test"
+DR_APP = "dr-test"
+DR_REPO = "dr-app"
+DR_PASSPHRASE_FILE = "/root/dr-passphrase"
+
+
+@scenario("disaster_recovery_restore_server")
+def scenario_restore_server(sc: Scenario) -> None:
+    """
+    A server that lost its applications is brought back from Noust's own bundle and their backups.
+
+    An application on releases keeps an upload in ``shared/`` and a row in its database. Its
+    backup (with the database), its data backup and a bundle of Noust's own state are taken, then
+    the application and its database are deleted. ``restore-server --plan`` names what it would
+    bring back; the restore puts the state back, restores the application from its newest backup,
+    the data over it, the database rows, and starts it behind the health gate. The page, the
+    upload and the row are the ones that were lost.
+    """
+    run.require_cli(sc, "restore-server", what="restoring a whole server (H-)")
+    run.require_cli(sc, "self-backup", what="Noust's own bundle")
+    repo, url = make_node_repo(sc, DR_REPO)
+    passphrase = run.secrets.token_urlsafe(24)
+    app_db = ""
+    try:
+        create = (
+            f"noust create -d {DR_DOMAIN} -s {url} -t nodejs --no-ssl --layout releases "
+            "--persist uploads"
+        )
+        sc.run(create, timeout=DEPLOY_TIMEOUT, label=create)
+        wait_served(sc, DR_DOMAIN, "ok 1")
+        sc.run(
+            f"noust db provision {DR_DOMAIN} --engine mysql",
+            timeout=300,
+            label=f"noust db provision {DR_DOMAIN} --engine mysql",
+        )
+        app_db = database_of(sc, DR_DOMAIN)
+        db_query(
+            sc,
+            app_db,
+            "CREATE TABLE precious (id int PRIMARY KEY, note varchar(40))",
+            engine="mysql",
+            write=True,
+            label="CREATE TABLE precious",
+        )
+        db_query(
+            sc,
+            app_db,
+            "INSERT INTO precious VALUES (1, 'a row nobody else has')",
+            engine="mysql",
+            write=True,
+            label="INSERT the row that must come back",
+        )
+        sc.run(
+            f"curl -sS -X POST -H 'Host: {DR_DOMAIN}' --data 'a file nobody else has' "
+            "http://127.0.0.1/upload",
+            timeout=30,
+            label="POST /upload (a file in shared/uploads)",
+        )
+
+        # -- What the replacement server will be given -----------------------------------------
+        backup = sc.run(
+            f"noust backup create {DR_DOMAIN} --include-databases -m 'before the disaster'",
+            timeout=300,
+            label=f"noust backup create {DR_DOMAIN} --include-databases",
+        )
+        found = re.search(rf"({DR_APP}_\d{{8}}_\d{{6}})", backup.stdout + backup.stderr)
+        sc.check(found is not None, "noust backup create did not name the backup it took")
+        sc.run(
+            f"noust backup volumes create {DR_DOMAIN}",
+            timeout=300,
+            label=f"noust backup volumes create {DR_DOMAIN} (the uploads)",
+        )
+        sc.run(
+            f"printf '%s' '{passphrase}' > {DR_PASSPHRASE_FILE} && chmod 600 {DR_PASSPHRASE_FILE}",
+            timeout=15,
+            label="(the passphrase, in a file only root reads)",
+        )
+        bundle = json_of(
+            sc.run(
+                f"noust self-backup create --passphrase-file {DR_PASSPHRASE_FILE} --json",
+                timeout=300,
+                label="noust self-backup create --passphrase-file ... --json",
+            ),
+            "self-backup create",
+        )
+        bundle_path = str(bundle["path"])
+        sc.run(
+            f"noust self-backup verify {bundle_path} --passphrase-file {DR_PASSPHRASE_FILE}",
+            timeout=300,
+            label="noust self-backup verify (the bundle opens and its store migrates)",
+        )
+
+        # -- The disaster: the application and its database are gone -----------------------------
+        sc.run(f"noust delete {DR_DOMAIN} -f", timeout=180, label=f"noust delete {DR_DOMAIN}")
+        sc.run(
+            f"noust db drop {app_db} --engine mysql --force",
+            timeout=120,
+            label=f"noust db drop {app_db}",
+        )
+        listed = sc.run("noust list --json", timeout=30, label="what is left").stdout
+        sc.check(DR_DOMAIN not in listed, "the application is still listed after its deletion")
+        sc.check(
+            curl_host(sc, DR_DOMAIN).strip() != "ok 1",
+            "the application still answers after its deletion",
+        )
+
+        # -- What the restore would do, then what it does -----------------------------------------
+        plan = json_of(
+            sc.run(
+                f"noust restore-server --from {bundle_path} --passphrase-file "
+                f"{DR_PASSPHRASE_FILE} --plan --json",
+                timeout=300,
+                label="noust restore-server --plan --json",
+            ),
+            "restore-server --plan",
+        )
+        sc.check(
+            DR_DOMAIN in json.dumps(plan.get("apps", [])),
+            f"the plan does not name the application: {json.dumps(plan)[:400]}",
+        )
+        report = json_of(
+            sc.run(
+                f"noust restore-server --from {bundle_path} --passphrase-file "
+                f"{DR_PASSPHRASE_FILE} --force --yes --json",
+                timeout=900,
+                check=False,
+                label="noust restore-server --force --yes --json",
+            ),
+            "restore-server",
+        )
+        sc.evidence.append(f"(report) {json.dumps(report)[:1500]}")
+        outcomes = {item["domain"]: item for item in report["apps"]}
+        sc.check(
+            report.get("ok") is True and outcomes.get(DR_DOMAIN, {}).get("status") == "restored",
+            f"the server is not back: {json.dumps(report.get('apps'))[:600]}",
+        )
+
+        # -- It is what was lost ----------------------------------------------------------------------
+        wait_served(sc, DR_DOMAIN, "ok 1")
+        upload = sc.run(
+            f"cat /var/www/apps/{DR_APP}/shared/uploads/upload.txt",
+            timeout=30,
+            check=False,
+            label="the upload that was in shared/uploads",
+        ).stdout
+        sc.check(
+            "a file nobody else has" in upload, f"the data backup did not bring it: {upload!r}"
+        )
+        restored_db = database_of(sc, DR_DOMAIN)
+        rows = db_query(
+            sc,
+            restored_db,
+            "SELECT note FROM precious",
+            engine="mysql",
+            check=False,
+            label="the row that was in the database",
+        )
+        sc.check(
+            "a row nobody else has" in rows.stdout,
+            f"the database did not come back with its row: {rows.stdout!r} {rows.stderr!r}",
+        )
+        listed = sc.run("noust list --json", timeout=30, label="what is listed now").stdout
+        sc.check(DR_DOMAIN in listed, "the restored application is not listed")
+        app_db = restored_db
+    except AssertionError:
+        journal_tail(sc, f"-u '{DR_APP}*' -u 'noust*'", "journalctl (on failure)")
+        raise
+    finally:
+        sc.run(f"noust delete {DR_DOMAIN} -f", timeout=180, check=False, label="cleanup")
+        if app_db:
+            sc.run(
+                f"noust db drop {app_db} --engine mysql --force",
+                timeout=120,
+                check=False,
+                label=f"cleanup: drop {app_db}",
+            )
+        sc.run(
+            f"rm -f {DR_PASSPHRASE_FILE}", timeout=15, check=False, label="cleanup: the passphrase"
+        )

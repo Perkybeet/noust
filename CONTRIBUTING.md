@@ -438,6 +438,22 @@ python scripts/release.py --check         # version consistency
 python scripts/security_model.py --write  # regenerate docs/SECURITY-MODEL.md after changing a role, a header, a route or a guarantee
 ```
 
+The integration harness deploys for real (nginx, systemd, Docker, a database) inside one privileged
+container, and is not part of pytest. On a machine whose Docker is shared, name what a run makes so
+it can be found and removed by that name and by the label `noust.test=1` (never a prune):
+
+```bash
+export NOUST_IT_PREFIX=noust-test-me NOUST_IT_IMAGE=noust-test-me-image:latest \
+       NOUST_IT_DOCKER_VOLUME=noust-test-me-docker NOUST_IT_MEMORY=10g
+python tests/integration/run.py                          # every scenario but the optional ones
+python tests/integration/run.py --scenario procfile --keep   # one (a substring); leave the container
+python tests/integration/run.py --reuse <container> --skip-image-build --scenario procfile
+                                                         # again, in the kept container, in seconds
+NOUST_IT_PROGGEST=~/src/proggest python tests/integration/run.py --scenario proggest   # slow
+python tests/integration/run.py --upgrade-from-3.3       # 3.3.1 with every legacy name -> this tree
+python tests/integration/run.py --install-matrix         # the installer on each release (network)
+```
+
 The console needs Node 22 (the major in `panel/.nvmrc`); CI runs every one of these:
 
 ```bash
