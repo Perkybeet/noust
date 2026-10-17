@@ -284,13 +284,27 @@ def sqlite_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
     NoustStore.reset_instance()
 
 
-def deploy(store: NoustStore, *, app_type: str = "nodejs", units: tuple[str, ...] = ()) -> App:
-    """Register an application and the units it runs as."""
+def deploy(
+    store: NoustStore,
+    *,
+    app_type: str = "nodejs",
+    units: tuple[str, ...] = (),
+    ports: tuple[int, ...] = (),
+) -> App:
+    """Register an application and the units it runs as, each on the port given in order."""
     app = store.create_app(
         App(domain="shop.example.com", app_type=app_type, port=3100, app_path="/srv/shop")
     )
-    for name in units:
-        store.create_service(Service(app_id=app.id, name=name, command="x", working_directory="/"))
+    for position, name in enumerate(units):
+        store.create_service(
+            Service(
+                app_id=app.id,
+                name=name,
+                command="x",
+                working_directory="/",
+                port=ports[position] if position < len(ports) else None,
+            )
+        )
     return app
 
 
@@ -298,7 +312,7 @@ def test_every_unit_of_the_application_gets_the_limits_and_the_row_keeps_them(
     sqlite_store: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A monorepo's workspaces are limited alike; no restart unless asked."""
-    deploy(sqlite_store, app_type="monorepo", units=("shop-web", "shop-api"))
+    deploy(sqlite_store, app_type="monorepo", units=("shop-web", "shop-api"), ports=(3100, 3101))
     units = FakeUnits()
     monkeypatch.setattr(lifecycle, "ServiceManager", lambda **kw: units)
 
@@ -317,7 +331,10 @@ def test_every_unit_of_the_application_gets_the_limits_and_the_row_keeps_them(
     )
     lifecycle.set_resource_limits("shop.example.com", LIMITS, restart=True)
     assert sorted(units.restarts) == ["shop-api", "shop-web"]
-    assert probes == ["http://127.0.0.1:3100/"], "restarted means proven to answer"
+    # Every workspace is proven on its own port: one answering says nothing of the other.
+    assert sorted(probes) == ["http://127.0.0.1:3100/", "http://127.0.0.1:3101/"], (
+        "restarted means proven to answer"
+    )
 
 
 def test_limits_it_cannot_run_under_are_put_back(

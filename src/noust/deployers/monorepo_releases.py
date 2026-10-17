@@ -245,6 +245,7 @@ class MonorepoReleases:
             The paths copied.
         """
         deployer = self.deployer
+        fs = deployer.fs
         active = self.manager.current()
         if active is None or active.path == staged.path:
             return []
@@ -261,7 +262,7 @@ class MonorepoReleases:
                     f"{relative} is not in the new release, so its environment file is not carried"
                 )
                 continue
-            deployer.fs.write_bytes(target, source.read_bytes(), mode=SECRET_MODE)
+            fs.write_bytes(target, source.read_bytes(), mode=SECRET_MODE)
             copied.append(f"{relative}/{ENV_FILE_NAME}")
         if copied:
             deployer.logger.substep(f"Environment carried over: {', '.join(copied)}")
