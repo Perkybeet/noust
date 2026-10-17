@@ -84,7 +84,7 @@ CASES: tuple[Case, ...] = (
     Case("opensuse/leap:16.0", "supported", "16.0"),
     Case("opensuse/tumbleweed", "supported", "openSUSE_Tumbleweed"),
     Case("rockylinux:9", "pip", "-"),
-    Case("rockylinux:10", "pip", "-"),
+    Case("rockylinux/rockylinux:10", "pip", "-"),
     Case("almalinux:9", "pip", "-"),
     Case("almalinux:10", "pip", "-"),
     # The rest of the RHEL family: no package of ours, so the pip method, on each release.
@@ -175,7 +175,7 @@ def docker(*argv: str, timeout: int) -> subprocess.CompletedProcess[str]:
     return subprocess.run(["docker", *argv], capture_output=True, text=True, timeout=timeout)
 
 
-def run_case(case: Case, platform: str, *, verbose: bool) -> tuple[bool, list[str]]:
+def run_case(case: Case, platform: str, *, verbose: bool) -> tuple[bool | None, list[str]]:
     """
     Run the installer in one container and judge what it did.
 
@@ -185,7 +185,8 @@ def run_case(case: Case, platform: str, *, verbose: bool) -> tuple[bool, list[st
         verbose: Print the container's whole output.
 
     Returns:
-        Whether every expectation held, and a line per finding.
+        Whether every expectation held (None when the platform cannot run on this machine: it
+        is skipped, saying why, never passed), and a line per finding.
     """
     name = f"{CONTAINER_PREFIX}-install-{secrets.token_hex(4)}"
     script = (PIP_SCRIPT if case.status == "pip" else SCRIPT) if case.installs else REFUSAL_SCRIPT
@@ -213,6 +214,14 @@ def run_case(case: Case, platform: str, *, verbose: bool) -> tuple[bool, list[st
     out = proc.stdout + proc.stderr
     if verbose:
         print(out)
+    if "exec format error" in out:
+        # The image is for a processor this machine does not have, and its kernel has no
+        # emulator registered for it (binfmt_misc, qemu): nothing of the installer ran.
+        return None, [
+            f"{platform} cannot run on this machine ({os.uname().machine}): its kernel has no "
+            "binfmt_misc handler for it. Register qemu to run it (docker run --privileged "
+            "--rm tonistiigi/binfmt --install all); it changes the kernel's, so it is not done here."
+        ]
     findings: list[str] = []
     expectations = [
         (f"status={case.status}", f"detected status {case.status}"),
@@ -272,14 +281,21 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     failures = 0
+    skipped: list[str] = []
     for case in cases:
         for platform in [args.platform] if args.platform else case.platforms:
             print(f"=== {case.image} on {platform}", flush=True)
             ok, findings = run_case(case, platform, verbose=args.verbose)
             print("\n".join(findings))
+            if ok is None:
+                print(f"SKIP: {case.image} on {platform}\n", flush=True)
+                skipped.append(f"{case.image} on {platform}")
+                continue
             print(f"{'PASS' if ok else 'FAIL'}: {case.image} on {platform}\n", flush=True)
             failures += 0 if ok else 1
-    print(f"[summary] {failures} failure(s)")
+    for what in skipped:
+        print(f"[skipped] {what}")
+    print(f"[summary] {failures} failure(s), {len(skipped)} skipped")
     return 1 if failures else 0
 
 
