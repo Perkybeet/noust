@@ -30,7 +30,8 @@ export type Swap = ResponseOf<"/api/server/swap", "get">;
 export type ServerClock = ResponseOf<"/api/server/time", "get">;
 export type Identity = ResponseOf<"/api/server/identity", "get">;
 export type Processes = ResponseOf<"/api/server/processes", "get">;
-export type Journal = ResponseOf<"/api/server/logs", "get">;
+export type JournalSearch = ResponseOf<"/api/server/logs/search", "get">;
+export type JournalContext = ResponseOf<"/api/server/logs/context", "get">;
 export type JournalUnit = ResponseOf<"/api/server/logs/units", "get">[number];
 export type Boot = ResponseOf<"/api/server/logs/boots", "get">[number];
 export type SecurityOverview = ResponseOf<"/api/server/security", "get">;
@@ -53,14 +54,15 @@ export type UpdateScope = "security" | "all";
 /** What the server sorts the processes by; CPU and memory busiest first, PID and name in order. */
 export type ProcessSort = "cpu" | "memory" | "pid" | "name";
 
-export interface JournalFilters {
-  unit?: string | undefined;
-  priority?: string | undefined;
+/** What a journal search asks: the query, the range, and how much to examine and to show. */
+export interface JournalSearchFilters {
+  query: string;
   since?: string | undefined;
-  q?: string | undefined;
+  until?: string | undefined;
   boot?: number | undefined;
   kernel?: boolean | undefined;
-  lines?: number | undefined;
+  lines: number;
+  scan: number;
 }
 
 export const serverKeys = {
@@ -81,7 +83,8 @@ export const serverKeys = {
   timezones: ["server", "time", "zones"] as const,
   identity: ["server", "identity"] as const,
   processes: (sort: ProcessSort, byUnit: boolean, limit: number) => ["server", "processes", { sort, byUnit, limit }] as const,
-  journal: (filters: JournalFilters) => ["server", "logs", filters] as const,
+  journalSearch: (filters: JournalSearchFilters) => ["server", "logs", "search", filters] as const,
+  journalContext: (cursor: string, before: number, after: number, unit: string | null) => ["server", "logs", "context", { cursor, before, after, unit }] as const,
   journalUnits: ["server", "logs", "units"] as const,
   boots: ["server", "logs", "boots"] as const,
   security: ["server", "security"] as const,
@@ -221,22 +224,39 @@ export const processesQuery = (sort: ProcessSort, byUnit: boolean, limit: number
     placeholderData: keepPreviousData,
   });
 
-export const journalQuery = (filters: JournalFilters) =>
+/**
+ * The answer to a query over the journal. The previous answer stays while the next is read, so
+ * typing in the search box never blanks the viewer; a query the server cannot read answers 400
+ * with where, and the page shows it.
+ */
+export const journalSearchQuery = (filters: JournalSearchFilters) =>
   queryOptions({
-    queryKey: serverKeys.journal(filters),
+    queryKey: serverKeys.journalSearch(filters),
     queryFn: ({ signal }) =>
-      request("get", "/api/server/logs", {
+      request("get", "/api/server/logs/search", {
         query: {
-          lines: filters.lines ?? 300,
-          ...(filters.unit !== undefined ? { unit: filters.unit } : {}),
-          ...(filters.priority !== undefined ? { priority: filters.priority } : {}),
+          query: filters.query,
+          lines: filters.lines,
+          scan: filters.scan,
           ...(filters.since !== undefined ? { since: filters.since } : {}),
-          ...(filters.q !== undefined ? { q: filters.q } : {}),
+          ...(filters.until !== undefined ? { until: filters.until } : {}),
           ...(filters.boot !== undefined ? { boot: filters.boot } : {}),
           ...(filters.kernel === true ? { kernel: true } : {}),
         },
         signal,
       }),
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
+
+/** What was logged around one entry: before it, itself and after it, in order. */
+export const journalContextQuery = (cursor: string, before: number, after: number, unit: string | null) =>
+  queryOptions({
+    queryKey: serverKeys.journalContext(cursor, before, after, unit),
+    queryFn: ({ signal }) =>
+      request("get", "/api/server/logs/context", { query: { cursor, before, after, ...(unit !== null ? { unit } : {}) }, signal }),
+    staleTime: 60_000,
+    retry: false,
   });
 
 export const journalUnitsQuery = () =>

@@ -29,7 +29,7 @@ from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.core.exceptions import ValidationError
 from noust.deployers.domains import check_dns
 from noust.managers.dns.accounts import DnsAccounts
-from noust.managers.dns.catalog import KINDS
+from noust.managers.dns.catalog import KINDS, ProviderKind
 from noust.managers.dns.challenge import DnsChallenge, read_environment
 from noust.managers.dns.records import DnsRecordConflict, ManagedDns, server_addresses
 from noust.validators.domain import validate_domain
@@ -42,7 +42,7 @@ def cli() -> None:
 
 @cli.group("provider", cls=NoustGroup)
 def provider() -> None:
-    """The DNS accounts Noust holds: Cloudflare (records, tunnels, challenge) and certbot's plugins."""
+    """The DNS accounts Noust holds: Cloudflare, DigitalOcean, Hetzner, Gandi and Route 53 (records and the challenge, Cloudflare also tunnels), and certbot's plugins."""
 
 
 def _credentials(
@@ -144,6 +144,19 @@ def list_command(ctx: Context) -> None:
     )
 
 
+def _does(spec: ProviderKind) -> str:
+    """
+    Args:
+        spec: A provider kind.
+
+    Returns:
+        What an account of it can do, in a few words.
+    """
+    if not spec.native:
+        return "challenge (certbot plugin)"
+    return "records, challenge, tunnels" if spec.tunnels else "records, challenge"
+
+
 @provider.command("kinds", read_only=True)
 @json_option("Print the providers as JSON.")
 @pass_context
@@ -155,6 +168,8 @@ def kinds_command(ctx: Context) -> None:
                 {
                     k: {
                         "native": s.native,
+                        "tunnels": s.tunnels,
+                        "comments": s.comments,
                         "fields": [f.name for f in s.fields],
                         "package": s.package,
                     }
@@ -168,7 +183,7 @@ def kinds_command(ctx: Context) -> None:
         [
             [
                 spec.kind,
-                "records, tunnels, challenge" if spec.native else "challenge (certbot plugin)",
+                _does(spec),
                 ", ".join(f.name for f in spec.fields),
                 spec.help,
             ]
@@ -194,7 +209,7 @@ def kinds_command(ctx: Context) -> None:
 @click.option(
     "--automatic/--ask",
     default=False,
-    help="Create the records of a domain when it is added, without asking (Cloudflare).",
+    help="Create the records of a domain when it is added, without asking (providers Noust speaks to).",
 )
 @pass_context
 def add_command(
@@ -224,8 +239,7 @@ def add_command(
     ctx.logger.success(
         f"{name} works" + (" and creates records without asking" if account.automatic else "")
     )
-    if account.kind == "cloudflare":
-        ctx.logger.info("Use it for a certificate: noust cert use APP --acme --dns " + name)
+    ctx.logger.info("Use it for a certificate: noust cert use APP --acme --dns " + name)
 
 
 @provider.command("verify")

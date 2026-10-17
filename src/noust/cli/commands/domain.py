@@ -45,6 +45,7 @@ from noust.deployers.domains import (
     set_canonical,
     set_domain_port,
 )
+from noust.deployers.temporary_domain import is_temporary, suggest
 from noust.validators.domain import is_wildcard
 
 
@@ -60,7 +61,7 @@ def print_domains(logger: Logger, domains: list[DomainRecord]) -> None:
         ["Domain", "Kind", "Port", "Added"],
         [
             [
-                record.domain,
+                f"{record.domain} (temporary)" if is_temporary(record.domain) else record.domain,
                 record.kind,
                 str(record.port) if record.port else "-",
                 record.created_at or "-",
@@ -160,6 +161,7 @@ def list_command(ctx: Context, app_domain: str) -> None:
                             "kind": r.kind,
                             "port": r.port,
                             "created_at": r.created_at,
+                            "temporary": is_temporary(r.domain),
                         }
                         for r in domains
                     ],
@@ -251,6 +253,64 @@ def add_command(
     elif change.tls and no_cert:
         logger.info(f"Extend the certificate later with: noust domain add {change.app} {domain}")
     _report(logger, change)
+
+
+@cli.command(
+    "temporary", read_only=lambda params: bool(params["show"]) or params["app_domain"] is None
+)
+@click.argument("app_domain", metavar="APP", required=False)
+@click.option("--show", is_flag=True, help="Only say the name, without adding it to anything.")
+@click.option(
+    "--no-cert",
+    is_flag=True,
+    help="Do not extend the certificate now. Run the same command again to extend it.",
+)
+@json_option("Print the name as JSON (with --show).")
+@pass_context
+def temporary_command(ctx: Context, app_domain: str | None, show: bool, no_cert: bool) -> None:
+    """
+    Give APP a temporary name made of this server's address, for a server with no domain yet.
+
+    The name is the public address written as a host name under sslip.io
+    (203-0-113-10.sslip.io), which resolves to that address, so a certificate can be ordered
+    for it. It is an alias like any other and the console and 'noust domain list' mark it
+    temporary: a certificate authority limits certificates per registered domain, and
+    sslip.io is everybody's, so use it to try things out. A server behind NAT declares its
+    public address first: noust config set dns.public_addresses ADDRESS.
+    """
+    found = suggest()
+    if show or app_domain is None:
+        if ctx.json_output:
+            click.echo(
+                json.dumps(
+                    {
+                        "address": found.address,
+                        "domain": found.domain,
+                        "service": found.service,
+                        "declared": found.declared,
+                    }
+                )
+            )
+        else:
+            ctx.logger.key_value("Public address", found.address)
+            ctx.logger.key_value("Temporary name", found.domain)
+            if app_domain is None:
+                ctx.logger.info("Give it to an application: noust domain temporary APP")
+        return
+    ctx.logger.info(f"Using {found.domain}, made of {found.address} ({found.service})")
+    change = add_domain(
+        app_domain,
+        found.domain,
+        ADDABLE_KINDS[0],
+        issue_cert=not no_cert,
+        logger=ctx.logger,
+        verbose=ctx.verbose,
+    )
+    if change.certificate_error is not None:
+        ctx.logger.error(
+            "The certificate was not extended to cover it", details=change.certificate_error
+        )
+    _report(ctx.logger, change)
 
 
 @cli.command("remove")

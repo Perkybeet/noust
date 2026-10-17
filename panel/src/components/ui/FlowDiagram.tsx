@@ -1,7 +1,7 @@
-import { CircleDot, CornerUpRight, Folder, Network, Plug, Route, Server, ServerCog } from "lucide-react";
+import { Box, CircleDot, Clock, CornerUpRight, Database, Folder, Globe, HardDrive, Network, Plug, Route, Server, ServerCog } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useId, useLayoutEffect, useMemo, useState } from "react";
-import type { CSSProperties, KeyboardEvent } from "react";
+import type { CSSProperties, KeyboardEvent, ReactNode } from "react";
 
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
@@ -34,6 +34,16 @@ export interface FlowDiagramProps {
   table?: boolean;
   /** Moving dashes along the connections. Never with reduced motion, whatever this says. */
   animated?: boolean;
+  /**
+   * What the dashes mean, under the summary. Defaults to the traffic legend of a web server;
+   * a diagram of relations, where nothing travels, passes its own sentence or `false`.
+   */
+  legend?: string | false;
+  /**
+   * Wraps an element's name in the table, and wherever the diagram names an element outside
+   * its own picture, in a link to where it is: the diagram stays read-only, the table leads on.
+   */
+  nodeLink?: (node: FlowNode, name: ReactNode) => ReactNode;
   className?: string;
 }
 
@@ -70,6 +80,11 @@ const KIND_ICON: Record<FlowNodeKind, LucideIcon> = {
   "upstream-server": ServerCog,
   static: Folder,
   redirect: CornerUpRight,
+  domain: Globe,
+  application: Box,
+  database: Database,
+  scheduled: Clock,
+  storage: HardDrive,
   other: CircleDot,
 };
 
@@ -82,6 +97,11 @@ const KIND_SHAPE: Record<FlowNodeKind, string> = {
   "upstream-server": "rounded-control",
   static: "rounded-control",
   redirect: "rounded-control",
+  domain: "rounded-pill px-3.5",
+  application: "rounded-card",
+  database: "rounded-card",
+  scheduled: "rounded-chip",
+  storage: "rounded-control",
   other: "rounded-control",
 };
 
@@ -271,6 +291,8 @@ export function FlowDiagram({
   summary,
   table = true,
   animated = true,
+  legend,
+  nodeLink,
   className,
 }: FlowDiagramProps) {
   const t = useT();
@@ -449,7 +471,7 @@ export function FlowDiagram({
   const nodeCell = (node: FlowNode) => (
     <span className="flex min-w-0 flex-col">
       <span translate="no" className="mono truncate">
-        {node.label}
+        {nodeLink ? nodeLink(node, node.label) : node.label}
       </span>
       <span className="text-12 text-fg-muted">{t(`common.flowDiagram.kind.${node.kind}`)}</span>
     </span>
@@ -458,7 +480,7 @@ export function FlowDiagram({
   const columns: Column<Row>[] = [
     { id: "from", header: t("common.flowDiagram.from"), cell: (row) => nodeCell(row.from) },
     { id: "to", header: t("common.flowDiagram.to"), cell: (row) => nodeCell(row.to) },
-    { id: "connection", header: t("common.flowDiagram.connection"), cell: (row) => connection(row.edge), width: "w-40" },
+    { id: "connection", header: t("common.flowDiagram.connection"), cell: (row) => row.edge.relation ?? connection(row.edge), width: "w-40" },
     {
       id: "state",
       header: t("common.flowDiagram.stateColumn"),
@@ -484,7 +506,7 @@ export function FlowDiagram({
           <span id={summaryId} className="text-fg">
             {written}
           </span>
-          <span className="text-12 text-fg-muted">{t("common.flowDiagram.legend")}</span>
+          {legend === false ? null : <span className="text-12 text-fg-muted">{legend ?? t("common.flowDiagram.legend")}</span>}
         </figcaption>
       </figure>
       {table ? (

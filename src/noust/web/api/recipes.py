@@ -93,6 +93,8 @@ class RecipeSummaryOut(BaseModel):
         unavailable_reason: Why not, when it cannot.
         app_type: The deployer that builds it; None when unavailable.
         database: The SQL engine it is given, if any.
+        database_choices: The SQL engines it can run on when the operator chooses at install
+            (``mysql``, ``mariadb``), its own first; empty when it offers no choice.
         dependencies: The services it asks Noust to provide.
         requires: What the server needs, in words.
         digest_verified: Compose: every image carries a digest read from its
@@ -124,6 +126,7 @@ class RecipeSummaryOut(BaseModel):
     unavailable_reason: str | None = None
     app_type: str | None = None
     database: str | None = None
+    database_choices: list[str] = Field(default_factory=list)
     dependencies: list[str] = []
     requires: list[str] = []
     digest_verified: bool | None = None
@@ -396,6 +399,8 @@ class RecipeInstallRequest(BaseModel):
         default_backups: Schedule the daily backups an installed application
             starts with: its databases dumped and test-restored, its data
             archived. They stay on this server until a destination is chosen.
+        database: The SQL engine to run it on, among those the recipe offers (``mysql`` or
+            ``mariadb``); the recipe's own by default. Refused for a recipe that offers none.
         install_requirements: Install the language runtime and the database
             engines the recipe needs and the server lacks, instead of refusing.
             Packages installed as root: the server's permission and sudo mode.
@@ -408,6 +413,7 @@ class RecipeInstallRequest(BaseModel):
     include_www: bool = False
     default_backups: bool = True
     install_requirements: bool = False
+    database: str | None = None
     health_path: str | None = None
     health_expect: str | None = None
     health_timeout: int | None = None
@@ -1068,6 +1074,7 @@ def install_recipe(
             env_vars=body.variables,
             default_backups=body.default_backups,
             install_requirements=body.install_requirements,
+            recipe_database=body.database,
             include_www=body.include_www,
             health_path=body.health_path,
             health_expect=body.health_expect,

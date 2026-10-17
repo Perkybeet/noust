@@ -32,6 +32,9 @@ server {
 {% if not ssl and policy | default({}) and policy.auth %}
         auth_basic off;
 {% endif %}
+{% if not ssl and policy | default({}) and policy.forward_auth %}
+        auth_request off;
+{% endif %}
     }
 
 {% if ssl %}

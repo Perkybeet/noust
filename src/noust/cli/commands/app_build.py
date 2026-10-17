@@ -29,6 +29,8 @@ from noust.core.exceptions import ValidationError
 from noust.core.logger import Logger
 from noust.deployers.helpers.build_config import (
     BUILD_KEYS,
+    MAX_TIMEOUT,
+    MIN_TIMEOUT,
     AppBuild,
     describe_build,
     set_operator_build,
@@ -54,6 +56,7 @@ _LABELS = {
     "publish_directory": "Publish directory",
     "runtime": "Runtime",
     "cache": "Build cache",
+    "timeout": "Timeout (seconds)",
 }
 
 
@@ -131,7 +134,7 @@ def _read_document(path: str) -> str:
     return text
 
 
-def _stored(domain: str) -> dict[str, str | bool]:
+def _stored(domain: str) -> dict[str, str | bool | int]:
     """
     Read the operator's block as the mapping its document holds.
 
@@ -147,7 +150,7 @@ def _stored(domain: str) -> dict[str, str | bool]:
     return parse_build_document(document, source="operator").to_mapping()
 
 
-def _document(mapping: dict[str, str | bool]) -> str:
+def _document(mapping: dict[str, str | bool | int]) -> str:
     """
     Write a mapping of keys as the document ``set_operator_build`` validates.
 
@@ -211,6 +214,14 @@ def show_command(ctx: Context, domain: str) -> None:
     "cache or the dependencies of the release that serves.",
 )
 @click.option(
+    "--timeout",
+    "timeout",
+    type=click.IntRange(MIN_TIMEOUT, MAX_TIMEOUT),
+    metavar="SECONDS",
+    help="How long the install and the build may each take before they are stopped "
+    "(the server's deploy.install_timeout and deploy.build_timeout otherwise).",
+)
+@click.option(
     "--file",
     "path",
     help="Replace the whole block with a YAML file holding 'build:'; '-' reads stdin.",
@@ -227,6 +238,7 @@ def set_command(
     publish_directory: str | None,
     runtime: str | None,
     cache: bool | None,
+    timeout: int | None,
     path: str | None,
 ) -> None:
     """
@@ -239,7 +251,7 @@ def set_command(
     validated before anything is stored, and the change is audited.
     """
     validated = validate_domain(domain)
-    given: dict[str, str | bool | None] = {
+    given: dict[str, str | bool | int | None] = {
         "base_directory": base_directory,
         "install": install_command,
         "build": build_command,
@@ -247,6 +259,7 @@ def set_command(
         "publish_directory": publish_directory,
         "runtime": runtime,
         "cache": cache,
+        "timeout": timeout,
     }
     flags = {key: value for key, value in given.items() if value is not None}
     if path is not None and flags:
@@ -280,7 +293,7 @@ def unset_command(ctx: Context, domain: str, keys: tuple[str, ...]) -> None:
     Remove keys of the operator's block, or all of it, so the repository's applies again.
 
     With no KEY the whole block goes. With keys (base_directory, install,
-    build, start, publish_directory, runtime, cache) only those do, and the block
+    build, start, publish_directory, runtime, cache, timeout) only those do, and the block
     that is left still replaces the repository's.
     """
     validated = validate_domain(domain)

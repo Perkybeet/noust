@@ -6,15 +6,16 @@ The DNS providers Noust can answer a DNS-01 challenge through.
 
 Two kinds, and the difference matters to what an account can do:
 
-- **Native** (Cloudflare): Noust speaks the provider's API itself
-  (:mod:`noust.managers.dns.cloudflare`). It lists the zones, creates and deletes
-  records with an ownership marker, answers the DNS-01 challenge through its own
-  hook, and runs tunnels. No certbot plugin needs to be installed.
-- **Plugin** (everyone else listed): certbot's own DNS plugin answers the
-  challenge, reading a credentials file Noust writes (0600, in the secret store).
-  Nothing else is automated for these - no managed records - because Noust does not
-  speak their APIs. The plugin must be installed; ``noust dns provider add`` says
-  which package when it is not.
+- **Native** (Cloudflare, DigitalOcean, Hetzner, Gandi, Amazon Route 53): Noust speaks the
+  provider's API itself (:mod:`noust.managers.dns`). It lists the zones, creates and deletes
+  records under the ownership rules, and answers the DNS-01 challenge through its own hook.
+  No certbot plugin needs to be installed. Cloudflare also runs tunnels. A provider that keeps
+  no note with a record (``comments`` false) cannot carry the ownership marker at the provider;
+  there Noust deletes only a record it made that is still exactly what it made.
+- **Plugin** (the others listed): certbot's own DNS plugin answers the challenge, reading a
+  credentials file Noust writes (0600, in the secret store). Nothing else is automated for
+  these - no managed records - because Noust does not speak their APIs. The plugin must be
+  installed; ``noust dns provider add`` says which package when it is not.
 
 The credential templates below are the plugins' documented option names; the file
 is written exactly as certbot reads it, because certbot reads it again at every
@@ -60,6 +61,11 @@ class ProviderKind:
         template: The credentials file the plugin reads, with ``{field}`` slots.
         package: The package that installs the plugin, for the error that asks for it.
         help: Where the credentials come from, one sentence.
+        tunnels: It can carry tunnels (only Cloudflare).
+        comments: The provider keeps a note with each record, which is where the ownership
+            marker is written and read back; without it the marker rests on what Noust made.
+        propagation: Seconds a challenge record is waited for, when the account sets none; 0
+            for the module's default.
     """
 
     kind: str
@@ -70,6 +76,9 @@ class ProviderKind:
     template: str = ""
     package: str = ""
     help: str = ""
+    tunnels: bool = False
+    comments: bool = True
+    propagation: int = 0
 
 
 KINDS: dict[str, ProviderKind] = {
@@ -83,16 +92,28 @@ KINDS: dict[str, ProviderKind] = {
         ),
         help="An API token with Zone:Read and DNS:Edit on the zones, and for tunnels "
         "Account > Cloudflare Tunnel:Edit (dash.cloudflare.com/profile/api-tokens).",
+        tunnels=True,
     ),
     "digitalocean": ProviderKind(
         kind="digitalocean",
         label="DigitalOcean",
-        native=False,
+        native=True,
         fields=(CredentialField("token", "API token"),),
-        plugin="dns-digitalocean",
-        template="dns_digitalocean_token = {token}\n",
-        package="python3-certbot-dns-digitalocean",
-        help="A personal access token with write scope.",
+        help="A personal access token with write scope (cloud.digitalocean.com/account/api/tokens).",
+        comments=False,
+    ),
+    "route53": ProviderKind(
+        kind="route53",
+        label="Amazon Route 53",
+        native=True,
+        fields=(
+            CredentialField("access_key_id", "Access key id", secret=False),
+            CredentialField("secret_access_key", "Secret access key"),
+        ),
+        help="The access key of an IAM user allowed route53:ListHostedZones, "
+        "route53:ListResourceRecordSets and route53:ChangeResourceRecordSets.",
+        comments=False,
+        propagation=60,
     ),
     "linode": ProviderKind(
         kind="linode",
@@ -149,22 +170,21 @@ KINDS: dict[str, ProviderKind] = {
     "hetzner": ProviderKind(
         kind="hetzner",
         label="Hetzner DNS",
-        native=False,
-        fields=(CredentialField("api_token", "API token"),),
-        plugin="dns-hetzner",
-        template="dns_hetzner_api_token = {api_token}\n",
-        package="certbot-dns-hetzner (pip)",
-        help="A Hetzner DNS API token.",
+        native=True,
+        fields=(CredentialField("token", "Cloud API token"),),
+        help="An API token of the Cloud project that holds the zones, with read and write "
+        "rights (console.hetzner.com, Security, API tokens). Zones still on the old DNS Console "
+        "must be migrated to the Cloud Console first.",
+        propagation=30,
     ),
     "gandi": ProviderKind(
         kind="gandi",
         label="Gandi LiveDNS",
-        native=False,
+        native=True,
         fields=(CredentialField("token", "Personal access token"),),
-        plugin="dns-gandi",
-        template="dns_gandi_token = {token}\n",
-        package="certbot-plugin-gandi (pip)",
-        help="A Gandi personal access token with LiveDNS rights.",
+        help="A Gandi personal access token with the right to manage the domains' technical "
+        "configuration (LiveDNS).",
+        comments=False,
     ),
 }
 

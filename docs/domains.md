@@ -98,6 +98,28 @@ live site answers on and records the ones the store does not have as aliases (th
 reports them as `adopted`), so adding one name never silently drops another. To turn an
 adopted `www` alias into a redirect, remove it and add it back with `--kind redirect`.
 
+## A temporary address
+
+A server with no domain yet can still serve an application over HTTPS. `sslip.io` answers a name
+made of an address with that address (`203-0-113-10.sslip.io` is `203.0.113.10`), and a certificate
+can be ordered for it, so the application can be tried out before a real name points here.
+
+```bash
+noust domain temporary shop.example.com --show      # the name this server would get, changing nothing
+noust domain temporary shop.example.com             # add it as an alias, with the certificate
+noust domain temporary shop.example.com --no-cert   # add it without the certificate for now
+```
+
+The name is made from the server's public address (the one declared in `dns.public_addresses`, else
+the one read from a network interface), never a private one. It is added as an ordinary alias, so
+the DNS check, the site and the certificate are the ones of any other name, and `noust domain list`
+and the console mark it **temporary**. It is for trying things out: Let's Encrypt limits are per
+registered domain and `sslip.io` is everybody's, so an order for it can be refused at a busy
+moment, and the name belongs to a service that is not Noust's to promise. Remove it with
+`noust domain remove` when the real name is there. API: `GET /api/domains/temporary` (the
+suggestion, writing nothing) and the ordinary `POST /api/apps/{domain}/domains`. Console: **Add
+domain, Use a temporary address**.
+
 ## Certificates
 
 - When an application serves TLS, `noust domain add` extends its certificate to the new name
@@ -235,6 +257,38 @@ when the answer arrives. Two things follow that a test of the site on its own co
 When the main configuration cannot be read, does not parse, or does not include `sites-enabled`
 itself, the candidate is checked on its own inside a minimal wrapper, as before. The server's own
 output is shown verbatim, on a pass as well as a failure.
+
+## History of a site's file, and drift
+
+Every write of a site's file keeps its text: what a deploy renders, what the editor or
+`PUT /api/sites/{domain}/config` saves, and an earlier version put back. A site keeps its latest 30
+versions, and rendering the same text again adds nothing.
+
+```bash
+noust site history shop.example.com                  # the versions, newest first; warns if the file has drifted
+noust site diff shop.example.com 3                   # what changed between version 3 and the file now
+noust site diff shop.example.com 3 --against 5
+noust site restore shop.example.com 3                # the editor's own save: tested by the web server first
+noust site restore shop.example.com 3 --reload
+```
+
+- **A hand edit is never lost to a deploy.** A generated site that somebody edited is rewritten by
+  the next deploy (the file carries Noust's marker). Before it is, the text on disk is kept as a
+  version of its own (`found`), so it can be read, compared and put back.
+- **Restoring is an edit.** The web server tests the text before it is installed, with its own words
+  as the error, and the restore is a version too. The web server is not reloaded unless asked
+  (`--reload`; the console's "Use this version" puts the text in the editor as a draft).
+- **Drift.** The sites list, a site's page and `noust site history` say when a file is waiting for a
+  reload and when it was changed outside Noust. *Reload pending* means the file was written after the
+  web server last started its workers (a reload makes new ones, so the process table answers it
+  without a daemon): Noust reloads right after writing, so it is a reload that failed or a hand edit
+  nobody applied. *Edited outside Noust* means the file's hash is not that of the newest version Noust
+  kept. A site Noust never wrote has no such baseline and is never said to have drifted.
+
+API: `GET /api/sites/{domain}/config/versions`, `GET .../versions/{version}` (with a diff to the file
+now) and `POST .../versions/{version}/restore` (sudo mode, root-equivalent like the editor's save);
+`pending_reload` and `edited_outside` on every site of `GET /api/sites`. Console: a site's page,
+**History**.
 
 ## Limitations
 

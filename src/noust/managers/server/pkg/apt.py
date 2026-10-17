@@ -23,6 +23,7 @@ import re
 from collections.abc import Callable, Sequence
 from datetime import datetime, timezone
 
+from noust.core.runner import CommandResult
 from noust.managers.server.errors import ServerError
 from noust.managers.server.host import (
     natural_key,
@@ -327,6 +328,23 @@ class AptBackend(PackageBackend):
 
     def install_argv(self, packages: Sequence[str]) -> list[str]:
         return ["apt-get", "install", "-y", *packages]
+
+    def install_lean_argv(self, packages: Sequence[str]) -> list[str]:
+        return [*self._apply_base(), "install", "--no-install-recommends", *packages]
+
+    def installed_argv(self, packages: Sequence[str]) -> list[str]:
+        return ["dpkg-query", "-W", "-f", "${Package} ${db:Status-Abbrev}\\n", *packages]
+
+    def installed_names(self, result: CommandResult, packages: Sequence[str]) -> set[str]:
+        asked = set(packages)
+        found: set[str] = set()
+        for line in result.stdout.splitlines():
+            name, _, status = line.partition(" ")
+            # "ii" is installed and configured; "rc" is removed with its configuration kept,
+            # "un" is unknown, and none of those is something an application can use.
+            if name in asked and status.strip().startswith("ii"):
+                found.add(name)
+        return found
 
     def repair_commands(self) -> list[list[str]]:
         return [

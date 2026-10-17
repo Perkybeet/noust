@@ -28,9 +28,9 @@ export async function copyText(text: string): Promise<void> {
   }
 }
 
-/** Offers text as a file download without a server round trip. */
-export function downloadText(filename: string, text: string, type = "text/plain"): void {
-  const url = URL.createObjectURL(new Blob([text], { type: `${type};charset=utf-8` }));
+/** Offers a blob as a file download without a server round trip. */
+function offer(filename: string, blob: Blob): void {
+  const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
@@ -42,4 +42,15 @@ export function downloadText(filename: string, text: string, type = "text/plain"
   setTimeout(() => {
     URL.revokeObjectURL(url);
   }, 0);
+}
+
+/** Offers text as a file download without a server round trip. */
+export function downloadText(filename: string, text: string, type = "text/plain"): void {
+  offer(filename, new Blob([text], { type: `${type};charset=utf-8` }));
+}
+
+/** Offers bytes (given as base64, the way the API carries a binary file) as a file download. */
+export function downloadBase64(filename: string, base64: string, type = "application/octet-stream"): void {
+  const bytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+  offer(filename, new Blob([bytes], { type }));
 }

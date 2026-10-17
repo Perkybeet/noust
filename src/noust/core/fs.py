@@ -106,6 +106,18 @@ class FileSystem(ABC):
         """
 
     @abstractmethod
+    def write_bytes(self, path: Path, content: bytes, *, mode: int = 0o644) -> None:
+        """
+        Write a binary file, replacing it atomically, under the same rules as ``write_text``.
+
+        Args:
+            path: File to write.
+            content: What to write.
+            mode: Permissions to create it with, applied at creation (SECRET_MODE for anything
+                holding a key).
+        """
+
+    @abstractmethod
     def make_dir(
         self, path: Path, *, mode: int = 0o755, parents: bool = True, exist_ok: bool = True
     ) -> None:
@@ -323,6 +335,23 @@ class RealFileSystem(FileSystem):
         mode: int = 0o644,
         owner: tuple[int, int] | None = None,
     ) -> None:
+        self._write_atomically(path, content.encode("utf-8"), mode=mode, owner=owner)
+
+    def write_bytes(self, path: Path, content: bytes, *, mode: int = 0o644) -> None:
+        self._write_atomically(path, content, mode=mode, owner=None)
+
+    def _write_atomically(
+        self, path: Path, content: bytes, *, mode: int, owner: tuple[int, int] | None
+    ) -> None:
+        """
+        Put ``content`` at ``path`` in one step, never through a link.
+
+        Args:
+            path: File to write.
+            content: What to write.
+            mode: Permissions to create it with.
+            owner: The uid and gid it must end up with, or None.
+        """
         path.parent.mkdir(parents=True, exist_ok=True)
 
         # A fixed temporary name is a predictable path an attacker can plant a
@@ -338,7 +367,7 @@ class RealFileSystem(FileSystem):
         # which a file holding a database password is world-readable.
         descriptor = os.open(temporary, flags, mode)
         try:
-            with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            with os.fdopen(descriptor, "wb") as handle:
                 handle.write(content)
                 handle.flush()
                 if owner is not None:
@@ -470,6 +499,9 @@ class DryRunFileSystem(FileSystem):
     ) -> None:
         self._skip(f"would write {path} ({len(content)} bytes, mode {mode:o})")
 
+    def write_bytes(self, path: Path, content: bytes, *, mode: int = 0o644) -> None:
+        self._skip(f"would write {path} ({len(content)} bytes, mode {mode:o})")
+
     def make_dir(
         self, path: Path, *, mode: int = 0o755, parents: bool = True, exist_ok: bool = True
     ) -> None:
@@ -521,6 +553,10 @@ class RecordingFileSystem(RealFileSystem):
     ) -> None:
         self.changes.append(("write", path))
         super().write_text(path, content, mode=mode, owner=owner)
+
+    def write_bytes(self, path: Path, content: bytes, *, mode: int = 0o644) -> None:
+        self.changes.append(("write", path))
+        super().write_bytes(path, content, mode=mode)
 
     def make_dir(
         self, path: Path, *, mode: int = 0o755, parents: bool = True, exist_ok: bool = True

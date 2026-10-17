@@ -74,6 +74,43 @@ What this means in practice:
 There is **one channel**, stable. There is no "next" channel and no long-term-support line yet;
 the support window below is how long a line gets fixes.
 
+## Updating by itself
+
+A server can install Noust's new releases without anyone pressing a button. It is off until you turn it
+on (Settings > About > Automatic updates, or `noust self-update set --enable`), and it is narrower than
+an update you start:
+
+| You choose | Values | What it means |
+|---|---|---|
+| **Releases taken** | `security`, `patch` (the default), `stable` | `security`: only a release that fixes a vulnerability. `patch`: also the patch releases of the version you run, which by the rules above change no screens and no schema. `stable`: also a new minor version, which comes with an upgrade guide. |
+| **Hours** | `03:00-05:00` (the default) | The window an update may start in, on the server's clock. It may cross midnight (`23:00-01:00`). |
+| **Days** | `daily` (the default) or `mon,thu` | The days the window opens on. A window that crosses midnight belongs to the day it opened on. |
+
+What does not depend on what you choose:
+
+- **A new major version is never installed by itself.** A major removes what it announced, and that is
+  read first by a person.
+- **It is the same update as "Update Noust":** the one command of the installation's method, in its own
+  systemd unit that outlives the console's restart, behind the same checks before anything is installed
+  (room on disk, a store the new version opens, a package manager that answers). When a check fails,
+  nothing is installed and the reason is written down.
+- **Never while the console is working.** A build in progress would end with the console's restart, so
+  a run that finds a job queued or running waits for the next look. The timer looks every ten minutes
+  while the window is open; a run that updated, found nothing to take, or was refused for a reason a
+  person must read is not repeated until the next window.
+- **Only what the update check sees.** With `updates.check` off the server does not know what there is
+  to install, so it installs nothing. A release that is published but whose package your server's
+  source has not built yet (`on the way`) is waited for inside the window.
+- **Every run is written down:** in the audit trail (`system.auto_update`, with the versions and why)
+  and in Settings > About, with the server's own words when it did not install or failed. There is no
+  notification for it yet; the audit trail ships to journald or syslog like every event.
+
+`noust self-update` shows what is set, when the window next opens and what the last run did; `noust
+self-update set --channel security --window 01:00-02:30 --days sun` changes it; `noust self-update run`
+decides now (the timer's command is `run --scheduled`, which also respects the window). The timer is
+`noust-auto-update.timer`; turning the feature off removes it, and removing the package leaves nothing
+running.
+
 ## How long a line is supported
 
 The two newest minor versions receive security fixes, as patch releases published to all channels

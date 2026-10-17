@@ -39,6 +39,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("POST", f"{_PREFIX}/firewall/disable"): Permission.SERVER_HOST_ACCESS,
     ("GET", f"{_PREFIX}/fail2ban"): Permission.SERVER_READ,
     ("POST", f"{_PREFIX}/fail2ban/install"): Permission.SERVER_MANAGE,
+    ("POST", f"{_PREFIX}/fail2ban/web"): Permission.SERVER_MANAGE,
     ("POST", f"{_PREFIX}/fail2ban/unban"): Permission.SERVER_MANAGE,
     ("GET", f"{_PREFIX}/changes"): Permission.SERVER_READ,
     ("POST", f"{_PREFIX}/changes/{{change_id}}/confirm"): Permission.SERVER_HOST_ACCESS,

@@ -178,6 +178,60 @@ describe("FlowDiagram", () => {
     expect(within(table).getAllByText("Unknown").length).toBeGreaterThan(0);
   });
 
+  it("draws relations, not traffic: kinds of its own, the relation as the connection and no legend of dashes", async () => {
+    viewport();
+    const user = userEvent.setup();
+    const layers = [
+      { id: "names", title: "Names", nodes: [{ id: "domain:shop", kind: "domain" as const, label: "shop.example.com" }] },
+      { id: "applications", title: "Applications", nodes: [{ id: "app:shop", kind: "application" as const, label: "shop.example.com", detail: "Next.js", state: "ok" as const, stateLabel: "Running" }] },
+      {
+        id: "databases",
+        title: "Databases",
+        nodes: [
+          { id: "db:shop", kind: "database" as const, label: "shop_prod", detail: "postgresql" },
+          { id: "cron:shop", kind: "scheduled" as const, label: "nightly", state: "unknown" as const, stateLabel: "Disabled" },
+          { id: "path:shop", kind: "storage" as const, label: "storage/uploads" },
+        ],
+      },
+    ];
+    const edges = [
+      { from: "domain:shop", to: "app:shop", relation: "answers on" },
+      { from: "app:shop", to: "db:shop", relation: "uses" },
+      { from: "app:shop", to: "cron:shop", relation: "runs" },
+      { from: "app:shop", to: "path:shop", relation: "keeps" },
+    ];
+    render(
+      <FlowDiagram
+        label="The map"
+        layers={layers}
+        edges={edges}
+        animated={false}
+        legend="Each line is a relation, not traffic."
+        nodeLink={(node, name) => <a href={`#${node.id}`}>{name}</a>}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Name shop.example.com" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Application shop.example.com, Next.js: Running" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Database shop_prod, postgresql" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Scheduled job nightly: Disabled" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Data storage/uploads" })).toBeInTheDocument();
+    expect(screen.getByText("Each line is a relation, not traffic.")).toBeInTheDocument();
+    expect(screen.queryByText(/A moving dash/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Show the connections as a table" }));
+    const table = screen.getByRole("table", { name: "Connections of The map" });
+    for (const relation of ["answers on", "uses", "runs", "keeps"]) expect(within(table).getByText(relation)).toBeInTheDocument();
+    expect(within(table).queryByText("HTTP")).not.toBeInTheDocument();
+    expect(within(table).getAllByRole("link", { name: "shop.example.com" }).length).toBeGreaterThan(0);
+    await expectNoAxeViolations(document.body);
+  });
+
+  it("can leave the legend out", () => {
+    viewport();
+    render(<FlowDiagram label="Site" layers={SMALL_LAYERS} edges={SMALL_EDGES} legend={false} />);
+    expect(screen.queryByText(/A moving dash/)).not.toBeInTheDocument();
+  });
+
   it("can leave the table out", () => {
     viewport();
     render(<FlowDiagram label="Site" layers={SMALL_LAYERS} edges={SMALL_EDGES} table={false} />);

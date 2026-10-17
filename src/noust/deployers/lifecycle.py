@@ -4475,11 +4475,13 @@ def _delete_app(
     if app is not None and not is_rehearsal():
         _forget_kernel_quota(app, failed)
         _forget_backup_policies(store, domain, failed)
+        _forget_push(domain, failed)
         _forget_update_schedule(store, domain, failed)
         store.delete_site(domain)
         for unit in units:
             store.delete_service(unit)
         store.delete_app(domain)
+        _forget_upload(app.source, failed)
         # Deleting a preview directly: its record goes with it.
         store.delete_preview(domain)
     if app is not None and app.app_type == AppType.CONTAINER.value and not is_rehearsal():
@@ -4589,6 +4591,47 @@ def _forget_kernel_quota(app: App, failed: Callable[[str, BaseException], None])
         kernel_quota.remove(app)
     except NoustError as exc:
         failed("Its kernel disk quota was not taken off", exc)
+def _forget_upload(source: str | None, failed: Callable[[str, BaseException], None]) -> None:
+    """
+    Remove the extracted archive an application deployed from, once nothing else names it.
+
+    Args:
+        source: The source the application had.
+        failed: Called with what could not be removed, so the deletion goes on and says so.
+    """
+    from noust.validators.source import is_upload_source, is_upload_tree
+
+    text = (source or "").strip()
+    if not (is_upload_source(text) or is_upload_tree(text)):
+        return
+    # Imported here: the module reads the store and the filesystem.
+    from noust.managers.source_uploads import SourceUploads
+
+    try:
+        SourceUploads().release(text)
+    except (NoustError, OSError) as exc:
+        failed("The archive it was deployed from was not removed", exc)
+
+
+def _forget_push(domain: str, failed: Callable[[str, BaseException], None]) -> None:
+    """
+    Remove an application's push repository and the keys that could push to it.
+
+    Args:
+        domain: The application being deleted.
+        failed: Called with what could not be removed, so the deletion goes on and says so.
+    """
+    from noust.core import push_store
+
+    if push_store.get(domain) is None:
+        return
+    # Imported here: the module reads the store, the sshd configuration and the filesystem.
+    from noust.pushdeploy.repos import PushRepos
+
+    try:
+        PushRepos().forget(domain)
+    except (NoustError, OSError) as exc:
+        failed("Its push repository and keys were not all removed", exc)
 
 
 def _forget_backup_policies(

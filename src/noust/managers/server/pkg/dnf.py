@@ -304,6 +304,9 @@ class DnfBackend(PackageBackend):
     def install_argv(self, packages: Sequence[str]) -> list[str]:
         return ["dnf", "-y", "install", *packages]
 
+    def install_lean_argv(self, packages: Sequence[str]) -> list[str]:
+        return ["dnf", "-y", "--setopt=install_weak_deps=False", "install", *packages]
+
     def repair_commands(self) -> list[list[str]]:
         return []
 

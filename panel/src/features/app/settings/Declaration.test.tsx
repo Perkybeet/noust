@@ -164,3 +164,134 @@ describe("the declaration file", () => {
     expect(within(dialog).getByLabelText("Declaration (YAML)")).toHaveValue("colour: red\n");
   });
 });
+
+const RUNNING = "app:\n  health:\n    path: /\n  limits:\n    memory_max_mb: 512\nenv:\n  LOG_LEVEL: info\n";
+const DRAFT = "app:\n  health:\n    path: /up\n  limits:\n    memory_max_mb: 512\nenv:\n  LOG_LEVEL: debug\n";
+
+const TWO_CHANGES = {
+  ...SAFE_PLAN,
+  changes: [
+    { section: "health", description: "Health check path becomes /up", root_equivalent: false },
+    { section: "env", description: "LOG_LEVEL becomes debug", root_equivalent: false },
+  ],
+  unchanged: ["limits"],
+};
+const ONE_CHANGE = { ...TWO_CHANGES, changes: [TWO_CHANGES.changes[1]], unchanged: ["limits", "health"] };
+
+describe("reviewing a set of changes", () => {
+  const running = { [`GET /api/apps/${DOMAIN}/declaration`]: () => json(200, { domain: DOMAIN, declaration: RUNNING }) };
+
+  it("starts a draft from what runs now", { timeout: 40_000 }, async () => {
+    const { user } = await exportPage(running);
+    await screen.findByRole("heading", { name: "Declaration file" });
+    await user.click(within(card()).getByRole("button", { name: "Apply a declaration…" }));
+    const dialog = await screen.findByRole("dialog");
+
+    await user.click(within(dialog).getByRole("button", { name: "Start from what runs now" }));
+
+    await waitFor(() => expect(within(dialog).getByLabelText("Declaration (YAML)")).toHaveValue(RUNNING));
+  });
+
+  it("says what the set covers and what it leaves to other pages", { timeout: 40_000 }, async () => {
+    const { user } = await exportPage(running);
+    await screen.findByRole("heading", { name: "Declaration file" });
+    await user.click(within(card()).getByRole("button", { name: "Apply a declaration…" }));
+    const dialog = await screen.findByRole("dialog");
+
+    expect(within(dialog).getByText("What this set covers")).toBeInTheDocument();
+    expect(within(dialog).getByText(/put back if it fails/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Each part is applied on its own/)).toBeInTheDocument();
+  });
+
+  it("shows the lines that change against what runs, block by block", { timeout: 40_000 }, async () => {
+    const { user, container } = await exportPage({
+      ...running,
+      [`POST /api/apps/${DOMAIN}/apply`]: () => json(200, { plan: TWO_CHANGES, applied: false, steps: [] }),
+    });
+    await screen.findByRole("heading", { name: "Declaration file" });
+    await user.click(within(card()).getByRole("button", { name: "Apply a declaration…" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByLabelText("Declaration (YAML)"));
+    await user.paste(DRAFT);
+    await user.click(within(dialog).getByRole("button", { name: "Check what it changes" }));
+
+    expect(await within(dialog).findByText("2 blocks change")).toBeInTheDocument();
+    const blocks = within(dialog).getByRole("list", { name: "Blocks of the declaration that change" });
+    const app = within(blocks).getByRole("group", { name: /Lines of How it runs/ });
+    // Only the line that differs is marked, and by its text as well as its ground.
+    expect(within(app).getByText("path: /up", { exact: false })).toBeInTheDocument();
+    expect(within(app).getAllByText("Removed:")).toHaveLength(1);
+    expect(within(app).getAllByText("Added:")).toHaveLength(1);
+    expect(within(blocks).getByRole("group", { name: /Lines of Variables/ })).toBeInTheDocument();
+    // What each change does is the plan, said once.
+    expect(within(dialog).getAllByText("Health check path becomes /up")).toHaveLength(1);
+    await expectNoAxeViolations(container);
+  });
+
+  it("shows no review for a draft that says what runs", { timeout: 40_000 }, async () => {
+    const { user } = await exportPage({
+      ...running,
+      [`POST /api/apps/${DOMAIN}/apply`]: () => json(200, { plan: { ...SAFE_PLAN, changes: [] }, applied: false, steps: [] }),
+    });
+    await screen.findByRole("heading", { name: "Declaration file" });
+    await user.click(within(card()).getByRole("button", { name: "Apply a declaration…" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByLabelText("Declaration (YAML)"));
+    await user.paste(RUNNING);
+    await user.click(within(dialog).getByRole("button", { name: "Check what it changes" }));
+
+    expect(await within(dialog).findByText(/Nothing: the application already is as declared/)).toBeInTheDocument();
+    expect(within(dialog).queryByRole("list", { name: "Blocks of the declaration that change" })).not.toBeInTheDocument();
+  });
+
+  it("puts one block back to what runs and checks the rest again", { timeout: 40_000 }, async () => {
+    const { user, backend } = await exportPage({
+      ...running,
+      [`POST /api/apps/${DOMAIN}/apply`]: (call) => {
+        const body = call.body as { declaration: string };
+        return json(200, { plan: body.declaration.includes("/up") ? TWO_CHANGES : ONE_CHANGE, applied: false, steps: [] });
+      },
+    });
+    await screen.findByRole("heading", { name: "Declaration file" });
+    await user.click(within(card()).getByRole("button", { name: "Apply a declaration…" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByLabelText("Declaration (YAML)"));
+    await user.paste(DRAFT);
+    await user.click(within(dialog).getByRole("button", { name: "Check what it changes" }));
+    await within(dialog).findByText("2 blocks change");
+
+    await user.click(within(dialog).getByRole("button", { name: /^Put How it runs .* back$/ }));
+
+    // The text is the draft with that block as it was, the other kept, and the plan is of that text.
+    await waitFor(() => expect(within(dialog).getByLabelText("Declaration (YAML)")).toHaveValue(DRAFT.replace("path: /up", "path: /")));
+    expect(await within(dialog).findByText("1 block changes")).toBeInTheDocument();
+    expect(within(dialog).queryByText("Health check path becomes /up")).not.toBeInTheDocument();
+    const checks = backend.callsTo(`POST /api/apps/${DOMAIN}/apply`);
+    expect(checks).toHaveLength(2);
+    expect(checks[1]?.body).toEqual({ declaration: DRAFT.replace("path: /up", "path: /"), check: true, confirm: false, prune: false });
+    // Nothing was applied by going back.
+    expect(checks.every((call) => (call.body as { check: boolean }).check)).toBe(true);
+  });
+
+  it("asks again for the agreement once a block is put back", { timeout: 40_000 }, async () => {
+    const runs = { ...RUNNING_PLAN, changes: [...RUNNING_PLAN.changes, { section: "env", description: "LOG_LEVEL becomes debug", root_equivalent: false }] };
+    const { user } = await exportPage({
+      ...running,
+      [`POST /api/apps/${DOMAIN}/apply`]: () => json(200, { plan: runs, applied: false, steps: [] }),
+    });
+    await screen.findByRole("heading", { name: "Declaration file" });
+    await user.click(within(card()).getByRole("button", { name: "Apply a declaration…" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByLabelText("Declaration (YAML)"));
+    await user.paste(`${DRAFT}build:\n  command: npm run build:prod\n`);
+    await user.click(within(dialog).getByRole("button", { name: "Check what it changes" }));
+    await user.click(await within(dialog).findByRole("checkbox", { name: /I have read what it runs/ }));
+    expect(within(dialog).getByRole("button", { name: "Apply it" })).toBeEnabled();
+
+    await user.click(within(dialog).getByRole("button", { name: /^Put Variables back$/ }));
+
+    // A new plan is a new reading: the box is cleared until it is read again.
+    await waitFor(() => expect(within(dialog).getByRole("checkbox", { name: /I have read what it runs/ })).not.toBeChecked());
+    expect(within(dialog).getByRole("button", { name: "Apply it" })).toBeDisabled();
+  });
+});

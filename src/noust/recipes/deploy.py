@@ -26,7 +26,7 @@ at once, before a database exists.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlsplit
@@ -232,6 +232,52 @@ def require_available(recipe: Recipe) -> None:
     require_compatible(recipe)
 
 
+def with_database(recipe: Recipe, choice: str | None) -> Recipe:
+    """
+    Run a recipe on the SQL engine the operator chose, among those it offers.
+
+    The recipe is the same: its requirement and the variables that read the database's attributes
+    (``from: mysql.url``) now name the chosen engine, and everything else (provisioning, the
+    check that the server has the engine, the notes) works from that.
+
+    Args:
+        recipe: The recipe.
+        choice: ``mysql`` or ``mariadb``; None keeps the recipe's own.
+
+    Returns:
+        The recipe asking for the chosen engine.
+
+    Raises:
+        RecipeError: The recipe offers no choice, or not that one.
+    """
+    if choice is None:
+        return recipe
+    choice = choice.lower()
+    if not recipe.database_choices:
+        raise RecipeError(
+            f"{recipe.title} runs on one database engine",
+            details="It offers no choice. Leave the choice out.",
+        )
+    if choice not in recipe.database_choices:
+        raise RecipeError(
+            f"{recipe.title} cannot run on {choice}",
+            details="It can run on: " + ", ".join(recipe.database_choices) + ".",
+        )
+    default = recipe.database_choices[0]
+    if choice == default:
+        return recipe
+    return replace(
+        recipe,
+        requires=tuple(choice if item == default else item for item in recipe.requires),
+        variables=tuple(
+            replace(variable, source=choice + variable.source[len(default) :])
+            if variable.source and variable.source.startswith(default + ".")
+            else variable
+            for variable in recipe.variables
+        ),
+    )
+
+
 def plan_recipe(
     name: str,
     domain: str,
@@ -242,6 +288,7 @@ def plan_recipe(
     logger: Logger,
     store: NoustStore | None = None,
     install_requirements: bool = False,
+    database: str | None = None,
 ) -> RecipePlan:
     """
     Resolve a recipe for a new application: requirements, variables, source.
@@ -258,6 +305,8 @@ def plan_recipe(
         install_requirements: Install the runtime and the database engines the
             recipe needs and the server lacks, instead of refusing. Root's
             action: the callers gate it.
+        database: The SQL engine to run it on, among those the recipe offers
+            (:func:`with_database`).
 
     Returns:
         The plan.
@@ -273,7 +322,7 @@ def plan_recipe(
     # Before a database is provisioned for an application a hub would not run.
     require_server_role("Applications")
     store = store or get_store()
-    recipe = get_recipe(name)
+    recipe = with_database(get_recipe(name), database)
     require_available(recipe)
     domain = validate_domain(domain)
     if store.get_app(domain) is not None:
@@ -310,7 +359,7 @@ def plan_recipe(
         app_name=app_name,
         app_path=str(Config().apps_directory / app_name),
     )
-    provisioned, database, keyed = _provision_requirements(
+    provisioned, credentials, keyed = _provision_requirements(
         recipe, domain, app_name, overrides=overrides, logger=logger, store=store
     )
     resolved = resolve_variables(
@@ -336,7 +385,7 @@ def plan_recipe(
         layout=recipe.layout,
         persistent_paths=persistent,
         options=options,
-        database=database,
+        database=credentials,
         keyed=keyed,
         secret_names=frozenset(resolved.secrets),
         build=recipe.build,

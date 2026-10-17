@@ -156,6 +156,34 @@ def validate_port(
     return port
 
 
+def validate_unclaimed_port(port: int, claimed: Collection[int]) -> int:
+    """
+    Refuse a port another application already owns, whether or not it listens now.
+
+    An application that is stopped holds its port as surely as one that is running: the
+    port an operator types for a new one must not be handed to two. Which application
+    holds it is not said, because the caller may not be allowed to see it.
+
+    Args:
+        port: A port already checked by :func:`validate_port`.
+        claimed: The ports applications own
+            (:meth:`~noust.core.store.NoustStore.ports_owned_by_apps`).
+
+    Returns:
+        The port.
+
+    Raises:
+        PortError: Another application owns it.
+    """
+    if port in claimed:
+        raise PortError(
+            f"Port {port} belongs to another application",
+            details="Two applications cannot listen on one port, even when one is stopped. "
+            "Choose another port, or leave it out and Noust picks a free one.",
+        )
+    return port
+
+
 def find_available_port(
     start: int = 3000,
     end: int = 9000,

@@ -49,7 +49,7 @@ from noust.core.logger import Icons, Logger
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import App
 from noust.core.versions import parse_version
-from noust.deployers.base import INSTALL_TIMEOUT, BaseDeployer
+from noust.deployers.base import BaseDeployer
 from noust.deployers.helpers.env_manager import EnvManager
 from noust.deployers.helpers.health import failure_output
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
@@ -1233,7 +1233,7 @@ class PhpFpmDeployer(BaseDeployer):
             # The deploy runs as root, as npm's does; without this Composer
             # refuses to run the packages' scripts (Laravel's among them).
             env={"COMPOSER_ALLOW_SUPERUSER": "1", "COMPOSER_NO_INTERACTION": "1"},
-            timeout=INSTALL_TIMEOUT,
+            timeout=self.install_timeout(),
             stream=True,
         )
         if not result.success:

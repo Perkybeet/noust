@@ -5,8 +5,19 @@
     the manager, a template falls back to the defaults.
 #}
 {% if response_headers is defined %}
+{% set header_vars = (policy | default({})).header_vars | default({}) %}
 {% for name, value in response_headers %}
+{% if name in header_vars %}
+    add_header {{ name }} ${{ header_vars[name] }} always;
+{% else %}
     add_header {{ name }} "{{ value }}" always;
+{% endif %}
+{% endfor %}
+{% set sent = response_headers | map('first') | list %}
+{% for name, variable in header_vars.items() %}
+{% if name not in sent %}
+    add_header {{ name }} ${{ variable }} always;
+{% endif %}
 {% endfor %}
 {% else %}
     add_header X-Frame-Options "SAMEORIGIN" always;

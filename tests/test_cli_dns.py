@@ -432,3 +432,71 @@ def test_the_hooks_are_not_advertised(wired: None) -> None:
     commands = [line.split()[0] for line in result.output.splitlines() if line.startswith("  ")]
     assert "challenge" not in commands
     assert "ensure" in commands
+
+
+def test_the_kinds_say_what_each_one_does(wired: None) -> None:
+    kinds = json.loads(invoke(["dns", "provider", "kinds", "--json"]).output)
+
+    assert kinds["cloudflare"]["tunnels"] is True
+    assert kinds["route53"]["native"] is True and kinds["route53"]["comments"] is False
+    assert kinds["hetzner"]["comments"] is True and kinds["hetzner"]["tunnels"] is False
+    assert kinds["route53"]["fields"] == ["access_key_id", "secret_access_key"]
+    table = invoke(["dns", "provider", "kinds"]).output
+    assert "records, challenge, tunnels" in table
+    assert "challenge (certbot plugin)" in table
+
+
+def test_a_route53_key_is_a_name_in_an_argument_and_a_secret_on_standard_input(
+    wired: None,
+    store: NoustStore,
+    secrets: SecretStore,
+    monkeypatch: pytest.MonkeyPatch,
+    log: list[str],
+) -> None:
+    from tests.dns_wires import ACCESS_KEY, SECRET_KEY, Route53Wire
+
+    wire = Route53Wire("example.com")
+    monkeypatch.setattr(
+        dns_cli, "DnsAccounts", lambda: DnsAccounts(store=store, secrets=secrets, opener=wire)
+    )
+
+    result = invoke(
+        [
+            "dns",
+            "provider",
+            "add",
+            "aws",
+            "--kind",
+            "route53",
+            "--set",
+            f"access_key_id={ACCESS_KEY}",
+            "--token-stdin",
+        ],
+        input_text=SECRET_KEY + "\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(secrets.read(secret_name("aws")))["secret_access_key"] == SECRET_KEY
+    assert SECRET_KEY not in result.output and not any(SECRET_KEY in line for line in log)
+    assert "noust cert use" in "".join(log) + result.output
+
+
+def test_the_secret_half_of_a_route53_key_does_not_go_in_an_argument(wired: None) -> None:
+    from tests.dns_wires import SECRET_KEY
+
+    result = invoke(
+        [
+            "dns",
+            "provider",
+            "add",
+            "aws",
+            "--kind",
+            "route53",
+            "--set",
+            f"secret_access_key={SECRET_KEY}",
+        ]
+    )
+
+    assert result.exit_code == 2
+    assert "does not go in an argument" in result.output
+    assert SECRET_KEY not in result.output

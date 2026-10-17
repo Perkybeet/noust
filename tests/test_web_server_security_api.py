@@ -374,7 +374,7 @@ class TestContract:
         }
         permissions = route_map()
 
-        assert len(routes) == 24
+        assert len(routes) == 25
         assert routes <= set(permissions)
 
     def test_every_access_change_needs_host_access(self):

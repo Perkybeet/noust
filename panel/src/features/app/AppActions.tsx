@@ -8,13 +8,11 @@ import type { App } from "../../api/queries/apps";
 import type { Job } from "../../api/queries/jobs";
 import { appStatus } from "../../components/page/status";
 import { Button } from "../../components/ui/Button";
-import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
 import { MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { SM_UP, useMediaQuery } from "../../components/ui/useMediaQuery";
 import { useT } from "../../i18n";
-import { useNode } from "../../nodes/useNode";
 import { hasUnit } from "../apps/AppRowActions";
 import { isAdopted } from "./adopted";
 import { useCloneApp, usePromoteApp } from "../promotion/useAppTransfers";
@@ -23,6 +21,7 @@ import { NothingNewDialog } from "../apps/NothingNewDialog";
 import { reportActionError, useAppActions } from "../apps/useAppActions";
 import { DeleteAppDialog } from "./DeleteAppDialog";
 import { RollbackDialog } from "./RollbackDialog";
+import { StopAppDialog } from "./StopAppDialog";
 import { useHasPermission } from "../terminal/queries";
 import { useConfirmItsYou } from "./useDeleteApp";
 import { useStageRelease } from "./useStagedRelease";
@@ -77,7 +76,6 @@ export function useAppHeaderActions(
   { busy, onJobQueued }: { busy: boolean; onJobQueued: (job: Job) => void },
 ): AppHeaderActions {
   const t = useT();
-  const { node } = useNode();
   const wide = useMediaQuery(SM_UP);
   const { restart, start, stop, update, rebuildAnyway, rebuildFresh, nothingNew, dismissNothingNew, frozen, deployAnyway, dismissFrozen } = useAppActions(domain, { onJobQueued });
   const stage = useStageRelease(domain, onJobQueued);
@@ -181,25 +179,7 @@ export function useAppHeaderActions(
 
   const dialogs = (
     <>
-      <ConfirmDialog
-        open={confirmStop}
-        onOpenChange={setConfirmStop}
-        friction="simple"
-        server={node}
-        title={t("appPages.actions.stopTitle", { domain })}
-        description={t("appPages.actions.stopDescription")}
-        actionLabel={t("appPages.actions.stopApplication")}
-        // The outcome, success or failure, is the toast's: the dialog waits for it, then closes.
-        onConfirm={() =>
-          new Promise<void>((resolve) => {
-            stop.mutate(undefined, {
-              onSettled: () => {
-                resolve();
-              },
-            });
-          })
-        }
-      />
+      <StopAppDialog domain={domain} open={confirmStop} onOpenChange={setConfirmStop} stop={stop} />
       <NothingNewDialog
         domain={domain}
         refusal={nothingNew}

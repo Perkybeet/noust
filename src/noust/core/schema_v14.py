@@ -326,6 +326,32 @@ CREATE TABLE IF NOT EXISTS gitlab_oauth_apps (
     created_by TEXT
 );
 """
+SOURCES_SQL += """
+-- push_repos: the applications whose code arrives with git push (noust.core.push_store is its
+-- only reader and writer). One row per application: the branch a push deploys, and the source the
+-- application had before, so that turning push off puts it back. The keys of who may push are not
+-- here: they are lines of the push account's key file, each forced to the application's own
+-- repository, because sshd reads that file and nothing else decides who gets in.
+CREATE TABLE IF NOT EXISTS push_repos (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    branch TEXT NOT NULL,
+    previous_source TEXT,
+    previous_branch TEXT,
+    enabled_at TEXT NOT NULL,
+    enabled_by TEXT
+);
+"""
+SOURCES_SQL += """
+-- app_packages: the system packages an application needs (noust.core.app_packages_store is its
+-- only reader and writer). One row per application, the names as a JSON list: only the operator
+-- writes them, because Noust installs them as root before the next build.
+CREATE TABLE IF NOT EXISTS app_packages (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    packages TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    updated_by TEXT
+);
+"""
 SOURCES_COLUMNS: list[tuple[str, str, str]] = []
 
 # Owned by the databases lane: database exposure and the choice of engine.
@@ -687,6 +713,52 @@ CREATE TABLE IF NOT EXISTS tunnel_hostnames (
     PRIMARY KEY (tunnel, hostname)
 );
 """
+# site_config_versions: the text a site's file held, each time Noust wrote it, an operator saved
+#   it or it was found changed (noust.core.site_history_store is its only reader and writer).
+#   ``domain`` is the name the API addresses the site by; ``source`` says how the text came to
+#   be (``generated``: rendered by a deployer; ``edit``: saved from the editor or the API;
+#   ``restore``: an earlier version put back; ``found``: on disk when Noust first looked, or
+#   different from what Noust last wrote, so a deploy about to overwrite it keeps it).
+NETWORK_SQL += """
+CREATE TABLE IF NOT EXISTS site_config_versions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    domain TEXT NOT NULL,
+    webserver TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    sha256 TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    source TEXT NOT NULL CHECK (source IN ('generated', 'edit', 'restore', 'found')),
+    actor TEXT,
+    created_at TEXT NOT NULL,
+    text TEXT NOT NULL,
+    UNIQUE (domain, webserver, version)
+);
+CREATE INDEX IF NOT EXISTS idx_site_config_versions_site ON site_config_versions(domain, webserver, version);
+"""
+
+# client_certificates: the certificates Noust signed for the clients of one application's site
+#   (noust.core.client_cert_store is its only reader and writer). ``app_domain`` is the
+#   application's primary domain; ``serial`` is what the web server reads of a presented
+#   certificate, upper-case hex, so a revoked one is refused by name; the private key is never
+#   here.
+NETWORK_SQL += """
+CREATE TABLE IF NOT EXISTS client_certificates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    app_domain TEXT NOT NULL,
+    name TEXT NOT NULL,
+    serial TEXT NOT NULL,
+    fingerprint TEXT NOT NULL,
+    not_before TEXT NOT NULL,
+    not_after TEXT NOT NULL,
+    issued_by TEXT,
+    issued_at TEXT NOT NULL,
+    revoked_at TEXT,
+    revoked_by TEXT,
+    UNIQUE (app_domain, serial)
+);
+CREATE INDEX IF NOT EXISTS idx_client_certificates_app ON client_certificates(app_domain, id);
+"""
+
 # The port an alias is proxied to, when it is not the application's own: a name
 # answered by another listener of the same application (an admin interface).
 # NULL is the application's port.

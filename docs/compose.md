@@ -213,6 +213,35 @@ noust env set shop.example.com DB_PASSWORD=...     # how a value is given
 - The `SERVICE_*` variables Coolify generates are not a Compose feature; Noust's recipes declare
   their generated variables themselves ([recipes.md](recipes.md)).
 
+## The Docker networks of a stack
+
+Compose gives each stack a network of its own, so by default two stacks cannot reach each other.
+That quietly stops being true when a service is attached to a network another stack uses: an
+external proxy network, Docker's default bridge, the host's own network. Anything on a shared
+network reaches everything else on it, and nothing on the stack's page said so.
+
+```bash
+noust app networks shop.example.com            # the networks, who is on them, what is worth knowing
+noust app networks shop.example.com --json
+```
+
+It lists every network the stack's containers are on and every network its Compose project made,
+with the driver, the address ranges and each container on it (the stack's own, and the others
+marked). It says in one line whether the stack is isolated, meaning every network is its own and
+nothing else is on it, and for each network what Docker reported that is worth a second look: it is
+shared and with whom, it is Docker's default bridge or the host's network, another stack made it, a
+person made it, or it is internal and cannot reach the outside.
+
+It is **read only on purpose**. Creating, scanning and adopting the host's Docker networks is the
+host's Docker administration, not what Noust is for, and one flat network that everything and the
+proxy join is the shape this exists to point out, not to copy. Noust gives a stack what Compose
+gives it and shows the result as Docker says it. Fixing a shared network is editing the stack's own
+compose file: give it a network of its own, or `internal: true` for one that needs no way out.
+
+API: `GET /api/apps/{domain}/networks` (`apps.read`; an application of another team is a 404, and
+one that does not run in Docker answers that it has no network). Console: **Settings, Deploys,
+Docker networks**, for a Compose stack. The listing is Docker's, read when the page is opened.
+
 ## Operator hooks
 
 The server can declare hooks of its own for an application, without a commit: for a repository

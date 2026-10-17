@@ -203,6 +203,20 @@ way to fix it) beside recent activity as a timeline, then the machine's charts a
 When the charts' history is not being recorded, it says why and what to run. A server with
 nothing deployed shows first steps instead. On a hub, the home page is the fleet summary.
 
+### Map
+
+`/map` (Overview's More actions, or the palette: "Open the map of this server") draws how this server fits
+together: the names that reach each application, the applications with their state, the databases they use,
+the scheduled work they run and the data they keep (persistent paths and mounted paths), in fixed columns
+from left to right, with the lines that connect them. It is **read from the server on every visit** and
+carries no coordinates, so there is no canvas to arrange, nothing to save and nothing that moves when you
+look again: the same server is the same picture. Pointing at or focusing an element lights its whole way,
+as in a site's diagram; the same connections are a table with a link to each thing, and on a phone each
+column is a list. A team member's map has its team's applications and databases and nothing else, and
+a project is drawn apart from another when there is more than one to tell apart. The same relations
+are `noust map` (and `noust map --json`, the document `GET /api/map` answers). The map does not have an
+entry in the sidebar yet; where it lives in the navigation is decided with the rest of it.
+
 ### Charts
 
 The charts drawn from the [metrics history](MONITOR.md#metrics-history) (the Overview's machine
@@ -469,7 +483,7 @@ Discard · Save"):
 | Mounts | Configuration files kept for the application and linked into every release (their text is editable here, and needs the permission that reveals secrets), and server folders bound into a container application. See [runtime.md](runtime.md#mounted-files-and-paths) |
 | Previews | Pull request previews and their settings |
 | Previews | Pull request previews and their settings: where they answer, how many and for how long, **which variables a preview is given** (only the ones you choose, the default, or all of the app's) and **which data** (a database of its own, the default, or the app's). Each preview has its **Logs** (the last build and the service), **Redeploy**, **Stop** or **Start**, and **Remove**; **New preview** makes one from an open pull request (when the GitHub App reaches the repository), a branch or a tag; the variables defined for previews alone are listed below them. A Docker Compose application has previews too. The settings also give **how a preview is named** (a template, with the name it gives drawn beside it), whether to **keep search engines out**, what to do with **pull requests from forks** (refuse them, or wait for your approval of each commit, which shows on the preview as **Approve** and **Reject**) and a **copy of the database** as a third choice of data. See [previews.md](previews.md) |
-| Export | The application as a file to import elsewhere |
+| Export | The application as a file to import elsewhere, and its declaration (`noust.yaml`): **Download the declaration**, or **Apply a declaration**, which can start from what runs now, shows the plan and then every block that differs line by line with a way to put a block back, and applies only what was checked. See [declarative.md](declarative.md#reviewing-a-set-of-changes) |
 | Delete | Delete the application; removing its files and its certificate are separate choices, both off until you tick them, and you type its domain to confirm |
 
 ### The deploy queue and cancelling
@@ -724,10 +738,36 @@ Seven tabs, each with its URL:
 | Security | Hardening checks with their fix or exact steps, accepted risks; SSH (effective settings, keys, safe fixes that revert unless confirmed); the firewall against the ports that really answer; fail2ban |
 | Storage | Real filesystems, what takes their space, clean-ups, swap; **Automatic cleanup**, the policy this server runs by itself (schedule, how full a disk must be, which actions) with a Run now, and the history of every cleanup |
 | Services | Every systemd unit Noust manages ("Show all units" lists the rest, read-only); a service's page has its live journal, controls and a unit editor checked with `systemd-analyze verify` |
-| Logs | The journal of any unit, with filters |
+| Logs | The journal of any unit, searched with a query (below), with filters, and any entry opened in context |
 | System | Time and synchronisation, host name, the operating system and its end of life, processes, network, reboot and shut down (now or scheduled), and the resource monitor |
 
 `/services` redirects to Server > Services.
+
+**Searching the logs.** The Logs tab's search box takes a query, judged by the server against what
+the journal returns (`GET /api/server/logs/search`, `noust server logs -Q`): nothing typed is part of a
+command line, and no regular expression is run.
+
+| Write | It finds |
+|---|---|
+| `error timeout` | entries whose message has both words, ignoring case |
+| `"connection refused"` | that exact phrase |
+| `@unit:nginx` | entries of that service (`.service` optional; `*` is a wildcard, as in `@unit:noust-*`) |
+| `@app:shop.example.com` | entries of the services that application runs as |
+| `@level:err` | that level or worse (`err`, `warning`, `info`, or 0 to 7) |
+| `@pid:4821` | entries of that process |
+| `-debug`, `NOT debug` | leave out what says that |
+| `a OR b`, `(a OR b) c` | either; grouping (`AND`, `OR` and `NOT` in capitals) |
+
+The Service and Level pickers are shortcuts for `@unit:` and `@level:`, and the page says the query as the
+server understood it ("Understood as `@unit:nginx AND @level:err AND NOT timeout`") with how many entries
+it looked through. A search examines the newest 5,000 entries of the range (20,000 on request) and says
+when older ones were not examined, so a narrow range or `@unit:` finds what a wide one cannot. A query
+the server cannot read is answered in its own words, with where. The range can also be a stretch carried
+from elsewhere: **What happened here** opens the timeline of the stretch being searched, and the
+timeline's **Search these logs** brings its stretch (and its application, as `@app:`) back to the Logs
+tab. **Click a line, or select it with the arrow keys and press Enter, to see it in context**: the entries
+the journal logged just before and after it, from every service or only its own, with the one chosen marked
+(`noust server logs --around CURSOR`, with the cursors `--json` prints).
 
 **Time zone.** On the System tab, **Change time zone** opens a dialog with a searchable list of the
 zones the managed server itself knows (`GET /api/server/clock/timezones`; on a central, the
@@ -770,7 +810,7 @@ selected server's, or this central's.
 | Log shipping | Server | Where the logs of applications are sent besides the journal: Grafana Loki, Axiom, an HTTP endpoint, OpenTelemetry or a remote syslog; how each destination is doing and what it answered when it failed, verbatim; add, edit, turn off, test with one line, remove. See [runtime.md](runtime.md#log-shipping) |
 | Variables | Server | The server's shared variables, which every application can refer to as `{{server.NAME}}`; the team's, the project's and the environment's are on their own pages (below) |
 | Secret managers | Server | Vault, Doppler and Infisical, which a variable refers to with `{{secret:NAME/path}}`: the address, the settings of the kind, the team that may name it and a token that is written and never shown again; **Test connection** proves it answers. A secret's value is fetched at every deploy and never kept. See [variables.md](variables.md) |
-| About | Server | Version and updates, installation, CLI equivalents, links |
+| About | Server | Version and updates; **Automatic updates** (whether this server installs Noust's own new releases by itself, the releases it takes, the hours and days, the next window and what the last run did; saving writes or removes a timer, in sudo mode; [release-policy.md](release-policy.md#updating-by-itself)); installation, CLI equivalents, links |
 | Servers | Central | Every server, its reachability, version, ceiling and labels, and, under its state, how long it has been silent or why its monitoring is paused; **Add a server** takes an address and a credential used once, confirms the host key, installs Noust if it is missing and joins the server (below), or, a link away, walks through `noust fleet authorize` and the join code, or, for a server behind NAT, makes it dial in; **Create at a provider** opens the wizard of Settings > Cloud; test, pause monitoring and remove |
 | Cloud | Central | The provider accounts (Hetzner, DigitalOcean, Vultr) with their tokens as secrets, the servers this central created and why one did not join, and the cloud-init library new servers boot with (below) |
 | Console access | Server | Publishes the console on a name of its own over TLS, or takes it down (below) |
@@ -880,6 +920,17 @@ from a recipe, import an application, adopt a stack, new database, add a server,
 theme, keyboard shortcuts and sign out. It reads its lists the first time it is opened, only
 the ones your account may read, and reads them again after a job ends. Arrow keys or
 `Ctrl N` / `Ctrl P` move, `Enter` runs, `Esc` closes.
+
+The palette also **does** things to an application, not only opens it: type the verb
+(`restart shop`, `stop shop`, `start`, `roll back shop`, `update shop`) and the result is
+"Restart shop.example.com" under Operations. A verb is the application's own button, run by the
+same code: stopping asks the same one question, going back opens the same choice of version, an
+update with nothing new asks the same "rebuild anyway", and "Confirm it's you" appears when the
+server asks for it, exactly as for the button. A verb the account may not do in the
+application's team is not offered, a stack running outside its unit has no Start or Stop (the
+banner's "Hand it back to Noust" is the way), and typing only an application's name finds the
+application, never every verb. On an application's own page its verbs are listed before anything
+is typed. Deleting is not in the palette: it needs the typed name, on the application's page.
 
 Every list of more than 20 rows is paged: 20, 50, 100 or all rows to a page, chosen under the
 list, remembered for that list in the browser, with "Showing 21–40 of 57". An application's

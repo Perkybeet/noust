@@ -13,9 +13,15 @@ import { deploymentsQuery } from "../../api/queries/deployments";
 import { metricKeys } from "../../api/queries/metrics";
 import type { MetricsSnapshot } from "../../api/queries/metrics";
 import { useT } from "../../i18n";
+import { appStatus } from "../../components/page/status";
 
 export type AppInfo = AppList["apps"][number];
 export type Deployment = DeploymentList["items"][number];
+
+/** Whether the app has a unit to restart, start or stop. A static site is served by nginx alone. */
+export function hasUnit(app: Pick<AppInfo, "status" | "app_type">): boolean {
+  return appStatus(app.status).state !== "static" && app.app_type !== "static";
+}
 
 /**
  * The registry's display name (`DISPLAY_NAME`) for a type, from `GET /api/apps/types` - the

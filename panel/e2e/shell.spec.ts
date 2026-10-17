@@ -72,6 +72,9 @@ test("an anonymous visit lands on sign-in, which asks for the token and then the
   const code = page.getByLabel("Two-factor code");
   await expect(code).toBeFocused();
   await expect(page.getByText("Access token accepted")).toBeVisible();
+  // Axe reads a colour as it is at that instant: the notice and the field fade in, and under load the
+  // read lands mid-transition. It runs once the page has stopped moving.
+  await settle(page);
   await expectNoA11yViolations(page, "the second factor");
 
   if (consoleServer.totpSecret === null) throw new Error("the worker's server runs with two-factor on");
@@ -92,6 +95,7 @@ test("a wrong token is refused in the server's words and the field keeps focus",
   const token = page.getByLabel("Access token");
   await expect(token).toHaveAttribute("aria-invalid", "true");
   await expect(token).toBeFocused();
+  await settle(page);
   await expectNoA11yViolations(page, "a refused token");
 });
 
@@ -138,6 +142,7 @@ test("the command palette opens with Ctrl+K, filters, navigates on Enter and clo
   await page.keyboard.press("Control+k");
   await expect(palette).toBeVisible();
   await expect(search).toBeFocused();
+  await settle(page);
   await expectNoA11yViolations(page, "the command palette");
 
   await search.fill("cron");
@@ -184,7 +189,10 @@ test("a session that ends while the console is open returns to the same page aft
   await page.keyboard.press("Control+k");
 
   await expect(page).toHaveURL(/\/login\?next=%2Fdatabases&reason=expired$/);
-  await expect(page.getByText("Your session expired. Sign in again to continue where you left off.")).toBeVisible();
+  // In the form: the live region repeats the sentence for screen readers, and a page that has two
+  // of it (as soon as the announcement is made) is not an error.
+  await expect(page.locator("form").getByText("Your session expired. Sign in again to continue where you left off.")).toBeVisible();
+  await settle(page);
   await expectNoA11yViolations(page, "the expired-session notice");
 
   await signIn(page, consoleServer);
@@ -212,6 +220,7 @@ test("a locked-out address is told how long to wait", async ({ page, problems })
     // In the form; the assertive live region repeats the server's words for screen readers.
     await expect(page.locator("form").getByText(/Try again in \d+:\d\d/)).toBeVisible();
     await expect(submit).toBeDisabled();
+    await settle(page);
     await expectNoA11yViolations(page, "the lockout notice");
   } finally {
     await server.stop();

@@ -27,6 +27,8 @@ from noust.core.teams import scoped_store
 from noust.deployers.helpers import build_cache
 from noust.deployers.helpers.build_config import (
     BUILD_KEYS,
+    MAX_TIMEOUT,
+    MIN_TIMEOUT,
     AppBuild,
     describe_build,
     set_operator_build,
@@ -62,6 +64,11 @@ class AppBuildResponse(BaseModel):
         default=None,
         description="false builds every deployment without the build cache; unset keeps it",
     )
+    timeout: int | None = Field(
+        default=None,
+        description="Seconds the install and the build may each take; unset takes the "
+        "server's deploy.install_timeout and deploy.build_timeout",
+    )
     document: str | None = Field(
         default=None, description="The operator's document as stored, when there is one"
     )
@@ -87,6 +94,7 @@ class AppBuildRequest(BaseModel):
     publish_directory: str | None = Field(default=None, max_length=200)
     runtime: str | None = Field(default=None, max_length=64)
     cache: bool | None = None
+    timeout: int | None = Field(default=None, ge=MIN_TIMEOUT, le=MAX_TIMEOUT)
 
 
 def _response(described: AppBuild) -> AppBuildResponse:

@@ -26,6 +26,7 @@ Two further rules, the same ones the services API follows:
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -36,6 +37,7 @@ from noust.core.store import get_store
 from noust.core.teams import TeamStore, ownership_target, scoped_store
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.nginx_manager import NginxManager
+from noust.managers.site_history import Drift
 from noust.managers.site_topology import TopologyProbe, default_probe, include_reader
 from noust.managers.siteconf import (
     EditOp,
@@ -107,6 +109,9 @@ class SiteInfo(BaseModel):
             never recorded, which belongs to nobody.
         project: The slug of its project.
         environment: The slug of its environment.
+        pending_reload: The file was written after the web server last loaded its
+            configuration, so the web server still runs the previous text.
+        edited_outside: The file is not what Noust last wrote: somebody changed it by hand.
     """
 
     name: str
@@ -121,6 +126,8 @@ class SiteInfo(BaseModel):
     team: str | None = None
     project: str | None = None
     environment: str | None = None
+    pending_reload: bool = False
+    edited_outside: bool = False
 
 
 class SiteListResponse(BaseModel):
@@ -716,9 +723,30 @@ def _owners_of_sites() -> dict[str, tuple[str | None, str | None, str | None]]:
     }
 
 
+def _drift_of(rows: list[SiteRow], cache: _ManagerCache) -> dict[tuple[str, str], Drift]:
+    """
+    Say which of these sites have drifted from what the web server runs.
+
+    Args:
+        rows: The sites.
+        cache: Managers already resolved in this request.
+
+    Returns:
+        ``(web server, domain)`` to its drift; a site that has not drifted is left out.
+    """
+    found: dict[tuple[str, str], Drift] = {}
+    for webserver in {row.webserver for row in rows}:
+        manager = _manager_cached(cache, webserver)
+        files = {row.domain: Path(row.config_path) for row in rows if row.webserver == webserver}
+        for domain, drift in manager.history.drift(files, manager.runner).items():
+            found[(webserver, domain)] = drift
+    return found
+
+
 def _site_info(
     row: SiteRow,
     owners: dict[str, tuple[str | None, str | None, str | None]] | None = None,
+    drift: Drift | None = None,
 ) -> SiteInfo:
     """
     Describe a site row the way the API reports it.
@@ -726,6 +754,7 @@ def _site_info(
     Args:
         row: The row :func:`~noust.managers.webserver.list_all_sites` built.
         owners: Where each recorded site lives, by domain; read when omitted.
+        drift: Whether the file and what the web server runs have come apart.
 
     Returns:
         The API record; one translation, so the list and the detail of a site
@@ -747,6 +776,8 @@ def _site_info(
         team=team,
         project=project,
         environment=environment,
+        pending_reload=bool(drift and drift.pending_reload),
+        edited_outside=bool(drift and drift.edited_outside),
     )
 
 
@@ -786,7 +817,9 @@ def list_sites(session: Annotated[dict, Depends(get_current_session)]) -> SiteLi
     cache: _ManagerCache = {webserver: manager}
 
     owners = _owners_of_sites()
-    sites = [_site_info(row, owners) for row in _site_rows(cache)]
+    rows = _site_rows(cache)
+    drift = _drift_of(rows, cache)
+    sites = [_site_info(row, owners, drift.get((row.webserver, row.domain))) for row in rows]
 
     return SiteListResponse(sites=sites, total=len(sites), webserver=webserver)
 
@@ -957,7 +990,8 @@ def get_site(domain: str, session: Annotated[dict, Depends(get_current_session)]
     if row is None:
         raise HTTPException(status_code=404, detail=f"Site not found: {validated}")
 
-    return _site_info(row)
+    drift = _drift_of([row], cache).get((row.webserver, row.domain))
+    return _site_info(row, drift=drift)
 
 
 @router.get("/{domain}/config", response_model=SiteConfigResponse)

@@ -283,6 +283,42 @@ def test_installing_queues_the_one_deployment_with_the_variables_given(
     assert queued[0]["metadata"]["recipe"] == "freshrss"
 
 
+def test_a_recipe_that_offers_a_choice_of_engine_installs_on_the_one_asked_for(
+    client: TestClient, queued: list[dict[str, Any]]
+) -> None:
+    """The choice reaches the job, which plans the recipe with it."""
+    response = client.post(
+        "/api/recipes/wordpress/install",
+        json={"domain": DOMAIN, "database": "mariadb", "ssl": False},
+    )
+
+    assert response.status_code == 202, response.text
+    assert queued[0]["kwargs"]["recipe_database"] == "mariadb"
+
+
+def test_the_gallery_says_which_engines_a_recipe_can_run_on(client: TestClient) -> None:
+    listed = {item["name"]: item for item in client.get("/api/recipes").json()["items"]}
+
+    assert listed["wordpress"]["database_choices"] == ["mysql", "mariadb"]
+    assert listed["freshrss"]["database_choices"] == []
+
+
+@pytest.mark.parametrize(
+    ("recipe", "engine"),
+    [("wordpress", "postgres"), ("wordpress", "sqlite"), ("freshrss", "mariadb")],
+    ids=["not-offered", "unknown", "recipe-offers-none"],
+)
+def test_an_engine_the_recipe_does_not_offer_is_refused_before_anything_is_queued(
+    client: TestClient, queued: list[dict[str, Any]], recipe: str, engine: str
+) -> None:
+    response = client.post(
+        f"/api/recipes/{recipe}/install", json={"domain": DOMAIN, "database": engine}
+    )
+
+    assert response.status_code == 400, response.text
+    assert queued == []
+
+
 def test_installing_without_a_required_variable_is_a_400_naming_it_and_queues_nothing(
     client: TestClient, queued: list[dict[str, Any]]
 ) -> None:

@@ -898,6 +898,11 @@ See [docs/security.md](docs/security.md), which also says how to report a vulner
 answers, the test that fails if it stops holding, what it does not guarantee, and how to verify a
 release's signatures.
 
+**Privacy.** Noust has no telemetry and sends no error reports to anyone. The only request it makes
+without being told where is the update check (`noust config set updates.check false` turns it off);
+everything else goes to addresses you configured. [docs/PRIVACY.md](docs/PRIVACY.md) lists them, and
+`tests/test_privacy.py` fails if a change adds a way out that is not declared.
+
 ---
 
 ## Command reference
@@ -1077,6 +1082,7 @@ is.
 - [docs/api.md](docs/api.md): authentication, errors, events, WebSockets, endpoints
 - [docs/security.md](docs/security.md): threat model, roles and permissions, controls, reporting vulnerabilities
 - [docs/SECURITY-MODEL.md](docs/SECURITY-MODEL.md): the guarantees, their evidence and their limits; verifying a release
+- [docs/PRIVACY.md](docs/PRIVACY.md): what Noust sends off a server (nothing about you), the one request it makes unasked, and how to check it
 - [docs/ENS.md](docs/ENS.md): Spain's Esquema Nacional de Seguridad, category MEDIUM (in Spanish, with an English summary)
 - [docs/DESIGN.md](docs/DESIGN.md): the console's design system
 - [docs/MONITOR.md](docs/MONITOR.md): the resource monitor and the metrics history

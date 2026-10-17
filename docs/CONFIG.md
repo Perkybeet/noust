@@ -71,6 +71,8 @@ upgrade runs `noust config upgrade` and then `noust config clean`.
 | `deploy.hardening` | `default` | The systemd sandbox the unit of a new application runs in: `off` (the unit as it was before 3.4), `default` (read-only filesystem but for the application's own tree, no home directories, no devices, no capabilities, a system-call filter) or `strict` (also bans the privileged and resource calls and, for runtimes without a JIT, writable executable memory). Applications that exist keep their unit until `noust app hardening set` moves them; Docker Compose stacks, containers, monorepos and PHP sites are not hardened this way (see [runtime.md](runtime.md#unit-security)). |
 | `deploy.drain_seconds` | `10` | Seconds the old instance keeps running after traffic moved, for the applications that start in zero-downtime mode (0 to 300). |
 | `deploy.max_concurrent_builds` | `2` | How many applications build at the same time (1 to 16). One application never builds two things at once, and anything that is not a build (a restore, an operating system update) runs alone; the rest wait in the queue (see [releases.md](releases.md#the-deploy-queue)). Read again every few seconds: no restart. |
+| `deploy.install_timeout` | `1800` | Seconds the install of an application's dependencies may take before it is stopped (60 to 86400). An application's build block (`timeout`) overrides it for itself; see [build.md](build.md#how-long-a-build-may-take). Read again every few seconds. |
+| `deploy.build_timeout` | `2700` | Seconds an application's build may take before it is stopped (60 to 86400), with the same override. |
 | `deploy.queue_limit` | `25` | How many deployments and updates may wait before the next is refused with 429 (1 to 1000). A push that is the same as one already waiting merges into it and needs no room. |
 | `deploy.history_keep` | `20` | How many deployments of an application's history are kept, with their build logs (1 to 1000). An application can have its own with `noust deploy keep`; the older ones go at its next deploy. The builds kept on disk to go back to are `noust releases keep` (see [delivery.md](delivery.md#how-much-history-is-kept)). |
 | `deploy.max_minutes` | `60` | The longest a deployment may build, in minutes (0 to 1440; 0 is no limit). A build past it is stopped as an operator's cancel would, its process group included, and the deployment and its job end as a failure that says the time limit was the reason, not as a cancellation. The clock starts when the build starts, not while it waits in the queue. Read again every few seconds: no restart. Set it from **Settings > General** too. |
@@ -91,6 +93,10 @@ upgrade runs `noust config upgrade` and then `noust config clean`.
 | `backup.encrypt_new_destinations` | `true` | Whether a backup destination made without a word about encryption is wrapped in rclone's crypt backend. What the operator said wins. Not in the defaults. |
 | `backup.drill_days` | `30` | A scheduled backup rehearses restoring itself when the last good drill is older than this many days; `0` turns it off. Not in the defaults. |
 | `updates.check` | `true` | Whether Noust asks GitHub for the latest release (the CLI's background check and `GET /api/system/version`). Off means the request is never made. |
+| `updates.auto.enabled` | `false` | Whether Noust installs its own new releases by itself, inside the window below. Needs `updates.check`. Turn it on with `noust self-update set --enable`, which also writes the timer. |
+| `updates.auto.channel` | `patch` | Which releases it takes: `security` (only one that fixes a vulnerability), `patch` (also the patch releases of the minor it runs) or `stable` (also a new minor). A new major version is never taken. |
+| `updates.auto.window` | `03:00-05:00` | The hours an update may start in, on the server's clock; it may cross midnight (`23:00-01:00`). |
+| `updates.auto.days` | `daily` | The days the window opens on: `daily`, or weekdays (`mon,thu`). A window that crosses midnight belongs to the day it opened on. |
 
 `backup.*` and the other settings listed below as "not in the defaults" are read where they are
 used, with their default in the code, so a file that lacks them behaves as documented.
@@ -131,6 +137,8 @@ used, with their default in the code, so a file that lacks them behaves as docum
 |---|---|---|
 | `security.profile` | `standard` | `standard`, or `ens-medium` for Spain's ENS category MEDIUM: it caps the `auth.*` settings at the profile's values and keeps the master token to account recovery. |
 | `security.allow_private_hosts` | none | Hosts this server may send a request to although they resolve to its own network: a NAS or a MinIO a backup destination connects to, an internal artifact server a source archive is downloaded from, a webhook on the LAN. Names or address literals, compared exactly. Without the host in this list, a destination is refused when it is made or tested, and every use of one refuses the cloud metadata service and this machine's own aliases. Notifications keep their own `notifications.allow_private_hosts`, and also honour this one. |
+| `security.app_packages` | none | The system packages an application may declare (`noust app packages`), as names and globs: `[libvips*, ffmpeg, fonts-*]`. Empty allows any package the distribution has; with a list, a package outside it is refused when it is declared and again when it is installed. See [build.md](build.md#system-packages). |
+| `security.allowed_sources` | none | Where code may come from, as hosts, organisations or repositories (`[github.com/acme]`), and `local`, `push` and `upload` for a directory, `git push` and an uploaded archive. Empty allows everything. See [sources.md](sources.md). |
 | `auth.session.idle_minutes` | `30` | A session unused for this long is over. |
 | `auth.session.absolute_hours` | `12` | A session older than this is over, however active. |
 | `auth.lockout.threshold` | `5` | Consecutive failed sign-ins that lock an account. |
@@ -276,6 +284,7 @@ Any other key under `notifications.channels` is a **further channel** of one of 
 | `databases.credentials.mongodb.password` | empty | Its password (a secret). |
 | `databases.safety_copies_kept` | `5` | Safety copies a restore takes of a database before loading over it, kept per database; older ones are deleted after each restore. The newest is never deleted, whatever the value. |
 | `databases.import_max_bytes` | `10737418240` (10 GiB) | The largest dump the console may upload to import (`/api/databases/imports/uploads`): a bigger size is refused before a byte is sent. A file already on the server is not limited by it (`noust db import`). |
+| `uploads.source_max_bytes` | `536870912` (512 MiB) | The largest archive the console or `noust upload add` takes as the code of an application (`/api/uploads`): a bigger size is refused before a byte is sent. What it extracts to is capped apart (50,000 files, 2 GiB). |
 | `databases.import_directories` | empty | Folders, besides `imports` under the backup directory, the API may read a dump from by its path. A comma-separated list of absolute paths; `/` is refused. The CLI reads any file. |
 
 ## Adding a setting

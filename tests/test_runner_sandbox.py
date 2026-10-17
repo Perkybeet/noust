@@ -18,6 +18,7 @@ import stat
 import sys
 import threading
 import time
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import pytest
@@ -609,6 +610,42 @@ class TestFakeRunnerSandbox:
         assert result.argv == ("npm", "ci")
         assert result.sandbox_unit is not None
         assert result.sandbox_unit.startswith("noust-build-shop-example-com-")
+
+    def test_the_command_inside_belongs_to_the_thread_that_is_running_it(self) -> None:
+        """
+        One runner serves a job's worker, the API's threads and the monitor. A sandboxed call on
+        another thread, however short, must not take away the command inside this one while its
+        lookup is under way (a one-off command answered nothing when it did).
+        """
+        seen: dict[str, tuple[str, ...] | None] = {}
+        first_inside = threading.Event()
+        second_done = threading.Event()
+
+        class Probe(FakeRunner):
+            def _lookup(
+                self,
+                argv: Sequence[str],
+                user: str | None = None,
+                env: Mapping[str, str] | None = None,
+            ) -> CommandResult:
+                if "slow" in argv:
+                    first_inside.set()
+                    assert second_done.wait(10)
+                    seen["slow"] = self._inner_argv
+                return super()._lookup(argv, user, env)
+
+        probe = Probe()
+        slow = threading.Thread(
+            target=lambda: probe.run(["slow", "one"], cwd=RELEASE, sandbox=build_spec(), timeout=60)
+        )
+        slow.start()
+        assert first_inside.wait(10)
+        probe.run(["quick", "two"], cwd=RELEASE, sandbox=build_spec(), timeout=60)
+        second_done.set()
+        slow.join(10)
+
+        assert seen["slow"] == ("slow", "one")
+        assert probe._inner_argv is None
 
     def test_records_the_whole_environment_the_file_would_hold(
         self, monkeypatch: pytest.MonkeyPatch

@@ -3624,6 +3624,8 @@ PROBE_MODULES: tuple[str, ...] = (
     "noust.managers.cron_manager",
     "noust.managers.app_disk",
     "noust.managers.kernel_quota",
+    "noust.managers.private_networks",
+    "noust.managers.stack_networks",
 )
 
 #: Options that turn any declared probe of a program into a change. Checked
@@ -3982,7 +3984,20 @@ class FakeRunner(CommandRunner):
         self._scripted: list[FakeCommand] = []
         self._default_exit_code = default_exit_code
         self._known_programs: set[str] | None = None
-        self._inner_argv: tuple[str, ...] | None = None
+        # Per thread: a sandboxed call sets the command inside it for the length of its lookup, and
+        # with one runner shared by a job's worker, the API's threads and the monitor, a single
+        # attribute let one call clear another's mid-lookup (a one-off command answered nothing).
+        self._inner = threading.local()
+
+    @property
+    def _inner_argv(self) -> tuple[str, ...] | None:
+        """The command inside the sandboxed call this thread is making, None when it is making none."""
+        value: tuple[str, ...] | None = getattr(self._inner, "argv", None)
+        return value
+
+    @_inner_argv.setter
+    def _inner_argv(self, value: tuple[str, ...] | None) -> None:
+        self._inner.argv = value
 
     def script(
         self,

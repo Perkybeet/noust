@@ -76,6 +76,8 @@ from noust.core.repositories import repository_key
 from noust.core.runner import CommandResult, CommandRunner
 from noust.managers.base_manager import BaseManager
 from noust.validators.source import (
+    is_push_source,
+    is_upload_tree,
     parse_git_url,
     parse_ssh_remote,
     validate_source,
@@ -591,7 +593,15 @@ def _validate_source_keeping_credentials(source: str) -> tuple[str, str]:
     from noust.core.ens.origins import check_origin
 
     source_type, normalized = _classify_source(source)
-    check_origin(normalized, kind=source_type)
+    # Code that arrives with git push, or as an archive somebody uploaded, is a kind of its own
+    # for the allowed origins: whoever holds a pusher's key or the console decides what is
+    # deployed, which a list of hosts says nothing about.
+    kind = source_type
+    if is_push_source(normalized):
+        kind = "push"
+    elif source_type == "local" and is_upload_tree(normalized):
+        kind = "upload"
+    check_origin(normalized, kind=kind)
     return source_type, normalized
 
 
@@ -992,6 +1002,12 @@ def validate_git_remote_url(url: str) -> str:
         raise SourceError(
             "Git URL is empty",
             details="Provide a repository URL such as https://github.com/user/repo.git",
+        )
+    if is_push_source(candidate):
+        raise SourceError(
+            f"{candidate} is a repository on this server, not a URL git can clone",
+            details="Only the application it belongs to fills its repository cache from it "
+            "(noust push enable DOMAIN), and only on the release layout.",
         )
     if any(char in candidate for char in "\x00\r\n"):
         raise SourceError(
@@ -2044,6 +2060,39 @@ def extract_archive(
         raise SourceError(f"Cannot read tar archive: {archive.name}", details=str(exc)) from exc
 
 
+def flatten_single_directory(destination: Path, filesystem: FileSystem) -> None:
+    """
+    Move contents up when an archive wrapped everything in one directory.
+
+    Release tarballs from GitHub and friends contain a single ``name-1.2.3``
+    directory; the deployment expects the project at the top level.
+
+    Args:
+        destination: Directory that was just extracted into.
+        filesystem: The filesystem the contents are moved through.
+
+    Raises:
+        SourceError: If the contents cannot be moved.
+    """
+    contents = list(destination.iterdir())
+    if len(contents) != 1:
+        return
+
+    subdir = contents[0]
+    if subdir.is_symlink() or not subdir.is_dir():
+        return
+
+    try:
+        for item in subdir.iterdir():
+            filesystem.move(item, destination / item.name)
+        filesystem.remove_tree(subdir)
+    except (OSError, shutil.Error) as exc:
+        raise SourceError(
+            f"Cannot flatten extracted directory: {subdir.name}",
+            details=str(exc),
+        ) from exc
+
+
 def _copyable_from_tree(repository: Path, name: str) -> bool:
     """
     Decide whether a tracked path of a checkout is copied as it is in the tree.
@@ -2533,6 +2582,12 @@ class SourceManager(BaseManager):
         """
         # Validate source
         source_type, normalized = _validate_source_keeping_credentials(source)
+        if is_push_source(normalized):
+            raise SourceError(
+                "A push repository is deployed on the release layout only",
+                details="An in-place checkout is not filled from it: noust app migrate DOMAIN "
+                "moves the application onto releases.",
+            )
 
         # Handle force update for existing Git repos
         if force and destination.exists() and (destination / ".git").exists():
@@ -2666,6 +2721,13 @@ class SourceManager(BaseManager):
                 f"Not a git source: {redact_git_text(source)}",
                 details="Only git sources have a repository cache; local directories "
                 "and archives are copied into each release instead.",
+            )
+        if is_push_source(normalized):
+            # Imported here: the module reads the store and the deployers import this one.
+            from noust.pushdeploy import source as push
+
+            return push.sync_cache(
+                normalized, cache, branch, runner=self.runner, fs=self.fs, logger=self.logger
             )
         parsed = parse_git_url(normalized)
         if parsed["branch"] and not branch:
@@ -3192,6 +3254,11 @@ class SourceManager(BaseManager):
                 f"Not a git source: {redact_git_text(source)}",
                 details="Only a git remote has a branch head to compare with.",
             )
+        if is_push_source(normalized):
+            from noust.pushdeploy import source as push
+
+            pushed_branch, pushed_commit = push.remote_head(normalized, branch, runner=self.runner)
+            return RemoteHead(branch=pushed_branch, commit=pushed_commit)
         parsed = parse_git_url(normalized)
         branch = branch or parsed["branch"] or None
         bare, auth = split_url_credentials(normalized.split("#")[0])
@@ -3466,6 +3533,10 @@ class SourceManager(BaseManager):
                 f"Not a git source: {redact_git_text(source)}",
                 details="Only a git remote has tags to follow.",
             )
+        if is_push_source(normalized):
+            from noust.pushdeploy import source as push
+
+            return push.remote_tags(normalized, runner=self.runner)
         bare, auth = split_url_credentials(normalized.split("#")[0])
         url = validate_git_remote_url(bare)
         result = self._git(
@@ -4124,32 +4195,13 @@ class SourceManager(BaseManager):
         """
         Move contents up when an archive wrapped everything in one directory.
 
-        Release tarballs from GitHub and friends contain a single ``name-1.2.3``
-        directory; the deployment expects the project at the top level.
-
         Args:
             destination: Directory that was just extracted into.
 
         Raises:
             SourceError: If the contents cannot be moved.
         """
-        contents = list(destination.iterdir())
-        if len(contents) != 1:
-            return
-
-        subdir = contents[0]
-        if subdir.is_symlink() or not subdir.is_dir():
-            return
-
-        try:
-            for item in subdir.iterdir():
-                self.fs.move(item, destination / item.name)
-            self.fs.remove_tree(subdir)
-        except (OSError, shutil.Error) as exc:
-            raise SourceError(
-                f"Cannot flatten extracted directory: {subdir.name}",
-                details=str(exc),
-            ) from exc
+        flatten_single_directory(destination, self.fs)
 
     def copy_local(self, source: Path, destination: Path) -> bool:
         """

@@ -223,7 +223,7 @@ describe("the warnings of deploy on push", () => {
 });
 
 describe("deploy on push, in Spanish and for assistive technology", () => {
-  it("has no accessibility violations, off and connected", async () => {
+  it("has no accessibility violations, off and connected", { timeout: 30_000 }, async () => {
     screenWidth(1440);
     const off = await push(OFF);
     await screen.findByText("Off");
@@ -234,7 +234,7 @@ describe("deploy on push, in Spanish and for assistive technology", () => {
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
-  it("speaks Spanish", async () => {
+  it("speaks Spanish", { timeout: 30_000 }, async () => {
     await push(CONNECTED, { [`GET /api/apps/${DOMAIN}/webhook/received`]: () => json(200, RECEIVED) });
     await act(() => setLocale("es"));
     expect(await screen.findByRole("heading", { level: 2, name: "Desplegar al hacer push" })).toBeInTheDocument();

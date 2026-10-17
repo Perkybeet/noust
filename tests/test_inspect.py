@@ -664,6 +664,45 @@ EQUIVALENCE_TREES: dict[str, dict[str, str]] = {
         "services/worker/.env.example": "QUEUE=\n",
         "apps/web/src/page.tsx": "",
     },
+    # The native stacks decide by files that are not the one named at the root.
+    "go": {
+        "go.mod": "module example.com/app\n\ngo 1.22\n",
+        "cmd/server/main.go": "package main\n",
+        "internal/store/store.go": "package store\n",
+    },
+    "rust": {
+        "Cargo.toml": '[package]\nname = "app"\nversion = "0.1.0"\n',
+        "src/main.rs": "fn main() {}\n",
+    },
+    "ruby": {
+        "Gemfile": "gem 'rails'\ngem 'puma'\n",
+        "config.ru": "run Rails.application\n",
+        "config/application.rb": "module Shop\nend\n",
+        "app/assets/config/manifest.js": "",
+    },
+    "java-maven": {
+        "pom.xml": "<project><parent>spring-boot-starter-parent</parent></project>\n",
+        "src/main/java/App.java": "class App {}\n",
+    },
+    "java-gradle-modules": {
+        "settings.gradle": "include 'api'\n",
+        "api/build.gradle": "plugins { id 'org.springframework.boot' version '3.3.0' }\n",
+        "api/src/main/java/App.java": "class App {}\n",
+    },
+    "dotnet-solution": {
+        "Shop.sln": "",
+        "src/Web/Web.csproj": '<Project Sdk="Microsoft.NET.Sdk.Web"></Project>\n',
+        "src/Web/Program.cs": "",
+        "src/Core/Core.csproj": '<Project Sdk="Microsoft.NET.Sdk"></Project>\n',
+    },
+    "elixir": {
+        "mix.exs": "defmodule Shop.MixProject do\n  def application, do: [mod: {Shop.App, []}]\nend\n",
+        "lib/shop.ex": "",
+    },
+    "deno": {
+        "deno.json": '{"tasks": {"start": "deno run -A main.ts"}}\n',
+        "main.ts": "Deno.serve(() => new Response('ok'))\n",
+    },
     # Compose counts every directory under apps/, with or without a
     # package.json; only the sparse path's directory skeleton keeps that.
     "compose-in-turbo-repo": {

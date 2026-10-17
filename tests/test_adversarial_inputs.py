@@ -37,6 +37,7 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from noust.core.exceptions import NoustError, SecurityError, ValidationError
+from noust.managers import site_routes
 from noust.validators import container, domain, environment, health, names, port, source
 
 SETTINGS = settings(
@@ -461,6 +462,73 @@ class TestHealthCheckPath:
         if accepted:
             assert result.startswith("/") and not result.startswith("//")
             assert all("\x21" <= char <= "\x7e" for char in result)
+
+
+class TestSiteRoutes:
+    """A route's path and target are written into a file the web server loads as root."""
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_a_path_is_slash_separated_plain_segments_or_refused(self, value: str) -> None:
+        accepted, result = verdict(site_routes.normal_path, value)
+
+        if accepted:
+            assert result.startswith("/") and not result.startswith("//")
+            assert re.fullmatch(r"(?:/[A-Za-z0-9._~-]+)+", result)
+            assert ".." not in result.split("/") and "." not in result.split("/")
+            assert not CONTROL.search(result)
+            assert not result.startswith("/.well-known")
+
+    @SETTINGS
+    @given(value=HOSTILE, keep=st.booleans())
+    def test_a_redirect_target_cannot_end_its_directive_or_name_another_scheme(
+        self, value: str, keep: bool
+    ) -> None:
+        accepted, result = verdict(
+            lambda text: site_routes.route_from(
+                {"path": "/x", "kind": "redirect", "to": text, "keep_path": keep}
+            ),
+            value,
+        )
+
+        if accepted:
+            target = result.to
+            assert re.fullmatch(
+                r"(?:https?://[A-Za-z0-9.-]+(?::\d+)?)?(?:/[^\s\"'$;{}#\\]*)?(?:\?[^\s\"'$;{}#\\]*)?",
+                target,
+            )
+            assert not target.startswith("//")
+            assert not CONTROL.search(target)
+            assert not (keep and "?" in target)
+
+    @SETTINGS
+    @given(
+        value=st.one_of(HOSTILE, st.integers(), st.floats(allow_nan=True), st.none(), st.booleans())
+    )
+    def test_a_proxy_port_is_a_number_in_range_or_refused(self, value: object) -> None:
+        accepted, result = verdict(
+            lambda port_value: site_routes.route_from(
+                {"path": "/x", "kind": "proxy", "port": port_value}
+            ),
+            value,
+        )
+
+        if accepted:
+            assert isinstance(result.port, int) and not isinstance(result.port, bool)
+            assert 1 <= result.port <= 65535
+
+    @SETTINGS
+    @given(name=HOSTILE, value=HOSTILE)
+    def test_a_route_header_is_one_line_of_plain_text(self, name: str, value: str) -> None:
+        accepted, result = verdict(
+            lambda pair: site_routes.route_from({"path": "/x", "headers": {pair[0]: pair[1]}}),
+            (name, value),
+        )
+
+        if accepted:
+            for header, text in result.headers.items():
+                assert re.fullmatch(r"[A-Za-z0-9-]{1,64}", header)
+                assert not CONTROL.search(text) and not re.search(r'["\\$%]', text)
 
 
 class TestPorts:
