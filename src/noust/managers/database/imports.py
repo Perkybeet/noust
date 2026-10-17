@@ -813,8 +813,9 @@ class DatabaseImports:
             role_filter: PostgreSQL, with ``keep_owners``: leave out only the
                 ownership statements that name a role outside this filter (an
                 import of all databases that restored the dump's accounts).
-            create_owner: PostgreSQL, with ``replace``: the account the database is recreated
-                with instead of the one it had.
+            create_owner: PostgreSQL: the account a database this import makes (a new one, or
+                one it drops and recreates) is made with instead of the default; a database that
+                is loaded over keeps its owner. The account must exist.
 
         Returns:
             What was done.
@@ -830,6 +831,12 @@ class DatabaseImports:
         manager = self.service.running(engine)
         name = manager.validate_database_name(database)
         check_file_name(file_name or source.name)
+        if create_owner and manager.engine_type != "postgresql":
+            raise ValidationError(
+                f"{manager.DISPLAY_NAME} databases have no owner to choose",
+                details="Only PostgreSQL's databases belong to an account.",
+                field="owner",
+            )
         if as_superuser:
             # Before the file is opened: an unconfirmed request costs nothing.
             self.backups.superuser_options(manager, None, confirm_superuser)
@@ -853,7 +860,7 @@ class DatabaseImports:
             options["keep_owners"] = keep_owners
             if role_filter is not None:
                 options["role_filter"] = role_filter
-            if create_owner and exists and replace:
+            if create_owner and (replace or not exists):
                 options["create_owner"] = create_owner
         with self.scratch() as scratch:
             prepared = prepare(source, fmt, manager.engine_type, scratch, fs=self.fs)
@@ -999,6 +1006,7 @@ class DatabaseImports:
         on_step: Callable[[str], None] | None = None,
         as_superuser: bool = False,
         confirm_superuser: bool = False,
+        create_owner: str | None = None,
     ) -> ImportOutcome:
         """
         Import a finished upload, and remove it once it has been loaded.
@@ -1016,6 +1024,7 @@ class DatabaseImports:
             on_step: Told what is happening.
             as_superuser: See :meth:`run`.
             confirm_superuser: See :meth:`run`.
+            create_owner: See :meth:`run`.
 
         Returns:
             What was done.
@@ -1037,6 +1046,7 @@ class DatabaseImports:
             on_step=on_step,
             as_superuser=as_superuser,
             confirm_superuser=confirm_superuser,
+            create_owner=create_owner,
         )
         self.uploads.discard(upload_id)
         return outcome

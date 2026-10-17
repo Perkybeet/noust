@@ -571,6 +571,69 @@ class TestImportingOverHttp:
 
         assert created[0]["kwargs"]["as_superuser"] is False
 
+    def test_the_owner_of_a_new_database_reaches_the_job(
+        self,
+        client: TestClient,
+        engine: type[BaseDatabaseManager],
+        folders: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(
+            engine, "user_exists", lambda self, username, host="localhost": username == "shopapp"
+        )
+        created = _capture_queued_jobs(monkeypatch)
+        done = upload_whole(client, "x.sql", SQL)
+        elevate(client)
+
+        response = client.post(
+            f"{BASE}/imports",
+            json={
+                "engine": "postgresql",
+                "database": "fresh",
+                "upload_id": done["id"],
+                "owner": "shopapp",
+            },
+        )
+
+        assert response.status_code == 202, response.text
+        assert created[0]["kwargs"]["owner"] == "shopapp"
+
+    def test_an_owner_that_does_not_exist_is_refused_before_a_job_exists(
+        self,
+        client: TestClient,
+        engine: type[BaseDatabaseManager],
+        folders: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        created = _capture_queued_jobs(monkeypatch)
+        done = upload_whole(client, "x.sql", SQL)
+        elevate(client)
+
+        response = client.post(
+            f"{BASE}/imports",
+            json={
+                "engine": "postgresql",
+                "database": "fresh",
+                "upload_id": done["id"],
+                "owner": "ghost",
+            },
+        )
+
+        assert response.status_code == 400
+        assert "no account called ghost" in response.text
+        assert created == []
+
+    def test_the_job_makes_the_database_with_that_owner(
+        self, client: TestClient, engine: type[BaseDatabaseManager], folders: Path
+    ) -> None:
+        from noust.web.api.databases.imports import import_job
+
+        done = upload_whole(client, "x.sql", SQL)
+
+        import_job("postgresql", "fresh", upload_id=done["id"], owner="shopapp")
+
+        assert engine.state["dbs"]["fresh"]["owner"] == "shopapp"
+
     def test_the_job_loads_the_dump_and_removes_the_upload(
         self, client: TestClient, engine: type[BaseDatabaseManager], folders: Path
     ) -> None:

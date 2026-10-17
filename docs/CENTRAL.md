@@ -669,7 +669,7 @@ server is `noust db move` ([databases.md](databases.md#moving-a-database-or-an-e
   source holds no password for is made with a new one the target keeps, and shows with sudo mode (the account's page
   there, or `POST /api/databases/users/{engine}/{username}/password/reveal`).
   The passwords pass through the central in memory and are kept nowhere: not in a log, not in the job's result,
-  not in an audit event. The engine's own accounts and those the target already has are left as they are. An
+  not in an audit event. The account that owns the database on the source is made first and the target makes the database with it (PostgreSQL), so what the dump holds belongs to the account it belonged to and the other profiles are set against it. The engine's own accounts and those the target already has are left as they are. An
   account that cannot be made fails the server after the others were tried, with the target's words; the data is
   there by then, and the source is not dropped on the strength of half a move.
 - **The source keeps the database** unless `--drop-source` is given, and then the source itself drops it, after

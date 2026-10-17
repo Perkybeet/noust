@@ -196,6 +196,9 @@ class ImportRequest(SourceRequest):
         confirm_superuser: The operator accepted what ``as_superuser`` costs.
             Without it the answer is a 400 ``confirmation_required`` carrying
             the warning, and nothing is queued.
+        owner: PostgreSQL: the account a database this import makes (a new one, or one it drops
+            and recreates) belongs to, instead of the default. It must exist; a database loaded
+            over keeps its owner.
     """
 
     engine: str
@@ -205,6 +208,7 @@ class ImportRequest(SourceRequest):
     safety_backup: bool = True
     as_superuser: bool = False
     confirm_superuser: bool = False
+    owner: str | None = None
 
 
 class ClusterRequest(SourceRequest):
@@ -548,6 +552,7 @@ def import_job(
     keep_owners: bool = False,
     safety_backup: bool = True,
     as_superuser: bool = False,
+    owner: str | None = None,
     actor: str | None = None,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
@@ -563,6 +568,7 @@ def import_job(
         keep_owners: PostgreSQL: keep the dump's owners and privileges.
         safety_backup: Take the safety copy when nothing is dropped.
         as_superuser: PostgreSQL: load it as the superuser (confirmed when queued).
+        owner: PostgreSQL: the account a database the import makes belongs to.
         actor: Who queued it, as the audit trail names them.
         job_context: Injected by the job manager.
 
@@ -588,6 +594,7 @@ def import_job(
             on_step=progress,
             as_superuser=as_superuser,
             confirm_superuser=as_superuser,
+            create_owner=owner,
         )
     else:
         outcome = importer.run(
@@ -600,6 +607,7 @@ def import_job(
             on_step=progress,
             as_superuser=as_superuser,
             confirm_superuser=as_superuser,
+            create_owner=owner,
         )
     _done(job_context)
     return outcome.to_dict()
@@ -878,6 +886,19 @@ def import_dump(
             details="Restore a Redis snapshot from the console's backups list.",
             field="engine",
         )
+    if request.owner is not None:
+        if manager.engine_type != "postgresql":
+            raise ValidationError(
+                f"{manager.DISPLAY_NAME} databases have no owner to choose",
+                details="Only PostgreSQL's databases belong to an account.",
+                field="owner",
+            )
+        if not manager.user_exists(manager.validate_user_name(request.owner)):
+            raise ValidationError(
+                f"There is no account called {request.owner}",
+                details="Make it first (POST /api/databases/users); the database is made with it.",
+                field="owner",
+            )
     return queue(
         session,
         job_type=JobType.RESTORE,
@@ -893,6 +914,7 @@ def import_dump(
             "keep_owners": request.keep_owners,
             "safety_backup": request.safety_backup,
             "as_superuser": request.as_superuser,
+            "owner": request.owner,
         },
         metadata={"engine": manager.ENGINE_NAME, "database": name, "kind": "database"},
         message=f"Importing into {name}",

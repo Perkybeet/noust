@@ -63,6 +63,12 @@ from noust.managers.database.imports import DatabaseImports, resolve_server_path
     help="Do not dump the database first when nothing is dropped.",
 )
 @click.option(
+    "--owner",
+    default=None,
+    help="PostgreSQL: the account a database this import makes belongs to (it must exist), "
+    "instead of the default. A database that is loaded over keeps its owner.",
+)
+@click.option(
     "--as-superuser",
     is_flag=True,
     help="PostgreSQL: load the dump as the server's superuser. By default it is loaded as the "
@@ -86,6 +92,7 @@ def import_dump(
     replace: bool,
     keep_owners: bool,
     no_safety_copy: bool,
+    owner: str | None,
     as_superuser: bool,
     inspect_only: bool,
     force: bool,
@@ -154,6 +161,7 @@ def import_dump(
                 on_step=lambda text: ctx.logger.info(text),
                 as_superuser=as_superuser,
                 confirm_superuser=as_superuser,
+                create_owner=owner,
             )
     except NoustError as exc:
         _exit(_fail(ctx.logger, exc))

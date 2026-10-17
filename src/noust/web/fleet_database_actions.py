@@ -38,7 +38,7 @@ import re
 from typing import Any
 from urllib.parse import quote
 
-from noust.core.exceptions import ValidationError
+from noust.core.exceptions import NoustError, ValidationError
 from noust.fleet.aggregate import Asker, Failure, NodeSource
 from noust.fleet.models import validate_node_name
 from noust.managers.database.base import NAME_PATTERN
@@ -256,16 +256,16 @@ def _source_operations(options: dict[str, Any]) -> tuple[tuple[str, str], ...]:
     return wanted
 
 
-def _names_on(server: NodeSource, engine: str) -> list[str]:
+def _rows_on(server: NodeSource, engine: str) -> list[dict[str, Any]]:
     """
-    List the databases an engine holds on a server.
+    List the databases an engine holds on a server, as the server describes them.
 
     Args:
         server: The server.
         engine: The engine or instance key.
 
     Returns:
-        The names.
+        Their rows (``name``, ``owner``...).
 
     Raises:
         Failure: The server did not answer.
@@ -285,7 +285,25 @@ def _names_on(server: NodeSource, engine: str) -> list[str]:
             or "Look at the engine's status there.",
             field="engine",
         )
-    return [str(row["name"]) for row in rows or [] if isinstance(row, dict) and row.get("name")]
+    return [row for row in rows or [] if isinstance(row, dict) and row.get("name")]
+
+
+def _names_on(server: NodeSource, engine: str) -> list[str]:
+    """
+    List the names of the databases an engine holds on a server.
+
+    Args:
+        server: The server.
+        engine: The engine or instance key.
+
+    Returns:
+        The names.
+
+    Raises:
+        Failure: The server did not answer.
+        ValidationError: The server could not read the engine, so an empty list would lie.
+    """
+    return [str(row["name"]) for row in _rows_on(server, engine)]
 
 
 def _engine_row(server: NodeSource, engine: str) -> dict[str, Any] | None:
@@ -555,28 +573,26 @@ def _let_go_of_dump(run: NodeRun, source: NodeSource, engine: str, name: str) ->
         run.log(f"The dump {name} could not be removed from {source.name}: {exc.message}")
 
 
-def _carry_accounts(
-    run: NodeRun, source: NodeSource, item: dict[str, Any], name: str, target_engine: str
-) -> None:
+def _read_accounts(
+    run: NodeRun, source: NodeSource, target_engine: str
+) -> tuple[list[dict[str, Any]], set[tuple[str, str]]]:
     """
-    Make on the target the accounts that had access to the database on the source.
-
-    Every account is tried, and the ones that could not be made are named together: an account that
-    fails does not hide the others, and the data is already there.
+    Read who has access to the database on the source, and who exists already on the target.
 
     Args:
-        run: The server the database went to.
-        source: The server that held it.
-        item: The record of this move; its ``accounts`` are filled in.
-        name: The database's name on the target.
-        target_engine: The engine or instance key there.
+        run: The server the database goes to.
+        source: The server that holds it.
+        target_engine: The engine or instance key on the target.
+
+    Returns:
+        The source's access entries (the engine's own accounts left out), and the
+        ``(account, host)`` pairs the target already has.
 
     Raises:
-        ActionFailed: Some account could not be made; the node's words are the output.
+        Failure: A server did not answer.
     """
-    options = run.options
-    engine = options["engine"]
-    database = options["database"]
+    engine = run.options["engine"]
+    database = run.options["database"]
     run.step(f"Reading the accounts of {database} on {source.name}")
     listed = run.call(
         "GET",
@@ -594,33 +610,132 @@ def _carry_accounts(
         for user in (known.get("users") if isinstance(known, dict) else None) or []
         if isinstance(user, dict)
     }
+    return entries, present
+
+
+def _make_account(
+    run: NodeRun,
+    source: NodeSource,
+    entry: dict[str, Any],
+    present: set[tuple[str, str]],
+    accounts: dict[str, list[str]],
+    *,
+    target_engine: str,
+    database: str | None,
+) -> Failure | None:
+    """
+    Make one account on the target, with the password the source holds for it.
+
+    Args:
+        run: The server the database goes to.
+        source: The server that held it.
+        entry: What the source's access list says of the account.
+        present: What the target has already; an account in it is left as it is.
+        accounts: The record: ``created``, ``existing`` and ``new_password`` are filled in.
+        target_engine: The engine or instance key on the target.
+        database: The database to give it its profile on; None to make the account alone (the
+            owner, before the database exists).
+
+    Returns:
+        What went wrong, or None.
+    """
+    engine = run.options["engine"]
+    username = str(entry["username"])
+    host = str(entry.get("host") or "localhost")
+    if (username, host) in present:
+        accounts["existing"].append(username)
+        return None
+    password = _password_on_source(run, source, engine, username, entry)
+    body: dict[str, Any] = {"username": username, "engine": target_engine, "host": host}
+    if database is not None:
+        body["database"] = database
+        body["profile"] = entry.get("profile") if entry.get("profile") != "custom" else "read_write"
+    if password is not None:
+        body["password"] = password
+    run.step(f"Making the account {username} on {run.name}")
+    try:
+        run.call("POST", "/api/databases/users", body=body)
+    except Failure as exc:
+        return exc
+    accounts["created"].append(username)
+    present.add((username, host))
+    if password is None:
+        accounts["new_password"].append(username)
+    return None
+
+
+def _owner_account(entries: list[dict[str, Any]], owner: str | None) -> dict[str, Any] | None:
+    """
+    Find the source's owner of the database among the accounts that have access to it.
+
+    Args:
+        entries: The source's access entries.
+        owner: Who owns the database there, as its listing says.
+
+    Returns:
+        The owner's entry; None for an engine with no owners, for the engine's own account
+        (never listed) and for an owner the access list does not show.
+    """
+    if not owner:
+        return None
+    return next((entry for entry in entries if entry.get("username") == owner), None)
+
+
+def _discard_upload(run: NodeRun, upload_id: str) -> None:
+    """
+    Throw away a finished upload on the target, whatever it was for.
+
+    Args:
+        run: The server the upload is on.
+        upload_id: The upload.
+    """
+    try:
+        run.send("DELETE", f"/api/databases/imports/uploads/{quote(upload_id, safe='')}")
+    except Failure as exc:
+        run.log(f"The upload {upload_id} could not be removed from {run.name}: {exc.message}")
+
+
+def _carry_accounts(
+    run: NodeRun,
+    source: NodeSource,
+    item: dict[str, Any],
+    name: str,
+    target_engine: str,
+    entries: list[dict[str, Any]],
+    present: set[tuple[str, str]],
+    *,
+    skip: str | None,
+) -> None:
+    """
+    Make on the target the other accounts that had access to the database on the source.
+
+    Every account is tried, and the ones that could not be made are named together: an account that
+    fails does not hide the others, and the data is already there.
+
+    Args:
+        run: The server the database went to.
+        source: The server that held it.
+        item: The record of this move; its ``accounts`` are filled in.
+        name: The database's name on the target.
+        target_engine: The engine or instance key there.
+        entries: The source's access entries.
+        present: What the target has already.
+        skip: The owner's account, made before the data.
+
+    Raises:
+        ActionFailed: Some account could not be made; the node's words are the output.
+    """
     accounts = item["accounts"]
     failures: list[tuple[str, Failure]] = []
     for entry in entries:
         username = str(entry["username"])
-        host = str(entry.get("host") or "localhost")
-        if (username, host) in present:
-            accounts["existing"].append(username)
+        if username == skip:
             continue
-        password = _password_on_source(run, source, engine, username, entry)
-        body: dict[str, Any] = {
-            "username": username,
-            "engine": target_engine,
-            "database": name,
-            "host": host,
-            "profile": entry.get("profile") if entry.get("profile") != "custom" else "read_write",
-        }
-        if password is not None:
-            body["password"] = password
-        run.step(f"Making the account {username} on {run.name}")
-        try:
-            run.call("POST", "/api/databases/users", body=body)
-        except Failure as exc:
-            failures.append((username, exc))
-            continue
-        accounts["created"].append(username)
-        if password is None:
-            accounts["new_password"].append(username)
+        failure = _make_account(
+            run, source, entry, present, accounts, target_engine=target_engine, database=name
+        )
+        if failure is not None:
+            failures.append((username, failure))
     if failures:
         accounts["failed"] = [username for username, _ in failures]
         raise ActionFailed(
@@ -736,9 +851,45 @@ def _database_transfer(run: NodeRun) -> None:
         "source_dropped": False,
         "warnings": [],
     }
+    run.items.append(item)
+    entries: list[dict[str, Any]] = []
+    present: set[tuple[str, str]] = set()
+    owner: str | None = None
     if options["accounts"]:
         item["accounts"] = {"created": [], "existing": [], "new_password": []}
-    run.items.append(item)
+        entries, present = _read_accounts(run, source, target_engine)
+        wanted = _owner_account(
+            entries,
+            next(
+                (
+                    row.get("owner")
+                    for row in _rows_on(source, engine)
+                    if row.get("name") == database
+                ),
+                None,
+            ),
+        )
+        if wanted is not None:
+            # The owner first: the target makes the database with it, so what the dump holds
+            # belongs to the account it belonged to, and the other profiles are set against it.
+            failure = _make_account(
+                run,
+                source,
+                wanted,
+                present,
+                item["accounts"],
+                target_engine=target_engine,
+                database=None,
+            )
+            if failure is not None:
+                raise ActionFailed(
+                    f"{wanted['username']}, the owner of {database}, could not be made on "
+                    f"{run.name}",
+                    details="Nothing was dumped. Make the account there (noust db user-create) "
+                    "or move the database without --accounts.",
+                    output=failure.output or failure.message,
+                ) from failure
+            owner = str(wanted["username"])
     dump = _dump_on_source(run, source, engine, database)
     item["dump"] = dict(dump)
     try:
@@ -761,18 +912,23 @@ def _database_transfer(run: NodeRun) -> None:
             ),
         )
         run.step(f"Loading {name} on {run.name}")
-        loading = run.call(
-            "POST",
-            "/api/databases/imports",
-            body={
-                "engine": target_engine,
-                "database": name,
-                "upload_id": upload_id,
-                "replace": bool(options["replace"]),
-                "safety_backup": True,
-            },
-        )
-        run.run_job(loading, f"The load of {name}")
+        body: dict[str, Any] = {
+            "engine": target_engine,
+            "database": name,
+            "upload_id": upload_id,
+            "replace": bool(options["replace"]),
+            "safety_backup": True,
+        }
+        if owner is not None:
+            body["owner"] = owner
+        try:
+            loading = run.call("POST", "/api/databases/imports", body=body)
+            run.run_job(loading, f"The load of {name}")
+        except (Failure, NoustError):
+            # A finished upload stays for a retry; this one is a copy of the database on the
+            # target's disk, and the next attempt takes a new dump.
+            _discard_upload(run, upload_id)
+            raise
     finally:
         _let_go_of_dump(run, source, engine, dump["name"])
     if name not in _names_on(run.source, target_engine):
@@ -782,7 +938,7 @@ def _database_transfer(run: NodeRun) -> None:
         )
     item["data_loaded"] = True
     if options["accounts"]:
-        _carry_accounts(run, source, item, name, target_engine)
+        _carry_accounts(run, source, item, name, target_engine, entries, present, skip=owner)
     if options["drop_source"]:
         _drop_source(run, source, item)
     item["state"] = "succeeded"

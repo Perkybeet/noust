@@ -571,6 +571,64 @@ class TestOptions:
         assert [call[0] for call in engine.state["calls"]] == ["load"]
 
 
+class TestTheOwnerOfADatabaseTheImportMakes:
+    def test_a_new_database_is_made_with_the_account_asked(
+        self, imports: DatabaseImports, engine: type[BaseDatabaseManager], tmp_path: Path
+    ) -> None:
+        imports.run("postgresql", "fresh", dump_file(tmp_path / "in"), create_owner="shopapp")
+
+        assert engine.state["dbs"]["fresh"]["owner"] == "shopapp"
+
+    def test_one_that_is_dropped_and_recreated_gets_it_too(
+        self, imports: DatabaseImports, engine: type[BaseDatabaseManager], tmp_path: Path
+    ) -> None:
+        imports.run(
+            "postgresql", "shop", dump_file(tmp_path / "in"), replace=True, create_owner="shopapp"
+        )
+
+        assert engine.state["dbs"]["shop"]["owner"] == "shopapp"
+
+    def test_one_that_is_loaded_over_keeps_the_owner_it_had(
+        self, imports: DatabaseImports, engine: type[BaseDatabaseManager], tmp_path: Path
+    ) -> None:
+        imports.run("postgresql", "shop", dump_file(tmp_path / "in"), create_owner="shopapp")
+
+        assert engine.state["dbs"]["shop"]["owner"] == "app"
+
+    def test_without_asking_the_default_stays(
+        self, imports: DatabaseImports, engine: type[BaseDatabaseManager], tmp_path: Path
+    ) -> None:
+        imports.run("postgresql", "fresh", dump_file(tmp_path / "in"))
+
+        assert engine.state["dbs"]["fresh"]["owner"] is None
+
+    def test_an_upload_carries_it_too(
+        self, imports: DatabaseImports, engine: type[BaseDatabaseManager]
+    ) -> None:
+        upload = imports.uploads.create("export.sql", len(SQL), owner="ana")
+        imports.uploads.append(upload.id, 0, SQL, owner="ana")
+        imports.uploads.complete(upload.id, owner="ana")
+
+        imports.run_upload("postgresql", "fresh", upload.id, create_owner="shopapp")
+
+        assert engine.state["dbs"]["fresh"]["owner"] == "shopapp"
+
+    def test_an_engine_whose_databases_belong_to_nobody_refuses_the_option(
+        self, tmp_path: Path, runner: RcloneRunner
+    ) -> None:
+        (tmp_path / "m").mkdir()
+        mysql = make_engine(tmp_path / "m", engine="mysql", suffix=".sql", content=SQL)
+        other = DatabaseImports(
+            make_service(tmp_path / "svc", [mysql]), uploads=UploadStore(tmp_path / "up")
+        )
+
+        with pytest.raises(ValidationError) as caught:
+            other.run("mysql", "fresh", dump_file(tmp_path / "in"), create_owner="shopapp")
+
+        assert caught.value.field == "owner"
+        assert "fresh" not in mysql.state["dbs"]
+
+
 class TestUploadedImports:
     def test_a_finished_upload_is_imported_and_removed(
         self,

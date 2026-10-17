@@ -94,8 +94,14 @@ def engine_row(
     )
 
 
-def database_row(name: str = DATABASE, *, engine: str = ENGINE, apps: tuple[str, ...] = ()) -> Any:
-    return dump_model(DatabaseInfoResponse(name=name, engine=engine, owner="shop", apps=list(apps)))
+def database_row(
+    name: str = DATABASE,
+    *,
+    engine: str = ENGINE,
+    apps: tuple[str, ...] = (),
+    owner: str | None = "shop",
+) -> Any:
+    return dump_model(DatabaseInfoResponse(name=name, engine=engine, owner=owner, apps=list(apps)))
 
 
 def access_row(username: str, profile: str = "read_write", *, internal: bool = False, **extra: Any):
@@ -113,6 +119,7 @@ class Source:
     node: Node
     databases: list[str] = field(default_factory=lambda: [DATABASE])
     version: str = "16.4"
+    owner: str | None = "shop"
     dumps: list[dict[str, Any]] = field(default_factory=list)
     reads: list[tuple[int, int]] = field(default_factory=list)
     deleted_dumps: list[str] = field(default_factory=list)
@@ -146,7 +153,7 @@ class Source:
             ] = self._reveal(username)
 
     def _databases(self, request: httpx.Request) -> httpx.Response:
-        rows = [database_row(name) for name in self.databases]
+        rows = [database_row(name, owner=self.owner) for name in self.databases]
         problems = [self.problem] if self.problem else []
         return httpx.Response(
             200, json={"databases": rows, "total": len(rows), "problems": problems}
@@ -584,6 +591,102 @@ class TestTheAccounts:
         assert snapshot["nodes"][0]["items"][0]["data_loaded"] is True
 
 
+class TestTheOwner:
+    """The database belongs on the target to the account it belongs to on the source."""
+
+    @staticmethod
+    def owned(source: Source, owner: str | None = "shopapp") -> None:
+        source.owner = owner
+        source.access = [access_row("shopapp", "owner"), access_row("shop_rw")]
+        source.set_passwords({"shopapp": "owner-Secret-1", "shop_rw": SECRET})
+
+    def test_the_owners_account_is_made_first_and_the_database_is_made_with_it(
+        self, central: Central, source: Source, target: Target
+    ) -> None:
+        self.owned(source)
+
+        snapshot, _, _ = run(central, request(accounts=True))
+
+        assert snapshot["status"] == "succeeded", snapshot
+        first, second = target.created_users
+        assert first["username"] == "shopapp" and "database" not in first
+        assert second["username"] == "shop_rw" and second["database"] == DATABASE
+        (imported,) = target.imports
+        assert imported["owner"] == "shopapp"
+        paths = [(r.method, r.url.path) for r in central.nodes["db-2"].requests]
+        users = [i for i, p in enumerate(paths) if p == ("POST", "/api/databases/users")]
+        loading = paths.index(("POST", "/api/databases/imports"))
+        assert users[0] < loading < users[1]
+        accounts = snapshot["nodes"][0]["items"][0]["accounts"]
+        assert accounts["created"] == ["shopapp", "shop_rw"]
+
+    def test_an_owner_is_not_made_twice(
+        self, central: Central, source: Source, target: Target
+    ) -> None:
+        self.owned(source)
+
+        run(central, request(accounts=True))
+
+        assert [body["username"] for body in target.created_users].count("shopapp") == 1
+
+    def test_without_the_accounts_nobody_is_named_the_owner(
+        self, central: Central, source: Source, target: Target
+    ) -> None:
+        self.owned(source)
+
+        run(central, request())
+
+        (imported,) = target.imports
+        assert not imported.get("owner")
+
+    def test_an_owner_the_target_already_has_is_used_and_not_made(
+        self, central: Central, source: Source, target: Target
+    ) -> None:
+        self.owned(source)
+        target.users = ["shopapp"]
+
+        snapshot, _, _ = run(central, request(accounts=True))
+
+        assert snapshot["status"] == "succeeded", snapshot
+        assert [body["username"] for body in target.created_users] == ["shop_rw"]
+        assert target.imports[0]["owner"] == "shopapp"
+        assert snapshot["nodes"][0]["items"][0]["accounts"]["existing"] == ["shopapp"]
+
+    def test_the_engines_own_account_is_never_asked_for(
+        self, central: Central, source: Source, target: Target
+    ) -> None:
+        source.owner = "postgres"
+        source.access = [access_row("postgres", "owner", internal=True), access_row("shop_rw")]
+        source.set_passwords({"shop_rw": SECRET})
+
+        run(central, request(accounts=True))
+
+        assert not target.imports[0].get("owner")
+
+    def test_an_owner_the_source_does_not_list_is_not_asked_for(
+        self, central: Central, source: Source, target: Target
+    ) -> None:
+        source.owner = "ghost"
+        source.access = [access_row("shop_rw")]
+        source.set_passwords({"shop_rw": SECRET})
+
+        run(central, request(accounts=True))
+
+        assert not target.imports[0].get("owner")
+
+    def test_an_owner_that_cannot_be_made_stops_before_anything_is_dumped(
+        self, central: Central, source: Source, target: Target
+    ) -> None:
+        self.owned(source)
+        target.fail_user = "shopapp"
+
+        snapshot, _, _ = run(central, request(accounts=True))
+
+        assert states(snapshot) == {"db-2": "failed"}
+        assert "shopapp" in snapshot["nodes"][0]["error"]["message"]
+        assert source.dumps == [] and target.uploads == [] and target.imports == []
+
+
 class TestDroppingTheSource:
     def test_it_is_dropped_after_a_last_dump_when_that_is_asked(
         self, central: Central, source: Source, target: Target
@@ -643,6 +746,8 @@ class TestWhenSomethingGoesWrong:
         assert states(snapshot) == {"db-2": "failed"}
         assert "relation exists" in (snapshot["nodes"][0]["output"] or "")
         assert source.deleted_dumps == [DUMP_NAME]
+        # The upload is a copy of the database on the target's disk: it does not stay a day.
+        assert target.dropped == ["u1"]
 
     def test_a_broken_transfer_resumes_where_the_target_stands(
         self, central: Central, source: Source, target: Target

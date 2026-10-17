@@ -190,6 +190,16 @@ class TestImportCommand:
 
         assert seen[0]["keep_owners"] is True
 
+    def test_owner_makes_the_new_database_with_that_account(
+        self, engine: type[BaseDatabaseManager], tmp_path: Path
+    ) -> None:
+        result = invoke(
+            "fresh", str(dump(tmp_path)), "-e", "postgresql", "--force", "--owner", "shopapp"
+        )
+
+        assert result.exit_code == 0, result.output
+        assert engine.state["dbs"]["fresh"]["owner"] == "shopapp"
+
     def test_the_superuser_is_not_what_an_import_runs_as_by_default(
         self, engine: type[BaseDatabaseManager], tmp_path: Path
     ) -> None:

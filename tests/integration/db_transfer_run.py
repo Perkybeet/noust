@@ -271,9 +271,9 @@ def scenario_postgresql(env: Any) -> None:
     """
     PostgreSQL: the rows, the owner, the accounts and their passwords, and what stays.
 
-    The source holds ``shop`` (2000 rows, owned by ``shopapp``) and three accounts with access: one
-    read-write and one read-only whose passwords Noust keeps, and one made by hand whose password it
-    never knew. The central moves it with its accounts.
+    The source holds ``shop`` (2000 rows, owned by ``shopapp``, a role made by hand) and four
+    accounts with access: one read-write and one read-only whose passwords Noust keeps, the owner
+    and one more made by hand, whose passwords it never knew. The central moves it with its accounts.
     """
     central, source, target = env.central, env.builder, env.target
     for server in (source, target):
@@ -334,12 +334,12 @@ def scenario_postgresql(env: Any) -> None:
     central.check(ship.states(job) == {TARGET_NAME: "succeeded"}, f"states: {ship.states(job)}")
     item = job["result"]["nodes"][0]["items"][0]
     central.check(
-        sorted(item["accounts"]["created"]) == ["manual_ro", "shop_ro", "shop_rw"],
+        sorted(item["accounts"]["created"]) == ["manual_ro", "shop_ro", "shop_rw", "shopapp"],
         f"the accounts made: {item['accounts']}",
     )
     central.check(
-        item["accounts"]["new_password"] == ["manual_ro"],
-        f"only the account Noust never knew the password of gets a new one: {item['accounts']}",
+        sorted(item["accounts"]["new_password"]) == ["manual_ro", "shopapp"],
+        f"only the accounts Noust never knew the password of get a new one: {item['accounts']}",
     )
 
     # --- the rows are there, whole, and belong to the database's own owner
