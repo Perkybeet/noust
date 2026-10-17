@@ -1415,7 +1415,6 @@ def scim_with_a_client(workdir: Path, containers: Containers, keep: bool) -> Non
         )
         if os.environ.get("NOUST_TEST_TRACE"):
             Path("/tmp/noust-test-scim-trace.txt").write_text(done.stdout, encoding="utf-8")
-        print(done.stdout[-4000:])
         if done.stderr.strip():
             print(done.stderr[-2000:])
         results = [
