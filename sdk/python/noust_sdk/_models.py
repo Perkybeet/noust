@@ -827,6 +827,7 @@ BackupPolicyResponse = TypedDict("BackupPolicyResponse", {
     "last_run_at": NotRequired[Union[str, None]],
     "last_status": NotRequired[Union[str, None]],
     "last_success_at": NotRequired[Union[str, None]],
+    "remote_only": NotRequired[bool],
     "retention_count": NotRequired[Union[int, None]],
     "retention_days": NotRequired[Union[int, None]],
     "retention_gb": NotRequired[Union[float, None]],
@@ -865,6 +866,7 @@ BackupScheduleInfo = TypedDict("BackupScheduleInfo", {
     "on_calendar": Required[str],
     "retention_count": NotRequired[Union[int, None]],
     "retention_days": NotRequired[Union[int, None]],
+    "retention_gb": NotRequired[Union[float, None]],
     "schedule": Required[str],
     "timer": Required[str],
 })
@@ -1744,6 +1746,7 @@ CreateScheduleRequest = TypedDict("CreateScheduleRequest", {
     "include_databases": NotRequired[bool],
     "retention_count": NotRequired[Union[int, None]],
     "retention_days": NotRequired[Union[int, None]],
+    "retention_gb": NotRequired[Union[float, None]],
     "schedule": NotRequired[str],
 })
 
@@ -2127,6 +2130,7 @@ DestinationInfo = TypedDict("DestinationInfo", {
     "backend": Required[str],
     "configured_secret_fields": NotRequired[list[str]],
     "created_at": NotRequired[Union[str, None]],
+    "credentials_protected": NotRequired[Union[bool, None]],
     "encrypted": Required[bool],
     "encryption_configured": NotRequired[bool],
     "name": Required[str],
@@ -2418,6 +2422,39 @@ EngineInfo = TypedDict("EngineInfo", {
 EngineInstallRequest = TypedDict("EngineInstallRequest", {
     "flavour": NotRequired[Union[str, None]],
     "version": NotRequired[Union[str, None]],
+})
+
+EngineLimitsOutcomeResponse = TypedDict("EngineLimitsOutcomeResponse", {
+    "changed": Required[list[str]],
+    "configured": Required["LimitValuesResponse"],
+    "display_name": Required[str],
+    "engine": Required[str],
+    "file": Required[str],
+    "warnings": NotRequired[list[str]],
+})
+
+EngineLimitsRequest = TypedDict("EngineLimitsRequest", {
+    "clear": NotRequired[list[str]],
+    "confirm": NotRequired[bool],
+    "cpus": NotRequired[Union[float, None]],
+    "memory_mb": NotRequired[Union[int, None]],
+    "swap_mb": NotRequired[Union[int, None]],
+    "tasks": NotRequired[Union[int, None]],
+})
+
+EngineLimitsResponse = TypedDict("EngineLimitsResponse", {
+    "configured": Required["LimitValuesResponse"],
+    "cpus": Required[int],
+    "display_name": Required[str],
+    "effective": Required["LimitValuesResponse"],
+    "elsewhere": NotRequired[list[str]],
+    "enforced": Required[dict[str, Union[bool, None]]],
+    "engine": Required[str],
+    "file": Required[str],
+    "memory_in_use_mb": NotRequired[Union[int, None]],
+    "minimum_memory_mb": Required[int],
+    "server_memory_mb": Required[int],
+    "unit": Required[str],
 })
 
 EngineListResponse = TypedDict("EngineListResponse", {
@@ -3656,6 +3693,13 @@ LastDeploymentOut = TypedDict("LastDeploymentOut", {
     "status": Required[str],
 })
 
+LimitValuesResponse = TypedDict("LimitValuesResponse", {
+    "cpus": NotRequired[Union[float, None]],
+    "memory_mb": NotRequired[Union[int, None]],
+    "swap_mb": NotRequired[Union[int, None]],
+    "tasks": NotRequired[Union[int, None]],
+})
+
 LimitsResponse = TypedDict("LimitsResponse", {
     "cpu_quota_percent": NotRequired[Union[int, None]],
     "domain": Required[str],
@@ -4835,6 +4879,10 @@ ProposedEnvResponse = TypedDict("ProposedEnvResponse", {
     "value": NotRequired[Union[str, None]],
 })
 
+ProtectCredentialsResponse = TypedDict("ProtectCredentialsResponse", {
+    "protected": Required[list[str]],
+})
+
 ProtectedPortOut = TypedDict("ProtectedPortOut", {
     "port": Required[int],
     "reason": Required[str],
@@ -5946,6 +5994,7 @@ ScheduleDestinationOutput = TypedDict("ScheduleDestinationOutput", {
     "name": Required[str],
     "retention_count": NotRequired[Union[int, None]],
     "retention_days": NotRequired[Union[int, None]],
+    "retention_gb": NotRequired[Union[float, None]],
 })
 
 ScheduleListResponse = TypedDict("ScheduleListResponse", {
@@ -5976,6 +6025,7 @@ ScheduleResponse = TypedDict("ScheduleResponse", {
     "passphrase_stored": NotRequired[Union[bool, None]],
     "retention_count": NotRequired[Union[int, None]],
     "retention_days": NotRequired[Union[int, None]],
+    "retention_gb": NotRequired[Union[float, None]],
     "schedule": NotRequired[Union[str, None]],
     "timer": NotRequired[dict[str, Any]],
     "updated_at": NotRequired[Union[str, None]],
@@ -6174,6 +6224,7 @@ SetPolicyRequest = TypedDict("SetPolicyRequest", {
     "exclude_databases": NotRequired[list[str]],
     "exclude_schemas": NotRequired[list[str]],
     "exclude_tables": NotRequired[list[str]],
+    "remote_only": NotRequired[bool],
     "retention_count": NotRequired[Union[int, None]],
     "retention_days": NotRequired[Union[int, None]],
     "retention_gb": NotRequired[Union[float, None]],
@@ -6196,6 +6247,7 @@ SetScheduleRequest = TypedDict("SetScheduleRequest", {
     "passphrase": NotRequired[Union[str, None]],
     "retention_count": NotRequired[Union[int, None]],
     "retention_days": NotRequired[Union[int, None]],
+    "retention_gb": NotRequired[Union[float, None]],
     "schedule": NotRequired[str],
 })
 
@@ -6210,6 +6262,7 @@ SetVolumePolicyRequest = TypedDict("SetVolumePolicyRequest", {
     "extra_paths": NotRequired[list[str]],
     "retention_count": NotRequired[Union[int, None]],
     "retention_days": NotRequired[Union[int, None]],
+    "retention_gb": NotRequired[Union[float, None]],
     "schedule": NotRequired[str],
     "targets": NotRequired[list[str]],
 })
@@ -6618,6 +6671,37 @@ SparkFigure = TypedDict("SparkFigure", {
     "mem": NotRequired[list[Union[float, None]]],
     "step": NotRequired[int],
     "to": NotRequired[Union[int, None]],
+})
+
+SqliteCheckRequest = TypedDict("SqliteCheckRequest", {
+    "full": NotRequired[bool],
+    "path": Required[str],
+})
+
+SqliteCheckResponse = TypedDict("SqliteCheckResponse", {
+    "complete": Required[bool],
+    "full": Required[bool],
+    "ok": Required[bool],
+    "path": Required[str],
+    "problems": Required[list[str]],
+    "seconds": Required[float],
+})
+
+SqliteFileModel = TypedDict("SqliteFileModel", {
+    "journal_mode": Required[str],
+    "modified": Required[float],
+    "page_size": Required[int],
+    "pages": Required[int],
+    "path": Required[str],
+    "size": Required[int],
+    "wal_bytes": Required[int],
+})
+
+SqliteListResponse = TypedDict("SqliteListResponse", {
+    "domain": Required[str],
+    "files": Required[list["SqliteFileModel"]],
+    "searched": Required[list[str]],
+    "truncated": Required[bool],
 })
 
 SshSessionOut = TypedDict("SshSessionOut", {
@@ -7711,6 +7795,7 @@ VolumePolicyResponse = TypedDict("VolumePolicyResponse", {
     "last_success_at": NotRequired[Union[str, None]],
     "retention_count": NotRequired[Union[int, None]],
     "retention_days": NotRequired[Union[int, None]],
+    "retention_gb": NotRequired[Union[float, None]],
     "schedule": NotRequired[Union[str, None]],
     "targets": NotRequired[list[str]],
     "timer": NotRequired[dict[str, Any]],
@@ -7994,6 +8079,7 @@ NoustWebApiBackupSchedulesScheduleDestination = TypedDict("NoustWebApiBackupSche
     "name": Required[str],
     "retention_count": NotRequired[Union[int, None]],
     "retention_days": NotRequired[Union[int, None]],
+    "retention_gb": NotRequired[Union[float, None]],
 })
 
 NoustWebApiBackupsBackupListResponse = TypedDict("NoustWebApiBackupsBackupListResponse", {
@@ -8361,6 +8447,7 @@ NoustWebApiSelfBackupScheduleDestination = TypedDict("NoustWebApiSelfBackupSched
     "name": Required[str],
     "retention_count": NotRequired[Union[int, None]],
     "retention_days": NotRequired[Union[int, None]],
+    "retention_gb": NotRequired[Union[float, None]],
 })
 
 NoustWebApiServerModelsCheckOut = TypedDict("NoustWebApiServerModelsCheckOut", {
@@ -8427,6 +8514,7 @@ NoustWebApiVolumeBackupsPolicyDestination = TypedDict("NoustWebApiVolumeBackupsP
     "name": Required[str],
     "retention_count": NotRequired[Union[int, None]],
     "retention_days": NotRequired[Union[int, None]],
+    "retention_gb": NotRequired[Union[float, None]],
 })
 
 NoustWebApiVolumeBackupsPolicyDestinationState = TypedDict("NoustWebApiVolumeBackupsPolicyDestinationState", {
@@ -8435,6 +8523,7 @@ NoustWebApiVolumeBackupsPolicyDestinationState = TypedDict("NoustWebApiVolumeBac
     "name": Required[str],
     "retention_count": NotRequired[Union[int, None]],
     "retention_days": NotRequired[Union[int, None]],
+    "retention_gb": NotRequired[Union[float, None]],
 })
 
 NoustWebApiVolumeBackupsRestoreRemoteRequest = TypedDict("NoustWebApiVolumeBackupsRestoreRemoteRequest", {
