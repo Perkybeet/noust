@@ -436,6 +436,7 @@ AUTH_PATHS = frozenset(
         "/api/auth/passkeys/elevate",
         "/api/auth/oidc/complete",
         "/api/auth/ldap/login",
+        "/api/auth/saml/acs",
     }
 )
 

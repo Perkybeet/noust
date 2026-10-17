@@ -143,7 +143,9 @@ class TestOverTheApi:
         fleet = get_token_manager().create_fleet_token("fleet-nas")
 
         refused = self.client.patch(
-            f"/api/auth/tokens/{fleet['id']}", json={"allowed_cidrs": ["10.0.0.0/8"]}, headers=self.headers
+            f"/api/auth/tokens/{fleet['id']}",
+            json={"allowed_cidrs": ["10.0.0.0/8"]},
+            headers=self.headers,
         )
 
         assert refused.status_code in (400, 404)
@@ -175,17 +177,13 @@ class TestTheApiSwitch:
         self.codes = make_account("maria", "operator")
 
     def test_on_by_default(self) -> None:
-        issued = get_token_manager().create_api_token(
-            "ci", "read", owner=accounts().find("maria")
-        )
+        issued = get_token_manager().create_api_token("ci", "read", owner=accounts().find("maria"))
         bearer = {"Authorization": f"Bearer {issued['token']}"}
 
         assert self.client.get("/api/auth/verify", headers=bearer).status_code == 200
 
     def test_off_a_token_is_refused_and_a_session_is_not(self) -> None:
-        issued = get_token_manager().create_api_token(
-            "ci", "read", owner=accounts().find("maria")
-        )
+        issued = get_token_manager().create_api_token("ci", "read", owner=accounts().find("maria"))
         bearer = {"Authorization": f"Bearer {issued['token']}"}
         self.config.set("web.api_enabled", False)
 
@@ -197,9 +195,7 @@ class TestTheApiSwitch:
         assert self.client.get("/api/auth/verify").status_code == 200
 
     def test_turning_it_back_on_restores_the_token(self) -> None:
-        issued = get_token_manager().create_api_token(
-            "ci", "read", owner=accounts().find("maria")
-        )
+        issued = get_token_manager().create_api_token("ci", "read", owner=accounts().find("maria"))
         bearer = {"Authorization": f"Bearer {issued['token']}"}
         self.config.set("web.api_enabled", False)
         assert self.client.get("/api/auth/verify", headers=bearer).status_code == 403
@@ -217,9 +213,7 @@ class TestTheApiSwitch:
         assert payload is not None and payload["scope"] == "fleet"
 
     def test_a_typo_leaves_it_on_instead_of_locking_the_scripts_out(self) -> None:
-        issued = get_token_manager().create_api_token(
-            "ci", "read", owner=accounts().find("maria")
-        )
+        issued = get_token_manager().create_api_token("ci", "read", owner=accounts().find("maria"))
         bearer = {"Authorization": f"Bearer {issued['token']}"}
         with pytest.raises(Exception, match="true or false"):
             self.config.set("web.api_enabled", "maybe")

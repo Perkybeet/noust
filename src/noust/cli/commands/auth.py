@@ -36,6 +36,7 @@ from noust.cli.commands.auth_common import (
     record_audit,
 )
 from noust.cli.commands.auth_ldap import ldap
+from noust.cli.commands.auth_saml import saml
 from noust.cli.commands.auth_scim import scim
 from noust.core.accounts.oidc import OidcManager
 from noust.core.accounts.oidc_model import (
@@ -130,6 +131,7 @@ def cli() -> None:
 
 cli.add_command(scim)
 cli.add_command(ldap)
+cli.add_command(saml)
 
 
 @cli.group("oidc", cls=NoustGroup)

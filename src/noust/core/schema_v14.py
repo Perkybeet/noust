@@ -1319,6 +1319,14 @@ ENVIRONMENTS_COLUMNS: list[tuple[str, str, str]] = []
 #   user is deliberately not a row of account_identities: it is not a way to sign in.
 # scim_groups, scim_group_members: the groups the provider pushed and who is in them, so that
 #   leaving a group takes effect when the provider says so, not at the next sign-in.
+# saml_providers: a SAML 2.0 identity provider people sign in with. Everything in the row is
+#   public: ``certificates`` are the provider's *signing* certificates (a JSON list of PEM), the
+#   only keys that verify its signatures; a key a message carries is never used. A sign-in in
+#   flight is a row of oidc_flows (its ``nonce`` is the AuthnRequest's ID, its ``code_verifier``
+#   holds the entity id the assertion must be for).
+# saml_assertions: the assertions already accepted, by the digest of the provider and the
+#   assertion's ID, kept until they could no longer be valid, so that one cannot be presented
+#   twice.
 # ldap_directories: a directory (Active Directory, OpenLDAP, FreeIPA) people sign in against with
 #   the username and password they have there. The service account's password is never a column:
 #   it lives in the secret store under ``ldap/<name>``. ``user_filter`` carries the one
@@ -1377,6 +1385,43 @@ CREATE TABLE IF NOT EXISTS scim_group_members (
     user_id TEXT NOT NULL REFERENCES scim_users(id) ON DELETE CASCADE,
     PRIMARY KEY (group_id, user_id)
 );
+CREATE TABLE IF NOT EXISTS saml_providers (
+    name TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    idp_entity_id TEXT NOT NULL,
+    sso_url TEXT NOT NULL,
+    certificates TEXT NOT NULL DEFAULT '[]',
+    sp_entity_id TEXT NOT NULL DEFAULT '',
+    subject_attribute TEXT NOT NULL DEFAULT '',
+    email_attribute TEXT NOT NULL DEFAULT 'email',
+    name_attribute TEXT NOT NULL DEFAULT 'displayName',
+    username_attribute TEXT NOT NULL DEFAULT '',
+    groups_attribute TEXT NOT NULL DEFAULT 'groups',
+    clock_skew_seconds INTEGER NOT NULL DEFAULT 60,
+    provisioning TEXT NOT NULL DEFAULT 'off'
+        CHECK (provisioning IN ('off', 'invite', 'auto')),
+    default_role TEXT NOT NULL DEFAULT 'viewer'
+        CHECK (default_role IN ('viewer', 'operator', 'admin')),
+    default_team TEXT,
+    default_team_role TEXT,
+    link_by_email INTEGER NOT NULL DEFAULT 0,
+    allowed_domains TEXT NOT NULL DEFAULT '[]',
+    require_email_verified INTEGER NOT NULL DEFAULT 0,
+    assume_email_verified INTEGER NOT NULL DEFAULT 1,
+    require_amr TEXT NOT NULL DEFAULT '[]',
+    group_sync INTEGER NOT NULL DEFAULT 0,
+    group_mappings TEXT NOT NULL DEFAULT '[]',
+    created_at REAL NOT NULL,
+    created_by TEXT,
+    updated_at REAL NOT NULL,
+    updated_by TEXT
+);
+CREATE TABLE IF NOT EXISTS saml_assertions (
+    assertion_hash TEXT PRIMARY KEY,
+    expires_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_saml_assertions_expires ON saml_assertions(expires_at);
 CREATE TABLE IF NOT EXISTS ldap_directories (
     name TEXT PRIMARY KEY,
     label TEXT NOT NULL,

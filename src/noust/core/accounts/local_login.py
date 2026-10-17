@@ -167,6 +167,7 @@ def survivors(
     from noust.core.accounts.directory_store import DirectoryStore
     from noust.core.accounts.manager import AccountManager
     from noust.core.accounts.oidc_store import OidcStore
+    from noust.core.accounts.saml_store import SamlStore
 
     kept = frozenset(load_policy().exempt if exempt is None else exempt)
     data = OidcStore(store)
@@ -181,6 +182,13 @@ def survivors(
             directory.name: directory.issuer
             for directory in DirectoryStore(store).list_directories()
             if directory.enabled and directory.name != without_provider
+        }
+    )
+    enabled.update(
+        {
+            saml.name: saml.issuer
+            for saml in SamlStore(store).list_providers()
+            if saml.enabled and saml.name != without_provider
         }
     )
     linked = {

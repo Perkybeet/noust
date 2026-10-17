@@ -21,8 +21,9 @@ from noust.core.accounts.scim import SETTINGS, ScimManager
 from noust.core.accounts.scim_store import ScimSource
 from noust.core.exceptions import ValidationError
 from noust.web.api.deps import NoustErrorRoute, require_elevated
-from noust.web.api.oidc import Mapping, origin_of
+from noust.web.api.federation_models import Mapping
 from noust.web.api.scim import BASE_PATH
+from noust.web.api.sso_flow import origin_of
 from noust.web.auth import actor_label, audit_event, get_client_ip, require_auth
 from noust.web.pydantic_compat import dump_model
 from noust.web.server import get_token_manager

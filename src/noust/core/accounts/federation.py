@@ -35,8 +35,9 @@ from __future__ import annotations
 
 import logging
 import re
+import secrets
 from collections.abc import Callable
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar
 
 from noust.core.access.model import AccessError
@@ -64,7 +65,14 @@ from noust.core.accounts.oidc_model import (
     validate_provisioning,
     vouch_email,
 )
-from noust.core.accounts.oidc_store import Identity, OidcStore
+from noust.core.accounts.oidc_store import (
+    TICKET_SECONDS,
+    Identity,
+    OidcStore,
+    PendingFlow,
+    Ticket,
+    digest,
+)
 from noust.core.audit import record as audit_record
 from noust.core.audit.actor import Actor
 from noust.core.exceptions import ValidationError
@@ -333,12 +341,15 @@ def name_in_use(store: Any, name: str, *, except_protocol: str | None = None) ->
         except_protocol: The protocol that is asking: its own sources are not a clash.
 
     Returns:
-        True when an OpenID Connect provider or a directory of another protocol has it.
+        True when a source of another protocol has it.
     """
     from noust.core.accounts.directory_store import DirectoryStore
     from noust.core.accounts.oidc_store import OidcStore
+    from noust.core.accounts.saml_store import SamlStore
 
     if except_protocol != "oidc" and OidcStore(store).get_provider(name) is not None:
+        return True
+    if except_protocol != "saml" and SamlStore(store).get_provider(name) is not None:
         return True
     return except_protocol != "ldap" and DirectoryStore(store).get_directory(name) is not None
 
@@ -352,6 +363,22 @@ def link_command(source: Source) -> str:
         The command an administrator links a person with, for a refusal's advice.
     """
     return f"noust auth {source.protocol} link"
+
+
+@dataclass(frozen=True)
+class Admitted:
+    """
+    A sign-in the source vouched for and the policy admitted, ticket issued.
+
+    Attributes:
+        ticket: The single-use handle for the console to collect; the only time it exists in clear.
+        account: The account.
+        notes: What happened on the way: linked, created, roles and teams changed.
+    """
+
+    ticket: str
+    account: Account
+    notes: tuple[str, ...]
 
 
 class Admission:
@@ -454,6 +481,50 @@ class Admission:
         )
         refreshed = self.accounts.get(account.id)
         return notes, refreshed or account, identity
+
+    def admit(
+        self, source: Source, person: IdentityClaims, flow: PendingFlow, client_ip: str
+    ) -> Admitted:
+        """
+        Decide, and when the person comes in, issue the ticket the console collects.
+
+        Args:
+            source: The source.
+            person: Who the source vouched for.
+            flow: The sign-in this answers (the browser's binding and where it goes next).
+            client_ip: Where the answer came from.
+
+        Returns:
+            The ticket and what happened.
+
+        Raises:
+            OidcRefused: With a reason, when the policy says no.
+        """
+        who = f"{source.name}:{person.subject}"
+        try:
+            notes, account, identity = self.decide(source, person, client_ip)
+        except OidcRefused as exc:
+            exc.who = who
+            raise
+        handle = secrets.token_urlsafe(32)
+        detail = f"through {source.label}" + (f" ({'; '.join(notes)})" if notes else "")
+        self.data.issue_ticket(
+            Ticket(
+                ticket_hash=digest(handle),
+                account_id=account.id,
+                provider=source.name,
+                binding_hash=flow.binding_hash,
+                client_ip=client_ip,
+                next_path=flow.next_path,
+                amr=person.amr,
+                detail=detail,
+                expires_at=self.now() + TICKET_SECONDS,
+            )
+        )
+        logger.info(
+            "Account %s signed in through %s (identity %s)", account.username, who, identity.id
+        )
+        return Admitted(handle, account, tuple(notes))
 
     @staticmethod
     def actor(source: Source, client_ip: str) -> Actor:

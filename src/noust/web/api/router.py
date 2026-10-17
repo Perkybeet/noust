@@ -92,6 +92,7 @@ from noust.web.api.recipes import router as recipes_router
 from noust.web.api.registries import apps_router as app_registry_logins_router
 from noust.web.api.registries import router as registries_router
 from noust.web.api.restore_drills import router as restore_drills_router
+from noust.web.api.saml import router as saml_router
 from noust.web.api.sandbox import router as sandbox_router
 from noust.web.api.scim import router as scim_router
 from noust.web.api.scim_admin import router as scim_admin_router
@@ -328,6 +329,7 @@ router.include_router(passkeys_router, prefix="/auth/passkeys", tags=["Passkeys"
 # Single sign-in through an identity provider (3.4): the same place, for the same reason.
 router.include_router(oidc_router, prefix="/auth/oidc", tags=["Single sign-on"])
 router.include_router(ldap_router, prefix="/auth/ldap", tags=["Single sign-on"])
+router.include_router(saml_router, prefix="/auth/saml", tags=["Single sign-on"])
 router.include_router(scim_admin_router, prefix="/auth/scim", tags=["Single sign-on"])
 router.include_router(scim_router, prefix="/scim/v2", tags=["SCIM provisioning"])
 router.include_router(approvals_router, prefix="/approvals", tags=["Approvals"])

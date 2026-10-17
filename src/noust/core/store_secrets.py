@@ -122,6 +122,10 @@ NOT_SECRET: dict[tuple[str, str], str] = {
         "token_hash",
     ): "the SHA-256 of a 256-bit random bearer token: it finds the source and cannot be presented",
     ("scim_sources", "token_hint"): "the last characters of a token, to tell tokens apart",
+    (
+        "saml_assertions",
+        "assertion_hash",
+    ): "a digest of an assertion id, kept only to refuse a replay",
     ("scim_sources", "token_created_at"): "a time",
     ("shared_variables", "secret"): "whether the value is secret, not the value",
     ("sites", "ssl_certificate"): "a certificate, public",

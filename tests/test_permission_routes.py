@@ -58,6 +58,11 @@ EXPECTED_PUBLIC = {
     ("POST", "/api/auth/oidc/complete"),
     # A directory's name and password are the credential, counted by the lockout.
     ("POST", "/api/auth/ldap/login"),
+    # SAML: the provider's signed response is the credential, counted by the lockout; the
+    # metadata of this server is what the provider is registered from.
+    ("GET", "/api/auth/saml/start"),
+    ("POST", "/api/auth/saml/acs"),
+    ("GET", "/api/auth/saml/metadata/{provider}"),
     # SCIM provisioning: the caller is a source, authenticated by the bearer token issued for
     # it and checked by the handlers once; a wrong one is counted against the address.
     ("GET", "/api/scim/v2/ServiceProviderConfig"),

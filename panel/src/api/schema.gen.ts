@@ -6848,6 +6848,215 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/saml/acs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assertion Consumer Service
+         * @description Take the identity provider's answer: verify it, admit the person, hand over a ticket.
+         *
+         *     A response that is not right (a signature that does not verify, another audience, an assertion
+         *     seen before, another browser's cookie) is counted against the address like a wrong password
+         *     and audited; a provider that says the person did not sign in, one that is off, or a person the
+         *     policy does not admit, is audited but not counted. The reason is for the audit trail: the
+         *     sign-in page is told one word.
+         *
+         *     Args:
+         *         request: The request, the browser posting the provider's form.
+         *
+         *     Returns:
+         *         A redirect to the sign-in page carrying the ticket, or the reason.
+         */
+        post: operations["assertion_consumer_service_api_auth_saml_acs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/saml/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Providers
+         * @description List the configured SAML providers.
+         *
+         *     Args:
+         *         request: The request, for the addresses it implies.
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         The providers and the address a response is posted to.
+         */
+        get: operations["list_providers_api_auth_saml_config_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/saml/config/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Provider
+         * @description Add a SAML provider or change one, in sudo mode: it decides who may sign in.
+         *
+         *     Args:
+         *         provider: The provider's name.
+         *         request: The request.
+         *         body: The settings to set.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         The provider as it is now.
+         *
+         *     Raises:
+         *         ValidationError: When a setting is refused; nothing is written.
+         */
+        put: operations["put_provider_api_auth_saml_config__provider__put"];
+        post?: never;
+        /**
+         * Delete Provider
+         * @description Remove a SAML provider, in sudo mode.
+         *
+         *     Accounts keep their links and their other ways in; one that had no password can no longer sign
+         *     in until it is given one (``noust user invite``).
+         *
+         *     Args:
+         *         provider: The provider's name.
+         *         request: The request.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         A confirmation.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such provider.
+         *         LocalLoginRefused: 400 while local sign-in is off and this is the last way in.
+         */
+        delete: operations["delete_provider_api_auth_saml_config__provider__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/saml/config/{provider}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Try Provider
+         * @description Look at a provider the way a sign-in would: its certificates, its address, what it is told.
+         *
+         *     Signs nobody in and writes nothing.
+         *
+         *     Args:
+         *         provider: The provider's name.
+         *         request: The request, for the addresses this server tells the provider.
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         Each check and whether all passed.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such provider.
+         */
+        post: operations["try_provider_api_auth_saml_config__provider__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/saml/metadata/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Metadata
+         * @description Describe this server to an identity provider: what to register it from.
+         *
+         *     Anonymous, because the provider fetches it: the entity id, where responses are posted and that
+         *     assertions must be signed are not secret.
+         *
+         *     Args:
+         *         request: The request, for the address people reach the console at.
+         *         provider: The provider's name.
+         *
+         *     Returns:
+         *         The service provider's metadata document.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such provider.
+         */
+        get: operations["metadata_api_auth_saml_metadata__provider__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/saml/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Start
+         * @description Begin a sign-in: remember it and send the browser to the identity provider.
+         *
+         *     Anonymous, and it writes only a short-lived record of the sign-in; the provider is chosen from
+         *     those configured, never from the request. Whatever goes wrong, the browser lands on the
+         *     sign-in page with a one-word reason.
+         *
+         *     Args:
+         *         request: The request.
+         *         provider: The provider's name.
+         *         next: The console page to go to afterwards; reduced to a path of this console.
+         *
+         *     Returns:
+         *         A redirect to the provider, setting the cookie that ties the answer to this browser, or to
+         *         the sign-in page.
+         */
+        get: operations["start_api_auth_saml_start_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/scim/sources": {
         parameters: {
             query?: never;
@@ -26192,6 +26401,23 @@ export interface components {
             webserver: string;
         };
         /**
+         * CertificateInfo
+         * @description A signing certificate, described the way an operator compares it with the provider's.
+         *
+         *     Attributes:
+         *         subject: Its subject.
+         *         fingerprint: Its SHA-256 fingerprint, hex.
+         *         not_after: When it stops being valid, UNIX seconds.
+         */
+        CertificateInfo: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Not After */
+            not_after: number;
+            /** Subject */
+            subject: string;
+        };
+        /**
          * CertificateModel
          * @description What an application serves.
          *
@@ -37987,8 +38213,9 @@ export interface components {
          *     Attributes:
          *         name: The provider's short name, for ``/start?provider=``.
          *         label: What the button says after "Sign in with".
-         *         protocol: ``oidc`` (a button that leaves for the provider) or ``ldap`` (a directory the
-         *             sign-in page asks for a name and a password).
+         *         protocol: ``oidc`` or ``saml`` (a button that leaves for the provider, at
+         *             ``/api/auth/<protocol>/start``) or ``ldap`` (a directory the sign-in page asks for a
+         *             name and a password).
          */
         ProviderChoice: {
             /** Label */
@@ -41188,6 +41415,222 @@ export interface components {
             enabled: boolean;
             /** Provider */
             provider: string;
+        };
+        /**
+         * SamlProviderInfo
+         * @description A configured SAML provider. Nothing in it is secret.
+         *
+         *     Attributes:
+         *         name: Its short name.
+         *         label: What the button says after "Sign in with".
+         *         enabled: Whether the sign-in page offers it.
+         *         idp_entity_id: Its entity id.
+         *         sso_url: Where the browser is sent to sign in.
+         *         certificates: Its signing certificates, in PEM.
+         *         certificate_details: Each of them, described.
+         *         sp_entity_id: The entity id the operator set; empty derives it.
+         *         entity_id: The entity id Noust presents to it.
+         *         acs_url: The address its response is posted to, to register with it.
+         *         metadata_url: Where this server's metadata for it is published.
+         *         subject_attribute: The attribute that identifies a person; empty uses the NameID.
+         *         email_attribute: Where their address is.
+         *         name_attribute: Where their display name is.
+         *         username_attribute: Where their login name is.
+         *         groups_attribute: Where their groups are.
+         *         clock_skew_seconds: Tolerated clock difference.
+         *         provisioning: ``off``, ``invite`` or ``auto``.
+         *         default_role: The role of an account a first sign-in creates.
+         *         default_team: The team it joins.
+         *         default_team_role: Its role there.
+         *         link_by_email: Whether a first sign-in links by e-mail.
+         *         allowed_domains: When not empty, the e-mail domains allowed.
+         *         require_email_verified: Whether an address must be present.
+         *         assume_email_verified: Whether the provider's address counts as verified.
+         *         require_amr: When not empty, the authentication contexts one of which is required.
+         *         group_sync: Whether groups decide roles and teams.
+         *         group_mappings: What each group means.
+         *         created_at: When it was configured, UNIX seconds.
+         *         created_by: Who configured it.
+         *         updated_at: Last change, UNIX seconds.
+         *         updated_by: Who made it.
+         */
+        SamlProviderInfo: {
+            /** Acs Url */
+            acs_url: string;
+            /** Allowed Domains */
+            allowed_domains: string[];
+            /** Assume Email Verified */
+            assume_email_verified: boolean;
+            /** Certificate Details */
+            certificate_details: components["schemas"]["CertificateInfo"][];
+            /** Certificates */
+            certificates: string[];
+            /** Clock Skew Seconds */
+            clock_skew_seconds: number;
+            /** Created At */
+            created_at: number;
+            /** Created By */
+            created_by?: string | null;
+            /** Default Role */
+            default_role: string;
+            /** Default Team */
+            default_team?: string | null;
+            /** Default Team Role */
+            default_team_role?: string | null;
+            /** Email Attribute */
+            email_attribute: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Entity Id */
+            entity_id: string;
+            /** Group Mappings */
+            group_mappings: components["schemas"]["Mapping"][];
+            /** Group Sync */
+            group_sync: boolean;
+            /** Groups Attribute */
+            groups_attribute: string;
+            /** Idp Entity Id */
+            idp_entity_id: string;
+            /** Label */
+            label: string;
+            /** Link By Email */
+            link_by_email: boolean;
+            /** Metadata Url */
+            metadata_url: string;
+            /** Name */
+            name: string;
+            /** Name Attribute */
+            name_attribute: string;
+            /** Provisioning */
+            provisioning: string;
+            /** Require Amr */
+            require_amr: string[];
+            /** Require Email Verified */
+            require_email_verified: boolean;
+            /** Sp Entity Id */
+            sp_entity_id: string;
+            /** Sso Url */
+            sso_url: string;
+            /** Subject Attribute */
+            subject_attribute: string;
+            /** Updated At */
+            updated_at: number;
+            /** Updated By */
+            updated_by?: string | null;
+            /** Username Attribute */
+            username_attribute: string;
+        };
+        /**
+         * SamlProvidersResponse
+         * @description Every configured SAML provider.
+         *
+         *     Attributes:
+         *         providers: The providers, by name.
+         *         acs_url: The address a response is posted to: the same for every provider.
+         *         secure: Whether the console is reached over TLS, which a POST answer needs.
+         */
+        SamlProvidersResponse: {
+            /** Acs Url */
+            acs_url: string;
+            /** Providers */
+            providers: components["schemas"]["SamlProviderInfo"][];
+            /** Secure */
+            secure: boolean;
+        };
+        /**
+         * SamlRemoved
+         * @description A confirmation that a provider was removed.
+         *
+         *     Attributes:
+         *         success: Always true.
+         *         removed: Its name.
+         */
+        SamlRemoved: {
+            /** Removed */
+            removed: string;
+            /** Success */
+            success: boolean;
+        };
+        /**
+         * SamlSettings
+         * @description What to set on a SAML provider; whatever is left out keeps its value.
+         *
+         *     Attributes:
+         *         label: What the button says after "Sign in with".
+         *         enabled: Whether the sign-in page offers it.
+         *         idp_metadata: The identity provider's metadata XML: its entity id, sign-in address and
+         *             signing certificates are read from it (the settings beside it win).
+         *         idp_entity_id: Its entity id.
+         *         sso_url: Its sign-in address (HTTP-Redirect binding).
+         *         certificates: Its signing certificates, PEM or bare base64: replaces the list.
+         *         sp_entity_id: The entity id Noust presents; empty derives it from the console's address.
+         *         subject_attribute: The attribute that identifies a person; empty uses the NameID.
+         *         email_attribute: Where their address is.
+         *         name_attribute: Where their display name is.
+         *         username_attribute: Where their login name is.
+         *         groups_attribute: Where their groups are.
+         *         clock_skew_seconds: Tolerated clock difference, up to 300.
+         *         provisioning: ``off``, ``invite`` or ``auto``.
+         *         default_role: ``viewer``, ``operator`` or ``admin``.
+         *         default_team: The team a created account joins.
+         *         default_team_role: Its role there.
+         *         link_by_email: Link a first sign-in to the account of its address.
+         *         allowed_domains: Only these e-mail domains.
+         *         require_email_verified: Refuse a person without an address.
+         *         assume_email_verified: Take the provider's address as verified.
+         *         require_amr: One of these authentication context classes must be reported.
+         *         group_sync: Let groups decide roles, memberships and scoped roles.
+         *         group_mappings: What each group means.
+         */
+        SamlSettings: {
+            /** Allowed Domains */
+            allowed_domains?: string[] | null;
+            /** Assume Email Verified */
+            assume_email_verified?: boolean | null;
+            /** Certificates */
+            certificates?: string[] | null;
+            /** Clock Skew Seconds */
+            clock_skew_seconds?: number | null;
+            /** Default Role */
+            default_role?: string | null;
+            /** Default Team */
+            default_team?: string | null;
+            /** Default Team Role */
+            default_team_role?: string | null;
+            /** Email Attribute */
+            email_attribute?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Group Mappings */
+            group_mappings?: components["schemas"]["Mapping"][] | null;
+            /** Group Sync */
+            group_sync?: boolean | null;
+            /** Groups Attribute */
+            groups_attribute?: string | null;
+            /** Idp Entity Id */
+            idp_entity_id?: string | null;
+            /** Idp Metadata */
+            idp_metadata?: string | null;
+            /** Label */
+            label?: string | null;
+            /** Link By Email */
+            link_by_email?: boolean | null;
+            /** Name Attribute */
+            name_attribute?: string | null;
+            /** Provisioning */
+            provisioning?: string | null;
+            /** Require Amr */
+            require_amr?: string[] | null;
+            /** Require Email Verified */
+            require_email_verified?: boolean | null;
+            /** Sp Entity Id */
+            sp_entity_id?: string | null;
+            /** Sso Url */
+            sso_url?: string | null;
+            /** Subject Attribute */
+            subject_attribute?: string | null;
+            /** Username Attribute */
+            username_attribute?: string | null;
         };
         /**
          * SandboxDisableRequest
@@ -56487,6 +56930,211 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["noust__web__api__auth__RolesResponse"];
+                };
+            };
+        };
+    };
+    assertion_consumer_service_api_auth_saml_acs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": {
+                    /** @description What the sign-in sent with its request. */
+                    RelayState: string;
+                    /** @description The base64 response. */
+                    SAMLResponse: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            303: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_providers_api_auth_saml_config_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SamlProvidersResponse"];
+                };
+            };
+        };
+    };
+    put_provider_api_auth_saml_config__provider__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SamlSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SamlProviderInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_provider_api_auth_saml_config__provider__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SamlRemoved"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    try_provider_api_auth_saml_config__provider__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    metadata_api_auth_saml_metadata__provider__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_api_auth_saml_start_get: {
+        parameters: {
+            query: {
+                provider: string;
+                next?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

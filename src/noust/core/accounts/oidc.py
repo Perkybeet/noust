@@ -79,7 +79,6 @@ from noust.core.accounts.oidc_model import (
     IdentityClaims,
     OidcError,
     OidcProvider,
-    OidcRefused,
     check_endpoint_url,
     claim_path,
     validate_client_id,
@@ -90,7 +89,6 @@ from noust.core.accounts.oidc_model import (
 )
 from noust.core.accounts.oidc_store import (
     FLOW_SECONDS,
-    TICKET_SECONDS,
     Identity,
     OidcStore,
     PendingFlow,
@@ -724,31 +722,8 @@ class OidcManager:
         Raises:
             OidcRefused: With a reason, when the policy says no.
         """
-        who = f"{provider.name}:{person.subject}"
-        try:
-            notes, account, identity = self.admission.decide(provider, person, client_ip)
-        except OidcRefused as exc:
-            exc.who = who
-            raise
-        handle = secrets.token_urlsafe(32)
-        detail = f"through {provider.label}" + (f" ({'; '.join(notes)})" if notes else "")
-        self.data.issue_ticket(
-            Ticket(
-                ticket_hash=digest(handle),
-                account_id=account.id,
-                provider=provider.name,
-                binding_hash=flow.binding_hash,
-                client_ip=client_ip,
-                next_path=flow.next_path,
-                amr=person.amr,
-                detail=detail,
-                expires_at=self.now() + TICKET_SECONDS,
-            )
-        )
-        logger.info(
-            "Account %s signed in through %s (identity %s)", account.username, who, identity.id
-        )
-        return Answer(handle, flow.next_path, account, provider, tuple(notes))
+        admitted = self.admission.admit(provider, person, flow, client_ip)
+        return Answer(admitted.ticket, flow.next_path, admitted.account, provider, admitted.notes)
 
     # ------------------------------------------------------------ identities
 

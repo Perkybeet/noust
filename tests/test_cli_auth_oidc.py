@@ -294,9 +294,7 @@ def test_a_group_can_give_a_role_at_a_project(runner: CliRunner, idp: FakeIdP) -
     assert "role release-manager on acme/web" in shown
 
 
-def test_a_role_at_a_scope_that_does_not_exist_is_refused(
-    runner: CliRunner, idp: FakeIdP
-) -> None:
+def test_a_role_at_a_scope_that_does_not_exist_is_refused(runner: CliRunner, idp: FakeIdP) -> None:
     TeamStore().create_team("Acme", slug="acme")
     AccountManager().create("root-admin", "admin", password=PASSWORD)
 

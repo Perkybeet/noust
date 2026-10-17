@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-821 operations.
+828 operations.
 
 ## Access
 
@@ -913,6 +913,13 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | PUT | `/api/auth/oidc/local-login` | Put Local Login | `accounts.manage` | yes |  |
 | GET | `/api/auth/oidc/providers` | List Choices | `public` |  |  |
 | GET | `/api/auth/oidc/start` | Start | `public` |  |  |
+| POST | `/api/auth/saml/acs` | Assertion Consumer Service | `public` |  |  |
+| GET | `/api/auth/saml/config` | List Providers | `accounts.read` |  |  |
+| PUT | `/api/auth/saml/config/{provider}` | Put Provider | `accounts.manage` | yes |  |
+| DELETE | `/api/auth/saml/config/{provider}` | Delete Provider | `accounts.manage` | yes |  |
+| POST | `/api/auth/saml/config/{provider}/test` | Try Provider | `accounts.manage` |  |  |
+| GET | `/api/auth/saml/metadata/{provider}` | Metadata | `public` |  |  |
+| GET | `/api/auth/saml/start` | Start | `public` |  |  |
 | GET | `/api/auth/scim/sources` | List Sources | `accounts.read` |  |  |
 | PUT | `/api/auth/scim/sources/{name}` | Put Source | `accounts.manage` | yes |  |
 | DELETE | `/api/auth/scim/sources/{name}` | Delete Source | `accounts.manage` | yes |  |

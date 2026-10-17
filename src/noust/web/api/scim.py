@@ -33,7 +33,7 @@ from noust.core.accounts.scim import (
     hash_token,
 )
 from noust.core.accounts.scim_store import ScimSource
-from noust.web.api.oidc import origin_of
+from noust.web.api.sso_flow import origin_of
 from noust.web.auth import audit_event, bearer_token, get_client_ip, record_auth_failure
 from noust.web.server import get_token_manager
 

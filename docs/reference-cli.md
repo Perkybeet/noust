@@ -2445,7 +2445,7 @@ How people sign in to the console besides a password.
 noust auth [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`ldap`](#noust-auth-ldap), [`local-login`](#noust-auth-local-login), [`oidc`](#noust-auth-oidc), [`scim`](#noust-auth-scim)
+Subcommands: [`ldap`](#noust-auth-ldap), [`local-login`](#noust-auth-local-login), [`oidc`](#noust-auth-oidc), [`saml`](#noust-auth-saml), [`scim`](#noust-auth-scim)
 
 ### noust auth ldap
 
@@ -2796,6 +2796,141 @@ Arguments: `identity_id`
 
 | Option | What it does | Default |
 |---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust auth saml
+
+SAML 2.0 identity providers people sign in with (Entra ID, Okta, Keycloak, ADFS).
+
+```
+noust auth saml [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`link`](#noust-auth-saml-link), [`metadata`](#noust-auth-saml-metadata), [`remove`](#noust-auth-saml-remove), [`set`](#noust-auth-saml-set), [`show`](#noust-auth-saml-show), [`test`](#noust-auth-saml-test)
+
+### noust auth saml link
+
+Link an account to a person at a SAML provider by hand.
+
+```
+noust auth saml link [OPTIONS] NAME USERNAME
+```
+
+Arguments: `name`, `username`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--subject` | The provider's identifier for the person: their NameID, or the subject attribute. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust auth saml metadata
+
+Print this server's SAML metadata for a provider, to register it with the identity provider.
+
+```
+noust auth saml metadata [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--origin` | The console's address, https://host (default: web.public_url). |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust auth saml remove
+
+Remove a SAML provider. People linked to it can no longer sign in through it.
+
+```
+noust auth saml remove [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-f`, `--force` | Do not ask for confirmation. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust auth saml set
+
+Add a SAML provider, or change one: only the settings given change.
+
+```
+noust auth saml set [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--metadata-file` | The identity provider's metadata XML ('-' reads standard input): its entity id, sign-in address and signing certificates. |  |
+| `--entity-id` | Its entity id (issuer). |  |
+| `--sso-url` | Its sign-in address (HTTP-Redirect binding). |  |
+| `--certificate-file` | A file with its signing certificate in PEM (repeat for a rollover). Replaces the list. |  |
+| `--sp-entity-id` | The entity id this server presents ('' to derive it from the console's address). |  |
+| `--label` | What the sign-in page says. |  |
+| `--enable` | Offer it on the sign-in page. |  |
+| `--disable` | Stop offering it. |  |
+| `--subject-attribute` | The attribute that identifies a person ('' to use the NameID, which should be persistent). |  |
+| `--email-attribute` | Where the address is (email). |  |
+| `--name-attribute` | Where the display name is (displayName). |  |
+| `--username-attribute` | Where the login name is. |  |
+| `--groups-attribute` | Where the groups are listed (groups). |  |
+| `--clock-skew` | Tolerated clock difference, seconds. |  |
+| `--provisioning` | A first sign-in: off (an administrator links people), invite, or auto (create the account). |  |
+| `--default-role` | The role of a created account. |  |
+| `--default-team` | The team a created account joins ('' for the default). |  |
+| `--default-team-role` | Its role there. |  |
+| `--link-by-email` | Link a first sign-in to the account of its address. |  |
+| `--no-link-by-email` | Never link by e-mail. |  |
+| `--allowed-domain` | Only addresses of this domain (repeat). |  |
+| `--clear-domains` | Allow every domain again. |  |
+| `--require-context` | An authentication context class the provider must report (repeat; one of them). |  |
+| `--clear-contexts` | Require no particular authentication. |  |
+| `--require-email` | Refuse a person with no address. |  |
+| `--no-require-email` | Let in people with no address. |  |
+| `--group-sync` | Let groups decide roles and teams. |  |
+| `--no-group-sync` | Stop letting groups decide. |  |
+| `--map-role` | GROUP=ROLE: members get this role (repeat). |  |
+| `--map-team` | GROUP=TEAM:ROLE: members join this team (repeat). |  |
+| `--map-binding` | GROUP=ROLE@TEAM[/PROJECT[/ENVIRONMENT]]: members hold this role there, a built-in one on a project or a custom one anywhere (repeat). |  |
+| `--clear-mappings` | Forget every group mapping. |  |
+| `--origin` | The console's address, to show what to register. |  |
+| `--json` | Print the provider as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust auth saml show
+
+Show the configured SAML providers, or one in full.
+
+```
+noust auth saml show [OPTIONS] [NAME]
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--origin` | The console's address, to show what to register. |  |
+| `--json` | Print the providers as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust auth saml test
+
+Look at a provider the way a sign-in would: its certificates, its address, what it is told.
+
+```
+noust auth saml test [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--origin` | The console's address (default: web.public_url). |  |
+| `--json` | Print the checks as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust auth scim

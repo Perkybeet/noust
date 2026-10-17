@@ -6645,6 +6645,30 @@
         "title": "CertRequest",
         "type": "object"
       },
+      "CertificateInfo": {
+        "description": "A signing certificate, described the way an operator compares it with the provider's.\n\nAttributes:\n    subject: Its subject.\n    fingerprint: Its SHA-256 fingerprint, hex.\n    not_after: When it stops being valid, UNIX seconds.",
+        "properties": {
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "not_after": {
+            "title": "Not After",
+            "type": "number"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "fingerprint",
+          "not_after"
+        ],
+        "title": "CertificateInfo",
+        "type": "object"
+      },
       "CertificateModel": {
         "description": "What an application serves.\n\nAttributes:\n    name: The lineage or upload.\n    names: The names on it.\n    issuer: Its issuer.\n    expires_on: ``YYYY-MM-DD``.\n    days_remaining: Whole days until it expires.\n    source: ``letsencrypt`` or ``custom``.",
         "properties": {
@@ -28989,7 +29013,7 @@
         "type": "object"
       },
       "ProviderChoice": {
-        "description": "One way to sign in, as the sign-in page offers it.\n\nAttributes:\n    name: The provider's short name, for ``/start?provider=``.\n    label: What the button says after \"Sign in with\".\n    protocol: ``oidc`` (a button that leaves for the provider) or ``ldap`` (a directory the\n        sign-in page asks for a name and a password).",
+        "description": "One way to sign in, as the sign-in page offers it.\n\nAttributes:\n    name: The provider's short name, for ``/start?provider=``.\n    label: What the button says after \"Sign in with\".\n    protocol: ``oidc`` or ``saml`` (a button that leaves for the provider, at\n        ``/api/auth/<protocol>/start``) or ``ldap`` (a directory the sign-in page asks for a\n        name and a password).",
         "properties": {
           "label": {
             "title": "Label",
@@ -34858,6 +34882,558 @@
           "email"
         ],
         "title": "SSLSettingsResponse",
+        "type": "object"
+      },
+      "SamlProviderInfo": {
+        "description": "A configured SAML provider. Nothing in it is secret.\n\nAttributes:\n    name: Its short name.\n    label: What the button says after \"Sign in with\".\n    enabled: Whether the sign-in page offers it.\n    idp_entity_id: Its entity id.\n    sso_url: Where the browser is sent to sign in.\n    certificates: Its signing certificates, in PEM.\n    certificate_details: Each of them, described.\n    sp_entity_id: The entity id the operator set; empty derives it.\n    entity_id: The entity id Noust presents to it.\n    acs_url: The address its response is posted to, to register with it.\n    metadata_url: Where this server's metadata for it is published.\n    subject_attribute: The attribute that identifies a person; empty uses the NameID.\n    email_attribute: Where their address is.\n    name_attribute: Where their display name is.\n    username_attribute: Where their login name is.\n    groups_attribute: Where their groups are.\n    clock_skew_seconds: Tolerated clock difference.\n    provisioning: ``off``, ``invite`` or ``auto``.\n    default_role: The role of an account a first sign-in creates.\n    default_team: The team it joins.\n    default_team_role: Its role there.\n    link_by_email: Whether a first sign-in links by e-mail.\n    allowed_domains: When not empty, the e-mail domains allowed.\n    require_email_verified: Whether an address must be present.\n    assume_email_verified: Whether the provider's address counts as verified.\n    require_amr: When not empty, the authentication contexts one of which is required.\n    group_sync: Whether groups decide roles and teams.\n    group_mappings: What each group means.\n    created_at: When it was configured, UNIX seconds.\n    created_by: Who configured it.\n    updated_at: Last change, UNIX seconds.\n    updated_by: Who made it.",
+        "properties": {
+          "acs_url": {
+            "title": "Acs Url",
+            "type": "string"
+          },
+          "allowed_domains": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Domains",
+            "type": "array"
+          },
+          "assume_email_verified": {
+            "title": "Assume Email Verified",
+            "type": "boolean"
+          },
+          "certificate_details": {
+            "items": {
+              "$ref": "#/components/schemas/CertificateInfo"
+            },
+            "title": "Certificate Details",
+            "type": "array"
+          },
+          "certificates": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Certificates",
+            "type": "array"
+          },
+          "clock_skew_seconds": {
+            "title": "Clock Skew Seconds",
+            "type": "integer"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "default_role": {
+            "title": "Default Role",
+            "type": "string"
+          },
+          "default_team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team"
+          },
+          "default_team_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team Role"
+          },
+          "email_attribute": {
+            "title": "Email Attribute",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "entity_id": {
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "group_mappings": {
+            "items": {
+              "$ref": "#/components/schemas/Mapping"
+            },
+            "title": "Group Mappings",
+            "type": "array"
+          },
+          "group_sync": {
+            "title": "Group Sync",
+            "type": "boolean"
+          },
+          "groups_attribute": {
+            "title": "Groups Attribute",
+            "type": "string"
+          },
+          "idp_entity_id": {
+            "title": "Idp Entity Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "link_by_email": {
+            "title": "Link By Email",
+            "type": "boolean"
+          },
+          "metadata_url": {
+            "title": "Metadata Url",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "name_attribute": {
+            "title": "Name Attribute",
+            "type": "string"
+          },
+          "provisioning": {
+            "title": "Provisioning",
+            "type": "string"
+          },
+          "require_amr": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Require Amr",
+            "type": "array"
+          },
+          "require_email_verified": {
+            "title": "Require Email Verified",
+            "type": "boolean"
+          },
+          "sp_entity_id": {
+            "title": "Sp Entity Id",
+            "type": "string"
+          },
+          "sso_url": {
+            "title": "Sso Url",
+            "type": "string"
+          },
+          "subject_attribute": {
+            "title": "Subject Attribute",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "number"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By"
+          },
+          "username_attribute": {
+            "title": "Username Attribute",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "enabled",
+          "idp_entity_id",
+          "sso_url",
+          "certificates",
+          "certificate_details",
+          "sp_entity_id",
+          "entity_id",
+          "acs_url",
+          "metadata_url",
+          "subject_attribute",
+          "email_attribute",
+          "name_attribute",
+          "username_attribute",
+          "groups_attribute",
+          "clock_skew_seconds",
+          "provisioning",
+          "default_role",
+          "link_by_email",
+          "allowed_domains",
+          "require_email_verified",
+          "assume_email_verified",
+          "require_amr",
+          "group_sync",
+          "group_mappings",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SamlProviderInfo",
+        "type": "object"
+      },
+      "SamlProvidersResponse": {
+        "description": "Every configured SAML provider.\n\nAttributes:\n    providers: The providers, by name.\n    acs_url: The address a response is posted to: the same for every provider.\n    secure: Whether the console is reached over TLS, which a POST answer needs.",
+        "properties": {
+          "acs_url": {
+            "title": "Acs Url",
+            "type": "string"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/SamlProviderInfo"
+            },
+            "title": "Providers",
+            "type": "array"
+          },
+          "secure": {
+            "title": "Secure",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "providers",
+          "acs_url",
+          "secure"
+        ],
+        "title": "SamlProvidersResponse",
+        "type": "object"
+      },
+      "SamlRemoved": {
+        "description": "A confirmation that a provider was removed.\n\nAttributes:\n    success: Always true.\n    removed: Its name.",
+        "properties": {
+          "removed": {
+            "title": "Removed",
+            "type": "string"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success",
+          "removed"
+        ],
+        "title": "SamlRemoved",
+        "type": "object"
+      },
+      "SamlSettings": {
+        "description": "What to set on a SAML provider; whatever is left out keeps its value.\n\nAttributes:\n    label: What the button says after \"Sign in with\".\n    enabled: Whether the sign-in page offers it.\n    idp_metadata: The identity provider's metadata XML: its entity id, sign-in address and\n        signing certificates are read from it (the settings beside it win).\n    idp_entity_id: Its entity id.\n    sso_url: Its sign-in address (HTTP-Redirect binding).\n    certificates: Its signing certificates, PEM or bare base64: replaces the list.\n    sp_entity_id: The entity id Noust presents; empty derives it from the console's address.\n    subject_attribute: The attribute that identifies a person; empty uses the NameID.\n    email_attribute: Where their address is.\n    name_attribute: Where their display name is.\n    username_attribute: Where their login name is.\n    groups_attribute: Where their groups are.\n    clock_skew_seconds: Tolerated clock difference, up to 300.\n    provisioning: ``off``, ``invite`` or ``auto``.\n    default_role: ``viewer``, ``operator`` or ``admin``.\n    default_team: The team a created account joins.\n    default_team_role: Its role there.\n    link_by_email: Link a first sign-in to the account of its address.\n    allowed_domains: Only these e-mail domains.\n    require_email_verified: Refuse a person without an address.\n    assume_email_verified: Take the provider's address as verified.\n    require_amr: One of these authentication context classes must be reported.\n    group_sync: Let groups decide roles, memberships and scoped roles.\n    group_mappings: What each group means.",
+        "properties": {
+          "allowed_domains": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Domains"
+          },
+          "assume_email_verified": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assume Email Verified"
+          },
+          "certificates": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 12,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificates"
+          },
+          "clock_skew_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clock Skew Seconds"
+          },
+          "default_role": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Role"
+          },
+          "default_team": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team"
+          },
+          "default_team_role": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team Role"
+          },
+          "email_attribute": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email Attribute"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "group_mappings": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Mapping"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Mappings"
+          },
+          "group_sync": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Sync"
+          },
+          "groups_attribute": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Groups Attribute"
+          },
+          "idp_entity_id": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idp Entity Id"
+          },
+          "idp_metadata": {
+            "anyOf": [
+              {
+                "maxLength": 1048576,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idp Metadata"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "link_by_email": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link By Email"
+          },
+          "name_attribute": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name Attribute"
+          },
+          "provisioning": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provisioning"
+          },
+          "require_amr": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Require Amr"
+          },
+          "require_email_verified": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Require Email Verified"
+          },
+          "sp_entity_id": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sp Entity Id"
+          },
+          "sso_url": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sso Url"
+          },
+          "subject_attribute": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Attribute"
+          },
+          "username_attribute": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username Attribute"
+          }
+        },
+        "title": "SamlSettings",
         "type": "object"
       },
       "SandboxDisableRequest": {
@@ -61570,6 +62146,309 @@
           "Authentication"
         ],
         "x-noust-permission": "self"
+      }
+    },
+    "/api/auth/saml/acs": {
+      "post": {
+        "description": "Take the identity provider's answer: verify it, admit the person, hand over a ticket.\n\nA response that is not right (a signature that does not verify, another audience, an assertion\nseen before, another browser's cookie) is counted against the address like a wrong password\nand audited; a provider that says the person did not sign in, one that is off, or a person the\npolicy does not admit, is audited but not counted. The reason is for the audit trail: the\nsign-in page is told one word.\n\nArgs:\n    request: The request, the browser posting the provider's form.\n\nReturns:\n    A redirect to the sign-in page carrying the ticket, or the reason.",
+        "operationId": "assertion_consumer_service_api_auth_saml_acs_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "properties": {
+                  "RelayState": {
+                    "description": "What the sign-in sent with its request.",
+                    "type": "string"
+                  },
+                  "SAMLResponse": {
+                    "description": "The base64 response.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "SAMLResponse",
+                  "RelayState"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "303": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Assertion Consumer Service",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/auth/saml/config": {
+      "get": {
+        "description": "List the configured SAML providers.\n\nArgs:\n    request: The request, for the addresses it implies.\n    _session: The authenticated payload.\n\nReturns:\n    The providers and the address a response is posted to.",
+        "operationId": "list_providers_api_auth_saml_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SamlProvidersResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Providers",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.read"
+      }
+    },
+    "/api/auth/saml/config/{provider}": {
+      "delete": {
+        "description": "Remove a SAML provider, in sudo mode.\n\nAccounts keep their links and their other ways in; one that had no password can no longer sign\nin until it is given one (``noust user invite``).\n\nArgs:\n    provider: The provider's name.\n    request: The request.\n    session: The authenticated payload, in sudo mode.\n\nReturns:\n    A confirmation.\n\nRaises:\n    HTTPException: 404 when there is no such provider.\n    LocalLoginRefused: 400 while local sign-in is off and this is the last way in.",
+        "operationId": "delete_provider_api_auth_saml_config__provider__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "title": "Provider",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SamlRemoved"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Provider",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      },
+      "put": {
+        "description": "Add a SAML provider or change one, in sudo mode: it decides who may sign in.\n\nArgs:\n    provider: The provider's name.\n    request: The request.\n    body: The settings to set.\n    session: The authenticated payload, in sudo mode.\n\nReturns:\n    The provider as it is now.\n\nRaises:\n    ValidationError: When a setting is refused; nothing is written.",
+        "operationId": "put_provider_api_auth_saml_config__provider__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "title": "Provider",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SamlSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SamlProviderInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Provider",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/auth/saml/config/{provider}/test": {
+      "post": {
+        "description": "Look at a provider the way a sign-in would: its certificates, its address, what it is told.\n\nSigns nobody in and writes nothing.\n\nArgs:\n    provider: The provider's name.\n    request: The request, for the addresses this server tells the provider.\n    _session: The authenticated payload.\n\nReturns:\n    Each check and whether all passed.\n\nRaises:\n    HTTPException: 404 when there is no such provider.",
+        "operationId": "try_provider_api_auth_saml_config__provider__test_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "title": "Provider",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Try Provider",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.manage"
+      }
+    },
+    "/api/auth/saml/metadata/{provider}": {
+      "get": {
+        "description": "Describe this server to an identity provider: what to register it from.\n\nAnonymous, because the provider fetches it: the entity id, where responses are posted and that\nassertions must be signed are not secret.\n\nArgs:\n    request: The request, for the address people reach the console at.\n    provider: The provider's name.\n\nReturns:\n    The service provider's metadata document.\n\nRaises:\n    HTTPException: 404 when there is no such provider.",
+        "operationId": "metadata_api_auth_saml_metadata__provider__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "maxLength": 32,
+              "title": "Provider",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Metadata",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/auth/saml/start": {
+      "get": {
+        "description": "Begin a sign-in: remember it and send the browser to the identity provider.\n\nAnonymous, and it writes only a short-lived record of the sign-in; the provider is chosen from\nthose configured, never from the request. Whatever goes wrong, the browser lands on the\nsign-in page with a one-word reason.\n\nArgs:\n    request: The request.\n    provider: The provider's name.\n    next: The console page to go to afterwards; reduced to a path of this console.\n\nReturns:\n    A redirect to the provider, setting the cookie that ties the answer to this browser, or to\n    the sign-in page.",
+        "operationId": "start_api_auth_saml_start_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "maxLength": 32,
+              "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "next",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Next"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "public"
       }
     },
     "/api/auth/scim/sources": {
