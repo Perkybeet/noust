@@ -396,7 +396,7 @@ def registry_command(ctx: Context, domain: str, reveal: bool) -> None:
         return
     if not found.supported:
         raise DeploymentError(
-            f"{app.domain} does not run an image from a registry", details=found.reason
+            f"{app.domain} does not run an image from a registry", details=found.reason or ""
         )
     ctx.logger.key_value("Application", app.domain)
     ctx.logger.key_value("Image", found.image or "")
