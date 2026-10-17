@@ -141,7 +141,9 @@ class FakeScheduler:
         self.installed: dict[tuple[str, str], str] = {}
         self.removed: list[tuple[str, str]] = []
 
-    def install_database_timer(self, engine: str, database: str, schedule: str) -> str:
+    def install_database_timer(
+        self, engine: str, database: str, schedule: str, *, options: Any = None
+    ) -> str:
         self.installed[(engine, database)] = schedule
         return f"noust-backup-db-{engine}-{database}"
 

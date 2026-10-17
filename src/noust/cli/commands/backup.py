@@ -39,6 +39,7 @@ import click
 from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
 from noust.cli.commands.retention_options import KEEP_GB_HELP, add_size, gigabytes
 from noust.cli.commands.team_common import owner_options
+from noust.cli.commands.timer_options import timer_options
 from noust.cli.panel_links import open_in_panel
 from noust.core.exceptions import NoustError
 from noust.core.logger import Logger
@@ -1446,6 +1447,9 @@ def _create_schedule(
     verb: str = "created",
     retention_gb: float | None = None,
     remote_only: bool = False,
+    max_runtime: str | None = None,
+    zone: str | None = None,
+    keep_options: bool = False,
 ) -> int:
     """
     Create or replace the systemd timer that backs an application up on its own.
@@ -1468,20 +1472,32 @@ def _create_schedule(
             gigabytes together; None for no limit by size.
         remote_only: Delete each backup from this server once every destination
             holds it and its upload was checked.
+        max_runtime: The longest a run may take (``90m``, ``2h``); None for no limit.
+        zone: The time zone the schedule is read in; None for the server's clock.
+        keep_options: Leave the timer's time limit and time zone as they are (an update that
+            names neither); otherwise they are what is given here.
 
     Returns:
         0 on success, 1 if the schedule could not be installed.
     """
+    from noust.core import paths
     from noust.core.utils import domain_to_app_name
     from noust.managers.backup_scheduler import BackupSchedule, BackupScheduler
+    from noust.managers.backup_timer_options import validate_options
 
     try:
         parsed_destinations = [_parse_destination_spec(value) for value in destinations]
         scheduler = BackupScheduler(verbose=logger.verbose)
+        timer_options = (
+            scheduler.options.get(f"{paths.BACKUP_UNIT_PREFIX}{domain_to_app_name(domain)}")
+            if keep_options
+            else validate_options(max_runtime, zone)
+        )
         backup_schedule = BackupSchedule(
             domain=domain,
             app_name=domain_to_app_name(domain),
             schedule=schedule,
+            options=timer_options,
             retention_count=retention_count,
             retention_days=retention_days,
             retention_bytes=gigabytes_to_bytes(check_gigabytes(retention_gb, "--retention-gb")),
@@ -1552,11 +1568,16 @@ def _list_schedules(
     for sched in schedules:
         retention = sched.get("retention_count") or "default (backup.max_per_app)"
         kept = " kept-here=nothing" if sched.get("remote_only") == "true" else ""
+        limits = ""
+        if sched.get("max_runtime_seconds"):
+            limits += f" time-limit={sched['max_runtime_seconds']}s"
+        if sched.get("timezone"):
+            limits += f" zone={sched['timezone']}"
         logger.info(
             f"  {sched['app_name']}: "
             f"next={sched.get('next_run', '?')} "
             f"last={sched.get('last_run', 'never')} "
-            f"retention={retention}{kept}"
+            f"retention={retention}{kept}{limits}"
         )
 
     return 0
@@ -2283,6 +2304,7 @@ def backup_schedule() -> None:
     help="Keep nothing on this server: delete each backup here once every destination holds it "
     "and its upload was checked. For a small disk; needs a --destination.",
 )
+@timer_options
 @pass_context
 def schedule_create(
     state: Context,
@@ -2293,6 +2315,8 @@ def schedule_create(
     retention_gb: str,
     destinations: tuple[str, ...],
     remote_only: bool,
+    max_runtime: str | None,
+    zone: str | None,
 ) -> None:
     """
     Back an application up on a timer and drop its old scheduled backups.
@@ -2311,6 +2335,8 @@ def schedule_create(
             destinations=destinations,
             verb="created",
             remote_only=remote_only,
+            max_runtime=max_runtime,
+            zone=zone,
         )
     )
 
@@ -2355,6 +2381,7 @@ def schedule_create(
     help="Keep nothing on this server (delete each backup here once every destination holds "
     "it), or keep the local copies. Kept as it is when not given.",
 )
+@timer_options
 @pass_context
 def schedule_update(
     state: Context,
@@ -2365,6 +2392,8 @@ def schedule_update(
     retention_gb: str | None,
     destinations: tuple[str, ...],
     remote_only: bool | None,
+    max_runtime: str | None,
+    zone: str | None,
 ) -> None:
     """
     Replace an application's backup schedule.
@@ -2405,6 +2434,10 @@ def schedule_update(
                 if remote_only is not None
                 else (record.remote_only if record is not None else False)
             ),
+            max_runtime=max_runtime,
+            zone=zone,
+            # Like retention: an update that names neither leaves the timer's as they are.
+            keep_options=max_runtime is None and zone is None,
         )
     )
 

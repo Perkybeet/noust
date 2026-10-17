@@ -27,6 +27,7 @@ import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.cli.commands.retention_options import KEEP_GB_HELP, add_size, gigabytes
+from noust.cli.commands.timer_options import describe_timer_options, timer_options
 from noust.core.exceptions import NoustError, ValidationError
 from noust.managers.database.base import format_size
 from noust.managers.volume_backups import VolumeBackupManager, VolumeBackupMetadata
@@ -472,6 +473,7 @@ def schedule() -> None:
     help="live, pause (freeze the application for the copy) or stop.",
 )
 @click.option("--disable", is_flag=True, help="Keep the settings but install no timer.")
+@timer_options
 @json_option("Print the policy as JSON.")
 @pass_context
 def set_command(
@@ -487,6 +489,8 @@ def set_command(
     remote_only: bool,
     consistency: str,
     disable: bool,
+    max_runtime: str | None,
+    zone: str | None,
 ) -> None:
     """Create or replace an application's data backup policy, and its timer."""
     try:
@@ -501,6 +505,8 @@ def set_command(
             remote_only=remote_only,
             destinations=[_destination(text) for text in destinations],
             consistency=consistency,
+            max_runtime=max_runtime,
+            zone=zone,
             enabled=not disable,
         )
     except NoustError as exc:
@@ -526,6 +532,8 @@ def _print_policy(ctx: Context, data: dict[str, Any]) -> None:
         click.echo("  No policy: its data is not backed up on a schedule.")
         return
     click.echo(f"  Schedule:     {data['schedule']}{'' if data['enabled'] else '  (disabled)'}")
+    for line in describe_timer_options(data.get("timer", {})):
+        click.echo(line)
     click.echo(f"  Targets:      {', '.join(data['targets']) or 'every one it declares'}")
     if data["extra_paths"]:
         click.echo(f"  Added paths:  {', '.join(data['extra_paths'])}")

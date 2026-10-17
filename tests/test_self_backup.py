@@ -598,7 +598,7 @@ class FakeTimers:
     def __init__(self) -> None:
         self.installed: str | None = None
 
-    def install_self_backup_timer(self, schedule: str) -> str:
+    def install_self_backup_timer(self, schedule: str, *, options: Any = None) -> str:
         self.installed = schedule
         return "noust-backup-self"
 

@@ -23,6 +23,10 @@ Rules for a machine that is also somebody's development workstation (the same as
 
 What each scenario proves (the checklist row it answers):
 
+* ``unit_files`` (H-01, priority of the copies, the retention sweep): the service and timer units
+  of a database policy, a data policy, Noust's own state and the sweep, written with a time limit,
+  a time zone with an underscore and a priority, are accepted by ``systemd-analyze verify`` of a
+  real systemd 255.
 * ``stack_dump_restore`` (D-18, H-31): the dump of PostgreSQL, MySQL and MariaDB databases that live
   in containers is taken with the commands an update runs, loaded into a throwaway container of the
   image the service ran, and counted; a truncated dump fails the test with the engine's own words;
@@ -448,6 +452,67 @@ def _wait_for_engine(lab: Lab, container: str, database: object) -> None:
                 return
         time.sleep(2)
     raise AssertionError(f"{container} never finished starting")
+
+
+# ---------------------------------------------------------------------------
+# unit_files
+# ---------------------------------------------------------------------------
+
+
+@scenario("unit_files")
+def unit_files(lab: Lab) -> None:
+    """The units a backup schedule is made of are accepted by a real systemd 255."""
+    from noust.core.runner import FakeRunner
+    from noust.managers.backup_scheduler import BackupScheduler
+    from noust.managers.backup_timer_options import validate_options
+
+    image = "noust-integration:latest"
+    lab.require_image(image)
+    units = lab.scratch / "units"
+    units.mkdir()
+    BackupScheduler.SYSTEMD_DIR = units  # type: ignore[misc]
+    # The units name an executable; systemd-analyze verify wants it to exist.
+    import noust.managers.backup_scheduler as module
+
+    module.find_noust_executable = lambda: "/bin/true"  # type: ignore[assignment]
+    scheduler = BackupScheduler(runner=FakeRunner())
+    options = validate_options("2h", "America/Argentina/Buenos_Aires")
+    scheduler.install_database_timer("postgresql", "shop", "daily", options=options)
+    scheduler.install_volume_timer(
+        "shop.example.com", "weekly", options=validate_options("90m", "UTC")
+    )
+    scheduler.install_self_backup_timer("*-*-* 03:30:00")
+    names = sorted(path.name for path in units.iterdir())
+    lab.evidence.append("written: " + ", ".join(names))
+    lab.check("noust-backup-sweep.timer" in names, "the sweep's timer was not written")
+
+    container = lab.name("verify")
+    lab.containers.append(container)
+    verify = lab.docker(
+        "run",
+        "--name",
+        container,
+        "--label",
+        LABEL,
+        "-v",
+        f"{units}:/units:ro",
+        "--entrypoint",
+        "sh",
+        image,
+        "-c",
+        "cd /units && systemd-analyze verify *.service *.timer 2>&1; echo verify-exit=$?; "
+        "grep -h 'OnCalendar\\|TimeoutStartSec\\|Nice\\|IOScheduling' *.service *.timer; "
+        "systemd-analyze calendar 'Mon *-*-* 02:00:00 America/Argentina/Buenos_Aires' | head -3",
+        check=False,
+        timeout=120,
+    )
+    lab.check("verify-exit=0" in verify.stdout, f"systemd-analyze verify failed: {verify.stdout}")
+    # systemd ignores RuntimeMaxSec= on a oneshot service and says so; a limit it ignores is none.
+    lab.check("no effect" not in verify.stdout, f"systemd ignores a directive: {verify.stdout}")
+    lab.check("TimeoutStartSec=7200" in verify.stdout, "the time limit is not in the unit")
+    lab.check("Buenos_Aires" in verify.stdout, "the time zone is not in the timer")
+    lab.check("Nice=10" in verify.stdout, "the priority is not in the unit")
+    lab.remove(container)
 
 
 # ---------------------------------------------------------------------------

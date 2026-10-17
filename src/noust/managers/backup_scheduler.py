@@ -60,6 +60,7 @@ from noust.core.utils import domain_to_app_name, find_noust_executable
 from noust.managers.backup_destinations import BackupDestinationManager
 from noust.managers.backup_manager import SCHEDULED_TAG, BackupManager, BackupMetadata
 from noust.managers.backup_priority import current_priority, with_priority
+from noust.managers.backup_timer_options import TimerOptions, TimerOptionsStore, with_options
 from noust.managers.database.scope import ALL_DATABASES, timer_label
 from noust.validators.domain import validate_domain
 from noust.validators.names import resolve_within, validate_app_name, validate_service_name
@@ -197,6 +198,8 @@ class BackupSchedule:
             destination holds it and its upload was checked (a small disk). It
             needs a destination: there would be nowhere to keep the backup.
         tags: Tags attached to the backups this schedule creates.
+        options: The time limit and time zone of the timer
+            (:class:`~noust.managers.backup_timer_options.TimerOptions`).
         destinations: Remote copies to push each scheduled backup to, as
             ``{"name", "retention_count", "retention_days", "retention_gb"}`` per destination
             - the same shape :attr:`noust.core.store.BackupScheduleRecord.destinations`
@@ -213,6 +216,7 @@ class BackupSchedule:
     remote_only: bool = False
     tags: list[str] = field(default_factory=lambda: [SCHEDULED_TAG, "auto"])
     destinations: list[dict[str, Any]] = field(default_factory=list)
+    options: TimerOptions = field(default_factory=TimerOptions)
 
     @property
     def on_calendar(self) -> str:
@@ -305,6 +309,14 @@ class BackupScheduler:
         """
         return self._fs or get_fs()
 
+    @property
+    def options(self) -> TimerOptionsStore:
+        """
+        Returns:
+            The time limit and time zone of every timer.
+        """
+        return TimerOptionsStore(get_store())
+
     def _systemctl(self, *args: str) -> Any:
         """
         Run a systemctl verb through the shared runner.
@@ -362,19 +374,44 @@ class BackupScheduler:
         return resolve_within(self.SYSTEMD_DIR, unit_name)
 
     @staticmethod
-    def _is_backup_service(path: Path) -> bool:
+    def _is_backup_unit(path: Path, suffix: str) -> bool:
         """
         Args:
             path: A unit file.
+            suffix: ``.service`` or ``.timer``.
 
         Returns:
-            Whether it is the service a backup runs in (an application's schedule, a database's,
-            a volume's, the self-backup's or the point-in-time upkeep), which runs behind the
-            applications.
+            Whether it is one of the units a backup schedule is made of (an application's, a
+            database's, a volume's, the self-backup's, the sweep's or the point-in-time upkeep).
         """
-        return path.suffix == ".service" and path.name.startswith(
+        return path.suffix == suffix and path.name.startswith(
             (paths.BACKUP_UNIT_PREFIX, paths.LEGACY_BACKUP_UNIT_PREFIX)
         )
+
+    def _decorate(self, path: Path, content: str) -> str:
+        """
+        Give a unit what every backup unit has beyond its template.
+
+        The service a backup runs in gets the priority the configuration asks for
+        (:mod:`noust.managers.backup_priority`) and its time limit; its timer gets its time zone
+        (:mod:`noust.managers.backup_timer_options`).
+
+        Args:
+            path: The unit file.
+            content: The unit's text.
+
+        Returns:
+            The text to write.
+        """
+        if self._is_backup_unit(path, ".service"):
+            return with_options(
+                with_priority(content, current_priority()),
+                self.options.get(path.stem),
+                kind="service",
+            )
+        if self._is_backup_unit(path, ".timer"):
+            return with_options(content, self.options.get(path.stem), kind="timer")
+        return content
 
     def _write_unit(self, path: Path, content: str) -> None:
         """
@@ -390,8 +427,7 @@ class BackupScheduler:
         Raises:
             BackupError: If the file cannot be written.
         """
-        if self._is_backup_service(path):
-            content = with_priority(content, current_priority())
+        content = self._decorate(path, content)
         try:
             self.fs.write_text(path, content, mode=_UNIT_MODE)
         except OSError as exc:
@@ -432,6 +468,7 @@ class BackupScheduler:
             domain=domain,
             app_name=app_name,
             schedule=calendar,
+            options=schedule.options,
             include_databases=schedule.include_databases,
             retention_count=schedule.retention_count,
             retention_days=schedule.retention_days,
@@ -444,6 +481,7 @@ class BackupScheduler:
         timer_path = self._unit_path(f"{checked.timer_name}.timer")
         service_path = self._unit_path(f"{checked.service_name}.service")
 
+        self.options.set(checked.timer_name, checked.options)
         self._write_unit(timer_path, self.render_timer(checked))
         self._write_unit(service_path, self.render_service(checked))
 
@@ -508,6 +546,7 @@ class BackupScheduler:
 
         self._systemctl("daemon-reload")
         get_store().delete_backup_schedule(validated_domain)
+        self.options.delete(timer_name)
 
         self.logger.info(f"Removed backup schedule: {timer_name}")
         return True
@@ -641,6 +680,11 @@ class BackupScheduler:
                 )
                 schedule_info["include_databases"] = "true" if record.include_databases else "false"
                 schedule_info["remote_only"] = "true" if record.remote_only else "false"
+                options = self.options.get(timer_name)
+                if options.max_runtime_seconds:
+                    schedule_info["max_runtime_seconds"] = str(options.max_runtime_seconds)
+                if options.timezone:
+                    schedule_info["timezone"] = options.timezone
 
             schedules.append(schedule_info)
 
@@ -783,13 +827,15 @@ class BackupScheduler:
         Raises:
             ValidationError: A priority setting is not valid; nothing was rewritten.
         """
-        priority = current_priority()
+        current_priority()  # a setting that is not valid stops the whole pass, untouched
         changed: list[str] = []
         directory = self.SYSTEMD_DIR
         if not directory.is_dir():
             return changed
         for prefix in (paths.BACKUP_UNIT_PREFIX, paths.LEGACY_BACKUP_UNIT_PREFIX):
-            for path in sorted(directory.glob(f"{prefix}*.service")):
+            for path in sorted(
+                [*directory.glob(f"{prefix}*.service"), *directory.glob(f"{prefix}*.timer")]
+            ):
                 if path.is_symlink() or not path.is_file():
                     continue
                 try:
@@ -798,10 +844,9 @@ class BackupScheduler:
                     continue
                 if not paths.carries_unit_marker(text):
                     continue
-                rewritten = with_priority(text, priority)
-                if rewritten == text:
+                if self._decorate(path, text) == text:
                     continue
-                self._write_unit(path, rewritten)
+                self._write_unit(path, text)
                 changed.append(path.name)
         if changed:
             self._systemctl("daemon-reload")
@@ -870,7 +915,9 @@ class BackupScheduler:
         except OSError:
             return False
 
-    def install_database_timer(self, engine: str, database: str, schedule: str) -> str:
+    def install_database_timer(
+        self, engine: str, database: str, schedule: str, *, options: TimerOptions | None = None
+    ) -> str:
         """
         Create or replace the timer that runs a database's backup policy.
 
@@ -883,6 +930,8 @@ class BackupScheduler:
             engine: Canonical engine name.
             database: The database.
             schedule: An alias of :data:`SCHEDULE_ALIASES` or a calendar expression.
+            options: The timer's time limit and time zone; none when omitted (which clears
+                what an earlier install set).
 
         Returns:
             The timer's unit name.
@@ -902,6 +951,7 @@ class BackupScheduler:
                 "that owns it before scheduling this database.",
             )
         target = f"{engine}/{database}"
+        self.options.set(unit, options or TimerOptions())
         self._write_unit(
             timer_path, self._render("database-backup-timer.j2", target=target, schedule=calendar)
         )
@@ -954,6 +1004,7 @@ class BackupScheduler:
             except OSError as exc:
                 self.logger.warning(f"Could not remove {path}: {exc}")
         self._systemctl("daemon-reload")
+        self.options.delete(unit)
         self.logger.info(f"Removed database backup schedule: {unit}")
         return True
 
@@ -987,6 +1038,7 @@ class BackupScheduler:
             "installed": properties.get("LoadState") == "loaded",
             "next_run": next_run if next_run and next_run != "n/a" else None,
             "last_run": last_run if last_run and last_run != "n/a" else None,
+            **self.options.get(unit).to_dict(),
         }
 
     # -- timers for what is not an application's own schedule ---------------
@@ -999,6 +1051,8 @@ class BackupScheduler:
         timer_template: str,
         service_template: str,
         calendar: str,
+        *,
+        options: TimerOptions | None = None,
         **values: str,
     ) -> None:
         """
@@ -1011,6 +1065,7 @@ class BackupScheduler:
             timer_template: The timer's template.
             service_template: The service's template.
             calendar: The validated ``OnCalendar`` expression.
+            options: The timer's time limit and time zone; none when omitted.
             **values: What the templates are given besides the calendar.
 
         Raises:
@@ -1034,6 +1089,7 @@ class BackupScheduler:
                 details="Another timer already has this name; remove it or rename the "
                 "application that owns it before scheduling this.",
             )
+        self.options.set(unit, options or TimerOptions())
         self._write_unit(timer_path, self._render(timer_template, schedule=calendar, **values))
         self._write_unit(
             service_path,
@@ -1073,6 +1129,7 @@ class BackupScheduler:
             except OSError as exc:
                 self.logger.warning(f"Could not remove {path}: {exc}")
         self._systemctl("daemon-reload")
+        self.options.delete(unit)
         self.logger.info(f"Removed schedule: {unit}")
         return True
 
@@ -1104,6 +1161,7 @@ class BackupScheduler:
             "installed": properties.get("LoadState") == "loaded",
             "next_run": next_run if next_run and next_run != "n/a" else None,
             "last_run": last_run if last_run and last_run != "n/a" else None,
+            **self.options.get(unit).to_dict(),
         }
 
     @staticmethod
@@ -1119,7 +1177,9 @@ class BackupScheduler:
         """
         return f"{paths.BACKUP_UNIT_PREFIX}vol-{domain_to_app_name(domain)}"
 
-    def install_volume_timer(self, domain: str, schedule: str) -> str:
+    def install_volume_timer(
+        self, domain: str, schedule: str, *, options: TimerOptions | None = None
+    ) -> str:
         """
         Create or replace the timer that runs an application's volume backup policy.
 
@@ -1130,6 +1190,7 @@ class BackupScheduler:
         Args:
             domain: The application's domain.
             schedule: An alias of :data:`SCHEDULE_ALIASES` or a calendar expression.
+            options: The timer's time limit and time zone.
 
         Returns:
             The timer's unit name.
@@ -1153,6 +1214,7 @@ class BackupScheduler:
             "volume-backup-timer.j2",
             "volume-backup-service.j2",
             calendar,
+            options=options,
             target=domain,
             domain=domain,
         )
@@ -1183,12 +1245,15 @@ class BackupScheduler:
         """
         return self.unit_state(self.volume_timer_name(domain))
 
-    def install_self_backup_timer(self, schedule: str) -> str:
+    def install_self_backup_timer(
+        self, schedule: str, *, options: TimerOptions | None = None
+    ) -> str:
         """
         Create or replace the timer that backs up Noust's own state.
 
         Args:
             schedule: An alias of :data:`SCHEDULE_ALIASES` or a calendar expression.
+            options: The timer's time limit and time zone.
 
         Returns:
             The timer's unit name.
@@ -1204,6 +1269,7 @@ class BackupScheduler:
             "self-backup-timer.j2",
             "self-backup-service.j2",
             calendar,
+            options=options,
             target="this server",
         )
         return SELF_BACKUP_UNIT

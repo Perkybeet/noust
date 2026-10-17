@@ -80,7 +80,7 @@ class FakeScheduler:
     def __init__(self) -> None:
         self.installed: dict[str, str] = {}
 
-    def install_volume_timer(self, domain: str, schedule: str) -> str:
+    def install_volume_timer(self, domain: str, schedule: str, *, options: Any = None) -> str:
         self.installed[domain] = schedule
         return f"noust-backup-vol-{APP}"
 

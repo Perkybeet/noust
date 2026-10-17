@@ -31,6 +31,7 @@ import click
 
 from noust.cli.app import Context, NoustCommand, NoustGroup, json_option, pass_context
 from noust.cli.commands.retention_options import KEEP_GB_HELP, add_size, gigabytes
+from noust.cli.commands.timer_options import describe_timer_options, timer_options
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.logger import Logger
 from noust.managers.database.backups import DatabaseBackups, DumpView, PolicyView
@@ -292,6 +293,8 @@ def _print_policy(logger: Logger, view: PolicyView) -> None:
     if data.get("retention_gb"):
         keep.append(f"{data['retention_gb']:g} GB")
     click.echo(f"  Schedule:     {data['schedule']}{'' if data['enabled'] else '  (disabled)'}")
+    for line in describe_timer_options(data["timer"]):
+        click.echo(line)
     if data["scope"] == "all":
         click.echo("  Covers:       every database of the engine, those created later too")
     left_out = [
@@ -426,6 +429,7 @@ def backup_schedule() -> None:
     "holds it (for a small disk). A dump that could not be sent everywhere stays.",
 )
 @click.option("--disable", is_flag=True, help="Keep the settings but install no timer.")
+@timer_options
 @json_option("Print the policy as JSON.")
 @pass_context
 def set_schedule(
@@ -445,6 +449,8 @@ def set_schedule(
     verify_restore: bool,
     remote_only: bool,
     disable: bool,
+    max_runtime: str | None,
+    zone: str | None,
 ) -> None:
     """
     Create or replace a database's backup policy, and its timer.
@@ -475,6 +481,8 @@ def set_schedule(
                 dump_format=dump_format,
                 verify_restore=verify_restore,
                 remote_only=remote_only,
+                max_runtime=max_runtime,
+                zone=zone,
                 enabled=not disable,
             )
     except NoustError as exc:

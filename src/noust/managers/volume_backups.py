@@ -100,6 +100,7 @@ from noust.managers.backup_manager import (
     sign_sidecar,
 )
 from noust.managers.backup_scheduler import BackupScheduler, validate_calendar, verify_days
+from noust.managers.backup_timer_options import validate_options
 from noust.managers.docker_volumes import (
     DOCKER_VOLUME_NAME,
     docker_archive_argv,
@@ -732,6 +733,8 @@ class VolumeBackupManager:
         enabled: bool = True,
         retention_gb: float | None = None,
         remote_only: bool = False,
+        max_runtime: int | str | None = None,
+        zone: str | None = None,
     ) -> VolumePolicyView:
         """
         Create or replace an application's data backup policy, and its timer.
@@ -757,6 +760,9 @@ class VolumeBackupManager:
                 limit by size.
             remote_only: Delete each scheduled backup from this server once every
                 destination holds it and its upload was checked. It needs a destination.
+            max_runtime: The longest a run may take (seconds, or ``90m``/``2h``); systemd stops
+                a run past it. None for no limit.
+            zone: The time zone the schedule is read in; None for the server's clock.
 
         Returns:
             The policy as stored, with its timer.
@@ -768,6 +774,7 @@ class VolumeBackupManager:
         require_server_role("Volume backups")
         domain = self._app(domain).domain
         calendar = validate_calendar(schedule)
+        timer_options = validate_options(max_runtime, zone)
         if consistency not in CONSISTENCY_MODES:
             raise ValidationError(
                 f"{consistency!r} is not a consistency mode",
@@ -795,7 +802,7 @@ class VolumeBackupManager:
                 field="remote_only",
             )
         if enabled:
-            self.scheduler.install_volume_timer(domain, calendar)
+            self.scheduler.install_volume_timer(domain, calendar, options=timer_options)
         else:
             self.scheduler.remove_volume_timer(domain)
         self.records.save_policy(
@@ -824,6 +831,8 @@ class VolumeBackupManager:
             retention_days=days,
             retention_gb=budget,
             remote_only=remote_only,
+            max_runtime_seconds=timer_options.max_runtime_seconds,
+            timezone=timer_options.timezone,
             enabled=enabled,
         )
         return self.get_policy(domain)

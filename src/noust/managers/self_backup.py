@@ -87,6 +87,7 @@ from noust.core.store import SCHEMA_VERSION, NoustStore, get_store
 from noust.managers.backup_destination_files import DestinationFileManager, file_sha256
 from noust.managers.backup_manager import server_id, sidecar_mac_state, sign_sidecar
 from noust.managers.backup_scheduler import BackupScheduler, validate_calendar
+from noust.managers.backup_timer_options import validate_options
 from noust.managers.cert_manager import CertManager
 from noust.managers.retention import (
     check_gigabytes,
@@ -1481,6 +1482,8 @@ class SelfBackupManager:
         enabled: bool = True,
         retention_gb: float | None = None,
         remote_only: bool = False,
+        max_runtime: int | str | None = None,
+        zone: str | None = None,
     ) -> dict[str, Any]:
         """
         Create or replace the schedule, and its timer.
@@ -1502,6 +1505,9 @@ class SelfBackupManager:
                 in gigabytes (the newest always stays); None for no limit by size.
             remote_only: Delete each scheduled bundle from this server once every
                 destination holds it and its upload was checked. It needs a destination.
+            max_runtime: The longest a run may take (seconds, or ``90m``/``2h``); systemd stops
+                a run past it. None for no limit.
+            zone: The time zone the schedule is read in; None for the server's clock.
 
         Returns:
             The schedule as :meth:`get_schedule` describes it.
@@ -1511,6 +1517,7 @@ class SelfBackupManager:
             BackupError: When the timer cannot be made.
         """
         calendar = validate_calendar(schedule)
+        timer_options = validate_options(max_runtime, zone)
         count = _limit(retention_count, MAX_RETENTION_COUNT, "retention_count")
         days = _limit(retention_days, MAX_RETENTION_DAYS, "retention_days")
         budget = check_gigabytes(retention_gb, "retention_gb")
@@ -1553,7 +1560,7 @@ class SelfBackupManager:
                 field="passphrase",
             )
         if enabled:
-            self.scheduler.install_self_backup_timer(calendar)
+            self.scheduler.install_self_backup_timer(calendar, options=timer_options)
         else:
             self.scheduler.remove_self_backup_timer()
         self.records.save(
@@ -1574,6 +1581,8 @@ class SelfBackupManager:
             retention_days=days,
             retention_gb=budget,
             remote_only=remote_only,
+            max_runtime_seconds=timer_options.max_runtime_seconds,
+            timezone=timer_options.timezone,
             destinations=[entry["name"] for entry in checked],
             enabled=enabled,
         )

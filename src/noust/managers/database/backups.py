@@ -58,6 +58,7 @@ from noust.core.notifications.model import Notification
 from noust.core.store import NoustStore
 from noust.managers.backup_destination_files import DestinationFileManager, file_sha256
 from noust.managers.backup_scheduler import BackupScheduler, validate_calendar
+from noust.managers.backup_timer_options import validate_options
 from noust.managers.database.backup_notifications import (
     compose_database_backup_completed,
     compose_database_backup_failed,
@@ -724,6 +725,8 @@ class DatabaseBackups:
         exclusions: Exclusions | None = None,
         retention_gb: float | None = None,
         remote_only: bool = False,
+        max_runtime: int | str | None = None,
+        zone: str | None = None,
     ) -> PolicyView:
         """
         Create or replace a database's backup policy, and its timer.
@@ -760,6 +763,10 @@ class DatabaseBackups:
             remote_only: Delete each scheduled dump from this server once every
                 destination holds it, for a server whose disk is small. Needs a
                 destination; a dump that could not be sent everywhere stays.
+            max_runtime: The longest a run may take (seconds, or ``90m``/``2h``); systemd stops
+                a run past it. None for no limit.
+            zone: The time zone the schedule is read in (``Europe/Madrid``); None for the
+                server's clock.
 
         Returns:
             The policy as stored, with its timer's state.
@@ -789,6 +796,7 @@ class DatabaseBackups:
         left_out = exclusions or Exclusions()
         left_out.check_for(manager.engine_type, scope=scope)
         calendar = validate_calendar(schedule)
+        timer_options = validate_options(max_runtime, zone)
         count = _limit(retention_count, MAX_RETENTION_COUNT, "retention_count")
         days = _limit(retention_days, MAX_RETENTION_DAYS, "retention_days")
         budget = check_gigabytes(retention_gb, "retention_gb")
@@ -817,7 +825,9 @@ class DatabaseBackups:
             )
 
         if enabled:
-            self.scheduler.install_database_timer(engine_name, name, calendar)
+            self.scheduler.install_database_timer(
+                engine_name, name, calendar, options=timer_options
+            )
         else:
             self.scheduler.remove_database_timer(engine_name, name)
         self.records.save_policy(
@@ -845,6 +855,8 @@ class DatabaseBackups:
             retention_days=days,
             retention_gb=budget,
             remote_only=remote_only,
+            max_runtime_seconds=timer_options.max_runtime_seconds,
+            timezone=timer_options.timezone,
             destinations=[entry["name"] for entry in checked],
             verify_restore=verify_restore,
             enabled=enabled,

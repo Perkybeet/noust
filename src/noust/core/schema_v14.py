@@ -528,6 +528,9 @@ DBINSTANCES_COLUMNS: list[tuple[str, str, str]] = [
 # app_update_policy: whether an application's update is refused when its backup
 #   fails (noust.core.update_policy_store). No row means the default: required
 #   for an application with a database.
+# backup_timer_options: the time limit and the time zone of a backup timer, one row per unit
+#   (noust.managers.backup_timer_options). Apart from the policies on purpose: a policy is written
+#   whole by whoever saves it, and a limit set on a timer must not be put back by that write.
 # db_pitr: the continuous archiving of an engine's write-ahead log, which a point-in-time
 #   recovery is made from (noust.managers.database.pitr_records): one row per engine, with
 #   the cluster it archives (its system identifier), where the archive is, how often a base
@@ -584,6 +587,12 @@ CREATE TABLE IF NOT EXISTS app_update_policy (
     app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
     backup_required INTEGER NOT NULL CHECK (backup_required IN (0, 1)),
     updated_by TEXT,
+    updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS backup_timer_options (
+    unit TEXT PRIMARY KEY,
+    max_runtime_seconds INTEGER,
+    timezone TEXT,
     updated_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS db_pitr (
