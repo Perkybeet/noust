@@ -417,6 +417,8 @@ AppHooksResponse = TypedDict("AppHooksResponse", {
     "domain": Required[str],
     "post_deploy": Required[list["HookModel"]],
     "pre_deploy": Required[list["HookModel"]],
+    "preview_post_create": NotRequired[list["HookModel"]],
+    "preview_pre_destroy": NotRequired[list["HookModel"]],
     "repository_error": NotRequired[Union[str, None]],
     "source": Required[str],
 })
@@ -900,6 +902,7 @@ BatchDeployRequest = TypedDict("BatchDeployRequest", {
     "apps": Required[list[str]],
     "commit": NotRequired[Union[str, None]],
     "force": NotRequired[bool],
+    "frozen_ok": NotRequired[bool],
     "image_tag": NotRequired[Union[str, None]],
     "no_cache": NotRequired[bool],
     "pull_request": NotRequired[Union[int, None]],
@@ -2017,6 +2020,7 @@ DeployKeyTestResponse = TypedDict("DeployKeyTestResponse", {
 DeployOptions = TypedDict("DeployOptions", {
     "commit": NotRequired[Union[str, None]],
     "force": NotRequired[bool],
+    "frozen_ok": NotRequired[bool],
     "image_tag": NotRequired[Union[str, None]],
     "no_cache": NotRequired[bool],
     "pull_request": NotRequired[Union[int, None]],
@@ -3009,6 +3013,32 @@ ForgottenHostResponse = TypedDict("ForgottenHostResponse", {
     "host": Required[str],
 })
 
+FreezeOut = TypedDict("FreezeOut", {
+    "created_at": Required[str],
+    "created_by": Required[Union[str, None]],
+    "domain": Required[Union[str, None]],
+    "ends_at": Required[Union[str, None]],
+    "id": Required[int],
+    "lifted_at": Required[Union[str, None]],
+    "lifted_by": Required[Union[str, None]],
+    "reason": Required[str],
+    "scope": Required[str],
+    "starts_at": Required[str],
+    "state": Required[str],
+})
+
+FreezeRequest = TypedDict("FreezeRequest", {
+    "domain": NotRequired[Union[str, None]],
+    "ends_at": NotRequired[Union[str, None]],
+    "hours": NotRequired[Union[float, None]],
+    "reason": Required[str],
+    "starts_at": NotRequired[Union[str, None]],
+})
+
+FreezesResponse = TypedDict("FreezesResponse", {
+    "freezes": Required[list["FreezeOut"]],
+})
+
 GitCredentialRequest = TypedDict("GitCredentialRequest", {
     "secret": Required[str],
     "username": Required[str],
@@ -3654,6 +3684,10 @@ LastDeploymentOut = TypedDict("LastDeploymentOut", {
     "git_commit": NotRequired[Union[str, None]],
     "id": Required[int],
     "status": Required[str],
+})
+
+LiftedResponse = TypedDict("LiftedResponse", {
+    "lifted": Required[list["FreezeOut"]],
 })
 
 LimitsResponse = TypedDict("LimitsResponse", {
@@ -4430,6 +4464,16 @@ PathRequest = TypedDict("PathRequest", {
     "path": Required[str],
 })
 
+PauseOut = TypedDict("PauseOut", {
+    "at": Required[str],
+    "by": Required[Union[str, None]],
+    "reason": Required[Union[str, None]],
+})
+
+PauseRequest = TypedDict("PauseRequest", {
+    "reason": NotRequired[Union[str, None]],
+})
+
 PendingChangesResponse = TypedDict("PendingChangesResponse", {
     "baseline_created": NotRequired[bool],
     "counts": NotRequired[dict[str, int]],
@@ -4623,9 +4667,12 @@ PreviewSettingsOut = TypedDict("PreviewSettingsOut", {
     "base_domain": Required[str],
     "created_at": NotRequired[Union[str, None]],
     "data_mode": NotRequired[str],
+    "domain_template": NotRequired[Union[str, None]],
     "exclude_env": Required[list[str]],
+    "fork_policy": NotRequired[str],
     "inherit_env": NotRequired[str],
     "max_previews": Required[int],
+    "noindex": NotRequired[bool],
     "ttl_hours": Required[int],
     "updated_at": NotRequired[Union[str, None]],
 })
@@ -4635,9 +4682,12 @@ PreviewSettingsRequest = TypedDict("PreviewSettingsRequest", {
     "allow_env": NotRequired[Union[list[str], None]],
     "base_domain": Required[str],
     "data_mode": NotRequired[Union[str, None]],
+    "domain_template": NotRequired[Union[str, None]],
     "exclude_env": NotRequired[Union[list[str], None]],
+    "fork_policy": NotRequired[Union[str, None]],
     "inherit_env": NotRequired[Union[str, None]],
     "max_previews": NotRequired[int],
+    "noindex": NotRequired[Union[bool, None]],
     "ttl_hours": NotRequired[int],
 })
 
@@ -4792,12 +4842,6 @@ ProjectListOut = TypedDict("ProjectListOut", {
 ProjectListResponse = TypedDict("ProjectListResponse", {
     "projects": Required[list["NoustWebApiTeamsProjectOut"]],
     "total": Required[int],
-})
-
-PromoteRequest = TypedDict("PromoteRequest", {
-    "release": NotRequired[Union[str, None]],
-    "schema_changed_ok": NotRequired[bool],
-    "target": Required[str],
 })
 
 PromotionResponse = TypedDict("PromotionResponse", {
@@ -5453,6 +5497,7 @@ ReleaseOut = TypedDict("ReleaseOut", {
     "id": Required[str],
     "on_disk": Required[bool],
     "status": Required[str],
+    "waiting": NotRequired[bool],
 })
 
 ReleasesResponse = TypedDict("ReleasesResponse", {
@@ -5658,6 +5703,12 @@ RestoreVolumeBackupRequest = TypedDict("RestoreVolumeBackupRequest", {
     "safety_backup": NotRequired[bool],
 })
 
+ResumeResponse = TypedDict("ResumeResponse", {
+    "domain": Required[str],
+    "held": Required[int],
+    "was_paused": Required[bool],
+})
+
 RetentionResponse = TypedDict("RetentionResponse", {
     "domain": Required[str],
     "keep_releases": Required[int],
@@ -5715,6 +5766,28 @@ RollbackPointOut = TypedDict("RollbackPointOut", {
 RollbackPointsResponse = TypedDict("RollbackPointsResponse", {
     "items": Required[list["RollbackPointOut"]],
     "total": Required[int],
+})
+
+RolloutRequest = TypedDict("RolloutRequest", {
+    "history_keep": NotRequired[Union[int, None]],
+    "pause_on_rollback": NotRequired[Union[bool, None]],
+    "stop_signal": NotRequired[Union[str, None]],
+    "stop_timeout": NotRequired[Union[int, None]],
+})
+
+RolloutResponse = TypedDict("RolloutResponse", {
+    "automatic": Required[list[str]],
+    "domain": Required[str],
+    "freeze": Required[Union["FreezeOut", None]],
+    "held": Required[int],
+    "history_keep": Required[Union[int, None]],
+    "history_keep_effective": Required[int],
+    "history_keep_server": Required[int],
+    "pause_on_rollback": Required[bool],
+    "paused": Required[Union["PauseOut", None]],
+    "stop_signal": Required[Union[str, None]],
+    "stop_supported": Required[bool],
+    "stop_timeout": Required[Union[int, None]],
 })
 
 RotatePasswordRequest = TypedDict("RotatePasswordRequest", {
@@ -6652,6 +6725,12 @@ SshUnitOut = TypedDict("SshUnitOut", {
     "socket_active": NotRequired[bool],
 })
 
+StageRequest = TypedDict("StageRequest", {
+    "branch": NotRequired[Union[str, None]],
+    "commit": NotRequired[Union[str, None]],
+    "no_cache": NotRequired[bool],
+})
+
 StateModel = TypedDict("StateModel", {
     "announced": NotRequired[bool],
     "last_value": NotRequired[Union[float, None]],
@@ -7430,6 +7509,7 @@ UpdateManyResponse = TypedDict("UpdateManyResponse", {
 UpdateRequest = TypedDict("UpdateRequest", {
     "domain": Required[str],
     "force": NotRequired[bool],
+    "frozen_ok": NotRequired[Union[bool, None]],
     "no_cache": NotRequired[Union[bool, None]],
 })
 
@@ -7467,6 +7547,28 @@ UpdateRunOut = TypedDict("UpdateRunOut", {
     "status": Required[str],
     "tail": NotRequired[list[str]],
     "unit": NotRequired[Union[str, None]],
+})
+
+UpdateScheduleOut = TypedDict("UpdateScheduleOut", {
+    "aliases": NotRequired[dict[str, str]],
+    "backup_first": NotRequired[bool],
+    "calendar": NotRequired[Union[str, None]],
+    "domain": Required[str],
+    "enabled": NotRequired[bool],
+    "last_deployment_id": NotRequired[Union[int, None]],
+    "last_detail": NotRequired[Union[str, None]],
+    "last_outcome": NotRequired[Union[str, None]],
+    "last_run_at": NotRequired[Union[str, None]],
+    "next_run": NotRequired[Union[str, None]],
+    "only_if_new": NotRequired[bool],
+    "scheduled": Required[bool],
+})
+
+UpdateScheduleRequest = TypedDict("UpdateScheduleRequest", {
+    "backup_first": NotRequired[bool],
+    "calendar": Required[str],
+    "enabled": NotRequired[bool],
+    "only_if_new": NotRequired[bool],
 })
 
 UpdateServiceConfigRequest = TypedDict("UpdateServiceConfigRequest", {
@@ -7974,6 +8076,17 @@ NoustWebApiAppProcessesProcessEntry = TypedDict("NoustWebApiAppProcessesProcessE
     "name": Required[str],
     "source": Required[str],
     "started_by_noust": Required[bool],
+})
+
+NoustWebApiAppPromotePromoteRequest = TypedDict("NoustWebApiAppPromotePromoteRequest", {
+    "release": NotRequired[Union[str, None]],
+    "schema_changed_ok": NotRequired[bool],
+    "target": Required[str],
+})
+
+NoustWebApiAppStagedPromoteRequest = TypedDict("NoustWebApiAppStagedPromoteRequest", {
+    "frozen_ok": NotRequired[bool],
+    "schema_changed_ok": NotRequired[bool],
 })
 
 NoustWebApiAppsMigrateRequest = TypedDict("NoustWebApiAppsMigrateRequest", {

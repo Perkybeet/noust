@@ -133,11 +133,17 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("applications", "set_app_registry_logins"): ("PUT", "/api/apps/{domain}/registry-logins", "apps.manage", True),
     ("applications", "get_app_releases"): ("GET", "/api/apps/{domain}/releases", "apps.read", False),
     ("applications", "update_release_retention"): ("PATCH", "/api/apps/{domain}/releases/retention", "apps.manage", True),
+    ("applications", "stage_release"): ("POST", "/api/apps/{domain}/releases/stage", "apps.deploy", False),
     ("applications", "activate_app_release"): ("POST", "/api/apps/{domain}/releases/{release_id}/activate", "apps.deploy", False),
+    ("applications", "promote_release_post"): ("POST", "/api/apps/{domain}/releases/{release_id}/promote", "apps.deploy", False),
     ("applications", "get_replicas"): ("GET", "/api/apps/{domain}/replicas", "apps.read", False),
     ("applications", "put_replicas"): ("PUT", "/api/apps/{domain}/replicas", "apps.manage", True),
     ("applications", "restart_app"): ("POST", "/api/apps/{domain}/restart", "apps.operate", False),
     ("applications", "list_rollback_points"): ("GET", "/api/apps/{domain}/rollback-points", "apps.read", False),
+    ("applications", "get_rollout"): ("GET", "/api/apps/{domain}/rollout", "apps.read", False),
+    ("applications", "put_rollout"): ("PUT", "/api/apps/{domain}/rollout", "apps.manage", False),
+    ("applications", "pause_deploys"): ("POST", "/api/apps/{domain}/rollout/pause", "apps.deploy", False),
+    ("applications", "resume_deploys"): ("POST", "/api/apps/{domain}/rollout/resume", "apps.deploy", False),
     ("applications", "get_sandbox"): ("GET", "/api/apps/{domain}/sandbox", "apps.read", False),
     ("applications", "put_compose_exception"): ("PUT", "/api/apps/{domain}/sandbox/compose-exception", "root_equivalent", True),
     ("applications", "delete_compose_exception"): ("DELETE", "/api/apps/{domain}/sandbox/compose-exception", "apps.manage", False),
@@ -150,6 +156,9 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("applications", "delete_source_options"): ("DELETE", "/api/apps/{domain}/source-options", "apps.manage", False),
     ("applications", "start_app"): ("POST", "/api/apps/{domain}/start", "apps.operate", False),
     ("applications", "stop_app"): ("POST", "/api/apps/{domain}/stop", "apps.operate", False),
+    ("applications", "get_update_schedule"): ("GET", "/api/apps/{domain}/update-schedule", "apps.read", False),
+    ("applications", "put_update_schedule"): ("PUT", "/api/apps/{domain}/update-schedule", "apps.manage", False),
+    ("applications", "delete_update_schedule"): ("DELETE", "/api/apps/{domain}/update-schedule", "apps.manage", False),
     ("applications", "get_zero_downtime"): ("GET", "/api/apps/{domain}/zero-downtime", "apps.read", False),
     ("applications", "put_zero_downtime"): ("PUT", "/api/apps/{domain}/zero-downtime", "apps.manage", True),
     ("applications", "deploy_apps"): ("POST", "/api/deploy", "apps.deploy", False),
@@ -496,6 +505,9 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("integrations", "gitlab_oauth_app_remove"): ("DELETE", "/api/integrations/gitlab/oauth-apps/{host}", "apps.manage", True),
     ("integrations", "gitlab_oauth_start"): ("POST", "/api/integrations/gitlab/oauth/authorize", "apps.manage", True),
     ("integrations", "gitlab_oauth_callback"): ("POST", "/api/integrations/gitlab/oauth/callback", "apps.manage", True),
+    ("jobs", "list_freezes"): ("GET", "/api/deploy-freezes", "apps.read", False),
+    ("jobs", "create_freeze"): ("POST", "/api/deploy-freezes", "apps.deploy", False),
+    ("jobs", "lift_freeze"): ("DELETE", "/api/deploy-freezes/{freeze_id}", "apps.deploy", False),
     ("jobs", "list_jobs"): ("GET", "/api/jobs", "apps.read", False),
     ("jobs", "list_active_jobs"): ("GET", "/api/jobs/active", "apps.read", False),
     ("jobs", "create_backup_job"): ("POST", "/api/jobs/backup", "backups.run", False),
@@ -574,8 +586,10 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("previews", "delete_preview_variable"): ("DELETE", "/api/apps/{domain}/previews/variables/{name}", "apps.manage", True),
     ("previews", "get_preview"): ("GET", "/api/apps/{domain}/previews/{number}", "apps.read", False),
     ("previews", "delete_preview"): ("DELETE", "/api/apps/{domain}/previews/{number}", "apps.manage", True),
+    ("previews", "approve_preview"): ("POST", "/api/apps/{domain}/previews/{number}/approve", "apps.deploy", True),
     ("previews", "get_preview_logs"): ("GET", "/api/apps/{domain}/previews/{number}/logs", "apps.read", False),
     ("previews", "redeploy_preview"): ("POST", "/api/apps/{domain}/previews/{number}/redeploy", "apps.deploy", True),
+    ("previews", "reject_preview"): ("POST", "/api/apps/{domain}/previews/{number}/reject", "apps.deploy", True),
     ("previews", "start_preview"): ("POST", "/api/apps/{domain}/previews/{number}/start", "apps.operate", True),
     ("previews", "stop_preview"): ("POST", "/api/apps/{domain}/previews/{number}/stop", "apps.operate", True),
     ("recipes", "get_recipes"): ("GET", "/api/recipes", "apps.read", False),
@@ -971,7 +985,7 @@ class Alerts:
 
 
 class Applications:
-    """Applications: 109 operations."""
+    """Applications: 118 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -1600,7 +1614,7 @@ class Applications:
         Needs: permission `apps.manage`, sudo mode."""
         return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/processes/{quote(str(name), safe='')}/scale", query=None, body=body)
 
-    def promote_release(self, domain: str, body: "PromoteRequest") -> "JobAcceptedResponse":
+    def promote_release(self, domain: str, body: "NoustWebApiAppPromotePromoteRequest") -> "JobAcceptedResponse":
         """POST /api/apps/{domain}/promote
 
         Promote Release
@@ -1656,6 +1670,14 @@ class Applications:
         Needs: permission `apps.manage`, sudo mode."""
         return self._call("PATCH", f"/api/apps/{quote(str(domain), safe='')}/releases/retention", query=None, body=body)
 
+    def stage_release(self, domain: str, body: "StageRequest") -> "JobAcceptedResponse":
+        """POST /api/apps/{domain}/releases/stage
+
+        Stage Release
+
+        Needs: permission `apps.deploy`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/releases/stage", query=None, body=body)
+
     def activate_app_release(self, domain: str, release_id: str, *, schema_changed_ok: Union[bool, None] = None) -> "ReleaseActivationResponse":
         """POST /api/apps/{domain}/releases/{release_id}/activate
 
@@ -1663,6 +1685,14 @@ class Applications:
 
         Needs: permission `apps.deploy`."""
         return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/releases/{quote(str(release_id), safe='')}/activate", query={"schema_changed_ok": schema_changed_ok}, body=None)
+
+    def promote_release_post(self, domain: str, release_id: str, body: "NoustWebApiAppStagedPromoteRequest") -> "JobAcceptedResponse":
+        """POST /api/apps/{domain}/releases/{release_id}/promote
+
+        Promote Release
+
+        Needs: permission `apps.deploy`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/releases/{quote(str(release_id), safe='')}/promote", query=None, body=body)
 
     def get_replicas(self, domain: str) -> "ReplicasResponse":
         """GET /api/apps/{domain}/replicas
@@ -1695,6 +1725,38 @@ class Applications:
 
         Needs: permission `apps.read`."""
         return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/rollback-points", query=None, body=None)
+
+    def get_rollout(self, domain: str) -> "RolloutResponse":
+        """GET /api/apps/{domain}/rollout
+
+        Get Rollout
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/rollout", query=None, body=None)
+
+    def put_rollout(self, domain: str, body: "RolloutRequest") -> "RolloutResponse":
+        """PUT /api/apps/{domain}/rollout
+
+        Put Rollout
+
+        Needs: permission `apps.manage`."""
+        return self._call("PUT", f"/api/apps/{quote(str(domain), safe='')}/rollout", query=None, body=body)
+
+    def pause_deploys(self, domain: str, body: "PauseRequest") -> "RolloutResponse":
+        """POST /api/apps/{domain}/rollout/pause
+
+        Pause Deploys
+
+        Needs: permission `apps.deploy`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/rollout/pause", query=None, body=body)
+
+    def resume_deploys(self, domain: str) -> "ResumeResponse":
+        """POST /api/apps/{domain}/rollout/resume
+
+        Resume Deploys
+
+        Needs: permission `apps.deploy`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/rollout/resume", query=None, body=None)
 
     def get_sandbox(self, domain: str) -> "SandboxResponse":
         """GET /api/apps/{domain}/sandbox
@@ -1791,6 +1853,30 @@ class Applications:
 
         Needs: permission `apps.operate`."""
         return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/stop", query=None, body=None)
+
+    def get_update_schedule(self, domain: str) -> "UpdateScheduleOut":
+        """GET /api/apps/{domain}/update-schedule
+
+        Get Update Schedule
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/update-schedule", query=None, body=None)
+
+    def put_update_schedule(self, domain: str, body: "UpdateScheduleRequest") -> "UpdateScheduleOut":
+        """PUT /api/apps/{domain}/update-schedule
+
+        Put Update Schedule
+
+        Needs: permission `apps.manage`."""
+        return self._call("PUT", f"/api/apps/{quote(str(domain), safe='')}/update-schedule", query=None, body=body)
+
+    def delete_update_schedule(self, domain: str) -> "UpdateScheduleOut":
+        """DELETE /api/apps/{domain}/update-schedule
+
+        Delete Update Schedule
+
+        Needs: permission `apps.manage`."""
+        return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}/update-schedule", query=None, body=None)
 
     def get_zero_downtime(self, domain: str) -> "ZeroDowntimeResponse":
         """GET /api/apps/{domain}/zero-downtime
@@ -4723,10 +4809,34 @@ class Integrations:
 
 
 class Jobs:
-    """Jobs: 13 operations."""
+    """Jobs: 16 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
+
+    def list_freezes(self, *, include_past: Union[bool, None] = None) -> "FreezesResponse":
+        """GET /api/deploy-freezes
+
+        List Freezes
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/deploy-freezes", query={"include_past": include_past}, body=None)
+
+    def create_freeze(self, body: "FreezeRequest") -> "FreezeOut":
+        """POST /api/deploy-freezes
+
+        Create Freeze
+
+        Needs: permission `apps.deploy`."""
+        return self._call("POST", "/api/deploy-freezes", query=None, body=body)
+
+    def lift_freeze(self, freeze_id: int | str) -> "LiftedResponse":
+        """DELETE /api/deploy-freezes/{freeze_id}
+
+        Lift Freeze
+
+        Needs: permission `apps.deploy`."""
+        return self._call("DELETE", f"/api/deploy-freezes/{quote(str(freeze_id), safe='')}", query=None, body=None)
 
     def list_jobs(self, *, limit: Union[int, None] = None, status: Union[str, None] = None, domain: Union[str, None] = None) -> "JobListResponse":
         """GET /api/jobs
@@ -5363,7 +5473,7 @@ class Passkeys:
 
 
 class Previews:
-    """Previews: 14 operations."""
+    """Previews: 16 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -5448,6 +5558,14 @@ class Previews:
         Needs: permission `apps.manage`, sudo mode."""
         return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}/previews/{quote(str(number), safe='')}", query=None, body=None)
 
+    def approve_preview(self, domain: str, number: int | str) -> "PreviewQueuedResponse":
+        """POST /api/apps/{domain}/previews/{number}/approve
+
+        Approve Preview
+
+        Needs: permission `apps.deploy`, sudo mode."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/previews/{quote(str(number), safe='')}/approve", query=None, body=None)
+
     def get_preview_logs(self, domain: str, number: int | str, *, lines: Union[int, None] = None) -> "PreviewLogsResponse":
         """GET /api/apps/{domain}/previews/{number}/logs
 
@@ -5463,6 +5581,14 @@ class Previews:
 
         Needs: permission `apps.deploy`, sudo mode."""
         return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/previews/{quote(str(number), safe='')}/redeploy", query=None, body=None)
+
+    def reject_preview(self, domain: str, number: int | str) -> "NoustWebApiPreviewsPreviewOut":
+        """POST /api/apps/{domain}/previews/{number}/reject
+
+        Reject Preview
+
+        Needs: permission `apps.deploy`, sudo mode."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/previews/{quote(str(number), safe='')}/reject", query=None, body=None)
 
     def start_preview(self, domain: str, number: int | str) -> "NoustWebApiPreviewsPreviewOut":
         """POST /api/apps/{domain}/previews/{number}/start
