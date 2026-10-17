@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import Response
+from fastapi.responses import PlainTextResponse, Response
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
@@ -2083,7 +2083,7 @@ def merge_app_env(
     )
 
 
-@router.get("/{domain}/env/file")
+@router.get("/{domain}/env/file", response_class=PlainTextResponse)
 def get_app_env_file(
     domain: str,
     request: Request,

@@ -78,6 +78,7 @@ export const runtime = {
       mounts: "Mounts",
       build: "Build commands",
       container: "Container",
+      compose: "Compose document",
       persistent_paths: "Persistent folders",
       health: "Startup check",
       hooks: "Deploy hooks",

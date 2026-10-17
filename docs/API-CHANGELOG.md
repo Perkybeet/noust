@@ -17,6 +17,40 @@ Each release has up to four lists:
   `panel/openapi.baseline.json` in the same commit (`python scripts/api_compat.py --update
   --accept-breaking`).
 
+## 4.0.0
+
+### Added
+
+- The applications' side of the release:
+  - `GET /api/apps/{domain}/env/file` (`apps.read`) is the `.env` as the text of a file, to view or
+    to download (`download=true`); values are masked unless `unmask=true`, which needs an admin
+    credential and sudo mode and is audited. `POST /api/apps/{domain}/env/sync` (`apps.manage`)
+    brings the text of a `.env` into the variables (`prune`, `audience`, `dry_run`) and answers
+    with names only.
+  - `DELETE /api/apps/{domain}` takes `remove_volumes` and `remove_databases` (both off unless
+    asked), next to `remove_files` and `remove_ssl`. `GET /api/apps/{domain}/deletion`
+    (`apps.read`) lists what a deletion would touch: the directory, whether the stack has Docker
+    volumes, and each database with whether it would be dropped and who else uses it.
+  - A container application takes `command` and `entrypoint` (a list of words, `null` for the
+    image's own, `[]` to clear it), and `POST /api/apps/{domain}/container/check`
+    (`apps.deploy`) says whether its registry image has a newer digest.
+  - The webhook of an image from a registry: `GET /api/apps/{domain}/webhook/registry`
+    (`apps.read`) and `POST .../webhook/registry/reveal` (`secrets.reveal`, audited) give the
+    addresses for Docker Hub and GHCR; `POST /hooks/registry/{domain}` (GHCR's
+    `registry_package`, signed with the application's webhook secret) and
+    `POST /hooks/registry/{domain}/{token}` (Docker Hub, which signs nothing, so the address
+    carries a token derived from the secret) queue an update when a push moved the tag the
+    application runs.
+  - `GET /api/apps/{domain}/compose/document` (`secrets.reveal`), `POST .../compose/document/check`
+    (`apps.manage`) and `PUT .../compose/document` (`apps.manage`, sudo mode) read, judge and
+    keep the Compose document of a stack deployed from one; `editable` and `reason` say when a
+    stack has none.
+- The export document ([delivery.md](delivery.md)) carries `mounts` (a file's text only with
+  `with_secrets`), `container` (the settings of a container application, never its registry
+  password or build-secret values), and, as `GET /api/apps/{domain}/export` and `POST
+  /api/apps/import` now keep them, `delivery`, `source_options` and `app.build`, which the
+  endpoints used to drop. A copy to another server through the central carries all of them.
+
 ## 3.4.0
 
 API version 1.

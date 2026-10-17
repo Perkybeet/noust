@@ -267,6 +267,7 @@ EVENTS: dict[str, EventSpec] = {
             "apps.limits": "An application's resource limits were changed.",
             "logs.drain": "A destination the logs of applications are shipped to was set, changed, tested or removed.",
             "apps.mounts": "A file or a server path mounted into an application was set, read or removed.",
+            "apps.compose.document": "The Compose document of a stack Noust keeps was read or replaced.",
             "apps.files": "A file in an application's tree was read, written, uploaded, moved or deleted from the console.",
             "apps.process": "A process an application runs beside its web process was defined, scaled or removed.",
             "apps.hardening": "How much of systemd's sandbox an application's unit runs in was changed.",
