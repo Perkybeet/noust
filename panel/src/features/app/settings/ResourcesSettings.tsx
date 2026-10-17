@@ -212,7 +212,7 @@ function LimitsForm({ app, tuning, reading }: { app: App; tuning: UnitTuning | u
             // The place the folded section will take, so its arrival moves nothing.
             <div aria-busy="true">
               <span className="sr-only">{t("runtime.tuning.loading")}</span>
-              <Skeleton className="h-8 w-32" />
+              <Skeleton className="h-control-sm w-32" />
             </div>
           ) : null}
           <Checkbox label={t("appSettings.limits.restartLabel")} description={t("appSettings.limits.restartDescription")} checked={restart} onCheckedChange={setRestart} />

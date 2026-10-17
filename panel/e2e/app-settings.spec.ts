@@ -187,7 +187,7 @@ test("an in-place app turns on instant rollback through its dry run", async ({ p
 test("resource limits are refused as the backend would, then saved with exactly what the form says", async ({ page, consoleServer }, testInfo) => {
   const memory = testInfo.project.name === "dark" ? 320 : 256;
   await signIn(page, consoleServer, `/apps/${IN_PLACE_APP}/settings/resources`);
-  const memoryField = page.getByRole("textbox", { name: "Memory" });
+  const memoryField = page.getByRole("textbox", { name: "Memory", exact: true });
   await memoryField.fill("32");
   await saveBar(page).getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("A memory limit of 32M is too small. Allow at least 64M, or no limit.")).toBeVisible();
