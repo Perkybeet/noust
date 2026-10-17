@@ -215,9 +215,28 @@ an instance: no distribution packages it, so `noust db install keydb` says to ma
 (`noust db instance create cache --engine keydb`). Its project has published nothing since 6.3.4 (October 2023),
 and publishes no end-of-support date. Noust pins the image the project itself publishes, by digest like the rest;
 it is the one image pinned under the tag `latest` (Docker pulls by the digest), because that is the only
-multi-architecture tag the project publishes. Dragonfly is not offered: it saves snapshots in its own format
-(`.dfs`, several files) and the ACL rules it documents have no hashed passwords, which are what Noust's
-snapshot dumps and read-only accounts rely on. It will be offered when both can be done without guessing.
+multi-architecture tag the project publishes.
+
+**Dragonfly** is not offered yet. What was checked against the real server (`df-v2.0.2`, started in the
+container's own Docker by `tests/integration/engines_run.py`, scenario `dragonfly_facts`) decides how it
+will be:
+
+- *Snapshots.* By default `SAVE` writes its own format: fifteen `dump-NNNN.dfs` files and a
+  `dump-summary.dfs`, which no Redis tool reads and which Noust's one-file copy could not take. Started
+  with `--df_snapshot_format=false` it writes one `dump.rdb`, which `redis-check-rdb` reads (four keys
+  read of four), which `BGSAVE` produces with the same `INFO persistence` fields Noust waits on
+  (`rdb_bgsave_in_progress`, `rdb_last_bgsave_status`, `last_saved_file`), and which a restore (stop,
+  replace the file, start) brings back. `redis-cli --rdb` does not work against it (`SYNC` is unknown),
+  so a snapshot is the file, not a stream.
+- *Accounts.* Dragonfly accepts `ACL SETUSER name on >password ...` and keeps SHA-256 hashes, saved to
+  the file `--aclfile` names by `ACL SAVE` and loaded again after a restart (a user with its password
+  came back). It **refuses** the form Noust sends to Redis, a password already hashed: `ACL SETUSER name
+  on #<sha256>` answers `Unrecognized parameter`. `ACL LIST` and `ACL GETUSER` show only the first
+  fifteen characters of each hash. So an account of Dragonfly's is made with the plaintext password on
+  the client's standard input (never in a command line), and nothing can read a hash back to compare.
+- *What it needs, then.* An image pinned by digest; `--requirepass`, `--aclfile` and
+  `--df_snapshot_format=false` in the instance's command; and, in the Redis manager, the plaintext form
+  for this flavour. Neither is a guess any more; it is not done in this release.
 
 **ClickHouse** is an analytical column store with its own SQL dialect and access control, and it runs only as an
 instance (`noust db instance create events --engine clickhouse --memory 2g`; at least 1 GB, 2 GB suggested). The

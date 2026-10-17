@@ -2495,6 +2495,157 @@ def scenario_replication_mysql(sc: Any) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Dragonfly: what decides whether it can be offered
+# ---------------------------------------------------------------------------
+
+DRAGONFLY_IMAGE = "docker.dragonflydb.io/dragonflydb/dragonfly:latest"
+DRAGONFLY_BOX = f"{PREFIX}-df"
+
+
+def dragonfly(sc: Any, *flags: str) -> None:
+    """
+    Start a Dragonfly in the machine's own Docker with its data in a bind-mounted directory.
+
+    Args:
+        sc: The scenario.
+        *flags: Command-line flags of the server.
+    """
+    sc.run(
+        f"docker rm -f {DRAGONFLY_BOX} >/dev/null 2>&1; rm -rf /tmp/dfdata; mkdir -p /tmp/dfdata; "
+        f"chmod 777 /tmp/dfdata; docker run -d --name {DRAGONFLY_BOX} --label {LABEL} "
+        f"--ulimit memlock=-1 -v /tmp/dfdata:/data {DRAGONFLY_IMAGE} "
+        f"--requirepass sekret --dir /data --dbfilename dump {' '.join(flags)} && sleep 5",
+        timeout=120,
+        label=f"start Dragonfly {' '.join(flags)}",
+    )
+
+
+def df(sc: Any, *args: str, user: str = "", stdin: str = "") -> Any:
+    """
+    Run redis-cli against the scenario's Dragonfly.
+
+    Args:
+        sc: The scenario.
+        *args: The command.
+        user: An account to sign in as ("name:password"); the administrator when empty.
+        stdin: Commands to send on the client's standard input.
+
+    Returns:
+        The finished command.
+    """
+    auth = "-a sekret"
+    if user:
+        name, _, password = user.partition(":")
+        auth = f"--user {name} --pass {password}"
+    quoted = " ".join(shlex.quote(item) for item in args)
+    feed = f"printf %b {shlex.quote(stdin)} | " if stdin else ""
+    flag = "-i" if stdin else ""
+    return sc.run(
+        f"{feed}docker exec {flag} {DRAGONFLY_BOX} redis-cli {auth} --no-auth-warning {quoted}",
+        check=False,
+        label=f"redis-cli {'(as ' + user.split(':')[0] + ') ' if user else ''}{quoted or stdin.strip()}",
+    )
+
+
+@engines_scenario("dragonfly_facts")
+def scenario_dragonfly_facts(sc: Any) -> None:
+    """
+    Dragonfly's snapshot format and ACL, checked against the real server (the facts docs/databases.md states).
+
+    Its default snapshot is a family of ``.dfs`` files; with ``--df_snapshot_format=false`` it is
+    one RDB file that a Redis tool reads and that a restore brings back. It stores passwords as
+    hashes but refuses a hash as input, and keeps its accounts across a restart in the file it is
+    given.
+    """
+    pull(sc, DRAGONFLY_IMAGE)
+    pull(sc, "redis:7")
+    try:
+        dragonfly(sc)
+        df(sc, "SET", "k1", "v1")
+        sc.check(df(sc, "SAVE").stdout.strip() == "OK", "SAVE should work")
+        files = sc.run("ls /tmp/dfdata").stdout.split()
+        sc.check(
+            len(files) > 2 and all(name.endswith(".dfs") for name in files),
+            f"by default a snapshot is a family of .dfs files: {files}",
+        )
+
+        dragonfly(sc, "--df_snapshot_format=false", "--aclfile=/data/users.acl")
+        for key in ("k1", "k2", "k3"):
+            df(sc, "SET", key, "v")
+        info = df(sc, "INFO", "persistence").stdout
+        sc.check(
+            "rdb_bgsave_in_progress:0" in info, "INFO persistence has the field Noust waits on"
+        )
+        sc.check(df(sc, "BGSAVE").stdout.strip() == "OK", "BGSAVE should work")
+        time.sleep(2)
+        sc.check(sc.run("ls /tmp/dfdata").stdout.split() == ["dump.rdb"], "one RDB file")
+        checked = sc.run(
+            f"docker run --rm --label {LABEL} -v /tmp/dfdata:/d redis:7 redis-check-rdb /d/dump.rdb 2>&1",
+            timeout=120,
+        ).stdout
+        sc.check("3 keys read" in checked, f"a Redis tool reads the snapshot: {checked[-300:]}")
+        rdb = df(sc, "--rdb", "/tmp/remote.rdb")
+        sc.check(
+            "SYNC" in rdb.stdout + rdb.stderr and rdb.returncode != 0,
+            "redis-cli --rdb needs SYNC, which Dragonfly does not have",
+        )
+
+        digest = sc.run("printf pw1 | sha256sum | cut -d' ' -f1").stdout.strip()
+        hashed = df(sc, "ACL", "SETUSER", "hashed", "on", f"#{digest}", "~*", "+@all")
+        sc.check(
+            "Unrecognized parameter" in hashed.stdout + hashed.stderr,
+            f"a password already hashed is refused: {hashed.stdout}",
+        )
+        made = df(sc, stdin="ACL SETUSER alice on >pw1 ~* +@read\nACL SAVE\n")
+        sc.check(
+            made.stdout.split() == ["OK", "OK"], f"a plaintext password is accepted: {made.stdout}"
+        )
+        sc.check(df(sc, "GET", "k1", user="alice:pw1").stdout.strip() == "v", "and it signs in")
+        denied = df(sc, "SET", "x", "y", user="alice:pw1")
+        sc.check("NOPERM" in denied.stdout + denied.stderr, "with the rules given (read only)")
+        wrong = df(sc, "GET", "k1", user="alice:nope")
+        sc.check(
+            wrong.stdout.strip().startswith("NOAUTH") or "AUTH failed" in wrong.stderr,
+            "a wrong password is refused",
+        )
+        listed = df(sc, "ACL", "LIST").stdout
+        sc.check(
+            digest[:15] in listed and digest not in listed,
+            "ACL LIST shows only the start of a hash",
+        )
+        saved = sc.run("cat /tmp/dfdata/users.acl").stdout
+        sc.check(digest in saved.lower(), "and the file keeps all of it")
+
+        sc.run(f"docker restart {DRAGONFLY_BOX} && sleep 5", timeout=60)
+        sc.check(
+            df(sc, "GET", "k1", user="alice:pw1").stdout.strip() == "v",
+            "the account and its password survive a restart",
+        )
+        sc.check(df(sc, "DBSIZE").stdout.strip() == "3", "and so does the data")
+
+        df(sc, "SET", "only_in_snapshot", "yes")
+        df(sc, "BGSAVE")
+        time.sleep(2)
+        sc.run("cp /tmp/dfdata/dump.rdb /tmp/dfdata.keep")
+        df(sc, "DEL", "only_in_snapshot")
+        sc.run(
+            f"docker stop {DRAGONFLY_BOX} && cp /tmp/dfdata.keep /tmp/dfdata/dump.rdb && "
+            f"docker start {DRAGONFLY_BOX} && sleep 5",
+            timeout=60,
+        )
+        sc.check(
+            df(sc, "GET", "only_in_snapshot").stdout.strip() == "yes",
+            "replacing the snapshot and starting restores it",
+        )
+    finally:
+        sc.run(
+            f"docker rm -f {DRAGONFLY_BOX}; rm -rf /tmp/dfdata /tmp/dfdata.keep",
+            check=False,
+            label="cleanup",
+        )
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
