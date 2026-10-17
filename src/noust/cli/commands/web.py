@@ -81,6 +81,7 @@ from noust.core.net import (
     normalize_host,
     strip_brackets,
 )
+from noust.core.package_family import install_apt_packages
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.utils import check_root, find_noust_executable
 
@@ -684,8 +685,9 @@ def _install_with_apt(packages: list[str], verbose: bool = False) -> bool:
 
     # Noust requires root; there is no sudo to escalate with and nothing to
     # escalate from. See the v1 design note on privilege.
-    result = get_runner().run(
-        ["apt-get", "install", "-y", *packages],
+    result = install_apt_packages(
+        get_runner(),
+        packages,
         timeout=INSTALL_TIMEOUT,
         env={"DEBIAN_FRONTEND": "noninteractive"},
     )
