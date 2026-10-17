@@ -48,8 +48,8 @@ What follows from that:
 | Health check | The health gate | Runs on every activation and also on a rollback; configurable per application (`noust app health`). |
 | Resource limits | Resource limits | `noust app limits`; systemd resource control. |
 | API token (Root, Write, Deploy, Read, Read sensitive) | A token with a scope, and roles | Settings > Tokens; roles are `viewer`, `operator`, `admin`, `security`, `auditor`. |
-| Tags | Not yet | Tag-based redeploy and filters are not in Noust; projects and environments group resources. |
-| Shared variables | Not yet | Set a variable on each application (`noust env configure`). |
+| Tags | App tags | The labels that group applications, set under an application's **Settings > General**. The Applications list narrows to one, and **Update tagged apps** updates every application that carries it ([console.md](console.md)). Projects and environments group resources too. |
+| Shared variables | Shared variables and references | A variable of a team, a project, an environment or the server, used as `{{project.NAME}}` in an application's own variables; **Settings > Variables** holds the server's, a team's **Variables** tab and a project's page the others ([variables.md](variables.md)). |
 
 ## Screens
 
@@ -64,15 +64,21 @@ command palette (`Ctrl K`) too.
 | Servers | **Server** (this server: system, services, storage, security, updates) and **Fleet** (all servers) |
 | Sources | **Settings > Integrations** |
 | Destinations | None: no Docker networks |
-| Registries | Per container application: its registry account (`noust app container set --registry-user`) |
+| Registries | **Settings > Integrations > Container registries**: the accounts, kept once, and an application's **Settings > Deploys** says which it uses ([containers.md](containers.md#registry-accounts)) |
 | S3 Storage | **Backups > Destinations** |
-| Shared Variables | None yet |
+| Shared Variables | **Settings > Variables** (the server's), a team's **Variables** tab and a project's page ([variables.md](variables.md)) |
 | Team | **Settings > Accounts**, and **Teams** |
 | Notifications | **Settings > Notifications**: email, Telegram, Slack, Discord, webhook |
 | Keys & Tokens | **Settings > Tokens**; deploy keys on each application and **Settings > Integrations**; SSH keys under **Server > Security** |
-| Tags | None yet |
+| Tags | **Applications**, narrowed to a tag, and an application's **Settings > General** |
 | Settings > General | **Settings > General** |
-| Settings > Updates | **Settings > About** (the version and what's new) and **Server > Updates** (the operating system's) |
+| Settings > Updates | **Settings > About** (the version, what's new and, if you turn it on, the hours Noust may update itself in) and **Server > Updates** (the operating system's) |
+| Server Patching | **Server > Updates**: what is pending, security first, applied all or only the security fixes; it says when a reboot is due and why, and never reboots by itself; automatic updates and the history of runs ([console.md](console.md)) |
+| Docker Cleanup | **Server > Storage**: what takes the space, one-off cleanups, and **Automatic cleanup**, the schedule and threshold this server cleans by |
+| Log Drains | **Settings > Log shipping**: Loki, Axiom, an HTTP endpoint, OpenTelemetry or a remote syslog ([runtime.md](runtime.md#log-shipping)) |
+| Analytics, Sentinel | **Metrics** on each application, **Server > System**, and the resource monitor with **Settings > Alerts**. There is no agent to install: Noust reads the machine itself ([MONITOR.md](MONITOR.md)) |
+| Scheduled Jobs of the instance | **Activity**: every job and event of this server with its log and who started it; the applications' own tasks are in **Cron** |
+| Cloud Tokens, provisioning a server | **Settings > Cloud** on a central: provider accounts (Hetzner, DigitalOcean, Vultr), the wizard that creates a server and its cloud-init ([cloud-init.md](cloud-init.md), [CENTRAL.md](CENTRAL.md)) |
 | Settings > Email | **Settings > Notifications > Email** |
 | Settings > Authentication | **Settings > Security** (two-step verification, passkeys), single sign-on ([sso.md](sso.md)) |
 | Settings > Backup (the instance) | **Backups > Noust's own state** (`noust self-backup`, one encrypted file) |
@@ -90,9 +96,15 @@ command palette (`Ctrl K`) too.
 
 - **No Swarm.** One server is one server; several are a fleet, each with its own applications.
 - **No proxy to choose or configure.** nginx or Apache, with sites you can read.
-- **No Docker network per application.** A Compose project keeps the network its file defines.
-- **No Cloudflare Tunnel integration.** A server is reached by its address; a CDN in front of it
-  is fine, and the DNS check says when it hides the server's address.
+- **No Docker network per application.** A Compose project keeps the network its file defines. This is
+  the whole of Coolify's *Destinations*: applications are processes on the loopback address, so there is
+  no network to choose.
+- **No tunnel as the way a server is reached.** A server is reached by its address and a CDN in
+  front of it is fine; the DNS check says when it hides the server's address. A Cloudflare Tunnel
+  for a name that should not open a port is optional and managed in **Domains and certificates >
+  Tunnels** ([network.md](network.md#cloudflare-tunnel)).
+- **No agent beside the server (Sentinel).** The monitor, the metrics and the alerts run inside Noust and
+  report what they saw; none of them signals a process or changes a file ([MONITOR.md](MONITOR.md)).
 - **No GitHub self-hosted runners.** Noust builds on the server it deploys to, as an unprivileged
   account in a sandbox, or in the Docker daemon for a container application.
 - **No telemetry or error reporting to third parties.** The requests Noust makes on its own are the
