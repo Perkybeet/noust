@@ -89,6 +89,13 @@ arguments; its secrets are build secrets, given to it as environment variables o
 that build (their names are checked: `PATH`, `LD_*`, `DOCKER_*` and the like are reserved).
 The image listens on `$PORT`, which Noust sets to the container port (3000 by default).
 
+Railpack's frontend merges layers, which Docker allows only with its **containerd image store**
+(`docker info` names the store under `Storage Driver`). A new installation of Docker 29 or later starts on it; a server that was upgraded
+keeps the store it had, and the build then stops with BuildKit's `only enabled with containerd image
+store backend`, which Noust follows with the change to make: `{"features": {"containerd-snapshotter":
+true}}` in `/etc/docker/daemon.json` and a restart of Docker. Images and containers made with the
+previous store are not carried over, which is why Noust does not do it for you.
+
 ### In the console
 
 The new-application wizard starts a container application three ways: a repository with a
