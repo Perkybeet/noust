@@ -148,14 +148,12 @@ function PinHostForm() {
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-3">
       <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("sources.server.hosts.pinDescription")}</p>
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,16rem)_minmax(0,1fr)]">
-        <Field label={t("sources.server.hosts.pinHost")} description={t("sources.server.hosts.pinHostHint")} error={split.fields.host}>
-          <Input mono value={host} placeholder="github.com" onValueChange={setHost} autoComplete="off" autoCapitalize="off" spellCheck={false} />
-        </Field>
-        <Field label={t("sources.server.hosts.pinFingerprint")} description={t("sources.server.hosts.pinFingerprintHint")} error={split.fields.fingerprint}>
-          <Input mono value={fingerprint} placeholder="SHA256:..." onValueChange={setFingerprint} autoComplete="off" autoCapitalize="off" spellCheck={false} />
-        </Field>
-      </div>
+      <Field label={t("sources.server.hosts.pinHost")} description={t("sources.server.hosts.pinHostHint")} error={split.fields.host} className="sm:max-w-80">
+        <Input mono value={host} placeholder="github.com" onValueChange={setHost} autoComplete="off" autoCapitalize="off" spellCheck={false} />
+      </Field>
+      <Field label={t("sources.server.hosts.pinFingerprint")} description={t("sources.server.hosts.pinFingerprintHint")} error={split.fields.fingerprint}>
+        <Input mono value={fingerprint} placeholder="SHA256:..." onValueChange={setFingerprint} autoComplete="off" autoCapitalize="off" spellCheck={false} />
+      </Field>
       {pin.isError && split.form !== null ? <ErrorBlock live compact error={split.form} title={t("sources.server.hosts.notPinned", { host: host.trim() })} /> : null}
       <div>
         <Button type="submit" size="sm" loading={pin.isPending} disabled={host.trim() === "" || fingerprint.trim() === ""}>

@@ -12,6 +12,7 @@ import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Field } from "../../../components/ui/Field";
+import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
@@ -83,7 +84,9 @@ function PackagesForm({ domain, state }: { domain: string; state: AppPackages })
         <ul aria-label={t("appPackages.listLabel")} className="flex flex-col gap-1.5 text-13">
           {state.declared.map((name) => (
             <li key={name} className="flex min-w-0 items-center gap-2">
-              <span className="min-w-0 truncate font-mono text-fg">{name}</span>
+              <Mono tone="default" truncate>
+                {name}
+              </Mono>
               {refused.has(name) ? (
                 <StatusPill state="failed" size="sm" label={t("appPackages.refused")} />
               ) : missing.has(name) ? (
