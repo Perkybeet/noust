@@ -311,7 +311,12 @@ def serve_ordered(app_domain: str, *, verbose: bool = False) -> bool:
     if app is None or app.app_type in UNSUPPORTED_TYPES:
         return False
     with app_lock(app.domain, "certificate change"):
-        deployer = domains.site_deployer(app, verbose=verbose)
+        try:
+            deployer = domains.site_deployer(app, verbose=verbose)
+        except ValidationError:
+            # A type with no site of Noust's to render (it has no aliases either): the
+            # certificate is the operator's to wire, as it was before this step existed.
+            return False
         if not domains.serves_tls(app, deployer):
             return False
         deployer.refresh_site(with_ssl=True)

@@ -158,6 +158,20 @@ def test_a_name_that_is_no_application_is_left_to_its_order(machine: Machine) ->
     assert "listen 443" not in machine.config()
 
 
+def test_a_type_with_no_site_to_render_is_left_to_its_order(
+    machine: Machine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    machine.deploy(app_type="nodejs")
+    put_certificate(machine.certs, "example.com")
+
+    def refuses(*args: Any, **kwargs: Any) -> Any:
+        raise ValidationError("container applications do not support aliases and redirects yet")
+
+    monkeypatch.setattr(domains, "site_deployer", refuses)
+
+    assert certificates.serve_ordered("example.com") is False
+
+
 def test_a_site_that_does_not_serve_tls_yet_is_not_given_a_certificate_it_lacks(
     machine: Machine,
 ) -> None:
