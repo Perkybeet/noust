@@ -241,6 +241,20 @@ export function toasts(page: Page) {
   return page.getByRole("region", { name: "Notifications" });
 }
 
+/**
+ * Closes every toast on screen. A failure's toast stays until it is closed, and the worker's server
+ * outlives the test that started the job it reports, so one raised by an earlier test can arrive
+ * over a drawer's Save button, which the pointer then rests on: the toast stops the clicks, and a
+ * toast under the pointer does not time out. Stacked toasts behind the front one are transparent,
+ * so they are closed without a pointer.
+ */
+export async function dismissToasts(page: Page): Promise<void> {
+  const buttons = page.locator('.toast button[aria-label="Dismiss notification"]');
+  await buttons.evaluateAll((all) => {
+    for (const button of all) (button as HTMLButtonElement).click();
+  });
+}
+
 /** Tags of the rules axe runs: WCAG 2.0, 2.1 and 2.2 at levels A and AA. */
 const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22a", "wcag22aa"];
 
