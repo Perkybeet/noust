@@ -50,6 +50,38 @@ API version 1.
   gate; `GET`, `PUT` and `DELETE /api/apps/{domain}/mounts` and
   `GET .../mounts/content` (files kept for the application, which needs `secrets.reveal`);
   `GET /api/apps/{domain}/pending` (changes not applied yet, never the values of secrets).
+- `GET` and `PUT /api/apps/{domain}/tuning`: the limits beyond the hard ones (a soft memory limit,
+  swap, CPU and disk weights, pinned CPUs, ulimits), the capabilities the process keeps and the
+  devices it may open ([runtime.md](runtime.md#tuning-the-unit)). `PUT` carries the whole tuning,
+  needs sudo mode and answers `202` with a job, because it restarts the application behind the
+  health gate.
+- `GET /api/apps/{domain}/compose/variables`: the variables a Compose stack's file asks for and
+  whether the stack has each (`set`, `default`, `unset` or `missing`), never a value
+  ([compose.md](compose.md#variables-the-compose-file-asks-for)). A deployment or an update of a
+  stack refuses before building when the file requires a value nothing gives.
+- `GET`, `PUT` and `PATCH /api/apps/{domain}/env` carry `comments` (the note kept above a variable
+  in the `.env`; `PUT` and `PATCH` take them over the existing ones, an empty text takes one away),
+  and a variable's value may have several lines when it holds no single quote and no control
+  character but the line feed ([variables.md](variables.md#values-of-several-lines-literals-and-comments)).
+- `GET /api/apps/{domain}/replication`: whether an application could run on more than one server, as the server
+  it is on can tell, with what blocks it and what only warns
+  ([runtime.md](runtime.md#could-it-run-on-several-servers)).
+- `GET /api/apps/{domain}/disk`, `PUT /api/apps/{domain}/disk` and `POST /api/apps/{domain}/disk/measure`:
+  what an application takes of the disk by place, the limit its deploys are held to, and whether its
+  filesystem could hold a kernel quota; measuring is a job of type `disk`
+  ([runtime.md](runtime.md#disk-what-an-application-takes-and-a-limit)).
+- `PUT /api/apps/{domain}/disk/kernel` (sudo mode, `apps.manage`): gives the application's limit to the
+  kernel as a project quota on XFS or ext4 mounted with `prjquota`, or takes it off; a job of type `disk`.
+  `GET /api/apps/{domain}/disk` answers `kernel` (`applied`, `project`, `mount`, `hard_mb`, `used_bytes`),
+  read from the kernel when the quota is applied.
+- `GET /api/apps/native-sites`, `POST /api/apps/adopt-site` and `GET /api/apps/{domain}/adoption`:
+  list the sites on the server that Noust did not deploy, register one as it is (sudo mode), and say what
+  an adopted application is ([adopting.md](adopting.md)). An adopted application has the type `adopted`;
+  an update, a rollback, a rebuild, an environment change or a deployer-backed operation on it answers
+  400 with the reason, and deleting it removes nothing it is made of.
+- `GET /api/cron/{name}/ledger`: which moments a scheduled task was due and whether each ran on
+  time, late or not at all ([runtime.md](runtime.md#scheduled-tasks-what-ran-and-what-did-not)).
+  The timeline's `jobs` source carries the ones that did not as `cron_missed` events.
 - The files of an application, as its own account (all need `apps.terminal`; reading a file and
   every change need sudo mode):
   `GET` and `DELETE /api/apps/{domain}/files`, `GET` and `PUT .../files/content`,

@@ -1153,6 +1153,28 @@ FLEET_COLUMNS: list[tuple[str, str, str]] = []
 #   is as it always was: a redeploy never hardens it by itself, an operator
 #   does, behind the health gate.
 #
+# app_unit_tuning: what an application's unit is tuned with beyond memory, CPU and tasks
+#   (noust.core.unit_tuning_store is its only reader and writer): a soft memory limit, swap, CPU and
+#   I/O weight, a set of CPUs, ulimits, the capabilities the process keeps and the devices it may
+#   open. ``options`` is one JSON document validated by noust.managers.unit_tuning. No row means
+#   the unit is as it always was.
+#
+# app_adoption: what a site Noust adopted is (noust.core.native_adoption_store is its only reader
+#   and writer): ``proxy`` (a web server in front of a unit the operator wrote), ``php`` or
+#   ``static`` (the web server alone). ``unit`` is the operator's unit, the one thing Noust may
+#   start, stop, restart and read the logs of; ``site_file`` is the operator's site, ``root`` the
+#   directory, ``upstream`` what the site hands requests to. An application of the ``adopted``
+#   type always has its row: an adoption that cannot write it removes the application it made.
+#
+# app_disk: what an application may take of the disk and what it last took (noust.core.app_disk_store
+#   is its only reader and writer, checklist B-63). ``soft_mb`` is the limit Noust holds it to: a
+#   deploy that would build a new release is refused while the application is over it. It is not a
+#   kernel quota. ``usage`` is the last measurement as one JSON document, taken by a job because
+#   nothing measures a tree in a request, and ``measured_at`` says how old it is. ``kernel_project``
+#   and ``kernel_mount`` say that the limit was also given to the kernel as a project quota of that
+#   id on that mount (noust.managers.kernel_quota); NULL when it was not. No row means no limit and
+#   no measurement.
+#
 # app_replicas: the extra copies of an application's web process (noust.core.app_replica_store
 #   is its only reader and writer): the ports reserved for them, in order, and how many run.
 #   No row means one copy, the application's own unit. nginx balances over the unit and the
@@ -1237,6 +1259,36 @@ CREATE TABLE IF NOT EXISTS app_hardening (
     app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
     profile TEXT NOT NULL CHECK (profile IN ('off', 'default', 'strict')),
     writable_paths TEXT NOT NULL DEFAULT '[]',
+    changed_by TEXT,
+    changed_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_unit_tuning (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    options TEXT NOT NULL DEFAULT '{}',
+    changed_by TEXT,
+    changed_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_adoption (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('proxy', 'php', 'static')),
+    unit TEXT,
+    webserver TEXT NOT NULL,
+    site_file TEXT NOT NULL,
+    root TEXT,
+    upstream TEXT,
+    adopted_by TEXT,
+    adopted_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_disk (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    soft_mb INTEGER CHECK (soft_mb IS NULL OR soft_mb >= 64),
+    usage TEXT,
+    measured_at TEXT,
+    kernel_project INTEGER,
+    kernel_mount TEXT,
     changed_by TEXT,
     changed_at TEXT NOT NULL
 );

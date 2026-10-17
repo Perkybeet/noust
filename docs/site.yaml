@@ -103,6 +103,12 @@ sections:
       - source: docs/runtime.md
         slug: runtime
         summary: "What an application is while it runs: side processes, copies, its unit hardening, mounts, health checks and log shipping."
+      - source: docs/adopting.md
+        slug: adopting
+        summary: "Registering a site that already runs on nginx or Apache, a unit you wrote or PHP, without rebuilding it, and what Noust then does and never does to it."
+      - source: docs/leaving.md
+        slug: leaving
+        summary: "What an application is without Noust, how to stop depending on it without stopping anything, and how to take it off the server."
 
   - title: Running Noust
     pages:

@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-876 operations.
+888 operations.
 
 ## Access
 
@@ -39,11 +39,14 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/apps` | List Apps | `apps.read` |  |  |
 | POST | `/api/apps` | Create App | `apps.manage` |  | yes |
 | POST | `/api/apps/adopt` | Adopt App | `apps.manage` | yes |  |
+| POST | `/api/apps/adopt-site` | Adopt Site | `apps.manage` | yes |  |
 | POST | `/api/apps/import` | Import App | `apps.manage` | yes |  |
 | POST | `/api/apps/inspect` | Inspect App Source | `apps.manage` |  |  |
+| GET | `/api/apps/native-sites` | List Native Sites | `apps.manage` |  |  |
 | GET | `/api/apps/types` | List App Types | `apps.read` |  |  |
 | GET | `/api/apps/{domain}` | Get App | `apps.read` |  |  |
 | DELETE | `/api/apps/{domain}` | Delete App | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/adoption` | Get Adoption | `apps.read` |  |  |
 | POST | `/api/apps/{domain}/apply` | Apply | `root_equivalent` | yes | yes |
 | PATCH | `/api/apps/{domain}/backup-before-update` | Patch Backup Before Update | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/backup-required` | Get Backup Required | `apps.read` |  |  |
@@ -58,6 +61,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/apps/{domain}/compose` | Get Compose Settings | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/compose` | Put Compose Settings | `apps.manage` | yes |  |
 | DELETE | `/api/apps/{domain}/compose` | Delete Compose Settings | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/compose/variables` | Get Compose Variables | `apps.read` |  |  |
 | GET | `/api/apps/{domain}/container` | Get App Container | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/container` | Put App Container | `apps.manage` |  |  |
 | GET | `/api/apps/{domain}/declaration` | Get Declaration | `secrets.reveal` |  |  |
@@ -70,6 +74,10 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | DELETE | `/api/apps/{domain}/deploy-key/rotate` | Cancel Rotation | `apps.manage` |  |  |
 | POST | `/api/apps/{domain}/deploy-key/test` | Test Deploy Key | `apps.manage` |  |  |
 | GET | `/api/apps/{domain}/diagnose` | Diagnose App | `apps.read` |  |  |
+| GET | `/api/apps/{domain}/disk` | Get Disk | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/disk` | Put Disk | `apps.manage` |  |  |
+| PUT | `/api/apps/{domain}/disk/kernel` | Put Disk Kernel | `apps.manage` | yes |  |
+| POST | `/api/apps/{domain}/disk/measure` | Post Disk Measure | `apps.operate` |  |  |
 | GET | `/api/apps/{domain}/env` | Get App Env | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/env` | Update App Env | `apps.manage` | yes |  |
 | PATCH | `/api/apps/{domain}/env` | Merge App Env | `apps.manage` | yes |  |
@@ -137,6 +145,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/apps/{domain}/releases/{release_id}/promote` | Promote Release | `apps.deploy` |  |  |
 | GET | `/api/apps/{domain}/replicas` | Get Replicas | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/replicas` | Put Replicas | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/replication` | Get Replication | `apps.read` |  |  |
 | POST | `/api/apps/{domain}/restart` | Restart App | `apps.operate` |  |  |
 | GET | `/api/apps/{domain}/rollback-points` | List Rollback Points | `apps.read` |  |  |
 | GET | `/api/apps/{domain}/rollout` | Get Rollout | `apps.read` |  |  |
@@ -159,6 +168,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/apps/{domain}/sqlite/check` | Check App Sqlite | `apps.operate` |  |  |
 | POST | `/api/apps/{domain}/start` | Start App | `apps.operate` |  |  |
 | POST | `/api/apps/{domain}/stop` | Stop App | `apps.operate` |  |  |
+| GET | `/api/apps/{domain}/tuning` | Get Tuning | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/tuning` | Put Tuning | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/update-schedule` | Get Update Schedule | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/update-schedule` | Put Update Schedule | `apps.manage` |  |  |
 | DELETE | `/api/apps/{domain}/update-schedule` | Delete Update Schedule | `apps.manage` |  |  |
@@ -373,6 +384,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | DELETE | `/api/cron/{name}` | Delete Job | `apps.manage` | yes |  |
 | POST | `/api/cron/{name}/disable` | Disable Job | `apps.operate` |  |  |
 | POST | `/api/cron/{name}/enable` | Enable Job | `apps.operate` |  |  |
+| GET | `/api/cron/{name}/ledger` | Job Ledger | `apps.read` |  |  |
 | POST | `/api/cron/{name}/run` | Run Job | `apps.operate` |  |  |
 | GET | `/api/cron/{name}/runs` | Job Runs | `apps.read` |  |  |
 

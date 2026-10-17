@@ -593,6 +593,23 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("GET", "/api/apps/{domain}/hardening", RESOURCE),
         ("PUT", "/api/apps/{domain}/hardening", RESOURCE),
     ),
+    "app_unit_tuning": (
+        ("GET", "/api/apps/{domain}/tuning", RESOURCE),
+        ("PUT", "/api/apps/{domain}/tuning", RESOURCE),
+    ),
+    # What a site adopted from the server is: read through its application, written by the
+    # instance's own adoption, which no team can ask for.
+    # What an application takes of the disk and the limit it is held to: its own routes.
+    "app_disk": (
+        ("GET", "/api/apps/{domain}/disk", RESOURCE),
+        ("PUT", "/api/apps/{domain}/disk", RESOURCE),
+        ("POST", "/api/apps/{domain}/disk/measure", RESOURCE),
+        ("PUT", "/api/apps/{domain}/disk/kernel", RESOURCE),
+    ),
+    "app_adoption": (
+        ("GET", "/api/apps/{domain}/adoption", RESOURCE),
+        ("POST", "/api/apps/adopt-site", INSTANCE),
+    ),
     "app_recipes": (
         ("GET", "/api/recipes/installed", SCOPED),
         ("GET", "/api/recipes/installed/{domain}", RESOURCE),

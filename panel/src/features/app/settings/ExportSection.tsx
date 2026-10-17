@@ -13,6 +13,7 @@ import { useT } from "../../../i18n";
 import { downloadText } from "../../../lib/clipboard";
 import { reportActionError } from "../../apps/useAppActions";
 import { DeclarationCard } from "./Declaration";
+import { ReplicationCard } from "./ReplicationCard";
 import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
 
 /**
@@ -43,24 +44,27 @@ export function ExportSettings() {
   });
 
   return (
-    <Section title={t("appSettings.exportApp.title")} description={t("appSettings.exportApp.description")}>
-      <Card>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <Checkbox
-            label={t("appSettings.exportApp.includeSecretsLabel")}
-            description={t("appSettings.exportApp.includeSecretsDescription")}
-            checked={includeSecrets}
-            onCheckedChange={setIncludeSecrets}
-          />
-          <div className="shrink-0">
-            <Button icon={<Download aria-hidden="true" />} loading={exportApp.isPending} onClick={() => exportApp.mutate(includeSecrets)}>
-              {t("appSettings.exportApp.exportButton")}
-            </Button>
+    <div className="flex flex-col gap-8">
+      <Section title={t("appSettings.exportApp.title")} description={t("appSettings.exportApp.description")}>
+        <Card>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <Checkbox
+              label={t("appSettings.exportApp.includeSecretsLabel")}
+              description={t("appSettings.exportApp.includeSecretsDescription")}
+              checked={includeSecrets}
+              onCheckedChange={setIncludeSecrets}
+            />
+            <div className="shrink-0">
+              <Button icon={<Download aria-hidden="true" />} loading={exportApp.isPending} onClick={() => exportApp.mutate(includeSecrets)}>
+                {t("appSettings.exportApp.exportButton")}
+              </Button>
+            </div>
           </div>
-        </div>
-      </Card>
-      <CommandHint command={`noust app export ${domain} -o ${domain}.wasm-app.json`} label={t("appSettings.fromTerminal")} />
-      <DeclarationCard domain={domain} />
-    </Section>
+        </Card>
+        <CommandHint command={`noust app export ${domain} -o ${domain}.wasm-app.json`} label={t("appSettings.fromTerminal")} />
+        <DeclarationCard domain={domain} />
+      </Section>
+      <ReplicationCard domain={domain} />
+    </div>
   );
 }

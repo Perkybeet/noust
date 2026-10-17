@@ -374,7 +374,7 @@ Change how a deployed application is laid out and what it may use.
 noust app [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`adopt`](#noust-app-adopt), [`apply`](#noust-app-apply), [`backup-before-update`](#noust-app-backup-before-update), [`backup-required`](#noust-app-backup-required), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`cache`](#noust-app-cache), [`clone`](#noust-app-clone), [`compose`](#noust-app-compose), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`deploy-log`](#noust-app-deploy-log), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`files`](#noust-app-files), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`hardening`](#noust-app-hardening), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`mount`](#noust-app-mount), [`move`](#noust-app-move), [`networks`](#noust-app-networks), [`packages`](#noust-app-packages), [`pending`](#noust-app-pending), [`policy`](#noust-app-policy), [`process`](#noust-app-process), [`process-types`](#noust-app-process-types), [`promote`](#noust-app-promote), [`promotion`](#noust-app-promotion), [`reclaim`](#noust-app-reclaim), [`replicas`](#noust-app-replicas), [`sandbox`](#noust-app-sandbox), [`source`](#noust-app-source), [`stop-grace`](#noust-app-stop-grace), [`tag`](#noust-app-tag), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
+Subcommands: [`adopt`](#noust-app-adopt), [`adopt-site`](#noust-app-adopt-site), [`apply`](#noust-app-apply), [`backup-before-update`](#noust-app-backup-before-update), [`backup-required`](#noust-app-backup-required), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`cache`](#noust-app-cache), [`clone`](#noust-app-clone), [`compose`](#noust-app-compose), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`deploy-log`](#noust-app-deploy-log), [`discover`](#noust-app-discover), [`disk`](#noust-app-disk), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`files`](#noust-app-files), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`hardening`](#noust-app-hardening), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`mount`](#noust-app-mount), [`move`](#noust-app-move), [`networks`](#noust-app-networks), [`packages`](#noust-app-packages), [`pending`](#noust-app-pending), [`policy`](#noust-app-policy), [`process`](#noust-app-process), [`process-types`](#noust-app-process-types), [`promote`](#noust-app-promote), [`promotion`](#noust-app-promotion), [`reclaim`](#noust-app-reclaim), [`replicas`](#noust-app-replicas), [`replication`](#noust-app-replication), [`sandbox`](#noust-app-sandbox), [`source`](#noust-app-source), [`stop-grace`](#noust-app-stop-grace), [`tag`](#noust-app-tag), [`tuning`](#noust-app-tuning), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
 
 ### noust app adopt
 
@@ -395,6 +395,25 @@ Arguments: `domain`
 | `--site` | The site file serving the domain (found by its names otherwise). |  |
 | `--port` | The port to register (the compose file's web port otherwise). |  |
 | `--accept-recreate` | Adopt even if starting the stack as Noust would recreate something. |  |
+| `--yes`, `-y` | Adopt without asking. |  |
+| `--json` | Print what was adopted as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app adopt-site
+
+Register a site that already runs on nginx or Apache, without rebuilding it.
+
+```
+noust app adopt-site [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--site` | The site file serving the domain (found otherwise). |  |
+| `--unit` | The unit the site is in front of (the one that listens on its port otherwise). |  |
+| `--path` | The directory of its files (the unit's WorkingDirectory or the site's root otherwise). |  |
 | `--yes`, `-y` | Adopt without asking. |  |
 | `--json` | Print what was adopted as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
@@ -604,7 +623,7 @@ The compose file, profiles and extra arguments of a Docker Compose stack.
 noust app compose [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`reset`](#noust-app-compose-reset), [`set`](#noust-app-compose-set), [`show`](#noust-app-compose-show)
+Subcommands: [`reset`](#noust-app-compose-reset), [`set`](#noust-app-compose-set), [`show`](#noust-app-compose-show), [`variables`](#noust-app-compose-variables)
 
 ### noust app compose reset
 
@@ -655,6 +674,21 @@ Arguments: `domain`
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print the settings as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app compose variables
+
+Show the variables the compose file asks for and which of them the stack has.
+
+```
+noust app compose variables [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the variables as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust app container
@@ -956,6 +990,38 @@ Arguments: `domain`, `deployment_id`
 | `--sanitize` | Mask what looks like a credential and strip control sequences, to share the log. |  |
 | `--tail` | Only this many bytes, from the end. |  |
 | `--json` | Print the log and whether it was cut as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app discover
+
+List the sites on this server that Noust did not deploy, and what each one is.
+
+```
+noust app discover [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the sites as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app disk
+
+Show what the application takes of the disk, and the limit its deploys are held to.
+
+```
+noust app disk [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--measure` | Measure what it takes now, and keep the answer. |  |
+| `--limit` | Hold deploys to this many megabytes: a new release is refused while it is over. |  |
+| `--no-limit` | Remove the limit. |  |
+| `--kernel`, `--no-kernel` | Give the limit to the kernel as a project quota (XFS or ext4 mounted with prjquota), or take it off. The writes themselves are then refused at the limit. |  |
+| `--json` | Print the disk as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust app exec
@@ -2264,6 +2330,21 @@ Arguments: `domain`, `copies`
 | `--json` | Print the copies as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust app replication
+
+Say whether the application could run on more than one server, and what stops it.
+
+```
+noust app replication [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the verdict as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust app sandbox
 
 Build an application without root: see, try, enable or disable its sandbox.
@@ -2546,6 +2627,78 @@ Arguments: `domain`, `tags`
 
 | Option | What it does | Default |
 |---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app tuning
+
+Limits and options of an application's unit: soft memory, swap, weights, CPUs, ulimits, capabilities, devices.
+
+```
+noust app tuning [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`clear`](#noust-app-tuning-clear), [`set`](#noust-app-tuning-set), [`status`](#noust-app-tuning-status)
+
+### noust app tuning clear
+
+Remove all the tuning: the unit goes back to what the template writes.
+
+```
+noust app tuning clear [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--no-restart` | Write the unit but do not restart. |  |
+| `--yes`, `-y` | Do not ask for confirmation. |  |
+| `--json` | Print what was done as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app tuning set
+
+Tune the application's unit; what is not named is kept.
+
+```
+noust app tuning set [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--memory-high` | Soft memory limit: throttled above it, killed only at the hard one. |  |
+| `--swap-max` | Swap the unit may use; 0 forbids it. |  |
+| `--cpu-weight` | Share of the CPU when it is contended (100 is the default). |  |
+| `--allowed-cpus` | Pin the unit to these CPUs, such as 0-3 or 0,2. |  |
+| `--io-weight` | Share of the disk when it is contended. |  |
+| `--nofile` | Open files (ulimit -n). |  |
+| `--nproc` | Processes of the account (ulimit -u). |  |
+| `--memlock` | Locked memory (ulimit -l). |  |
+| `--core-dumps`, `--no-core-dumps` | Allow core dumps (ulimit -c). |  |
+| `--cap` | A capability the process keeps (NET_BIND_SERVICE, ...); repeat it. Replaces the list. |  |
+| `--device` | A device the process may open (/dev/nvidia0:rw, char-drm); repeat it. Replaces the list. |  |
+| `--gpu` | Allow the devices a GPU needs (nvidia, dri); repeat it. |  |
+| `--unset` | Remove one option (memory_high_mb, capabilities, ...); repeat it. |  |
+| `--no-restart` | Write the unit but do not restart: the running process keeps what it has. |  |
+| `--yes`, `-y` | Do not ask for confirmation. |  |
+| `--json` | Print what was done as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust app tuning status
+
+Show how the application's unit is tuned and the lines it has for it.
+
+```
+noust app tuning status [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the status as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust app webhook
@@ -4434,7 +4587,7 @@ Run commands on a schedule, as systemd timers.
 noust cron [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`create`](#noust-cron-create), [`delete`](#noust-cron-delete), [`disable`](#noust-cron-disable), [`enable`](#noust-cron-enable), [`list`](#noust-cron-list), [`run`](#noust-cron-run), [`runs`](#noust-cron-runs)
+Subcommands: [`create`](#noust-cron-create), [`delete`](#noust-cron-delete), [`disable`](#noust-cron-disable), [`enable`](#noust-cron-enable), [`ledger`](#noust-cron-ledger), [`list`](#noust-cron-list), [`run`](#noust-cron-run), [`runs`](#noust-cron-runs)
 
 ### noust cron create
 
@@ -4497,6 +4650,22 @@ Arguments: `name`
 
 | Option | What it does | Default |
 |---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust cron ledger
+
+Show which occurrences of a job ran, were late or never ran.
+
+```
+noust cron ledger [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--days` | How far back to look. | `7` |
+| `--json` | Print the ledger as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust cron list
@@ -6734,7 +6903,7 @@ Read and set the environment variables of a deployed application.
 noust env [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`audience`](#noust-env-audience), [`configure`](#noust-env-configure), [`export`](#noust-env-export), [`mark`](#noust-env-mark), [`migrate`](#noust-env-migrate), [`resolve`](#noust-env-resolve), [`set`](#noust-env-set), [`show`](#noust-env-show), [`unset`](#noust-env-unset)
+Subcommands: [`audience`](#noust-env-audience), [`comment`](#noust-env-comment), [`configure`](#noust-env-configure), [`export`](#noust-env-export), [`mark`](#noust-env-mark), [`migrate`](#noust-env-migrate), [`resolve`](#noust-env-resolve), [`set`](#noust-env-set), [`show`](#noust-env-show), [`unset`](#noust-env-unset)
 
 ### noust env audience
 
@@ -6751,6 +6920,20 @@ Arguments: `domain`, `name`
 | `--build-only` | Only the install and the build. |  |
 | `--runtime-only` | Not the install or the build. |  |
 | `--both` | The build and the running application. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust env comment
+
+Show, set or take away the comment above a variable.
+
+```
+noust env comment [OPTIONS] DOMAIN NAME [TEXT]
+```
+
+Arguments: `domain`, `name`, `text`
+
+| Option | What it does | Default |
+|---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust env configure
@@ -6844,6 +7027,8 @@ Arguments: `domain`, `pairs`
 | `--build-only` | Only the install and the build. |  |
 | `--runtime-only` | Not the install or the build. |  |
 | `--both` | The build and the running application. |  |
+| `--file` | Set NAME to the content of the file at PATH (a private key, a certificate, a JSON document): a value of several lines. Repeat it. |  |
+| `--comment` | Keep this comment above each variable set here (empty takes the comment away). |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust env show

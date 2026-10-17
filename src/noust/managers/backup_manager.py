@@ -4811,6 +4811,10 @@ class RollbackManager:
                 app_name = domain_to_app_name(domain)
 
                 app_path = _deployed_at(domain, app_name, self.config)
+                if layout_on_disk(app_path) == RELEASES:
+                    # The processes the restored release declares run beside it, as they do
+                    # when a deployment or an activation makes it the one that serves.
+                    self._follow_restored_release(domain)
                 if rebuild and layout_on_disk(app_path) == RELEASES:
                     # A rebuild in place would install and build in the
                     # application directory, which on releases is not where the
@@ -4856,6 +4860,26 @@ class RollbackManager:
             recorder.mark_previous_success_rolled_back()
             recorder.finish_success()
             return True
+
+    def _follow_restored_release(self, domain: str) -> None:
+        """
+        Declare the processes of the release a restore brought back.
+
+        Args:
+            domain: The application's domain.
+        """
+        from noust.deployers.helpers.process_declaration import declare_restored_tree
+
+        app = _row_of(domain)
+        if app is None:
+            return
+        declare_restored_tree(
+            app,
+            _deployed_at(domain, domain_to_app_name(domain), self.config),
+            store=get_store(),
+            log=self.logger,
+            services=self.service_manager,
+        )
 
     def _held_like_a_deploy(
         self,

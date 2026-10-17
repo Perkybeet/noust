@@ -14,8 +14,12 @@
  * split at its first `=`; name and value are stripped again, a leading `export` keyword (the
  * lowercase word and the spaces or tabs after it) is dropped from the name the way a shell
  * sourcing the file would, and one pair of matching quotes (`"..."` or `'...'`) around the value
- * is removed. Nothing else: no escapes, no inline comments. A later line for the same name
- * replaces the value and keeps the name's first position.
+ * is removed. A value that opens a quote and does not close it on its line goes on in the next
+ * lines up to the first one that ends with the same quote (a private key, a certificate); when
+ * no later line closes it, it is the line as written. Nothing else: no escapes, no inline
+ * comments. A later line for the same name replaces the value and keeps the name's first
+ * position. A run of `#` lines directly above an assignment, with no blank line between, is
+ * that variable's comment.
  *
  * The writer quotes a value only when writing it bare would change how it reads back
  * (surrounding spaces, or a value that is itself wrapped in a pair of quotes), so every value
@@ -49,6 +53,20 @@ export function pythonStrip(text: string): string {
   return text.slice(start, end);
 }
 
+/** `str.rstrip()`. */
+function pythonRstrip(text: string): string {
+  let end = text.length;
+  while (end > 0 && PYTHON_SPACE.has(text.charCodeAt(end - 1))) end -= 1;
+  return text.slice(0, end);
+}
+
+/** `str.lstrip()`. */
+function pythonLstrip(text: string): string {
+  let start = 0;
+  while (start < text.length && PYTHON_SPACE.has(text.charCodeAt(start))) start += 1;
+  return text.slice(start);
+}
+
 function unquote(value: string): string {
   if (value.length < 2) return value;
   const first = value[0];
@@ -68,11 +86,15 @@ export interface ParsedLine {
   line: number;
   name: string;
   value: string;
+  /** The `#` lines directly above it, joined by a line feed; empty when none. */
+  comment: string;
 }
 
 export interface ParsedDotenv {
   /** Every variable, in the order its name first appeared, with its last value. */
   variables: Map<string, string>;
+  /** The comment above each variable that has one (the last assignment's, for a repeated name). */
+  comments: Map<string, string>;
   /** Every assignment line, in order, duplicates included. */
   assignments: ParsedLine[];
   /** Lines that were neither blank, a comment nor an assignment: skipped, as Noust skips them. */
@@ -87,25 +109,65 @@ export function pythonLines(text: string): string[] {
   return lines;
 }
 
-/** Parses a `.env` file exactly as `EnvManager.read_env_file` does. */
+/** `EnvManager._closing_line`: the first line from `start` that ends with the quote, and it without the quote. */
+function closingLine(lines: readonly string[], start: number, quote: string): { index: number; tail: string } | null {
+  for (let index = start; index < lines.length; index += 1) {
+    const closing = pythonRstrip(lines[index] ?? "");
+    if (closing.endsWith(quote)) return { index, tail: closing.slice(0, -1) };
+  }
+  return null;
+}
+
+/** Parses a `.env` file exactly as `EnvManager.parse_env_entries` does. */
 export function parseDotenv(text: string): ParsedDotenv {
   const variables = new Map<string, string>();
+  const comments = new Map<string, string>();
   const assignments: ParsedLine[] = [];
   const skipped: ParsedLine[] = [];
-  pythonLines(text).forEach((raw, index) => {
+  const lines = pythonLines(text);
+  let comment: string[] = [];
+  let index = 0;
+  while (index < lines.length) {
+    const number = index + 1;
+    const raw = lines[index] ?? "";
     const line = pythonStrip(raw);
-    if (line === "" || line.startsWith("#")) return;
+    index += 1;
+    if (line === "") {
+      comment = [];
+      continue;
+    }
+    if (line.startsWith("#")) {
+      comment.push(pythonStrip(line.slice(1)));
+      continue;
+    }
     const at = line.indexOf("=");
     if (at === -1) {
-      skipped.push({ line: index + 1, name: line, value: "" });
-      return;
+      skipped.push({ line: number, name: line, value: "", comment: "" });
+      comment = [];
+      continue;
     }
     const name = withoutExport(pythonStrip(line.slice(0, at)));
-    const value = unquote(pythonStrip(line.slice(at + 1)));
+    let value = pythonStrip(line.slice(at + 1));
+    const opener = value.slice(0, 1);
+    if ((opener === '"' || opener === "'") && (value.length === 1 || !value.endsWith(opener))) {
+      const closed = closingLine(lines, index, opener);
+      if (closed !== null) {
+        // The first line as it is after the quote: its trailing spaces are the value's.
+        const first = pythonLstrip(raw.slice(raw.indexOf("=") + 1)).slice(1);
+        value = [first, ...lines.slice(index, closed.index), closed.tail].join("\n");
+        index = closed.index + 1;
+      }
+    } else {
+      value = unquote(value);
+    }
+    const note = comment.join("\n");
+    comment = [];
     variables.set(name, value);
-    assignments.push({ line: index + 1, name, value });
-  });
-  return { variables, assignments, skipped };
+    if (note === "") comments.delete(name);
+    else comments.set(name, note);
+    assignments.push({ line: number, name, value, comment: note });
+  }
+  return { variables, comments, assignments, skipped };
 }
 
 // ---------------------------------------------------------------------------------------
@@ -114,9 +176,13 @@ export function parseDotenv(text: string): ParsedDotenv {
 /** ENV_NAME_PATTERN: a POSIX environment identifier. */
 const NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
-/** _FORBIDDEN_VALUE_CHARS: C0 control characters and DEL end or corrupt a unit directive. */
+/** `_FORBIDDEN_VALUE_CHARS`: control characters, the C1 ones and the Unicode line separators. */
 // eslint-disable-next-line no-control-regex -- the control characters the API refuses are the point
-const FORBIDDEN = /[\x00-\x1f\x7f]/;
+const FORBIDDEN = /[\x00-\x1f\x7f-\x9f\u2028\u2029]/;
+
+/** `_FORBIDDEN_MULTILINE_CHARS`: the same, but the line feed that separates the lines of a value. */
+// eslint-disable-next-line no-control-regex -- the control characters the API refuses are the point
+const FORBIDDEN_IN_LINES = /[\x00-\x09\x0b-\x1f\x7f-\x9f\u2028\u2029]/;
 
 const CONTROL_KEYS: Readonly<Record<string, MessageKey>> = {
   "\n": "environment.dotenv.controlNewline",
@@ -136,13 +202,37 @@ export function nameProblem(name: string, locale: Locale = getLocale()): string 
   return translate(locale, "environment.dotenv.invalidName", { name });
 }
 
-/** Why the API would refuse this value, or null when it accepts it. */
+/**
+ * Why the API would refuse this value, or null when it accepts it. A value may have several lines
+ * (a private key, a certificate) as long as it holds no single quote and no other control character.
+ */
 export function valueProblem(value: string, locale: Locale = getLocale()): string | null {
-  const match = FORBIDDEN.exec(value);
-  if (match === null) return null;
+  const lines = value.includes("\n");
+  const match = (lines ? FORBIDDEN_IN_LINES : FORBIDDEN).exec(value);
+  if (match === null) return lines && value.includes("'") ? translate(locale, "environment.dotenv.linesAndQuote") : null;
   const char = match[0];
   const code = char.charCodeAt(0).toString(16).toUpperCase().padStart(4, "0");
   const key = CONTROL_KEYS[char];
   const name = key ? translate(locale, key) : translate(locale, "environment.dotenv.controlGeneric", { code });
   return translate(locale, "environment.dotenv.forbiddenChar", { char: name });
+}
+
+/** `validate_env_comment`: plain short text, trimmed; null when the API accepts it. */
+export const MAX_COMMENT_CHARS = 500;
+export const MAX_COMMENT_LINES = 8;
+
+export function commentProblem(comment: string, locale: Locale = getLocale()): string | null {
+  const lines = comment.trim().split("\n");
+  const match = FORBIDDEN_IN_LINES.exec(comment.trim());
+  if (match !== null) return translate(locale, "environment.dotenv.commentChar");
+  if (comment.trim().length > MAX_COMMENT_CHARS || lines.length > MAX_COMMENT_LINES) {
+    return translate(locale, "environment.dotenv.commentTooLong", { chars: MAX_COMMENT_CHARS, lines: MAX_COMMENT_LINES });
+  }
+  return null;
+}
+
+/** A value on one line for a table or a list: its first line, and how many lines it has. */
+export function oneLine(value: string): { text: string; lines: number } {
+  const lines = value.split("\n");
+  return { text: lines[0] ?? "", lines: lines.length };
 }

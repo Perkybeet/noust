@@ -40,6 +40,7 @@ from noust.core.store import App, get_store
 from noust.deployers.helpers.app_env import (
     find_app,
     read_app_env,
+    read_comments_of,
     read_environment_of,
     refresh_app_env,
     write_app_env,
@@ -249,6 +250,7 @@ def _env_show(domain: str, unmask: bool, verbose: bool, *, json_output: bool = F
     values = environment.values
     marks = app.env_secret_marks
     secrets = {key: classify(key, value, marks) for key, value in values.items()}
+    comments = read_comments_of(app, manager=EnvManager(verbose=verbose))
 
     shown = dict(values) if unmask else _redact(values, marks)
 
@@ -263,6 +265,7 @@ def _env_show(domain: str, unmask: bool, verbose: bool, *, json_output: bool = F
                     "audience": environment.audience,
                     "references": environment.expressions,
                     "predefined": predefined_for(app),
+                    "comments": comments,
                 }
             )
         )
@@ -284,6 +287,8 @@ def _env_show(domain: str, unmask: bool, verbose: bool, *, json_output: bool = F
         if key in environment.expressions:
             notes.append(f"from {environment.expressions[key]}")
         logger.key_value(f"  {key} ({', '.join(notes)})", shown[key])
+        for note in comments.get(key, "").splitlines():
+            logger.info(f"      # {note}")
 
     if not unmask:
         logger.blank()
@@ -327,12 +332,50 @@ def _parse_assignments(items: tuple[str, ...], from_stdin: bool) -> dict[str, st
     return pairs
 
 
+#: The largest file ``noust env set --file`` reads into a variable.
+MAX_VALUE_FILE_BYTES = 64 * 1024
+
+
+def _read_value_files(items: tuple[str, ...]) -> dict[str, str]:
+    """
+    Read ``NAME=PATH`` pairs: a variable whose value is the content of a file.
+
+    Args:
+        items: The arguments.
+
+    Returns:
+        Name to the file's text, one trailing line feed (the one an editor adds) removed.
+
+    Raises:
+        click.UsageError: A pair without ``=``, a file that cannot be read as text, or one that
+            is larger than :data:`MAX_VALUE_FILE_BYTES`.
+    """
+    values: dict[str, str] = {}
+    for item in items:
+        name, sep, location = item.partition("=")
+        if not sep or not location:
+            raise click.UsageError(f"{item!r} is not NAME=PATH")
+        path = Path(location).expanduser()
+        try:
+            if path.stat().st_size > MAX_VALUE_FILE_BYTES:
+                raise click.UsageError(
+                    f"{path} is larger than {MAX_VALUE_FILE_BYTES // 1024} KiB: keep large "
+                    "files in a mounted file (noust app mount), not in a variable"
+                )
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            raise click.UsageError(f"{path} could not be read as text: {exc}") from exc
+        values[name.strip()] = text.removesuffix("\n")
+    return values
+
+
 def _env_set(
     domain: str,
     pairs: Mapping[str, str],
     audience: str | None,
     unset: tuple[str, ...],
     verbose: bool,
+    comment: str | None = None,
 ) -> int:
     """
     Add, change and remove variables of an application, keeping the rest.
@@ -343,6 +386,8 @@ def _env_set(
         audience: ``both``, ``build`` or ``runtime`` for these, or None to keep each one's.
         unset: Names to remove.
         verbose: Print the detail of each step.
+        comment: A comment to keep above each variable set, or None to leave the ones
+            they have.
 
     Returns:
         Exit code.
@@ -365,7 +410,14 @@ def _env_set(
         values.pop(name)
     values.update(pairs)
     wanted = dict.fromkeys(pairs, audience) if audience else None
-    path = write_app_env(app, values, manager=manager, logger=logger, audience=wanted)
+    path = write_app_env(
+        app,
+        values,
+        manager=manager,
+        logger=logger,
+        audience=wanted,
+        comments=dict.fromkeys(pairs, comment) if comment is not None else None,
+    )
     changed = [*pairs, *unset]
     logger.success(f"{', '.join(changed)}: written to {path}")
     logger.info(f"A running process keeps the values it started with: noust restart {domain}")
@@ -610,6 +662,20 @@ def migrate(state: Context, domain: str | None, every: bool) -> None:
 @click.option("--build-only", "build_only", is_flag=True, help="Only the install and the build.")
 @click.option("--runtime-only", "runtime_only", is_flag=True, help="Not the install or the build.")
 @click.option("--both", "both", is_flag=True, help="The build and the running application.")
+@click.option(
+    "--file",
+    "files",
+    multiple=True,
+    metavar="NAME=PATH",
+    help="Set NAME to the content of the file at PATH (a private key, a certificate, a JSON "
+    "document): a value of several lines. Repeat it.",
+)
+@click.option(
+    "--comment",
+    "comment",
+    metavar="TEXT",
+    help="Keep this comment above each variable set here (empty takes the comment away).",
+)
 @pass_context
 def set_command(
     state: Context,
@@ -619,6 +685,8 @@ def set_command(
     build_only: bool,
     runtime_only: bool,
     both: bool,
+    files: tuple[str, ...],
+    comment: str | None,
 ) -> None:
     """
     Add or change variables, keeping the others.
@@ -627,15 +695,50 @@ def set_command(
     ({{app.URL}}) or to a secret manager ({{secret:vault/path#field}}); it is
     resolved again at every deploy. A secret on the command line is visible to
     every user of this machine: pass it with --stdin.
+
+    A value of several lines comes from a file: --file PRIVATE_KEY=key.pem. It
+    is written between single quotes, which systemd, Compose and dotenv read as
+    one value, and it may not hold a single quote.
     """
     chosen = [flag for flag in (build_only, runtime_only, both) if flag]
     if len(chosen) > 1:
         raise click.UsageError("Pass at most one of --build-only, --runtime-only and --both.")
     audience = "build" if build_only else "runtime" if runtime_only else "both" if both else None
-    values = _parse_assignments(pairs, from_stdin)
+    values = _parse_assignments(pairs, from_stdin) if (pairs or from_stdin) else {}
+    values.update(_read_value_files(files))
     if not values:
-        raise click.UsageError("Give at least one NAME=VALUE.")
-    _env_set(domain, values, audience, (), state.verbose)
+        raise click.UsageError("Give at least one NAME=VALUE, or --file NAME=PATH.")
+    _env_set(domain, values, audience, (), state.verbose, comment)
+
+
+@cli.command("comment")
+@click.argument("domain")
+@click.argument("name")
+@click.argument("text", required=False)
+@pass_context
+def comment_command(state: Context, domain: str, name: str, text: str | None) -> None:
+    """
+    Show, set or take away the comment above a variable.
+
+    The comment is kept in the .env, above the variable, and survives every
+    write of the file. Without TEXT it is printed; with an empty TEXT ('') it
+    is taken away.
+    """
+    logger = Logger(verbose=state.verbose)
+    app = _app(domain)
+    manager = EnvManager(verbose=state.verbose)
+    values = read_app_env(app, manager=manager)
+    if name not in values:
+        raise EnvConfigError(
+            f"{domain} has no variable {name}",
+            details="Run 'noust env show' to see its variables.",
+        )
+    if text is None:
+        found = read_comments_of(app, manager=manager).get(name, "")
+        click.echo(found if found else f"{name} has no comment")
+        return
+    write_app_env(app, values, manager=manager, logger=logger, comments={name: text})
+    logger.success(f"{name}: comment {'kept' if text.strip() else 'taken away'}")
 
 
 @cli.command("unset")

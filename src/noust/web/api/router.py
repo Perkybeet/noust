@@ -24,11 +24,14 @@ from noust.web.api.app_compose import router as app_compose_router
 from noust.web.api.app_container import router as app_container_router
 from noust.web.api.app_deploy import batch_router as deploy_batch_router
 from noust.web.api.app_deploy import router as app_deploy_router
+from noust.web.api.app_disk import router as app_disk_router
 from noust.web.api.app_export import router as app_export_router
 from noust.web.api.app_hooks import router as app_hooks_router
+from noust.web.api.app_native_adopt import router as app_native_adopt_router
 from noust.web.api.app_packages import router as app_packages_router
 from noust.web.api.app_processes import router as app_processes_router
 from noust.web.api.app_promote import router as app_promote_router
+from noust.web.api.app_replication import router as app_replication_router
 from noust.web.api.app_rollout import router as app_rollout_router
 from noust.web.api.app_runtime import router as app_runtime_router
 from noust.web.api.app_schedule import router as app_schedule_router
@@ -187,6 +190,8 @@ router.include_router(ens_router, prefix="/ens", tags=["Compliance"])
 # "import" as a domain. It also owns GET "/{domain}/export", which apps.py
 # does not define.
 router.include_router(app_export_router, prefix="/apps", tags=["Applications"])
+# Also before it: GET /apps/native-sites must not reach a route that reads it as a domain.
+router.include_router(app_native_adopt_router, prefix="/apps", tags=["Applications"])
 router.include_router(apps_router, prefix="/apps", tags=["Applications"])
 router.include_router(services_router, prefix="/services", tags=["Services"])
 # The machine itself: updates, power, disks, swap, clock, journal. /services stays as it is.
@@ -332,6 +337,10 @@ router.include_router(app_compose_router, prefix="/apps", tags=["Applications"])
 router.include_router(app_processes_router, prefix="/apps", tags=["Applications"])
 # app_source.py owns only "/{domain}/source-options".
 router.include_router(app_source_router, prefix="/apps", tags=["Applications"])
+# app_replication.py owns only "/{domain}/replication".
+router.include_router(app_replication_router, prefix="/apps", tags=["Applications"])
+# app_disk.py owns only "/{domain}/disk" and "/{domain}/disk/measure".
+router.include_router(app_disk_router, prefix="/apps", tags=["Applications"])
 # app_rollout.py owns only "/{domain}/rollout".
 router.include_router(app_rollout_router, prefix="/apps", tags=["Applications"])
 # app_schedule.py owns only "/{domain}/update-schedule".

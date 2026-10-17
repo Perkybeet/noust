@@ -558,6 +558,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/adopt-site": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adopt Site
+         * @description Adopt a site that already runs, or preview the adoption.
+         *
+         *     Args:
+         *         body: The site.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was found and done.
+         *
+         *     Raises:
+         *         DeploymentError: The domain is an application, no site serves it, the site serves
+         *             nothing Noust can adopt, the unit cannot be one, or the directory is not the site's.
+         */
+        post: operations["adopt_site_api_apps_adopt_site_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/import": {
         parameters: {
             query?: never;
@@ -660,6 +691,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/native-sites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Native Sites
+         * @description List the sites that no application records, and what each one is.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         One entry per site the operator wrote, adoptable or with the reason it is not.
+         */
+        get: operations["list_native_sites_api_apps_native_sites_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/types": {
         parameters: {
             query?: never;
@@ -741,6 +798,37 @@ export interface paths {
          *         ValidationError: The directory named is not the application's (400).
          */
         delete: operations["delete_app_api_apps__domain__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/adoption": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Adoption
+         * @description Say what an adopted application is.
+         *
+         *     Args:
+         *         domain: The application's domain.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its unit, site and directory.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application does not exist, is outside the caller's teams, or
+         *             was not adopted.
+         */
+        get: operations["get_adoption_api_apps__domain__adoption_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1265,6 +1353,41 @@ export interface paths {
          *         HTTPException: 404 when the application is unknown.
          */
         delete: operations["delete_compose_settings_api_apps__domain__compose_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/compose/variables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Compose Variables
+         * @description Show the variables a stack's compose file asks for and which of them it has.
+         *
+         *     Reads the file and the ``.env`` and runs nothing; a value is never part of the answer, only
+         *     whether there is one. Edit them with ``PUT /api/apps/{domain}/env``.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Every variable with its state, and the ones a deploy would refuse over.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: It is not a Compose stack (400).
+         *         DeploymentError: Its compose file cannot be found or read.
+         */
+        get: operations["get_compose_variables_api_apps__domain__compose_variables_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1825,6 +1948,121 @@ export interface paths {
         get: operations["diagnose_app_api_apps__domain__diagnose_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/disk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Disk
+         * @description Show what an application takes of the disk, as it was last measured. Measures nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The limit, the measurement and the filesystem's facts.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_disk_api_apps__domain__disk_get"];
+        /**
+         * Put Disk
+         * @description Set or remove the limit an application's deploys are held to.
+         *
+         *     It is Noust's limit, checked before a deploy builds a new release; it does not stop the
+         *     application from writing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The limit in MB, or null.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The disk as it is now.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The limit is out of range (400).
+         */
+        put: operations["put_disk_api_apps__domain__disk_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/disk/kernel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Disk Kernel
+         * @description Queue giving an application's disk limit to the kernel, or taking it off.
+         *
+         *     It sets a filesystem project quota on the application's directory, which needs the filesystem
+         *     to be mounted with project quotas already; Noust does not mount or tune it.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: Whether to apply or remove it.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: No limit is set, the tree is not one to put a quota on, or the
+         *             filesystem is not mounted with project quotas (400), before anything is queued.
+         */
+        put: operations["put_disk_kernel_api_apps__domain__disk_kernel_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/disk/measure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Disk Measure
+         * @description Queue the measurement of what an application takes of the disk.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        post: operations["post_disk_measure_api_apps__domain__disk_measure_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4811,6 +5049,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/replication": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Replication
+         * @description Say whether an application could run on more than one server. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The verdict and every finding.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_replication_api_apps__domain__replication_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/restart": {
         parameters: {
             query?: never;
@@ -5593,6 +5861,56 @@ export interface paths {
          *         TerminalLimitError: 429 when a limit is reached.
          */
         post: operations["open_app_terminal_api_apps__domain__terminal_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/tuning": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Tuning
+         * @description Show how an application's unit is tuned. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The options, the lines they become and what can be asked for.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_tuning_api_apps__domain__tuning_get"];
+        /**
+         * Put Tuning
+         * @description Queue the change of an application's tuning.
+         *
+         *     It is restarted behind its health gate; when it does not answer, the previous units and record
+         *     are put back and it is restarted as it was.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The complete options, and whether to restart now.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: An option a unit cannot have, or an application that cannot be tuned
+         *             (400), before anything is queued.
+         */
+        put: operations["put_tuning_api_apps__domain__tuning_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -9906,6 +10224,37 @@ export interface paths {
          *         ServiceError: When the job is unknown, foreign, or systemd refuses.
          */
         post: operations["enable_job_api_cron__name__enable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cron/{name}/ledger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Job Ledger
+         * @description Say which occurrences of a job ran, were late or never ran.
+         *
+         *     Args:
+         *         name: Job name.
+         *         session: The authenticated session.
+         *         days: How far back to look.
+         *
+         *     Returns:
+         *         The ledger: counts, and every occurrence with its verdict.
+         *
+         *     Raises:
+         *         ServiceError: When the job is unknown or foreign, or systemd rejects its schedule.
+         */
+        get: operations["job_ledger_api_cron__name__ledger_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -24966,6 +25315,123 @@ export interface components {
             service?: string | null;
         };
         /**
+         * AdoptSiteRequest
+         * @description The site to adopt, and what is not found by looking.
+         */
+        AdoptSiteRequest: {
+            /**
+             * Domain
+             * @description The domain the site answers on
+             */
+            domain: string;
+            /**
+             * Path
+             * @description The directory of its files; the unit's WorkingDirectory or the site's root
+             */
+            path?: string | null;
+            /**
+             * Preview
+             * @description Answer what would be done; change nothing
+             * @default false
+             */
+            preview: boolean;
+            /**
+             * Site
+             * @description The site file serving the domain; found when omitted
+             */
+            site?: string | null;
+            /**
+             * Unit
+             * @description The unit the site is in front of; the one that listens on its port when omitted
+             */
+            unit?: string | null;
+        };
+        /**
+         * AdoptSiteResponse
+         * @description What an adoption found, and whether it was recorded.
+         */
+        AdoptSiteResponse: {
+            /**
+             * Adopted
+             * @description False for a preview or a rehearsal
+             */
+            adopted: boolean;
+            /** App Name */
+            app_name: string;
+            /** Domain */
+            domain: string;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "proxy" | "php" | "static";
+            /** Port */
+            port: number | null;
+            /** Root */
+            root: string;
+            /** Site */
+            site: string;
+            /**
+             * Site Name
+             * @description That file's name, recorded because it is not the domain
+             */
+            site_name: string | null;
+            /** Ssl */
+            ssl: boolean;
+            /**
+             * Unit
+             * @description The operator's unit; none for PHP and static sites
+             */
+            unit: string | null;
+            /** Unit Active */
+            unit_active: boolean | null;
+            /** Upstream */
+            upstream: string | null;
+            /** Warnings */
+            warnings: string[];
+            /**
+             * Webserver
+             * @enum {string}
+             */
+            webserver: "nginx" | "apache";
+        };
+        /**
+         * AdoptionResponse
+         * @description What an adopted application is: the operator's unit, site and directory.
+         */
+        AdoptionResponse: {
+            /** Adopted At */
+            adopted_at: string | null;
+            /** Adopted By */
+            adopted_by: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "proxy" | "php" | "static";
+            /** Root */
+            root: string | null;
+            /**
+             * Site File
+             * @description The operator's site file, never rewritten
+             */
+            site_file: string;
+            /**
+             * Unit
+             * @description The unit Noust starts, stops and restarts, never rewrites
+             */
+            unit: string | null;
+            /** Upstream */
+            upstream: string | null;
+            /**
+             * Webserver
+             * @enum {string}
+             */
+            webserver: "nginx" | "apache";
+        };
+        /**
          * AnalysisOut
          * @description The last scan of the known places.
          */
@@ -25456,6 +25922,13 @@ export interface components {
              * @description Variables that are not for both the build and the running application: 'build' (in no .env, only the install and the build see it) or 'runtime' (the build does not see it)
              */
             audience?: {
+                [key: string]: string;
+            };
+            /**
+             * Comments
+             * @description The comment kept above a variable in the .env, only for the ones that have one; lines are separated by a line feed
+             */
+            comments?: {
                 [key: string]: string;
             };
             /** Domain */
@@ -29173,6 +29646,45 @@ export interface components {
             up_args?: string[];
         };
         /**
+         * ComposeVariableModel
+         * @description A variable the compose file asks for, and whether the stack has it. Never its value.
+         */
+        ComposeVariableModel: {
+            /**
+             * Default
+             * @description The default the file gives
+             */
+            default?: string | null;
+            /**
+             * Message
+             * @description What the file says when a required value is missing
+             * @default
+             */
+            message: string;
+            /** Name */
+            name: string;
+            /**
+             * Required
+             * @description Whether the file requires a value (${NAME:?message})
+             */
+            required: boolean;
+            /**
+             * Source
+             * @description Where the value comes from when set: env (the .env) or process
+             */
+            source?: string | null;
+            /**
+             * Status
+             * @description set (a value exists), default (the file has a default), unset (no value and no default: Compose uses an empty string) or missing (the file requires it)
+             */
+            status: string;
+            /**
+             * Used In
+             * @description The services, or top-level keys, that use it
+             */
+            used_in?: string[];
+        };
+        /**
          * ComposeVariableOut
          * @description One variable the document reads.
          *
@@ -29201,6 +29713,36 @@ export interface components {
              * @default []
              */
             services: string[];
+        };
+        /**
+         * ComposeVariablesResponse
+         * @description The variables a stack's compose file asks for.
+         */
+        ComposeVariablesResponse: {
+            /** Domain */
+            domain: string;
+            /**
+             * Env File
+             * @description The .env the values were read from
+             */
+            env_file?: string | null;
+            /**
+             * File
+             * @description The compose file read
+             */
+            file: string;
+            /**
+             * Missing
+             * @description The required variables nothing gives: a deploy refuses
+             */
+            missing?: string[];
+            /**
+             * Unset
+             * @description The variables with no value and no default
+             */
+            unset?: string[];
+            /** Variables */
+            variables?: components["schemas"]["ComposeVariableModel"][];
         };
         /**
          * ConfigPatchRequest
@@ -30549,6 +31091,66 @@ export interface components {
             total: number;
         };
         /**
+         * CronLedgerResponse
+         * @description Which occurrences of a job ran, and which did not.
+         *
+         *     Attributes:
+         *         name: Job name.
+         *         schedule: The schedule, as systemd reads it.
+         *         enabled: Whether the timer is enabled; a disabled one has nothing due.
+         *         since: Where the ledger starts judging: not before the journal begins, the timer was
+         *             written or the oldest run it read; null for a disabled job.
+         *         until: Where it stops, epoch seconds.
+         *         ran: Occurrences that ran on time.
+         *         late: Occurrences answered by a later run.
+         *         missed: Occurrences nothing answered for.
+         *         occurrences: Every occurrence judged, oldest first.
+         */
+        CronLedgerResponse: {
+            /** Enabled */
+            enabled: boolean;
+            /** Late */
+            late: number;
+            /** Missed */
+            missed: number;
+            /** Name */
+            name: string;
+            /** Occurrences */
+            occurrences: components["schemas"]["CronOccurrenceInfo"][];
+            /** Ran */
+            ran: number;
+            /** Schedule */
+            schedule: string;
+            /** Since */
+            since?: number | null;
+            /** Until */
+            until: number;
+        };
+        /**
+         * CronOccurrenceInfo
+         * @description One moment a job was due and what became of it.
+         *
+         *     Attributes:
+         *         at: When it was due, epoch seconds.
+         *         status: ``ran`` (a run started within two minutes), ``late`` (a later run, before the next
+         *             occurrence) or ``missed`` (no run before the next occurrence).
+         *         ran_at: When the run that answers for it started, for ``ran`` and ``late``.
+         *         reason: ``server_off`` when the machine was down at that moment; empty otherwise.
+         */
+        CronOccurrenceInfo: {
+            /** At */
+            at: number;
+            /** Ran At */
+            ran_at?: number | null;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /** Status */
+            status: string;
+        };
+        /**
          * CronPreviewRequest
          * @description Request to preview a schedule before it is saved as a job.
          */
@@ -31634,6 +32236,23 @@ export interface components {
             used: number;
         };
         /**
+         * DiskFilesystemModel
+         * @description Whether the filesystem it lives on could hold a kernel project quota.
+         */
+        DiskFilesystemModel: {
+            /** Fstype */
+            fstype: string | null;
+            /** Mount */
+            mount: string | null;
+            /** Options */
+            options: string[];
+            /**
+             * Project Quota
+             * @enum {string}
+             */
+            project_quota: "enabled" | "available" | "unsupported" | "unknown";
+        };
+        /**
          * DiskInfo
          * @description Disk usage of one mounted filesystem.
          */
@@ -31650,6 +32269,91 @@ export interface components {
             total_gb: number;
             /** Used Gb */
             used_gb: number;
+        };
+        /**
+         * DiskKernelModel
+         * @description Whether the limit is also the kernel's.
+         */
+        DiskKernelModel: {
+            /** Applied */
+            applied: boolean;
+            /**
+             * Hard Mb
+             * @description The hard limit the kernel reports, in MB
+             */
+            hard_mb: number | null;
+            /** Mount */
+            mount: string | null;
+            /**
+             * Project
+             * @description The project id the quota lives under
+             */
+            project: number | null;
+            /**
+             * Used Bytes
+             * @description What the kernel counts against it
+             */
+            used_bytes: number | null;
+        };
+        /**
+         * DiskKernelRequest
+         * @description Give the limit to the kernel, or take it back.
+         */
+        DiskKernelRequest: {
+            /**
+             * Enabled
+             * @description True gives it a project quota; false takes it off
+             */
+            enabled: boolean;
+        };
+        /**
+         * DiskLimitRequest
+         * @description The limit to hold the application to.
+         */
+        DiskLimitRequest: {
+            /**
+             * Soft Mb
+             * @description Megabytes, from 64; null removes the limit
+             */
+            soft_mb: number | null;
+        };
+        /**
+         * DiskPartModel
+         * @description One place an application takes disk.
+         */
+        DiskPartModel: {
+            /** Bytes */
+            bytes: number;
+            /**
+             * Name
+             * @description tree, current, releases, shared or repo
+             */
+            name: string;
+            /** Path */
+            path: string | null;
+            /**
+             * Reclaimable Bytes
+             * @description What a prune of the releases it keeps would give back
+             */
+            reclaimable_bytes: number | null;
+        };
+        /**
+         * DiskResponse
+         * @description An application's disk: the limit, the last measurement and what the filesystem could hold.
+         */
+        DiskResponse: {
+            /** Domain */
+            domain: string;
+            filesystem: components["schemas"]["DiskFilesystemModel"];
+            kernel: components["schemas"]["DiskKernelModel"];
+            /**
+             * Soft Mb
+             * @description The limit a new release is held to, in MB
+             */
+            soft_mb: number | null;
+            /** @description The last measurement; none before the first */
+            usage: components["schemas"]["DiskUsageModel"] | null;
+            verdict: components["schemas"]["DiskVerdictModel"] | null;
         };
         /**
          * DiskSummary
@@ -31673,6 +32377,48 @@ export interface components {
             worst_mount?: string | null;
             /** Worst Percent */
             worst_percent?: number | null;
+        };
+        /**
+         * DiskUsageModel
+         * @description What an application took of the disk when it was measured.
+         */
+        DiskUsageModel: {
+            /**
+             * Backups Bytes
+             * @description Its backups, which live elsewhere and do not count
+             */
+            backups_bytes: number;
+            /**
+             * Errors
+             * @description Paths that could not be measured in time
+             */
+            errors: string[];
+            /** Measured At */
+            measured_at: string;
+            /** Parts */
+            parts: components["schemas"]["DiskPartModel"][];
+            /**
+             * Total Bytes
+             * @description What its directory takes: the figure the limit holds
+             */
+            total_bytes: number;
+        };
+        /**
+         * DiskVerdictModel
+         * @description How an application stands against its limit.
+         */
+        DiskVerdictModel: {
+            /** Limit Bytes */
+            limit_bytes: number;
+            /** Percent */
+            percent: number;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "ok" | "near" | "over";
+            /** Used Bytes */
+            used_bytes: number;
         };
         /**
          * DistributionResponse
@@ -33749,6 +34495,32 @@ export interface components {
              * @default false
              */
             truncated: boolean;
+        };
+        /**
+         * FindingModel
+         * @description One thing a second server would get wrong or do twice.
+         */
+        FindingModel: {
+            /**
+             * Code
+             * @description persistent_paths, local_database, scheduled_tasks...
+             */
+            code: string;
+            /** Fix */
+            fix: string;
+            /**
+             * Items
+             * @description What it is about: paths, databases, variables, tasks
+             */
+            items: string[];
+            /** Message */
+            message: string;
+            /**
+             * Severity
+             * @description blocks: a copy would be wrong; warns: it would work, with a cost
+             * @enum {string}
+             */
+            severity: "blocks" | "warns";
         };
         /**
          * FirewallOut
@@ -37262,6 +38034,13 @@ export interface components {
          */
         MergeAppEnvRequest: {
             /**
+             * Comments
+             * @description Name to the comment kept above the variable in the .env, over the ones it has; empty text takes one away
+             */
+            comments?: {
+                [key: string]: string;
+            } | null;
+            /**
              * Dry Run
              * @description Only say what would change
              * @default false
@@ -38014,6 +38793,75 @@ export interface components {
             apps?: string[];
             /** Database */
             database: string;
+        };
+        /**
+         * NativeSiteModel
+         * @description A site on the server that no application records.
+         */
+        NativeSiteModel: {
+            /** Adoptable */
+            adoptable: boolean;
+            /** Config Path */
+            config_path: string;
+            /**
+             * Domains
+             * @description The names it answers on
+             */
+            domains: string[];
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Kind
+             * @description A unit behind the web server, PHP, or files; None when it cannot be adopted
+             */
+            kind: ("proxy" | "php" | "static") | null;
+            /**
+             * Port
+             * @description The local port it proxies to
+             */
+            port: number | null;
+            /**
+             * Reason
+             * @description Why it cannot be adopted, or what to know about it
+             */
+            reason: string | null;
+            /**
+             * Root
+             * @description The directory it serves, when it names one
+             */
+            root: string | null;
+            /**
+             * Site
+             * @description The file in the web server's sites directory
+             */
+            site: string;
+            /** Ssl */
+            ssl: boolean;
+            /**
+             * Unit
+             * @description The unit that listens on that port, proposed
+             */
+            unit: string | null;
+            /** Unit Active */
+            unit_active: boolean | null;
+            /**
+             * Upstream
+             * @description What it hands requests to
+             */
+            upstream: string | null;
+            /**
+             * Webserver
+             * @enum {string}
+             */
+            webserver: "nginx" | "apache";
+        };
+        /**
+         * NativeSitesResponse
+         * @description The sites that could be adopted.
+         */
+        NativeSitesResponse: {
+            /** Sites */
+            sites: components["schemas"]["NativeSiteModel"][];
         };
         /**
          * NetworkMemberModel
@@ -43047,6 +43895,26 @@ export interface components {
             reason?: string | null;
             /** Units */
             units: components["schemas"]["ReplicaCopyOut"][];
+        };
+        /**
+         * ReplicationResponse
+         * @description Whether an application could run on several servers.
+         */
+        ReplicationResponse: {
+            /**
+             * By Image
+             * @description It runs a registry image, which a rollout can name by tag so no server builds it
+             */
+            by_image: boolean;
+            /** Domain */
+            domain: string;
+            /** Findings */
+            findings: components["schemas"]["FindingModel"][];
+            /**
+             * Ready
+             * @description True when nothing blocks it; warnings do not
+             */
+            ready: boolean;
         };
         /**
          * RepositoryListOut
@@ -48887,6 +49755,23 @@ export interface components {
             jail?: string | null;
         };
         /**
+         * UnitDevice
+         * @description A device node or group the process may open.
+         */
+        UnitDevice: {
+            /**
+             * Mode
+             * @description r, w or rw
+             * @default rw
+             */
+            mode: string;
+            /**
+             * Path
+             * @description /dev/nvidia0, or a device group such as char-nvidia
+             */
+            path: string;
+        };
+        /**
          * UnitProcessesOut
          * @description The processes of one unit, added up.
          */
@@ -48936,6 +49821,129 @@ export interface components {
             memory_current?: number | null;
             /** Name */
             name: string;
+        };
+        /**
+         * UnitTuningOptions
+         * @description The options an application's unit can be tuned with; one that is absent is not set.
+         */
+        UnitTuningOptions: {
+            /**
+             * Allowed Cpus
+             * @description CPUs the unit is pinned to, such as 0-3 or 0,2
+             */
+            allowed_cpus?: string | null;
+            /**
+             * Capabilities
+             * @description Capabilities the process keeps, without the CAP_ prefix
+             */
+            capabilities?: string[];
+            /**
+             * Core Dumps
+             * @description Allow core dumps (ulimit -c)
+             */
+            core_dumps?: boolean | null;
+            /**
+             * Cpu Weight
+             * @description Share of the CPU when it is contended, 1 to 10000 (default 100)
+             */
+            cpu_weight?: number | null;
+            /**
+             * Devices
+             * @description Devices the process may open (a GPU, for one)
+             */
+            devices?: components["schemas"]["UnitDevice"][];
+            /**
+             * Io Weight
+             * @description Share of the disk when it is contended, 1 to 10000
+             */
+            io_weight?: number | null;
+            /**
+             * Limit Memlock Mb
+             * @description Locked memory in MB (ulimit -l), or 'infinity'
+             */
+            limit_memlock_mb?: number | string | null;
+            /**
+             * Limit Nofile
+             * @description Open files (ulimit -n)
+             */
+            limit_nofile?: number | null;
+            /**
+             * Limit Nproc
+             * @description Processes of the account (ulimit -u)
+             */
+            limit_nproc?: number | null;
+            /**
+             * Memory High Mb
+             * @description Soft memory limit (MemoryHigh): throttled above it, not killed
+             */
+            memory_high_mb?: number | null;
+            /**
+             * Memory Swap Max Mb
+             * @description Swap the unit may use (MemorySwapMax); 0 forbids it
+             */
+            memory_swap_max_mb?: number | null;
+        };
+        /**
+         * UnitTuningRequest
+         * @description The tuning an application's unit must have: all of it, an empty one removes it.
+         */
+        UnitTuningRequest: {
+            options: components["schemas"]["UnitTuningOptions"];
+            /**
+             * Restart
+             * @description Restart it now, behind the health gate, so it runs under the new options
+             * @default true
+             */
+            restart: boolean;
+        };
+        /**
+         * UnitTuningResponse
+         * @description How an application's unit is tuned.
+         */
+        UnitTuningResponse: {
+            /**
+             * Capabilities
+             * @description Every capability that can be given, and what it is for
+             */
+            capabilities?: {
+                [key: string]: string;
+            };
+            /**
+             * Configured
+             * @description Whether anything is set
+             */
+            configured: boolean;
+            /**
+             * Cpus
+             * @description CPUs this machine has
+             * @default 1
+             */
+            cpus: number;
+            /**
+             * Directives
+             * @description The unit lines the options become
+             */
+            directives?: string[];
+            /** Domain */
+            domain: string;
+            /**
+             * Eligible
+             * @description Whether its unit can be tuned
+             */
+            eligible: boolean;
+            /**
+             * Gpu Presets
+             * @description Each GPU preset and the device groups it allows
+             */
+            gpu_presets?: {
+                [key: string]: string[];
+            };
+            options?: components["schemas"]["UnitTuningOptions"];
+            /**
+             * Reason
+             * @description Why it cannot, when it cannot
+             */
+            reason?: string | null;
         };
         /**
          * UnknownHostsRequest
@@ -49051,6 +50059,13 @@ export interface components {
              * @description Name to 'both', 'build' or 'runtime' for the variables whose audience changes; a name left out keeps the one it has
              */
             audience?: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Comments
+             * @description Name to the comment kept above the variable in the .env, over the ones it has; empty text takes one away, a name left out keeps its comment. A value may hold several lines (a private key) but no single quote; a comment is plain text of up to 500 characters
+             */
+            comments?: {
                 [key: string]: string;
             } | null;
             /**
@@ -53466,6 +54481,39 @@ export interface operations {
             };
         };
     };
+    adopt_site_api_apps_adopt_site_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdoptSiteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdoptSiteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     import_app_api_apps_import_post: {
         parameters: {
             query?: never;
@@ -53528,6 +54576,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_native_sites_api_apps_native_sites_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NativeSitesResponse"];
                 };
             };
         };
@@ -53606,6 +54674,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_adoption_api_apps__domain__adoption_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdoptionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -54276,6 +55375,37 @@ export interface operations {
             };
         };
     };
+    get_compose_variables_api_apps__domain__compose_variables_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComposeVariablesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_app_container_api_apps__domain__container_get: {
         parameters: {
             query?: never;
@@ -54891,6 +56021,138 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DiagnoseResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_disk_api_apps__domain__disk_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiskResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_disk_api_apps__domain__disk_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiskLimitRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiskResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_disk_kernel_api_apps__domain__disk_kernel_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiskKernelRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_disk_measure_api_apps__domain__disk_measure_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -58358,6 +59620,37 @@ export interface operations {
             };
         };
     };
+    get_replication_api_apps__domain__replication_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplicationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     restart_app_api_apps__domain__restart_post: {
         parameters: {
             query?: never;
@@ -59238,6 +60531,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TerminalTicketResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_tuning_api_apps__domain__tuning_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitTuningResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_tuning_api_apps__domain__tuning_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnitTuningRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -63586,6 +64945,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CronActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    job_ledger_api_cron__name__ledger_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CronLedgerResponse"];
                 };
             };
             /** @description Validation Error */

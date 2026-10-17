@@ -55,7 +55,9 @@ from noust.deployers.base import BaseDeployer
 from noust.deployers.compose_paste import analyze_document, write_document
 from noust.deployers.helpers.app_env import (
     check_app_env,
+    check_comments,
     read_app_env,
+    read_comments_of,
     read_environment_of,
     refresh_app_env,
     write_app_env,
@@ -546,6 +548,11 @@ class AppEnvResponse(BaseModel):
         description="What Noust itself gives the application about its deployment "
         "(NOUST_URL, NOUST_BRANCH...); read-only, and not part of 'variables'",
     )
+    comments: dict[str, str] = Field(
+        default_factory=dict,
+        description="The comment kept above a variable in the .env, only for the ones that "
+        "have one; lines are separated by a line feed",
+    )
 
 
 class UpdateAppEnvRequest(BaseModel):
@@ -561,6 +568,13 @@ class UpdateAppEnvRequest(BaseModel):
         default=None,
         description="Name to 'both', 'build' or 'runtime' for the variables whose audience "
         "changes; a name left out keeps the one it has",
+    )
+    comments: dict[str, str] | None = Field(
+        default=None,
+        description="Name to the comment kept above the variable in the .env, over the ones "
+        "it has; empty text takes one away, a name left out keeps its comment. A value may "
+        "hold several lines (a private key) but no single quote; a comment is plain text of "
+        "up to 500 characters",
     )
 
 
@@ -1861,6 +1875,7 @@ def get_app_env(
         "audience": dict(environment.audience),
         "references": dict(environment.expressions),
         "predefined": predefined_for(app),
+        "comments": read_comments_of(app),
     }
 
     if unmask:
@@ -1928,7 +1943,7 @@ def update_app_env(
     before = read_app_env(app)
 
     try:
-        write_app_env(app, body.variables, audience=body.audience)
+        write_app_env(app, body.variables, audience=body.audience, comments=body.comments)
     except EnvironmentValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -1960,6 +1975,11 @@ class MergeAppEnvRequest(BaseModel):
 
     set: dict[str, str] = Field(default_factory=dict, description="Variables to set")
     unset: list[str] = Field(default_factory=list, description="Variables to remove")
+    comments: dict[str, str] | None = Field(
+        default=None,
+        description="Name to the comment kept above the variable in the .env, over the ones "
+        "it has; empty text takes one away",
+    )
     dry_run: bool = Field(default=False, description="Only say what would change")
 
 
@@ -2019,11 +2039,14 @@ def merge_app_env(
     merged = {name: value for name, value in before.items() if name not in set(body.unset)}
     merged.update(body.set)
     changed = sorted(key for key in set(before) | set(merged) if before.get(key) != merged.get(key))
+    wanted = body.comments
     try:
         if body.dry_run:
             check_app_env(app, merged)
-        elif changed:
-            write_app_env(app, merged)
+            if wanted:
+                check_comments(wanted, merged)
+        elif changed or wanted:
+            write_app_env(app, merged, comments=wanted)
     except EnvironmentValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     if changed and not body.dry_run:

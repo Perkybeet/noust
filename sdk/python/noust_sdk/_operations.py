@@ -51,11 +51,14 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("applications", "list_apps"): ("GET", "/api/apps", "apps.read", False),
     ("applications", "create_app"): ("POST", "/api/apps", "apps.manage", False),
     ("applications", "adopt_app"): ("POST", "/api/apps/adopt", "apps.manage", True),
+    ("applications", "adopt_site"): ("POST", "/api/apps/adopt-site", "apps.manage", True),
     ("applications", "import_app"): ("POST", "/api/apps/import", "apps.manage", True),
     ("applications", "inspect_app_source"): ("POST", "/api/apps/inspect", "apps.manage", False),
+    ("applications", "list_native_sites"): ("GET", "/api/apps/native-sites", "apps.manage", False),
     ("applications", "list_app_types"): ("GET", "/api/apps/types", "apps.read", False),
     ("applications", "get_app"): ("GET", "/api/apps/{domain}", "apps.read", False),
     ("applications", "delete_app"): ("DELETE", "/api/apps/{domain}", "apps.manage", True),
+    ("applications", "get_adoption"): ("GET", "/api/apps/{domain}/adoption", "apps.read", False),
     ("applications", "apply"): ("POST", "/api/apps/{domain}/apply", "root_equivalent", True),
     ("applications", "patch_backup_before_update"): ("PATCH", "/api/apps/{domain}/backup-before-update", "apps.manage", True),
     ("applications", "get_backup_required"): ("GET", "/api/apps/{domain}/backup-required", "apps.read", False),
@@ -70,6 +73,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("applications", "get_compose_settings"): ("GET", "/api/apps/{domain}/compose", "apps.read", False),
     ("applications", "put_compose_settings"): ("PUT", "/api/apps/{domain}/compose", "apps.manage", True),
     ("applications", "delete_compose_settings"): ("DELETE", "/api/apps/{domain}/compose", "apps.manage", True),
+    ("applications", "get_compose_variables"): ("GET", "/api/apps/{domain}/compose/variables", "apps.read", False),
     ("applications", "get_app_container"): ("GET", "/api/apps/{domain}/container", "apps.read", False),
     ("applications", "put_app_container"): ("PUT", "/api/apps/{domain}/container", "apps.manage", False),
     ("applications", "get_declaration"): ("GET", "/api/apps/{domain}/declaration", "secrets.reveal", False),
@@ -82,6 +86,10 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("applications", "cancel_rotation"): ("DELETE", "/api/apps/{domain}/deploy-key/rotate", "apps.manage", False),
     ("applications", "test_deploy_key"): ("POST", "/api/apps/{domain}/deploy-key/test", "apps.manage", False),
     ("applications", "diagnose_app"): ("GET", "/api/apps/{domain}/diagnose", "apps.read", False),
+    ("applications", "get_disk"): ("GET", "/api/apps/{domain}/disk", "apps.read", False),
+    ("applications", "put_disk"): ("PUT", "/api/apps/{domain}/disk", "apps.manage", False),
+    ("applications", "put_disk_kernel"): ("PUT", "/api/apps/{domain}/disk/kernel", "apps.manage", True),
+    ("applications", "post_disk_measure"): ("POST", "/api/apps/{domain}/disk/measure", "apps.operate", False),
     ("applications", "get_app_env"): ("GET", "/api/apps/{domain}/env", "apps.read", False),
     ("applications", "update_app_env"): ("PUT", "/api/apps/{domain}/env", "apps.manage", True),
     ("applications", "merge_app_env"): ("PATCH", "/api/apps/{domain}/env", "apps.manage", True),
@@ -149,6 +157,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("applications", "promote_release_post"): ("POST", "/api/apps/{domain}/releases/{release_id}/promote", "apps.deploy", False),
     ("applications", "get_replicas"): ("GET", "/api/apps/{domain}/replicas", "apps.read", False),
     ("applications", "put_replicas"): ("PUT", "/api/apps/{domain}/replicas", "apps.manage", True),
+    ("applications", "get_replication"): ("GET", "/api/apps/{domain}/replication", "apps.read", False),
     ("applications", "restart_app"): ("POST", "/api/apps/{domain}/restart", "apps.operate", False),
     ("applications", "list_rollback_points"): ("GET", "/api/apps/{domain}/rollback-points", "apps.read", False),
     ("applications", "get_rollout"): ("GET", "/api/apps/{domain}/rollout", "apps.read", False),
@@ -171,6 +180,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("applications", "check_app_sqlite"): ("POST", "/api/apps/{domain}/sqlite/check", "apps.operate", False),
     ("applications", "start_app"): ("POST", "/api/apps/{domain}/start", "apps.operate", False),
     ("applications", "stop_app"): ("POST", "/api/apps/{domain}/stop", "apps.operate", False),
+    ("applications", "get_tuning"): ("GET", "/api/apps/{domain}/tuning", "apps.read", False),
+    ("applications", "put_tuning"): ("PUT", "/api/apps/{domain}/tuning", "apps.manage", True),
     ("applications", "get_update_schedule"): ("GET", "/api/apps/{domain}/update-schedule", "apps.read", False),
     ("applications", "put_update_schedule"): ("PUT", "/api/apps/{domain}/update-schedule", "apps.manage", False),
     ("applications", "delete_update_schedule"): ("DELETE", "/api/apps/{domain}/update-schedule", "apps.manage", False),
@@ -320,6 +331,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("cron_jobs", "delete_job"): ("DELETE", "/api/cron/{name}", "apps.manage", True),
     ("cron_jobs", "disable_job"): ("POST", "/api/cron/{name}/disable", "apps.operate", False),
     ("cron_jobs", "enable_job"): ("POST", "/api/cron/{name}/enable", "apps.operate", False),
+    ("cron_jobs", "job_ledger"): ("GET", "/api/cron/{name}/ledger", "apps.read", False),
     ("cron_jobs", "run_job"): ("POST", "/api/cron/{name}/run", "apps.operate", False),
     ("cron_jobs", "job_runs"): ("GET", "/api/cron/{name}/runs", "apps.read", False),
     ("dns", "get_app_dns"): ("GET", "/api/apps/{domain}/dns", "apps.read", False),
@@ -1055,7 +1067,7 @@ class Alerts:
 
 
 class Applications:
-    """Applications: 139 operations."""
+    """Applications: 150 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -1084,6 +1096,14 @@ class Applications:
         Needs: permission `apps.manage`, sudo mode."""
         return self._call("POST", "/api/apps/adopt", query=None, body=body)
 
+    def adopt_site(self, body: "AdoptSiteRequest") -> "AdoptSiteResponse":
+        """POST /api/apps/adopt-site
+
+        Adopt Site
+
+        Needs: permission `apps.manage`, sudo mode."""
+        return self._call("POST", "/api/apps/adopt-site", query=None, body=body)
+
     def import_app(self, body: "ImportAppRequest") -> "JobAcceptedResponse":
         """POST /api/apps/import
 
@@ -1099,6 +1119,14 @@ class Applications:
 
         Needs: permission `apps.manage`."""
         return self._call("POST", "/api/apps/inspect", query=None, body=body)
+
+    def list_native_sites(self) -> "NativeSitesResponse":
+        """GET /api/apps/native-sites
+
+        List Native Sites
+
+        Needs: permission `apps.manage`."""
+        return self._call("GET", "/api/apps/native-sites", query=None, body=None)
 
     def list_app_types(self) -> "AppTypesResponse":
         """GET /api/apps/types
@@ -1123,6 +1151,14 @@ class Applications:
 
         Needs: permission `apps.manage`, sudo mode."""
         return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}", query={"remove_files": remove_files, "remove_ssl": remove_ssl, "remove_adopted_directory": remove_adopted_directory}, body=None)
+
+    def get_adoption(self, domain: str) -> "AdoptionResponse":
+        """GET /api/apps/{domain}/adoption
+
+        Get Adoption
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/adoption", query=None, body=None)
 
     def apply(self, domain: str, body: "ApplyRequest") -> "ApplyResponse":
         """POST /api/apps/{domain}/apply
@@ -1236,6 +1272,14 @@ class Applications:
         Needs: permission `apps.manage`, sudo mode."""
         return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}/compose", query=None, body=None)
 
+    def get_compose_variables(self, domain: str) -> "ComposeVariablesResponse":
+        """GET /api/apps/{domain}/compose/variables
+
+        Get Compose Variables
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/compose/variables", query=None, body=None)
+
     def get_app_container(self, domain: str) -> "ContainerSettingsResponse":
         """GET /api/apps/{domain}/container
 
@@ -1331,6 +1375,38 @@ class Applications:
 
         Needs: permission `apps.read`."""
         return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/diagnose", query=None, body=None)
+
+    def get_disk(self, domain: str) -> "DiskResponse":
+        """GET /api/apps/{domain}/disk
+
+        Get Disk
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/disk", query=None, body=None)
+
+    def put_disk(self, domain: str, body: "DiskLimitRequest") -> "DiskResponse":
+        """PUT /api/apps/{domain}/disk
+
+        Put Disk
+
+        Needs: permission `apps.manage`."""
+        return self._call("PUT", f"/api/apps/{quote(str(domain), safe='')}/disk", query=None, body=body)
+
+    def put_disk_kernel(self, domain: str, body: "DiskKernelRequest") -> "JobAcceptedResponse":
+        """PUT /api/apps/{domain}/disk/kernel
+
+        Put Disk Kernel
+
+        Needs: permission `apps.manage`, sudo mode."""
+        return self._call("PUT", f"/api/apps/{quote(str(domain), safe='')}/disk/kernel", query=None, body=body)
+
+    def post_disk_measure(self, domain: str) -> "JobAcceptedResponse":
+        """POST /api/apps/{domain}/disk/measure
+
+        Post Disk Measure
+
+        Needs: permission `apps.operate`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/disk/measure", query=None, body=None)
 
     def get_app_env(self, domain: str, *, unmask: Union[bool, None] = None) -> "AppEnvResponse":
         """GET /api/apps/{domain}/env
@@ -1868,6 +1944,14 @@ class Applications:
         Needs: permission `apps.manage`, sudo mode."""
         return self._call("PUT", f"/api/apps/{quote(str(domain), safe='')}/replicas", query=None, body=body)
 
+    def get_replication(self, domain: str) -> "ReplicationResponse":
+        """GET /api/apps/{domain}/replication
+
+        Get Replication
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/replication", query=None, body=None)
+
     def restart_app(self, domain: str) -> "AppActionResponse":
         """POST /api/apps/{domain}/restart
 
@@ -2043,6 +2127,22 @@ class Applications:
 
         Needs: permission `apps.operate`."""
         return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/stop", query=None, body=None)
+
+    def get_tuning(self, domain: str) -> "UnitTuningResponse":
+        """GET /api/apps/{domain}/tuning
+
+        Get Tuning
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/tuning", query=None, body=None)
+
+    def put_tuning(self, domain: str, body: "UnitTuningRequest") -> "JobAcceptedResponse":
+        """PUT /api/apps/{domain}/tuning
+
+        Put Tuning
+
+        Needs: permission `apps.manage`, sudo mode."""
+        return self._call("PUT", f"/api/apps/{quote(str(domain), safe='')}/tuning", query=None, body=body)
 
     def get_update_schedule(self, domain: str) -> "UpdateScheduleOut":
         """GET /api/apps/{domain}/update-schedule
@@ -3287,7 +3387,7 @@ class Console:
 
 
 class CronJobs:
-    """Cron Jobs: 8 operations."""
+    """Cron Jobs: 9 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -3339,6 +3439,14 @@ class CronJobs:
 
         Needs: permission `apps.operate`."""
         return self._call("POST", f"/api/cron/{quote(str(name), safe='')}/enable", query=None, body=None)
+
+    def job_ledger(self, name: str, *, days: Union[int, None] = None) -> "CronLedgerResponse":
+        """GET /api/cron/{name}/ledger
+
+        Job Ledger
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/cron/{quote(str(name), safe='')}/ledger", query={"days": days}, body=None)
 
     def run_job(self, name: str) -> "CronActionResponse":
         """POST /api/cron/{name}/run
