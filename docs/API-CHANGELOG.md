@@ -45,6 +45,12 @@ Each release has up to four lists:
     (`apps.manage`) and `PUT .../compose/document` (`apps.manage`, sudo mode) read, judge and
     keep the Compose document of a stack deployed from one; `editable` and `reason` say when a
     stack has none.
+- `POST /api/fleet/placements/{domain}/rollout` follows the application's build server: with one
+  recorded it is planned and run as the shipment (`.../ship`) and the plan's `action` says
+  `placement_ship`; `build_on_each` builds on every server instead, and a git tag, a registry image
+  tag or a build server that is itself a member are rolled out as before, with the reason in the
+  plan's notes. Its options gain `build_on_each`. An application without a build server is
+  unchanged.
 - The export document ([delivery.md](delivery.md)) carries `mounts` (a file's text only with
   `with_secrets`), `container` (the settings of a container application, never its registry
   password or build-secret values), and, as `GET /api/apps/{domain}/export` and `POST

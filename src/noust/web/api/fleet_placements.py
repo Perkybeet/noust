@@ -148,6 +148,7 @@ class RolloutIn(BaseModel):
         tag: Deploy the commit this tag points at.
         image_tag: For an application that runs a registry image: the tag every server pulls.
         force: Rebuild even a server already on it.
+        build_on_each: Build on every server even though the application has a build server.
         rollback_on_failure: Put the servers already moved back if it stops; the
             placement's own setting when absent.
         serial: Servers at a time; the placement's own when absent.
@@ -160,6 +161,7 @@ class RolloutIn(BaseModel):
     tag: str | None = None
     image_tag: str | None = None
     force: bool = False
+    build_on_each: bool = False
     rollback_on_failure: bool | None = None
     serial: int | str | None = None
     max_failures: int | None = None
@@ -475,8 +477,12 @@ async def rollout(
     Roll the application out over its servers: one commit everywhere, put back if it stops.
 
     The first server goes alone and builds the head of the branch (or the commit or tag asked
-    for); the commit it ends on is what the others are asked for. Planned and queued like a
-    bulk action: sudo mode when a server's schema asks for it, a job to follow, a record per server.
+    for); the commit it ends on is what the others are asked for. An application with a build
+    server (``/api/fleet/builders``) is built there once and the release is sent to the servers,
+    exactly as ``.../ship`` does (the plan's ``action`` says which); ``build_on_each`` builds on
+    every server instead, and a tag or an image tag, which a build server does not build, is rolled
+    out the ordinary way with the reason in the plan notes. Planned and queued like a bulk action:
+    sudo mode when a server's schema asks for it, a job to follow, a record per server.
 
     Args:
         domain: The application.
@@ -491,12 +497,14 @@ async def rollout(
         HTTPException: 404 when the application is not placed.
         ValidationError: A server does not run the application, or a value is invalid.
     """
-    from noust.web.fleet_placement_actions import rollout_request
+    from noust.web.fleet_ship_actions import update_request
 
     placement, manager = _known(domain)
-    fleet_request = rollout_request(
+    fleet_request = update_request(
         placement,
         _members(placement, manager),
+        manager=manager,
+        build_on_each=body.build_on_each,
         commit=body.commit,
         tag=body.tag,
         image_tag=body.image_tag,
@@ -533,28 +541,23 @@ async def ship(domain: str, request: Request, body: ShipIn, session: Session) ->
         HTTPException: 404 when the application is not placed.
         ValidationError: There is no builder, a server is not ready for it, or a value is invalid.
     """
-    from noust.web.fleet_ship_actions import ship_request
+    from noust.web.fleet_ship_actions import placement_ship_request
 
     placement, manager = _known(domain)
     members = body.to if body.to is not None else _members(placement, manager)
-    chosen = body.canary or (placement.canary if placement.canary in members else None)
-    fleet_request = ship_request(
-        placement.domain,
-        list(members),
+    fleet_request = placement_ship_request(
+        placement,
+        members,
         builder=body.builder,
         commit=body.commit,
         keep=body.keep,
         schema_changed_ok=body.schema_changed_ok,
         frozen_ok=body.frozen_ok,
         force=body.force,
-        rollback_on_failure=(
-            placement.rollback_on_failure
-            if body.rollback_on_failure is None
-            else body.rollback_on_failure
-        ),
-        serial=body.serial if body.serial is not None else placement.serial,
-        max_failures=body.max_failures if body.max_failures is not None else placement.max_failures,
-        canary=chosen,
+        rollback_on_failure=body.rollback_on_failure,
+        serial=body.serial,
+        max_failures=body.max_failures,
+        canary=body.canary,
     )
     return await _plan_and_start(request, session, fleet_request, body.plan)
 
