@@ -394,8 +394,22 @@ from 3.1 on is not accepted where sudo mode is asked unless it was issued with
 behaviour and are adopted by the first `admin` account; fleet tokens belong to a central and are
 never adopted. Tokens start with `noust_tok_` (`wasm_tok_` before 3.0; those keep working), are
 shown once, and only their salted hash is kept. `noust token list` shows every token ever
-issued, live and revoked, without the token itself; `noust token revoke ID` takes effect on the
-next request.
+issued, live and revoked, without the token itself, and where each is accepted from;
+`noust token revoke ID` takes effect on the next request.
+
+*Where a token works from* is chosen at issue (`noust token create --allow-ip ADDR/CIDR`, repeatable)
+and can be changed on a live token without issuing another and breaking what uses it:
+`noust token set ID --allow-ip ADDR/CIDR` replaces the list and `--any-ip` lifts it, in the console's
+Settings > API tokens too (`PATCH /api/auth/tokens/{id}`). Taking addresses away is immediate;
+adding some or lifting the limit asks for sudo mode, because it widens what a stolen token can do.
+A person changes their own tokens and nobody else's, and each change is on the audit trail
+(`auth.token.update`) with the networks before and after.
+
+*Turning the API off for tokens.* A server whose scripts do not use the API can set
+`web.api_enabled: false`: every API token then gets `403 api_disabled`, while the console (which
+signs in with a session) carries on and a central's fleet token keeps working, because that is how a
+central reaches its node. It is read on every request, so it applies without a restart; a value that
+cannot be read leaves the API on rather than lock scripts out over a typo.
 
 **Sessions.** Signing in creates a server-side session in `/etc/noust/web-sessions.db`.
 

@@ -1,4 +1,4 @@
-# Single sign-on (OpenID Connect)
+# Single sign-on, directories and provisioning
 
 Noust 3.4 lets people sign in to the console with the identity provider the organisation already
 has: Keycloak, Authentik, Okta, Auth0, Microsoft Entra, Google Workspace, or any server that speaks
@@ -16,8 +16,20 @@ own second factor, an authenticator or a passkey, exactly as after a password. S
 [The second factor](#the-second-factor).
 
 This is the one implementation of the rules for both the console (`/api/auth/oidc`) and the
-command line (`noust auth oidc`). SAML, SCIM and LDAP are not in 3.4; the design leaves room for
-them ([What is not here](#what-is-not-here)).
+command line (`noust auth oidc`). Three more ways to the same admission follow the OpenID Connect
+chapters: [SAML 2.0](#saml-20), [a directory](#directories-ldap-active-directory) (LDAP and Active
+Directory) and [provisioning](#provisioning-scim) (SCIM). Which to use:
+
+| If the organisation has | Use | People sign in with |
+|---|---|---|
+| An OpenID Connect provider (Keycloak, Okta, Entra, Google) | `noust auth oidc` | A button; the provider's own page |
+| A provider that only speaks SAML (ADFS, Shibboleth, an Entra enterprise app) | `noust auth saml` | A button; the provider's own page |
+| An LDAP or Active Directory server and no provider in front of it | `noust auth ldap` | The sign-in page's name and password |
+| Any provider, and a need to retire access when someone leaves | `noust auth scim`, beside one of the above | (it signs nobody in) |
+
+All of them are one admission (`noust.core.accounts.federation`): who comes in, what a new account
+starts as, what groups mean, and **the account's own second factor, which none of them replaces**. A
+name belongs to one source, whatever its protocol.
 
 ## How a sign-in goes
 
@@ -157,8 +169,175 @@ noust auth oidc set corp --group-sync \
   `oidc:<provider>`).
 * If separation of duties refuses the role the groups give, the sign-in is refused: it fails closed.
 
+* **Roles at a scope**: `--map-binding GROUP=ROLE@TEAM[/PROJECT[/ENVIRONMENT]]` gives a role held at
+  a project or an environment, built-in or custom (`release-manager@acme/web`), as an access binding
+  marked with its source (`oidc:corp`, `saml:entra`). It is never `security`, `auditor` or `owner`, and it is taken back when the
+  group is left, like the rest.
+* **The same options on every source**: `noust auth oidc|saml|ldap|scim set` take `--group-sync`,
+  `--map-role`, `--map-team`, `--map-binding` and `--clear-mappings`, and the console has one box for
+  them (`GROUP=ROLE`, `GROUP=TEAM:ROLE`, `GROUP=ROLE@TEAM/PROJECT`, one per line; everything before the
+  last `=` is the group, so a directory's group name can hold commas and equals signs).
+
 Providers that put too many groups in the token send a pointer instead (Microsoft Entra above 200); Noust reads
 only what is in the token and the userinfo answer.
+
+## SAML 2.0
+
+For the provider that only speaks SAML: Microsoft Entra enterprise applications, Okta, Keycloak,
+ADFS, Shibboleth, Google Workspace's SAML apps. It is the same admission as OpenID Connect (who comes
+in, groups, the second factor); only the protocol that proves the person differs.
+
+```
+noust auth saml set entra --metadata-file entra-federation-metadata.xml --label "Entra ID" \
+    --provisioning invite --allowed-domain acme.test
+noust auth saml metadata entra --origin https://noust.acme.test > noust-service-provider.xml
+noust auth saml test entra --origin https://noust.acme.test
+```
+
+1. **Register Noust at the provider** as a service provider. `noust auth saml metadata NAME` prints
+   the document the provider can import, and the console serves it, without a credential, at
+   `https://<the console's name>/api/auth/saml/metadata/NAME`. It says the **entity id** (that same
+   address, unless `--sp-entity-id` sets another), the **response URL** the signed answer is posted to
+   (`https://<the console's name>/api/auth/saml/acs`, HTTP-POST binding) and that assertions must be
+   signed.
+2. **Tell Noust who the provider is**: its metadata (`--metadata-file FILE`, or `-` for standard
+   input), or `--entity-id`, `--sso-url` and one `--certificate-file` per signing certificate. The
+   certificates are the **only** keys a signature is checked with; a key the message carries is never
+   used. During a rollover give the old and the new together; giving the list again replaces it.
+3. **Say how people are found**: by default a person is their `NameID`, which must be a persistent
+   identifier. `--subject-attribute` names another attribute; `--email-attribute`, `--name-attribute`,
+   `--username-attribute` and `--groups-attribute` say where the rest is. A `NameID` that declares itself
+   an e-mail address is read as one; a persistent one never is.
+4. **Check it**: `noust auth saml test NAME` reads the certificates (and says how long they are good
+   for), the sign-in address and, with `--origin` (or `web.public_url`), what Noust tells the provider.
+
+**A sign-in** goes like the OpenID Connect one: `GET /api/auth/saml/start?provider=NAME` remembers the
+request (its ID, valid ten minutes, single use) and redirects with an `AuthnRequest` over the
+HTTP-Redirect binding; the provider posts its signed response to `POST /api/auth/saml/acs`; Noust
+verifies it, decides who the person is, and redirects to the sign-in page with the same single-use
+ticket, collected at `POST /api/auth/oidc/complete`. The provider is a first factor; the account's own
+second factor follows ([below](#the-second-factor)).
+
+**What Noust checks.** The XML is read under a strict profile (`noust.core.accounts.saml_xml`):
+
+* No DTD, entity, comment or processing instruction anywhere: a signed document never needs them and
+  they are how two parsers read one message two ways.
+* The signature is an enveloped one on the assertion, or on the response that holds it, made with RSA or
+  ECDSA and SHA-256 or stronger (SHA-1 and RSA keys under 2048 bits are refused), over **exclusive
+  canonicalisation** without comments. It has **one reference, to the element it is in by its own `ID`**,
+  and every `ID` in the message is unique: that is what defeats signature wrapping. What is read is what
+  was verified, never a copy elsewhere in the document; a response with a second assertion, or one moved
+  elsewhere, is refused.
+* The issuer is the provider's entity id; the audience is this server's entity id; the destination and
+  the recipient of the bearer confirmation are this server's response URL; the response answers **the
+  request this sign-in made** (`InResponseTo`); the time conditions hold, with `--clock-skew` of
+  tolerance (60 s, 300 at most); a condition Noust does not know is a refusal; the assertion's own `ID`
+  is kept, as a digest, until it could no longer be valid, so it cannot be presented twice.
+* The identifier is `NameID` or `--subject-attribute`; the e-mail, the name and the groups are
+  attributes. A required authentication context class can be named with `--require-context` (stricter,
+  never looser).
+
+**What it will not do**, said plainly:
+
+* **A sign-in the provider starts** (an unsolicited response, the "IdP-initiated" flow) is refused: it
+  has no request to answer, which is what makes a replayed response detectable at all. Start the
+  sign-in from the console's button; where a provider only offers its own portal tile, point the tile
+  at `https://<the console>/api/auth/saml/start?provider=NAME`.
+* **Encrypted assertions** are refused. The connection is TLS already; a decryption key is one more
+  secret to keep. Turn encryption off at the provider and keep the signature.
+* The `AuthnRequest` is **not signed**. Providers that insist on a signed request cannot be used.
+* **Single logout** is not implemented: ending a session at the provider does not end the console's.
+  Disabling the account (`noust user disable`, or SCIM) does.
+* The metadata is read, not verified: if it carries a signature it is ignored, and what it says is
+  shown for you to check against what the provider's administrator tells you.
+* **It needs HTTPS.** The answer is a form the provider's page posts to the console, a cross-site POST,
+  and a browser only sends the binding cookie with it when the cookie is `SameSite=None; Secure`. Over
+  plain HTTP no SAML sign-in can finish, and `noust auth saml test` says so.
+* The code is Noust's own (about a thousand lines over the standard library and `cryptography`, which
+  passkeys and OpenID Connect already use, imported only when SAML is). No SAML library was added as a
+  dependency. It has tests for the attacks above (`tests/test_saml.py`, `tests/test_saml_xml.py`) but no
+  third-party audit: try a new provider with an account you can afford to lose before turning anything
+  else off.
+
+## Directories (LDAP, Active Directory)
+
+For the organisation that keeps its people in a directory and wants one password for everything. The
+sign-in page asks which directory to sign in against and takes the **name and password the person has
+there**.
+
+```
+noust auth ldap set ad --host ldap.acme.test --user-base ou=people,dc=acme,dc=test \
+    --bind-dn cn=noust,ou=system,dc=acme,dc=test --prompt-password \
+    --provisioning invite --label "Acme directory"
+noust auth ldap test ad
+```
+
+* **The directory proves the password.** Noust finds the person with a search you write as a template
+  (`--user-filter`, default `(&(objectClass=person)(uid={username}))`), then **binds as the entry it
+  found**; it never compares, stores or sends an empty password (an empty password with a name is an
+  anonymous bind, which most directories accept). What was typed goes into the search as one escaped
+  value (RFC 4515): it can never add a condition. A name that matches two entries refuses the sign-in.
+* **Who a person is** is the directory's stable identifier (`--subject-attribute`: `entryUUID` for
+  OpenLDAP, 389 and FreeIPA, `objectGUID` for Active Directory, which is kept as hex), never their name
+  or their e-mail. An entry without one is refused. For Active Directory: `--user-filter
+  '(&(objectClass=user)(sAMAccountName={username}))' --subject-attribute objectGUID --username-attribute
+  sAMAccountName`.
+* **The service account** (`--bind-dn`) searches. Its password is typed at a hidden prompt or piped
+  with `--password-stdin`, never an argument, and is kept in `secrets/ldap/<name>` (0600), never in the
+  database or `noust config show`. Without `--bind-dn` the search is anonymous.
+* **The connection is TLS**: `--tls ldaps` (port 636, the default) or `--tls starttls` (389), with the
+  certificate and host name verified (`--ca-file` for a private authority). Plain text is possible only
+  to this machine. The host passes the same outbound guard as every address somebody typed: a directory
+  on a private network is allowed by naming it in `security.allow_private_hosts`. Every message is
+  bounded and the whole exchange has a deadline (`--timeout`).
+* **Groups** come from `--groups-attribute` (`memberOf`), or a search (`--group-base`,
+  `--group-filter` with `{dn}` and `{username}`), and go through the [mapping](#groups) like the other
+  sources'.
+* **A wrong name and a wrong password are one answer**, counted against the address and the name like a
+  wrong password; a directory that cannot be reached is a `503` and is not counted; what was typed never
+  reaches the audit trail.
+* The client is a few hundred lines of BER over the standard library, not a dependency: bind, search,
+  StartTLS and unbind. **Not there**: SASL, referrals, paged results and the nested-group matching rules
+  of Active Directory (list the groups a person is in on the entry, or search them).
+
+## Provisioning (SCIM)
+
+Retiring a person at the identity provider has to retire their access, and waiting for their next
+sign-in is too late: a session or an API token they hold keeps working. **SCIM 2.0** (RFC 7643 and 7644)
+is how the provider says so as it happens. Noust is the SCIM server; the provider calls it.
+
+```
+noust auth scim set entra --label "Entra ID" --default-role viewer --allowed-domain acme.test \
+    --group-sync --map-role noust-ops=operator
+```
+
+The first run prints the **endpoint** (`https://<the console>/api/scim/v2`) and a **bearer token**,
+once. Give both to the provider (Entra: *Provisioning > Tenant URL* and *Secret token*; Okta: the SCIM
+2.0 connector's base URL and *HTTP Header* authentication). Only a SHA-256 of the token is kept, 256
+random bits needing no slow hash; `--rotate-token` issues another and the old one stops at once.
+
+What a provider can and cannot do:
+
+* **It creates the accounts of people it tells Noust about.** They are `invited` and have no credential:
+  the person's first sign-in at an identity provider (OpenID Connect, SAML or a directory), whose
+  verified e-mail is the account's, activates it. SCIM keeps the roster; single sign-on signs people in;
+  the e-mail ties them. `--link-by-email` attaches the person to an account that already has that
+  e-mail, as a first sign-in would, with the same conditions.
+* **It switches an account off** when the person is deactivated or deleted at the provider, which ends
+  their sessions and API tokens at once, and **back on only if it was the provider that switched it
+  off**: an administrator's own decision is never overridden.
+* **Its groups**, pushed as they change, go through the same mapping every source has: roles, team
+  memberships and roles at a project or environment. Leaving a group takes effect at once.
+* **It never** reaches an account it did not provision, changes an account's e-mail (separation of
+  duties is judged by it), deletes an account (the audit trail keeps naming somebody), or gives
+  `security`, `auditor` or a team `owner`.
+* Supported: `/Users` and `/Groups` with `GET` (the filter every provider uses, `userName eq "..."`,
+  `externalId eq` or `id eq`, and `displayName eq` for groups; paging), `POST`, `PUT`, `PATCH` (the forms
+  Entra and Okta send) and `DELETE`; `/ServiceProviderConfig`, `/ResourceTypes` and `/Schemas`. Any other
+  filter is a `400 invalidFilter` rather than ignored.
+
+`noust auth scim show` lists the sources; `noust auth scim users NAME` lists who a source provisioned. A
+wrong token is a `401` counted against the address like a wrong password.
 
 ## The second factor
 
@@ -237,6 +416,9 @@ What follows:
 | `auth.oidc.link`, `auth.oidc.unlink` | A person linked to or unlinked from an account, by hand or by the first sign-in. |
 | `auth.oidc.provision` | An account created or activated by a first sign-in. |
 | `auth.oidc.config` | A provider added, changed or removed, with the names of the settings (never the secret). |
+| `auth.saml.login`, `auth.saml.link`, `auth.saml.provision`, `auth.saml.config` | The same four for a SAML provider; a refused response names its reason (`saml_invalid` with what was wrong, `replay`, `binding`, `unknown_state`, `idp_status`). |
+| `auth.ldap.login`, `auth.ldap.link`, `auth.ldap.provision`, `auth.ldap.config` | The same four for a directory; what was typed is never in them. |
+| `auth.scim.provision`, `auth.scim.link`, `auth.scim.deprovision`, `auth.scim.update`, `auth.scim.denied`, `auth.scim.config` | A provider's calls: a person provisioned, attached to an account, switched off; a change or a request that was not applied; a call refused for its token; a source configured or its token issued. |
 | `user.role_change`, `team.member.add`, `team.member.remove` | What group sync changed, as `system:oidc:<provider>`. |
 
 ## Turning passwords and passkeys off
@@ -277,8 +459,8 @@ a short list is the point).
   (`noust web token`) for recovery.
 * **Taking somebody out.** Removing them at the provider stops them at their next sign-in, but a session
   they already hold lasts until it expires (`auth.session.absolute_hours`, 12 by default, 8 under ENS).
-  For now `noust user disable NAME` ends their sessions and tokens at once. Automatic de-provisioning
-  (SCIM) is not in 3.4.
+  `noust user disable NAME` ends their sessions and tokens at once, and so does a
+  [SCIM](#provisioning-scim) source when the provider deactivates the person.
 * **Rotating the client secret**: `noust auth oidc set corp --prompt-secret`. Changing the client id
   keeps the links. Changing the issuer does not: a link is keyed by the issuer exactly as the
   tokens write it, so links made under the old value no longer match (`noust auth oidc identities`
@@ -294,6 +476,14 @@ a short list is the point).
 
 Typical values; check the provider's own documentation.
 
+For SAML, what matters at the provider is the same everywhere: the service provider entity id and
+response URL from `noust auth saml metadata`, **assertions signed and not encrypted**, a persistent
+`NameID` (or an attribute that never changes) and the attributes `email`, `displayName` and `groups`
+(or the names you set with `--email-attribute`, `--name-attribute` and `--groups-attribute`).
+Microsoft Entra names its claims with long URIs; copy them as they appear in *Attributes & Claims*.
+Keycloak: client protocol *saml*, *Sign assertions* on, *Encrypt assertions* off. ADFS: a relying party
+trust whose *Signature* is the assertion's and with no encryption certificate.
+
 | Provider | Issuer | Notes |
 |---|---|---|
 | Keycloak | `https://HOST/realms/REALM` | Client with *Client authentication* on and the standard flow. Groups: add a *Group Membership* mapper (claim `groups`) or read roles with `--groups-claim realm_access>roles`. |
@@ -305,8 +495,10 @@ Typical values; check the provider's own documentation.
 
 ## What is not here
 
-* **SAML** (checklist I-20), **SCIM** (I-21) and **LDAP** (I-22) are not in 3.4. Identities are rows of
-  `account_identities` with a `protocol` column, so a SAML person is one more row; provisioning and group
-  sync already work from a list of claims, which is what a SAML assertion or a SCIM push would supply.
+* **SAML**: provider-initiated sign-in, encrypted assertions, signed requests and single logout (see
+  [SAML 2.0](#saml-20)).
+* **LDAP**: SASL, referrals, paged results and nested group matching rules (see
+  [Directories](#directories-ldap-active-directory)).
+* **SCIM**: bulk operations, sorting, `ETag`s and password changes; it never deletes an account.
 * **Multi-tenant providers** (several organisations behind one issuer, as Microsoft's `common` endpoint)
   are not supported: the issuer is one value, compared to `iss` exactly.

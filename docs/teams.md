@@ -98,6 +98,14 @@ noust access role create release-manager --permission apps.read --permission app
 * Every change is an audit event (`access.role.create`, `access.role.update`, `access.role.delete`,
   `access.bind`, `access.unbind`).
 
+**Roles given by a group.** An identity source can give a role at a scope to everyone in one of its
+groups, so that "contractors on the web project" is a group at the provider and not a list kept here
+([sso.md](sso.md#groups)): `noust auth oidc|saml|ldap|scim set NAME --group-sync --map-binding
+release=release-manager@acme/web` (`GROUP=ROLE@TEAM[/PROJECT[/ENVIRONMENT]]`; built-in or custom roles,
+never `security`, `auditor` or `owner`). The binding is recomputed at every sign-in (and as a SCIM
+provider pushes the group), marked with its source (`oidc:corp`, `saml:entra`), and taken back when the
+person leaves the group. A binding an administrator made by hand is never touched.
+
 **A scope is a project, not an application.** To give a person one application only, put that
 application in a project of its own (`noust app move`), which also gives it a place of its own in
 lists and tokens. Roles on a single application are not offered: a second kind of boundary would be a
