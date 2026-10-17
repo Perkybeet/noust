@@ -177,7 +177,7 @@ def rewrite_markers(
     Returns:
         The files rewritten.
     """
-    filesystem = fs or get_fs()
+    fs = fs or get_fs()
     copies = backup_to if backup_to is not None else paths.backup_dir() / "names-4.0"
     done: list[Path] = []
     for path in marker_files(roots):
@@ -185,10 +185,10 @@ def rewrite_markers(
             text = path.read_text(encoding="utf-8")
             mode = path.stat().st_mode & 0o7777
             copy = copies / str(path).lstrip("/")
-            filesystem.make_dir(copy.parent, mode=0o700, parents=True)
-            filesystem.write_text(copy, text, mode=0o600)
+            fs.make_dir(copy.parent, mode=0o700, parents=True)
+            fs.write_text(copy, text, mode=0o600)
             updated = text.replace(legacy_names.GENERATED_MARKER, paths.UNIT_MARKER, 1)
-            filesystem.write_text(path, updated, mode=mode)
+            fs.write_text(path, updated, mode=mode)
         except (OSError, UnicodeDecodeError) as exc:
             _logger.warning("Could not bring the marker of %s up to date: %s", path, exc)
             continue
