@@ -26,6 +26,7 @@ from noust.core.exceptions import PortError, ValidationError
 from noust.core.runner import FakeRunner
 from noust.core.store import App, AppType, NoustStore
 from noust.core.stream_store import OPEN, StreamExposure, StreamStore
+from noust.core.teams.scope import Scope, bind
 from noust.managers import port_claims as claims_module
 from noust.managers.port_claims import PortClaim, PortClaims
 
@@ -100,19 +101,31 @@ def test_an_application_holds_its_port_and_the_one_after_in_zero_downtime(
     assert claims.holder(3001) is None
 
 
-def test_the_sentence_does_not_name_an_application_unless_asked(
+def test_the_sentence_names_an_application_to_whoever_sees_them_all(
     claims: PortClaims, store: NoustStore
 ) -> None:
     store.create_app(App(domain="shop.example.com", app_path="/srv/shop", port=3000))
 
-    with pytest.raises(PortError) as hidden:
-        claims.require_free(3000)
-    assert "another application" in hidden.value.message
-    assert "shop.example.com" not in hidden.value.message + hidden.value.details
-
     with pytest.raises(PortError) as shown:
-        claims.require_free(3000, reveal=True)
+        claims.require_free(3000)
+
     assert "shop.example.com" in shown.value.message
+
+
+def test_a_team_is_not_told_whose_port_it_is_so_asking_is_no_way_to_list_applications(
+    claims: PortClaims, store: NoustStore
+) -> None:
+    store.create_app(App(domain="shop.example.com", app_path="/srv/shop", port=3000))
+
+    with bind(Scope(team_roles={1: "admin"})):
+        with pytest.raises(PortError) as hidden:
+            claims.require_free(3000)
+        assert "another application" in hidden.value.message
+        assert "shop.example.com" not in hidden.value.message + hidden.value.details
+
+        with pytest.raises(PortError) as shown:
+            claims.require_free(3000, reveal=True)
+        assert "shop.example.com" in shown.value.message
 
 
 def test_the_caller_can_take_back_its_own_port(claims: PortClaims, store: NoustStore) -> None:

@@ -126,6 +126,45 @@ def test_the_ports_the_stacks_own_containers_hold_are_its_own_on_an_update(
     runner.script(("docker", "compose"), stdout=running)
 
     deployer_for(tmp_path, runner, new=False)._require_ports_free()
+
+
+def test_the_update_flow_never_sets_the_new_deployment_flag_and_its_ports_are_still_its_own(
+    tmp_path: Path, store: NoustStore, runner: FakeRunner
+) -> None:
+    """
+    ``_is_new_deployment`` is set by ``deploy`` and defaults to True, so an update reaches the
+    check with it True. Found against a real Docker: the update of a running stack was refused
+    its own port (``TCP 18081 is already in use (docker-proxy)``). What decides is what the
+    stack's containers publish, not a flag.
+    """
+    runner.script(
+        ("ss", "-ltnpH"),
+        stdout='LISTEN 0 4096 127.0.0.1:8081 0.0.0.0:* users:(("docker-proxy",pid=7,fd=9))\n',
+    )
+    runner.script(
+        ("docker", "compose"),
+        stdout=json.dumps(
+            {
+                "Name": "stack-web-1",
+                "Publishers": [
+                    {"URL": "127.0.0.1", "TargetPort": 80, "PublishedPort": 8081, "Protocol": "tcp"}
+                ],
+            }
+        ),
+    )
+
+    deployer_for(tmp_path, runner, new=True)._require_ports_free()
+
+
+def test_a_port_the_stack_does_not_hold_is_still_refused_whoever_listens(
+    tmp_path: Path, store: NoustStore, runner: FakeRunner
+) -> None:
+    runner.script(
+        ("ss", "-ltnpH"),
+        stdout='LISTEN 0 4096 127.0.0.1:8081 0.0.0.0:* users:(("docker-proxy",pid=7,fd=9))\n',
+    )
+    runner.script(("docker", "compose"), stdout="")
+
     with pytest.raises(PortConflictError, match="8081"):
         deployer_for(tmp_path, runner, new=True)._require_ports_free()
 

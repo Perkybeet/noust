@@ -46,6 +46,7 @@ from noust.core.exceptions import NoustError, PortConflictError
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import NoustStore, get_store, is_compose_backed
 from noust.core.stream_store import StreamStore
+from noust.core.teams.scope import current_scope
 from noust.deployers.helpers.compose_ports import PortMapping, parse_ports
 from noust.managers.database.exposure import listening_sockets, ssh_port
 from noust.validators.port import validate_port
@@ -420,7 +421,7 @@ class PortClaims:
         field: str = "port",
         listening: bool = True,
         ignore_processes: Sequence[str] = (),
-        reveal: bool = False,
+        reveal: bool | None = None,
     ) -> int:
         """
         Refuse a port something else holds, and say what.
@@ -433,8 +434,9 @@ class PortClaims:
             field: The request field the error names.
             listening: Include what the kernel says listens.
             ignore_processes: Processes whose sockets are the caller's own.
-            reveal: Name an application that holds it; leave False when the caller may not
-                see every application.
+            reveal: Name an application that holds it. None (the default) names it unless the
+                request is a team's, whose members may not see every application: asking for a
+                port must not be a way to list them.
 
         Returns:
             The port.
@@ -457,8 +459,9 @@ class PortClaims:
             if held.kind in (STREAM, DATABASE, PROCESS)
             else f"Port {port}"
         )
+        named = not current_scope().restricted if reveal is None else reveal
         raise PortConflictError(
-            f"{label} {held.describe(reveal=reveal)}", details=_advice(held), field=field
+            f"{label} {held.describe(reveal=named)}", details=_advice(held), field=field
         )
 
     def validated(

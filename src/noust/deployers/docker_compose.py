@@ -1476,15 +1476,16 @@ class DockerComposeDeployer(AppDeployer):
         ]
         if not mappings:
             return
+        # Asked whatever the flag says: only ``deploy`` sets it, an update reaches here with its
+        # default (True), and a stack that has no containers yet simply lists none.
         own: set[tuple[int, str]] = set()
-        if not self._is_new_deployment:
-            result = self._run(self._compose("ps", "--format", "json"))
-            if result.success:
-                for container in parse_compose_ps(result.stdout):
-                    for published in container.get("Publishers") or []:
-                        number = published.get("PublishedPort")
-                        if number:
-                            own.add((int(number), str(published.get("Protocol") or "tcp")))
+        result = self._run(self._compose("ps", "--format", "json"))
+        if result.success:
+            for container in parse_compose_ps(result.stdout):
+                for published in container.get("Publishers") or []:
+                    number = published.get("PublishedPort")
+                    if number:
+                        own.add((int(number), str(published.get("Protocol") or "tcp")))
         PortClaims(self.runner, self.store).require_stack_free(self.domain, mappings, own=own)
 
     def _check_host_privileges(
