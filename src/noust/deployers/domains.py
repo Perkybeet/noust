@@ -52,7 +52,7 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 from noust.central import require_server_role
-from noust.core import audit
+from noust.core import audit, cdn_networks
 from noust.core.applock import app_lock
 from noust.core.config import Config
 from noust.core.exceptions import (
@@ -148,8 +148,8 @@ class DnsCheck:
             is one of this machine's, or one of a CDN that forwards to it. An
             AAAA record pointing elsewhere makes it False: Let's Encrypt
             prefers IPv6, and so do most browsers.
-        verdict: ``here``, ``cdn`` (every address is Cloudflare's: it proxies
-            the name and reaches this server on its own), ``elsewhere``,
+        verdict: ``here``, ``cdn`` (every address is one CDN's - Cloudflare, Fastly, Bunny or
+            ArvanCloud: it proxies the name and reaches this server on its own), ``elsewhere``,
             ``none`` (it does not resolve) or ``unknown`` (this server only
             sees private addresses, so it cannot say what its public one is).
         cdn: The CDN every address belongs to, when ``verdict`` is ``cdn``.
@@ -743,8 +743,9 @@ def _cdn_of(addresses: Sequence[str]) -> str | None:
         addresses: What a name resolves to.
 
     Returns:
-        ``cloudflare`` when there are addresses and every one is in Cloudflare's
-        published ranges; None otherwise.
+        ``cloudflare`` when there are addresses and every one is in Cloudflare's published
+        ranges; ``fastly``, ``bunnycdn`` or ``arvancloud`` when every one is in that provider's
+        (:mod:`noust.core.cdn_networks`); None otherwise, a name that mixes two CDNs included.
     """
     if not addresses:
         return None
@@ -752,11 +753,13 @@ def _cdn_of(addresses: Sequence[str]) -> str | None:
         ipaddress.ip_network(entry, strict=False)
         for entry in trusted_proxies.current_ranges().networks
     ]
-    for address in addresses:
-        parsed = ipaddress.ip_address(address)
-        if not any(parsed.version == network.version and parsed in network for network in networks):
-            return None
-    return "cloudflare"
+    parsed_addresses = [ipaddress.ip_address(address) for address in addresses]
+    if all(
+        any(parsed.version == network.version and parsed in network for network in networks)
+        for parsed in parsed_addresses
+    ):
+        return "cloudflare"
+    return cdn_networks.provider_of(addresses)
 
 
 def machine_addresses() -> tuple[str, ...]:
