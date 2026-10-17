@@ -65,7 +65,8 @@ test("a messy .env pasted in is saved as exactly what EnvManager reads from it",
 
   const put = page.waitForRequest((request) => request.method() === "PUT" && request.url().endsWith(`/api/apps/${domain}/env`));
   await review.getByRole("button", { name: "Save changes" }).click();
-  expect((await put).postDataJSON()).toEqual({ variables: { ...SAVED_MAP, PORT: String(port) } });
+  // The comment above JWT_SECRET in the pasted file is kept with it, as the file says it.
+  expect((await put).postDataJSON()).toEqual({ variables: { ...SAVED_MAP, PORT: String(port) }, comments: { JWT_SECRET: "Secrets" } });
 
   const saved = page.getByRole("dialog", { name: "Environment saved" });
   await expect(saved).toBeVisible();

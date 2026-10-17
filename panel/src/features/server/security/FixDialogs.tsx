@@ -26,6 +26,7 @@ import { Skeleton } from "../../../components/ui/Skeleton";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
+import { useReasonRequired } from "../../settings/compliance/useReasonRequired";
 import { ActionDialog } from "../ActionDialog";
 import { ServerErrorBlock } from "../errors";
 import { identityQuery, serverKeys, sshFixQuery } from "../queries";
@@ -192,6 +193,7 @@ export function AcceptRiskDialog({ check, onClose }: { check: SecurityCheck; onC
   const t = useT();
   const { node } = useNode();
   const queryClient = useQueryClient();
+  const reasonRequired = useReasonRequired();
   const [reason, setReason] = useState("");
   const [until, setUntil] = useState(inNinetyDays);
   const [error, setError] = useState<string | null>(null);
@@ -204,7 +206,7 @@ export function AcceptRiskDialog({ check, onClose }: { check: SecurityCheck; onC
   });
   const fields = isApiError(accept.error) ? accept.error.fields : null;
   const submit = (): void => {
-    if (reason.trim().length < 10) {
+    if (reasonRequired && reason.trim().length < 10) {
       setError(t("server.risk.reasonShort"));
       return;
     }
@@ -233,7 +235,7 @@ export function AcceptRiskDialog({ check, onClose }: { check: SecurityCheck; onC
     >
       <div className="flex flex-col gap-5">
         {node !== null ? <p className="text-13 text-fg-muted">{t.rich("server.risk.onServer", { server: <Mono>{node}</Mono> })}</p> : null}
-        <Field label={t("server.risk.reasonLabel")} description={t("server.risk.reasonDescription")} error={error ?? fields?.["reason"] ?? null}>
+        <Field label={t("server.risk.reasonLabel")} description={t("server.risk.reasonDescription")} optional={!reasonRequired} error={error ?? fields?.["reason"] ?? null}>
           <Textarea rows={3} value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} />
         </Field>
         <Field label={t("server.risk.untilLabel")} description={t("server.risk.untilDescription")} error={fields?.["expires_at"] ?? null}>

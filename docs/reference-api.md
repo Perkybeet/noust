@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-876 operations.
+967 operations.
 
 ## Access
 
@@ -29,6 +29,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/alerts/rules` | List Rules | `server.read` |  |  |
 | PUT | `/api/alerts/rules/{name}` | Save Rule | `server.manage` |  |  |
 | DELETE | `/api/alerts/rules/{name}` | Remove Rule | `server.manage` |  |  |
+| POST | `/api/alerts/rules/{name}/acknowledge` | Acknowledge Rule | `apps.operate` |  |  |
+| DELETE | `/api/alerts/rules/{name}/acknowledge` | Hand Back Rule | `apps.operate` |  |  |
 | POST | `/api/alerts/rules/{name}/disable` | Disable Rule | `server.manage` |  |  |
 | POST | `/api/alerts/rules/{name}/enable` | Enable Rule | `server.manage` |  |  |
 
@@ -39,11 +41,14 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/apps` | List Apps | `apps.read` |  |  |
 | POST | `/api/apps` | Create App | `apps.manage` |  | yes |
 | POST | `/api/apps/adopt` | Adopt App | `apps.manage` | yes |  |
+| POST | `/api/apps/adopt-site` | Adopt Site | `apps.manage` | yes |  |
 | POST | `/api/apps/import` | Import App | `apps.manage` | yes |  |
 | POST | `/api/apps/inspect` | Inspect App Source | `apps.manage` |  |  |
+| GET | `/api/apps/native-sites` | List Native Sites | `apps.manage` |  |  |
 | GET | `/api/apps/types` | List App Types | `apps.read` |  |  |
 | GET | `/api/apps/{domain}` | Get App | `apps.read` |  |  |
 | DELETE | `/api/apps/{domain}` | Delete App | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/adoption` | Get Adoption | `apps.read` |  |  |
 | POST | `/api/apps/{domain}/apply` | Apply | `root_equivalent` | yes | yes |
 | PATCH | `/api/apps/{domain}/backup-before-update` | Patch Backup Before Update | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/backup-required` | Get Backup Required | `apps.read` |  |  |
@@ -58,6 +63,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/apps/{domain}/compose` | Get Compose Settings | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/compose` | Put Compose Settings | `apps.manage` | yes |  |
 | DELETE | `/api/apps/{domain}/compose` | Delete Compose Settings | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/compose/variables` | Get Compose Variables | `apps.read` |  |  |
 | GET | `/api/apps/{domain}/container` | Get App Container | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/container` | Put App Container | `apps.manage` |  |  |
 | GET | `/api/apps/{domain}/declaration` | Get Declaration | `secrets.reveal` |  |  |
@@ -70,6 +76,10 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | DELETE | `/api/apps/{domain}/deploy-key/rotate` | Cancel Rotation | `apps.manage` |  |  |
 | POST | `/api/apps/{domain}/deploy-key/test` | Test Deploy Key | `apps.manage` |  |  |
 | GET | `/api/apps/{domain}/diagnose` | Diagnose App | `apps.read` |  |  |
+| GET | `/api/apps/{domain}/disk` | Get Disk | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/disk` | Put Disk | `apps.manage` |  |  |
+| PUT | `/api/apps/{domain}/disk/kernel` | Put Disk Kernel | `apps.manage` | yes |  |
+| POST | `/api/apps/{domain}/disk/measure` | Post Disk Measure | `apps.operate` |  |  |
 | GET | `/api/apps/{domain}/env` | Get App Env | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/env` | Update App Env | `apps.manage` | yes |  |
 | PATCH | `/api/apps/{domain}/env` | Merge App Env | `apps.manage` | yes |  |
@@ -131,12 +141,24 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/apps/{domain}/registry-logins` | Get App Registry Logins | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/registry-logins` | Set App Registry Logins | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/releases` | Get App Releases | `apps.read` |  |  |
+| POST | `/api/apps/{domain}/releases/bundle` | Build Bundle | `apps.deploy` |  |  |
+| GET | `/api/apps/{domain}/releases/bundles` | List Bundles | `apps.deploy` |  |  |
+| GET | `/api/apps/{domain}/releases/bundles/{bundle_id}` | Bundle Info | `apps.deploy` |  |  |
+| DELETE | `/api/apps/{domain}/releases/bundles/{bundle_id}` | Discard Bundle | `apps.deploy` |  |  |
+| GET | `/api/apps/{domain}/releases/bundles/{bundle_id}/data` | Bundle Data | `apps.deploy` |  |  |
+| POST | `/api/apps/{domain}/releases/receive` | Receive Bundle | `apps.deploy` |  |  |
 | PATCH | `/api/apps/{domain}/releases/retention` | Update Release Retention | `apps.manage` | yes |  |
 | POST | `/api/apps/{domain}/releases/stage` | Stage Release | `apps.deploy` |  |  |
+| POST | `/api/apps/{domain}/releases/uploads` | Start Bundle Upload | `apps.deploy` |  |  |
+| GET | `/api/apps/{domain}/releases/uploads/{upload_id}` | Bundle Upload Status | `apps.deploy` |  |  |
+| PUT | `/api/apps/{domain}/releases/uploads/{upload_id}` | Send Bundle Chunk | `apps.deploy` |  |  |
+| DELETE | `/api/apps/{domain}/releases/uploads/{upload_id}` | Discard Bundle Upload | `apps.deploy` |  |  |
+| POST | `/api/apps/{domain}/releases/uploads/{upload_id}/complete` | Complete Bundle Upload | `apps.deploy` |  |  |
 | POST | `/api/apps/{domain}/releases/{release_id}/activate` | Activate App Release | `apps.deploy` |  |  |
 | POST | `/api/apps/{domain}/releases/{release_id}/promote` | Promote Release | `apps.deploy` |  |  |
 | GET | `/api/apps/{domain}/replicas` | Get Replicas | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/replicas` | Put Replicas | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/replication` | Get Replication | `apps.read` |  |  |
 | POST | `/api/apps/{domain}/restart` | Restart App | `apps.operate` |  |  |
 | GET | `/api/apps/{domain}/rollback-points` | List Rollback Points | `apps.read` |  |  |
 | GET | `/api/apps/{domain}/rollout` | Get Rollout | `apps.read` |  |  |
@@ -159,6 +181,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/apps/{domain}/sqlite/check` | Check App Sqlite | `apps.operate` |  |  |
 | POST | `/api/apps/{domain}/start` | Start App | `apps.operate` |  |  |
 | POST | `/api/apps/{domain}/stop` | Stop App | `apps.operate` |  |  |
+| GET | `/api/apps/{domain}/tuning` | Get Tuning | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/tuning` | Put Tuning | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/update-schedule` | Get Update Schedule | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/update-schedule` | Put Update Schedule | `apps.manage` |  |  |
 | DELETE | `/api/apps/{domain}/update-schedule` | Delete Update Schedule | `apps.manage` |  |  |
@@ -237,6 +261,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | DELETE | `/api/auth/sessions/{sid_prefix}` | Revoke One Session | `self` |  |  |
 | GET | `/api/auth/tokens` | List Api Tokens | `self` |  |  |
 | POST | `/api/auth/tokens` | Create Api Token | `self` | yes |  |
+| PATCH | `/api/auth/tokens/{token_id}` | Restrict Api Token | `self` |  |  |
 | DELETE | `/api/auth/tokens/{token_id}` | Revoke Api Token | `self` |  |  |
 | GET | `/api/auth/verify` | Verify Token | `self` |  |  |
 | POST | `/api/auth/ws-ticket` | Create Ws Ticket | `self` |  |  |
@@ -310,6 +335,10 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 
 | Method | Path | What it does | Permission | Sudo | Approval |
 |---|---|---|---|---|---|
+| GET | `/api/compliance` | Get Compliance | `settings.read` |  |  |
+| PUT | `/api/compliance` | Change Compliance | `security.manage` |  |  |
+| GET | `/api/compliance/check` | Check Compliance | `compliance.read` |  |  |
+| POST | `/api/compliance/plan` | Plan Change | `security.manage` |  |  |
 | GET | `/api/ens/access-review` | Ens Access Review | `accounts.read` |  |  |
 | POST | `/api/ens/access-review` | Ens Access Review Attest | `accounts.manage` |  |  |
 | GET | `/api/ens/check` | Ens Check | `compliance.read` |  |  |
@@ -340,6 +369,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/config/defaults` | Get Defaults | `settings.read` |  |  |
 | GET | `/api/config/delivery` | Get Delivery Config | `settings.read` |  |  |
 | PUT | `/api/config/delivery` | Update Delivery Config | `settings.manage` | yes |  |
+| GET | `/api/config/email-api` | Get Email Api Config | `settings.read` |  |  |
+| PUT | `/api/config/email-api` | Update Email Api Config | `settings.manage` | yes |  |
 | GET | `/api/config/notifications/telegram` | Get Telegram Config | `settings.read` |  |  |
 | PUT | `/api/config/notifications/telegram` | Update Telegram Config | `settings.manage` | yes |  |
 | POST | `/api/config/notifications/telegram/chats` | List Telegram Chats | `settings.manage` |  |  |
@@ -373,6 +404,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | DELETE | `/api/cron/{name}` | Delete Job | `apps.manage` | yes |  |
 | POST | `/api/cron/{name}/disable` | Disable Job | `apps.operate` |  |  |
 | POST | `/api/cron/{name}/enable` | Enable Job | `apps.operate` |  |  |
+| GET | `/api/cron/{name}/ledger` | Job Ledger | `apps.read` |  |  |
 | POST | `/api/cron/{name}/run` | Run Job | `apps.operate` |  |  |
 | GET | `/api/cron/{name}/runs` | Job Runs | `apps.read` |  |  |
 
@@ -580,6 +612,10 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/fleet/activity` | Fleet Activity | `fleet.read` |  |  |
 | GET | `/api/fleet/apps` | Fleet Apps | `fleet.read` |  |  |
 | GET | `/api/fleet/backups` | Fleet Backups | `fleet.read` |  |  |
+| GET | `/api/fleet/builders` | List Builders | `fleet.read` |  |  |
+| GET | `/api/fleet/builders/{domain}` | Get Builder | `fleet.read` |  |  |
+| PUT | `/api/fleet/builders/{domain}` | Set Builder | `fleet.manage` |  |  |
+| DELETE | `/api/fleet/builders/{domain}` | Clear Builder | `fleet.manage` |  |  |
 | GET | `/api/fleet/certificates` | Fleet Certificates | `fleet.read` |  |  |
 | GET | `/api/fleet/cloud/accounts` | List Accounts | `fleet.manage` |  |  |
 | POST | `/api/fleet/cloud/accounts` | Add Account | `fleet.manage` | yes | yes |
@@ -609,12 +645,15 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/fleet/link/accept` | Accept Server | `fleet.manage` | yes | yes |
 | POST | `/api/fleet/link/invites` | Invite Server | `fleet.manage` | yes |  |
 | DELETE | `/api/fleet/link/invites/{name}` | Cancel Invite | `fleet.manage` | yes |  |
+| GET | `/api/fleet/logs` | Fleet Logs | `fleet.read` |  |  |
+| GET | `/api/fleet/metrics` | Fleet Metrics | `fleet.read` |  |  |
 | GET | `/api/fleet/placements` | List Placements | `fleet.read` |  |  |
 | GET | `/api/fleet/placements/{domain}` | Get Placement | `fleet.read` |  |  |
 | PUT | `/api/fleet/placements/{domain}` | Save Placement | `fleet.manage` |  |  |
 | DELETE | `/api/fleet/placements/{domain}` | Remove Placement | `fleet.manage` |  |  |
 | POST | `/api/fleet/placements/{domain}/copy` | Copy Application | `fleet.manage` |  |  |
 | POST | `/api/fleet/placements/{domain}/rollout` | Rollout | `fleet.manage` |  |  |
+| POST | `/api/fleet/placements/{domain}/ship` | Ship | `fleet.manage` |  |  |
 | GET | `/api/fleet/placements/{domain}/upstreams` | Get Upstreams | `fleet.read` |  |  |
 | GET | `/api/fleet/servers` | Fleet Servers | `fleet.read` |  |  |
 | PUT | `/api/fleet/servers/{node}/labels` | Set Labels | `fleet.manage` |  |  |
@@ -683,6 +722,15 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | DELETE | `/api/log-drains/{name}` | Delete Drain | `settings.manage` | yes |  |
 | POST | `/api/log-drains/{name}/test` | Test Drain | `settings.manage` | yes |  |
 
+## Logs
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/logs/retention` | Get Retention | `server.read` |  |  |
+| PUT | `/api/logs/retention` | Set Retention | `server.manage` | yes |  |
+| DELETE | `/api/logs/retention` | Clear Retention | `server.manage` | yes |  |
+| GET | `/api/logs/search` | Search Logs | `apps.read` |  |  |
+
 ## MCP
 
 | Method | Path | What it does | Permission | Sudo | Approval |
@@ -711,7 +759,9 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | Method | Path | What it does | Permission | Sudo | Approval |
 |---|---|---|---|---|---|
 | GET | `/api/apps/{domain}/metrics` | App Metrics | `apps.read` |  |  |
+| GET | `/api/apps/{domain}/traffic` | App Traffic | `apps.read` |  |  |
 | GET | `/api/metrics` | List Metrics | `server.read` |  |  |
+| GET | `/api/metrics/prometheus` | Export Prometheus | `server.read` |  |  |
 | GET | `/api/metrics/query` | Query Metrics | `server.read` |  |  |
 | GET | `/api/metrics/{metric}` | Metric History | `server.read` |  |  |
 
@@ -815,6 +865,21 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/apps/{domain}/previews/{number}/start` | Start Preview | `apps.operate` | yes |  |
 | POST | `/api/apps/{domain}/previews/{number}/stop` | Stop Preview | `apps.operate` | yes |  |
 
+## Probes
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/probes` | List Probes | `server.read` |  |  |
+| GET | `/api/probes/status-page` | Get Status Page | `server.read` |  |  |
+| PUT | `/api/probes/status-page` | Set Status Page | `server.manage` | yes |  |
+| POST | `/api/probes/status-page/publish` | Publish Status Page | `server.host_access` | yes |  |
+| DELETE | `/api/probes/status-page/site` | Unpublish Status Page | `server.host_access` | yes |  |
+| POST | `/api/probes/status-page/write` | Write Status Page | `server.manage` |  |  |
+| PUT | `/api/probes/{name}` | Save Probe | `server.manage` |  |  |
+| DELETE | `/api/probes/{name}` | Remove Probe | `server.manage` |  |  |
+| POST | `/api/probes/{name}/check` | Check Probe | `server.manage` |  |  |
+| GET | `/api/probes/{name}/history` | Probe History | `server.read` |  |  |
+
 ## Recipes
 
 | Method | Path | What it does | Permission | Sudo | Approval |
@@ -845,6 +910,31 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | PATCH | `/api/registries/{name}` | Change Registry Login | `apps.manage` | yes |  |
 | DELETE | `/api/registries/{name}` | Remove Registry Login | `apps.manage` | yes |  |
 | POST | `/api/registries/{name}/test` | Test Registry Login | `apps.manage` | yes |  |
+
+## SCIM provisioning
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| POST | `/api/scim/v2/.search` | Search Everything | `public` |  |  |
+| GET | `/api/scim/v2/Groups` | List Groups | `public` |  |  |
+| POST | `/api/scim/v2/Groups` | Create Group | `public` |  |  |
+| POST | `/api/scim/v2/Groups/.search` | Search Groups | `public` |  |  |
+| GET | `/api/scim/v2/Groups/{group_id}` | Get Group | `public` |  |  |
+| PUT | `/api/scim/v2/Groups/{group_id}` | Replace Group | `public` |  |  |
+| PATCH | `/api/scim/v2/Groups/{group_id}` | Patch Group | `public` |  |  |
+| DELETE | `/api/scim/v2/Groups/{group_id}` | Delete Group | `public` |  |  |
+| GET | `/api/scim/v2/ResourceTypes` | Resource Types | `public` |  |  |
+| GET | `/api/scim/v2/ResourceTypes/{name}` | Resource Type | `public` |  |  |
+| GET | `/api/scim/v2/Schemas` | Schemas | `public` |  |  |
+| GET | `/api/scim/v2/Schemas/{schema_id}` | Schema | `public` |  |  |
+| GET | `/api/scim/v2/ServiceProviderConfig` | Service Provider Config | `public` |  |  |
+| GET | `/api/scim/v2/Users` | List Users | `public` |  |  |
+| POST | `/api/scim/v2/Users` | Create User | `public` |  |  |
+| POST | `/api/scim/v2/Users/.search` | Search Users | `public` |  |  |
+| GET | `/api/scim/v2/Users/{user_id}` | Get User | `public` |  |  |
+| PUT | `/api/scim/v2/Users/{user_id}` | Replace User | `public` |  |  |
+| PATCH | `/api/scim/v2/Users/{user_id}` | Patch User | `public` |  |  |
+| DELETE | `/api/scim/v2/Users/{user_id}` | Delete User | `public` |  |  |
 
 ## Self Backup
 
@@ -956,6 +1046,11 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 
 | Method | Path | What it does | Permission | Sudo | Approval |
 |---|---|---|---|---|---|
+| GET | `/api/auth/ldap/directories` | List Directories | `accounts.read` |  |  |
+| PUT | `/api/auth/ldap/directories/{name}` | Put Directory | `accounts.manage` | yes |  |
+| DELETE | `/api/auth/ldap/directories/{name}` | Delete Directory | `accounts.manage` | yes |  |
+| POST | `/api/auth/ldap/directories/{name}/test` | Test Directory | `accounts.manage` |  |  |
+| POST | `/api/auth/ldap/login` | Login | `public` |  |  |
 | GET | `/api/auth/oidc/callback` | Callback | `public` |  |  |
 | POST | `/api/auth/oidc/complete` | Complete | `public` |  |  |
 | GET | `/api/auth/oidc/config` | List Providers | `accounts.read` |  |  |
@@ -969,6 +1064,17 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | PUT | `/api/auth/oidc/local-login` | Put Local Login | `accounts.manage` | yes |  |
 | GET | `/api/auth/oidc/providers` | List Choices | `public` |  |  |
 | GET | `/api/auth/oidc/start` | Start | `public` |  |  |
+| POST | `/api/auth/saml/acs` | Assertion Consumer Service | `public` |  |  |
+| GET | `/api/auth/saml/config` | List Providers | `accounts.read` |  |  |
+| PUT | `/api/auth/saml/config/{provider}` | Put Provider | `accounts.manage` | yes |  |
+| DELETE | `/api/auth/saml/config/{provider}` | Delete Provider | `accounts.manage` | yes |  |
+| POST | `/api/auth/saml/config/{provider}/test` | Try Provider | `accounts.manage` |  |  |
+| GET | `/api/auth/saml/metadata/{provider}` | Metadata | `public` |  |  |
+| GET | `/api/auth/saml/start` | Start | `public` |  |  |
+| GET | `/api/auth/scim/sources` | List Sources | `accounts.read` |  |  |
+| PUT | `/api/auth/scim/sources/{name}` | Put Source | `accounts.manage` | yes |  |
+| DELETE | `/api/auth/scim/sources/{name}` | Delete Source | `accounts.manage` | yes |  |
+| GET | `/api/auth/scim/sources/{name}/users` | List Users | `accounts.read` |  |  |
 
 ## Sites
 

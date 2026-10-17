@@ -4,8 +4,8 @@ import { useState } from "react";
 import { isApiError, request } from "../../../api/client";
 import { appKeys } from "../../../api/queries/apps";
 import type { Job } from "../../../api/queries/jobs";
-import { hardeningQuery, runtimeKeys } from "../../../api/queries/runtime";
-import type { Hardening } from "../../../api/queries/runtime";
+import { hardeningQuery, runtimeKeys, tuningQuery } from "../../../api/queries/runtime";
+import type { Hardening, UnitTuning } from "../../../api/queries/runtime";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { SaveBar } from "../../../components/page/SaveBar";
 import { Section } from "../../../components/page/Section";
@@ -26,6 +26,7 @@ import type { T } from "../../../i18n";
 import { changedFields, useSaveBar } from "./formParts";
 import { JobFailedError, waitForJob } from "./queries";
 import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { PrivilegeFields, useTuningPart } from "./TuningFields";
 
 type Profile = "off" | "default" | "strict";
 
@@ -74,7 +75,7 @@ function Exposure({ hardening }: { hardening: Hardening }) {
   );
 }
 
-function HardeningForm({ domain, hardening }: { domain: string; hardening: Hardening }) {
+function HardeningForm({ domain, hardening, tuning, reading }: { domain: string; hardening: Hardening; tuning: UnitTuning | undefined; reading: boolean }) {
   const t = useT();
   const queryClient = useQueryClient();
   const current = draftOf(hardening);
@@ -82,6 +83,7 @@ function HardeningForm({ domain, hardening }: { domain: string; hardening: Harde
   const [draft, setDraft] = useState(current);
   const [restart, setRestart] = useState(true);
   const [submitted, setSubmitted] = useState(false);
+  const privileges = useTuningPart(domain, tuning, "privileges", restart);
 
   // The sandbox changed underneath an untouched form (from a terminal): follow it.
   if (current.profile !== baseline.profile || current.paths !== baseline.paths) {
@@ -130,6 +132,7 @@ function HardeningForm({ domain, hardening }: { domain: string; hardening: Harde
           save.reset();
         },
       },
+      privileges.part,
     ],
     t("runtime.hardening.notSavedFor", { domain }),
   );
@@ -169,6 +172,17 @@ function HardeningForm({ domain, hardening }: { domain: string; hardening: Harde
               }}
             />
           </Field>
+          {tuning?.eligible ? (
+            <Subsection title={t("runtime.tuning.privilegesTitle")}>
+              <PrivilegeFields domain={domain} tuning={tuning} state={privileges} />
+            </Subsection>
+          ) : reading ? (
+            // The place the section will take, so its arrival moves nothing.
+            <div aria-busy="true">
+              <span className="sr-only">{t("runtime.tuning.loading")}</span>
+              <Skeleton className="h-40 w-full" />
+            </div>
+          ) : null}
           <Checkbox label={t("runtime.hardening.restartLabel")} description={t("runtime.hardening.restartDescription")} checked={restart} onCheckedChange={setRestart} />
           {save.isError && !serverPath ? <ErrorBlock live compact error={save.error} title={t("runtime.hardening.saveFailed", { domain })} /> : null}
           <Exposure hardening={hardening} />
@@ -194,6 +208,9 @@ export function SecuritySettings() {
   const app = useSettingsApp();
   useSubsectionTitle("runtime.nav.security", app.domain);
   const hardening = useQuery(hardeningQuery(app.domain));
+  // Read with the sandbox, so the form is made once with what the unit has; a read that failed
+  // is the sandbox alone.
+  const tuning = useQuery(tuningQuery(app.domain));
   const data = hardening.data;
   return (
     <Section title={t("runtime.hardening.title")} description={t("runtime.hardening.description")}>
@@ -210,7 +227,7 @@ export function SecuritySettings() {
       ) : !data.eligible ? (
         <Notice tone="info">{t("runtime.hardening.cannot", { reason: data.reason ?? "" })}</Notice>
       ) : (
-        <HardeningForm domain={app.domain} hardening={data} />
+        <HardeningForm domain={app.domain} hardening={data} tuning={tuning.data} reading={tuning.isPending} />
       )}
     </Section>
   );

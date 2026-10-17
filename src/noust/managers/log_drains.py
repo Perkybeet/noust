@@ -151,11 +151,11 @@ def check_url(raw: str, *, field: str = "url") -> str:
             field=field,
         )
     if parts.scheme == "http" and not _is_local(parts.hostname):
-        from noust.core.ens import profile
+        from noust.core import compliance
 
-        if profile.is_ens():
+        if compliance.is_on("log_shipping_tls"):
             raise ValidationError(
-                "The ENS profile ships logs only over TLS",
+                "This server's compliance controls ship logs only over TLS",
                 details=f"Use https:// for {parts.hostname}.",
                 field=field,
             )
@@ -275,11 +275,11 @@ def validate_settings(kind: str, raw: Mapping[str, Any], *, has_secret: bool) ->
             raise ValidationError("A syslog facility is a number from 0 to 23", field="facility")
         cleaned.update(transport=transport, host=host, port=port, facility=facility)
         if transport != "tls":
-            from noust.core.ens import profile
+            from noust.core import compliance
 
-            if profile.is_ens() and not _is_local(host):
+            if compliance.is_on("log_shipping_tls") and not _is_local(host):
                 raise ValidationError(
-                    "The ENS profile ships logs only over TLS",
+                    "This server's compliance controls ship logs only over TLS",
                     details=f"Use the tls transport for {host}.",
                     field="transport",
                 )

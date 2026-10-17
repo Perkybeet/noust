@@ -25,6 +25,7 @@ function areaWords(t: T, area: string): string {
     environment: () => t("runtime.pending.areas.environment"),
     limits: () => t("runtime.pending.areas.limits"),
     sandbox: () => t("runtime.pending.areas.sandbox"),
+    tuning: () => t("runtime.pending.areas.tuning"),
     mounts: () => t("runtime.pending.areas.mounts"),
     build: () => t("runtime.pending.areas.build"),
     container: () => t("runtime.pending.areas.container"),

@@ -79,6 +79,10 @@ class TestCatalogShape:
             "channel.ntfy",
             "channel.gotify",
             "channel.teams",
+            "channel.mattermost",
+            "channel.matrix",
+            "channel.lark",
+            "channel.pagerduty",
         }
 
     #: English function words that no Spanish sentence contains. A hurried

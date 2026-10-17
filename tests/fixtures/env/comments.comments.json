@@ -1,0 +1,4 @@
+{
+  "QUEUE_URL": "Where the queue lives.\nChange it with care.",
+  "LAST": "NOT_A_VARIABLE=1"
+}

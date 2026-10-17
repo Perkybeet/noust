@@ -479,6 +479,8 @@ noust fleet certs --expiring 21          # certificates, the soonest to expire f
 noust fleet backups                      # each application's newest backup, the gaps first
 noust fleet updates                      # Noust and system updates pending on each server
 noust fleet activity --node vps1         # what happened lately
+noust fleet logs error --since 1h         # search the logs of every node at once (docs/logs.md)
+noust fleet metrics --metric memory --window 7d   # one metric of every node, side by side
 ```
 
 In the console, the Fleet page has the same views as tabs (Summary, Servers, Applications,

@@ -24,6 +24,7 @@ import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { accountsQuery } from "./accounts/api";
 import { CreateTokenDialog } from "./CreateTokenDialog";
+import { TokenNetworksDialog } from "./TokenNetworksDialog";
 import { RowAction } from "./RowAction";
 import { sortTokens, tokenState } from "./tokens";
 import type { TokenState } from "./tokens";
@@ -125,6 +126,7 @@ export function TokensSettings() {
   const accounts = useQuery({ ...accountsQuery(), enabled: session?.permissions?.includes("accounts.read") ?? false });
   const [creating, setCreating] = useState(false);
   const [revoking, setRevoking] = useState<ApiToken | null>(null);
+  const [limiting, setLimiting] = useState<ApiToken | null>(null);
   const names = useMemo(() => new Map((accounts.data?.accounts ?? []).map((account) => [account.id, account.username])), [accounts.data]);
   const ownerName = (token: ApiToken): string | null => {
     const id = token.owner_account_id;
@@ -173,14 +175,24 @@ export function TokensSettings() {
               mobile="cards"
               rowActions={(token) =>
                 tokenState(token) === "active" ? (
-                  <RowAction
-                    label={t("settings.tokens.revokeLabel", { name: token.name })}
-                    text={t("settings.tokens.revokeText")}
-                    icon={<ICONS.delete />}
-                    onClick={() => {
-                      setRevoking(token);
-                    }}
-                  />
+                  <>
+                    <RowAction
+                      label={t("accounts.tokens.networks.label", { name: token.name })}
+                      text={t("accounts.tokens.networks.text")}
+                      icon={<ICONS.locked />}
+                      onClick={() => {
+                        setLimiting(token);
+                      }}
+                    />
+                    <RowAction
+                      label={t("settings.tokens.revokeLabel", { name: token.name })}
+                      text={t("settings.tokens.revokeText")}
+                      icon={<ICONS.delete />}
+                      onClick={() => {
+                        setRevoking(token);
+                      }}
+                    />
+                  </>
                 ) : null
               }
             />
@@ -200,6 +212,14 @@ export function TokensSettings() {
           setCreating(false);
         }}
       />
+      {limiting !== null ? (
+        <TokenNetworksDialog
+          token={limiting}
+          onClose={() => {
+            setLimiting(null);
+          }}
+        />
+      ) : null}
       {revoking !== null ? (
         <ConfirmDialog
           friction="simple"

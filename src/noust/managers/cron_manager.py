@@ -52,6 +52,7 @@ import json
 import re
 import shlex
 import shutil
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -69,10 +70,18 @@ from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import get_store
 from noust.deployers.helpers.compose_exec import ComposeExec, compose_exec
 from noust.deployers.helpers.layout import code_path_for
+from noust.managers import cron_ledger
 from noust.managers.app_identity import service_account_for
 from noust.managers.backup_scheduler import SCHEDULE_ALIASES, validate_calendar
 from noust.validators.environment import escape_systemd_value, validate_unit_value
 from noust.validators.names import resolve_within, validate_app_name, validate_service_name
+
+#: What this module runs only to look: the schedule's occurrences (``systemd-analyze calendar``
+#: parses an expression and touches nothing). The journal is read-only in the core's own list.
+READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = (
+    ("systemd-analyze", "calendar", "--iterations=*", "*"),
+    ("systemd-analyze", "calendar", "--iterations=*", "--base-time=*", "*"),
+)
 
 #: Deadline for a systemctl verb. Nothing here talks to the network.
 _SYSTEMCTL_TIMEOUT = 60
@@ -138,6 +147,13 @@ _ANALYZE_TIMEOUT = 15
 #: Runs a calendar preview reports by default: enough to show a weekly
 #: pattern without the dialog scrolling.
 PREVIEW_ITERATIONS = 5
+
+#: The most occurrences one ledger reads, and how many it asks of systemd at a time.
+LEDGER_MAX_OCCURRENCES = 500
+_LEDGER_BATCH = 100
+
+#: The most journal entries a ledger reads to find the runs of a job.
+_LEDGER_JOURNAL_ENTRIES = 5000
 
 #: What systemd-analyze calls the expanded form of the expression it verified.
 _NORMALIZED_FORM = re.compile(r"^Normalized form:\s*(.+)$", re.MULTILINE)
@@ -309,6 +325,9 @@ class CronOutcome:
             ``exit-code``, ``timeout``, ``signal``, ``core-dump``...
         exit_code: The exit status of the command, when it exited.
         app_domain: The application the job belongs to, when it has one.
+        timer: systemd's ``ActiveState`` of the job's timer (``active``,
+            ``inactive``, ``failed``); empty when it was not asked.
+        timer_enabled: The timer is enabled, so it is meant to be running.
     """
 
     name: str
@@ -317,6 +336,8 @@ class CronOutcome:
     result: str = ""
     exit_code: int | None = None
     app_domain: str = ""
+    timer: str = ""
+    timer_enabled: bool = True
 
     @property
     def ok(self) -> bool:
@@ -1242,7 +1263,8 @@ class CronManager:
 
         The monitor asks this every minute, so it must not cost a few commands
         per job the way :meth:`list_jobs` does: one ``list-unit-files`` names
-        the jobs and one ``show`` of all their services answers for every one.
+        the jobs (and says which timers are enabled) and one ``show`` of all
+        their services and timers answers for every one.
 
         Returns:
             One outcome per owned job, by name. Empty when systemd cannot be
@@ -1254,8 +1276,10 @@ class CronManager:
         if not listed.success:
             return []
         names: list[str] = []
+        enabled_timers: dict[str, bool] = {}
         for line in listed.stdout.strip().splitlines():
-            unit = next((part for part in line.split() if part.endswith(".timer")), None)
+            parts = line.split()
+            unit = next((part for part in parts if part.endswith(".timer")), None)
             if unit is None:
                 continue
             name = unit[len(UNIT_PREFIX) : -len(".timer")]
@@ -1265,12 +1289,15 @@ class CronManager:
                 continue
             if self._is_owned_unit(name):
                 names.append(name)
+                state = parts[parts.index(unit) + 1] if parts.index(unit) + 1 < len(parts) else ""
+                enabled_timers[name] = state in ("enabled", "enabled-runtime", "")
         if not names:
             return []
 
         shown = self._systemctl(
             "show",
             *(f"{UNIT_PREFIX}{name}.service" for name in names),
+            *(f"{UNIT_PREFIX}{name}.timer" for name in names),
             "--property=Id,InvocationID,ActiveState,Result,ExecMainStatus",
         )
         if not shown.success:
@@ -1284,6 +1311,7 @@ class CronManager:
         outcomes: list[CronOutcome] = []
         for name in names:
             properties = by_id.get(f"{UNIT_PREFIX}{name}.service", {})
+            timer = by_id.get(f"{UNIT_PREFIX}{name}.timer", {}).get("ActiveState", "")
             try:
                 exit_code: int | None = int(properties.get("ExecMainStatus", ""))
             except ValueError:
@@ -1297,6 +1325,8 @@ class CronManager:
                     result=properties.get("Result", "") if invocation else "",
                     exit_code=exit_code if invocation else None,
                     app_domain=self._read_service_fields(name)["app_domain"],
+                    timer=timer,
+                    timer_enabled=enabled_timers.get(name, True),
                 )
             )
         return outcomes
@@ -1349,59 +1379,7 @@ class CronManager:
         """
         checked, _, _ = self._require_owned(name, operation="read the history of")
         unit_file = f"{UNIT_PREFIX}{checked}.service"
-
-        result = self.runner.run(
-            [
-                "journalctl",
-                "-u",
-                unit_file,
-                "-o",
-                "json",
-                "-n",
-                str(_JOURNAL_ENTRIES),
-                "--no-pager",
-            ],
-            timeout=_JOURNAL_TIMEOUT,
-        )
-        if not result.success:
-            return []
-
-        runs: dict[str, dict[str, Any]] = {}
-        for line in result.stdout.splitlines():
-            try:
-                entry = json.loads(line)
-            except ValueError:
-                continue
-            if not isinstance(entry, dict):
-                continue
-
-            if entry.get("UNIT") == unit_file and "INVOCATION_ID" in entry:
-                # A message from systemd itself about this unit, carrying the
-                # invocation it talks about and, on failure, the exit status.
-                run = runs.setdefault(
-                    str(entry["INVOCATION_ID"]),
-                    {"started": self._timestamp(entry), "exit_code": None, "lines": []},
-                )
-                status = entry.get("EXIT_STATUS")
-                if status is not None:
-                    try:
-                        run["exit_code"] = int(status)
-                    except (TypeError, ValueError):
-                        pass
-                elif entry.get("JOB_RESULT") == "done" and run["exit_code"] is None:
-                    run["exit_code"] = 0
-            elif "_SYSTEMD_INVOCATION_ID" in entry:
-                # A line the job itself printed.
-                run = runs.setdefault(
-                    str(entry["_SYSTEMD_INVOCATION_ID"]),
-                    {"started": self._timestamp(entry), "exit_code": None, "lines": []},
-                )
-                if not run["started"]:
-                    run["started"] = self._timestamp(entry)
-                message = entry.get("MESSAGE")
-                if isinstance(message, str):
-                    run["lines"].append(message)
-
+        runs, _seen = self._read_runs(unit_file, _JOURNAL_ENTRIES)
         shaped = []
         for run in runs.values():
             exit_code = run["exit_code"]
@@ -1416,8 +1394,235 @@ class CronManager:
         # The journal prints oldest first; the operator wants newest first.
         return list(reversed(shaped))[:limit]
 
+    def _read_runs(self, unit_file: str, entries: int) -> tuple[dict[str, dict[str, Any]], int]:
+        """
+        Read the last journal entries of a job's service and group them by invocation.
+
+        Args:
+            unit_file: The service unit, with its suffix.
+            entries: How many journal entries to read at most.
+
+        Returns:
+            The runs by systemd's invocation id, oldest first, each with its ``started`` text, the
+            ``at`` it started (epoch seconds), its ``exit_code`` (None while unknown) and its
+            ``lines``; and how many entries the journal gave, which says whether it was cut at
+            ``entries``. Empty when the journal cannot be read.
+        """
+        result = self.runner.run(
+            [
+                "journalctl",
+                "-u",
+                unit_file,
+                "-o",
+                "json",
+                "-n",
+                str(entries),
+                "--no-pager",
+            ],
+            timeout=_JOURNAL_TIMEOUT,
+        )
+        if not result.success:
+            return {}, 0
+
+        runs: dict[str, dict[str, Any]] = {}
+        seen = 0
+        for line in result.stdout.splitlines():
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(entry, dict):
+                continue
+            seen += 1
+
+            if entry.get("UNIT") == unit_file and "INVOCATION_ID" in entry:
+                # A message from systemd itself about this unit, carrying the
+                # invocation it talks about and, on failure, the exit status.
+                run = runs.setdefault(
+                    str(entry["INVOCATION_ID"]),
+                    {
+                        "started": self._timestamp(entry),
+                        "at": self._epoch(entry),
+                        "exit_code": None,
+                        "lines": [],
+                    },
+                )
+                status = entry.get("EXIT_STATUS")
+                if status is not None:
+                    try:
+                        run["exit_code"] = int(status)
+                    except (TypeError, ValueError):
+                        pass
+                elif entry.get("JOB_RESULT") == "done" and run["exit_code"] is None:
+                    run["exit_code"] = 0
+            elif "_SYSTEMD_INVOCATION_ID" in entry:
+                # A line the job itself printed.
+                run = runs.setdefault(
+                    str(entry["_SYSTEMD_INVOCATION_ID"]),
+                    {
+                        "started": self._timestamp(entry),
+                        "at": self._epoch(entry),
+                        "exit_code": None,
+                        "lines": [],
+                    },
+                )
+                if not run["started"]:
+                    run["started"] = self._timestamp(entry)
+                    run["at"] = self._epoch(entry)
+                message = entry.get("MESSAGE")
+                if isinstance(message, str):
+                    run["lines"].append(message)
+        return runs, seen
+
+    @staticmethod
+    def _epoch(entry: dict[str, Any]) -> float | None:
+        """
+        Read a journal entry's realtime timestamp as epoch seconds.
+
+        Args:
+            entry: The parsed journal entry.
+
+        Returns:
+            The moment, or None when the entry has none.
+        """
+        try:
+            return int(entry.get("__REALTIME_TIMESTAMP", "")) / 1_000_000
+        except (TypeError, ValueError):
+            return None
+
+    # The ledger -----------------------------------------------------------
+
+    def _boots(self) -> list[dict[str, Any]]:
+        """
+        Read the boots the journal remembers, oldest first.
+
+        Returns:
+            One entry per boot with ``first_entry`` and ``last_entry`` in microseconds; empty
+            when the journal cannot be asked.
+        """
+        result = self.runner.run(
+            ["journalctl", "--list-boots", "-o", "json", "--no-pager"], timeout=_JOURNAL_TIMEOUT
+        )
+        if not result.success:
+            return []
+        try:
+            loaded = json.loads(result.stdout)
+        except ValueError:
+            return []
+        return (
+            [entry for entry in loaded if isinstance(entry, dict)]
+            if isinstance(loaded, list)
+            else []
+        )
+
+    def due_between(self, schedule: str, start: float, end: float) -> list[float]:
+        """
+        List the moments a schedule fell due in a stretch.
+
+        Args:
+            schedule: A systemd calendar expression.
+            start: First moment, epoch seconds.
+            end: Last moment, epoch seconds.
+
+        Returns:
+            The occurrences after ``start`` up to ``end``, oldest first, at most
+            :data:`LEDGER_MAX_OCCURRENCES`.
+
+        Raises:
+            ServiceError: systemd rejected the expression.
+        """
+        due: list[float] = []
+        cursor = start
+        while len(due) < LEDGER_MAX_OCCURRENCES:
+            _, batch = self.preview_calendar(schedule, iterations=_LEDGER_BATCH, base_time=cursor)
+            moments = [dt.datetime.fromisoformat(stamp).timestamp() for stamp in batch]
+            fresh = [moment for moment in moments if cursor < moment <= end]
+            due.extend(fresh)
+            if len(moments) < _LEDGER_BATCH or not fresh or moments[-1] >= end:
+                break
+            cursor = moments[-1]
+        return due[:LEDGER_MAX_OCCURRENCES]
+
+    def ledger(self, name: str, *, days: int = 7, now: float | None = None) -> dict[str, Any]:
+        """
+        Say which occurrences of a job ran, and which did not (checklist B-66).
+
+        A timer with ``Persistent=true`` makes up one run for the time the machine was off, and
+        says nothing about the others. This sets the moments the schedule fell due against the
+        runs the journal saw (:mod:`noust.managers.cron_ledger`). It judges only from when it can:
+        not before the journal begins, not before the timer was written, and not before the oldest
+        run it read when the journal had more entries than it reads.
+
+        Args:
+            name: Job name.
+            days: How far back to look, 1 to 31.
+            now: The present, epoch seconds; the clock's when None.
+
+        Returns:
+            The job's ``name``, ``schedule`` and whether it is ``enabled``; ``since`` and ``until``
+            (what was judged); the counts ``ran``, ``late`` and ``missed``; and the
+            ``occurrences``, oldest first. A disabled job has nothing due.
+
+        Raises:
+            ServiceError: When no such job exists, the units are not Noust's, or systemd rejects
+                the schedule.
+            ValidationError: ``days`` is out of range.
+        """
+        if not 1 <= days <= 31:
+            raise ValidationError(
+                f"{days} days is not a stretch a ledger covers",
+                details="Ask for 1 to 31 days.",
+                field="days",
+            )
+        checked, timer_path, _ = self._require_owned(name, operation="read the ledger of")
+        info = self.get_job(checked)
+        present = time.time() if now is None else now
+        enabled = bool(info and info["enabled"])
+        schedule = str(info["on_calendar"]) if info else ""
+        report: dict[str, Any] = {
+            "name": checked,
+            "schedule": schedule,
+            "enabled": enabled,
+            "since": None,
+            "until": present,
+            "ran": 0,
+            "late": 0,
+            "missed": 0,
+            "occurrences": [],
+        }
+        if not enabled or not schedule:
+            return report
+
+        boots = self._boots()
+        floor = [present - days * 86_400]
+        reach = cron_ledger.coverage_start(boots)
+        if reach is not None:
+            floor.append(reach)
+        try:
+            floor.append(timer_path.stat().st_mtime)
+        except OSError:
+            pass
+        runs, seen = self._read_runs(f"{UNIT_PREFIX}{checked}.service", _LEDGER_JOURNAL_ENTRIES)
+        starts = [float(run["at"]) for run in runs.values() if run["at"] is not None]
+        if seen >= _LEDGER_JOURNAL_ENTRIES and starts:
+            # The journal had more than was read: nothing before the oldest run it did read is known.
+            floor.append(min(starts))
+        since = max(floor)
+        report["since"] = since
+
+        found = cron_ledger.judge(
+            self.due_between(schedule, since, present),
+            starts,
+            cron_ledger.boot_gaps(boots),
+            now=present,
+        )
+        report["occurrences"] = [occurrence.to_dict() for occurrence in found]
+        for status in (cron_ledger.RAN, cron_ledger.LATE, cron_ledger.MISSED):
+            report[status] = sum(1 for occurrence in found if occurrence.status == status)
+        return report
+
     def preview_calendar(
-        self, schedule: str, *, iterations: int = PREVIEW_ITERATIONS
+        self, schedule: str, *, iterations: int = PREVIEW_ITERATIONS, base_time: float | None = None
     ) -> tuple[str, list[str]]:
         """
         Expand a schedule and report when it would next fire.
@@ -1431,6 +1636,8 @@ class CronManager:
             schedule: Alias from :data:`SCHEDULE_ALIASES` or a systemd
                 calendar expression.
             iterations: How many future runs to report.
+            base_time: Count the runs from this moment (epoch seconds) instead of from now: how a
+                ledger asks which moments were due in the past.
 
         Returns:
             The normalised calendar expression, and up to ``iterations``
@@ -1442,8 +1649,18 @@ class CronManager:
         """
         calendar = validate_cron_calendar(schedule)
 
+        anchor = (
+            [
+                "--base-time="
+                + dt.datetime.fromtimestamp(base_time, tz=dt.timezone.utc).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+            ]
+            if base_time is not None
+            else []
+        )
         result = self.runner.run(
-            ["systemd-analyze", "calendar", f"--iterations={iterations}", calendar],
+            ["systemd-analyze", "calendar", f"--iterations={iterations}", *anchor, calendar],
             timeout=_ANALYZE_TIMEOUT,
             # Pinned so every run in the preview is reported in the same zone
             # the console displays it in, regardless of the host's own.

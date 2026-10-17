@@ -61,6 +61,7 @@ READS_THAT_SOUND_LIKE_ACTIONS = {
     # A login redirect is a GET by OAuth's design; it only mints a one-time state
     # that /callback consumes, and the callback is held to the lockout like a sign-in.
     "/api/auth/oidc/start": "the redirect to the identity provider that begins a sign-in",
+    "/api/auth/saml/start": "the redirect to the SAML identity provider that begins a sign-in",
 }
 
 #: Reads that ask for sudo mode. Template to why a GET and not a POST.

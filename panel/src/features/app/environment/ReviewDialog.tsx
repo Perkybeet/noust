@@ -18,7 +18,7 @@ import { audienceBody, audienceLabel } from "./audience";
 import type { AudienceChange } from "./audience";
 import type { EnvChange, EnvDiff } from "./draft";
 import { describeCounts } from "./draft";
-import { nameProblem } from "./dotenv";
+import { nameProblem, oneLine } from "./dotenv";
 
 function kindOf(t: T, kind: EnvChange["kind"]): { label: string; icon: ReactNode } {
   if (kind === "added") return { label: t("environment.added"), icon: <Plus aria-hidden="true" className="size-icon-sm" /> };
@@ -40,10 +40,14 @@ function Value({ value, shown, struck = false }: { value: string | null; shown: 
     );
   }
   if (value === "") return <span className="text-fg-muted">{t("environment.empty")}</span>;
+  const { text, lines } = oneLine(value);
   return (
-    <Mono truncate title={value} tone={struck ? "muted" : "default"} className={cx("min-w-0", struck && "line-through")}>
-      {value}
-    </Mono>
+    <span className="flex min-w-0 items-baseline gap-2">
+      <Mono truncate title={value} tone={struck ? "muted" : "default"} className={cx("min-w-0", struck && "line-through")}>
+        {text}
+      </Mono>
+      {lines > 1 ? <span className="shrink-0 text-fg-faint">{t("environment.lines", { count: lines })}</span> : null}
+    </span>
   );
 }
 
@@ -93,6 +97,8 @@ export interface ReviewDialogProps {
   diff: EnvDiff | null;
   /** Who gets which variable, where that changes: saved with the values. */
   audience?: readonly AudienceChange[];
+  /** The notes above variables that change (name to text, empty to take one away): saved with the values. */
+  comments?: ReadonlyMap<string, string>;
   onClose: () => void;
   /** The file now holds `next`. */
   onSaved: (next: Map<string, string>) => void;
@@ -103,19 +109,24 @@ export interface ReviewDialogProps {
  * values the file really holds. Saving sends the complete map; afterwards the app is offered
  * a restart, since its process keeps the environment it started with.
  */
-export function ReviewDialog({ domain, file, isStatic, diff, audience = [], onClose, onSaved }: ReviewDialogProps) {
+export function ReviewDialog({ domain, file, isStatic, diff, audience = [], comments, onClose, onSaved }: ReviewDialogProps) {
   const t = useT();
   const [shown, setShown] = useState(false);
   const [saved, setSaved] = useState(false);
   // The staged audiences are cleared once the file is written; the summary still counts them.
   const [savedAudience, setSavedAudience] = useState(0);
   const { restart } = useAppActions(domain);
+  const commentCount = comments?.size ?? 0;
 
   const save = useMutation({
     mutationFn: (next: Map<string, string>) =>
       request("put", "/api/apps/{domain}/env", {
         params: { domain },
-        body: { variables: Object.fromEntries(next), ...(audience.length > 0 ? { audience: audienceBody(audience) } : {}) },
+        body: {
+          variables: Object.fromEntries(next),
+          ...(audience.length > 0 ? { audience: audienceBody(audience) } : {}),
+          ...(commentCount > 0 ? { comments: Object.fromEntries(comments ?? []) } : {}),
+        },
       }),
     onSuccess: (_result, next) => {
       setSavedAudience(audience.length);
@@ -134,7 +145,7 @@ export function ReviewDialog({ domain, file, isStatic, diff, audience = [], onCl
   };
 
   const changes = diff?.changes ?? [];
-  const nothing = changes.length === 0 && audience.length === 0;
+  const nothing = changes.length === 0 && audience.length === 0 && commentCount === 0;
   const counts = {
     added: changes.filter((c) => c.kind === "added").length,
     changed: changes.filter((c) => c.kind === "changed").length,
@@ -220,8 +231,10 @@ export function ReviewDialog({ domain, file, isStatic, diff, audience = [], onCl
           <p className="text-13 text-fg">
             {nothing
               ? t("environment.reviewDialog.nothingChanges")
-              : changes.length === 0
-                ? t("variables.review.onlyAudience")
+              : changes.length === 0 && commentCount > 0 && audience.length === 0
+                ? t("environment.reviewDialog.onlyComments", { count: commentCount })
+                : changes.length === 0
+                  ? t("variables.review.onlyAudience")
                 : `${describeCounts(counts, t.locale)}. ${t("environment.reviewDialog.staySummary", { count: diff?.unchanged ?? 0 })}`}
           </p>
           {changes.length > 0 ? <Switch label={t("environment.reviewDialog.showValues")} checked={shown} onCheckedChange={setShown} /> : null}
@@ -247,6 +260,22 @@ export function ReviewDialog({ domain, file, isStatic, diff, audience = [], onCl
             <ul className="divide-y divide-border">
               {changes.map((change) => (
                 <ChangeRow key={change.name} change={change} shown={shown} />
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {commentCount > 0 ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-13 font-medium text-fg">{t("environment.reviewDialog.commentsTitle")}</p>
+            <ul aria-label={t("environment.reviewDialog.commentsTitle")} className="divide-y divide-border rounded-control border border-border bg-bg-sunken">
+              {[...(comments ?? [])].map(([name, text]) => (
+                <li key={name} className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1 px-3 py-2 text-12">
+                  <Mono truncate title={name}>
+                    {name}
+                  </Mono>
+                  <span className="min-w-0 text-fg-muted">{text === "" ? t("environment.reviewDialog.commentRemoved") : text}</span>
+                </li>
               ))}
             </ul>
           </div>

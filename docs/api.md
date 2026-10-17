@@ -173,6 +173,11 @@ collects the single-use ticket the callback left and answers what `POST /api/aut
 provider is a first factor only. `/config`, `/config/{provider}` (PUT in sudo mode), `/config/{provider}/test`
 and `/identities` are the security officer's (`accounts.read`, `accounts.manage`).
 
+SAML 2.0 providers sign in the same way under `/api/auth/saml` (`GET /start`, the provider's form posted to
+`POST /acs`, `GET /metadata/{provider}` for the provider to register from, and the security officer's
+`/config`), a directory takes a name and password at `POST /api/auth/ldap/login`, and a provisioning source
+calls `/api/scim/v2` with the bearer token issued for it ([sso.md](sso.md)).
+
 ### Permissions
 
 Every route needs one permission, published in `/api/openapi.json` as the operation's

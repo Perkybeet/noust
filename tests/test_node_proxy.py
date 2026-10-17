@@ -1148,6 +1148,23 @@ class TestForwardedIdentityNeverWidens:
         assert identity["actor_role"] == "operator"
 
     def test_a_full_admin_is_still_admin(self) -> None:
+        from noust.web.permissions.roles import permissions_for_role
+
+        # What an administrator holds is this server's decision, so the token is the whole role.
+        held = permissions_for_role("admin")
+        assert node_proxy.forwarded_identity(self.payload(held))["actor_role"] == "admin"
+
+    def test_where_roles_are_split_the_admin_of_that_matrix_is_admin(self, real_config) -> None:
         from noust.web.permissions.roles import ADMIN
 
+        real_config.set("security.roles_split", True)
+
         assert node_proxy.forwarded_identity(self.payload(ADMIN))["actor_role"] == "admin"
+
+    def test_an_admin_without_the_governance_permissions_is_not_one_where_admin_holds_them(
+        self,
+    ) -> None:
+        from noust.web.permissions.roles import ADMIN
+
+        # The ENS matrix's administrator is short of what this server's administrator holds.
+        assert node_proxy.forwarded_identity(self.payload(ADMIN))["actor_role"] == "operator"

@@ -22,6 +22,7 @@ import { FeatureState } from "../../../components/ui/FeatureState";
 import { Notice } from "../../../components/ui/Notice";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
+import { useReasonRequired } from "../../settings/compliance/useReasonRequired";
 import { useSudoFirst } from "./formParts";
 import { sandboxQuery, settingsKeys } from "./queries";
 import type { Sandbox } from "./queries";
@@ -56,6 +57,7 @@ function ReasonDialog({
   onSubmit: (reason: string) => Promise<unknown>;
 }) {
   const t = useT();
+  const reasonRequired = useReasonRequired();
   const [reason, setReason] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const run = useMutation({
@@ -64,7 +66,7 @@ function ReasonDialog({
       onOpenChange(false);
     },
   });
-  const empty = reason.trim() === "";
+  const empty = reasonRequired && reason.trim() === "";
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
     setSubmitted(true);
@@ -95,6 +97,7 @@ function ReasonDialog({
         <Field
           label={t("appSettings.builds.reasonLabel")}
           description={t("appSettings.builds.reasonDescription")}
+          optional={!reasonRequired}
           error={submitted && empty ? t("appSettings.builds.reasonRequired") : undefined}
         >
           <Textarea rows={3} maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} />

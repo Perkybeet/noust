@@ -8,13 +8,13 @@ Read from the configuration (``security.profile`` and the ``auth`` section)
 every time it is asked for, so a change made with ``noust config set`` or the
 console takes effect without a restart, in the CLI and the console alike.
 
-The ``ens-medium`` profile (ENS category MEDIUM, RD 311/2022) does not add
-settings; it tightens the ones there are. Each is capped at the profile's
-value, so an operator can be stricter than the profile but never looser while
-it is on: idle 15 minutes, 8 hours per session, 5 failures, 14-character
-passwords, 90-day tokens, the master token only for account recovery, and sudo
-mode that stays open 10 minutes while used, 30 at most, asking the password
-again.
+A compliance framework (:mod:`noust.core.compliance`) does not add settings; it
+tightens the ones there are. Each is capped at the strictest value any enabled
+framework asks, so an operator can be stricter than a framework but never looser
+while it is on. With ENS MEDIA (what ``security.profile: ens-medium`` means) that
+is: idle 15 minutes, 8 hours per session, 5 failures, 14-character passwords,
+90-day tokens, and sudo mode that stays open 10 minutes while used, 30 at most,
+asking the password again.
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ from typing import Any
 # The profiles and their numbers are stated once, in noust.core.ens.profile,
 # which every area reads (rule 3); the names below are kept for the callers
 # that import them from here.
+from noust.core.compliance import resolve
 from noust.core.ens.profile import (
     ENS_MEDIUM,
     PROFILE_ENS_MEDIUM,
@@ -90,7 +91,8 @@ class AuthPolicy:
             confirmed, however busy the session is; never below the idle
             window.
         sudo_require_password: Re-confirming asks for the account's password
-            as well as one second factor. Always true under the ENS profile.
+            as well as one second factor. Always true where a framework asks.
+        frameworks: The compliance frameworks that are on.
     """
 
     profile: str = PROFILE_STANDARD
@@ -105,10 +107,48 @@ class AuthPolicy:
     sudo_idle_minutes: int = STANDARD_SUDO_IDLE_MINUTES
     sudo_max_minutes: int = STANDARD_SUDO_MAX_MINUTES
     sudo_require_password: bool = STANDARD.sudo_require_password
+    frameworks: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        """A policy built by hand with the profile name alone still has its framework."""
+        if self.profile == PROFILE_ENS_MEDIUM and not self.frameworks:
+            object.__setattr__(self, "frameworks", ("ens-media",))
+
+    def requires(self, control_id: str) -> bool:
+        """
+        Whether a compliance control is on for this policy.
+
+        A policy is built from the frameworks that were on when it was read, so the
+        question is asked of it rather than of the configuration: an account manager
+        given a policy judges by that policy, as it does for every other limit.
+        The operator's own setting for the control counts on top, as it does
+        everywhere (:mod:`noust.core.compliance.resolve`).
+
+        Args:
+            control_id: A control's id.
+
+        Returns:
+            True when a framework of the policy asks for it, or the operator did.
+        """
+        from noust.core.compliance import controls
+
+        control = controls.get(control_id)
+        resolution = resolve.resolve_for(
+            control_id,
+            self.frameworks,
+            resolve.operator_value(control, None, forced=bool(self.frameworks)),
+            has_operator=True,
+        )
+        return resolution.on
 
     @property
     def ens(self) -> bool:
-        """Whether the ENS category MEDIUM profile is on."""
+        """
+        Whether a framework of the ENS family is on.
+
+        For what is about the ENS itself. What a server refuses or requires is a
+        control's, asked of :mod:`noust.core.compliance`.
+        """
         return self.profile == PROFILE_ENS_MEDIUM
 
     @property
@@ -129,6 +169,7 @@ class AuthPolicy:
         """
         return {
             "profile": self.profile,
+            "frameworks": list(self.frameworks),
             "idle_minutes": self.idle_minutes,
             "absolute_hours": self.absolute_hours,
             "lockout_threshold": self.lockout_threshold,
@@ -197,16 +238,22 @@ def _flag(value: Any, default: bool) -> bool:
 
 def build_policy(settings: dict[str, Any]) -> AuthPolicy:
     """
-    Turn configuration values into the policy, applying the profile's caps.
+    Turn configuration values into the policy, applying what the frameworks ask.
 
     Args:
-        settings: ``profile`` and the ``auth`` section's values, flattened as
-            :func:`load_policy` reads them.
+        settings: ``profile`` (``security.profile``), ``frameworks``
+            (``security.frameworks``) and the ``auth`` section's values,
+            flattened as :func:`load_policy` reads them.
 
     Returns:
-        The policy.
+        The policy: every limit held at the strictest of the operator's value and
+        what each enabled framework asks.
     """
-    profile = normalise_profile(settings.get("profile"))
+    enabled = resolve.enabled_from(settings.get("frameworks"), settings.get("profile"))
+    # The name this policy has always carried: an ENS framework is what "ens-medium" meant.
+    profile = (
+        PROFILE_ENS_MEDIUM if any(name.startswith("ens-") for name in enabled) else PROFILE_STANDARD
+    )
     idle = _positive_int(settings.get("idle_minutes"), STANDARD_IDLE_MINUTES)
     absolute = _positive_int(settings.get("absolute_hours"), STANDARD_ABSOLUTE_HOURS)
     threshold = _positive_int(settings.get("lockout_threshold"), STANDARD_LOCKOUT_THRESHOLD)
@@ -220,18 +267,18 @@ def build_policy(settings: dict[str, Any]) -> AuthPolicy:
     )
     sudo_password = _flag(settings.get("sudo_require_password"), STANDARD.sudo_require_password)
     token_days: int | None = None
-    if profile == PROFILE_ENS_MEDIUM:
-        idle = min(idle, ENS_IDLE_MINUTES)
-        absolute = min(absolute, ENS_ABSOLUTE_HOURS)
-        threshold = min(threshold, ENS_LOCKOUT_THRESHOLD)
-        lock_minutes = max(lock_minutes, ENS_LOCKOUT_MINUTES)
-        min_length = max(min_length, ENS_PASSWORD_MIN_LENGTH)
-        token_days = min(
-            _positive_int(settings.get("token_max_days"), ENS_TOKEN_MAX_DAYS), ENS_TOKEN_MAX_DAYS
-        )
-        sudo_idle = min(sudo_idle, ENS_SUDO_IDLE_MINUTES)
-        sudo_max = min(sudo_max, ENS_SUDO_MAX_MINUTES)
-        sudo_password = ENS_MEDIUM.sudo_require_password
+    if enabled:
+        idle = resolve.apply_floor("session_idle_minutes", enabled, idle)
+        absolute = resolve.apply_floor("session_absolute_hours", enabled, absolute)
+        threshold = resolve.apply_floor("lockout_threshold", enabled, threshold)
+        lock_minutes = resolve.apply_floor("lockout_minutes", enabled, lock_minutes)
+        min_length = resolve.apply_floor("password_min_length", enabled, min_length)
+        limit = resolve.floor_for("token_max_days", enabled)
+        if limit is not None:
+            token_days = min(_positive_int(settings.get("token_max_days"), limit), limit)
+        sudo_idle = resolve.apply_floor("sudo_idle_minutes", enabled, sudo_idle)
+        sudo_max = resolve.apply_floor("sudo_max_minutes", enabled, sudo_max)
+        sudo_password = sudo_password or bool(resolve.floor_for("sudo_password", enabled))
     return AuthPolicy(
         profile=profile,
         idle_minutes=idle,
@@ -246,6 +293,7 @@ def build_policy(settings: dict[str, Any]) -> AuthPolicy:
         # The confirmation can never be shorter than the window it is made of.
         sudo_max_minutes=max(sudo_max, sudo_idle),
         sudo_require_password=sudo_password,
+        frameworks=tuple(enabled),
     )
 
 
@@ -262,6 +310,7 @@ def load_policy() -> AuthPolicy:
     return build_policy(
         {
             "profile": config.get("security.profile", PROFILE_STANDARD),
+            "frameworks": config.get("security.frameworks"),
             "idle_minutes": config.get("auth.session.idle_minutes"),
             "absolute_hours": config.get("auth.session.absolute_hours"),
             "lockout_threshold": config.get("auth.lockout.threshold"),

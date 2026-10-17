@@ -1,0 +1,6 @@
+{
+  "QUEUE_URL": "redis://localhost",
+  "PLAIN": "1",
+  "PLAIN2": "2",
+  "LAST": "3"
+}

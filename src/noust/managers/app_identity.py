@@ -157,6 +157,8 @@ def ineligible(app: App) -> str | None:
         The reason, or None when it can.
     """
     kind = app.app_type or ""
+    if kind == "adopted":
+        return "its unit is yours: it runs as the account you gave it, which Noust does not change"
     if kind in ("docker-compose", "container"):
         return "its processes run in containers, as the users their images say"
     if kind == "static" or app.is_static:

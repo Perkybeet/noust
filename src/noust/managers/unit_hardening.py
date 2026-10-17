@@ -198,6 +198,8 @@ def ineligible(app: App) -> str | None:
         The reason, or None when it can.
     """
     kind = app.app_type or ""
+    if kind == "adopted":
+        return "its unit is yours: Noust restarts an adopted site and never rewrites its unit"
     if kind in ("docker-compose", "container"):
         return (
             "its processes are Docker's: the unit that starts the stack is root's, "

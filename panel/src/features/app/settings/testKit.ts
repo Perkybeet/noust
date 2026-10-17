@@ -110,6 +110,32 @@ export const ZERO_DOWNTIME_OFF = {
   hint: null,
 };
 
+/** An application whose unit is not tuned: nothing set, the capabilities and the GPU presets on offer. */
+export const NO_TUNING = {
+  domain: DOMAIN,
+  configured: false,
+  eligible: true,
+  reason: null,
+  options: {},
+  directives: [],
+  capabilities: { NET_BIND_SERVICE: "bind a port below 1024", IPC_LOCK: "lock memory" },
+  gpu_presets: { nvidia: ["char-nvidia", "char-nvidia-uvm"], dri: ["char-drm"] },
+  cpus: 4,
+};
+
+/** An application whose disk was never measured and that has no limit, on an ext4 filesystem. */
+export const NO_DISK = {
+  domain: DOMAIN,
+  soft_mb: null,
+  usage: null,
+  verdict: null,
+  filesystem: { mount: "/", fstype: "ext4", options: ["rw", "relatime"], project_quota: "available" },
+  kernel: { applied: false, project: null, mount: null, hard_mb: null, used_bytes: null },
+};
+
+/** An application nothing speaks against running on a second server. */
+export const READY_TO_SPREAD = { domain: DOMAIN, ready: true, findings: [], by_image: false };
+
 /** What the startup check has beside the path, the statuses and the time: nothing, as a new app. */
 export const NO_HEALTH_EXTRAS = { kind: "http", method: null, scheme: null, host: null, port: null, command: null, service: null, interval: null, retries: null, start_period: null };
 
@@ -149,6 +175,9 @@ export async function renderSettings(path: string, heading: string, app: object 
     [`GET /api/apps/${DOMAIN}/push`]: () => json(200, PUSH_OFF),
     [`GET /api/apps/${DOMAIN}/packages`]: () => json(200, PACKAGES_NONE),
     [`GET /api/apps/${DOMAIN}/health`]: () => json(200, healthOf(app as Record<string, unknown>)),
+    [`GET /api/apps/${DOMAIN}/tuning`]: () => json(200, NO_TUNING),
+    [`GET /api/apps/${DOMAIN}/disk`]: () => json(200, NO_DISK),
+    [`GET /api/apps/${DOMAIN}/replication`]: () => json(200, READY_TO_SPREAD),
     [`GET /api/apps/${DOMAIN}/previews`]: () => json(200, { domain: DOMAIN, enabled: false, settings: null, previews: [], total: 0 }),
     [`GET /api/apps/${DOMAIN}/networks`]: () => json(200, { app: DOMAIN, applicable: true, reason: "", containers: [], isolated: true, networks: [] }),
     ...routes,

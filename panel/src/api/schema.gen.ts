@@ -251,6 +251,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/alerts/rules/{name}/acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Acknowledge Rule
+         * @description Take an alert that is firing.
+         *
+         *     Its reminders stop, the channels are told who took it and a pager channel
+         *     acknowledges the incident, which stops it escalating. It still clears, and
+         *     says so, when the metric is back inside its limit. Taking one that is taken
+         *     changes nothing.
+         *
+         *     Args:
+         *         name: The rule's name.
+         *         session: The authenticated session.
+         *         subject: The application, or empty for the server.
+         *
+         *     Returns:
+         *         The rule, with where each subject stands.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such rule.
+         *         ValidationError: 400 when the subject is not firing.
+         */
+        post: operations["acknowledge_rule_api_alerts_rules__name__acknowledge_post"];
+        /**
+         * Hand Back Rule
+         * @description Hand a firing alert back: its reminder speaks again.
+         *
+         *     Args:
+         *         name: The rule's name.
+         *         session: The authenticated session.
+         *         subject: The application, or empty for the server.
+         *
+         *     Returns:
+         *         The rule, with where each subject stands.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such rule.
+         *         ValidationError: 400 when the subject is not firing.
+         */
+        delete: operations["hand_back_rule_api_alerts_rules__name__acknowledge_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/alerts/rules/{name}/disable": {
         parameters: {
             query?: never;
@@ -558,6 +611,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/adopt-site": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adopt Site
+         * @description Adopt a site that already runs, or preview the adoption.
+         *
+         *     Args:
+         *         body: The site.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was found and done.
+         *
+         *     Raises:
+         *         DeploymentError: The domain is an application, no site serves it, the site serves
+         *             nothing Noust can adopt, the unit cannot be one, or the directory is not the site's.
+         */
+        post: operations["adopt_site_api_apps_adopt_site_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/import": {
         parameters: {
             query?: never;
@@ -660,6 +744,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/native-sites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Native Sites
+         * @description List the sites that no application records, and what each one is.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         One entry per site the operator wrote, adoptable or with the reason it is not.
+         */
+        get: operations["list_native_sites_api_apps_native_sites_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/types": {
         parameters: {
             query?: never;
@@ -741,6 +851,37 @@ export interface paths {
          *         ValidationError: The directory named is not the application's (400).
          */
         delete: operations["delete_app_api_apps__domain__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/adoption": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Adoption
+         * @description Say what an adopted application is.
+         *
+         *     Args:
+         *         domain: The application's domain.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its unit, site and directory.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application does not exist, is outside the caller's teams, or
+         *             was not adopted.
+         */
+        get: operations["get_adoption_api_apps__domain__adoption_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1265,6 +1406,41 @@ export interface paths {
          *         HTTPException: 404 when the application is unknown.
          */
         delete: operations["delete_compose_settings_api_apps__domain__compose_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/compose/variables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Compose Variables
+         * @description Show the variables a stack's compose file asks for and which of them it has.
+         *
+         *     Reads the file and the ``.env`` and runs nothing; a value is never part of the answer, only
+         *     whether there is one. Edit them with ``PUT /api/apps/{domain}/env``.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Every variable with its state, and the ones a deploy would refuse over.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: It is not a Compose stack (400).
+         *         DeploymentError: Its compose file cannot be found or read.
+         */
+        get: operations["get_compose_variables_api_apps__domain__compose_variables_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1825,6 +2001,121 @@ export interface paths {
         get: operations["diagnose_app_api_apps__domain__diagnose_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/disk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Disk
+         * @description Show what an application takes of the disk, as it was last measured. Measures nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The limit, the measurement and the filesystem's facts.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_disk_api_apps__domain__disk_get"];
+        /**
+         * Put Disk
+         * @description Set or remove the limit an application's deploys are held to.
+         *
+         *     It is Noust's limit, checked before a deploy builds a new release; it does not stop the
+         *     application from writing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The limit in MB, or null.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The disk as it is now.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The limit is out of range (400).
+         */
+        put: operations["put_disk_api_apps__domain__disk_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/disk/kernel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Disk Kernel
+         * @description Queue giving an application's disk limit to the kernel, or taking it off.
+         *
+         *     It sets a filesystem project quota on the application's directory, which needs the filesystem
+         *     to be mounted with project quotas already; Noust does not mount or tune it.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: Whether to apply or remove it.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: No limit is set, the tree is not one to put a quota on, or the
+         *             filesystem is not mounted with project quotas (400), before anything is queued.
+         */
+        put: operations["put_disk_kernel_api_apps__domain__disk_kernel_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/disk/measure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Disk Measure
+         * @description Queue the measurement of what an application takes of the disk.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        post: operations["post_disk_measure_api_apps__domain__disk_measure_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5095,6 +5386,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/replication": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Replication
+         * @description Say whether an application could run on more than one server. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The verdict and every finding.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_replication_api_apps__domain__replication_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/restart": {
         parameters: {
             query?: never;
@@ -5877,6 +6198,93 @@ export interface paths {
          *         TerminalLimitError: 429 when a limit is reached.
          */
         post: operations["open_app_terminal_api_apps__domain__terminal_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/traffic": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * App Traffic
+         * @description Say what the proxy's access log says about an application.
+         *
+         *     Requests and how they ended by the hour (by the day beyond two days), bytes
+         *     served, and the pages asked for most, the networks they came from, the
+         *     status codes and the referrers' hosts. Query strings are never kept and a
+         *     client is its network (a /24 or a /48), not its address.
+         *
+         *     Args:
+         *         domain: The application's domain.
+         *         session: Authenticated session, injected.
+         *         window: How far back to look.
+         *         top: Entries in each ranking.
+         *
+         *     Returns:
+         *         The traffic, and whether the log is being read at all.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such application.
+         */
+        get: operations["app_traffic_api_apps__domain__traffic_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/tuning": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Tuning
+         * @description Show how an application's unit is tuned. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The options, the lines they become and what can be asked for.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_tuning_api_apps__domain__tuning_get"];
+        /**
+         * Put Tuning
+         * @description Queue the change of an application's tuning.
+         *
+         *     It is restarted behind its health gate; when it does not answer, the previous units and record
+         *     are put back and it is restarted as it was.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The complete options, and whether to restart now.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: An option a unit cannot have, or an application that cannot be tuned
+         *             (400), before anything is queued.
+         */
+        put: operations["put_tuning_api_apps__domain__tuning_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6804,6 +7212,7 @@ export interface paths {
          *
          *     Raises:
          *         AccountNotFoundError: When no account has that name.
+         *         AccountError: For one's own account.
          */
         post: operations["enable_account_api_auth_accounts__username__enable_post"];
         delete?: never;
@@ -7161,6 +7570,150 @@ export interface paths {
          *             used or expired - counted by the lockout like a wrong password.
          */
         post: operations["open_invitation_api_auth_invitations_open_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/ldap/directories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Directories
+         * @description List the configured directories, without their passwords.
+         *
+         *     Args:
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         Each directory and whether its service account's password is stored.
+         */
+        get: operations["list_directories_api_auth_ldap_directories_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/ldap/directories/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Directory
+         * @description Add a directory or change one, in sudo mode: it decides who may sign in.
+         *
+         *     Args:
+         *         name: The directory's name.
+         *         request: The request.
+         *         body: The settings to set.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         The directory as it is now.
+         *
+         *     Raises:
+         *         ValidationError: When a setting is refused; nothing is written.
+         */
+        put: operations["put_directory_api_auth_ldap_directories__name__put"];
+        post?: never;
+        /**
+         * Delete Directory
+         * @description Remove a directory and its password, in sudo mode.
+         *
+         *     Args:
+         *         name: The directory's name.
+         *         request: The request.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         A confirmation.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such directory.
+         *         LocalLoginRefused: 400 while local sign-in is off and this is the last way in.
+         */
+        delete: operations["delete_directory_api_auth_ldap_directories__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/ldap/directories/{name}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Directory
+         * @description Look at a directory the way a sign-in would: the connection, the service account, the base.
+         *
+         *     Signs nobody in and writes nothing. A directory that cannot be reached is a failed check,
+         *     not an error.
+         *
+         *     Args:
+         *         name: The directory's name.
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         Each check and whether all passed.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such directory.
+         */
+        post: operations["test_directory_api_auth_ldap_directories__name__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/ldap/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Login
+         * @description Sign in with a directory's name and password.
+         *
+         *     An account with a second factor is answered the step it owes
+         *     (``second_factor``), to be finished at ``POST /api/auth/login/second-factor``;
+         *     one without is signed in, its session fit only to enrol one.
+         *
+         *     Args:
+         *         request: The request.
+         *         response: Used to set the session cookies.
+         *         body: The directory and the credentials.
+         *
+         *     Returns:
+         *         Exactly what ``POST /api/auth/login`` answers.
+         *
+         *     Raises:
+         *         HTTPException: 401 ``invalid_credentials`` for a wrong name or password; 403
+         *             ``sign_in_refused`` when the policy does not admit the person; 503
+         *             ``sign_in_unavailable`` when the directory cannot be asked; 429 ``locked_out``.
+         */
+        post: operations["login_api_auth_ldap_login_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8023,6 +8576,320 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/saml/acs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assertion Consumer Service
+         * @description Take the identity provider's answer: verify it, admit the person, hand over a ticket.
+         *
+         *     A response that is not right (a signature that does not verify, another audience, an assertion
+         *     seen before, another browser's cookie) is counted against the address like a wrong password
+         *     and audited; a provider that says the person did not sign in, one that is off, or a person the
+         *     policy does not admit, is audited but not counted. The reason is for the audit trail: the
+         *     sign-in page is told one word.
+         *
+         *     Args:
+         *         request: The request, the browser posting the provider's form.
+         *
+         *     Returns:
+         *         A redirect to the sign-in page carrying the ticket, or the reason.
+         */
+        post: operations["assertion_consumer_service_api_auth_saml_acs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/saml/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Providers
+         * @description List the configured SAML providers.
+         *
+         *     Args:
+         *         request: The request, for the addresses it implies.
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         The providers and the address a response is posted to.
+         */
+        get: operations["list_providers_api_auth_saml_config_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/saml/config/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Provider
+         * @description Add a SAML provider or change one, in sudo mode: it decides who may sign in.
+         *
+         *     Args:
+         *         provider: The provider's name.
+         *         request: The request.
+         *         body: The settings to set.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         The provider as it is now.
+         *
+         *     Raises:
+         *         ValidationError: When a setting is refused; nothing is written.
+         */
+        put: operations["put_provider_api_auth_saml_config__provider__put"];
+        post?: never;
+        /**
+         * Delete Provider
+         * @description Remove a SAML provider, in sudo mode.
+         *
+         *     Accounts keep their links and their other ways in; one that had no password can no longer sign
+         *     in until it is given one (``noust user invite``).
+         *
+         *     Args:
+         *         provider: The provider's name.
+         *         request: The request.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         A confirmation.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such provider.
+         *         LocalLoginRefused: 400 while local sign-in is off and this is the last way in.
+         */
+        delete: operations["delete_provider_api_auth_saml_config__provider__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/saml/config/{provider}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Try Provider
+         * @description Look at a provider the way a sign-in would: its certificates, its address, what it is told.
+         *
+         *     Signs nobody in and writes nothing.
+         *
+         *     Args:
+         *         provider: The provider's name.
+         *         request: The request, for the addresses this server tells the provider.
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         Each check and whether all passed.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such provider.
+         */
+        post: operations["try_provider_api_auth_saml_config__provider__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/saml/metadata/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Metadata
+         * @description Describe this server to an identity provider: what to register it from.
+         *
+         *     Anonymous, because the provider fetches it: the entity id, where responses are posted and that
+         *     assertions must be signed are not secret.
+         *
+         *     Args:
+         *         request: The request, for the address people reach the console at.
+         *         provider: The provider's name.
+         *
+         *     Returns:
+         *         The service provider's metadata document.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such provider.
+         */
+        get: operations["metadata_api_auth_saml_metadata__provider__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/saml/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Start
+         * @description Begin a sign-in: remember it and send the browser to the identity provider.
+         *
+         *     Anonymous, and it writes only a short-lived record of the sign-in; the provider is chosen from
+         *     those configured, never from the request. Whatever goes wrong, the browser lands on the
+         *     sign-in page with a one-word reason.
+         *
+         *     Args:
+         *         request: The request.
+         *         provider: The provider's name.
+         *         next: The console page to go to afterwards; reduced to a path of this console.
+         *
+         *     Returns:
+         *         A redirect to the provider, setting the cookie that ties the answer to this browser, or to
+         *         the sign-in page.
+         */
+        get: operations["start_api_auth_saml_start_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/scim/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Sources
+         * @description List the sources of provisioning, without their tokens.
+         *
+         *     Args:
+         *         request: The request, for the address to point providers at.
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         The sources and the SCIM endpoint.
+         */
+        get: operations["list_sources_api_auth_scim_sources_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/scim/sources/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Source
+         * @description Add a source or change one, in sudo mode: it decides who may have an account.
+         *
+         *     Args:
+         *         name: The source's name.
+         *         request: The request.
+         *         body: The settings to set.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         The source as it is now and, when one was issued, its token (the only time).
+         *
+         *     Raises:
+         *         ValidationError: When a setting is refused or names something that does not exist;
+         *             nothing is written then.
+         */
+        put: operations["put_source_api_auth_scim_sources__name__put"];
+        post?: never;
+        /**
+         * Delete Source
+         * @description Remove a source and its roster, in sudo mode. The accounts it made stay as they are.
+         *
+         *     Args:
+         *         name: The source's name.
+         *         request: The request.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         A confirmation.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such source.
+         */
+        delete: operations["delete_source_api_auth_scim_sources__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/scim/sources/{name}/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Users
+         * @description List the people a source provisioned, with their account's state.
+         *
+         *     Args:
+         *         name: The source's name.
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         The roster, the first 500.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such source.
+         */
+        get: operations["list_users_api_auth_scim_sources__name__users_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/session": {
         parameters: {
             query?: never;
@@ -8286,7 +9153,30 @@ export interface paths {
         delete: operations["revoke_api_token_api_auth_tokens__token_id__delete"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Restrict Api Token
+         * @description Change the networks an API token is accepted from, without issuing another.
+         *
+         *     A person changes their own tokens; whoever governs accounts, any. Taking
+         *     addresses away needs nothing more; widening the reach (lifting the
+         *     restriction, adding a network) needs sudo mode, like issuing a token does
+         *     for the person who holds it.
+         *
+         *     Args:
+         *         token_id: The record's id, as listed by ``GET /api/auth/tokens``.
+         *         body: The networks; empty lifts the restriction.
+         *         request: The incoming request.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The token as it is now.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the caller has no live token with that id; 400
+         *             for a fleet token or an entry that is not a network; 403
+         *             ``elevation_required`` when the change widens it.
+         */
+        patch: operations["restrict_api_token_api_auth_tokens__token_id__patch"];
         trace?: never;
     };
     "/api/auth/verify": {
@@ -9309,6 +10199,120 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/compliance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Compliance
+         * @description Say which frameworks are on, which controls they force, and what enabling each would change.
+         *
+         *     Args:
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         Every framework and control as it stands.
+         */
+        get: operations["get_compliance_api_compliance_get"];
+        /**
+         * Change Compliance
+         * @description Turn frameworks on or off and set controls.
+         *
+         *     Turning a framework on or a control stricter needs only the permission to change
+         *     security settings. Turning a framework off, or loosening a control, needs sudo
+         *     mode. A change with warnings is made only once ``acknowledge`` is true.
+         *
+         *     Args:
+         *         request: The request.
+         *         body: What to change.
+         *         session: The authenticated payload.
+         *
+         *     Returns:
+         *         What changed and the picture afterwards.
+         *
+         *     Raises:
+         *         HTTPException: 403 ``elevation_required`` when the change loosens something
+         *             and sudo mode is not open.
+         *         ValidationError: When the change is refused: an unknown name, a control looser
+         *             than a framework asks, warnings not acknowledged.
+         *         ConfigError: When the configuration cannot be written.
+         */
+        put: operations["change_compliance_api_compliance_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/compliance/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check Compliance
+         * @description Judge this server framework by framework, with the clause of each finding.
+         *
+         *     Reads the server's state (the last hardening report, the accounts, the backups);
+         *     a pass means the technical control is in force, never that the server complies.
+         *
+         *     Args:
+         *         framework: Frameworks to judge; the ones that are on by default.
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         The findings per framework.
+         *
+         *     Raises:
+         *         ValidationError: For a framework that does not exist.
+         */
+        get: operations["check_compliance_api_compliance_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/compliance/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Change
+         * @description Say what a change would do, writing nothing.
+         *
+         *     Args:
+         *         body: The frameworks and controls to change.
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         The controls whose value changes, whether it loosens anything, and what
+         *         about this server the caller must see first.
+         *
+         *     Raises:
+         *         ValidationError: For a framework or a control that does not exist, or a
+         *             control set looser than an enabled framework asks.
+         */
+        post: operations["plan_change_api_compliance_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/compose/analyze": {
         parameters: {
             query?: never;
@@ -9602,6 +10606,56 @@ export interface paths {
          *         HTTPException: If the configuration cannot be written.
          */
         put: operations["update_delivery_config_api_config_delivery_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/config/email-api": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Email Api Config
+         * @description Get the email provider settings.
+         *
+         *     Args:
+         *         session: Authenticated session, injected by the dependency.
+         *
+         *     Returns:
+         *         The provider, its region and sender, the providers Noust speaks and
+         *         which credentials are stored - never a credential.
+         */
+        get: operations["get_email_api_config_api_config_email_api_get"];
+        /**
+         * Update Email Api Config
+         * @description Update the email provider settings.
+         *
+         *     Goes through :meth:`~noust.core.config.Config.set`, so the rules of
+         *     ``noust config set monitor.email_api.*`` (a provider Noust speaks, a region
+         *     that is one, a valid sender) apply here in the same words. A blank
+         *     credential keeps the stored one while the provider stays the same and is
+         *     cleared when it changes. Choosing a provider replaces SMTP; choosing none
+         *     goes back to it.
+         *
+         *     Args:
+         *         body: Body carrying the settings.
+         *         request: The incoming request, for the audit record.
+         *         session: Authenticated session, injected by the dependency.
+         *
+         *     Returns:
+         *         Confirmation message.
+         *
+         *     Raises:
+         *         ConfigError: 400, through the error boundary, for a provider or region
+         *             that does not exist or a sender that is not an address.
+         */
+        put: operations["update_email_api_config_api_config_email_api_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -10190,6 +11244,37 @@ export interface paths {
          *         ServiceError: When the job is unknown, foreign, or systemd refuses.
          */
         post: operations["enable_job_api_cron__name__enable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cron/{name}/ledger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Job Ledger
+         * @description Say which occurrences of a job ran, were late or never ran.
+         *
+         *     Args:
+         *         name: Job name.
+         *         session: The authenticated session.
+         *         days: How far back to look.
+         *
+         *     Returns:
+         *         The ledger: counts, and every occurrence with its verdict.
+         *
+         *     Raises:
+         *         ServiceError: When the job is unknown or foreign, or systemd rejects its schedule.
+         */
+        get: operations["job_ledger_api_cron__name__ledger_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -15203,6 +16288,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/fleet/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fleet Logs
+         * @description Search the logs of the applications of every server at once, newest first.
+         *
+         *     Each server decides what this operator may read of its logs (a team's own
+         *     applications, never another's) and judges the query and the window itself;
+         *     a server that cannot search is a note on the view, not an error.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *         q: The search.
+         *         since: Start of the window.
+         *         until: End of the window.
+         *         level: The worst level kept.
+         *         limit: Lines per server.
+         *
+         *     Returns:
+         *         One row per line (``type: line``) and one per note (``type: note``).
+         */
+        get: operations["fleet_logs_api_fleet_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fleet Metrics
+         * @description One metric of every server over the same window, to compare them.
+         *
+         *     Each server answers from its own recorded history (nothing is stored on the
+         *     central), so a server that is down is a gap in the comparison, said so in
+         *     ``nodes``, not an error. Memory, swap and disk are the share of what each
+         *     server has.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *         metric: What to compare.
+         *         window: How far back.
+         *
+         *     Returns:
+         *         One row per server: its points, latest value, average and peak.
+         */
+        get: operations["fleet_metrics_api_fleet_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/fleet/placements": {
         parameters: {
             query?: never;
@@ -16707,6 +17866,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/logs/retention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Retention
+         * @description Say how long the logs are kept.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The retention the drop-in sets, whether the journal survives a reboot
+         *         and how much disk it takes.
+         */
+        get: operations["get_retention_api_logs_retention_get"];
+        /**
+         * Set Retention
+         * @description Keep the logs this long, using at most this much disk.
+         *
+         *     Args:
+         *         body: What to keep.
+         *         session: The authenticated session in sudo mode (journald is restarted).
+         *
+         *     Returns:
+         *         The retention afterwards.
+         *
+         *     Raises:
+         *         ValidationError: 400 when nothing is named or a number is out of range.
+         */
+        put: operations["set_retention_api_logs_retention_put"];
+        post?: never;
+        /**
+         * Clear Retention
+         * @description Go back to journald's own defaults.
+         *
+         *     Args:
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         The retention afterwards.
+         */
+        delete: operations["clear_retention_api_logs_retention_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/logs/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Logs
+         * @description Search the logs of the applications the caller sees.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         q: The query.
+         *         app: Narrow to these applications (domains); any the caller does not see
+         *             is simply not searched.
+         *         since: Start of the window.
+         *         until: End of the window.
+         *         level: The worst level kept.
+         *         limit: Most lines to return.
+         *
+         *     Returns:
+         *         The lines, newest first, and how much was examined.
+         *
+         *     Raises:
+         *         ValidationError: 400 naming what in the query or the window is not acceptable,
+         *             and where in the query when it is the query.
+         */
+        get: operations["search_logs_api_logs_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/manifest/apply": {
         parameters: {
             query?: never;
@@ -16937,6 +18184,40 @@ export interface paths {
          *         lives and whether a collector is recording it.
          */
         get: operations["list_metrics_api_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/metrics/prometheus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Prometheus
+         * @description Export the newest value of every metric for a scraper (Prometheus, Grafana
+         *     Agent, an OpenTelemetry Collector, Netdata...).
+         *
+         *     The credential a scraper holds is an API token with the ``read`` scope, which
+         *     cannot change anything; there is no separate export secret to leak. Send
+         *     ``Accept: application/openmetrics-text`` for OpenMetrics.
+         *
+         *     Args:
+         *         request: The incoming request, for the ``Accept`` header.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The exposition. Values older than two minutes are left out, and
+         *         ``noust_metrics_recording`` says whether the history is being recorded
+         *         at all.
+         */
+        get: operations["export_prometheus_api_metrics_prometheus_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -18074,6 +19355,258 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/probes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Probes
+         * @description List the probes with where each stands and how it has done.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The probes, how many are down, and the status page.
+         */
+        get: operations["list_probes_api_probes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/probes/status-page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Status Page
+         * @description Say how the public status page is set up and whether it is on a name.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The settings and the publication.
+         */
+        get: operations["get_status_page_api_probes_status_page_get"];
+        /**
+         * Set Status Page
+         * @description Change the status page's settings.
+         *
+         *     Args:
+         *         body: What to change.
+         *         session: The authenticated session in sudo mode (the monitor, as root,
+         *             writes the files where the directory says).
+         *
+         *     Returns:
+         *         The settings as they now stand.
+         *
+         *     Raises:
+         *         ConfigError: 400 naming the setting that is not acceptable.
+         */
+        put: operations["set_status_page_api_probes_status_page_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/probes/status-page/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish Status Page
+         * @description Put the status page on a name of its own, over TLS.
+         *
+         *     Args:
+         *         body: The name.
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["publish_status_page_api_probes_status_page_publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/probes/status-page/site": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unpublish Status Page
+         * @description Take the status page off its name, removing exactly what publishing made.
+         *
+         *     Args:
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        delete: operations["unpublish_status_page_api_probes_status_page_site_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/probes/status-page/write": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write Status Page
+         * @description Write the status page's files now, instead of at the monitor's next scan.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The files written.
+         */
+        post: operations["write_status_page_api_probes_status_page_write_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/probes/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Probe
+         * @description Create a probe or replace the one of that name.
+         *
+         *     Replacing it asks the address afresh: what the old settings had decided is
+         *     forgotten.
+         *
+         *     Args:
+         *         name: The probe's name.
+         *         body: What it is.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The probe as stored.
+         *
+         *     Raises:
+         *         ValidationError: 400 naming the field that is not acceptable, an
+         *             address on this server's own network included.
+         */
+        put: operations["save_probe_api_probes__name__put"];
+        post?: never;
+        /**
+         * Remove Probe
+         * @description Remove a probe with what it kept.
+         *
+         *     Args:
+         *         name: The probe.
+         *         session: The authenticated session.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such probe.
+         */
+        delete: operations["remove_probe_api_probes__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/probes/{name}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Probe
+         * @description Ask a probe now, whatever its interval, and keep the answer.
+         *
+         *     Args:
+         *         name: The probe.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         What it answered, and the probe as it now stands.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such probe.
+         */
+        post: operations["check_probe_api_probes__name__check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/probes/{name}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Probe History
+         * @description Say what one probe has done lately.
+         *
+         *     Args:
+         *         name: The probe.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its incidents and its latest answers.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such probe.
+         */
+        get: operations["probe_history_api_probes__name__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects": {
         parameters: {
             query?: never;
@@ -18758,6 +20291,431 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/.search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search Everything
+         * @description Search users and groups together, with the query in the body (RFC 7644 section 3.4.3).
+         *
+         *     A filter that only one of them can answer is answered by that one. The window is applied to
+         *     the users first and then the groups, up to 200 of each.
+         *
+         *     Args:
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: A SearchRequest.
+         *
+         *     Returns:
+         *         A ListResponse of both kinds.
+         */
+        post: operations["search_everything_api_scim_v2__search_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/Groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Groups
+         * @description Args:
+         *         request: The request.
+         *         source: The authenticated source.
+         *         filter: ``attribute eq "value"``.
+         *         startIndex: The 1-based index of the first result.
+         *         count: How many, at most 200.
+         *         shape: ``attributes`` and ``excludedAttributes``.
+         *
+         *     Returns:
+         *         A ListResponse.
+         */
+        get: operations["list_groups_api_scim_v2_Groups_get"];
+        put?: never;
+        /**
+         * Create Group
+         * @description Args:
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: The group document.
+         *         shape: ``attributes`` and ``excludedAttributes``.
+         *
+         *     Returns:
+         *         201 with the group and its ``Location``.
+         */
+        post: operations["create_group_api_scim_v2_Groups_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/Groups/.search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search Groups
+         * @description List groups with the query in the body.
+         *
+         *     Args:
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: A SearchRequest.
+         *
+         *     Returns:
+         *         A ListResponse.
+         */
+        post: operations["search_groups_api_scim_v2_Groups__search_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/Groups/{group_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Group
+         * @description Args:
+         *         group_id: The id the provider uses.
+         *         request: The request.
+         *         source: The authenticated source.
+         *         shape: ``attributes`` and ``excludedAttributes``.
+         *
+         *     Returns:
+         *         The group.
+         */
+        get: operations["get_group_api_scim_v2_Groups__group_id__get"];
+        /**
+         * Replace Group
+         * @description Args:
+         *         group_id: The id the provider uses.
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: The whole group document.
+         *
+         *     Returns:
+         *         The group after.
+         */
+        put: operations["replace_group_api_scim_v2_Groups__group_id__put"];
+        post?: never;
+        /**
+         * Delete Group
+         * @description Args:
+         *         group_id: The id the provider uses.
+         *         request: The request.
+         *         source: The authenticated source.
+         *
+         *     Returns:
+         *         204.
+         */
+        delete: operations["delete_group_api_scim_v2_Groups__group_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Patch Group
+         * @description Args:
+         *         group_id: The id the provider uses.
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: A PatchOp.
+         *
+         *     Returns:
+         *         The group after.
+         */
+        patch: operations["patch_group_api_scim_v2_Groups__group_id__patch"];
+        trace?: never;
+    };
+    "/api/scim/v2/ResourceTypes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resource Types
+         * @description Args:
+         *         request: The request.
+         *         _source: The authenticated source.
+         *
+         *     Returns:
+         *         A ListResponse of the two resource types: User and Group.
+         */
+        get: operations["resource_types_api_scim_v2_ResourceTypes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/ResourceTypes/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resource Type
+         * @description Args:
+         *         name: ``User`` or ``Group``.
+         *         request: The request.
+         *         _source: The authenticated source.
+         *
+         *     Returns:
+         *         The resource type.
+         *
+         *     Raises:
+         *         ScimError: 404 when there is none of that name.
+         */
+        get: operations["resource_type_api_scim_v2_ResourceTypes__name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/Schemas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Schemas
+         * @description Args:
+         *         request: The request.
+         *         _source: The authenticated source.
+         *
+         *     Returns:
+         *         A ListResponse of the attributes this server models.
+         */
+        get: operations["schemas_api_scim_v2_Schemas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/Schemas/{schema_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Schema
+         * @description Args:
+         *         schema_id: The schema's URN.
+         *         request: The request.
+         *         _source: The authenticated source.
+         *
+         *     Returns:
+         *         The schema.
+         *
+         *     Raises:
+         *         ScimError: 404 when there is none of that id.
+         */
+        get: operations["schema_api_scim_v2_Schemas__schema_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/ServiceProviderConfig": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Service Provider Config
+         * @description Say what this server supports, as providers ask before they provision.
+         *
+         *     Args:
+         *         _source: The authenticated source.
+         *
+         *     Returns:
+         *         The configuration: PATCH, filtering by equality, no bulk, no sorting, no passwords.
+         */
+        get: operations["service_provider_config_api_scim_v2_ServiceProviderConfig_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/Users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Users
+         * @description List the users this source provisioned, or find one by ``userName`` or ``externalId``.
+         *
+         *     Args:
+         *         request: The request.
+         *         source: The authenticated source.
+         *         filter: ``attribute eq "value"``.
+         *         startIndex: The 1-based index of the first result.
+         *         count: How many, at most 200.
+         *         shape: ``attributes`` and ``excludedAttributes``.
+         *
+         *     Returns:
+         *         A ListResponse.
+         */
+        get: operations["list_users_api_scim_v2_Users_get"];
+        put?: never;
+        /**
+         * Create User
+         * @description Provision a person.
+         *
+         *     Args:
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: The user document.
+         *         shape: ``attributes`` and ``excludedAttributes``.
+         *
+         *     Returns:
+         *         201 with the user and its ``Location``.
+         */
+        post: operations["create_user_api_scim_v2_Users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/Users/.search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search Users
+         * @description List users with the query in the body, as providers do when it is too long for an address.
+         *
+         *     Args:
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: A SearchRequest.
+         *
+         *     Returns:
+         *         A ListResponse.
+         */
+        post: operations["search_users_api_scim_v2_Users__search_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/Users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get User
+         * @description Args:
+         *         user_id: The id the provider uses.
+         *         request: The request.
+         *         source: The authenticated source.
+         *         shape: ``attributes`` and ``excludedAttributes``.
+         *
+         *     Returns:
+         *         The user.
+         */
+        get: operations["get_user_api_scim_v2_Users__user_id__get"];
+        /**
+         * Replace User
+         * @description Args:
+         *         user_id: The id the provider uses.
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: The whole user document.
+         *
+         *     Returns:
+         *         The user after.
+         */
+        put: operations["replace_user_api_scim_v2_Users__user_id__put"];
+        post?: never;
+        /**
+         * Delete User
+         * @description Switch the person's account off and forget the entry.
+         *
+         *     Args:
+         *         user_id: The id the provider uses.
+         *         request: The request.
+         *         source: The authenticated source.
+         *
+         *     Returns:
+         *         204.
+         */
+        delete: operations["delete_user_api_scim_v2_Users__user_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Patch User
+         * @description Args:
+         *         user_id: The id the provider uses.
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: A PatchOp.
+         *
+         *     Returns:
+         *         The user after.
+         */
+        patch: operations["patch_user_api_scim_v2_Users__user_id__patch"];
         trace?: never;
     };
     "/api/secret-providers": {
@@ -24734,13 +26692,16 @@ export interface components {
         };
         /**
          * AcceptRiskRequest
-         * @description Accept a finding: why (10 to 500 characters) and until when (ISO date or date-time).
+         * @description Accept a finding: why and until when (ISO date or date-time).
+         *
+         *     The reason (10 to 500 characters) is required only under the ENS profile or with
+         *     ``security.exception_reasons`` on.
          */
         AcceptRiskRequest: {
             /** Expires At */
             expires_at: string;
             /** Reason */
-            reason: string;
+            reason?: string | null;
         };
         /**
          * AcceptedRiskOut
@@ -25377,6 +27338,123 @@ export interface components {
             service?: string | null;
         };
         /**
+         * AdoptSiteRequest
+         * @description The site to adopt, and what is not found by looking.
+         */
+        AdoptSiteRequest: {
+            /**
+             * Domain
+             * @description The domain the site answers on
+             */
+            domain: string;
+            /**
+             * Path
+             * @description The directory of its files; the unit's WorkingDirectory or the site's root
+             */
+            path?: string | null;
+            /**
+             * Preview
+             * @description Answer what would be done; change nothing
+             * @default false
+             */
+            preview: boolean;
+            /**
+             * Site
+             * @description The site file serving the domain; found when omitted
+             */
+            site?: string | null;
+            /**
+             * Unit
+             * @description The unit the site is in front of; the one that listens on its port when omitted
+             */
+            unit?: string | null;
+        };
+        /**
+         * AdoptSiteResponse
+         * @description What an adoption found, and whether it was recorded.
+         */
+        AdoptSiteResponse: {
+            /**
+             * Adopted
+             * @description False for a preview or a rehearsal
+             */
+            adopted: boolean;
+            /** App Name */
+            app_name: string;
+            /** Domain */
+            domain: string;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "proxy" | "php" | "static";
+            /** Port */
+            port: number | null;
+            /** Root */
+            root: string;
+            /** Site */
+            site: string;
+            /**
+             * Site Name
+             * @description That file's name, recorded because it is not the domain
+             */
+            site_name: string | null;
+            /** Ssl */
+            ssl: boolean;
+            /**
+             * Unit
+             * @description The operator's unit; none for PHP and static sites
+             */
+            unit: string | null;
+            /** Unit Active */
+            unit_active: boolean | null;
+            /** Upstream */
+            upstream: string | null;
+            /** Warnings */
+            warnings: string[];
+            /**
+             * Webserver
+             * @enum {string}
+             */
+            webserver: "nginx" | "apache";
+        };
+        /**
+         * AdoptionResponse
+         * @description What an adopted application is: the operator's unit, site and directory.
+         */
+        AdoptionResponse: {
+            /** Adopted At */
+            adopted_at: string | null;
+            /** Adopted By */
+            adopted_by: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "proxy" | "php" | "static";
+            /** Root */
+            root: string | null;
+            /**
+             * Site File
+             * @description The operator's site file, never rewritten
+             */
+            site_file: string;
+            /**
+             * Unit
+             * @description The unit Noust starts, stops and restarts, never rewrites
+             */
+            unit: string | null;
+            /** Upstream */
+            upstream: string | null;
+            /**
+             * Webserver
+             * @enum {string}
+             */
+            webserver: "nginx" | "apache";
+        };
+        /**
          * AnalysisOut
          * @description The last scan of the known places.
          */
@@ -25387,6 +27465,29 @@ export interface components {
             errors?: string[];
             /** Measured At */
             measured_at?: string | null;
+        };
+        /**
+         * AnswerModel
+         * @description One answer an address gave.
+         *
+         *     Attributes:
+         *         ts: Epoch seconds.
+         *         ok: Whether it was good.
+         *         status: The HTTP status.
+         *         latency_ms: How long it took.
+         *         error: What was wrong.
+         */
+        AnswerModel: {
+            /** Error */
+            error?: string | null;
+            /** Latency Ms */
+            latency_ms?: number | null;
+            /** Ok */
+            ok: boolean;
+            /** Status */
+            status?: number | null;
+            /** Ts */
+            ts: number;
         };
         /**
          * ApiTokenCreated
@@ -25494,6 +27595,17 @@ export interface components {
         ApiTokenListResponse: {
             /** Tokens */
             tokens: components["schemas"]["ApiTokenInfo"][];
+        };
+        /**
+         * ApiTokenNetworks
+         * @description The networks to restrict a live API token to.
+         *
+         *     Attributes:
+         *         allowed_cidrs: Addresses or networks it is accepted from; empty lifts the restriction.
+         */
+        ApiTokenNetworks: {
+            /** Allowed Cidrs */
+            allowed_cidrs: string[];
         };
         /**
          * ApiTokenRequest
@@ -25869,6 +27981,13 @@ export interface components {
             audience?: {
                 [key: string]: string;
             };
+            /**
+             * Comments
+             * @description The comment kept above a variable in the .env, only for the ones that have one; lines are separated by a line feed
+             */
+            comments?: {
+                [key: string]: string;
+            };
             /** Domain */
             domain: string;
             /**
@@ -26224,12 +28343,16 @@ export interface components {
          *         series: Role (``cpu``, ``memory``, ``requests``, ``errors_5xx``) to the
          *             metric name that holds it, for the roles that exist for this kind
          *             of application.
+         *         containers: For a Compose stack, each container with the series of its
+         *             own, so a chart can say which service reads the disk.
          *         traffic: Whether requests are being counted.
          *         last_sample_at: The newest sample of any of its series.
          *         collector: Whether history is being recorded at all.
          */
         AppMetricsResponse: {
             collector: components["schemas"]["CollectorModel"];
+            /** Containers */
+            containers?: components["schemas"]["ContainerSeriesModel"][];
             /** Domain */
             domain: string;
             /** Kind */
@@ -26266,6 +28389,49 @@ export interface components {
         AppRegistryLoginsRequest: {
             /** Logins */
             logins?: string[];
+        };
+        /**
+         * AppTrafficResponse
+         * @description What an application's access log said over a window.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         window: The window asked for.
+         *         start: Where the first point starts, epoch seconds.
+         *         end: Where the window ends.
+         *         step: Seconds per point: an hour up to two days, a day beyond.
+         *         available: True when the log is being read now.
+         *         log: The access log it is read from.
+         *         reason: Why not, when the site should have one.
+         *         totals: The window summed.
+         *         points: By step, oldest first, every step present.
+         *         top: Rankings by ``paths``, ``networks``, ``statuses`` and ``referrers``.
+         *         collector: Whether history is being recorded.
+         */
+        AppTrafficResponse: {
+            /** Available */
+            available: boolean;
+            collector: components["schemas"]["CollectorModel"];
+            /** Domain */
+            domain: string;
+            /** End */
+            end: number;
+            /** Log */
+            log?: string | null;
+            /** Points */
+            points: components["schemas"]["TrafficPointModel"][];
+            reason?: components["schemas"]["ReasonModel"] | null;
+            /** Start */
+            start: number;
+            /** Step */
+            step: number;
+            /** Top */
+            top: {
+                [key: string]: components["schemas"]["RankedKeyModel"][];
+            };
+            totals: components["schemas"]["TrafficPointModel"];
+            /** Window */
+            window: string;
         };
         /**
          * AppTypeInfo
@@ -28605,6 +30771,23 @@ export interface components {
             webserver: string;
         };
         /**
+         * CertificateInfo
+         * @description A signing certificate, described the way an operator compares it with the provider's.
+         *
+         *     Attributes:
+         *         subject: Its subject.
+         *         fingerprint: Its SHA-256 fingerprint, hex.
+         *         not_after: When it stops being valid, UNIX seconds.
+         */
+        CertificateInfo: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Not After */
+            not_after: number;
+            /** Subject */
+            subject: string;
+        };
+        /**
          * CertificateModel
          * @description What an application serves.
          *
@@ -28794,6 +30977,53 @@ export interface components {
             validate_command: string[];
         };
         /**
+         * ChangeRequest
+         * @description A change of frameworks and controls.
+         *
+         *     Attributes:
+         *         enable: Frameworks to turn on.
+         *         disable: Frameworks to turn off.
+         *         controls: Control to the value wanted for its setting: on or off, a number,
+         *             a choice, or null for no limit.
+         *         acknowledge: The caller saw the warnings of the plan and goes ahead.
+         */
+        ChangeRequest: {
+            /**
+             * Acknowledge
+             * @default false
+             */
+            acknowledge: boolean;
+            /** Controls */
+            controls?: {
+                [key: string]: unknown;
+            };
+            /** Disable */
+            disable?: string[];
+            /** Enable */
+            enable?: string[];
+        };
+        /**
+         * ChangeResult
+         * @description What a change did.
+         *
+         *     Attributes:
+         *         enabled_before: The frameworks on before.
+         *         enabled_after: The frameworks on after.
+         *         settings: Control to the value its setting now holds, for the ones changed.
+         *         state: The picture afterwards.
+         */
+        ChangeResult: {
+            /** Enabled After */
+            enabled_after: string[];
+            /** Enabled Before */
+            enabled_before: string[];
+            /** Settings */
+            settings: {
+                [key: string]: unknown;
+            };
+            state: components["schemas"]["ComplianceState"];
+        };
+        /**
          * ChangelogEntryOut
          * @description The notes of one release.
          */
@@ -28849,6 +31079,8 @@ export interface components {
          *         events: Replaces the channel's own event switches (empty clears them).
          *         route: Replaces its route (empty clears it).
          *         quiet: Replaces its quiet hours (empty clears them).
+         *         flood: Replaces its anti-flood cap (empty clears it).
+         *         summary: Replaces its periodic summary (empty clears it).
          */
         ChannelBody: {
             /** Enabled */
@@ -28856,6 +31088,10 @@ export interface components {
             /** Events */
             events?: {
                 [key: string]: boolean;
+            } | null;
+            /** Flood */
+            flood?: {
+                [key: string]: unknown;
             } | null;
             /** Quiet */
             quiet?: {
@@ -28869,6 +31105,10 @@ export interface components {
             settings?: {
                 [key: string]: unknown;
             };
+            /** Summary */
+            summary?: {
+                [key: string]: unknown;
+            } | null;
             /** Type */
             type?: string | null;
         };
@@ -28924,6 +31164,11 @@ export interface components {
          *         route: What it is limited to (applications, projects, environments,
          *             tags, a minimum severity).
          *         quiet: When it stays silent, or null for never.
+         *         flood: The most it says in a stretch of time (``max`` messages in
+         *             ``minutes``), or null for no cap; what passes it arrives later as
+         *             one message.
+         *         summary: What waits for a periodic summary (``at``, ``timezone``,
+         *             ``below``, ``days``), or null for none.
          */
         ChannelModel: {
             /** Configured */
@@ -28936,6 +31181,10 @@ export interface components {
             events?: {
                 [key: string]: boolean;
             };
+            /** Flood */
+            flood?: {
+                [key: string]: unknown;
+            } | null;
             /** Name */
             name: string;
             /** Quiet */
@@ -28950,6 +31199,10 @@ export interface components {
             settings?: {
                 [key: string]: unknown;
             };
+            /** Summary */
+            summary?: {
+                [key: string]: unknown;
+            } | null;
             /** Type */
             type: string;
         };
@@ -28986,6 +31239,41 @@ export interface components {
             warning: number;
         };
         /**
+         * CheckFinding
+         * @description One control of one framework, judged.
+         *
+         *     Attributes:
+         *         framework: The framework.
+         *         control: The control.
+         *         clauses: The clauses it serves, ``id: title``.
+         *         status: ``ok``, ``warning``, ``fail`` or ``n/a``.
+         *         required: What the framework asks.
+         *         actual: The value in force.
+         *         summary: What was found.
+         *         evidence: Values and facts, verbatim.
+         *         remediation: What to do.
+         */
+        CheckFinding: {
+            /** Actual */
+            actual?: unknown;
+            /** Clauses */
+            clauses: string[];
+            /** Control */
+            control: string;
+            /** Evidence */
+            evidence: string[];
+            /** Framework */
+            framework: string;
+            /** Remediation */
+            remediation: string;
+            /** Required */
+            required?: unknown;
+            /** Status */
+            status: string;
+            /** Summary */
+            summary: string;
+        };
+        /**
          * CheckFixOut
          * @description How a finding is fixed: ``automatic``, ``action``, ``guided`` or ``none``.
          */
@@ -29020,8 +31308,42 @@ export interface components {
             summary: string;
         };
         /**
+         * CheckFramework
+         * @description One framework's findings.
+         *
+         *     Attributes:
+         *         framework: Its id.
+         *         name: How it is called.
+         *         enabled: Whether it is on.
+         *         verdict: The worst status.
+         *         counts: Findings per status.
+         *         findings: One per control it asks of.
+         *         organisational: What stays yours.
+         *         not_covered: Technical requirements Noust does not enforce.
+         */
+        CheckFramework: {
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Enabled */
+            enabled: boolean;
+            /** Findings */
+            findings: components["schemas"]["CheckFinding"][];
+            /** Framework */
+            framework: string;
+            /** Name */
+            name: string;
+            /** Not Covered */
+            not_covered: string[];
+            /** Organisational */
+            organisational: string[];
+            /** Verdict */
+            verdict: string;
+        };
+        /**
          * CheckInfo
-         * @description One thing looked at when a provider is tested.
+         * @description One thing looked at when a source is tested.
          *
          *     Attributes:
          *         name: What.
@@ -29571,6 +31893,26 @@ export interface components {
             provider: string;
         };
         /**
+         * ComplianceState
+         * @description The frameworks and the controls.
+         *
+         *     Attributes:
+         *         frameworks: Every framework, in catalog order.
+         *         controls: Every control, in catalog order.
+         *         legacy_profile: What ``security.profile`` holds.
+         *         unknown: Names in ``security.frameworks`` this version does not know.
+         */
+        ComplianceState: {
+            /** Controls */
+            controls: components["schemas"]["ControlInfo"][];
+            /** Frameworks */
+            frameworks: components["schemas"]["FrameworkInfo"][];
+            /** Legacy Profile */
+            legacy_profile: string;
+            /** Unknown */
+            unknown: string[];
+        };
+        /**
          * ComposeAnalysisOut
          * @description What a document is, before it runs.
          *
@@ -29635,9 +31977,9 @@ export interface components {
         ComposeExceptionRequest: {
             /**
              * Reason
-             * @description Why, recorded and shown
+             * @description Why, recorded and shown; required under the ENS profile or with security.exception_reasons on
              */
-            reason: string;
+            reason?: string | null;
         };
         /**
          * ComposeServiceOut
@@ -29731,6 +32073,45 @@ export interface components {
             up_args?: string[];
         };
         /**
+         * ComposeVariableModel
+         * @description A variable the compose file asks for, and whether the stack has it. Never its value.
+         */
+        ComposeVariableModel: {
+            /**
+             * Default
+             * @description The default the file gives
+             */
+            default?: string | null;
+            /**
+             * Message
+             * @description What the file says when a required value is missing
+             * @default
+             */
+            message: string;
+            /** Name */
+            name: string;
+            /**
+             * Required
+             * @description Whether the file requires a value (${NAME:?message})
+             */
+            required: boolean;
+            /**
+             * Source
+             * @description Where the value comes from when set: env (the .env) or process
+             */
+            source?: string | null;
+            /**
+             * Status
+             * @description set (a value exists), default (the file has a default), unset (no value and no default: Compose uses an empty string) or missing (the file requires it)
+             */
+            status: string;
+            /**
+             * Used In
+             * @description The services, or top-level keys, that use it
+             */
+            used_in?: string[];
+        };
+        /**
          * ComposeVariableOut
          * @description One variable the document reads.
          *
@@ -29759,6 +32140,36 @@ export interface components {
              * @default []
              */
             services: string[];
+        };
+        /**
+         * ComposeVariablesResponse
+         * @description The variables a stack's compose file asks for.
+         */
+        ComposeVariablesResponse: {
+            /** Domain */
+            domain: string;
+            /**
+             * Env File
+             * @description The .env the values were read from
+             */
+            env_file?: string | null;
+            /**
+             * File
+             * @description The compose file read
+             */
+            file: string;
+            /**
+             * Missing
+             * @description The required variables nothing gives: a deploy refuses
+             */
+            missing?: string[];
+            /**
+             * Unset
+             * @description The variables with no value and no default
+             */
+            unset?: string[];
+            /** Variables */
+            variables?: components["schemas"]["ComposeVariableModel"][];
         };
         /**
          * ConfigPatchRequest
@@ -30000,6 +32411,23 @@ export interface components {
             type: string;
         };
         /**
+         * ContainerSeriesModel
+         * @description One container of a Compose stack and the series it has of its own.
+         *
+         *     Attributes:
+         *         name: The container's name as Docker prints it.
+         *         series: Role (``cpu``, ``memory``, ``disk_read``, ``disk_write``,
+         *             ``net_rx``, ``net_tx``) to the metric name that holds it.
+         */
+        ContainerSeriesModel: {
+            /** Name */
+            name: string;
+            /** Series */
+            series?: {
+                [key: string]: string;
+            };
+        };
+        /**
          * ContainerSettingsRequest
          * @description The settings of a container application, for a new one or to change one.
          *
@@ -30151,6 +32579,56 @@ export interface components {
              * @description Container paths kept in named volumes
              */
             volumes: string[];
+        };
+        /**
+         * ControlInfo
+         * @description A control as it stands on this server.
+         *
+         *     Attributes:
+         *         id: Its name.
+         *         group: ``access``, ``accountability``, ``backup`` or ``network``.
+         *         kind: ``flag``, ``choice``, ``min`` or ``max``.
+         *         standard: The default.
+         *         key: The configuration key of its own setting.
+         *         choices: For a choice, from the weakest to the strictest.
+         *         unit: What a number counts.
+         *         check_only: Whether nothing refuses it; only the check reads it.
+         *         value: The value in force.
+         *         operator: The operator's own setting.
+         *         floor: What the enabled frameworks leave of it.
+         *         forced_by: The enabled frameworks that ask anything of it, strictest first.
+         *         locked: Whether one does, so it cannot be loosened.
+         *         enabled: Whether it asks for more than the default.
+         */
+        ControlInfo: {
+            /** Check Only */
+            check_only: boolean;
+            /** Choices */
+            choices: string[];
+            /** Enabled */
+            enabled: boolean;
+            /** Floor */
+            floor?: unknown;
+            /** Forced By */
+            forced_by: string[];
+            /** Group */
+            group: string;
+            /** Id */
+            id: string;
+            /** Key */
+            key: string;
+            /** Kind */
+            kind: string;
+            /** Locked */
+            locked: boolean;
+            /** Operator */
+            operator?: unknown;
+            /** Standard */
+            standard?: unknown;
+            /** Unit */
+            unit: string;
+            /** Value */
+            value?: unknown;
         };
         /**
          * ConversionRequest
@@ -31107,6 +33585,66 @@ export interface components {
             total: number;
         };
         /**
+         * CronLedgerResponse
+         * @description Which occurrences of a job ran, and which did not.
+         *
+         *     Attributes:
+         *         name: Job name.
+         *         schedule: The schedule, as systemd reads it.
+         *         enabled: Whether the timer is enabled; a disabled one has nothing due.
+         *         since: Where the ledger starts judging: not before the journal begins, the timer was
+         *             written or the oldest run it read; null for a disabled job.
+         *         until: Where it stops, epoch seconds.
+         *         ran: Occurrences that ran on time.
+         *         late: Occurrences answered by a later run.
+         *         missed: Occurrences nothing answered for.
+         *         occurrences: Every occurrence judged, oldest first.
+         */
+        CronLedgerResponse: {
+            /** Enabled */
+            enabled: boolean;
+            /** Late */
+            late: number;
+            /** Missed */
+            missed: number;
+            /** Name */
+            name: string;
+            /** Occurrences */
+            occurrences: components["schemas"]["CronOccurrenceInfo"][];
+            /** Ran */
+            ran: number;
+            /** Schedule */
+            schedule: string;
+            /** Since */
+            since?: number | null;
+            /** Until */
+            until: number;
+        };
+        /**
+         * CronOccurrenceInfo
+         * @description One moment a job was due and what became of it.
+         *
+         *     Attributes:
+         *         at: When it was due, epoch seconds.
+         *         status: ``ran`` (a run started within two minutes), ``late`` (a later run, before the next
+         *             occurrence) or ``missed`` (no run before the next occurrence).
+         *         ran_at: When the run that answers for it started, for ``ran`` and ``late``.
+         *         reason: ``server_off`` when the machine was down at that moment; empty otherwise.
+         */
+        CronOccurrenceInfo: {
+            /** At */
+            at: number;
+            /** Ran At */
+            ran_at?: number | null;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /** Status */
+            status: string;
+        };
+        /**
          * CronPreviewRequest
          * @description Request to preview a schedule before it is saved as a job.
          */
@@ -31497,6 +34035,7 @@ export interface components {
          *         next_attempt_at: When it is tried (or released) next.
          *         last_error: The failure, in the destination's own words.
          *         can_retry: It can be sent again by hand.
+         *         held_for: Why a held one waits: ``quiet``, ``flood`` or ``summary``.
          */
         DeliveryModel: {
             /** Attempts */
@@ -31514,6 +34053,8 @@ export interface components {
             code: string;
             /** Created At */
             created_at: number;
+            /** Held For */
+            held_for?: string | null;
             /** Id */
             id: number;
             /** Kind */
@@ -32122,6 +34663,230 @@ export interface components {
             directive: string;
         };
         /**
+         * DirectoriesResponse
+         * @description The configured directories.
+         *
+         *     Attributes:
+         *         directories: Each one.
+         */
+        DirectoriesResponse: {
+            /** Directories */
+            directories: components["schemas"]["DirectoryInfo"][];
+        };
+        /**
+         * DirectoryInfo
+         * @description A configured directory, with no password in it.
+         *
+         *     Attributes:
+         *         name: Its short name.
+         *         label: What the sign-in page says.
+         *         enabled: Whether the sign-in page offers it.
+         *         host: Its name or address.
+         *         port: Its port.
+         *         tls: ``ldaps``, ``starttls`` or ``none``.
+         *         ca_file: The authority bundle it is trusted by, when not the system's.
+         *         bind_dn: The service account that searches; empty searches anonymously.
+         *         bind_password_set: Whether that account's password is stored (never its value).
+         *         user_base: Where people are searched from.
+         *         user_filter: The search, with ``{username}``.
+         *         subject_attribute: The directory's stable id for a person.
+         *         email_attribute: Where their address is.
+         *         name_attribute: Where their display name is.
+         *         username_attribute: Where their login name is.
+         *         groups_attribute: Where the groups they are in are listed.
+         *         group_base: Where groups are searched, when the entry does not list them.
+         *         group_filter: That search, with ``{dn}`` and ``{username}``.
+         *         timeout_seconds: How long one sign-in may take.
+         *         provisioning: A first sign-in: ``off``, ``invite`` or ``auto``.
+         *         default_role: The role of an account that provisioning creates.
+         *         default_team: The team it joins.
+         *         default_team_role: Its role there.
+         *         link_by_email: Link a first sign-in to the account of its address.
+         *         allowed_domains: Only these e-mail domains.
+         *         require_email_verified: Refuse a person without an address.
+         *         assume_email_verified: Take the directory's address as verified.
+         *         group_sync: Whether groups decide roles, memberships and scoped roles.
+         *         group_mappings: What each group means.
+         *         created_at: When it was configured.
+         *         created_by: Who configured it.
+         */
+        DirectoryInfo: {
+            /** Allowed Domains */
+            allowed_domains: string[];
+            /** Assume Email Verified */
+            assume_email_verified: boolean;
+            /** Bind Dn */
+            bind_dn: string;
+            /** Bind Password Set */
+            bind_password_set: boolean;
+            /** Ca File */
+            ca_file?: string | null;
+            /** Created At */
+            created_at: number;
+            /** Created By */
+            created_by?: string | null;
+            /** Default Role */
+            default_role: string;
+            /** Default Team */
+            default_team?: string | null;
+            /** Default Team Role */
+            default_team_role?: string | null;
+            /** Email Attribute */
+            email_attribute: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Group Base */
+            group_base: string;
+            /** Group Filter */
+            group_filter: string;
+            /** Group Mappings */
+            group_mappings: components["schemas"]["Mapping"][];
+            /** Group Sync */
+            group_sync: boolean;
+            /** Groups Attribute */
+            groups_attribute: string;
+            /** Host */
+            host: string;
+            /** Label */
+            label: string;
+            /** Link By Email */
+            link_by_email: boolean;
+            /** Name */
+            name: string;
+            /** Name Attribute */
+            name_attribute: string;
+            /** Port */
+            port: number;
+            /** Provisioning */
+            provisioning: string;
+            /** Require Email Verified */
+            require_email_verified: boolean;
+            /** Subject Attribute */
+            subject_attribute: string;
+            /** Timeout Seconds */
+            timeout_seconds: number;
+            /** Tls */
+            tls: string;
+            /** User Base */
+            user_base: string;
+            /** User Filter */
+            user_filter: string;
+            /** Username Attribute */
+            username_attribute: string;
+        };
+        /**
+         * DirectoryRemoved
+         * @description A confirmation that a directory was removed.
+         *
+         *     Attributes:
+         *         success: Always true.
+         *         removed: Its name.
+         */
+        DirectoryRemoved: {
+            /** Removed */
+            removed: string;
+            /** Success */
+            success: boolean;
+        };
+        /**
+         * DirectorySettings
+         * @description The settings of a directory to set; omitted ones are left as they are.
+         *
+         *     Attributes:
+         *         label: What the sign-in page says.
+         *         enabled: Whether the sign-in page offers it.
+         *         host: Its name or address.
+         *         port: Its port.
+         *         tls: ``ldaps``, ``starttls`` or ``none`` (this machine only).
+         *         ca_file: An authority bundle to trust instead of the system's.
+         *         bind_dn: The service account that searches.
+         *         bind_password: Its password, stored apart and never shown again.
+         *         clear_bind_password: Forget the stored password (search anonymously).
+         *         user_base: Where people are searched from.
+         *         user_filter: The search, with ``{username}``.
+         *         subject_attribute: The directory's stable id for a person.
+         *         email_attribute: Where their address is.
+         *         name_attribute: Where their display name is.
+         *         username_attribute: Where their login name is.
+         *         groups_attribute: Where the groups they are in are listed.
+         *         group_base: Where groups are searched.
+         *         group_filter: That search, with ``{dn}`` and ``{username}``.
+         *         timeout_seconds: How long one sign-in may take.
+         *         provisioning: ``off``, ``invite`` or ``auto``.
+         *         default_role: The role of a created account.
+         *         default_team: The team a created account joins.
+         *         default_team_role: Its role there.
+         *         link_by_email: Link a first sign-in to the account of its address.
+         *         allowed_domains: Only these e-mail domains.
+         *         require_email_verified: Refuse a person without an address.
+         *         assume_email_verified: Take the directory's address as verified.
+         *         group_sync: Let groups decide roles, memberships and scoped roles.
+         *         group_mappings: What each group means.
+         */
+        DirectorySettings: {
+            /** Allowed Domains */
+            allowed_domains?: string[] | null;
+            /** Assume Email Verified */
+            assume_email_verified?: boolean | null;
+            /** Bind Dn */
+            bind_dn?: string | null;
+            /** Bind Password */
+            bind_password?: string | null;
+            /** Ca File */
+            ca_file?: string | null;
+            /**
+             * Clear Bind Password
+             * @default false
+             */
+            clear_bind_password: boolean;
+            /** Default Role */
+            default_role?: string | null;
+            /** Default Team */
+            default_team?: string | null;
+            /** Default Team Role */
+            default_team_role?: string | null;
+            /** Email Attribute */
+            email_attribute?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Group Base */
+            group_base?: string | null;
+            /** Group Filter */
+            group_filter?: string | null;
+            /** Group Mappings */
+            group_mappings?: components["schemas"]["Mapping"][] | null;
+            /** Group Sync */
+            group_sync?: boolean | null;
+            /** Groups Attribute */
+            groups_attribute?: string | null;
+            /** Host */
+            host?: string | null;
+            /** Label */
+            label?: string | null;
+            /** Link By Email */
+            link_by_email?: boolean | null;
+            /** Name Attribute */
+            name_attribute?: string | null;
+            /** Port */
+            port?: number | null;
+            /** Provisioning */
+            provisioning?: string | null;
+            /** Require Email Verified */
+            require_email_verified?: boolean | null;
+            /** Subject Attribute */
+            subject_attribute?: string | null;
+            /** Timeout Seconds */
+            timeout_seconds?: number | null;
+            /** Tls */
+            tls?: string | null;
+            /** User Base */
+            user_base?: string | null;
+            /** User Filter */
+            user_filter?: string | null;
+            /** Username Attribute */
+            username_attribute?: string | null;
+        };
+        /**
          * DiskEntry
          * @description Capacity of one filesystem.
          *
@@ -32192,6 +34957,23 @@ export interface components {
             used: number;
         };
         /**
+         * DiskFilesystemModel
+         * @description Whether the filesystem it lives on could hold a kernel project quota.
+         */
+        DiskFilesystemModel: {
+            /** Fstype */
+            fstype: string | null;
+            /** Mount */
+            mount: string | null;
+            /** Options */
+            options: string[];
+            /**
+             * Project Quota
+             * @enum {string}
+             */
+            project_quota: "enabled" | "available" | "unsupported" | "unknown";
+        };
+        /**
          * DiskInfo
          * @description Disk usage of one mounted filesystem.
          */
@@ -32208,6 +34990,91 @@ export interface components {
             total_gb: number;
             /** Used Gb */
             used_gb: number;
+        };
+        /**
+         * DiskKernelModel
+         * @description Whether the limit is also the kernel's.
+         */
+        DiskKernelModel: {
+            /** Applied */
+            applied: boolean;
+            /**
+             * Hard Mb
+             * @description The hard limit the kernel reports, in MB
+             */
+            hard_mb: number | null;
+            /** Mount */
+            mount: string | null;
+            /**
+             * Project
+             * @description The project id the quota lives under
+             */
+            project: number | null;
+            /**
+             * Used Bytes
+             * @description What the kernel counts against it
+             */
+            used_bytes: number | null;
+        };
+        /**
+         * DiskKernelRequest
+         * @description Give the limit to the kernel, or take it back.
+         */
+        DiskKernelRequest: {
+            /**
+             * Enabled
+             * @description True gives it a project quota; false takes it off
+             */
+            enabled: boolean;
+        };
+        /**
+         * DiskLimitRequest
+         * @description The limit to hold the application to.
+         */
+        DiskLimitRequest: {
+            /**
+             * Soft Mb
+             * @description Megabytes, from 64; null removes the limit
+             */
+            soft_mb: number | null;
+        };
+        /**
+         * DiskPartModel
+         * @description One place an application takes disk.
+         */
+        DiskPartModel: {
+            /** Bytes */
+            bytes: number;
+            /**
+             * Name
+             * @description tree, current, releases, shared or repo
+             */
+            name: string;
+            /** Path */
+            path: string | null;
+            /**
+             * Reclaimable Bytes
+             * @description What a prune of the releases it keeps would give back
+             */
+            reclaimable_bytes: number | null;
+        };
+        /**
+         * DiskResponse
+         * @description An application's disk: the limit, the last measurement and what the filesystem could hold.
+         */
+        DiskResponse: {
+            /** Domain */
+            domain: string;
+            filesystem: components["schemas"]["DiskFilesystemModel"];
+            kernel: components["schemas"]["DiskKernelModel"];
+            /**
+             * Soft Mb
+             * @description The limit a new release is held to, in MB
+             */
+            soft_mb: number | null;
+            /** @description The last measurement; none before the first */
+            usage: components["schemas"]["DiskUsageModel"] | null;
+            verdict: components["schemas"]["DiskVerdictModel"] | null;
         };
         /**
          * DiskSummary
@@ -32231,6 +35098,48 @@ export interface components {
             worst_mount?: string | null;
             /** Worst Percent */
             worst_percent?: number | null;
+        };
+        /**
+         * DiskUsageModel
+         * @description What an application took of the disk when it was measured.
+         */
+        DiskUsageModel: {
+            /**
+             * Backups Bytes
+             * @description Its backups, which live elsewhere and do not count
+             */
+            backups_bytes: number;
+            /**
+             * Errors
+             * @description Paths that could not be measured in time
+             */
+            errors: string[];
+            /** Measured At */
+            measured_at: string;
+            /** Parts */
+            parts: components["schemas"]["DiskPartModel"][];
+            /**
+             * Total Bytes
+             * @description What its directory takes: the figure the limit holds
+             */
+            total_bytes: number;
+        };
+        /**
+         * DiskVerdictModel
+         * @description How an application stands against its limit.
+         */
+        DiskVerdictModel: {
+            /** Limit Bytes */
+            limit_bytes: number;
+            /** Percent */
+            percent: number;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "ok" | "near" | "over";
+            /** Used Bytes */
+            used_bytes: number;
         };
         /**
          * DistributionResponse
@@ -32657,6 +35566,31 @@ export interface components {
             kind: string;
         };
         /**
+         * EffectInfo
+         * @description What a change does to one control.
+         *
+         *     Attributes:
+         *         control: The control.
+         *         before: The value in force now.
+         *         after: The value in force once the change is made.
+         *         forced_by: The frameworks that will ask anything of it.
+         *         clauses: For each of them, the clauses it serves.
+         */
+        EffectInfo: {
+            /** After */
+            after?: unknown;
+            /** Before */
+            before?: unknown;
+            /** Clauses */
+            clauses: {
+                [key: string]: string[];
+            };
+            /** Control */
+            control: string;
+            /** Forced By */
+            forced_by: string[];
+        };
+        /**
          * ElevateRequest
          * @description Confirmation presented to enter sudo mode.
          *
@@ -32689,6 +35623,80 @@ export interface components {
         ElevateResponse: {
             /** Elevated Until */
             elevated_until: string;
+        };
+        /**
+         * EmailApiConfig
+         * @description The email provider the monitor's mail goes through instead of SMTP.
+         *
+         *     Every credential is write-only, like the SMTP password: it is never sent
+         *     back by ``GET /config/email-api``, and a blank one keeps the stored one,
+         *     but only for the same provider. Switching provider with a blank key
+         *     clears it, so a key is never kept for a service it was not entered for.
+         */
+        EmailApiConfig: {
+            /**
+             * Access Key Id
+             * @description Amazon SES: the access key id; blank keeps the one stored
+             * @default
+             */
+            access_key_id: string;
+            /**
+             * Api Key
+             * @description The provider's API key; blank keeps the one stored (Resend, Postmark, Brevo)
+             * @default
+             */
+            api_key: string;
+            /**
+             * From Address
+             * @description Sender address, which the provider must verify
+             * @default
+             */
+            from_address: string;
+            /**
+             * Provider
+             * @description resend, postmark, brevo or ses; empty means the SMTP relay
+             * @default
+             */
+            provider: string;
+            /**
+             * Region
+             * @description Amazon SES: the AWS region, such as eu-west-1
+             * @default
+             */
+            region: string;
+            /**
+             * Secret Access Key
+             * @description Amazon SES: the secret access key; blank keeps the one stored
+             * @default
+             */
+            secret_access_key: string;
+        };
+        /**
+         * EmailApiSettingsResponse
+         * @description The configured email provider.
+         *
+         *     Like :class:`SMTPSettingsResponse`, no credential is a field here: the
+         *     ``*_set`` flags say whether one is stored.
+         */
+        EmailApiSettingsResponse: {
+            /** Access Key Id Set */
+            access_key_id_set: boolean;
+            /** Api Key Set */
+            api_key_set: boolean;
+            /** Configured */
+            configured: boolean;
+            /** From Address */
+            from_address: string;
+            /** Provider */
+            provider: string;
+            /** Providers */
+            providers: string[];
+            /** Recipients */
+            recipients: string[];
+            /** Region */
+            region: string;
+            /** Secret Access Key Set */
+            secret_access_key_set: boolean;
         };
         /**
          * EncryptionKey
@@ -34309,6 +37317,32 @@ export interface components {
             truncated: boolean;
         };
         /**
+         * FindingModel
+         * @description One thing a second server would get wrong or do twice.
+         */
+        FindingModel: {
+            /**
+             * Code
+             * @description persistent_paths, local_database, scheduled_tasks...
+             */
+            code: string;
+            /** Fix */
+            fix: string;
+            /**
+             * Items
+             * @description What it is about: paths, databases, variables, tasks
+             */
+            items: string[];
+            /** Message */
+            message: string;
+            /**
+             * Severity
+             * @description blocks: a copy would be wrong; warns: it would work, with a cost
+             * @enum {string}
+             */
+            severity: "blocks" | "warns";
+        };
+        /**
          * FirewallOut
          * @description The firewall, every port that answers, and what the guard protects.
          */
@@ -34826,6 +37860,77 @@ export interface components {
         ForwardAuthPresets: {
             /** Presets */
             presets: components["schemas"]["ForwardAuthPreset"][];
+        };
+        /**
+         * FrameworkChange
+         * @description What enabling a framework would change in one control.
+         *
+         *     Attributes:
+         *         control: The control.
+         *         before: The value in force now.
+         *         after: The value the framework asks.
+         *         clauses: The clauses that value serves.
+         */
+        FrameworkChange: {
+            /** After */
+            after?: unknown;
+            /** Before */
+            before?: unknown;
+            /** Clauses */
+            clauses: string[];
+            /** Control */
+            control: string;
+        };
+        /**
+         * FrameworkInfo
+         * @description A compliance framework and where it stands.
+         *
+         *     Attributes:
+         *         id: Its name in ``security.frameworks``.
+         *         name: How it is called.
+         *         family: ``ens``, ``iso``, ``nis2``, ``cis``, ``soc2`` or ``gdpr``.
+         *         level: The level inside the family, or empty.
+         *         summary: What it is, in a sentence.
+         *         reference: The law or the standard it refers to.
+         *         enabled: Whether it is on.
+         *         source: ``setting`` (it is in ``security.frameworks``) or ``profile`` (only
+         *             ``security.profile`` says so), when it is on.
+         *         turns_on: The controls it asks for more than the default of.
+         *         requirement_count: How many controls it asks anything of.
+         *         changes: What enabling it would change right now; empty when it is on.
+         *         organisational: What stays yours.
+         *         not_covered: Technical requirements Noust does not enforce.
+         *         includes: A framework this one contains.
+         */
+        FrameworkInfo: {
+            /** Changes */
+            changes: components["schemas"]["FrameworkChange"][];
+            /** Enabled */
+            enabled: boolean;
+            /** Family */
+            family: string;
+            /** Id */
+            id: string;
+            /** Includes */
+            includes?: string | null;
+            /** Level */
+            level: string;
+            /** Name */
+            name: string;
+            /** Not Covered */
+            not_covered: string[];
+            /** Organisational */
+            organisational: string[];
+            /** Reference */
+            reference: string;
+            /** Requirement Count */
+            requirement_count: number;
+            /** Source */
+            source?: string | null;
+            /** Summary */
+            summary: string;
+            /** Turns On */
+            turns_on: string[];
         };
         /**
          * FreezeOut
@@ -35716,6 +38821,26 @@ export interface components {
             safety_backup: boolean;
             /** Upload Id */
             upload_id?: string | null;
+        };
+        /**
+         * IncidentModel
+         * @description A stretch an address did not answer.
+         *
+         *     Attributes:
+         *         started_at: Epoch seconds of the first bad answer.
+         *         ended_at: When it answered again; null while it is down.
+         *         reason: What the first bad answer said.
+         */
+        IncidentModel: {
+            /** Ended At */
+            ended_at?: number | null;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /** Started At */
+            started_at: number;
         };
         /**
          * IndexResponse
@@ -36981,6 +40106,29 @@ export interface components {
             status: string;
         };
         /**
+         * LdapLoginRequest
+         * @description A person signing in with the name and password they have in a directory.
+         *
+         *     Attributes:
+         *         directory: The directory's name, as the sign-in page lists it.
+         *         username: What they type to sign in there.
+         *         password: Their password.
+         *         bearer: Also return the session token in the body, for clients without a cookie jar.
+         */
+        LdapLoginRequest: {
+            /**
+             * Bearer
+             * @default false
+             */
+            bearer: boolean;
+            /** Directory */
+            directory: string;
+            /** Password */
+            password: string;
+            /** Username */
+            username: string;
+        };
+        /**
          * LiftedResponse
          * @description What lifting did.
          */
@@ -37277,6 +40425,73 @@ export interface components {
             reason?: string | null;
             /** Since */
             since?: string | null;
+        };
+        /**
+         * LogLineModel
+         * @description One line of a log.
+         *
+         *     Attributes:
+         *         ts: Epoch seconds.
+         *         app: The application; empty for a system unit.
+         *         source: ``journal`` or ``container``.
+         *         unit: The unit, or the container's service.
+         *         process: The application's process.
+         *         level: The journal's level; null for a container's line.
+         *         message: The text, with credentials masked.
+         */
+        LogLineModel: {
+            /** App */
+            app: string;
+            /** Level */
+            level?: string | null;
+            /** Message */
+            message: string;
+            /** Process */
+            process: string;
+            /** Source */
+            source: string;
+            /** Ts */
+            ts: number;
+            /** Unit */
+            unit: string;
+        };
+        /**
+         * LogSearchResponse
+         * @description What a search found.
+         *
+         *     Attributes:
+         *         lines: The matching lines, newest first.
+         *         matched: How many matched in all (of the entries examined).
+         *         scanned: How many entries were examined.
+         *         truncated: The scan stopped at its limit, so older matches may exist.
+         *         since: Start of the window, epoch seconds.
+         *         until: End of the window.
+         *         notes: What was left out and why.
+         *         apps: The applications that were searched.
+         *         understood: The query written back in full, so the caller sees what was asked.
+         */
+        LogSearchResponse: {
+            /** Apps */
+            apps: string[];
+            /** Lines */
+            lines: components["schemas"]["LogLineModel"][];
+            /** Matched */
+            matched: number;
+            /** Notes */
+            notes: string[];
+            /** Scanned */
+            scanned: number;
+            /** Since */
+            since: number;
+            /** Truncated */
+            truncated: boolean;
+            /**
+             * Understood
+             * @default
+             */
+            understood: string;
+            /** Until */
+            until: number;
         };
         /**
          * LoginOptionsRequest
@@ -37687,17 +40902,27 @@ export interface components {
         };
         /**
          * Mapping
-         * @description One line of a provider's group mapping.
+         * @description One line of a source's group mapping.
          *
          *     Attributes:
-         *         group: The group, as the provider's claim spells it.
+         *         group: The group, as the source spells it.
          *         role: The instance role it gives (``viewer``, ``operator`` or ``admin``).
-         *         team: The team it puts the person in.
+         *         team: The team it puts the person in, or the team a role is held in.
          *         team_role: Their role there.
+         *         bind: The role held at the scope the team, project and environment name:
+         *             a built-in team role or a custom role.
+         *         project: The project a ``bind`` is held at.
+         *         environment: The environment a ``bind`` is held at.
          */
         Mapping: {
+            /** Bind */
+            bind?: string | null;
+            /** Environment */
+            environment?: string | null;
             /** Group */
             group: string;
+            /** Project */
+            project?: string | null;
             /** Role */
             role?: string | null;
             /** Team */
@@ -37819,6 +41044,13 @@ export interface components {
          *         dry_run: Say which variables would change and write nothing.
          */
         MergeAppEnvRequest: {
+            /**
+             * Comments
+             * @description Name to the comment kept above the variable in the .env, over the ones it has; empty text takes one away
+             */
+            comments?: {
+                [key: string]: string;
+            } | null;
             /**
              * Dry Run
              * @description Only say what would change
@@ -38572,6 +41804,75 @@ export interface components {
             apps?: string[];
             /** Database */
             database: string;
+        };
+        /**
+         * NativeSiteModel
+         * @description A site on the server that no application records.
+         */
+        NativeSiteModel: {
+            /** Adoptable */
+            adoptable: boolean;
+            /** Config Path */
+            config_path: string;
+            /**
+             * Domains
+             * @description The names it answers on
+             */
+            domains: string[];
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Kind
+             * @description A unit behind the web server, PHP, or files; None when it cannot be adopted
+             */
+            kind: ("proxy" | "php" | "static") | null;
+            /**
+             * Port
+             * @description The local port it proxies to
+             */
+            port: number | null;
+            /**
+             * Reason
+             * @description Why it cannot be adopted, or what to know about it
+             */
+            reason: string | null;
+            /**
+             * Root
+             * @description The directory it serves, when it names one
+             */
+            root: string | null;
+            /**
+             * Site
+             * @description The file in the web server's sites directory
+             */
+            site: string;
+            /** Ssl */
+            ssl: boolean;
+            /**
+             * Unit
+             * @description The unit that listens on that port, proposed
+             */
+            unit: string | null;
+            /** Unit Active */
+            unit_active: boolean | null;
+            /**
+             * Upstream
+             * @description What it hands requests to
+             */
+            upstream: string | null;
+            /**
+             * Webserver
+             * @enum {string}
+             */
+            webserver: "nginx" | "apache";
+        };
+        /**
+         * NativeSitesResponse
+         * @description The sites that could be adopted.
+         */
+        NativeSitesResponse: {
+            /** Sites */
+            sites: components["schemas"]["NativeSiteModel"][];
         };
         /**
          * NetworkMemberModel
@@ -39767,6 +43068,37 @@ export interface components {
             servers: components["schemas"]["ServerStatusOut"][];
         };
         /**
+         * PlanInfo
+         * @description What a change would do, before it is made.
+         *
+         *     Attributes:
+         *         enable: Frameworks that will be turned on.
+         *         disable: Frameworks that will be turned off.
+         *         settings: Control to the value its setting will hold.
+         *         enabled_after: The frameworks on afterwards.
+         *         effects: The controls whose value in force changes.
+         *         loosens: Whether anything protects less afterwards, which asks sudo mode.
+         *         warnings: What a person must acknowledge.
+         */
+        PlanInfo: {
+            /** Disable */
+            disable: string[];
+            /** Effects */
+            effects: components["schemas"]["EffectInfo"][];
+            /** Enable */
+            enable: string[];
+            /** Enabled After */
+            enabled_after: string[];
+            /** Loosens */
+            loosens: boolean;
+            /** Settings */
+            settings: {
+                [key: string]: unknown;
+            };
+            /** Warnings */
+            warnings: components["schemas"]["WarningInfo"][];
+        };
+        /**
          * PlanRequest
          * @description Request to preview a manifest.
          */
@@ -40660,6 +43992,156 @@ export interface components {
             privileges: string[];
         };
         /**
+         * ProbeBody
+         * @description What a probe is, to create or replace it.
+         *
+         *     Attributes:
+         *         url: What to ask: ``http://`` or ``https://``, no credentials in it.
+         *         method: ``GET`` or ``HEAD``.
+         *         expect_status: The statuses that mean well: ``200-399`` or ``200,204``.
+         *         expect_text: A word the page must contain (GET only).
+         *         interval_s: Seconds between two asks (30 to 3600).
+         *         timeout_s: Seconds an answer may take (1 to 60, under the interval).
+         *         fail_after: Bad answers in a row that make it down (1 to 10).
+         *         public: Show it on the status page.
+         *         title: What the status page calls it.
+         *         enabled: Whether it is asked.
+         */
+        ProbeBody: {
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Expect Status
+             * @default 200-399
+             */
+            expect_status: string;
+            /**
+             * Expect Text
+             * @default
+             */
+            expect_text: string;
+            /**
+             * Fail After
+             * @default 3
+             */
+            fail_after: number;
+            /**
+             * Interval S
+             * @default 60
+             */
+            interval_s: number;
+            /**
+             * Method
+             * @default GET
+             */
+            method: string;
+            /**
+             * Public
+             * @default false
+             */
+            public: boolean;
+            /**
+             * Timeout S
+             * @default 10
+             */
+            timeout_s: number;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /** Url */
+            url: string;
+        };
+        /**
+         * ProbeHistoryResponse
+         * @description What one probe has done lately.
+         *
+         *     Attributes:
+         *         name: The probe.
+         *         incidents: Its newest incidents first.
+         *         answers: Its newest answers, oldest first.
+         */
+        ProbeHistoryResponse: {
+            /** Answers */
+            answers: components["schemas"]["AnswerModel"][];
+            /** Incidents */
+            incidents: components["schemas"]["IncidentModel"][];
+            /** Name */
+            name: string;
+        };
+        /**
+         * ProbeListResponse
+         * @description The probes.
+         *
+         *     Attributes:
+         *         items: Every probe by name.
+         *         down: How many are down now.
+         *         status_page: The public status page.
+         */
+        ProbeListResponse: {
+            /** Down */
+            down: number;
+            /** Items */
+            items: components["schemas"]["ProbeModel"][];
+            status_page: components["schemas"]["StatusPageModel"];
+        };
+        /**
+         * ProbeModel
+         * @description One probe, where it stands and how it has done.
+         *
+         *     Attributes:
+         *         name: Its identifier.
+         *         url: What is asked.
+         *         address: The same without its query: what notifications and the status
+         *             page may show.
+         *         method: ``GET`` or ``HEAD``.
+         *         expect_status: The statuses that mean well.
+         *         expect_text: A word the page must contain.
+         *         interval_s: Seconds between two asks.
+         *         timeout_s: Seconds an answer may take.
+         *         fail_after: Bad answers in a row that make it down.
+         *         public: Shown on the status page.
+         *         title: What the status page calls it.
+         *         enabled: Whether it is asked.
+         *         status: Where it stands.
+         *         uptime: By window (``24h``, ``7d``, ``30d``, ``90d``).
+         */
+        ProbeModel: {
+            /** Address */
+            address: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Expect Status */
+            expect_status: string;
+            /** Expect Text */
+            expect_text: string;
+            /** Fail After */
+            fail_after: number;
+            /** Interval S */
+            interval_s: number;
+            /** Method */
+            method: string;
+            /** Name */
+            name: string;
+            /** Public */
+            public: boolean;
+            status: components["schemas"]["StatusModel"];
+            /** Timeout S */
+            timeout_s: number;
+            /** Title */
+            title: string;
+            /** Uptime */
+            uptime: {
+                [key: string]: components["schemas"]["UptimeModel"];
+            };
+            /** Url */
+            url: string;
+        };
+        /**
          * ProbeResult
          * @description The last probe Docker ran.
          */
@@ -41066,12 +44548,20 @@ export interface components {
          *     Attributes:
          *         name: The provider's short name, for ``/start?provider=``.
          *         label: What the button says after "Sign in with".
+         *         protocol: ``oidc`` or ``saml`` (a button that leaves for the provider, at
+         *             ``/api/auth/<protocol>/start``) or ``ldap`` (a directory the sign-in page asks for a
+         *             name and a password).
          */
         ProviderChoice: {
             /** Label */
             label: string;
             /** Name */
             name: string;
+            /**
+             * Protocol
+             * @default oidc
+             */
+            protocol: string;
         };
         /**
          * ProviderChoices
@@ -41679,6 +45169,23 @@ export interface components {
             tls?: string | null;
         };
         /**
+         * PublishBody
+         * @description Where to put the page.
+         *
+         *     Attributes:
+         *         domain: A name of its own that points at this server.
+         *         skip_dns_check: Do not require the name to resolve to this server (NAT).
+         */
+        PublishBody: {
+            /** Domain */
+            domain: string;
+            /**
+             * Skip Dns Check
+             * @default false
+             */
+            skip_dns_check: boolean;
+        };
+        /**
          * PullRequestOut
          * @description An open pull request of the application's repository.
          *
@@ -42159,6 +45666,21 @@ export interface components {
             source: string;
             /** Stale */
             stale: boolean;
+        };
+        /**
+         * RankedKeyModel
+         * @description One entry of a ranking.
+         *
+         *     Attributes:
+         *         key: What was counted: a page (``GET /orders/:n``), a network
+         *             (``203.0.113.0/24``), a status code or a referrer's host.
+         *         count: How many times in the window.
+         */
+        RankedKeyModel: {
+            /** Count */
+            count: number;
+            /** Key */
+            key: string;
         };
         /**
          * ReasonModel
@@ -43630,6 +47152,26 @@ export interface components {
             units: components["schemas"]["ReplicaCopyOut"][];
         };
         /**
+         * ReplicationResponse
+         * @description Whether an application could run on several servers.
+         */
+        ReplicationResponse: {
+            /**
+             * By Image
+             * @description It runs a registry image, which a rollout can name by tag so no server builds it
+             */
+            by_image: boolean;
+            /** Domain */
+            domain: string;
+            /** Findings */
+            findings: components["schemas"]["FindingModel"][];
+            /**
+             * Ready
+             * @description True when nothing blocks it; warnings do not
+             */
+            ready: boolean;
+        };
+        /**
          * RepositoryListOut
          * @description Every repository the App reaches.
          */
@@ -43834,6 +47376,70 @@ export interface components {
             held: number;
             /** Was Paused */
             was_paused: boolean;
+        };
+        /**
+         * RetentionBody
+         * @description What to keep; a field left out is kept as it is.
+         *
+         *     Attributes:
+         *         days: Drop entries older than this many days (1 to 3650).
+         *         max_use_mb: Use at most this many megabytes (16 to 1048576).
+         *         persistent: Keep the journal across reboots.
+         */
+        RetentionBody: {
+            /** Days */
+            days?: number | null;
+            /** Max Use Mb */
+            max_use_mb?: number | null;
+            /** Persistent */
+            persistent?: boolean | null;
+        };
+        /**
+         * RetentionModel
+         * @description How long the logs are kept.
+         *
+         *     Attributes:
+         *         days: The age past which entries are dropped; null for journald's default.
+         *         max_use_mb: The most disk the journal may use; null for the default.
+         *         persistent: The drop-in asks to keep the journal across reboots.
+         *         journal_on_disk: The journal survives a reboot now.
+         *         disk_usage: What the journal takes now, in journald's words.
+         *         configured: A Noust drop-in is in place.
+         *         foreign: A drop-in of that name that Noust did not write is in the way.
+         *         notes: What an operator should know.
+         */
+        RetentionModel: {
+            /**
+             * Configured
+             * @default false
+             */
+            configured: boolean;
+            /** Days */
+            days?: number | null;
+            /**
+             * Disk Usage
+             * @default
+             */
+            disk_usage: string;
+            /**
+             * Foreign
+             * @default false
+             */
+            foreign: boolean;
+            /**
+             * Journal On Disk
+             * @default false
+             */
+            journal_on_disk: boolean;
+            /** Max Use Mb */
+            max_use_mb?: number | null;
+            /** Notes */
+            notes: string[];
+            /**
+             * Persistent
+             * @default false
+             */
+            persistent: boolean;
         };
         /**
          * RetentionResponse
@@ -44730,15 +48336,231 @@ export interface components {
             provider: string;
         };
         /**
+         * SamlProviderInfo
+         * @description A configured SAML provider. Nothing in it is secret.
+         *
+         *     Attributes:
+         *         name: Its short name.
+         *         label: What the button says after "Sign in with".
+         *         enabled: Whether the sign-in page offers it.
+         *         idp_entity_id: Its entity id.
+         *         sso_url: Where the browser is sent to sign in.
+         *         certificates: Its signing certificates, in PEM.
+         *         certificate_details: Each of them, described.
+         *         sp_entity_id: The entity id the operator set; empty derives it.
+         *         entity_id: The entity id Noust presents to it.
+         *         acs_url: The address its response is posted to, to register with it.
+         *         metadata_url: Where this server's metadata for it is published.
+         *         subject_attribute: The attribute that identifies a person; empty uses the NameID.
+         *         email_attribute: Where their address is.
+         *         name_attribute: Where their display name is.
+         *         username_attribute: Where their login name is.
+         *         groups_attribute: Where their groups are.
+         *         clock_skew_seconds: Tolerated clock difference.
+         *         provisioning: ``off``, ``invite`` or ``auto``.
+         *         default_role: The role of an account a first sign-in creates.
+         *         default_team: The team it joins.
+         *         default_team_role: Its role there.
+         *         link_by_email: Whether a first sign-in links by e-mail.
+         *         allowed_domains: When not empty, the e-mail domains allowed.
+         *         require_email_verified: Whether an address must be present.
+         *         assume_email_verified: Whether the provider's address counts as verified.
+         *         require_amr: When not empty, the authentication contexts one of which is required.
+         *         group_sync: Whether groups decide roles and teams.
+         *         group_mappings: What each group means.
+         *         created_at: When it was configured, UNIX seconds.
+         *         created_by: Who configured it.
+         *         updated_at: Last change, UNIX seconds.
+         *         updated_by: Who made it.
+         */
+        SamlProviderInfo: {
+            /** Acs Url */
+            acs_url: string;
+            /** Allowed Domains */
+            allowed_domains: string[];
+            /** Assume Email Verified */
+            assume_email_verified: boolean;
+            /** Certificate Details */
+            certificate_details: components["schemas"]["CertificateInfo"][];
+            /** Certificates */
+            certificates: string[];
+            /** Clock Skew Seconds */
+            clock_skew_seconds: number;
+            /** Created At */
+            created_at: number;
+            /** Created By */
+            created_by?: string | null;
+            /** Default Role */
+            default_role: string;
+            /** Default Team */
+            default_team?: string | null;
+            /** Default Team Role */
+            default_team_role?: string | null;
+            /** Email Attribute */
+            email_attribute: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Entity Id */
+            entity_id: string;
+            /** Group Mappings */
+            group_mappings: components["schemas"]["Mapping"][];
+            /** Group Sync */
+            group_sync: boolean;
+            /** Groups Attribute */
+            groups_attribute: string;
+            /** Idp Entity Id */
+            idp_entity_id: string;
+            /** Label */
+            label: string;
+            /** Link By Email */
+            link_by_email: boolean;
+            /** Metadata Url */
+            metadata_url: string;
+            /** Name */
+            name: string;
+            /** Name Attribute */
+            name_attribute: string;
+            /** Provisioning */
+            provisioning: string;
+            /** Require Amr */
+            require_amr: string[];
+            /** Require Email Verified */
+            require_email_verified: boolean;
+            /** Sp Entity Id */
+            sp_entity_id: string;
+            /** Sso Url */
+            sso_url: string;
+            /** Subject Attribute */
+            subject_attribute: string;
+            /** Updated At */
+            updated_at: number;
+            /** Updated By */
+            updated_by?: string | null;
+            /** Username Attribute */
+            username_attribute: string;
+        };
+        /**
+         * SamlProvidersResponse
+         * @description Every configured SAML provider.
+         *
+         *     Attributes:
+         *         providers: The providers, by name.
+         *         acs_url: The address a response is posted to: the same for every provider.
+         *         secure: Whether the console is reached over TLS, which a POST answer needs.
+         */
+        SamlProvidersResponse: {
+            /** Acs Url */
+            acs_url: string;
+            /** Providers */
+            providers: components["schemas"]["SamlProviderInfo"][];
+            /** Secure */
+            secure: boolean;
+        };
+        /**
+         * SamlRemoved
+         * @description A confirmation that a provider was removed.
+         *
+         *     Attributes:
+         *         success: Always true.
+         *         removed: Its name.
+         */
+        SamlRemoved: {
+            /** Removed */
+            removed: string;
+            /** Success */
+            success: boolean;
+        };
+        /**
+         * SamlSettings
+         * @description What to set on a SAML provider; whatever is left out keeps its value.
+         *
+         *     Attributes:
+         *         label: What the button says after "Sign in with".
+         *         enabled: Whether the sign-in page offers it.
+         *         idp_metadata: The identity provider's metadata XML: its entity id, sign-in address and
+         *             signing certificates are read from it (the settings beside it win).
+         *         idp_entity_id: Its entity id.
+         *         sso_url: Its sign-in address (HTTP-Redirect binding).
+         *         certificates: Its signing certificates, PEM or bare base64: replaces the list.
+         *         sp_entity_id: The entity id Noust presents; empty derives it from the console's address.
+         *         subject_attribute: The attribute that identifies a person; empty uses the NameID.
+         *         email_attribute: Where their address is.
+         *         name_attribute: Where their display name is.
+         *         username_attribute: Where their login name is.
+         *         groups_attribute: Where their groups are.
+         *         clock_skew_seconds: Tolerated clock difference, up to 300.
+         *         provisioning: ``off``, ``invite`` or ``auto``.
+         *         default_role: ``viewer``, ``operator`` or ``admin``.
+         *         default_team: The team a created account joins.
+         *         default_team_role: Its role there.
+         *         link_by_email: Link a first sign-in to the account of its address.
+         *         allowed_domains: Only these e-mail domains.
+         *         require_email_verified: Refuse a person without an address.
+         *         assume_email_verified: Take the provider's address as verified.
+         *         require_amr: One of these authentication context classes must be reported.
+         *         group_sync: Let groups decide roles, memberships and scoped roles.
+         *         group_mappings: What each group means.
+         */
+        SamlSettings: {
+            /** Allowed Domains */
+            allowed_domains?: string[] | null;
+            /** Assume Email Verified */
+            assume_email_verified?: boolean | null;
+            /** Certificates */
+            certificates?: string[] | null;
+            /** Clock Skew Seconds */
+            clock_skew_seconds?: number | null;
+            /** Default Role */
+            default_role?: string | null;
+            /** Default Team */
+            default_team?: string | null;
+            /** Default Team Role */
+            default_team_role?: string | null;
+            /** Email Attribute */
+            email_attribute?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Group Mappings */
+            group_mappings?: components["schemas"]["Mapping"][] | null;
+            /** Group Sync */
+            group_sync?: boolean | null;
+            /** Groups Attribute */
+            groups_attribute?: string | null;
+            /** Idp Entity Id */
+            idp_entity_id?: string | null;
+            /** Idp Metadata */
+            idp_metadata?: string | null;
+            /** Label */
+            label?: string | null;
+            /** Link By Email */
+            link_by_email?: boolean | null;
+            /** Name Attribute */
+            name_attribute?: string | null;
+            /** Provisioning */
+            provisioning?: string | null;
+            /** Require Amr */
+            require_amr?: string[] | null;
+            /** Require Email Verified */
+            require_email_verified?: boolean | null;
+            /** Sp Entity Id */
+            sp_entity_id?: string | null;
+            /** Sso Url */
+            sso_url?: string | null;
+            /** Subject Attribute */
+            subject_attribute?: string | null;
+            /** Username Attribute */
+            username_attribute?: string | null;
+        };
+        /**
          * SandboxDisableRequest
          * @description Building as root, and why.
          */
         SandboxDisableRequest: {
             /**
              * Reason
-             * @description Why, recorded and shown
+             * @description Why, recorded and shown; required under the ENS profile or with security.exception_reasons on
              */
-            reason: string;
+            reason?: string | null;
         };
         /**
          * SandboxEnableRequest
@@ -45169,6 +48991,193 @@ export interface components {
         SchemasResponse: {
             /** Schemas */
             schemas: components["schemas"]["SchemaResponse"][];
+        };
+        /**
+         * ScimRemoved
+         * @description A confirmation that a source was removed.
+         *
+         *     Attributes:
+         *         success: Always true.
+         *         removed: Its name.
+         */
+        ScimRemoved: {
+            /** Removed */
+            removed: string;
+            /** Success */
+            success: boolean;
+        };
+        /**
+         * ScimSourceInfo
+         * @description A source of provisioning, without its token.
+         *
+         *     Attributes:
+         *         name: Its short name.
+         *         label: What a person reads about it.
+         *         enabled: Whether its token is accepted.
+         *         token_hint: The last characters of its token, to tell tokens apart.
+         *         token_created_at: When the token was issued.
+         *         last_used_at: When it last authenticated a request.
+         *         last_used_ip: From where.
+         *         default_role: The role of an account it creates.
+         *         default_team: The team a new account joins.
+         *         default_team_role: Its role there.
+         *         link_by_email: Attach a user to the account that already has their e-mail.
+         *         allowed_domains: Only these e-mail domains; any when empty.
+         *         group_sync: Whether its groups decide roles, memberships and scoped roles.
+         *         group_mappings: What each group means.
+         *         users: How many people it has provisioned.
+         *         created_at: When it was configured.
+         *         created_by: Who configured it.
+         */
+        ScimSourceInfo: {
+            /** Allowed Domains */
+            allowed_domains: string[];
+            /** Created At */
+            created_at: number;
+            /** Created By */
+            created_by?: string | null;
+            /** Default Role */
+            default_role: string;
+            /** Default Team */
+            default_team?: string | null;
+            /** Default Team Role */
+            default_team_role?: string | null;
+            /** Enabled */
+            enabled: boolean;
+            /** Group Mappings */
+            group_mappings: components["schemas"]["Mapping"][];
+            /** Group Sync */
+            group_sync: boolean;
+            /** Label */
+            label: string;
+            /** Last Used At */
+            last_used_at?: number | null;
+            /** Last Used Ip */
+            last_used_ip?: string | null;
+            /** Link By Email */
+            link_by_email: boolean;
+            /** Name */
+            name: string;
+            /** Token Created At */
+            token_created_at: number;
+            /** Token Hint */
+            token_hint: string;
+            /** Users */
+            users: number;
+        };
+        /**
+         * ScimSourceSaved
+         * @description A source after it was set, and its token when one was issued.
+         *
+         *     Attributes:
+         *         source: The source as it is now.
+         *         token: The bearer token, in clear, exactly once; None when the source kept its own.
+         *         base_url: The SCIM endpoint to give the identity provider.
+         */
+        ScimSourceSaved: {
+            /** Base Url */
+            base_url: string;
+            source: components["schemas"]["ScimSourceInfo"];
+            /** Token */
+            token?: string | null;
+        };
+        /**
+         * ScimSourceSettings
+         * @description The settings of a source to set; omitted ones are left as they are.
+         *
+         *     Attributes:
+         *         label: What a person reads about it.
+         *         enabled: Whether its token is accepted.
+         *         default_role: ``viewer``, ``operator`` or ``admin``.
+         *         default_team: The team a created account joins.
+         *         default_team_role: Its role there.
+         *         link_by_email: Attach a user to the account of the same e-mail.
+         *         allowed_domains: Only these e-mail domains.
+         *         group_sync: Let its groups decide roles, memberships and scoped roles.
+         *         group_mappings: What each group means.
+         *         rotate_token: Issue a new token (the old one stops working at once).
+         */
+        ScimSourceSettings: {
+            /** Allowed Domains */
+            allowed_domains?: string[] | null;
+            /** Default Role */
+            default_role?: string | null;
+            /** Default Team */
+            default_team?: string | null;
+            /** Default Team Role */
+            default_team_role?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Group Mappings */
+            group_mappings?: components["schemas"]["Mapping"][] | null;
+            /** Group Sync */
+            group_sync?: boolean | null;
+            /** Label */
+            label?: string | null;
+            /** Link By Email */
+            link_by_email?: boolean | null;
+            /**
+             * Rotate Token
+             * @default false
+             */
+            rotate_token: boolean;
+        };
+        /**
+         * ScimSourcesResponse
+         * @description The sources, and where they are to be pointed.
+         *
+         *     Attributes:
+         *         base_url: The address to give each identity provider as the SCIM endpoint.
+         *         sources: Every configured source.
+         */
+        ScimSourcesResponse: {
+            /** Base Url */
+            base_url: string;
+            /** Sources */
+            sources: components["schemas"]["ScimSourceInfo"][];
+        };
+        /**
+         * ScimUserInfo
+         * @description A person a source provisioned.
+         *
+         *     Attributes:
+         *         id: The id the provider uses.
+         *         user_name: Its ``userName``.
+         *         account: The account's name.
+         *         status: The account's status.
+         *         role: The account's role.
+         *         disabled_by_scim: Whether the provider switched it off.
+         *         groups: The groups it pushed them into.
+         */
+        ScimUserInfo: {
+            /** Account */
+            account: string;
+            /** Disabled By Scim */
+            disabled_by_scim: boolean;
+            /** Groups */
+            groups: string[];
+            /** Id */
+            id: string;
+            /** Role */
+            role: string;
+            /** Status */
+            status: string;
+            /** User Name */
+            user_name: string;
+        };
+        /**
+         * ScimUsersResponse
+         * @description The roster of a source.
+         *
+         *     Attributes:
+         *         total: How many people it provisioned.
+         *         users: The first 500.
+         */
+        ScimUsersResponse: {
+            /** Total */
+            total: number;
+            /** Users */
+            users: components["schemas"]["ScimUserInfo"][];
         };
         /**
          * ScriptBody
@@ -47731,8 +51740,14 @@ export interface components {
          *         since: Epoch seconds the state began.
          *         last_value: The reading that last decided it.
          *         announced: Whether the current firing was told to the channels.
+         *         acknowledged_at: Epoch seconds somebody took the firing, or null.
+         *         acknowledged_by: Who took it.
          */
         StateModel: {
+            /** Acknowledged At */
+            acknowledged_at?: number | null;
+            /** Acknowledged By */
+            acknowledged_by?: string | null;
             /**
              * Announced
              * @default false
@@ -47746,6 +51761,98 @@ export interface components {
             state: string;
             /** Subject */
             subject: string;
+        };
+        /**
+         * StatusModel
+         * @description Where a probe stands.
+         *
+         *     Attributes:
+         *         state: ``unknown``, ``up`` or ``down``.
+         *         since: Epoch seconds the state began.
+         *         failures: Bad answers in a row.
+         *         last_checked: When it was last asked.
+         *         last_status: The HTTP status of the last answer.
+         *         last_latency_ms: How long it took.
+         *         last_error: What was wrong with the last answer, in one line.
+         */
+        StatusModel: {
+            /** Failures */
+            failures: number;
+            /** Last Checked */
+            last_checked?: number | null;
+            /** Last Error */
+            last_error?: string | null;
+            /** Last Latency Ms */
+            last_latency_ms?: number | null;
+            /** Last Status */
+            last_status?: number | null;
+            /** Since */
+            since: number;
+            /** State */
+            state: string;
+        };
+        /**
+         * StatusPageBody
+         * @description What to change of the status page; a field left out is kept.
+         *
+         *     Attributes:
+         *         enabled: The monitor writes the page's files.
+         *         title: What the page is called (80 characters at most).
+         *         directory: Where the files go; empty for the default.
+         */
+        StatusPageBody: {
+            /** Directory */
+            directory?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Title */
+            title?: string | null;
+        };
+        /**
+         * StatusPageFilesResponse
+         * @description The files of the status page after writing them.
+         *
+         *     Attributes:
+         *         files: Their paths.
+         */
+        StatusPageFilesResponse: {
+            /** Files */
+            files: string[];
+        };
+        /**
+         * StatusPageModel
+         * @description The public status page.
+         *
+         *     Attributes:
+         *         enabled: The monitor writes its files.
+         *         directory: Where they go.
+         *         title: What the page is called.
+         *         components: How many probes are marked public.
+         *         domain: The name it is published on, when it is.
+         *         site_created: Publishing made the nginx site.
+         *         certificate_created: Publishing made the certificate.
+         */
+        StatusPageModel: {
+            /**
+             * Certificate Created
+             * @default false
+             */
+            certificate_created: boolean;
+            /** Components */
+            components: number;
+            /** Directory */
+            directory: string;
+            /** Domain */
+            domain?: string | null;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Site Created
+             * @default false
+             */
+            site_created: boolean;
+            /** Title */
+            title: string;
         };
         /**
          * StepsOut
@@ -48173,7 +52280,7 @@ export interface components {
          *         delivered: Deliveries that went out.
          *         retried: Deliveries that failed again and wait.
          *         failed: Deliveries given up on.
-         *         digests: Digest messages sent for what the quiet hours held.
+         *         digests: Digest messages sent for what the channels held.
          */
         SweepResponse: {
             /** Delivered */
@@ -48801,7 +52908,7 @@ export interface components {
         };
         /**
          * TestResponse
-         * @description A provider looked at the way a sign-in would, without signing anybody in.
+         * @description A source looked at the way a sign-in would, without signing anybody in.
          *
          *     Attributes:
          *         ok: Whether every check passed.
@@ -49160,6 +53267,35 @@ export interface components {
             /** Log */
             log?: string | null;
             reason?: components["schemas"]["ReasonModel"] | null;
+        };
+        /**
+         * TrafficPointModel
+         * @description One hour (or day) of an application's traffic.
+         *
+         *     Attributes:
+         *         ts: Where it starts, epoch seconds UTC.
+         *         requests: Requests.
+         *         s2xx: Answered 2xx.
+         *         s3xx: Answered 3xx.
+         *         s4xx: Answered 4xx.
+         *         s5xx: Answered 5xx.
+         *         bytes: Bytes of response bodies.
+         */
+        TrafficPointModel: {
+            /** Bytes */
+            bytes: number;
+            /** Requests */
+            requests: number;
+            /** S2Xx */
+            s2xx: number;
+            /** S3Xx */
+            s3xx: number;
+            /** S4Xx */
+            s4xx: number;
+            /** S5Xx */
+            s5xx: number;
+            /** Ts */
+            ts: number;
         };
         /**
          * TuningHealth
@@ -49529,6 +53665,23 @@ export interface components {
             jail?: string | null;
         };
         /**
+         * UnitDevice
+         * @description A device node or group the process may open.
+         */
+        UnitDevice: {
+            /**
+             * Mode
+             * @description r, w or rw
+             * @default rw
+             */
+            mode: string;
+            /**
+             * Path
+             * @description /dev/nvidia0, or a device group such as char-nvidia
+             */
+            path: string;
+        };
+        /**
          * UnitProcessesOut
          * @description The processes of one unit, added up.
          */
@@ -49578,6 +53731,129 @@ export interface components {
             memory_current?: number | null;
             /** Name */
             name: string;
+        };
+        /**
+         * UnitTuningOptions
+         * @description The options an application's unit can be tuned with; one that is absent is not set.
+         */
+        UnitTuningOptions: {
+            /**
+             * Allowed Cpus
+             * @description CPUs the unit is pinned to, such as 0-3 or 0,2
+             */
+            allowed_cpus?: string | null;
+            /**
+             * Capabilities
+             * @description Capabilities the process keeps, without the CAP_ prefix
+             */
+            capabilities?: string[];
+            /**
+             * Core Dumps
+             * @description Allow core dumps (ulimit -c)
+             */
+            core_dumps?: boolean | null;
+            /**
+             * Cpu Weight
+             * @description Share of the CPU when it is contended, 1 to 10000 (default 100)
+             */
+            cpu_weight?: number | null;
+            /**
+             * Devices
+             * @description Devices the process may open (a GPU, for one)
+             */
+            devices?: components["schemas"]["UnitDevice"][];
+            /**
+             * Io Weight
+             * @description Share of the disk when it is contended, 1 to 10000
+             */
+            io_weight?: number | null;
+            /**
+             * Limit Memlock Mb
+             * @description Locked memory in MB (ulimit -l), or 'infinity'
+             */
+            limit_memlock_mb?: number | string | null;
+            /**
+             * Limit Nofile
+             * @description Open files (ulimit -n)
+             */
+            limit_nofile?: number | null;
+            /**
+             * Limit Nproc
+             * @description Processes of the account (ulimit -u)
+             */
+            limit_nproc?: number | null;
+            /**
+             * Memory High Mb
+             * @description Soft memory limit (MemoryHigh): throttled above it, not killed
+             */
+            memory_high_mb?: number | null;
+            /**
+             * Memory Swap Max Mb
+             * @description Swap the unit may use (MemorySwapMax); 0 forbids it
+             */
+            memory_swap_max_mb?: number | null;
+        };
+        /**
+         * UnitTuningRequest
+         * @description The tuning an application's unit must have: all of it, an empty one removes it.
+         */
+        UnitTuningRequest: {
+            options: components["schemas"]["UnitTuningOptions"];
+            /**
+             * Restart
+             * @description Restart it now, behind the health gate, so it runs under the new options
+             * @default true
+             */
+            restart: boolean;
+        };
+        /**
+         * UnitTuningResponse
+         * @description How an application's unit is tuned.
+         */
+        UnitTuningResponse: {
+            /**
+             * Capabilities
+             * @description Every capability that can be given, and what it is for
+             */
+            capabilities?: {
+                [key: string]: string;
+            };
+            /**
+             * Configured
+             * @description Whether anything is set
+             */
+            configured: boolean;
+            /**
+             * Cpus
+             * @description CPUs this machine has
+             * @default 1
+             */
+            cpus: number;
+            /**
+             * Directives
+             * @description The unit lines the options become
+             */
+            directives?: string[];
+            /** Domain */
+            domain: string;
+            /**
+             * Eligible
+             * @description Whether its unit can be tuned
+             */
+            eligible: boolean;
+            /**
+             * Gpu Presets
+             * @description Each GPU preset and the device groups it allows
+             */
+            gpu_presets?: {
+                [key: string]: string[];
+            };
+            options?: components["schemas"]["UnitTuningOptions"];
+            /**
+             * Reason
+             * @description Why it cannot, when it cannot
+             */
+            reason?: string | null;
         };
         /**
          * UnknownHostsRequest
@@ -49693,6 +53969,13 @@ export interface components {
              * @description Name to 'both', 'build' or 'runtime' for the variables whose audience changes; a name left out keeps the one it has
              */
             audience?: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Comments
+             * @description Name to the comment kept above the variable in the .env, over the ones it has; empty text takes one away, a name left out keeps its comment. A value may hold several lines (a private key) but no single quote; a comment is plain text of up to 500 characters
+             */
+            comments?: {
                 [key: string]: string;
             } | null;
             /**
@@ -50441,6 +54724,29 @@ export interface components {
             text: string;
         };
         /**
+         * UptimeModel
+         * @description How often an address answered over a window.
+         *
+         *     Attributes:
+         *         checks: Times it was asked.
+         *         good: Times it answered well.
+         *         percent: Good answers as a percentage; null when it was never asked.
+         *         mean_ms: The mean latency of the good answers.
+         *         max_ms: The slowest.
+         */
+        UptimeModel: {
+            /** Checks */
+            checks: number;
+            /** Good */
+            good: number;
+            /** Max Ms */
+            max_ms?: number | null;
+            /** Mean Ms */
+            mean_ms?: number | null;
+            /** Percent */
+            percent?: number | null;
+        };
+        /**
          * UsageResponse
          * @description Who uses a variable.
          *
@@ -51063,6 +55369,20 @@ export interface components {
             rules: boolean;
             /** Webserver */
             webserver: string;
+        };
+        /**
+         * WarningInfo
+         * @description Something about this server a change would affect.
+         *
+         *     Attributes:
+         *         id: What it is.
+         *         count: How many it concerns, when it counts.
+         */
+        WarningInfo: {
+            /** Count */
+            count?: number | null;
+            /** Id */
+            id: string;
         };
         /**
          * WebConfig
@@ -52156,6 +56476,28 @@ export interface components {
             user_data_limit: number;
         };
         /**
+         * CheckResponse
+         * @description The result of the compliance check.
+         *
+         *     Attributes:
+         *         verdict: The worst verdict among the frameworks.
+         *         frameworks: One per framework judged.
+         *         errors: Areas that could not be read.
+         *         disclaimer: What a pass does and does not mean.
+         */
+        noust__web__api__compliance__CheckResponse: {
+            /** Disclaimer */
+            disclaimer: string;
+            /** Errors */
+            errors: {
+                [key: string]: string;
+            };
+            /** Frameworks */
+            frameworks: components["schemas"]["CheckFramework"][];
+            /** Verdict */
+            verdict: string;
+        };
+        /**
          * PolicyDestination
          * @description One remote destination a policy sends its dumps to.
          *
@@ -53025,6 +57367,28 @@ export interface components {
             url: string;
         };
         /**
+         * CheckResponse
+         * @description What asking a probe now got.
+         *
+         *     Attributes:
+         *         ok: It answered well.
+         *         status: The HTTP status.
+         *         latency_ms: How long it took.
+         *         error: What was wrong, in one line.
+         *         probe: The probe as it stands now.
+         */
+        noust__web__api__probes__CheckResponse: {
+            /** Error */
+            error?: string | null;
+            /** Latency Ms */
+            latency_ms?: number | null;
+            /** Ok */
+            ok: boolean;
+            probe: components["schemas"]["ProbeModel"];
+            /** Status */
+            status?: number | null;
+        };
+        /**
          * ProcessInfo
          * @description A process of an application and its copies.
          */
@@ -53778,6 +58142,74 @@ export interface operations {
             };
         };
     };
+    acknowledge_rule_api_alerts_rules__name__acknowledge_post: {
+        parameters: {
+            query?: {
+                /** @description The application, or empty for the server */
+                subject?: string;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hand_back_rule_api_alerts_rules__name__acknowledge_delete: {
+        parameters: {
+            query?: {
+                /** @description The application, or empty for the server */
+                subject?: string;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     disable_rule_api_alerts_rules__name__disable_post: {
         parameters: {
             query?: never;
@@ -54108,6 +58540,39 @@ export interface operations {
             };
         };
     };
+    adopt_site_api_apps_adopt_site_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdoptSiteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdoptSiteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     import_app_api_apps_import_post: {
         parameters: {
             query?: never;
@@ -54170,6 +58635,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_native_sites_api_apps_native_sites_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NativeSitesResponse"];
                 };
             };
         };
@@ -54248,6 +58733,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_adoption_api_apps__domain__adoption_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdoptionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -54918,6 +59434,37 @@ export interface operations {
             };
         };
     };
+    get_compose_variables_api_apps__domain__compose_variables_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComposeVariablesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_app_container_api_apps__domain__container_get: {
         parameters: {
             query?: never;
@@ -55533,6 +60080,138 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DiagnoseResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_disk_api_apps__domain__disk_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiskResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_disk_api_apps__domain__disk_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiskLimitRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiskResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_disk_kernel_api_apps__domain__disk_kernel_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiskKernelRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_disk_measure_api_apps__domain__disk_measure_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -59364,6 +64043,37 @@ export interface operations {
             };
         };
     };
+    get_replication_api_apps__domain__replication_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplicationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     restart_app_api_apps__domain__restart_post: {
         parameters: {
             query?: never;
@@ -60244,6 +64954,108 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TerminalTicketResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    app_traffic_api_apps__domain__traffic_get: {
+        parameters: {
+            query?: {
+                /** @description How far back to look. */
+                window?: "24h" | "7d" | "30d" | "90d";
+                /** @description Entries in each ranking. */
+                top?: number;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppTrafficResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_tuning_api_apps__domain__tuning_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitTuningResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_tuning_api_apps__domain__tuning_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnitTuningRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -61537,6 +66349,156 @@ export interface operations {
             };
         };
     };
+    list_directories_api_auth_ldap_directories_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectoriesResponse"];
+                };
+            };
+        };
+    };
+    put_directory_api_auth_ldap_directories__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DirectorySettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectoryInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_directory_api_auth_ldap_directories__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectoryRemoved"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_directory_api_auth_ldap_directories__name__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    login_api_auth_ldap_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LdapLoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     login_api_auth_login_post: {
         parameters: {
             query?: never;
@@ -62346,6 +67308,328 @@ export interface operations {
             };
         };
     };
+    assertion_consumer_service_api_auth_saml_acs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": {
+                    /** @description What the sign-in sent with its request. */
+                    RelayState: string;
+                    /** @description The base64 response. */
+                    SAMLResponse: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            303: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_providers_api_auth_saml_config_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SamlProvidersResponse"];
+                };
+            };
+        };
+    };
+    put_provider_api_auth_saml_config__provider__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SamlSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SamlProviderInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_provider_api_auth_saml_config__provider__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SamlRemoved"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    try_provider_api_auth_saml_config__provider__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    metadata_api_auth_saml_metadata__provider__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/samlmetadata+xml": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_api_auth_saml_start_get: {
+        parameters: {
+            query: {
+                provider: string;
+                next?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_sources_api_auth_scim_sources_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScimSourcesResponse"];
+                };
+            };
+        };
+    };
+    put_source_api_auth_scim_sources__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScimSourceSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScimSourceSaved"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_source_api_auth_scim_sources__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScimRemoved"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_users_api_auth_scim_sources__name__users_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScimUsersResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_session_info_api_auth_session_get: {
         parameters: {
             query?: never;
@@ -62528,6 +67812,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RevokedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restrict_api_token_api_auth_tokens__token_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApiTokenNetworks"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiTokenInfo"];
                 };
             };
             /** @description Validation Error */
@@ -63649,6 +68968,123 @@ export interface operations {
             };
         };
     };
+    get_compliance_api_compliance_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceState"];
+                };
+            };
+        };
+    };
+    change_compliance_api_compliance_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_compliance_api_compliance_check_get: {
+        parameters: {
+            query?: {
+                framework?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__compliance__CheckResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_change_api_compliance_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     analyze_compose_api_compose_analyze_post: {
         parameters: {
             query?: never;
@@ -63959,6 +69395,59 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DeliveryConfig"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_email_api_config_api_config_email_api_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailApiSettingsResponse"];
+                };
+            };
+        };
+    };
+    update_email_api_config_api_config_email_api_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailApiConfig"];
             };
         };
         responses: {
@@ -64592,6 +70081,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CronActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    job_ledger_api_cron__name__ledger_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CronLedgerResponse"];
                 };
             };
             /** @description Validation Error */
@@ -70490,6 +76012,88 @@ export interface operations {
             };
         };
     };
+    fleet_logs_api_fleet_logs_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+                /** @description The search: words, fields, -excluded, a OR b */
+                q?: string;
+                /** @description Start: 15m, 2h, 7d, a date, epoch seconds */
+                since?: string | null;
+                /** @description End, in the same forms */
+                until?: string | null;
+                /** @description The worst level kept */
+                level?: string | null;
+                /** @description Lines per server */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fleet_metrics_api_fleet_metrics_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+                /** @description What to put side by side */
+                metric?: "cpu" | "memory" | "swap" | "disk" | "load" | "net_rx" | "net_tx";
+                /** @description How far back */
+                window?: "1h" | "6h" | "24h" | "7d" | "30d";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_placements_api_fleet_placements_get: {
         parameters: {
             query?: never;
@@ -72057,6 +77661,120 @@ export interface operations {
             };
         };
     };
+    get_retention_api_logs_retention_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionModel"];
+                };
+            };
+        };
+    };
+    set_retention_api_logs_retention_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RetentionBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_retention_api_logs_retention_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionModel"];
+                };
+            };
+        };
+    };
+    search_logs_api_logs_search_get: {
+        parameters: {
+            query?: {
+                /** @description Words ("quoted phrases", -excluded, a OR b, groups) and fields (@app:, @unit:, @level:, @pid:). */
+                q?: string;
+                /** @description Search only these applications (their domains). */
+                app?: string[] | null;
+                /** @description Start: epoch seconds, a time ago (15m, 2h, 7d) or a date. An hour ago. */
+                since?: string | null;
+                /** @description End: the same forms. Now. */
+                until?: string | null;
+                /** @description The worst level kept: err, warning, info... */
+                level?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogSearchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     apply_api_manifest_apply_post: {
         parameters: {
             query?: never;
@@ -72294,6 +78012,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MetricsListResponse"];
+                };
+            };
+        };
+    };
+    export_prometheus_api_metrics_prometheus_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The newest value of every metric, in the Prometheus text exposition format, or OpenMetrics when the request asks for it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/openmetrics-text; version=1.0.0; charset=utf-8": string;
+                    "text/plain; version=0.0.4; charset=utf-8": string;
                 };
             };
         };
@@ -73362,6 +79101,278 @@ export interface operations {
             };
         };
     };
+    list_probes_api_probes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProbeListResponse"];
+                };
+            };
+        };
+    };
+    get_status_page_api_probes_status_page_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusPageModel"];
+                };
+            };
+        };
+    };
+    set_status_page_api_probes_status_page_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusPageBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusPageModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_status_page_api_probes_status_page_publish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unpublish_status_page_api_probes_status_page_site_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+        };
+    };
+    write_status_page_api_probes_status_page_write_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusPageFilesResponse"];
+                };
+            };
+        };
+    };
+    save_probe_api_probes__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProbeBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProbeModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_probe_api_probes__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_probe_api_probes__name__check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__probes__CheckResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    probe_history_api_probes__name__history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProbeHistoryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_projects_api_projects_get: {
         parameters: {
             query?: {
@@ -74042,6 +80053,665 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RegistryLoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_everything_api_scim_v2__search_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_groups_api_scim_v2_Groups_get: {
+        parameters: {
+            query?: {
+                filter?: string | null;
+                startIndex?: number | null;
+                count?: number | null;
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_group_api_scim_v2_Groups_post: {
+        parameters: {
+            query?: {
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_groups_api_scim_v2_Groups__search_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_group_api_scim_v2_Groups__group_id__get: {
+        parameters: {
+            query?: {
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
+            header?: never;
+            path: {
+                group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replace_group_api_scim_v2_Groups__group_id__put: {
+        parameters: {
+            query?: {
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
+            header?: never;
+            path: {
+                group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_group_api_scim_v2_Groups__group_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_group_api_scim_v2_Groups__group_id__patch: {
+        parameters: {
+            query?: {
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
+            header?: never;
+            path: {
+                group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resource_types_api_scim_v2_ResourceTypes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+        };
+    };
+    resource_type_api_scim_v2_ResourceTypes__name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    schemas_api_scim_v2_Schemas_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+        };
+    };
+    schema_api_scim_v2_Schemas__schema_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                schema_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    service_provider_config_api_scim_v2_ServiceProviderConfig_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+        };
+    };
+    list_users_api_scim_v2_Users_get: {
+        parameters: {
+            query?: {
+                filter?: string | null;
+                startIndex?: number | null;
+                count?: number | null;
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_user_api_scim_v2_Users_post: {
+        parameters: {
+            query?: {
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_users_api_scim_v2_Users__search_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_user_api_scim_v2_Users__user_id__get: {
+        parameters: {
+            query?: {
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replace_user_api_scim_v2_Users__user_id__put: {
+        parameters: {
+            query?: {
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_user_api_scim_v2_Users__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_user_api_scim_v2_Users__user_id__patch: {
+        parameters: {
+            query?: {
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
                 };
             };
             /** @description Validation Error */

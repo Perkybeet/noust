@@ -86,6 +86,8 @@ class Delivery:
         last_error: The failure, in the destination's words.
         payload: The notification, while it may still be delivered or sent by
             hand; None once it was.
+        held_for: Why it is held, for a held delivery: ``quiet``, ``flood`` or
+            ``summary``.
     """
 
     id: int
@@ -102,6 +104,7 @@ class Delivery:
     next_attempt_at: float | None
     last_error: str | None
     payload: dict[str, Any] | None
+    held_for: str | None = None
 
     def notification(self) -> Notification:
         """
@@ -135,6 +138,7 @@ class Delivery:
             "updated_at": self.updated_at,
             "next_attempt_at": self.next_attempt_at,
             "last_error": self.last_error,
+            "held_for": self.held_for,
             "can_retry": self.state in ("failed", "retrying", "held") and self.payload is not None,
         }
 
@@ -171,6 +175,7 @@ def _delivery(row: sqlite3.Row) -> Delivery:
         else None,
         last_error=row["last_error"],
         payload=payload,
+        held_for=row["held_for"],
     )
 
 
@@ -267,21 +272,28 @@ class DeliveryLedger:
         )
 
     def hold(
-        self, notification: Notification, channel: str, channel_type: str, release_at: float
+        self,
+        notification: Notification,
+        channel: str,
+        channel_type: str,
+        release_at: float,
+        cause: str = "quiet",
     ) -> int:
         """
-        Write down a delivery that waits for the quiet hours to end.
+        Write down a delivery that waits: for the quiet hours to end, for a flood
+        to pass or for the summary of the day.
 
         Args:
             notification: What is held.
             channel: The channel instance.
             channel_type: Its type.
             release_at: Epoch seconds when it may go.
+            cause: Why: ``quiet``, ``flood`` or ``summary``.
 
         Returns:
             The row's id.
         """
-        return self._insert(notification, channel, channel_type, "held", release_at)
+        return self._insert(notification, channel, channel_type, "held", release_at, held_for=cause)
 
     def _insert(
         self,
@@ -294,6 +306,7 @@ class DeliveryLedger:
         attempts: int = 0,
         error: str | None = None,
         keep_payload: bool = True,
+        held_for: str | None = None,
     ) -> int:
         """
         Args:
@@ -305,6 +318,7 @@ class DeliveryLedger:
             attempts: Tries so far.
             error: What went wrong, if something did.
             keep_payload: Whether the notification stays on the row.
+            held_for: Why it is held, if it is.
 
         Returns:
             The row's id.
@@ -315,7 +329,8 @@ class DeliveryLedger:
             cursor.execute(
                 "INSERT INTO notification_deliveries (notification_id, kind, code, subject, "
                 "channel, channel_type, state, attempts, created_at, updated_at, "
-                "next_attempt_at, last_error, payload) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "next_attempt_at, last_error, payload, held_for) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     notification.id,
                     notification.kind,
@@ -330,6 +345,7 @@ class DeliveryLedger:
                     next_attempt_at,
                     error[:MAX_ERROR_LENGTH] if error else None,
                     payload,
+                    held_for,
                 ),
             )
             return int(cursor.lastrowid or 0)
@@ -520,7 +536,7 @@ class DeliveryLedger:
         """
         Args:
             channel: A channel instance.
-            since: Epoch seconds.
+            since: Epoch seconds; a delivery at exactly that moment is outside.
 
         Returns:
             How many deliveries to it went out since then.
@@ -528,7 +544,7 @@ class DeliveryLedger:
         with self.store._transaction() as cursor:
             cursor.execute(
                 "SELECT COUNT(*) FROM notification_deliveries "
-                "WHERE channel = ? AND state = 'sent' AND updated_at >= ?",
+                "WHERE channel = ? AND state = 'sent' AND updated_at > ?",
                 (channel, since),
             )
             row = cursor.fetchone()

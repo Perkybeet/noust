@@ -87,6 +87,7 @@ from noust.core.store import (
     ReleaseRecord,
     ReleaseStatus,
     get_store,
+    is_adopted,
     is_compose_backed,
 )
 from noust.core.tags import compare_tags, newest_tag, tag_matches, why_not_deploy
@@ -110,6 +111,7 @@ from noust.deployers.helpers.layout import (
     env_file_in,
     supports_release_layout,
 )
+from noust.deployers.helpers.process_declaration import declare_restored_release
 from noust.deployers.helpers.release_build import stage_release
 from noust.deployers.helpers.workspace_gates import WorkspaceGates
 from noust.deployers.interface import UpdateResult
@@ -126,9 +128,9 @@ from noust.deployers.releases import (
     ReleaseManager,
     release_order_key,
 )
-from noust.managers import unit_stop
+from noust.managers import app_disk, unit_stop
 from noust.managers.apache_manager import ApacheManager
-from noust.managers.app_processes import ProcessManager
+from noust.managers.app_processes import Declaration, ProcessManager
 from noust.managers.app_replicas import ReplicaManager
 from noust.managers.backup_manager import BackupManager, RollbackManager
 from noust.managers.cert_manager import CertManager
@@ -193,6 +195,24 @@ class AppUpdate:
     hooks: tuple[dict[str, Any], ...] = ()
     schema_changed: bool = False
     warnings: str | None = None
+
+
+def _refuse_adopted(domain: str, what: str) -> None:
+    """
+    Refuse to change what runs of a site Noust adopted rather than built.
+
+    Args:
+        domain: The application's domain.
+        what: The operation, as a verb.
+
+    Raises:
+        ValidationError: The application is an adopted site; nothing was touched.
+    """
+    app = get_store().get_app(domain)
+    if app is not None and is_adopted(app.app_type):
+        from noust.deployers.native_adopt import refuse_to_build
+
+        raise refuse_to_build(domain, what)
 
 
 def update_app(
@@ -296,6 +316,7 @@ def update_app(
     """
     require_server_role("Applications")
     domain = validate_domain(domain)
+    _refuse_adopted(domain, "update")
     if rollback_of is None:
         # Going back is how an incident ends: only what moves production forward waits.
         deploy_guard.require_open(
@@ -303,6 +324,8 @@ def update_app(
             automatic=automatic or trigger == DeploymentTrigger.WEBHOOK.value,
             override=frozen_ok,
         )
+        # And what would take more disk than the application was given: it is measured now.
+        app_disk.require_room(get_store().get_app(domain))
     if commit is not None:
         commit = validate_commit_id(commit)
         if source or branch:
@@ -1885,6 +1908,10 @@ def _activate_release(
     )
     with recording(recorder, git_branch=app.branch):
         if app.zero_downtime:
+            # The processes the target declares are recorded and their units written before the
+            # idle instance starts: the switch restarts them on the target and proves they stay up
+            # before the traffic moves.
+            declared = _declare_processes(app, target, store, log)
             # The idle instance starts on the target and takes the traffic
             # once it answers; the serving one never stops before that.
             try:
@@ -1898,17 +1925,35 @@ def _activate_release(
                 ).activate(target.path, releases)
             except NoustError:
                 _set_release_status(store, app, target.id, ReleaseStatus.FAILED, log)
+                if declared is not None:
+                    declared.rollback()
                 raise
+            if declared is not None:
+                declared.commit()
         else:
             releases.activate(target.path)
             log.substep(
                 f"Activated release {target.id}"
                 + (f" (was {previous.id})" if previous is not None else "")
             )
-            healthy, evidence = health_gate_for(app, store, log).restart_and_probe()
+            # After current points at the target and before the restart, which restarts the
+            # declared processes with the unit and judges them with it.
+            declared = _declare_processes(app, target, store, log)
+            try:
+                healthy, evidence = health_gate_for(app, store, log).restart_and_probe()
+            except NoustError:
+                if declared is not None:
+                    declared.rollback()
+                raise
             if not healthy:
                 _set_release_status(store, app, target.id, ReleaseStatus.FAILED, log)
+                # Before going back: the release that served knew nothing of these processes,
+                # and the restart that follows must not ask for them.
+                if declared is not None:
+                    declared.rollback()
                 raise _restore_previous(app, store, releases, target, previous, evidence, log)
+            if declared is not None:
+                declared.commit()
 
         _record_activation(store, app, target, previous if went_back else None, log)
         if went_back:
@@ -1920,6 +1965,30 @@ def _activate_release(
         changed=True,
         went_back=went_back,
         deployment_id=recorder.deployment_id,
+    )
+
+
+def _declare_processes(
+    app: App, target: Release, store: NoustStore, log: Logger
+) -> Declaration | None:
+    """
+    Make the processes the release being activated declares the ones that run.
+
+    The same declaration a deployment makes (:func:`declare_restored_release`), so going back to a
+    release brings back the workers it was written for and stops those it knew nothing of.
+
+    Args:
+        app: The application.
+        target: The release becoming the active one.
+        store: The store.
+        log: Where the declaration is reported.
+
+    Returns:
+        What to commit when the release holds and roll back when it does not; None when there is
+        nothing to judge.
+    """
+    return declare_restored_release(
+        app, target.path, store=store, log=log, services=ServiceManager()
     )
 
 
@@ -4276,6 +4345,8 @@ def _delete_app(
     """
     store = get_store()
     app = store.get_app(domain)
+    if app is not None and is_adopted(app.app_type):
+        return _release_adopted(domain, remove_adopted_directory, phase, log)
     # The store holds the real path, which is what finds a legacy app
     # deployed under a wasm- prefix.
     app_path = (
@@ -4431,6 +4502,7 @@ def _delete_app(
 
     phase(5, DELETE_PHASES, "Removing its records")
     if app is not None and not is_rehearsal():
+        _forget_kernel_quota(app, failed)
         _forget_backup_policies(store, domain, failed)
         _forget_push(domain, failed)
         _forget_update_schedule(store, domain, failed)
@@ -4463,6 +4535,91 @@ def _delete_app(
         kept_directory=str(app_path) if keep_adopted and app_path.exists() else None,
         kept=tuple(kept),
     )
+
+
+def _release_adopted(
+    domain: str,
+    remove_adopted_directory: str | None,
+    phase: PhaseReporter,
+    log: Logger,
+) -> AppDeletion:
+    """
+    Stop managing a site Noust adopted, and remove nothing of it.
+
+    The unit, the site, the certificate and the files were the operator's before Noust met the
+    site, so deleting the application is forgetting it: its record, the backup schedules Noust
+    made for it, and the names and policy it holds elsewhere.
+
+    Args:
+        domain: The adopted application.
+        remove_adopted_directory: What the operator named for removal; refused.
+        phase: Reporter for the :data:`DELETE_PHASES` phases.
+        log: Where the details are reported.
+
+    Returns:
+        What was done: nothing removed, and what was kept.
+
+    Raises:
+        ValidationError: The operator asked for the directory to be removed.
+    """
+    from noust.deployers.native_adopt import release
+
+    if remove_adopted_directory is not None:
+        raise ValidationError(
+            f"{domain} is an adopted site: Noust never removes its files",
+            details="Deleting it only forgets it. Remove the directory yourself if it should go.",
+        )
+    store = get_store()
+    app = store.get_app(domain)
+    warnings: list[str] = []
+
+    def failed(what: str, error: BaseException) -> None:
+        warnings.append(f"{what}: {error}")
+        log.warning(f"{what}: {error}")
+
+    phase(1, DELETE_PHASES, "Leaving its unit as it is")
+    phase(2, DELETE_PHASES, "Leaving its processes as they are")
+    phase(3, DELETE_PHASES, "Leaving its site and certificate in place")
+    kept = release(domain, store=store)
+    for sentence in kept:
+        log.info(sentence)
+    phase(4, DELETE_PHASES, "Keeping its files")
+    if app is not None:
+        # What Noust made for it since: the names, routes, ports and policy held elsewhere.
+        warnings.extend(forget_network(domain, log))
+    phase(5, DELETE_PHASES, "Removing its records")
+    if app is not None and not is_rehearsal():
+        _forget_backup_policies(store, domain, failed)
+        store.delete_site(domain)
+        store.delete_app(domain)
+        store.delete_preview(domain)
+    return AppDeletion(
+        domain=domain,
+        units=(),
+        containers_stopped=False,
+        volumes_removed=False,
+        certificate_removed=False,
+        files_removed=False,
+        warnings=tuple(warnings),
+        kept_directory=app.app_path if app is not None and app.app_path else None,
+        kept=kept,
+    )
+
+
+def _forget_kernel_quota(app: App, failed: Callable[[str, BaseException], None]) -> None:
+    """
+    Take an application's kernel quota off the filesystem before its record goes.
+
+    Args:
+        app: The application's row.
+        failed: Records what could not be removed as a warning of the deletion.
+    """
+    from noust.managers import kernel_quota
+
+    try:
+        kernel_quota.remove(app)
+    except NoustError as exc:
+        failed("Its kernel disk quota was not taken off", exc)
 
 
 def _forget_upload(source: str | None, failed: Callable[[str, BaseException], None]) -> None:

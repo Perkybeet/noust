@@ -11,7 +11,7 @@ export const accounts = {
   roles: {
     viewer: { label: "Viewer", description: "Sees everything, secrets hidden, and changes nothing." },
     operator: { label: "Operator", description: "Also restarts, deploys, rolls back, renews certificates and runs backups." },
-    admin: { label: "Administrator", description: "Also creates, configures and deletes, and reads secrets. Does not manage accounts." },
+    admin: { label: "Administrator", description: "Also creates, configures and deletes, and reads secrets, and manages accounts, security settings and the audit trail unless the roles are split (ENS and other frameworks ask for it)." },
     security: { label: "Security officer", description: "Manages accounts, roles and security settings, and reads the audit log. Deploys nothing." },
     auditor: { label: "Auditor", description: "Reads everything, the accounts and the whole audit log. Changes nothing." },
   },
@@ -202,6 +202,16 @@ export const accounts = {
     anyAddress: "Anywhere",
     addressesLabel: "Only from",
     addressesHint: "Addresses or ranges the token works from, such as 203.0.113.0/24. One per line; empty for anywhere.",
+    networks: {
+      label: "Change where {name} works from",
+      text: "From",
+      title: "Where {name} works from",
+      description:
+        "Change the addresses this token is accepted from without issuing another one. A request from anywhere else is refused. Taking addresses away is immediate; adding some, or lifting the limit, asks you to confirm it is you.",
+      save: "Save addresses",
+      savedToast: "Changed where {name} works from",
+      errorTitle: "The addresses were not changed",
+    },
     capped: "Capped by what {name} may do",
     cappedMaster: "What the token may do",
     dropped: "Left out, since the owner may not: {permissions}.",

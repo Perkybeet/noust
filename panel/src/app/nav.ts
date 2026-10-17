@@ -14,6 +14,7 @@ import {
   History,
   LibraryBig,
   Network,
+  ScrollText,
   Server,
   Settings,
   ShieldCheck,
@@ -96,6 +97,7 @@ export const NAV_GROUPS: readonly (readonly NavItem[])[] = [
   [
     { label: "nav.server.label", to: "/server", icon: Server, keywords: "nav.server.keywords" },
     { label: "nav.cron.label", to: "/cron", icon: Clock, keywords: "nav.cron.keywords" },
+    { label: "logSearch.nav.label", to: "/logs", icon: ScrollText, keywords: "logSearch.nav.keywords" },
     { label: "nav.activity.label", to: "/activity", icon: History, keywords: "nav.activity.keywords" },
   ],
 ];
@@ -201,6 +203,13 @@ export const SETTINGS_TABS: readonly SettingsTabItem[] = [
     to: "/settings/integrations",
     keywords: "nav.settingsTabs.integrations.keywords",
     command: "nav.settingsTabs.integrations.command",
+    scope: "server",
+  },
+  {
+    label: "probes.nav.label",
+    to: "/settings/probes",
+    keywords: "probes.nav.keywords",
+    command: "probes.nav.command",
     scope: "server",
   },
   {

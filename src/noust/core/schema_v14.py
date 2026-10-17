@@ -786,9 +786,15 @@ NETWORK_COLUMNS: list[tuple[str, str, str]] = [
 #   breached and ``ok`` once it cleared; the row stays so the cooldown
 #   (announced_at, the last time a firing message went out) survives a clear.
 #   ``announced`` says whether the current firing was told: one that fired
-#   inside the cooldown is silent, and so is its end.
+#   inside the cooldown is silent, and so is its end. ``acknowledged_at`` and
+#   ``acknowledged_by`` say that somebody took the firing: it is kept for as long
+#   as it goes on firing and forgotten the moment it clears or starts again.
 # notification_state: small facts a check of the monitor must keep between scans
 #   (the last cron invocation seen, when a missing backup was last announced).
+# probes, probe_state, probe_results, probe_daily, probe_incidents: the addresses
+#   the monitor asks from outside the machine and what they answered
+#   (noust.core.probe_store). The result rows are kept a week; probe_daily, one
+#   row per probe and day, is what uptime is read from, kept past a year.
 NOTIFY_SQL = """
 CREATE TABLE IF NOT EXISTS notification_deliveries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -847,8 +853,71 @@ CREATE TABLE IF NOT EXISTS notification_state (
     updated_at REAL NOT NULL,
     PRIMARY KEY (scope, item)
 );
+CREATE TABLE IF NOT EXISTS probes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    url TEXT NOT NULL,
+    method TEXT NOT NULL DEFAULT 'GET' CHECK (method IN ('GET', 'HEAD')),
+    expect_status TEXT NOT NULL DEFAULT '200-399',
+    expect_text TEXT,
+    interval_s INTEGER NOT NULL DEFAULT 60,
+    timeout_s INTEGER NOT NULL DEFAULT 10,
+    fail_after INTEGER NOT NULL DEFAULT 3,
+    public INTEGER NOT NULL DEFAULT 0,
+    title TEXT,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at REAL NOT NULL,
+    created_by TEXT,
+    updated_at REAL NOT NULL,
+    updated_by TEXT
+);
+CREATE TABLE IF NOT EXISTS probe_state (
+    probe_id INTEGER PRIMARY KEY REFERENCES probes(id) ON DELETE CASCADE,
+    state TEXT NOT NULL DEFAULT 'unknown' CHECK (state IN ('unknown', 'up', 'down')),
+    since REAL NOT NULL DEFAULT 0,
+    failures INTEGER NOT NULL DEFAULT 0,
+    announced INTEGER NOT NULL DEFAULT 0,
+    failing_since REAL,
+    last_checked REAL,
+    last_status INTEGER,
+    last_latency_ms INTEGER,
+    last_error TEXT
+);
+CREATE TABLE IF NOT EXISTS probe_results (
+    probe_id INTEGER NOT NULL REFERENCES probes(id) ON DELETE CASCADE,
+    ts REAL NOT NULL,
+    ok INTEGER NOT NULL,
+    status INTEGER,
+    latency_ms INTEGER,
+    error TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_probe_results_time ON probe_results(probe_id, ts);
+CREATE TABLE IF NOT EXISTS probe_daily (
+    probe_id INTEGER NOT NULL REFERENCES probes(id) ON DELETE CASCADE,
+    day INTEGER NOT NULL,
+    checks INTEGER NOT NULL DEFAULT 0,
+    good INTEGER NOT NULL DEFAULT 0,
+    latency_sum INTEGER NOT NULL DEFAULT 0,
+    latency_max INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (probe_id, day)
+);
+CREATE TABLE IF NOT EXISTS probe_incidents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    probe_id INTEGER NOT NULL REFERENCES probes(id) ON DELETE CASCADE,
+    started_at REAL NOT NULL,
+    ended_at REAL,
+    reason TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_probe_incidents_probe ON probe_incidents(probe_id, started_at);
 """
-NOTIFY_COLUMNS: list[tuple[str, str, str]] = []
+# held_for: why a delivery is held (``quiet`` hours, a ``flood`` of messages, the
+#   ``summary`` of the day); NULL for a delivery that is not held, and for one held
+#   by the quiet hours before 3.4.
+NOTIFY_COLUMNS: list[tuple[str, str, str]] = [
+    ("notification_deliveries", "held_for", "TEXT"),
+    ("alert_states", "acknowledged_at", "REAL"),
+    ("alert_states", "acknowledged_by", "TEXT"),
+]
 
 # Owned by the single sign-on lane (noust.core.accounts.oidc_store).
 #
@@ -1153,6 +1222,28 @@ FLEET_COLUMNS: list[tuple[str, str, str]] = []
 #   is as it always was: a redeploy never hardens it by itself, an operator
 #   does, behind the health gate.
 #
+# app_unit_tuning: what an application's unit is tuned with beyond memory, CPU and tasks
+#   (noust.core.unit_tuning_store is its only reader and writer): a soft memory limit, swap, CPU and
+#   I/O weight, a set of CPUs, ulimits, the capabilities the process keeps and the devices it may
+#   open. ``options`` is one JSON document validated by noust.managers.unit_tuning. No row means
+#   the unit is as it always was.
+#
+# app_adoption: what a site Noust adopted is (noust.core.native_adoption_store is its only reader
+#   and writer): ``proxy`` (a web server in front of a unit the operator wrote), ``php`` or
+#   ``static`` (the web server alone). ``unit`` is the operator's unit, the one thing Noust may
+#   start, stop, restart and read the logs of; ``site_file`` is the operator's site, ``root`` the
+#   directory, ``upstream`` what the site hands requests to. An application of the ``adopted``
+#   type always has its row: an adoption that cannot write it removes the application it made.
+#
+# app_disk: what an application may take of the disk and what it last took (noust.core.app_disk_store
+#   is its only reader and writer, checklist B-63). ``soft_mb`` is the limit Noust holds it to: a
+#   deploy that would build a new release is refused while the application is over it. It is not a
+#   kernel quota. ``usage`` is the last measurement as one JSON document, taken by a job because
+#   nothing measures a tree in a request, and ``measured_at`` says how old it is. ``kernel_project``
+#   and ``kernel_mount`` say that the limit was also given to the kernel as a project quota of that
+#   id on that mount (noust.managers.kernel_quota); NULL when it was not. No row means no limit and
+#   no measurement.
+#
 # app_replicas: the extra copies of an application's web process (noust.core.app_replica_store
 #   is its only reader and writer): the ports reserved for them, in order, and how many run.
 #   No row means one copy, the application's own unit. nginx balances over the unit and the
@@ -1237,6 +1328,36 @@ CREATE TABLE IF NOT EXISTS app_hardening (
     app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
     profile TEXT NOT NULL CHECK (profile IN ('off', 'default', 'strict')),
     writable_paths TEXT NOT NULL DEFAULT '[]',
+    changed_by TEXT,
+    changed_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_unit_tuning (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    options TEXT NOT NULL DEFAULT '{}',
+    changed_by TEXT,
+    changed_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_adoption (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('proxy', 'php', 'static')),
+    unit TEXT,
+    webserver TEXT NOT NULL,
+    site_file TEXT NOT NULL,
+    root TEXT,
+    upstream TEXT,
+    adopted_by TEXT,
+    adopted_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_disk (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    soft_mb INTEGER CHECK (soft_mb IS NULL OR soft_mb >= 64),
+    usage TEXT,
+    measured_at TEXT,
+    kernel_project INTEGER,
+    kernel_mount TEXT,
     changed_by TEXT,
     changed_at TEXT NOT NULL
 );
@@ -1523,6 +1644,165 @@ CREATE TABLE IF NOT EXISTS fleet_builders (
 SHIPPING_COLUMNS: list[tuple[str, str, str]] = []
 
 
+# Owned by the federation lane (noust.core.accounts.scim_store and its siblings for SAML
+# and LDAP): the identity sources that are not OpenID Connect.
+#
+# scim_sources: one row per identity provider that pushes users and groups to this server
+#   (SCIM 2.0, RFC 7644). The bearer token is never a column: only its SHA-256 and the last
+#   characters (``token_hint``, to tell tokens apart in a list). A source can create accounts
+#   as ``viewer``, ``operator`` or ``admin`` at most, and never reaches an account it did not
+#   provision. ``group_mappings`` is the same JSON list the OIDC providers keep.
+# scim_users: the roster. ``id`` is the id the provider knows the user by; ``account_id`` is
+#   the account it provisioned (invited, with no credential, until the person's first
+#   single sign-in activates it). ``disabled_by_scim`` says the provider turned the account
+#   off, so that only the provider turns it on again and an administrator's own decision is
+#   never overridden. ``mapped_role`` is the instance role a group mapping last gave. A SCIM
+#   user is deliberately not a row of account_identities: it is not a way to sign in.
+# scim_groups, scim_group_members: the groups the provider pushed and who is in them, so that
+#   leaving a group takes effect when the provider says so, not at the next sign-in.
+# saml_providers: a SAML 2.0 identity provider people sign in with. Everything in the row is
+#   public: ``certificates`` are the provider's *signing* certificates (a JSON list of PEM), the
+#   only keys that verify its signatures; a key a message carries is never used. A sign-in in
+#   flight is a row of oidc_flows (its ``nonce`` is the AuthnRequest's ID, its ``code_verifier``
+#   holds the entity id the assertion must be for).
+# saml_assertions: the assertions already accepted, by the digest of the provider and the
+#   assertion's ID, kept until they could no longer be valid, so that one cannot be presented
+#   twice.
+# ldap_directories: a directory (Active Directory, OpenLDAP, FreeIPA) people sign in against with
+#   the username and password they have there. The service account's password is never a column:
+#   it lives in the secret store under ``ldap/<name>``. ``user_filter`` carries the one
+#   placeholder ``{username}``, filled with what a person typed after it is escaped; the
+#   directory's own identifier (``subject_attribute``) is what identifies a person, never the
+#   name they typed or the e-mail. The admission columns are those every identity source has.
+FEDERATION_SQL = """
+CREATE TABLE IF NOT EXISTS scim_sources (
+    name TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    token_hash TEXT NOT NULL,
+    token_hint TEXT NOT NULL,
+    token_created_at REAL NOT NULL,
+    last_used_at REAL,
+    last_used_ip TEXT,
+    default_role TEXT NOT NULL DEFAULT 'viewer'
+        CHECK (default_role IN ('viewer', 'operator', 'admin')),
+    default_team TEXT,
+    default_team_role TEXT,
+    link_by_email INTEGER NOT NULL DEFAULT 0,
+    allowed_domains TEXT NOT NULL DEFAULT '[]',
+    group_sync INTEGER NOT NULL DEFAULT 0,
+    group_mappings TEXT NOT NULL DEFAULT '[]',
+    created_at REAL NOT NULL,
+    created_by TEXT,
+    updated_at REAL NOT NULL,
+    updated_by TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_scim_sources_token ON scim_sources(token_hash);
+CREATE TABLE IF NOT EXISTS scim_users (
+    id TEXT PRIMARY KEY,
+    source TEXT NOT NULL REFERENCES scim_sources(name) ON DELETE CASCADE,
+    account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    external_id TEXT,
+    user_name TEXT NOT NULL,
+    disabled_by_scim INTEGER NOT NULL DEFAULT 0,
+    mapped_role TEXT,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL,
+    UNIQUE (source, user_name),
+    UNIQUE (source, account_id)
+);
+CREATE INDEX IF NOT EXISTS idx_scim_users_external ON scim_users(source, external_id);
+CREATE TABLE IF NOT EXISTS scim_groups (
+    id TEXT PRIMARY KEY,
+    source TEXT NOT NULL REFERENCES scim_sources(name) ON DELETE CASCADE,
+    display_name TEXT NOT NULL,
+    external_id TEXT,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL,
+    UNIQUE (source, display_name)
+);
+CREATE TABLE IF NOT EXISTS scim_group_members (
+    group_id TEXT NOT NULL REFERENCES scim_groups(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES scim_users(id) ON DELETE CASCADE,
+    PRIMARY KEY (group_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS saml_providers (
+    name TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    idp_entity_id TEXT NOT NULL,
+    sso_url TEXT NOT NULL,
+    certificates TEXT NOT NULL DEFAULT '[]',
+    sp_entity_id TEXT NOT NULL DEFAULT '',
+    subject_attribute TEXT NOT NULL DEFAULT '',
+    email_attribute TEXT NOT NULL DEFAULT 'email',
+    name_attribute TEXT NOT NULL DEFAULT 'displayName',
+    username_attribute TEXT NOT NULL DEFAULT '',
+    groups_attribute TEXT NOT NULL DEFAULT 'groups',
+    clock_skew_seconds INTEGER NOT NULL DEFAULT 60,
+    provisioning TEXT NOT NULL DEFAULT 'off'
+        CHECK (provisioning IN ('off', 'invite', 'auto')),
+    default_role TEXT NOT NULL DEFAULT 'viewer'
+        CHECK (default_role IN ('viewer', 'operator', 'admin')),
+    default_team TEXT,
+    default_team_role TEXT,
+    link_by_email INTEGER NOT NULL DEFAULT 0,
+    allowed_domains TEXT NOT NULL DEFAULT '[]',
+    require_email_verified INTEGER NOT NULL DEFAULT 0,
+    assume_email_verified INTEGER NOT NULL DEFAULT 1,
+    require_amr TEXT NOT NULL DEFAULT '[]',
+    group_sync INTEGER NOT NULL DEFAULT 0,
+    group_mappings TEXT NOT NULL DEFAULT '[]',
+    created_at REAL NOT NULL,
+    created_by TEXT,
+    updated_at REAL NOT NULL,
+    updated_by TEXT
+);
+CREATE TABLE IF NOT EXISTS saml_assertions (
+    assertion_hash TEXT PRIMARY KEY,
+    expires_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_saml_assertions_expires ON saml_assertions(expires_at);
+CREATE TABLE IF NOT EXISTS ldap_directories (
+    name TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    host TEXT NOT NULL,
+    port INTEGER NOT NULL DEFAULT 636,
+    tls TEXT NOT NULL DEFAULT 'ldaps' CHECK (tls IN ('ldaps', 'starttls', 'none')),
+    ca_file TEXT,
+    bind_dn TEXT NOT NULL DEFAULT '',
+    user_base TEXT NOT NULL,
+    user_filter TEXT NOT NULL,
+    subject_attribute TEXT NOT NULL DEFAULT 'entryUUID',
+    email_attribute TEXT NOT NULL DEFAULT 'mail',
+    name_attribute TEXT NOT NULL DEFAULT 'displayName',
+    username_attribute TEXT NOT NULL DEFAULT 'uid',
+    groups_attribute TEXT NOT NULL DEFAULT 'memberOf',
+    group_base TEXT NOT NULL DEFAULT '',
+    group_filter TEXT NOT NULL DEFAULT '',
+    timeout_seconds INTEGER NOT NULL DEFAULT 10,
+    provisioning TEXT NOT NULL DEFAULT 'off'
+        CHECK (provisioning IN ('off', 'invite', 'auto')),
+    default_role TEXT NOT NULL DEFAULT 'viewer'
+        CHECK (default_role IN ('viewer', 'operator', 'admin')),
+    default_team TEXT,
+    default_team_role TEXT,
+    link_by_email INTEGER NOT NULL DEFAULT 0,
+    allowed_domains TEXT NOT NULL DEFAULT '[]',
+    require_email_verified INTEGER NOT NULL DEFAULT 0,
+    assume_email_verified INTEGER NOT NULL DEFAULT 1,
+    group_sync INTEGER NOT NULL DEFAULT 0,
+    group_mappings TEXT NOT NULL DEFAULT '[]',
+    created_at REAL NOT NULL,
+    created_by TEXT,
+    updated_at REAL NOT NULL,
+    updated_by TEXT
+);
+"""
+FEDERATION_COLUMNS: list[tuple[str, str, str]] = []
+
+
 def _fragments() -> list[str]:
     return [
         TEAMS_SQL,
@@ -1542,6 +1822,7 @@ def _fragments() -> list[str]:
         RUNTIME_SQL,
         RBAC_SQL,
         ENVIRONMENTS_SQL,
+        FEDERATION_SQL,
         ROLLOUT_SQL,
         SHIPPING_SQL,
     ]
@@ -1566,6 +1847,7 @@ def _columns() -> list[tuple[str, str, str]]:
         *RUNTIME_COLUMNS,
         *RBAC_COLUMNS,
         *ENVIRONMENTS_COLUMNS,
+        *FEDERATION_COLUMNS,
         *ROLLOUT_COLUMNS,
         *SHIPPING_COLUMNS,
     ]

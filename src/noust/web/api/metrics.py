@@ -30,12 +30,17 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
+from noust import __version__
+from noust.core.config import Config
 from noust.core.exceptions import ValidationError
+from noust.core.notifications.context import server_name
 from noust.core.runner import get_runner
 from noust.core.teams import scoped_store
+from noust.monitor import exposition
 from noust.monitor.appstatus import app_metrics_status
 from noust.monitor.plan import PlanBuilder
 from noust.monitor.timeseries import (
@@ -228,6 +233,20 @@ class UnitStatusModel(BaseModel):
     cpu_stat: bool = False
 
 
+class ContainerSeriesModel(BaseModel):
+    """
+    One container of a Compose stack and the series it has of its own.
+
+    Attributes:
+        name: The container's name as Docker prints it.
+        series: Role (``cpu``, ``memory``, ``disk_read``, ``disk_write``,
+            ``net_rx``, ``net_tx``) to the metric name that holds it.
+    """
+
+    name: str
+    series: dict[str, str] = Field(default_factory=dict)
+
+
 class TrafficModel(BaseModel):
     """
     Whether requests are being counted from the access log.
@@ -241,6 +260,76 @@ class TrafficModel(BaseModel):
     available: bool
     log: str | None = None
     reason: ReasonModel | None = None
+
+
+class TrafficPointModel(BaseModel):
+    """
+    One hour (or day) of an application's traffic.
+
+    Attributes:
+        ts: Where it starts, epoch seconds UTC.
+        requests: Requests.
+        s2xx: Answered 2xx.
+        s3xx: Answered 3xx.
+        s4xx: Answered 4xx.
+        s5xx: Answered 5xx.
+        bytes: Bytes of response bodies.
+    """
+
+    ts: int
+    requests: int
+    s2xx: int
+    s3xx: int
+    s4xx: int
+    s5xx: int
+    bytes: int
+
+
+class RankedKeyModel(BaseModel):
+    """
+    One entry of a ranking.
+
+    Attributes:
+        key: What was counted: a page (``GET /orders/:n``), a network
+            (``203.0.113.0/24``), a status code or a referrer's host.
+        count: How many times in the window.
+    """
+
+    key: str
+    count: int
+
+
+class AppTrafficResponse(BaseModel):
+    """
+    What an application's access log said over a window.
+
+    Attributes:
+        domain: The application.
+        window: The window asked for.
+        start: Where the first point starts, epoch seconds.
+        end: Where the window ends.
+        step: Seconds per point: an hour up to two days, a day beyond.
+        available: True when the log is being read now.
+        log: The access log it is read from.
+        reason: Why not, when the site should have one.
+        totals: The window summed.
+        points: By step, oldest first, every step present.
+        top: Rankings by ``paths``, ``networks``, ``statuses`` and ``referrers``.
+        collector: Whether history is being recorded.
+    """
+
+    domain: str
+    window: str
+    start: int
+    end: int
+    step: int
+    available: bool
+    log: str | None = None
+    reason: ReasonModel | None = None
+    totals: TrafficPointModel
+    points: list[TrafficPointModel]
+    top: dict[str, list[RankedKeyModel]]
+    collector: CollectorModel
 
 
 class AppMetricsResponse(BaseModel):
@@ -259,6 +348,8 @@ class AppMetricsResponse(BaseModel):
         series: Role (``cpu``, ``memory``, ``requests``, ``errors_5xx``) to the
             metric name that holds it, for the roles that exist for this kind
             of application.
+        containers: For a Compose stack, each container with the series of its
+            own, so a chart can say which service reads the disk.
         traffic: Whether requests are being counted.
         last_sample_at: The newest sample of any of its series.
         collector: Whether history is being recorded at all.
@@ -271,6 +362,7 @@ class AppMetricsResponse(BaseModel):
     reason: ReasonModel | None = None
     units: list[UnitStatusModel] = Field(default_factory=list)
     series: dict[str, str] = Field(default_factory=dict)
+    containers: list[ContainerSeriesModel] = Field(default_factory=list)
     traffic: TrafficModel
     last_sample_at: int | None = None
     collector: CollectorModel
@@ -377,6 +469,63 @@ def query_metrics(
     return MetricQueryResponse(**payload)
 
 
+#: A value older than this is not exported: an application that stopped being
+#: recorded would otherwise sit in a scrape at its last reading for ever.
+EXPORT_MAX_AGE_SECONDS = 120
+
+
+@router.get(
+    "/prometheus",
+    response_class=Response,
+    responses={
+        200: {
+            "description": "The newest value of every metric, in the Prometheus text "
+            "exposition format, or OpenMetrics when the request asks for it.",
+            "content": {
+                exposition.PROMETHEUS_CONTENT_TYPE: {"schema": {"type": "string"}},
+                exposition.OPENMETRICS_CONTENT_TYPE: {"schema": {"type": "string"}},
+            },
+        }
+    },
+)
+def export_prometheus(request: Request, session: Session) -> Response:
+    """
+    Export the newest value of every metric for a scraper (Prometheus, Grafana
+    Agent, an OpenTelemetry Collector, Netdata...).
+
+    The credential a scraper holds is an API token with the ``read`` scope, which
+    cannot change anything; there is no separate export secret to leak. Send
+    ``Accept: application/openmetrics-text`` for OpenMetrics.
+
+    Args:
+        request: The incoming request, for the ``Accept`` header.
+        session: Authenticated session, injected.
+
+    Returns:
+        The exposition. Values older than two minutes are left out, and
+        ``noust_metrics_recording`` says whether the history is being recorded
+        at all.
+    """
+    store = metrics_collector.get_metrics_store()
+    config = Config()
+    found = exposition.samples(store.latest_values(max_age_s=EXPORT_MAX_AGE_SECONDS))
+    openmetrics = exposition.wants_openmetrics(request.headers.get("accept"))
+    body = exposition.render(
+        found,
+        info={"version": __version__, "server": server_name(config)},
+        recording=metrics_collector.history_status().recording,
+        openmetrics=openmetrics,
+    )
+    return Response(
+        body,
+        media_type=(
+            exposition.OPENMETRICS_CONTENT_TYPE
+            if openmetrics
+            else exposition.PROMETHEUS_CONTENT_TYPE
+        ),
+    )
+
+
 @router.get("/{metric:path}", response_model=MetricHistoryResponse)
 def metric_history(
     metric: str,
@@ -410,6 +559,90 @@ def metric_history(
         window=window,
         resolution=_LEGACY_RESOLUTION.get(result.resolution, result.resolution),
         points=[(ts, mean) for ts, mean, _peak in result.series[0].points if mean is not None],
+    )
+
+
+#: The windows an application's traffic is asked over (the rankings are kept 90 days).
+TRAFFIC_WINDOWS: dict[str, int] = {
+    "24h": 86_400,
+    "7d": 7 * 86_400,
+    "30d": 30 * 86_400,
+    "90d": 90 * 86_400,
+}
+
+#: What each ranking is called on the wire.
+_RANKINGS = {"path": "paths", "network": "networks", "status": "statuses", "referrer": "referrers"}
+
+
+@app_router.get("/{domain}/traffic", response_model=AppTrafficResponse)
+def app_traffic(
+    domain: str,
+    session: Session,
+    window: Annotated[
+        Literal["24h", "7d", "30d", "90d"], Query(description="How far back to look.")
+    ] = "24h",
+    top: Annotated[int, Query(ge=1, le=50, description="Entries in each ranking.")] = 10,
+) -> Any:
+    """
+    Say what the proxy's access log says about an application.
+
+    Requests and how they ended by the hour (by the day beyond two days), bytes
+    served, and the pages asked for most, the networks they came from, the
+    status codes and the referrers' hosts. Query strings are never kept and a
+    client is its network (a /24 or a /48), not its address.
+
+    Args:
+        domain: The application's domain.
+        session: Authenticated session, injected.
+        window: How far back to look.
+        top: Entries in each ranking.
+
+    Returns:
+        The traffic, and whether the log is being read at all.
+
+    Raises:
+        HTTPException: 404 when there is no such application.
+    """
+    validated = strict_domain(domain)
+    app = scoped_store().get_app(validated)
+    if app is None:
+        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
+    store = metrics_collector.get_metrics_store()
+    status = app_metrics_status(
+        app, store, PlanBuilder(runner=get_runner()), metrics_collector.history_status()
+    )
+    end = store.now()
+    found = store.traffic_summary(app.domain, end - TRAFFIC_WINDOWS[window], end, top=top)
+
+    def point(item: Any) -> TrafficPointModel:
+        return TrafficPointModel(
+            ts=item.ts,
+            requests=item.requests,
+            s2xx=item.s2xx,
+            s3xx=item.s3xx,
+            s4xx=item.s4xx,
+            s5xx=item.s5xx,
+            bytes=item.bytes,
+        )
+
+    traffic = status.traffic
+    collector = status.collector or metrics_collector.history_status()
+    return AppTrafficResponse(
+        domain=app.domain,
+        window=window,
+        start=found.start,
+        end=found.end,
+        step=found.step,
+        available=bool(traffic.get("available")),
+        log=traffic.get("log"),
+        reason=ReasonModel(**traffic["reason"]) if traffic.get("reason") else None,
+        totals=point(found.totals),
+        points=[point(item) for item in found.points],
+        top={
+            _RANKINGS[dimension]: [RankedKeyModel(key=k, count=n) for k, n in ranked]
+            for dimension, ranked in found.top.items()
+        },
+        collector=CollectorModel(**collector.to_dict()),
     )
 
 
@@ -449,6 +682,7 @@ def app_metrics(domain: str, session: Session) -> Any:
         reason=ReasonModel(**status.reason.to_dict()) if status.reason else None,
         units=[UnitStatusModel(**vars(unit)) for unit in status.units],
         series=status.series,
+        containers=[ContainerSeriesModel(**item) for item in status.containers],
         traffic=TrafficModel(**status.traffic),
         last_sample_at=status.last_sample_at,
         collector=CollectorModel(**collector.to_dict()),

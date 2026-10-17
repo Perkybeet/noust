@@ -1,0 +1,7222 @@
+{
+  "deploy.started": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "◐ Desplegando · shop.example.com"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Noust está construyendo la nueva versión y te avisará de cómo termina."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Commit\na1b2c3d (main)"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Iniciado por\nWebhook"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "deploy.succeeded": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● Desplegado · shop.example.com"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La nueva versión ya está en servicio."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Versión\n20260929-104449"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Commit\na1b2c3d (main): Fix cart total"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Iniciado por\nWebhook"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Duración\n42 s"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "deploy.failed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Despliegue fallido · shop.example.com"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Se ha detenido por un error antes de que la nueva versión tomara el relevo."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Versión\n20260929-104449"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Commit\na1b2c3d (main): Fix cart total"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Iniciado por\nWebhook"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Duración\n1 min 12 s"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Revísalo con: noust diagnose shop.example.com"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha informado el sistema\nnpm run build failed\n> shop@1.4.2 build\n> next build\nFailed to compile.\n./app/cart/page.tsx\nType error: Property 'total' does not exist on type 'Cart'.\nnpm error Lifecycle script `build` failed with error:\nnpm error code 1"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "deploy.rolled_back": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Revertido · shop.example.com"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La nueva versión no ha respondido a la comprobación de salud, así que la anterior vuelve a estar en servicio."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Versión\n20260929-104449"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Commit\na1b2c3d (main): Fix cart total"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Iniciado por\nWebhook"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Duración\n1 min 12 s"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Revísalo con: noust diagnose shop.example.com"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Últimas líneas del registro de shop-example-com\nSep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 17 líneas anteriores omitidas"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "update.started": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "◐ Actualizando · shop.example.com"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Noust está descargando y construyendo el código más reciente y te avisará de cómo termina."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Commit\na1b2c3d (main)"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Iniciado por\nWebhook"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "update.succeeded": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● Actualizado · shop.example.com"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La aplicación ya ejecuta la nueva versión."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Versión\n20260929-104449"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Commit\na1b2c3d (main): Fix cart total"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Iniciado por\nWebhook"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Duración\n42 s"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "update.failed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Actualización fallida · shop.example.com"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Se ha detenido por un error antes de que la nueva versión tomara el relevo."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Versión\n20260929-104449"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Commit\na1b2c3d (main): Fix cart total"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Iniciado por\nWebhook"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Duración\n1 min 12 s"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Revísalo con: noust diagnose shop.example.com"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha informado el sistema\nnpm run build failed\n> shop@1.4.2 build\n> next build\nFailed to compile.\n./app/cart/page.tsx\nType error: Property 'total' does not exist on type 'Cart'.\nnpm error Lifecycle script `build` failed with error:\nnpm error code 1"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "update.rolled_back": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Revertido · shop.example.com"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La nueva versión no ha respondido a la comprobación de salud, así que la anterior vuelve a estar en servicio."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Versión\n20260929-104449"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Commit\na1b2c3d (main): Fix cart total"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Iniciado por\nWebhook"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Duración\n1 min 12 s"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Revísalo con: noust diagnose shop.example.com"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Últimas líneas del registro de shop-example-com\nSep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 17 líneas anteriores omitidas"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "rollback.started": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "◐ Volviendo atrás · shop.example.com"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Noust está volviendo a una versión anterior y te avisará de cómo termina."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Commit\na1b2c3d (main)"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Iniciado por\nWebhook"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "rollback.succeeded": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● Vuelta atrás completada · shop.example.com"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La versión anterior vuelve a estar en servicio."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Versión\n20260929-104449"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Commit\na1b2c3d (main): Fix cart total"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Iniciado por\nWebhook"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Duración\n42 s"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "rollback.failed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Vuelta atrás fallida · shop.example.com"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La vuelta atrás se ha detenido por un error antes de que la versión anterior tomara el relevo."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Versión\n20260929-104449"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Commit\na1b2c3d (main): Fix cart total"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Iniciado por\nWebhook"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Duración\n1 min 12 s"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Revísalo con: noust diagnose shop.example.com"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha informado el sistema\nrollback step failed\nsystemctl: Job for shop-example-com.service failed"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "rollback.rolled_back": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Vuelta atrás fallida · shop.example.com"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La versión anterior no ha respondido a la comprobación de salud, así que vuelve a estar en servicio la que lo estaba antes."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Versión\n20260929-104449"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Commit\na1b2c3d (main): Fix cart total"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Iniciado por\nWebhook"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Duración\n1 min 12 s"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Revísalo con: noust diagnose shop.example.com"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Últimas líneas del registro de shop-example-com\nSep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 17 líneas anteriores omitidas"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "activate.started": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "◐ Activando versión · shop.example.com"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Noust está cambiando a la versión elegida y te avisará de cómo termina."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Commit\na1b2c3d (main)"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Iniciado por\nWebhook"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "activate.succeeded": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● Versión activada · shop.example.com"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La versión elegida está en servicio."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Versión\n20260929-104449"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Commit\na1b2c3d (main): Fix cart total"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Iniciado por\nWebhook"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Duración\n42 s"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "activate.failed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Activación fallida · shop.example.com"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "El cambio se ha detenido por un error antes de que la versión elegida tomara el relevo."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Versión\n20260929-104449"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Commit\na1b2c3d (main): Fix cart total"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Iniciado por\nWebhook"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Duración\n1 min 12 s"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Revísalo con: noust diagnose shop.example.com"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha informado el sistema\nactivate step failed\nsystemctl: Job for shop-example-com.service failed"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "activate.rolled_back": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Activación fallida · shop.example.com"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La versión elegida no ha respondido a la comprobación de salud, así que la anterior vuelve a estar en servicio."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Versión\n20260929-104449"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Commit\na1b2c3d (main): Fix cart total"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Iniciado por\nWebhook"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Duración\n1 min 12 s"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Revísalo con: noust diagnose shop.example.com"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Últimas líneas del registro de shop-example-com\nSep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 17 líneas anteriores omitidas"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "migrate.started": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "◐ Migrando a versiones · shop.example.com"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Noust está pasando la aplicación a versiones y te avisará de cómo termina."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Commit\na1b2c3d (main)"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Iniciado por\nWebhook"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "migrate.succeeded": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● Migrado a versiones · shop.example.com"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Cada despliegue se construye ahora en su propia versión y volver atrás lleva segundos."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Versión\n20260929-104449"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Commit\na1b2c3d (main): Fix cart total"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Iniciado por\nWebhook"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Duración\n42 s"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "migrate.failed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Migración fallida · shop.example.com"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Se ha detenido por un error; en ese caso Noust restaura la disposición anterior."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Versión\n20260929-104449"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Commit\na1b2c3d (main): Fix cart total"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Iniciado por\nWebhook"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Duración\n1 min 12 s"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Revísalo con: noust diagnose shop.example.com"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha informado el sistema\nmigrate step failed\nsystemctl: Job for shop-example-com.service failed"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "deploy.hook_failed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Desplegado con avisos · shop.example.com"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La nueva versión está en servicio, pero un gancho posterior al despliegue ha fallado después del relevo."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Comando\n./scripts/purge-cache.sh --all"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Revísalo con: noust app hooks show shop.example.com"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha informado el sistema\ncurl: (22) The requested URL returned error: 403\npurge failed"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "restore.completed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● Restaurado · shop.example.com"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Los archivos de la aplicación han vuelto a como estaban en la copia de seguridad."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Copia\n20260928-020000"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/backups",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "restore.failed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Restauración fallida · shop.example.com"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Se ha detenido por un error, así que los archivos de la aplicación podrían estar restaurados solo en parte."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Copia\n20260928-020000"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha informado el sistema\ntar: Unexpected EOF in archive\ntar: Error is not recoverable: exiting now"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/backups",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "backup.failed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Copia de seguridad fallida · shop.example.com"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "No se ha guardado ninguna copia nueva de la aplicación."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha informado el sistema\ntar: /var/www/apps/shop-example-com/shared/uploads: Cannot write: No space left on device"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/backups",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "backup.upload_failed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Subida de la copia fallida · shop.example.com"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La copia se ha guardado en este servidor, pero no se ha podido subir."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Destino\ns3-eu"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha informado el sistema\n2026/09/29 02:00:14 Failed to copy: AccessDenied: Access Denied\n    status code: 403"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/backups",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "backup.schedule_missing": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Falta la programación de la copia · shop.example.com"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "El temporizador se ha activado, pero Noust no tiene una programación guardada para esta aplicación, así que la copia se ha hecho con los ajustes por defecto."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Guárdala de nuevo con: noust backup schedule update shop.example.com"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/backups",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "backup.completed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● Copia completada · shop.example.com"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Se ha guardado una copia nueva de la aplicación."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Copia\n20260929-020000"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Tamaño\n48.0 MB"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Subida a\ns3-eu"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/backups",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "cert.expiring": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Certificado a punto de caducar · shop.example.com"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Caduca en 7 días (6 oct 2026)."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Cubre\nshop.example.com, www.shop.example.com"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Renuévalo con: noust cert renew shop.example.com"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/domains",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "cert.expired": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Certificado caducado · shop.example.com"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Caducó hace 80 días (11 jul 2026)."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Cubre\nshop.example.com, www.shop.example.com"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Renuévalo con: noust cert renew shop.example.com"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/domains",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "unit.failed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Servicio fallido · shop-example-com"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "systemd lo ha marcado como fallido."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Revísalo con: journalctl -u shop-example-com -n 50"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Últimas líneas del registro de shop-example-com\nSep 29 10:45:13 web-1 npm[48211]: > shop@1.4.2 start\nSep 29 10:45:13 web-1 npm[48211]: > next start -p 3004\nSep 29 10:45:14 web-1 npm[48227]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1."
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/server/services/shop-example-com",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "unit.crash_loop": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Servicio en bucle de reinicios · shop-example-com"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "systemd lo ha reiniciado 3 veces desde la última comprobación y sigue sin arrancar."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Reinicios\n9"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Revísalo con: journalctl -u shop-example-com -n 50"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Últimas líneas del registro de shop-example-com\nSep 29 10:45:14 web-1 npm[48227]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1.\nSep 29 10:45:18 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:19 web-1 npm[48287]: > shop@1.4.2 start\nSep 29 10:45:19 web-1 npm[48287]: > next start -p 3004\nSep 29 10:45:20 web-1 npm[48303]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:24 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 2.\n… 3 líneas anteriores omitidas"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/server/services/shop-example-com",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "unit.stopped_on_failure": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Servicio detenido por un fallo · shop-example-com"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Se ha detenido tras una ejecución fallida y systemd no lo está reiniciando."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Resultado\nsignal"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Código de salida\n9"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Revísalo con: journalctl -u shop-example-com -n 50"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/server/services/shop-example-com",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "unit.recovered": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● Servicio recuperado · shop-example-com"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Vuelve a estar en marcha y no se ha reiniciado desde la última comprobación."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/server/services/shop-example-com",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "disk.threshold": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Disco casi lleno · /"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Ha superado el umbral de aviso del 90%, y un disco lleno detiene los despliegues, los registros y las bases de datos de este servidor."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Usado\n91.7% (18.3 GB / 20.0 GB)"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Libre\n1.7 GB"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/server",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "disk.recovered": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● Espacio en disco recuperado · /"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "El uso vuelve a estar por debajo del umbral de aviso."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Usado\n71.2%"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/server",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "test": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "○ Notificación de prueba · Telegram"
+        },
+        "template": "grey"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Si ves esto, el canal Telegram está bien configurado."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "node.unreachable": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Servidor inaccesible · web-2"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Noust no puede alcanzar este servidor a través de su túnel."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Dirección\n10.0.0.2"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Inaccesible desde\n2026-09-29 10:30 UTC"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha informado el sistema\nssh: connect to host 10.0.0.2 port 22: Connection timed out"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/fleet",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "node.recovered": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● Servidor accesible de nuevo · web-2"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "El túnel vuelve a estar abierto y el servidor responde."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Estuvo inaccesible durante\n12 min 34 s"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/n/web-2/",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "drill.failed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Simulacro de restauración fallido · shop.example.com"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "No se ha podido demostrar que la última copia se restaura: no cuentes con ella."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Copia\nshop-example-com_20261010_030000"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Diagnostícala con: noust backup drill shop.example.com"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha informado el sistema\nArchive cannot be restored: refusing a link to /etc/passwd\nnothing was changed"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/backups",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "drill.passed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● Simulacro de restauración superado · shop.example.com"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La última copia se descomprimió y sus bases se cargaron en otras temporales."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Copia\nshop-example-com_20261010_030000"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/backups",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "destination.unreachable": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Destino de copias inaccesible · nas"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "No se pueden enviar copias hasta que responda; se quedan en este servidor."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Haz una ahora con: noust backup destination test nas"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha informado el sistema\nCould not reach backup destination 'nas'\nssh: connect to host nas.example.com port 22: Connection timed out"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/backups/destinations",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "destination.recovered": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● Destino de copias recuperado · nas"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Vuelve a responder; las próximas copias se enviarán a él."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/backups/destinations",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "node.host_key_changed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Clave de host cambiada · web-2"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "El servidor ha presentado otra clave de host SSH, así que el túnel sigue cerrado hasta que alguien la compruebe."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Dirección\n10.0.0.2"
+              }
+            },
+            {
+              "is_short": false,
+              "text": {
+                "tag": "plain_text",
+                "content": "Clave fijada\nSHA256:kQ3vP1xN0m0e5sYt3n2c1H0b9k2q3Wz8nq0w1d0aAbc"
+              }
+            },
+            {
+              "is_short": false,
+              "text": {
+                "tag": "plain_text",
+                "content": "Clave presentada\nSHA256:Zr9LmTq7bV2d8Yh1uJ0aXc4eF6gH3iK5oP7sRtUvWxy"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Compruébalo con: noust node trust web-2"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/fleet",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "report.observations": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Observaciones de procesos"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "El monitor solo informa: no se ha enviado ninguna señal a ningún proceso ni se ha tocado ningún archivo. Revisa cada entrada antes de actuar."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Procesos\n1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Avisos\n1"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Aviso: xmrig (PID 1234)"
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Señal\nname-pattern"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Usuario\nnobody"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "CPU\n97.5%"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Detalle\nExecutable name matches the known-malware pattern 'xmrig'."
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Comando\n/tmp/.x/xmrig -o pool.example.org:3333"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "server.rebooted": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Servidor reiniciado · web-1"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Nadie ha pedido este reinicio desde Noust: comprueba que todas las aplicaciones han vuelto."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "De vuelta a las\n2026-09-29 04:02 UTC"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/server",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "server.back": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● Servidor de vuelta · web-1"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "El reinicio pedido desde Noust ha terminado y la consola vuelve a funcionar."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Pedido por\nalice"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Programado para\n2026-09-29 04:00 UTC"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Tardó\n2 min 10 s"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "De vuelta a las\n2026-09-29 04:02 UTC"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/server",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "approval.requested": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "◐ Aprobación solicitada · #12"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Un cambio que necesita a una segunda persona está esperando a que alguien lo decida."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Solicitud\n#12"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Cambio\nfleet.node.add"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Llamada\nPOST /api/nodes"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Pedido por\nalice"
+              }
+            },
+            {
+              "is_short": false,
+              "text": {
+                "tag": "plain_text",
+                "content": "Motivo\nAdding the new database server of the shop"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Decídela antes de\n2026-09-30 10:45 UTC"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Decídela con: noust approval approve 12"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/settings/security",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "approval.approved": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● Solicitud aprobada · #12"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Quien lo pidió puede hacer el cambio una vez, antes de que caduque la aprobación."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Solicitud\n#12"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Cambio\nfleet.node.add"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Llamada\nPOST /api/nodes"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Pedido por\nalice"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Decidida por\nbob"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Comentario\nChecked with the shop's owner"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Úsala antes de\n2026-09-29 11:15 UTC"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/settings/security",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "approval.rejected": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Solicitud rechazada · #12"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "El cambio no se hará; quien lo pidió puede volver a pedirlo con más contexto."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Solicitud\n#12"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Cambio\nfleet.node.add"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Llamada\nPOST /api/nodes"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Pedido por\nalice"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Decidida por\nbob"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Comentario\nNot before the maintenance window"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/settings/security",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "database.backup.failed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Copia de seguridad fallida · postgresql/shop"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "No se ha guardado ninguna copia nueva de la base de datos."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha informado el sistema\nThe dump was taken but failed its check\npg_restore: error: could not read input file: end of file"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/databases/postgresql/shop",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "database.backup.upload_failed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Subida de la copia fallida · postgresql/shop"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La copia de la base de datos se ha guardado en este servidor, pero no se ha podido subir."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Destino\noffsite-s3"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha informado el sistema\nFailed to copy: AccessDenied: Access Denied"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/databases/postgresql/shop",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "database.backup.completed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● Copia completada · postgresql/shop"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Se ha guardado una copia nueva de la base de datos."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Copia\nshop-20260929-104551.dump"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Tamaño\n48.0 MB"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Subida a\noffsite-s3"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/databases/postgresql/shop",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "database.restore.completed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● Restaurado · postgresql/shop"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La base de datos ha vuelto a como estaba en el volcado."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Copia\nshop-20260929-104551.dump"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/databases/postgresql/shop",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "database.restore.failed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Restauración fallida · postgresql/shop"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Se ha detenido por un error, así que la base de datos podría estar restaurada solo en parte."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Copia\nshop-20260929-104551.dump"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha informado el sistema\npg_restore: error: relation \"orders\" already exists"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/databases/postgresql/shop",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "sandbox.trial_failed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Compilación aislada fallida · shop.example.com"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Se ha probado su compilación sin root antes de la actualización y ha fallado, así que la actualización ha compilado como root, igual que antes."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Commit\n4f2a9c1"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Revísalo con: noust app sandbox status shop.example.com"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha informado el sistema\nnpm ci failed (exit code 1)\nnpm ERR! code E401\nnpm ERR! 401 Unauthorized - GET https://npm.registry.local/@shop%2fui"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "app.unreachable": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Aplicación sin respuesta · shop.example.com"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Su servicio está en marcha, pero la aplicación no responde a su comprobación de salud."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Inaccesible desde\n2026-10-02 14:05 UTC"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Diagnostícala con: noust diagnose shop.example.com"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La última sonda\nGET http://127.0.0.1:3004/ -> <urlopen error [Errno 111] Connection refused>"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "app.recovered": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● Aplicación de nuevo operativa · shop.example.com"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Vuelve a pasar su comprobación de salud."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Estuvo inaccesible durante\n12 min 34 s"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "app.outside_unit": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Aplicación en marcha fuera de Noust · shop.example.com"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Sus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa y un reinicio del servidor no la volvería a levantar."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Unidad\nshop-example-com"
+              }
+            },
+            {
+              "is_short": false,
+              "text": {
+                "tag": "plain_text",
+                "content": "Contenedores\nshop-example-com-web-1, shop-example-com-db-1"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Devuélvela a Noust con: noust app reclaim shop.example.com"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "alert.above": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Alerta activa · cpu-high"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "CPU del servidor lleva por encima de 90% durante 15 min."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Regla\ncpu-high"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Ahora\n93.4%"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Límite\n90%"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Inaccesible desde\n2026-10-12 09:30 UTC"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/server",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "alert.below": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Alerta activa · shop.example.com"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Memoria libre de shop.example.com lleva por debajo de 256 MB durante 5 min."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Regla\nmemory-free"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Ahora\n112 MB"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Límite\n256 MB"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Inaccesible desde\n2026-10-12 09:30 UTC"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "alert.resolved": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● Alerta resuelta · cpu-high"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "CPU del servidor ha vuelto a 41.0%, dentro del límite de 90%."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Regla\ncpu-high"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Ahora\n41.0%"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Activa desde hace\n45 min 12 s"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/server",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "backup.missing": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Sin copia reciente · shop.example.com"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "No se ha hecho ninguna copia de esta aplicación en los últimos 3 días, aunque hay una programación de copias. Nada ha fallado: nada se ha ejecutado."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Última copia\n9 oct 2026"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Programación\ndaily"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Copiarla ahora: noust backup create shop.example.com"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/backups",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "backup.never": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Aún sin copias · blog.example.com"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Hay una programación de copias, pero no existe ninguna de esta aplicación. Nada ha fallado: nada se ha ejecutado."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Programación\ndaily"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Copiarla ahora: noust backup create blog.example.com"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/backups",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "cron.failed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Tarea programada fallida · shop-sync"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La tarea ha terminado con un error, así que lo que hace no se ha hecho."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Ejecutada\n2026-10-13 03:00 UTC"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Código de salida\n1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Resultado\nexit-code"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Ver las ejecuciones: noust cron runs shop-sync"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Últimas líneas de la salida de shop-sync\nTraceback (most recent call last):\n  File \"sync.py\", line 9\nKeyError: 'sku'"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/cron",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "cron.succeeded": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● Tarea programada ejecutada · shop-sync"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La tarea se ha ejecutado y ha terminado sin error."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Ejecutada\n2026-10-13 03:00 UTC"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Código de salida\n0"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/cron",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "patches.available": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "○ Actualizaciones disponibles"
+        },
+        "template": "grey"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "5 actualizaciones esperando a instalarse."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Actualizaciones\n5"
+              }
+            },
+            {
+              "is_short": false,
+              "text": {
+                "tag": "plain_text",
+                "content": "Detalle\nopenssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Verlas: noust server updates list"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/server",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "patches.security": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Actualizaciones de seguridad disponibles"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "3 de las 12 actualizaciones pendientes son de seguridad."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Actualizaciones\n12"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Seguridad\n3"
+              }
+            },
+            {
+              "is_short": false,
+              "text": {
+                "tag": "plain_text",
+                "content": "Detalle\nopenssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Reinicio\nPendiente, tras las actualizaciones"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Verlas: noust server updates list"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/server",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "patches.check_failed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Fallo al comprobar las actualizaciones"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Noust no ha podido listar las actualizaciones que espera este servidor."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Verlas: noust server updates list"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 2211 (apt-get)"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/server",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "token.expiring": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Token de API a punto de caducar · ci-deploy"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "El token dejará de funcionar dentro de 7 días. Lo que lo use será rechazado."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Caduca\n20 oct 2026"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Propietario\nalice"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Sustituirlo: noust token create"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/settings/tokens",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "token.today": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ El token de API caduca hoy · ci-deploy"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "El token deja de funcionar hoy. Lo que lo use será rechazado."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Caduca\n13 oct 2026"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Propietario\nalice"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Sustituirlo: noust token create"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/settings/tokens",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "token.expired": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Token de API caducado · ci-deploy"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "El token ha caducado. Lo que todavía lo use está siendo rechazado."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Caduca\n1 oct 2026"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Propietario\nalice"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Sustituirlo: noust token create"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/settings/tokens",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "digest.held": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Avisos retenidos"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Han llegado 3 avisos mientras este canal estaba en silencio."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Avisos\n3"
+              }
+            },
+            {
+              "is_short": false,
+              "text": {
+                "tag": "plain_text",
+                "content": "Entre\n2026-09-29 10:45 UTC - 2026-09-29 11:25 UTC"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Disco casi lleno · /"
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Cuándo\n2026-09-29 10:45 UTC"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Detalle\nHa superado el umbral de aviso del 90%, y un disco lleno detiene los despliegues, los registros y las bases de datos de este servidor."
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Certificado a punto de caducar · shop.example.com"
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Cuándo\n2026-09-29 11:05 UTC"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Detalle\nCaduca en 7 días (6 oct 2026)."
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Copia completada · shop.example.com"
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Cuándo\n2026-09-29 11:25 UTC"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Detalle\nSe ha guardado una copia nueva de la aplicación."
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "cleanup.completed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● Disco limpiado · /"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La política de limpieza del servidor se ha ejecutado y ha liberado espacio."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Usado\n91% -> 64%"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Liberado\n11.5 GB"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Acciones\njournal, pkg-cache, releases"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/server",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "cleanup.partial": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ La limpieza del disco ha fallado en parte · /"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La política de limpieza se ha ejecutado, pero algunas de sus acciones han fallado."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Usado\n91% -> 88%"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Liberado\n2.0 GB"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Acciones\njournal, pkg-cache, releases"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Ver lo ejecutado: noust server cleanup-schedule runs"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha dicho releases\nrm: cannot remove '/var/www/apps/shop/releases/x': Permission denied"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/server",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "cleanup.failed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Ha fallado la limpieza del disco · /"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La política de limpieza se ha ejecutado y todas sus acciones han fallado, así que el disco sigue como estaba."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Usado\n93% -> 93%"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Acciones\njournal"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Ver lo ejecutado: noust server cleanup-schedule runs"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha dicho journal\nFailed to vacuum: Read-only file system"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/server",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "cron.timer_stopped": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ La tarea programada no se ejecutará · shop-sync"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La tarea está activada pero su temporizador no está en marcha, así que no arrancará. Nada ha fallado: nada se ejecuta."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Programación\n*-*-* 03:00:00"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Temporizador\nfailed"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Actívala de nuevo con: noust cron enable shop-sync"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/cron",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "cron.timer_running": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● La tarea programada vuelve a ejecutarse · shop-sync"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "El temporizador de la tarea vuelve a estar en marcha."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Programación\n*-*-* 03:00:00"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/cron",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "probe.failed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Dirección sin respuesta · shop-site"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La dirección ha dejado de responder lo que le pide la sonda."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Dirección\nhttps://shop.example.com/health"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Inaccesible desde\n2026-10-16 08:14 UTC"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Pruébala ahora con: noust probe run shop-site"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha respondido\nHTTP 503 Service Unavailable\nretry-after: 30"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/settings/probes",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "probe.recovered": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● La dirección vuelve a responder · shop-site"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Contesta otra vez a lo que le pide la sonda."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Dirección\nhttps://shop.example.com/health"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Estuvo inaccesible durante\n7 min 42 s"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Respondió en\n184 ms"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/settings/probes",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "alert.acknowledged": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "○ Alerta atendida · cpu-high"
+        },
+        "template": "grey"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "alice se ocupa: CPU del servidor sigue fuera del límite de 90%."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Regla\ncpu-high"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Atendida por\nalice"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Activa desde hace\n21 min"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/server",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "digest.flood": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "○ Avisos contenidos"
+        },
+        "template": "grey"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "3 avisos pasaron el límite de este canal y se contuvieron hasta ahora."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Avisos\n3"
+              }
+            },
+            {
+              "is_short": false,
+              "text": {
+                "tag": "plain_text",
+                "content": "Entre\n2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Disco limpiado · /"
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Cuándo\n2026-09-29 10:45 UTC"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Detalle\nLa política de limpieza del servidor se ha ejecutado y ha liberado espacio."
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La tarea programada vuelve a ejecutarse · shop-sync"
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Cuándo\n2026-09-29 10:48 UTC"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Detalle\nEl temporizador de la tarea vuelve a estar en marcha."
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La dirección vuelve a responder · shop-site"
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Cuándo\n2026-09-29 10:51 UTC"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Detalle\nContesta otra vez a lo que le pide la sonda."
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "digest.summary": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "○ Resumen programado"
+        },
+        "template": "grey"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "3 avisos desde el último resumen."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Avisos\n3"
+              }
+            },
+            {
+              "is_short": false,
+              "text": {
+                "tag": "plain_text",
+                "content": "Entre\n2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Disco limpiado · /"
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Cuándo\n2026-09-29 10:45 UTC"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Detalle\nLa política de limpieza del servidor se ha ejecutado y ha liberado espacio."
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La tarea programada vuelve a ejecutarse · shop-sync"
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Cuándo\n2026-09-29 10:48 UTC"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Detalle\nEl temporizador de la tarea vuelve a estar en marcha."
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La dirección vuelve a responder · shop-site"
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Cuándo\n2026-09-29 10:51 UTC"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Detalle\nContesta otra vez a lo que le pide la sonda."
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "hostile.deploy_failed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Despliegue fallido · shop.example.com"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Se ha detenido por un error antes de que la nueva versión tomara el relevo."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": false,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Versión\n20260929-104449"
+              }
+            },
+            {
+              "is_short": false,
+              "text": {
+                "tag": "plain_text",
+                "content": "Commit\na1b2c3d (<b>x</b>&amp;<!channel> @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here <@U123> <#C1> red emoji 🚀"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Iniciado por\nWebhook"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Duración\n1 min 12 s"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Revísalo con: noust diagnose shop.example.com"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha informado el sistema\nRelease did not pass <its> health & check\n<urlopen error [Errno 111] Connection refused>\n```\n@everyone <!channel> <@U123|admin> &lt;b&gt;\nred *bold* _italic_ ~strike~ `code`\nnoitcnuf\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "hostile.long_output": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Actualización fallida · shop.example.com"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Se ha detenido por un error antes de que la nueva versión tomara el relevo."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": false,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Versión\n20260929-104449"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Commit\na1b2c3d (main): Fix cart total"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Iniciado por\nWebhook"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Duración\n1 min 12 s"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Revísalo con: noust diagnose shop.example.com"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha informado el sistema\nnpm run build failed\nline 495: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 496: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 497: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 498: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 499: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n… 495 líneas anteriores omitidas"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "hostile.no_link": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● Desplegado · shop.example.com"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La nueva versión ya está en servicio."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Versión\n20260929-104449"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Commit\na1b2c3d (main): Fix cart total"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Iniciado por\nWebhook"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Duración\n42 s"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "hostile.preview": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● Desplegado · pr-12.shop.example.com"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La nueva versión ya está en servicio."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": false,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Vista previa de\nshop.example.com #12"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Versión\n20260929-104449"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Commit\na1b2c3d (main): Fix cart total"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Iniciado por\nWebhook"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Duración\n42 s"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/pr-12.shop.example.com/deployments/42",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "hostile.no_commit": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● Actualizado · shop.example.com"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La aplicación ya ejecuta la nueva versión."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": false,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Iniciado por\nWebhook"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Duración\n42 s"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "hostile.huge_subject": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Copia de seguridad fallida · dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd…"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "No se ha guardado ninguna copia nueva de la aplicación."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": false,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha informado el sistema\nboom"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/backups",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

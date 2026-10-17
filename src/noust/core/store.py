@@ -122,6 +122,10 @@ class AppType(str, Enum):
     #: An image from a registry, a Dockerfile or Railpack, run as a Compose
     #: project Noust writes itself (3.4).
     CONTAINER = "container"
+    #: A site that was already running when Noust met it - an nginx or Apache site and, when
+    #: there is one, a systemd unit the operator wrote. Noust watches and restarts it and
+    #: builds, rewrites and deletes nothing (3.4, checklist B-85).
+    ADOPTED = "adopted"
     UNKNOWN = "unknown"
 
 
@@ -145,6 +149,22 @@ def is_compose_backed(app_type: str | None) -> bool:
         True for ``docker-compose`` and ``container``.
     """
     return app_type in COMPOSE_BACKED_TYPES
+
+
+def is_adopted(app_type: str | None) -> bool:
+    """
+    Tell whether an application is a site Noust adopted rather than built.
+
+    The one answer to "is this the operator's own": such an application has no deployer, its
+    unit and its site are never rewritten, and deleting it forgets it without removing anything.
+
+    Args:
+        app_type: The type recorded on the application.
+
+    Returns:
+        True for ``adopted``.
+    """
+    return app_type == AppType.ADOPTED.value
 
 
 class AppStatus(str, Enum):

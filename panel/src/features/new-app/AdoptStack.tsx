@@ -1,11 +1,13 @@
 /**
- * Adopting a Docker Compose stack that already runs (spec 3.2, section 1.4; `POST
- * /api/apps/adopt`, behind sudo mode). Nothing is cloned, cleaned or started: Noust reads the
- * project from the running containers, finds the site that serves the domain, and rehearses
- * `docker compose up --dry-run` to prove it would change nothing. The preview comes first and
- * shows that rehearsal verbatim; adopting is the second press, once it has been read. A
- * rehearsal that would recreate something is refused with Compose's own output, and adopting
- * anyway is a choice the operator ticks after reading it.
+ * Adopting what already runs, chosen first: a Docker Compose stack (this file) or a site on nginx
+ * or Apache (`AdoptSite.tsx`).
+ *
+ * A Docker Compose stack (spec 3.2, section 1.4; `POST /api/apps/adopt`, behind sudo mode):
+ * nothing is cloned, cleaned or started. Noust reads the project from the running containers,
+ * finds the site that serves the domain, and rehearses `docker compose up --dry-run` to prove it
+ * would change nothing. The preview comes first and shows that rehearsal verbatim; adopting is
+ * the second press, once it has been read. A rehearsal that would recreate something is refused
+ * with Compose's own output, and adopting anyway is a choice the operator ticks after reading it.
  */
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -23,6 +25,7 @@ import type { KeyValueItem } from "../../components/page/KeyValueList";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Card } from "../../components/ui/Card";
 import { Checkbox } from "../../components/ui/Checkbox";
+import { ChoiceCards } from "../../components/ui/ChoiceCards";
 import { Disclosure } from "../../components/ui/Disclosure";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
@@ -33,6 +36,7 @@ import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { splitErrors } from "../settings/formErrors";
 import { normalizeDomain } from "../domains/names";
+import { useSiteAdoption } from "./AdoptSite";
 
 export type Adoption = ResponseOf<"/api/apps/adopt", "post">;
 
@@ -160,8 +164,8 @@ export interface AdoptionState {
   actions: WizardActionsProps;
 }
 
-/** The adoption's form and its two presses, for the new-app wizard's source step. */
-export function useAdoption(): AdoptionState {
+/** The stack adoption's form and its two presses. */
+function useStackAdoption(): AdoptionState {
   const t = useT();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -294,5 +298,37 @@ export function useAdoption(): AdoptionState {
         onClick: go,
       },
     },
+  };
+}
+
+type Adoptable = "stack" | "site";
+
+/**
+ * What is already running, chosen first: a Docker Compose stack, or a site on nginx or Apache.
+ * Each keeps its own form and its two presses (preview, then adopt); the wizard's bar follows
+ * the one chosen.
+ */
+export function useAdoption(): AdoptionState {
+  const t = useT();
+  const [what, setWhat] = useState<Adoptable>("stack");
+  const stack = useStackAdoption();
+  const site = useSiteAdoption();
+  const chosen = what === "stack" ? stack : site;
+  return {
+    content: (
+      <div className="flex flex-col gap-5">
+        <ChoiceCards<Adoptable>
+          legend={t("newApp.adopt.whatLegend")}
+          value={what}
+          onValueChange={setWhat}
+          options={[
+            { value: "stack", label: t("newApp.adopt.whatStack"), description: t("newApp.adopt.whatStackDescription") },
+            { value: "site", label: t("newApp.adopt.whatSite"), description: t("newApp.adopt.whatSiteDescription") },
+          ]}
+        />
+        {chosen.content}
+      </div>
+    ),
+    actions: chosen.actions,
   };
 }

@@ -1,7 +1,9 @@
 /**
  * What a channel hears: its own events, the part of the server it is limited to, and the hours it
  * stays silent - read from `GET /api/notifications/channels` into something a form can hold, and
- * written back through `PUT /api/notifications/channels/{name}`.
+ * written back through `PUT /api/notifications/channels/{name}`. Besides its route and quiet hours
+ * a channel may be capped (at most so many messages in a stretch) and may keep what is not a
+ * problem for a summary sent once a day.
  *
  * Nothing here decides what a route means: the server's own rules (noust.core.notifications.routing)
  * validate what is sent and name what they refuse. This only turns typed text into the lists and
@@ -40,6 +42,37 @@ export interface QuietForm {
   digest: boolean;
 }
 
+/** The most a channel says: `max` messages in any `minutes`; the rest arrive later as one. */
+export interface FloodForm {
+  on: boolean;
+  /** Whole numbers as typed. */
+  max: string;
+  minutes: string;
+}
+
+/** The weekdays a summary may be limited to, Monday first, as the server writes them. */
+export const WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+export type Weekday = (typeof WEEKDAYS)[number];
+
+/** What waits for the summary: what is below this severity. */
+export type SummaryBelow = "warning" | "failed";
+export const SUMMARY_BELOWS: readonly SummaryBelow[] = ["warning", "failed"];
+
+/** Everything below a severity waits and goes out once a day, at one hour, as one message. */
+export interface SummaryForm {
+  on: boolean;
+  /** "08:00". */
+  at: string;
+  timezone: string;
+  below: SummaryBelow;
+  /** Empty means every day. */
+  days: readonly Weekday[];
+}
+
+/** The server's own ceilings (noust.core.notifications.routing.MAX_FLOOD_MESSAGES / MAX_FLOOD_MINUTES). */
+export const MAX_FLOOD_MESSAGES = 1000;
+export const MAX_FLOOD_MINUTES = 1440;
+
 export interface RoutingForm {
   /** The channel keeps its own switch per event; otherwise it follows the server's. */
   ownEvents: boolean;
@@ -47,6 +80,8 @@ export interface RoutingForm {
   events: Record<string, boolean>;
   route: RouteForm;
   quiet: QuietForm;
+  flood: FloodForm;
+  summary: SummaryForm;
   /** A Telegram forum topic, as typed: digits, or empty for the chat's general thread. */
   topic: string;
 }
@@ -103,8 +138,12 @@ export function routingFormFrom(channel: NotificationChannel, serverEvents: Read
   const own = channel.events ?? {};
   const route = channel.route ?? {};
   const quiet = channel.quiet;
+  const flood = channel.flood;
+  const summary = channel.summary;
   const severity = textOf(route["min_severity"]);
   const allow = textOf(quiet?.["allow"], "failed");
+  const below = textOf(summary?.["below"], "warning");
+  const days = Array.isArray(summary?.["days"]) ? summary["days"].filter((day): day is Weekday => WEEKDAYS.includes(day as Weekday)) : [];
   return {
     ownEvents: Object.keys(own).length > 0,
     events: Object.fromEntries(EVENT_KINDS.map((kind) => [kind, own[kind] ?? serverEvents[kind] ?? defaultSwitch(kind)])),
@@ -123,6 +162,18 @@ export function routingFormFrom(channel: NotificationChannel, serverEvents: Read
       timezone: textOf(quiet?.["timezone"], browserTimeZone()),
       allow: allow === "warning" || allow === "none" ? allow : "failed",
       digest: quiet?.["digest"] !== false,
+    },
+    flood: {
+      on: flood !== null && flood !== undefined && Object.keys(flood).length > 0,
+      max: textOf(flood?.["max"], "20"),
+      minutes: textOf(flood?.["minutes"], "10"),
+    },
+    summary: {
+      on: summary !== null && summary !== undefined && Object.keys(summary).length > 0,
+      at: textOf(summary?.["at"], "08:00"),
+      timezone: textOf(summary?.["timezone"], browserTimeZone()),
+      below: below === "failed" ? "failed" : "warning",
+      days,
     },
     topic: textOf(channel.settings?.["thread_id"]),
   };
@@ -146,6 +197,30 @@ export function quietBlock(form: QuietForm): Record<string, unknown> {
   return { start: form.start, end: form.end, timezone: form.timezone.trim() || "UTC", allow: form.allow, digest: form.digest };
 }
 
+/** A whole number from 1 to `high`, as typed. */
+function inRange(value: string, high: number): boolean {
+  return /^\d{1,5}$/.test(value.trim()) && Number(value) >= 1 && Number(value) <= high;
+}
+
+/** Whether the cap's numbers are ones the server accepts; a cap that is off is always fine. */
+export function isFloodValid(form: FloodForm): boolean {
+  return !form.on || (inRange(form.max, MAX_FLOOD_MESSAGES) && inRange(form.minutes, MAX_FLOOD_MINUTES));
+}
+
+/** The `flood` block a form writes: `{}` clears the cap. */
+export function floodBlock(form: FloodForm): Record<string, unknown> {
+  if (!form.on) return {};
+  return { max: Number(form.max), minutes: Number(form.minutes) };
+}
+
+/** The `summary` block a form writes: `{}` clears it. */
+export function summaryBlock(form: SummaryForm): Record<string, unknown> {
+  if (!form.on) return {};
+  const block: Record<string, unknown> = { at: form.at, timezone: form.timezone.trim() || "UTC", below: form.below };
+  if (form.days.length > 0) block["days"] = WEEKDAYS.filter((day) => form.days.includes(day));
+  return block;
+}
+
 /**
  * The PUT body for a form. Events are written whole when the channel has its own, and cleared
  * when it follows the server's; a route or quiet hours the form emptied are cleared the same way.
@@ -155,6 +230,8 @@ export function routingBody(form: RoutingForm, channel: Pick<NotificationChannel
     events: form.ownEvents ? Object.fromEntries(EVENT_KINDS.map((kind) => [kind, form.events[kind] === true])) : {},
     route: routeBlock(form.route),
     quiet: quietBlock(form.quiet),
+    flood: floodBlock(form.flood),
+    summary: summaryBlock(form.summary),
   };
   if (channel.type === "telegram") body.settings = { thread_id: form.topic.trim() };
   return body;
@@ -174,7 +251,7 @@ export function isClock(value: string): boolean {
  * What a channel is limited to, in words for its row: nothing for a channel that hears everything,
  * else one short phrase for each limit it has.
  */
-export function routeSummary(t: T, channel: Pick<NotificationChannel, "route" | "quiet" | "events">): string[] {
+export function routeSummary(t: T, channel: Pick<NotificationChannel, "route" | "quiet" | "events"> & Partial<Pick<NotificationChannel, "flood" | "summary">>): string[] {
   const phrases: string[] = [];
   const route = channel.route ?? {};
   for (const list of ROUTE_LISTS) {
@@ -188,6 +265,14 @@ export function routeSummary(t: T, channel: Pick<NotificationChannel, "route" | 
   const quiet = channel.quiet;
   if (quiet !== null && quiet !== undefined && Object.keys(quiet).length > 0) {
     phrases.push(t("notifyRouting.summary.quiet", { start: textOf(quiet["start"]), end: textOf(quiet["end"]) }));
+  }
+  const flood = channel.flood;
+  if (flood !== null && flood !== undefined && Object.keys(flood).length > 0) {
+    phrases.push(t("notifyRouting.summary.flood", { max: textOf(flood["max"]), minutes: textOf(flood["minutes"]) }));
+  }
+  const recap = channel.summary;
+  if (recap !== null && recap !== undefined && Object.keys(recap).length > 0) {
+    phrases.push(t("notifyRouting.summary.recap", { at: textOf(recap["at"]) }));
   }
   const own = Object.keys(channel.events ?? {}).length;
   if (own > 0) phrases.push(t("notifyRouting.summary.ownEvents", { count: own }));

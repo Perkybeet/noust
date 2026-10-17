@@ -37,6 +37,7 @@ from typing import Any
 
 from noust.monitor.appio import UnitNetwork, read_container_network, read_io_bytes
 from noust.monitor.plan import SOURCE_FPM, SamplingPlan
+from noust.monitor.series import container_label, container_series
 from noust.monitor.timeseries import MetricsStore
 from noust.monitor.traffic import TrafficSampler
 
@@ -224,6 +225,7 @@ class AppSampler:
         memory_total: int | None = None
         cpu_total: float | None = None
         traffic: dict[str, float] = {}
+        pairs: list[tuple[str, float]] = []
         for target in plan.targets:
             if target.cgroup is None:
                 continue
@@ -233,9 +235,24 @@ class AppSampler:
             cpu = self._cpu_percent(target.cgroup, elapsed)
             if cpu is not None:
                 cpu_total = (cpu_total or 0.0) + cpu
-            self._add_traffic(traffic, target.cgroup, target.kind, target.name, elapsed, now)
+            own: dict[str, float] = {}
+            self._add_traffic(own, target.cgroup, target.kind, target.name, elapsed, now)
+            for suffix, value in own.items():
+                traffic[suffix] = traffic.get(suffix, 0.0) + value
+            label = container_label(target.name) if target.kind == "container" else None
+            if label is not None:
+                # A stack's total hides which service reads the disk: each
+                # container also has its own series (G-04).
+                readings = dict(own)
+                if memory is not None:
+                    readings["mem.bytes"] = float(memory)
+                if cpu is not None:
+                    readings["cpu.percent"] = cpu
+                pairs.extend(
+                    (container_series(plan.domain, label, suffix), value)
+                    for suffix, value in readings.items()
+                )
 
-        pairs: list[tuple[str, float]] = []
         if memory_total is not None:
             pairs.append((f"app.{plan.domain}.mem.bytes", float(memory_total)))
         if cpu_total is not None:

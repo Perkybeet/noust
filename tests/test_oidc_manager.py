@@ -1193,7 +1193,7 @@ class TestGroups:
         answer = run(manager, idp, groups=["noust-admins"])
 
         assert answer.account.role == "viewer"
-        assert any("ENS" in note for note in answer.notes)
+        assert any("not given by groups" in note for note in answer.notes)
 
 
 class TestTheTicket:
