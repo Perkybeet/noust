@@ -567,7 +567,7 @@ def show(ctx: Context) -> None:
     """
     Show the configuration in effect.
 
-    This is the merge of the defaults, the file and any NOUST_* (or WASM_*) environment
+    This is the merge of the defaults, the file and any NOUST_* environment
     variable, which is what Noust actually reads.
     """
     _exit(_run_show(ctx.logger, json_output=ctx.json_output))

@@ -14,7 +14,7 @@
 #     link commits them as changes to the other package's sources;
 #   - removes every file that is not in the staged set. OBS turns every
 #     debian.* file into debian/, so one stale file uploaded by hand years ago
-#     is part of every build: the wasm package shipped a config.yaml that
+#     is part of every build: the package once shipped a config.yaml that
 #     still enabled the AI monitor removed in 1.x because of exactly that;
 #   - commits the staged files. A commit with nothing changed is a no-op, so
 #     re-running a release job is safe.

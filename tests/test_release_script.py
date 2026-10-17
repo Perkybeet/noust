@@ -45,7 +45,7 @@ Contact: security@example.org, also in `.well-known/security.txt`.
 #: The table of a repository whose current line is 0.15 (the fixture's version).
 SUPPORTED_ROWS = """| 0.15.x | Yes |
 | 0.14.x | Yes, until 0.16.0 is released |
-| 0.13.x and earlier, WASM 2.x included | No: upgrade to a supported line |"""
+| 0.13.x and earlier | No: upgrade to a supported line |"""
 
 SECURITY_TXT = (
     "Contact: mailto:security@example.org\n"
@@ -65,9 +65,6 @@ def repo(tmp_path, monkeypatch):
     """
     Build a miniature repository with every file the script rewrites.
 
-    The product's Debian changelog still has its last entry under the old
-    name, wasm, as the real one does until the first release as noust.
-
     Args:
         tmp_path: Per-test temporary directory.
         monkeypatch: Patching helper, scoped to the test.
@@ -79,8 +76,6 @@ def repo(tmp_path, monkeypatch):
         "src/noust",
         "rpm",
         "obs",
-        "packaging/transitional/wasm",
-        "packaging/transitional/wasm-cli",
         "packaging/container",
     ):
         (tmp_path / directory).mkdir(parents=True)
@@ -94,20 +89,7 @@ def repo(tmp_path, monkeypatch):
     (tmp_path / "obs/noust.dsc").write_text(
         "Version: 0.15.8-1\nFiles:\n 00000000000000000000000000000000 0 noust-0.15.8.tar.gz\n"
     )
-    (tmp_path / "obs/debian.changelog").write_text(DEBIAN_ENTRY.format(package="wasm"))
-
-    transitional = tmp_path / "packaging/transitional/wasm"
-    (transitional / "wasm.spec").write_text(
-        "Name:           wasm-cli\nVersion:        0.15.8\nRequires:       noust >= %{version}\n"
-        "%changelog\n"
-    )
-    (transitional / "wasm.dsc").write_text(
-        "Version: 0.15.8-1\nFiles:\n 00000000000000000000000000000000 0 wasm-0.15.8.tar.gz\n"
-    )
-    (transitional / "debian.changelog").write_text(DEBIAN_ENTRY.format(package="wasm"))
-    (tmp_path / "packaging/transitional/wasm-cli/pyproject.toml").write_text(
-        '[project]\nname = "wasm-cli"\nversion = "0.15.8"\ndependencies = [\n    "noust==0.15.8",\n]\n'
-    )
+    (tmp_path / "obs/debian.changelog").write_text(DEBIAN_ENTRY.format(package="noust"))
     (tmp_path / "packaging/container/Dockerfile").write_text(
         "FROM python:3.12-slim-bookworm\nARG NOUST_VERSION=0.15.8\n"
     )
@@ -144,24 +126,9 @@ def test_every_file_gets_the_version(repo, version):
 
 
 @pytest.mark.parametrize("version", ["1.0.0", "3.0.0", "10.0.0"])
-def test_the_transitional_packages_and_the_image_follow(repo, version):
-    """
-    The transitional packages move with every release.
-
-    wasm-cli on PyPI pins noust to its own version, so a transitional package
-    left behind would hold `pip install -U wasm-cli` on an old noust.
-    """
+def test_the_image_follows(repo, version):
+    """The container image moves with every release."""
     assert release.bump(version, ["Released"]) == 0
-
-    transitional = repo / "packaging/transitional/wasm"
-    assert f"Version:        {version}" in (transitional / "wasm.spec").read_text()
-    dsc = (transitional / "wasm.dsc").read_text()
-    assert f"Version: {version}-1" in dsc
-    assert f"wasm-{version}.tar.gz" in dsc
-
-    pypi = (repo / "packaging/transitional/wasm-cli/pyproject.toml").read_text()
-    assert f'version = "{version}"' in pypi
-    assert f'    "noust=={version}",' in pypi
 
     assert f"ARG NOUST_VERSION={version}" in (repo / "packaging/container/Dockerfile").read_text()
     assert (
@@ -194,14 +161,10 @@ def test_the_check_fails_on_drift(repo):
 
 @pytest.mark.parametrize(
     "path",
-    [
-        "packaging/transitional/wasm-cli/pyproject.toml",
-        "packaging/transitional/wasm/wasm.dsc",
-        "packaging/container/Dockerfile",
-    ],
+    ["packaging/container/Dockerfile", "packaging/container/compose.yaml", "obs/noust.dsc"],
 )
-def test_the_check_fails_when_a_transitional_file_drifts(repo, path):
-    """The files added for the rename are held to the same rule as the rest."""
+def test_the_check_fails_when_a_packaging_file_drifts(repo, path):
+    """The files that carry the version outside pyproject.toml are held to the same rule."""
     release.bump("1.0.0", ["Something changed"])
     file = repo / path
     file.write_text(file.read_text().replace("1.0.0", "0.9.9"))
@@ -217,38 +180,6 @@ def test_a_changelog_entry_lands_at_the_top(repo):
     assert first_line.startswith("noust (1.0.0-1)")
     assert "First thing" in (repo / "obs/debian.changelog").read_text()
     assert "- First thing" in (repo / "rpm/noust.spec").read_text()
-
-
-def test_the_first_release_under_the_new_name_says_so(repo):
-    """
-    The entry that follows one written as wasm opens with the rename, in both
-    changelogs; the one after that does not repeat it.
-    """
-    release.bump("3.0.0", ["Fleet"])
-
-    debian = (repo / "obs/debian.changelog").read_text()
-    entry = debian.split("\n -- ", 1)[0]
-    assert entry.index("Renamed from wasm") < entry.index("Fleet")
-    assert "- Renamed from wasm" in (repo / "rpm/noust.spec").read_text()
-
-    release.bump("3.0.1", ["A fix"])
-
-    newest = (repo / "obs/debian.changelog").read_text().split("\n -- ", 1)[0]
-    assert newest.startswith("noust (3.0.1-1)")
-    assert "Renamed from wasm" not in newest
-
-
-def test_the_transitional_changelogs_are_written_for_every_release(repo):
-    """The transitional packages get their own entry, under their own names."""
-    release.bump("3.0.0", ["Fleet"])
-
-    transitional = repo / "packaging/transitional/wasm"
-    debian = (transitional / "debian.changelog").read_text()
-    assert debian.startswith("wasm (3.0.0-1)")
-    assert "installs noust 3.0.0" in debian.split("\n -- ", 1)[0]
-    assert "Fleet" not in debian
-    spec = (transitional / "wasm.spec").read_text()
-    assert "- 3.0.0-1\n- WASM is now Noust" in spec
 
 
 def test_a_version_that_is_not_semver_is_refused(repo):
@@ -285,7 +216,7 @@ def test_a_minor_release_adds_its_line_and_moves_the_two_before_it(repo):
     assert table(repo) == [
         "| 0.16.x | Yes |",
         "| 0.15.x | Yes, until 0.17.0 is released |",
-        "| 0.14.x and earlier, WASM 2.x included | No: upgrade to a supported line |",
+        "| 0.14.x and earlier | No: upgrade to a supported line |",
     ]
 
 
@@ -295,7 +226,7 @@ def test_a_major_release_does_the_same(repo):
     assert table(repo) == [
         "| 1.0.x | Yes |",
         "| 0.15.x | Yes, until 1.1.0 is released |",
-        "| 0.14.x and earlier, WASM 2.x included | No: upgrade to a supported line |",
+        "| 0.14.x and earlier | No: upgrade to a supported line |",
     ]
 
 
@@ -315,7 +246,7 @@ def test_two_minor_releases_in_a_row_keep_two_lines(repo):
     assert table(repo) == [
         "| 0.17.x | Yes |",
         "| 0.16.x | Yes, until 0.18.0 is released |",
-        "| 0.15.x and earlier, WASM 2.x included | No: upgrade to a supported line |",
+        "| 0.15.x and earlier | No: upgrade to a supported line |",
     ]
 
 

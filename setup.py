@@ -55,8 +55,6 @@ setup(
     entry_points={
         "console_scripts": [
             "noust=noust.cli.app:entrypoint",
-            # The name WASM had until 3.0, kept for the whole 3.x series.
-            "wasm=noust.cli.app:entrypoint",
         ],
     },
     data_files=[

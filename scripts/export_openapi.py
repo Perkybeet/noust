@@ -62,7 +62,7 @@ def _build_schema() -> dict[str, Any]:
     from noust.web.auth import SecurityConfig
     from noust.web.server import create_app
 
-    with tempfile.TemporaryDirectory(prefix="wasm-openapi-") as tmp_dir:
+    with tempfile.TemporaryDirectory(prefix="noust-openapi-") as tmp_dir:
         config = SecurityConfig(state_dir=Path(tmp_dir) / "state", rate_limit_requests=5000)
         app = create_app(config)
         # A copy: app.openapi() caches the document it returns, and the

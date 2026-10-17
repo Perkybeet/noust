@@ -153,9 +153,4 @@ export const shell: Catalog<typeof en> = {
     body: "No hay nada en esta dirección. Comprueba el enlace o vuelve al {overview}.",
     overviewLink: "resumen",
   },
-  renameNotice: {
-    text: "WASM ahora se llama Noust: nada más ha cambiado, la misma consola y las mismas aplicaciones.",
-    link: "Qué ha cambiado y por qué",
-    dismiss: "Descartar",
-  },
 };
