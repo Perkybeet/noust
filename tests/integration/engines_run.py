@@ -21,14 +21,35 @@ for a machine that is also somebody's development workstation:
   systemd, and are reached with ``docker exec``.
 
 A scenario names the machine it runs on (``ubuntu``: Ubuntu 24.04 with systemd and a Docker of
-its own; ``rocky9``; ``leap``), and the runner starts a machine only when a selected scenario
-needs it. Like the other runners it is not collected by pytest: it drives Docker.
+its own; ``rocky9``; ``leap``; ``leap16``), and the runner starts a machine only when a selected
+scenario needs it. Like the other runners it is not collected by pytest: it drives Docker.
+
+A scenario that needs two servers (a primary and its replica) also asks for ``replica``, a second
+systemd machine; both are put on one network, ``noust-test-ch-net``, under the names
+``primary.noust.test`` and ``replica.noust.test``, and the scenario drives the second with
+``peer(sc, "replica")`` (its commands are tagged ``[replica]`` in the evidence). The network is
+removed with the machines. At most three containers are alive at once: run the machines of
+different distributions in separate invocations.
+
+What each scenario proves (the checklist row it answers):
+
+* ``apt_postgresql``, ``rpm_el9``, ``rpm_leap16``, ``rpm_leap156`` (C-11): engines install,
+  start and uninstall with apt, dnf and zypper, from the repositories whose keys are pinned.
+* ``remote_only_backups`` (H-13): schedules that keep nothing on the server.
+* ``pitr_postgresql`` (H-32): archived log, base backups, recovery to an instant, rollback,
+  retention, and recovery from a destination.
+* ``host_tls`` (C-27): PostgreSQL and MariaDB present a real certificate and load a renewal.
+* ``sealed_backups`` (H-08): backups sealed on the server's disk, opened by one door.
+* ``replication_postgresql``, ``replication_mariadb``, ``replication_mysql`` (C-14): a replica on
+  another server, over TLS, with an account of its own.
+* ``dragonfly_facts``: Dragonfly's snapshot format and ACL, the facts the guide states.
 
 Usage:
     .venv/bin/python tests/integration/engines_run.py --list
     .venv/bin/python tests/integration/engines_run.py --scenario remote_only_backups
     .venv/bin/python tests/integration/engines_run.py --dev --keep    # the working tree, mounted
-    .venv/bin/python tests/integration/engines_run.py --dev --attach --scenario rpm_postgresql
+    .venv/bin/python tests/integration/engines_run.py --dev --attach --scenario rpm_el9
+    .venv/bin/python tests/integration/engines_run.py --scenario replication_mariadb
     .venv/bin/python tests/integration/engines_run.py --purge         # remove everything it made
 
 ``--dev`` mounts the working tree read-only and imports Noust from it, so a change is tried
