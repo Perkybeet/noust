@@ -9159,7 +9159,7 @@ def scenario_kernel_quota(sc: Scenario) -> None:
     with the reason. Its tree then moves onto an XFS and onto an ext4 loop filesystem mounted
     with prjquota (the operator's part), and on each: `--kernel` sets the project and the limit,
     the kernel reports it, the app's own account is refused past the limit with the kernel's
-    "Disk quota exceeded", a changed limit follows into the kernel, `--no-kernel` lets it write
+    refusal, a changed limit follows into the kernel, `--no-kernel` lets it write
     again, and deleting the app takes the quota off. Noust never wrote /etc/projects.
     """
     require_cli(sc, "app disk", option="--kernel", what="the kernel quota of an application")
@@ -9216,6 +9216,11 @@ def scenario_kernel_quota(sc: Scenario) -> None:
                 label="a place the app can write",
             )
             sc.run(
+                f"noust app disk {KERNEL_DOMAIN} --limit 128",
+                timeout=60,
+                label=f"noust app disk {KERNEL_DOMAIN} --limit 128 ({fstype})",
+            )
+            sc.run(
                 f"noust app disk {KERNEL_DOMAIN} --kernel",
                 timeout=300,
                 label=f"noust app disk {KERNEL_DOMAIN} --kernel ({fstype})",
@@ -9256,7 +9261,13 @@ def scenario_kernel_quota(sc: Scenario) -> None:
 
             code, said, size = kernel_quota_write(sc, "www-data", 300)
             sc.check(code != 0, f"{fstype}: the app wrote 300 MB past a 128 MB limit")
-            sc.check("quota exceeded" in said.lower(), f"{fstype}: the write said {said!r}")
+            # XFS answers a project over its limit with ENOSPC ("No space left on device"); ext4
+            # with EDQUOT ("Disk quota exceeded"). Either is the kernel refusing the write.
+            refused_words = ("quota exceeded", "no space left")
+            sc.check(
+                any(words in said.lower() for words in refused_words),
+                f"{fstype}: the write said {said!r}",
+            )
             sc.check(16 * 1024 * 1024 <= size <= 128 * 1024 * 1024, f"{fstype}: left {size} bytes")
             if fstype == "xfs":
                 code, said, size = kernel_quota_write(sc, "root", 300)

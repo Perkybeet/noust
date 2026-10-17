@@ -261,7 +261,7 @@ are not included, and a Compose stack's bind-mounted data is, because it is insi
 
   Both were checked on real XFS and ext4 loop filesystems mounted with `prjquota`
   (`tests/integration/run.py`, scenario `kernel_project_quota_stops_the_writes`): the application's account is
-  refused with "Disk quota exceeded" at the limit, a changed limit follows, and `--no-kernel` lets it write
+  refused at the limit ("No space left on device" on XFS, "Disk quota exceeded" on ext4), a changed limit follows, and `--no-kernel` lets it write
   again. Try it on a machine you can lose first.
 - **Not done yet.** There is no alert for an application approaching its limit, and no per-application breakdown
   of Docker volumes.
