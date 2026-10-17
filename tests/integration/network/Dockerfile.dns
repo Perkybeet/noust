@@ -1,0 +1,27 @@
+# The DNS side of the certificate scenarios (tests/integration/network_run.py, acme_*): a real BIND 9
+# that is authoritative for acme.test and takes dynamic updates (RFC 2136, TSIG), and a small
+# stand-in for Cloudflare's REST API in front of it (acme/provider.py), because the one thing no
+# test machine can have is an account at a DNS provider. Pebble resolves names and reads the
+# DNS-01 TXT records from this BIND, so what the stand-in publishes is what the authority sees.
+#
+# Debian 13 like the server, so a machine that built the server image has the base layers.
+
+FROM debian:13
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=C.UTF-8
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        bind9 \
+        bind9-dnsutils \
+        openssl \
+        python3 \
+        ca-certificates \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY acme/provider.py /opt/provider.py
+COPY acme/entrypoint.sh /opt/entrypoint.sh
+RUN chmod 0755 /opt/entrypoint.sh
+
+ENTRYPOINT ["/opt/entrypoint.sh"]

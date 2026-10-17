@@ -123,6 +123,8 @@ CLIENT_IMAGE = f"{PREFIX}-client:latest"
 #: What the harness may remove, by exact name. The providers share the server's network
 #: namespace, so they go first.
 OWNED_CONTAINERS = (TRUST, AUTHELIA, OAUTH2, CLIENT, SERVER)
+#: The certificate scenarios' authority and DNS provider, removed with the rest (see PEBBLE, DNS).
+ACME_CONTAINERS = (f"{PREFIX}-pebble", f"{PREFIX}-dns")
 
 #: The fixtures served by git:// inside the server.
 ECHO_REPO = "/root/fixtures/echo-app"
@@ -307,7 +309,7 @@ def remove_volume() -> None:
 
 def remove_images() -> None:
     """Remove the images this harness built, by exact name."""
-    for image in (SERVER_IMAGE, CLIENT_IMAGE):
+    for image in (SERVER_IMAGE, CLIENT_IMAGE, f"{PREFIX}-dns:latest"):
         docker("image", "rm", owned(image), check=False, timeout=60)
 
 
@@ -318,7 +320,7 @@ def teardown(*, images: bool = False) -> None:
     Args:
         images: Also remove the two images it built.
     """
-    for name in OWNED_CONTAINERS:
+    for name in (*ACME_CONTAINERS, *OWNED_CONTAINERS):
         remove_container(name)
     remove_network()
     remove_volume()
@@ -2717,6 +2719,890 @@ def scenario_waf(env: Env) -> None:
 
 
 # ---------------------------------------------------------------------------
+# A certificate authority and a DNS provider that run for real: Pebble and BIND (E-33, E-34)
+# ---------------------------------------------------------------------------
+
+PEBBLE = f"{PREFIX}-pebble"
+DNS = f"{PREFIX}-dns"
+DNS_IMAGE = f"{PREFIX}-dns:latest"
+
+#: Let's Encrypt's own ACME server for tests, from its official image, pinned by digest (the
+#: build of 2026-04-20). It is the authority certbot orders from, the same code Boulder's
+#: validation follows, with a root it makes up at every start.
+PEBBLE_IMAGE = "ghcr.io/letsencrypt/pebble@sha256:ddf230642b1a584f519f32e347de1b05a6e4c1f6c35c1863b33effeab5f78199"
+
+#: The zone BIND is authoritative for, and the names the scenarios use under it.
+ACME_ZONE = "acme.test"
+ACME_EMAIL = f"admin@{ACME_ZONE}"
+
+#: Pebble asks the authoritative server for the A record that tells it where to validate (80, as a
+#: real authority does) and for the TXT record of a DNS-01 challenge. The status 5 seconds it waits
+#: between checks is shortened, and an authorization is never reused, so every order is validated.
+PEBBLE_CONFIG = {
+    "pebble": {
+        "listenAddress": "0.0.0.0:14000",
+        "managementListenAddress": "0.0.0.0:15000",
+        "certificate": "test/certs/localhost/cert.pem",
+        "privateKey": "test/certs/localhost/key.pem",
+        "httpPort": 80,
+        "tlsPort": 443,
+        "ocspResponderURL": "",
+        "externalAccountBindingRequired": False,
+        "domainBlocklist": ["blocked-domain.example"],
+        "retryAfter": {"authz": 1, "order": 1},
+        "keyAlgorithm": "ecdsa",
+        "profiles": {"default": {"description": "default", "validityPeriod": 7776000}},
+    }
+}
+
+#: Files the server trusts while the stack is up, and what to undo afterwards.
+PEBBLE_TRUST = "/usr/local/share/ca-certificates/noust-test-pebble.crt"
+PROVIDER_TRUST = "/usr/local/share/ca-certificates/noust-test-dns-provider.crt"
+HOSTS_MARK = "# noust-test-acme"
+
+
+@dataclass
+class AcmeStack:
+    """
+    What the certificate scenarios know about the running Pebble and BIND.
+
+    Attributes:
+        pebble_ip: Pebble's address on our network.
+        dns_ip: The DNS container's address.
+        token: The stand-in provider's token (a throwaway the container made).
+        tsig_name: The TSIG key's name.
+        tsig_secret: The TSIG key's secret, base64.
+    """
+
+    pebble_ip: str
+    dns_ip: str
+    token: str
+    tsig_name: str
+    tsig_secret: str
+
+
+_STACK: AcmeStack | None = None
+
+#: The visitor was stopped to make room for the stack and is started again when the stack goes.
+_CLIENT_STOPPED = False
+
+
+def pull_pebble() -> None:
+    """Pull Pebble's official image when it is not here yet."""
+    if docker("image", "inspect", PEBBLE_IMAGE, check=False).returncode == 0:
+        return
+    print(f"[setup] pulling {PEBBLE_IMAGE}")
+    docker("pull", PEBBLE_IMAGE, timeout=600)
+
+
+def build_dns_image() -> None:
+    """Build the BIND and provider stand-in image (cached after the first time)."""
+    print(f"[setup] building {DNS_IMAGE}")
+    docker(
+        "build",
+        "--label",
+        LABEL,
+        "-t",
+        owned(DNS_IMAGE),
+        "-f",
+        str(NETWORK_DIR / "Dockerfile.dns"),
+        str(NETWORK_DIR),
+        timeout=900,
+    )
+
+
+def start_acme_stack(env: Env) -> AcmeStack:
+    """
+    Start Pebble and the DNS container and make the server use them.
+
+    The server trusts Pebble's own CA (certbot talks to it over TLS) and the stand-in provider's,
+    resolves ``pebble`` and ``api.cloudflare.com`` to the two containers and asks the BIND for the
+    names under ``acme.test``; Noust is told to order from Pebble. The visitor is stopped while the
+    stack is up: three containers is the most this harness runs at a time.
+
+    Args:
+        env: The environment.
+
+    Returns:
+        What the scenarios need to know about the stack.
+    """
+    global _STACK, _CLIENT_STOPPED
+    if _STACK is not None:
+        return _STACK
+    if is_running(CLIENT):
+        docker("stop", owned(CLIENT), timeout=60)
+        _CLIENT_STOPPED = True
+    try:
+        _STACK = _start_acme_stack(env)
+    except BaseException:
+        stop_acme_stack(env)
+        raise
+    return _STACK
+
+
+def _start_acme_stack(env: Env) -> AcmeStack:
+    """
+    Do what :func:`start_acme_stack` describes, with the visitor already stopped.
+
+    Args:
+        env: The environment.
+
+    Returns:
+        What the scenarios need to know about the stack.
+    """
+    pull_pebble()
+    build_dns_image()
+    for name in (PEBBLE, DNS):
+        remove_container(name)
+
+    docker("run", "-d", "--name", owned(DNS), "--label", LABEL, "--network", NETWORK, DNS_IMAGE)
+    dns_ip = container_ip(DNS)
+    wait_for(
+        lambda: (
+            docker(
+                "exec", DNS, "dig", "+short", "@127.0.0.1", "SOA", ACME_ZONE, check=False
+            ).stdout.strip()
+            != ""
+        ),
+        "BIND to answer for the zone",
+        timeout=40,
+    )
+    wait_for(
+        lambda: (
+            Path("/dev/null").exists()
+            and docker("exec", DNS, "test", "-s", "/srv/token", check=False).returncode == 0
+        ),
+        "the provider stand-in to start",
+        timeout=40,
+    )
+    token = docker("exec", DNS, "cat", "/srv/token").stdout.strip()
+    key_text = docker("exec", DNS, "cat", "/etc/bind/noust.key").stdout
+    secret = re.search(r'secret\s+"([^"]+)"', key_text)
+    if secret is None:
+        raise HarnessError(f"no secret in the TSIG key BIND made: {key_text!r}")
+
+    docker(
+        "create",
+        "--name",
+        owned(PEBBLE),
+        "--label",
+        LABEL,
+        "--network",
+        NETWORK,
+        "--network-alias",
+        "pebble",
+        "-e",
+        "PEBBLE_VA_NOSLEEP=1",
+        "-e",
+        "PEBBLE_WFE_NONCEREJECT=0",
+        "-e",
+        "PEBBLE_AUTHZREUSE=0",
+        PEBBLE_IMAGE,
+        "-config",
+        "/pebble-config.json",
+        "-dnsserver",
+        f"{dns_ip}:53",
+    )
+    with tempfile.TemporaryDirectory(prefix="noust-pebble-") as scratch:
+        config = Path(scratch) / "pebble-config.json"
+        config.write_text(json.dumps(PEBBLE_CONFIG))
+        docker("cp", str(config), f"{PEBBLE}:/pebble-config.json")
+        minica = Path(scratch) / "pebble.minica.pem"
+        docker("cp", f"{PEBBLE}:/test/certs/pebble.minica.pem", str(minica))
+        provider_ca = Path(scratch) / "provider-ca.pem"
+        docker("cp", f"{DNS}:/srv/ca/ca.pem", str(provider_ca))
+        docker("start", PEBBLE)
+        pebble_ip = container_ip(PEBBLE)
+        docker("cp", str(minica), f"{SERVER}:{PEBBLE_TRUST}")
+        docker("cp", str(provider_ca), f"{SERVER}:{PROVIDER_TRUST}")
+
+    sh_in(
+        SERVER,
+        "update-ca-certificates >/dev/null 2>&1; "
+        f"sed -i '/{HOSTS_MARK}/d' /etc/hosts; "
+        f"printf '%s pebble {HOSTS_MARK}\\n%s api.cloudflare.com {HOSTS_MARK}\\n' "
+        f"'{pebble_ip}' '{dns_ip}' >> /etc/hosts; "
+        "cp /etc/resolv.conf /etc/resolv.conf.noust-test-orig; "
+        f"(echo 'nameserver {dns_ip}'; cat /etc/resolv.conf.noust-test-orig) > /etc/resolv.conf",
+    )
+    # The stack is up when Pebble answers its directory over TLS from the server.
+    wait_for(
+        lambda: (
+            docker(
+                "exec", SERVER, "curl", "-fsS", "https://pebble:14000/dir", check=False
+            ).returncode
+            == 0
+        ),
+        "Pebble to answer its directory from the server",
+        timeout=40,
+    )
+    names = {
+        "www": env.server_ip,
+        "app": env.server_ip,
+        "dns": "192.0.2.1",  # nothing listens there: only the DNS challenge can prove this name
+        "wild": env.server_ip,
+        "plug": "192.0.2.1",
+    }
+    updates = "\n".join(f"update add {n}.{ACME_ZONE} 60 A {ip}" for n, ip in names.items())
+    docker(
+        "exec",
+        "-i",
+        DNS,
+        "nsupdate",
+        "-k",
+        "/etc/bind/noust.key",
+        input_text=f"server 127.0.0.1\n{updates}\nsend\n",
+    )
+    env.srv(
+        "command -v certbot >/dev/null || noust setup init -y",
+        timeout=600,
+        label="(certbot, as `noust setup init` installs it)",
+    )
+    env.srv(
+        f"noust cert acme --ca custom --server https://pebble:14000/dir --email {ACME_EMAIL} "
+        "--register",
+        timeout=180,
+        label="noust cert acme --ca custom --server https://pebble:14000/dir --register",
+    )
+    return AcmeStack(
+        pebble_ip=pebble_ip,
+        dns_ip=dns_ip,
+        token=token,
+        tsig_name="noust-key",
+        tsig_secret=secret.group(1),
+    )
+
+
+def stop_acme_stack(env: Env | None) -> None:
+    """
+    Put the server back as it was and remove Pebble and the DNS container.
+
+    Args:
+        env: The environment, or None when only the containers are to go.
+    """
+    global _STACK, _CLIENT_STOPPED
+    _STACK = None
+    if env is not None and is_running(SERVER):
+        env.srv(
+            "noust cert acme --ca letsencrypt >/dev/null 2>&1; "
+            f"sed -i '/{HOSTS_MARK}/d' /etc/hosts; "
+            "if [ -f /etc/resolv.conf.noust-test-orig ]; then "
+            "cat /etc/resolv.conf.noust-test-orig > /etc/resolv.conf; "
+            "rm -f /etc/resolv.conf.noust-test-orig; fi; "
+            f"rm -f {PEBBLE_TRUST} {PROVIDER_TRUST}; update-ca-certificates --fresh >/dev/null 2>&1; "
+            "rm -rf /etc/letsencrypt/accounts; true",
+            check=False,
+            label="(leave the server as found) the authority, hosts, resolver and trust",
+        )
+    for name in (PEBBLE, DNS):
+        remove_container(name)
+    if _CLIENT_STOPPED:
+        docker("start", owned(CLIENT), check=False)
+        _CLIENT_STOPPED = False
+
+
+def pebble_root(env: Env) -> str:
+    """
+    Fetch the root certificate Pebble made for this run, the one a visitor must trust.
+
+    Args:
+        env: The environment.
+
+    Returns:
+        The PEM text.
+    """
+    return env.srv(
+        "curl -fsS https://pebble:15000/roots/0",
+        label="Pebble's root for this run (its management API)",
+    ).stdout
+
+
+def provider_requests(stack: AcmeStack) -> list[dict[str, Any]]:
+    """
+    Read the calls Noust made to the stand-in provider, in order.
+
+    Args:
+        stack: The running stack.
+
+    Returns:
+        One entry per request: ``method``, ``path``, ``authorized`` and ``body``.
+    """
+    text = docker("exec", DNS, "cat", "/srv/requests.jsonl").stdout
+    return [json.loads(line) for line in text.splitlines() if line.strip()]
+
+
+def txt_records(stack: AcmeStack, name: str) -> list[str]:
+    """
+    Ask BIND, as the authority does, for the TXT records of a name.
+
+    Args:
+        stack: The running stack.
+        name: The name.
+
+    Returns:
+        The values, quotes and all as ``dig`` prints them.
+    """
+    out = docker("exec", DNS, "dig", "+short", "@127.0.0.1", "TXT", name).stdout
+    return [line.strip() for line in out.splitlines() if line.strip()]
+
+
+def served_chain_verifies(env: Env, host: str, root_path: str) -> str:
+    """
+    Open ``https://host/`` on the server against Pebble's root and say how it went.
+
+    Args:
+        env: The environment.
+        host: The name asked for.
+        root_path: A file on the server that holds Pebble's root.
+
+    Returns:
+        ``<status> verify=<code>`` as curl reports it (``200 verify=0`` is trusted and answering).
+    """
+    return env.srv(
+        f"curl -sS -o /dev/null -w '%{{http_code}} verify=%{{ssl_verify_result}}' "
+        f"--cacert {root_path} --resolve {host}:443:127.0.0.1 https://{host}/",
+        check=False,
+        label=f"https://{host}/ against Pebble's root",
+    ).stdout.strip()
+
+
+def certificate_names(env: Env, host: str) -> list[str]:
+    """
+    Read the names on the certificate nginx presents for ``host``.
+
+    Args:
+        env: The environment.
+        host: The SNI name.
+
+    Returns:
+        The subject alternative names.
+    """
+    out = env.srv(
+        f"openssl s_client -connect 127.0.0.1:443 -servername {host} </dev/null 2>/dev/null "
+        "| openssl x509 -noout -ext subjectAltName",
+        label=f"the names on the certificate for {host}",
+    ).stdout
+    return re.findall(r"DNS:([^,\s]+)", out)
+
+
+def forget_acme_app(env: Env, domain: str) -> None:
+    """
+    Start a certificate scenario from a server that has no application and no lineage of ``domain``.
+
+    Args:
+        env: The environment.
+        domain: The application's domain.
+    """
+    if env.srv(f"noust status {domain}", check=False).returncode == 0:
+        env.srv(f"noust delete {domain} -y", label=f"(a re-run) delete {domain}")
+    env.srv(
+        f"certbot delete --cert-name {domain} --non-interactive >/dev/null 2>&1; true",
+        label=f"(a re-run) no lineage of {domain}",
+    )
+
+
+def lineage_issuer(env: Env, name: str) -> str:
+    """
+    Read who signed the certificate certbot keeps for ``name``.
+
+    Args:
+        env: The environment.
+        name: The lineage.
+
+    Returns:
+        The issuer line.
+    """
+    return env.srv(
+        f"openssl x509 -noout -issuer -in /etc/letsencrypt/live/{name}/cert.pem",
+        label=f"who signed the certificate of {name}",
+    ).stdout.strip()
+
+
+@scenario("acme_http01_issue_serve_renew")
+def scenario_acme_http01(env: Env) -> None:
+    """Real certbot orders from Pebble over HTTP-01; nginx serves it; a renewal replaces it (E-33)."""
+    stack = start_acme_stack(env)
+    domain = f"app.{ACME_ZONE}"
+    forget_acme_app(env, domain)
+    root_file = "/root/pebble-root.pem"
+    root = pebble_root(env)
+    put_file(SERVER, root_file, root)
+
+    created = env.srv(
+        f"noust create -d {domain} -s {ECHO_URL} -t nodejs",
+        timeout=DEPLOY_TIMEOUT + 120,
+        check=False,
+    )
+    env.check(
+        created.returncode == 0,
+        f"noust create with a certificate failed:\n{(created.stdout + created.stderr)[-2500:]}",
+    )
+
+    issuer = lineage_issuer(env, domain)
+    env.check("Pebble" in issuer, f"the certificate was not signed by Pebble: {issuer}")
+    env.check(
+        served_chain_verifies(env, domain, root_file) == "200 verify=0",
+        "nginx does not serve the certificate certbot ordered, chained to Pebble's root",
+    )
+    redirect = env.srv(
+        f"curl -sS -o /dev/null -w '%{{http_code}} %{{redirect_url}}' -H 'Host: {domain}' "
+        "http://127.0.0.1/",
+        label="plain HTTP goes to HTTPS",
+    ).stdout.strip()
+    env.check(redirect.startswith("301 https://"), f"HTTP does not redirect to HTTPS: {redirect!r}")
+
+    # -- what Noust reads back from the real certbot: the listing, the expiry, the names
+    listed = json_of(env.srv("noust cert list --json"), "cert list")
+    certificates = listed.get("certificates", listed) if isinstance(listed, dict) else listed
+    mine = [c for c in certificates if domain in (c.get("domains") or [c.get("name")])]
+    env.check(bool(mine), f"noust cert list does not show the lineage of {domain}: {listed}")
+    env.check(
+        domain in certificate_names(env, domain),
+        "the certificate nginx presents does not name the application",
+    )
+
+    # -- a renewal replaces the certificate and reloads nginx instead of restarting it
+    before = live_fingerprint(env, domain)
+    pid = env.srv("systemctl show nginx -p MainPID --value").stdout.strip()
+    env.srv(
+        f"noust cert renew --domain {domain} --force", timeout=300, label="noust cert renew --force"
+    )
+    after = live_fingerprint(env, domain)
+    env.check(after != before, "nginx still presents the old certificate after a renewal")
+    env.check(
+        env.srv("systemctl show nginx -p MainPID --value").stdout.strip() == pid,
+        "nginx was restarted by the renewal, not reloaded",
+    )
+    env.check(
+        served_chain_verifies(env, domain, root_file) == "200 verify=0",
+        "the renewed certificate does not verify",
+    )
+
+    # -- an application whose name does not point here is refused by the authority, in its words
+    wrong = f"nowhere.{ACME_ZONE}"
+    forget_acme_app(env, wrong)
+    refused = env.srv(
+        f"noust create -d {wrong} -s {ECHO_URL} -t nodejs",
+        timeout=DEPLOY_TIMEOUT + 120,
+        check=False,
+    )
+    said = refused.stdout + refused.stderr
+    env.check(
+        refused.returncode == 0 and "has no DNS record pointing at this machine" in said,
+        f"a name with no DNS record should be deployed without TLS and say why: {said[-800:]}",
+    )
+    env.check(
+        "Continuing deployment without SSL" in said
+        and not env.srv(f"test -d /etc/letsencrypt/live/{wrong}", check=False).returncode == 0,
+        "the deployment of a name the authority cannot reach ordered a certificate anyway",
+    )
+    forget_acme_app(env, wrong)
+    forget_acme_app(env, domain)
+    env.check(stack.pebble_ip != "", "the stack did not report Pebble's address")
+
+
+def srv_stdin(
+    env: Env, script: str, text: str, *, label: str, timeout: int = 120, check: bool = True
+) -> subprocess.CompletedProcess[str]:
+    """
+    Run a script in the server with a secret on its standard input, keeping it off the evidence.
+
+    Args:
+        env: The environment.
+        script: The script (bash); it names the secret's place, never the secret.
+        text: What is fed to its standard input.
+        label: What to call it in the evidence.
+        timeout: Seconds.
+        check: Fail the scenario on a non-zero exit.
+
+    Returns:
+        The finished command.
+    """
+    proc = subprocess.run(
+        ["docker", "exec", "-i", owned(SERVER), "bash", "-lc", script],
+        input=text,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        env=docker_env(),
+    )
+    block = [f"[server] $ {label}  (secret on stdin)"]
+    if proc.stdout:
+        block.append(proc.stdout.rstrip("\n"))
+    if proc.stderr.strip():
+        block.extend(["--- stderr ---", proc.stderr.rstrip("\n")])
+    block.append(f"(exit={proc.returncode})")
+    env.evidence.append("\n".join(block))
+    if check and proc.returncode != 0:
+        raise AssertionError(f"command failed (exit {proc.returncode}): [server] {label}")
+    return proc
+
+
+def challenge_records_made(stack: AcmeStack, name: str) -> list[dict[str, Any]]:
+    """
+    List the records Noust asked the stand-in provider to create under one name, in order.
+
+    Args:
+        stack: The running stack.
+        name: The record's full name, ``_acme-challenge.`` and all.
+
+    Returns:
+        The request bodies (``type``, ``name``, ``content``, ``comment``).
+    """
+    return [
+        dict(request["body"])
+        for request in provider_requests(stack)
+        if request["authorized"]
+        and request["method"] == "POST"
+        and (request.get("body") or {}).get("name") == name
+    ]
+
+
+def challenge_records_deleted(stack: AcmeStack) -> int:
+    """
+    Count the records Noust deleted at the stand-in provider.
+
+    Args:
+        stack: The running stack.
+
+    Returns:
+        How many authorized DELETE requests it made.
+    """
+    return sum(1 for r in provider_requests(stack) if r["authorized"] and r["method"] == "DELETE")
+
+
+def add_cloudflare_account(env: Env, stack: AcmeStack, name: str = "cf") -> None:
+    """
+    Add the stand-in provider to Noust as a Cloudflare account, the way an operator does.
+
+    Args:
+        env: The environment.
+        stack: The running stack (its token is the credential).
+        name: The account's name.
+    """
+    env.srv(f"noust dns provider remove {name} -y >/dev/null 2>&1; true", check=False)
+    srv_stdin(
+        env,
+        f"noust dns provider add {name} --kind cloudflare --token-stdin",
+        stack.token,
+        label=f"noust dns provider add {name} --kind cloudflare --token-stdin",
+    )
+
+
+def token_in_files(env: Env, token: str) -> str:
+    """
+    Search certbot's files and Noust's configuration for a credential.
+
+    Args:
+        env: The environment.
+        token: The credential.
+
+    Returns:
+        The names of the files that hold it, one per line (empty when none does).
+    """
+    return srv_stdin(
+        env,
+        "grep -rIlF -f /dev/stdin /etc/letsencrypt /var/log/letsencrypt /etc/noust/config.yaml "
+        "2>/dev/null | head",
+        token,
+        label="grep the provider's token in certbot's files and in Noust's configuration",
+        check=False,
+    ).stdout.strip()
+
+
+@scenario("acme_dns01_noust_hooks")
+def scenario_acme_dns01(env: Env) -> None:
+    """certbot proves a name with a DNS record Noust publishes and removes, where port 80 never reaches (E-33)."""
+    stack = start_acme_stack(env)
+    domain = f"dns.{ACME_ZONE}"
+    forget_acme_app(env, domain)
+    root_file = "/root/pebble-root.pem"
+    put_file(SERVER, root_file, pebble_root(env))
+
+    # -- the credential is proven when the account is added: a wrong one is refused, in the
+    #    provider's own words, and kept nowhere
+    env.srv("noust dns provider remove wrongcf -y >/dev/null 2>&1; true", check=False)
+    wrong = srv_stdin(
+        env,
+        "noust dns provider add wrongcf --kind cloudflare --token-stdin",
+        "not-the-provider-token",
+        label="noust dns provider add wrongcf (a token the provider does not know)",
+        check=False,
+    )
+    env.check(wrong.returncode != 0, "an account with a token the provider refused was kept")
+    said = wrong.stdout + wrong.stderr
+    env.check("Invalid access token" in said, f"the provider's own words are lost: {said[-400:]}")
+    env.check(
+        "wrongcf" not in env.srv("noust dns provider list", check=False).stdout,
+        "the refused account is listed",
+    )
+    add_cloudflare_account(env, stack)
+    zones = env.srv("noust dns provider verify cf").stdout
+    env.check(ACME_ZONE in zones, f"the account does not list the zone it holds: {zones}")
+    sent = [r for r in provider_requests(stack) if r["path"].startswith("/client/v4/zones")]
+    env.check(
+        sent and all(r["user_agent"].startswith("noust/") for r in sent),
+        "Noust does not say who it is to the provider",
+    )
+
+    # -- an application on a name nothing answers on port 80 for: only the DNS challenge proves it
+    env.srv(
+        f"noust create -d {domain} -s {ECHO_URL} -t nodejs --no-ssl",
+        timeout=DEPLOY_TIMEOUT,
+        label=f"noust create -d {domain} --no-ssl (its A record is 192.0.2.1: nothing answers there)",
+    )
+    ordered = env.srv(f"noust cert use {domain} --acme --dns cf", timeout=600, check=False)
+    env.check(
+        ordered.returncode == 0,
+        f"choosing the DNS challenge failed:\n{(ordered.stdout + ordered.stderr)[-3000:]}",
+    )
+    env.check(
+        "ordered now" not in ordered.stdout,
+        "an application with no TLS yet was said to be ordered now: only the choice is kept",
+    )
+    first = env.srv(f"noust cert create -d {domain}", timeout=600, check=False)
+    env.check(
+        first.returncode == 0,
+        f"the first DNS-01 certificate failed:\n{(first.stdout + first.stderr)[-3000:]}",
+    )
+    env.check(
+        "now serves it over HTTPS" in first.stdout,
+        f"the site was not written with the certificate that was just ordered: {first.stdout}",
+    )
+    env.check("Pebble" in lineage_issuer(env, domain), "the certificate was not signed by Pebble")
+    env.check(
+        served_chain_verifies(env, domain, root_file) == "200 verify=0",
+        "nginx does not serve the certificate that the DNS challenge ordered",
+    )
+
+    # -- the record: published with its marker, removed afterwards, nothing left in the zone
+    name = f"_acme-challenge.{domain}"
+    made = challenge_records_made(stack, name)
+    env.check(len(made) == 1, f"expected one challenge record published, found {made}")
+    env.check(
+        made[0].get("comment") == "managed-by: noust acme challenge" and made[0]["type"] == "TXT",
+        f"the record has no ownership marker: {made[0]}",
+    )
+    env.check(challenge_records_deleted(stack) >= 1, "the challenge record was never removed")
+    env.check(txt_records(stack, name) == [], "a challenge record is still in the zone")
+
+    # -- the credential is nowhere certbot or Noust keep anything, and the hooks are
+    env.check(
+        token_in_files(env, stack.token) == "",
+        "the provider's token is written in certbot's files or in Noust's configuration",
+    )
+    conf = env.srv(f"cat /etc/letsencrypt/renewal/{domain}.conf").stdout
+    env.check(
+        "manual_auth_hook" in conf and "dns challenge auth" in conf and "--account cf" in conf,
+        f"certbot does not keep the hook that renews it:\n{conf}",
+    )
+    env.check(
+        "manual_cleanup_hook" in conf and "dns challenge cleanup" in conf,
+        "certbot does not keep the cleanup hook",
+    )
+    env.check("pref_challs = dns-01" in conf, "the renewal does not name the DNS challenge")
+
+    # -- a renewal runs the hooks again with nobody there, and replaces the certificate
+    before = live_fingerprint(env, domain)
+    pid = env.srv("systemctl show nginx -p MainPID --value").stdout.strip()
+    env.srv(
+        f"noust cert renew --domain {domain} --force",
+        timeout=600,
+        label="noust cert renew --force (the stored hooks run again)",
+    )
+    env.check(live_fingerprint(env, domain) != before, "the renewal did not change the certificate")
+    env.check(
+        env.srv("systemctl show nginx -p MainPID --value").stdout.strip() == pid,
+        "nginx was restarted by the renewal, not reloaded",
+    )
+    env.check(
+        len(challenge_records_made(stack, name)) == 2,
+        "the renewal did not publish a challenge record of its own",
+    )
+    env.check(txt_records(stack, name) == [], "the renewal left its challenge record in the zone")
+    env.check(
+        served_chain_verifies(env, domain, root_file) == "200 verify=0",
+        "the renewed certificate does not verify",
+    )
+    audited = env.srv("noust audit list --action dns.challenge --json --limit 50").stdout
+    env.check(
+        '"present"' in audited and '"cleanup"' in audited,
+        "the challenge records are not in the audit log",
+    )
+    forget_acme_app(env, domain)
+    env.srv("noust dns provider remove cf -y")
+
+
+@scenario("acme_wildcard_certificate")
+def scenario_acme_wildcard(env: Env) -> None:
+    """A wildcard and its base name are proven together by DNS, served for any label, and renewed (E-34)."""
+    stack = start_acme_stack(env)
+    base = f"wild.{ACME_ZONE}"
+    other = f"api.{base}"
+    forget_acme_app(env, base)
+    forget_acme_app(env, other)
+    root_file = "/root/pebble-root.pem"
+    put_file(SERVER, root_file, pebble_root(env))
+    add_cloudflare_account(env, stack)
+    env.srv(
+        f"noust create -d {base} -s {ECHO_URL} -t nodejs --no-ssl",
+        timeout=DEPLOY_TIMEOUT,
+    )
+
+    # -- the first certificate of the base name is proven by DNS too (nothing answers on its port 80)
+    env.srv(f"noust cert use {base} --acme --dns cf", timeout=600)
+    first = env.srv(f"noust cert create -d {base}", timeout=600)
+    env.check("now serves it over HTTPS" in first.stdout, f"the site stayed plain: {first.stdout}")
+    env.check(
+        served_chain_verifies(env, base, root_file) == "200 verify=0",
+        "the base name is not served with the certificate DNS ordered",
+    )
+    # -- the wildcard joins it: the certificate is extended with both names, one record name,
+    #    two values
+    name = f"_acme-challenge.{base}"
+    made_before = len(challenge_records_made(stack, name))
+    env.srv(f"noust domain add {base} '*.{base}'", timeout=600)
+
+    names = certificate_names(env, base)
+    env.check(
+        f"*.{base}" in names and base in names,
+        f"the certificate does not name the wildcard and its base: {names}",
+    )
+    # -- any label under it is served by the wildcard, chained to the authority
+    for label in ("shop", "anything-at-all"):
+        host = f"{label}.{base}"
+        env.check(
+            served_chain_verifies(env, host, root_file) == "200 verify=0",
+            f"{host} is not served with a certificate that verifies",
+        )
+    # -- the base name and the wildcard share one record name with two values; each was removed
+    made = challenge_records_made(stack, name)[made_before:]
+    env.check(
+        len(made) == 2 and len({record["content"] for record in made}) == 2,
+        f"the wildcard and its base share {name} with two values; saw {made}",
+    )
+    env.check(txt_records(stack, name) == [], "a challenge record of the wildcard is still there")
+    env.check(
+        challenge_records_deleted(stack) >= 3,
+        "the wildcard's records were not both removed after the order",
+    )
+
+    # -- a second application under the wildcard is served by it, without ordering anything
+    env.srv(
+        f"noust create -d {other} -s {ECHO_URL} -t nodejs",
+        timeout=DEPLOY_TIMEOUT + 300,
+        label=f"noust create -d {other} (under the wildcard)",
+    )
+    lineages = env.srv("ls /etc/letsencrypt/live").stdout.split()
+    env.check(
+        other not in lineages, f"an order was spent on a name the wildcard covers: {lineages}"
+    )
+    env.check(
+        served_chain_verifies(env, other, root_file) == "200 verify=0",
+        f"{other} is not served under the wildcard's certificate",
+    )
+
+    # -- the renewal runs the stored hooks and the wildcard still covers everything
+    before = live_fingerprint(env, base)
+    env.srv(
+        f"noust cert renew --domain {base} --force",
+        timeout=900,
+        label="noust cert renew --force (the wildcard)",
+    )
+    env.check(live_fingerprint(env, base) != before, "the wildcard was not renewed")
+    env.check(
+        f"*.{base}" in certificate_names(env, base),
+        "the renewed certificate lost the wildcard",
+    )
+    env.check(
+        served_chain_verifies(env, f"after-renewal.{base}", root_file) == "200 verify=0",
+        "a label under the wildcard does not verify after the renewal",
+    )
+    env.check(txt_records(stack, name) == [], "the renewal left a challenge record in the zone")
+    forget_acme_app(env, other)
+    forget_acme_app(env, base)
+    env.srv("noust dns provider remove cf -y")
+
+
+@scenario("acme_dns01_rfc2136_plugin")
+def scenario_acme_rfc2136(env: Env) -> None:
+    """certbot's own RFC 2136 plugin proves a name by updating a real BIND with a TSIG key (E-33)."""
+    stack = start_acme_stack(env)
+    domain = f"plug.{ACME_ZONE}"
+    forget_acme_app(env, domain)
+    root_file = "/root/pebble-root.pem"
+    put_file(SERVER, root_file, pebble_root(env))
+
+    env.srv(
+        "dpkg -s python3-certbot-dns-rfc2136 >/dev/null 2>&1 || "
+        "apt-get install -y --no-install-recommends python3-certbot-dns-rfc2136",
+        timeout=600,
+        label="(the plugin, as `noust dns provider kinds` says to install it)",
+    )
+    credentials = json.dumps(
+        {
+            "server": stack.dns_ip,
+            "port": "53",
+            "name": stack.tsig_name,
+            "secret": stack.tsig_secret,
+            "algorithm": "HMAC-SHA256",
+        }
+    )
+    env.srv("noust dns provider remove bind -y >/dev/null 2>&1; true", check=False)
+    srv_stdin(
+        env,
+        "noust dns provider add bind --kind rfc2136 --credentials-stdin",
+        credentials,
+        label="noust dns provider add bind --kind rfc2136 --credentials-stdin",
+    )
+    env.srv(
+        f"noust create -d {domain} -s {ECHO_URL} -t nodejs --no-ssl",
+        timeout=DEPLOY_TIMEOUT,
+        label=f"noust create -d {domain} --no-ssl (its A record is 192.0.2.1)",
+    )
+    env.srv(f"noust cert use {domain} --acme --dns bind", timeout=600)
+    ordered = env.srv(f"noust cert create -d {domain}", timeout=600, check=False)
+    env.check(
+        ordered.returncode == 0 and "now serves it over HTTPS" in ordered.stdout,
+        f"the RFC 2136 order failed:\n{(ordered.stdout + ordered.stderr)[-3000:]}",
+    )
+    env.check("Pebble" in lineage_issuer(env, domain), "the certificate was not signed by Pebble")
+    env.check(
+        served_chain_verifies(env, domain, root_file) == "200 verify=0",
+        "nginx does not serve the certificate the RFC 2136 plugin ordered",
+    )
+    # -- the TSIG secret lives in a 0600 file certbot's plugin reads, and nowhere world-readable
+    modes = env.srv(
+        "find /var/lib/noust /root/.local/share/noust /etc/noust -path '*/secrets/dns/*' -type f "
+        "-printf '%m %p\\n' 2>/dev/null",
+        check=False,
+    ).stdout
+    env.check(
+        modes.strip() != "" and all(line.startswith("600 ") for line in modes.splitlines()),
+        f"the credentials file is readable beyond root: {modes!r}",
+    )
+    leak = srv_stdin(
+        env,
+        "grep -rIlF -f /dev/stdin /etc/letsencrypt /var/log/letsencrypt /etc/noust/config.yaml "
+        "2>/dev/null | head",
+        stack.tsig_secret,
+        label="grep the TSIG secret in certbot's files and in Noust's configuration",
+        check=False,
+    )
+    env.check(leak.stdout.strip() == "", f"the TSIG secret is in: {leak.stdout.strip()}")
+    # -- the renewal reuses the plugin and the credentials file
+    before = live_fingerprint(env, domain)
+    env.srv(f"noust cert renew --domain {domain} --force", timeout=600)
+    env.check(live_fingerprint(env, domain) != before, "the renewal did not change the certificate")
+    env.check(
+        txt_records(stack, f"_acme-challenge.{domain}") == [],
+        "the plugin left a challenge record in BIND",
+    )
+    forget_acme_app(env, domain)
+    env.srv("noust dns provider remove bind -y")
+
+
+# ---------------------------------------------------------------------------
 # More scenarios are added below, one per proof.
 # ---------------------------------------------------------------------------
 
@@ -2856,6 +3742,9 @@ def main() -> int:
             print(f"\n=== {name} ===")
             attempted += 1
             env.evidence = []
+            if (_STACK is not None or _CLIENT_STOPPED) and not name.startswith("acme_"):
+                # Pebble and the DNS container took the visitor's place: give it back.
+                stop_acme_stack(env)
             status, detail = "PASS", ""
             try:
                 fn(env)
@@ -2871,6 +3760,8 @@ def main() -> int:
             print(f"{status}: {name}" + (f": {detail}" if detail else ""))
             write_evidence(args.evidence_dir, name, status, env, detail)
     finally:
+        if _STACK is not None or _CLIENT_STOPPED:
+            stop_acme_stack(env)
         if args.keep:
             print(f"\n[teardown] --keep given: {SERVER} and {CLIENT} stay up")
         else:
