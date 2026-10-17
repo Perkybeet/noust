@@ -120,12 +120,10 @@ def test_what_is_not_an_address_or_carries_credentials_is_refused(url: str) -> N
     assert caught.value.field == "url"
 
 
-def test_plaintext_to_another_machine_is_refused_under_the_ens_profile(
-    monkeypatch: pytest.MonkeyPatch,
+def test_plaintext_to_another_machine_is_refused_where_the_control_is_on(
+    real_config: Any,
 ) -> None:
-    from noust.core.ens import profile
-
-    monkeypatch.setattr(profile, "is_ens", lambda config=None: True)
+    real_config.set("security.log_shipping_tls", True)
 
     with pytest.raises(ValidationError, match="only over TLS"):
         check_url("http://logs.example.com")

@@ -51,7 +51,7 @@ function wizard(extra: Record<string, RouteHandler> = {}) {
   return { backend, harness: renderConsole("/apps/new") };
 }
 
-async function openAdopt(user: ReturnType<typeof renderConsole>["user"], mode = "A running stack") {
+async function openAdopt(user: ReturnType<typeof renderConsole>["user"], mode = "Already running") {
   await screen.findByRole("heading", { level: 1, name: /New application|Nueva aplicación/ });
   await user.click(await screen.findByRole("radio", { name: mode }));
 }
@@ -173,7 +173,7 @@ describe("adopting a running stack from New application", { timeout: 20_000 }, (
   it("speaks Spanish", async () => {
     await act(() => setLocale("es"));
     const { harness } = wizard();
-    await openAdopt(harness.user, "Stack en marcha");
+    await openAdopt(harness.user, "Ya en marcha");
     expect(await screen.findByRole("textbox", { name: "Directorio" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Previsualizar" })).toBeInTheDocument();
   });

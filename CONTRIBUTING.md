@@ -151,6 +151,8 @@ tests/integration/run.py    real deploys in a systemd container (Docker); not pa
 tests/integration/install_matrix.py   the installer on one container per release; not part of pytest
 tests/integration/terraform_run.py    the provider and the Python SDK against the live API of
                             scripts/console_server.py, Go and Terraform in containers; not part of pytest
+tests/integration/identity.py         SAML, OpenID Connect, LDAP and SCIM against Keycloak, OpenLDAP and a
+                            SCIM conformance client; not part of pytest
 packaging/install.sh        the one-line installer (POSIX sh, shellcheck-clean), published with a
                             signed SHA256SUMS; its platform table is generated, never edited
 ```

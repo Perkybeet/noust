@@ -45,7 +45,7 @@ import os
 import sqlite3
 import threading
 import time
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -53,7 +53,9 @@ from pathlib import Path
 from noust.core import paths
 from noust.core.exceptions import ValidationError
 from noust.core.logger import Logger
+from noust.monitor import traffic_store
 from noust.monitor.process_samples import ProcessSample
+from noust.monitor.traffic_digest import HourCounts
 
 #: Where the database lives when Noust is installed system-wide.
 SYSTEM_DB_PATH = paths.state_dir() / "metrics.db"
@@ -669,6 +671,7 @@ class MetricsStore:
             dropped += conn.execute(
                 "DELETE FROM monitor_events WHERE ts < ?", (hour_cutoff,)
             ).rowcount
+            dropped += traffic_store.purge(conn, now_ts, self.retention_days)
             # A metric that has been silent for a day (a deleted application)
             # stops costing a row in the newest-reading table.
             conn.execute("DELETE FROM latest WHERE ts < ?", (now_ts - 86_400,))
@@ -1326,6 +1329,35 @@ class MetricsStore:
                 if path not in wanted:
                     conn.execute("DELETE FROM log_cursors WHERE path = ?", (path,))
 
+    # ------------------------------------------------------- a site's traffic
+
+    def add_traffic(self, app: str, hours: Mapping[int, HourCounts]) -> None:
+        """
+        Add what some access log lines said to the hours they belong to.
+
+        Args:
+            app: The application.
+            hours: Counts by hour, as :func:`noust.monitor.traffic_digest.analyse` gives them.
+        """
+        traffic_store.add(self._get_connection(), app, hours)
+
+    def traffic_summary(
+        self, app: str, start: int, end: int, *, top: int = 10
+    ) -> traffic_store.TrafficSummary:
+        """
+        Read a site's traffic over a window.
+
+        Args:
+            app: The application.
+            start: Start of the window, epoch seconds.
+            end: End of the window.
+            top: How many keys each ranking answers with.
+
+        Returns:
+            The traffic by hour or by day, the totals and the rankings.
+        """
+        return traffic_store.summary(self._get_connection(), app, start, end, top=top)
+
     # --------------------------------------------- processes and monitor events
 
     @staticmethod
@@ -1369,6 +1401,7 @@ class MetricsStore:
             """
         )
         conn.execute("CREATE INDEX IF NOT EXISTS monitor_events_by_time ON monitor_events (ts)")
+        traffic_store.create_tables(conn)
 
     def record_process_samples(self, samples: Sequence[ProcessSample]) -> None:
         """

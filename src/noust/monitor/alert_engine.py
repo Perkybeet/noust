@@ -38,7 +38,11 @@ from noust.core.alerts.model import AlertRule, MetricSpec, Reading, format_value
 from noust.core.alerts.rules import FIRING, OK, AlertRules, AlertState
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.messages import message
-from noust.core.notifications.composers_ops import compose_alert_firing, compose_alert_resolved
+from noust.core.notifications.composers_ops import (
+    compose_alert_acknowledged,
+    compose_alert_firing,
+    compose_alert_resolved,
+)
 from noust.core.notifications.context import NotificationContext
 from noust.core.notifications.model import Notification
 from noust.monitor.timeseries import MetricsStore
@@ -404,7 +408,8 @@ class AlertEngine:
         report: EvaluationReport,
     ) -> None:
         """
-        An episode goes on: remind when the rule asks to, once per cooldown.
+        An episode goes on: remind when the rule asks to, once per cooldown,
+        unless somebody took it.
 
         Args:
             rule: The rule.
@@ -418,6 +423,7 @@ class AlertEngine:
             rule.remind
             and rule.cooldown_s > 0
             and state.announced
+            and state.acknowledged_at is None
             and state.announced_at is not None
             and now - state.announced_at >= rule.cooldown_s
         )
@@ -473,6 +479,84 @@ class AlertEngine:
                 announced_at=state.announced_at,
             )
         )
+
+
+def _acknowledged(
+    rule: AlertRule,
+    subject: str,
+    who: str,
+    firing_for: float,
+    ctx: NotificationContext,
+) -> Notification:
+    """
+    Compose the notification that says somebody took an alert.
+
+    Args:
+        rule: The rule.
+        subject: The application, or empty for the server.
+        who: Who took it.
+        firing_for: Seconds it had been firing.
+        ctx: The context.
+
+    Returns:
+        The notification.
+    """
+    return compose_alert_acknowledged(
+        rule.name,
+        _label(rule, subject, ctx),
+        format_value(rule.spec.unit, rule.threshold, limit=True),
+        who,
+        firing_for,
+        ctx,
+        subject=subject or None,
+        domain=subject or None,
+    )
+
+
+def acknowledge_alert(
+    rules: AlertRules,
+    name: str,
+    subject: str = "",
+    *,
+    by: str,
+    publish: Publish | None = None,
+    clock: Callable[[], float] = time.time,
+) -> AlertState:
+    """
+    Take an alert that is firing: stop its reminders and tell the channels who did.
+
+    The one acknowledgement the CLI, the API and the console go through. A pager
+    channel hears it as the acknowledgement of the incident the firing opened.
+    Taking an alert that is already taken tells nobody twice.
+
+    Args:
+        rules: Where the rules and their states are.
+        name: The rule.
+        subject: The application, or empty for the server.
+        by: Who takes it.
+        publish: Composes a notification from the context and delivers it; the
+            notifier's own when None.
+        clock: Epoch seconds, for how long it had been firing.
+
+    Returns:
+        The state, acknowledged.
+
+    Raises:
+        ValidationError: No such rule, or the subject is not firing now.
+    """
+    rule = rules.require(name)
+    state, took = rules.acknowledge(name, subject, by=by)
+    if took:
+        if publish is None:
+            from noust.core.notifier import notify_composed
+
+            publish = notify_composed
+        publish(
+            partial(
+                _acknowledged, rule, subject, state.acknowledged_by or by, clock() - state.since
+            )
+        )
+    return state
 
 
 def subjects_of(rules: Iterable[AlertRule]) -> set[str]:

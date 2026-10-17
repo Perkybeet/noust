@@ -333,6 +333,87 @@ class TestRunning:
             schedule.run(trigger="whenever")
 
 
+class TestTellingTheOperator:
+    """K-19: a cleanup the timer ran is told to the channels, with how it ended."""
+
+    @pytest.fixture
+    def told(self, monkeypatch: pytest.MonkeyPatch) -> list[Any]:
+        built: list[Any] = []
+        monkeypatch.setattr("noust.core.notifier.notify_composed", built.append)
+        return built
+
+    @staticmethod
+    def message(build: Any) -> Any:
+        from tests.notifications_support import context
+
+        return build(context("en"))
+
+    def test_a_run_that_freed_space_is_told_as_a_success_that_ships_off(
+        self, schedule: CleanupSchedule, told: list[Any]
+    ):
+        schedule.set_policy(policy(actions=["pkg-cache"], threshold_percent=0))
+
+        schedule.run(trigger="schedule")
+
+        (note,) = (self.message(build) for build in told)
+        assert (note.kind, note.code, note.state.value) == (
+            "cleanup_success",
+            "cleanup.completed",
+            "ok",
+        )
+        assert note.subject == "/"
+
+    def test_a_failure_carries_the_tools_own_words(
+        self, schedule: CleanupSchedule, runner: FakeRunner, told: list[Any]
+    ):
+        runner.script(["apt-get", "clean"], stdout="E: Could not open lock", exit_code=100)
+        schedule.set_policy(policy(actions=["pkg-cache"], threshold_percent=0))
+
+        schedule.run(trigger="schedule")
+
+        (note,) = (self.message(build) for build in told)
+        assert (note.kind, note.code, note.state.value) == (
+            "cleanup_failed",
+            "cleanup.failed",
+            "failed",
+        )
+        assert note.excerpt is not None and "Could not open lock" in "\n".join(note.excerpt.lines)
+
+    def test_some_actions_failing_is_a_warning_under_the_failure_switch(
+        self, schedule: CleanupSchedule, runner: FakeRunner, told: list[Any]
+    ):
+        runner.script(["apt-get", "clean"], stdout="E: lock", exit_code=100)
+        schedule.set_policy(policy(actions=["pkg-cache", "journal"], threshold_percent=0))
+
+        schedule.run(trigger="schedule")
+
+        (note,) = (self.message(build) for build in told)
+        assert (note.kind, note.code, note.state.value) == (
+            "cleanup_failed",
+            "cleanup.partial",
+            "warning",
+        )
+
+    def test_a_run_that_found_the_disk_below_the_threshold_says_nothing(
+        self, schedule: CleanupSchedule, disk: Disk, told: list[Any]
+    ):
+        disk.percent = 10.0
+        schedule.set_policy(policy(threshold_percent=80))
+
+        schedule.run(trigger="schedule")
+
+        assert told == []
+
+    def test_a_cleanup_an_operator_asked_for_is_not_announced_to_them(
+        self, schedule: CleanupSchedule, told: list[Any]
+    ):
+        schedule.set_policy(policy(actions=["pkg-cache"], threshold_percent=0))
+
+        schedule.run(trigger="policy", force=True, actor="ana")
+
+        assert told == []
+
+
 class TestTheHistory:
     def test_a_cleanup_by_hand_leaves_a_row_with_the_disk_before_and_after(
         self, schedule: CleanupSchedule, disk: Disk

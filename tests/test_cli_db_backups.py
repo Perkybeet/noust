@@ -434,8 +434,14 @@ class TestBackupRun:
         engine: type[BaseDatabaseManager],
         systemd_dir: Path,
         monkeypatch: pytest.MonkeyPatch,
+        real_config,
     ) -> None:
-        monkeypatch.setattr("noust.cli.audit_policy.security_profile", lambda: "ens-medium")
+        from noust.core.audit import failclosed
+
+        real_config.set("security.frameworks", ["ens-media"])
+        # ENS MEDIA also refuses changes while the trail cannot be written; what is under
+        # test here is the reason, so the trail is taken as writable.
+        monkeypatch.setattr(failclosed, "refusal", lambda config=None: None)
         invoke(cli_runner, "backup-schedule", "set", "shop", "-e", "postgresql", "--reason", "test")
         line = next(
             row

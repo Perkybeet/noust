@@ -142,10 +142,14 @@ def test_under_the_ens_profile_reading_needs_no_reason_and_changing_still_does(
     machine,  # noqa: F811
     units_directory: Path,
     monkeypatch: pytest.MonkeyPatch,
+    real_config,
 ) -> None:
-    from noust.cli import audit_policy
+    from noust.core.audit import failclosed
 
-    monkeypatch.setattr(audit_policy, "security_profile", lambda: "ens-medium")
+    real_config.set("security.frameworks", ["ens-media"])
+    # ENS MEDIA also refuses changes while the trail cannot be written; what is under
+    # test here is the reason, so the trail is taken as writable.
+    monkeypatch.setattr(failclosed, "refusal", lambda config=None: None)
 
     for reading in (["show"], ["history"]):
         result = run(reading)

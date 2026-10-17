@@ -394,8 +394,22 @@ from 3.1 on is not accepted where sudo mode is asked unless it was issued with
 behaviour and are adopted by the first `admin` account; fleet tokens belong to a central and are
 never adopted. Tokens start with `noust_tok_` (`wasm_tok_` before 3.0; those keep working), are
 shown once, and only their salted hash is kept. `noust token list` shows every token ever
-issued, live and revoked, without the token itself; `noust token revoke ID` takes effect on the
-next request.
+issued, live and revoked, without the token itself, and where each is accepted from;
+`noust token revoke ID` takes effect on the next request.
+
+*Where a token works from* is chosen at issue (`noust token create --allow-ip ADDR/CIDR`, repeatable)
+and can be changed on a live token without issuing another and breaking what uses it:
+`noust token set ID --allow-ip ADDR/CIDR` replaces the list and `--any-ip` lifts it, in the console's
+Settings > API tokens too (`PATCH /api/auth/tokens/{id}`). Taking addresses away is immediate;
+adding some or lifting the limit asks for sudo mode, because it widens what a stolen token can do.
+A person changes their own tokens and nobody else's, and each change is on the audit trail
+(`auth.token.update`) with the networks before and after.
+
+*Turning the API off for tokens.* A server whose scripts do not use the API can set
+`web.api_enabled: false`: every API token then gets `403 api_disabled`, while the console (which
+signs in with a session) carries on and a central's fleet token keeps working, because that is how a
+central reaches its node. It is read on every request, so it applies without a restart; a value that
+cannot be read leaves the API on rather than lock scripts out over a typo.
 
 **Sessions.** Signing in creates a server-side session in `/etc/noust/web-sessions.db`.
 
@@ -476,13 +490,22 @@ once in `noust.web.permissions.roles`:
 | `audit.read`, `audit.manage` | The whole audit log; its retention and destinations | | | | both | read |
 | `compliance.read` | `noust ens check` and `report` | | | yes | yes | yes |
 
-- **Separation of duties.** One person (`person_ref`) may not hold `admin` or `operator` together
-  with `security`, nor `auditor` with any other role. `noust user exception add` records a
-  documented exception, with a reason and an end date, for a small installation with one
-  responsible person.
+- **By default an `admin` holds every permission** above, including `security.manage`,
+  `accounts.*` and `audit.*`: a person running their own servers needs one account, not three.
+  The columns above are the matrix the ENS review decided and the one in force where the
+  `roles_split` control is on (ENS, ISO/IEC 27001 and SOC 2 ask for it): there `security` and
+  `auditor` govern and `admin` does not. The server decides what a role holds, by its own controls
+  (`noust.web.permissions.roles.permissions_for_role`); a central forwards a role *name* and a node
+  grants what its own profile gives it. Nobody changes or elevates their own account, whatever the
+  profile: another administrator, or `root` at the terminal, does.
+- **Separation of duties.** Where the `separation_of_duties` control is on
+  (`security.separation_of_duties`, or a framework that asks for it), one person (`person_ref`)
+  may not hold `admin` or `operator` together with `security`, nor `auditor` with any other role.
+  `noust user exception add` records a documented exception, with a reason and an end date, for a
+  small installation with one responsible person. Off by default.
 - **Credentials that are not accounts.** The master token holds everything while no account
-  exists, everything but `audit.manage` afterwards, and only account recovery under the ENS
-  profile. A 3.0 token keeps its scope: `read` is a viewer, `deploy` a viewer that may also
+  exists, everything but `audit.manage` afterwards, and only account recovery where the
+  `master_token` control is on (ENS MEDIA and others ask for it). A 3.0 token keeps its scope: `read` is a viewer, `deploy` a viewer that may also
   deploy, `admin` everything. An unknown role or scope is worth a viewer's permissions, never
   more.
 - **Sudo mode and approvals come on top of the permission**, never instead of it.
@@ -492,7 +515,8 @@ once in `noust.web.permissions.roles`:
 - **Roles are held where they are given** (3.4). A role can be given on an environment, a project,
   a team or the whole server, and holds only there; roles of your own can be defined from the
   permissions above, which never mix governing with running the server. Under the ENS profile an
-  account has one role and none is given on the whole server. All of it is checked in one place
+  account has one role and none is given on the whole server (the `single_role_per_account`
+  control, which a framework can ask for). All of it is checked in one place
   (`noust.web.permissions.access`), whoever asks: the console, the API or `noust access`. See
   [Roles where they are needed](teams.md#roles-where-they-are-needed).
 - **Passwords can be turned off for single sign-on** (`auth.local_login.enabled`): only the accounts
@@ -566,6 +590,33 @@ scheme, host and port it was stored for (`GIT_CONFIG_COUNT` with
 receives it. The next forced update or cache sync rewrites the checkout's `origin` without
 it, and every error, log line and piece of git output Noust relays has URL credentials
 replaced by `***`. This needs git 2.31 or later, which every supported distribution ships.
+
+### Acting as another person
+
+Noust has no "sign in as" or "impersonate" button, and that is a decision, not a gap (checklist I-15).
+Every action in the audit trail is attributed to one person who proved who they are with their own
+second factor. A session in which an administrator acts as somebody else breaks that twice: the log
+says that person did something they did not, and their second factor, which sudo mode and the
+four-eyes approvals rely on, would be vouched for by someone else's. A product that offers it must also
+promise that it never happens silently, and that is a promise about every code path that reads a
+principal; Noust keeps its principals simple instead.
+
+What a support question usually needs is one of these, and each leaves the trail honest:
+
+* **What does she hold, and where?** `noust access list --user maria` (her bindings), `noust team
+  members TEAM` and `noust user list`; in the console, Settings > Roles and access and
+  Settings > Accounts. A resource of another team reads as absent (`404`) to her by design, and so
+  does a project she holds no role in.
+* **What does she see?** As root on the server, issue a read-only, short-lived token that acts for her
+  and nothing more: `noust token create look-at-maria --scope read --owner maria --expires-hours 1`,
+  optionally bound with `--team`, `--project` and `--env`. It holds at most what she holds, can never
+  write or confirm sudo mode, shows up in `noust token list`, and every request it makes is attributed
+  to `token:look-at-maria`, with the issue on the trail naming who issued it. `noust token revoke`
+  ends it.
+* **Reproduce it as her.** Make a second account with the same role and bindings and sign in as that.
+
+An administrator who must act for a person who cannot (a leaver's last deploy) does it as themselves:
+the audit trail then says who did it and why (`--reason`).
 
 ## Sudo mode
 

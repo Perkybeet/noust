@@ -29,6 +29,19 @@ export function removeAlertRule(name: string) {
   return request("delete", "/api/alerts/rules/{name}", { params: { name } });
 }
 
+/**
+ * Takes an alert that is firing: its reminders stop, the channels are told who took it and a pager
+ * acknowledges the incident. `subject` is the application, or empty for the server's.
+ */
+export function acknowledgeAlert(name: string, subject: string) {
+  return request("post", "/api/alerts/rules/{name}/acknowledge", { params: { name }, query: { subject } });
+}
+
+/** Hands a taken alert back: its reminder speaks again. */
+export function handBackAlert(name: string, subject: string) {
+  return request("delete", "/api/alerts/rules/{name}/acknowledge", { params: { name }, query: { subject } });
+}
+
 export function switchAlertRule(name: string, enabled: boolean) {
   return enabled
     ? request("post", "/api/alerts/rules/{name}/enable", { params: { name } })

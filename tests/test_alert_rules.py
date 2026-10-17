@@ -286,3 +286,113 @@ class TestStoring:
 
         rules.forget(saved.id, "shop.example.com")
         assert rules.state(saved.id, "shop.example.com") is None
+
+
+class TestAcknowledging:
+    def firing(self, rules: AlertRules, clock: Clock, subject: str = "") -> int:
+        saved = rules.save(rule())
+        assert saved.id is not None
+        rules.put_state(
+            AlertState(saved.id, subject, FIRING, clock.now - 600, 95.0, announced=True)
+        )
+        return saved.id
+
+    def test_a_firing_alert_is_taken_by_somebody_at_a_time(
+        self, rules: AlertRules, clock: Clock
+    ) -> None:
+        self.firing(rules, clock)
+
+        state, took = rules.acknowledge("cpu-high", by="alice")
+
+        assert took is True
+        assert (state.acknowledged_by, state.acknowledged_at) == ("alice", clock.now)
+        assert rules.states()[0].acknowledged_by == "alice"
+        assert state.to_dict()["acknowledged_by"] == "alice"
+
+    def test_taking_it_again_changes_nothing_and_the_first_name_stays(
+        self, rules: AlertRules, clock: Clock
+    ) -> None:
+        self.firing(rules, clock)
+        rules.acknowledge("cpu-high", by="alice")
+        clock.now += 60
+
+        state, took = rules.acknowledge("cpu-high", by="bob")
+
+        assert took is False
+        assert (state.acknowledged_by, state.acknowledged_at) == ("alice", clock.now - 60)
+
+    def test_an_application_alert_is_taken_by_application(
+        self, rules: AlertRules, clock: Clock
+    ) -> None:
+        rule_id = self.firing(rules, clock, "shop.example.com")
+        rules.put_state(AlertState(rule_id, "blog.example.com", FIRING, clock.now, 95.0))
+
+        rules.acknowledge("cpu-high", "shop.example.com", by="alice")
+
+        taken = {s.subject: s.acknowledged_by for s in rules.states()}
+        assert taken == {"shop.example.com": "alice", "blog.example.com": None}
+
+    def test_what_is_not_firing_cannot_be_taken(self, rules: AlertRules, clock: Clock) -> None:
+        rule_id = self.firing(rules, clock)
+        rules.put_state(AlertState(rule_id, "", "ok", clock.now, 40.0))
+
+        with pytest.raises(ValidationError, match="not firing") as raised:
+            rules.acknowledge("cpu-high", by="alice")
+        assert raised.value.field == "subject"
+        with pytest.raises(ValidationError, match="not firing"):
+            rules.acknowledge("cpu-high", "other.example.com", by="alice")
+        with pytest.raises(ValidationError, match="not firing"):
+            rules.unacknowledge("cpu-high")
+
+    def test_a_rule_that_does_not_exist_is_named(self, rules: AlertRules) -> None:
+        with pytest.raises(ValidationError, match="No alert rule named 'nope'") as raised:
+            rules.acknowledge("nope", by="alice")
+        assert raised.value.field == "name"
+        with pytest.raises(ValidationError, match="No alert rule named"):
+            rules.unacknowledge("nope")
+
+    def test_the_engine_writing_the_state_again_does_not_undo_it(
+        self, rules: AlertRules, clock: Clock
+    ) -> None:
+        rule_id = self.firing(rules, clock)
+        rules.acknowledge("cpu-high", by="alice")
+
+        # The engine read the state before the acknowledgement and writes it after.
+        rules.put_state(AlertState(rule_id, "", FIRING, clock.now - 600, 97.0, announced=True))
+
+        state = rules.state(rule_id, "")
+        assert state is not None and state.acknowledged_by == "alice"
+        assert state.last_value == 97.0
+
+    def test_the_end_of_the_alert_and_a_new_one_start_without_it(
+        self, rules: AlertRules, clock: Clock
+    ) -> None:
+        rule_id = self.firing(rules, clock)
+        rules.acknowledge("cpu-high", by="alice")
+
+        rules.put_state(AlertState(rule_id, "", "ok", clock.now, 40.0))
+        cleared = rules.state(rule_id, "")
+        rules.put_state(AlertState(rule_id, "", FIRING, clock.now, 95.0, announced=True))
+        again = rules.state(rule_id, "")
+
+        assert cleared is not None and cleared.acknowledged_at is None
+        assert again is not None and (again.acknowledged_at, again.acknowledged_by) == (None, None)
+
+    def test_it_can_be_handed_back(self, rules: AlertRules, clock: Clock) -> None:
+        self.firing(rules, clock)
+        rules.acknowledge("cpu-high", by="alice")
+
+        state = rules.unacknowledge("cpu-high")
+
+        assert (state.acknowledged_at, state.acknowledged_by) == (None, None)
+        _again, took = rules.acknowledge("cpu-high", by="bob")
+        assert took is True
+
+    def test_the_name_is_one_short_line(self, rules: AlertRules, clock: Clock) -> None:
+        self.firing(rules, clock)
+
+        state, _took = rules.acknowledge("cpu-high", by="  alice \n  smith  " + "x" * 200)
+
+        assert state.acknowledged_by is not None
+        assert "\n" not in state.acknowledged_by and len(state.acknowledged_by) <= 80
+        assert state.acknowledged_by.startswith("alice smith")

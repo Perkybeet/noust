@@ -21,6 +21,7 @@ from noust.web.api.mounts import router as mounts_router
 from noust.web.api.pending import router as pending_router
 from noust.web.api.processes import router as processes_router
 from noust.web.api.replicas import router as replicas_router
+from noust.web.api.tuning import router as tuning_router
 
 router = APIRouter(route_class=NoustErrorRoute)
 router.include_router(files_router)
@@ -29,3 +30,4 @@ router.include_router(mounts_router)
 router.include_router(pending_router)
 router.include_router(processes_router)
 router.include_router(replicas_router)
+router.include_router(tuning_router)

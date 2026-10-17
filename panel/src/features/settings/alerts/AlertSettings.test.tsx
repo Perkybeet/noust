@@ -22,6 +22,8 @@ interface RuleState {
   since: number;
   last_value: number | null;
   announced: boolean;
+  acknowledged_at?: number | null;
+  acknowledged_by?: string | null;
 }
 
 function rule(name: string, extra: Record<string, unknown> = {}) {
@@ -54,7 +56,7 @@ const FIRING = rule("shop-memory", {
   threshold: 536_870_912,
   app_domain: "shop.example.com",
   severity: "failed",
-  states: [{ subject: "shop.example.com", state: "firing", since: NOW - 600, last_value: 620_000_000, announced: true }],
+  states: [{ subject: "shop.example.com", state: "firing", since: NOW - 600, last_value: 620_000_000, announced: true, acknowledged_at: null, acknowledged_by: null }],
 });
 
 function configBody() {
@@ -89,6 +91,22 @@ function alertsBackend(rules: ReturnType<typeof rule>[] = [rule("cpu-high"), FIR
     "DELETE /api/alerts/rules/cpu-high": () => {
       held = held.filter((item) => item.name !== "cpu-high");
       return new Response(null, { status: 204 });
+    },
+    "POST /api/alerts/rules/shop-memory/acknowledge": (call) => {
+      held = held.map((item) =>
+        item.name === "shop-memory"
+          ? { ...item, states: item.states.map((state) => (state.subject === call.search.get("subject") ? { ...state, acknowledged_by: "alice", acknowledged_at: NOW - 30 } : state)) }
+          : item,
+      );
+      return json(200, held.find((item) => item.name === "shop-memory"));
+    },
+    "DELETE /api/alerts/rules/shop-memory/acknowledge": (call) => {
+      held = held.map((item) =>
+        item.name === "shop-memory"
+          ? { ...item, states: item.states.map((state) => (state.subject === call.search.get("subject") ? { ...state, acknowledged_by: null, acknowledged_at: null } : state)) }
+          : item,
+      );
+      return json(200, held.find((item) => item.name === "shop-memory"));
     },
     "POST /api/auth/elevate": () => {
       elevated = true;
@@ -136,6 +154,31 @@ describe("Settings > Alerts", () => {
     expect(within(firing).getByText("Firing")).toHaveAttribute("data-state", "failed");
     expect(firing.textContent).toContain("shop.example.com reads 591 MB, firing");
     await expectNoAxeViolations(container);
+  });
+
+  it("takes a firing alert, shows who has it and hands it back", { timeout: 30_000 }, async () => {
+    const backend = alertsBackend();
+    const { user } = renderConsole("/settings/alerts");
+    await screen.findByRole("list", { name: "Alert rules" });
+    const firing = ruleRow("shop-memory");
+    // Nothing is taken yet, and a rule that is fine has nothing to take.
+    expect(within(firing).queryByText(/Taken by/)).toBeNull();
+    expect(within(ruleRow("cpu-high")).queryByRole("button", { name: /Take the alert/ })).toBeNull();
+
+    await user.click(within(firing).getByRole("button", { name: "Take the alert for shop.example.com" }));
+
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/alerts/rules/shop-memory/acknowledge")).toHaveLength(1);
+    });
+    expect(backend.callsTo("POST /api/alerts/rules/shop-memory/acknowledge")[0]?.search.get("subject")).toBe("shop.example.com");
+    // Who has it, with the button turned into the way back.
+    expect(await within(ruleRow("shop-memory")).findByText(/Taken by/)).toHaveTextContent(/Taken by\s+alice/);
+    await user.click(within(ruleRow("shop-memory")).getByRole("button", { name: "Hand the alert for shop.example.com back" }));
+    await waitFor(() => {
+      expect(backend.callsTo("DELETE /api/alerts/rules/shop-memory/acknowledge")).toHaveLength(1);
+    });
+    expect(await within(ruleRow("shop-memory")).findByRole("button", { name: "Take the alert for shop.example.com" })).toBeInTheDocument();
+    expect(within(ruleRow("shop-memory")).queryByText(/Taken by/)).toBeNull();
   });
 
   it("explains what a rule is when there is none", { timeout: 20_000 }, async () => {

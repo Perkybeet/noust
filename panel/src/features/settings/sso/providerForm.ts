@@ -13,16 +13,11 @@ export type Provisioning = (typeof PROVISIONING)[number];
 /** The roles an account created by a sign-in may hold; a person gives `security` and `auditor`. */
 export const CREATED_ROLES = ["viewer", "operator", "admin"] as const;
 
-export interface ProviderDraft {
-  name: string;
-  label: string;
-  issuer: string;
-  clientId: string;
-  /** What was typed: empty keeps the stored one. */
-  clientSecret: string;
-  clearSecret: boolean;
-  enabled: boolean;
-  scopes: string;
+/**
+ * What every source of identities decides in the same way (the server has one implementation of
+ * it): who may come in, what a new account starts as, and what each group means.
+ */
+export interface AdmissionDraft {
   provisioning: Provisioning;
   defaultRole: string;
   defaultTeam: string;
@@ -35,22 +30,12 @@ export interface ProviderDraft {
   requireAmr: string;
   groupSync: boolean;
   groupsClaim: string;
-  /** One `GROUP=ROLE` or `GROUP=TEAM:ROLE` per line. */
+  /** One `GROUP=ROLE`, `GROUP=TEAM:ROLE` or `GROUP=ROLE@TEAM/PROJECT` per line. */
   mappings: string;
-  clockSkew: string;
-  redirectUri: string;
 }
 
-/** The defaults of a provider nobody configured yet, as the server's own are. */
-export const NEW_DRAFT: ProviderDraft = {
-  name: "",
-  label: "",
-  issuer: "",
-  clientId: "",
-  clientSecret: "",
-  clearSecret: false,
-  enabled: true,
-  scopes: "openid email profile",
+/** The defaults of the shared part, as the server's own are. */
+export const NEW_ADMISSION: AdmissionDraft = {
   provisioning: "off",
   defaultRole: "viewer",
   defaultTeam: "",
@@ -63,6 +48,33 @@ export const NEW_DRAFT: ProviderDraft = {
   groupSync: false,
   groupsClaim: "groups",
   mappings: "",
+};
+
+export interface ProviderDraft extends AdmissionDraft {
+  name: string;
+  label: string;
+  issuer: string;
+  clientId: string;
+  /** What was typed: empty keeps the stored one. */
+  clientSecret: string;
+  clearSecret: boolean;
+  enabled: boolean;
+  scopes: string;
+  clockSkew: string;
+  redirectUri: string;
+}
+
+/** The defaults of a provider nobody configured yet, as the server's own are. */
+export const NEW_DRAFT: ProviderDraft = {
+  ...NEW_ADMISSION,
+  name: "",
+  label: "",
+  issuer: "",
+  clientId: "",
+  clientSecret: "",
+  clearSecret: false,
+  enabled: true,
+  scopes: "openid email profile",
   clockSkew: "60",
   redirectUri: "",
 };
@@ -75,10 +87,23 @@ export function splitList(text: string): string[] {
     .filter((part) => part !== "");
 }
 
-/** `ops=admin` and `devs=acme:operator`, one per line: what each group of the provider means. */
+/** The `TEAM/PROJECT/ENVIRONMENT` a role is held at: what is named, in order. */
+function scopeOf(mapping: SsoGroupMapping): string {
+  return [mapping.team, mapping.project, mapping.environment]
+    .filter((part): part is string => part !== null && part !== undefined && part !== "")
+    .join("/");
+}
+
+/**
+ * `ops=admin`, `devs=acme:operator` and `release=release-manager@acme/web`, one per line: what each
+ * group of the provider means. A role on the server, a membership of a team, a role held at a scope.
+ */
 export function formatMappings(mappings: readonly SsoGroupMapping[]): string {
   return mappings
     .map((mapping) => {
+      if (mapping.bind !== null && mapping.bind !== undefined && mapping.bind !== "") {
+        return `${mapping.group}=${mapping.bind}@${scopeOf(mapping)}`;
+      }
       const meaning =
         mapping.team !== null && mapping.team !== undefined
           ? `${mapping.team}:${mapping.team_role ?? ""}`
@@ -91,9 +116,10 @@ export function formatMappings(mappings: readonly SsoGroupMapping[]): string {
 export type ParsedMappings = { mappings: SsoGroupMapping[]; error: null } | { mappings: null; error: number };
 
 /**
- * The lines of a mappings box as the API takes them. A line that is not `GROUP=ROLE` or
- * `GROUP=TEAM:ROLE` is refused by its number, so the form can point at it; whether the role or
- * the team exists is the server's to say.
+ * The lines of a mappings box as the API takes them. A line that is not `GROUP=ROLE`,
+ * `GROUP=TEAM:ROLE` or `GROUP=ROLE@TEAM/PROJECT` is refused by its number, so the form can point
+ * at it; whether the role or the team exists is the server's to say. The group is everything
+ * before the last `=`: a directory's group is a name with `=` in it.
  */
 export function parseMappings(text: string): ParsedMappings {
   const mappings: SsoGroupMapping[] = [];
@@ -101,10 +127,29 @@ export function parseMappings(text: string): ParsedMappings {
   for (const [index, raw] of lines.entries()) {
     const line = raw.trim();
     if (line === "") continue;
-    const at = line.indexOf("=");
+    const at = line.lastIndexOf("=");
     const group = at > 0 ? line.slice(0, at).trim() : "";
     const meaning = at > 0 ? line.slice(at + 1).trim() : "";
     if (group === "" || meaning === "") return { mappings: null, error: index + 1 };
+    const sign = meaning.indexOf("@");
+    if (sign >= 0) {
+      const bind = meaning.slice(0, sign).trim();
+      const [team = "", project, environment, ...rest] = meaning
+        .slice(sign + 1)
+        .split("/")
+        .map((part) => part.trim());
+      if (bind === "" || team === "" || rest.length > 0 || project === "" || environment === "") {
+        return { mappings: null, error: index + 1 };
+      }
+      mappings.push({
+        group,
+        bind,
+        team,
+        ...(project === undefined ? {} : { project }),
+        ...(environment === undefined ? {} : { environment }),
+      });
+      continue;
+    }
     const colon = meaning.indexOf(":");
     if (colon < 0) {
       mappings.push({ group, role: meaning });

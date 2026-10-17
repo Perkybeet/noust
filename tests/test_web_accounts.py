@@ -724,7 +724,24 @@ class TestTokens:
         record = get_token_manager().get_api_token(legacy["id"])
         assert record["owner_account_id"] == accounts().find("maria").id
         assert session["scope"] == "admin"
+        # An administrator holds everything by default, so the token that acts for one does;
+        # what it still cannot do is act in sudo mode, which every account change asks for.
+        assert "security.manage" in session["permissions"]
+
+    def test_where_the_roles_are_split_an_adopted_token_never_governs(
+        self, sandbox: Path, real_config: Any
+    ) -> None:
+        real_config.set("security.roles_split", True)
+        client = build(sandbox)
+        legacy = get_token_manager().create_api_token("old-ci", "admin")
+        bearer = {"Authorization": f"Bearer {legacy['token']}"}
+
+        make_account("maria", "admin")
+        session = client.get("/api/auth/session", headers=bearer).json()
+
+        assert session["scope"] == "admin"
         assert "security.manage" not in session["permissions"]
+        assert "accounts.manage" not in session["permissions"]
 
 
 class TestSessions:
@@ -837,7 +854,17 @@ class TestInvitations:
         assert again.status_code == 401
         assert again.json()["error"] == "invalid_invitation"
 
-    def test_account_management_needs_accounts_manage(self, sandbox: Path) -> None:
+    def test_by_default_an_administrator_manages_accounts(self, sandbox: Path) -> None:
+        client = build(sandbox)
+        codes = make_account("maria", "admin")
+        sign_in(client, "maria", codes[0])
+
+        assert client.get("/api/auth/accounts").status_code == 200
+
+    def test_account_management_needs_accounts_manage(
+        self, sandbox: Path, real_config: Any
+    ) -> None:
+        real_config.set("security.roles_split", True)
         client = build(sandbox)
         codes = make_account("maria", "admin")
         csrf = sign_in(client, "maria", codes[0])["csrf_token"]

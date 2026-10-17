@@ -42,7 +42,7 @@ export function AppRowActions({ app }: { app: AppInfo }) {
         <MenuItem icon={<RotateCw />} disabled={!unit || restart.isPending} onClick={() => restart.mutate()}>
           {t("apps.rowActions.restart")}
         </MenuItem>
-        <MenuItem icon={<CircleArrowUp />} disabled={update.isPending} onClick={() => update.mutate()}>
+        <MenuItem icon={<CircleArrowUp />} disabled={update.isPending || app.app_type === "adopted"} onClick={() => update.mutate()}>
           {t("apps.rowActions.update")}
         </MenuItem>
         {move.available || promote.available || clone.available ? <MenuSeparator /> : null}

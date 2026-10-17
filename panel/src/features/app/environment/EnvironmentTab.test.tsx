@@ -212,7 +212,8 @@ describe("the environment tab", () => {
     await user.click(within(review).getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => {
-      expect(backend.callsTo(`PUT ${ENV_PATH}`)[0]?.body).toEqual({ variables: { NODE_ENV: "staging", PORT: "8080" } });
+      // The `# comment` above NODE_ENV in the pasted file is the note kept above it.
+      expect(backend.callsTo(`PUT ${ENV_PATH}`)[0]?.body).toEqual({ variables: { NODE_ENV: "staging", PORT: "8080" }, comments: { NODE_ENV: "comment" } });
     });
     const saved = await screen.findByRole("dialog", { name: "Environment saved" });
     await user.click(within(saved).getByRole("button", { name: "Restart now" }));

@@ -14,8 +14,10 @@ A front end over :mod:`noust.core.ens.incident` (ENS op.exp.7.r2, op.exp.9):
 - ``unfreeze`` lifts the lockdown.
 - ``status`` says whether the console is locked down, and since when.
 
-``freeze`` and ``unfreeze`` need ``--reason``: the incident reference is what
-ties the package, the lockdown and the audit events together.
+``freeze`` and ``unfreeze`` take ``--reason``: the incident reference is what
+ties the package, the lockdown and the audit events together. It is required
+under the ENS profile, or with ``security.exception_reasons`` on; elsewhere a
+person in the middle of an incident is not made to write one first.
 """
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ from typing import Any
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core import compliance
 from noust.core.audit import cli_actor
 from noust.core.ens import incident
 from noust.core.exceptions import DependencyError, SecurityError
@@ -44,12 +47,13 @@ def _require_reason(ctx: Context, what: str) -> str:
     Raises:
         click.UsageError: None was given.
     """
-    if not ctx.reason:
+    text = compliance.reason_text(ctx.reason)
+    if text is None:
         raise click.UsageError(
             f"'noust incident {what}' needs --reason \"<incident reference>\": it ties the "
             "evidence, the lockdown and the audit events together."
         )
-    return ctx.reason
+    return text
 
 
 def _console_lists() -> tuple[Any, Any, Any]:

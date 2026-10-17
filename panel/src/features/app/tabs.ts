@@ -17,11 +17,18 @@ import type { LinkTab } from "../../app/LinkTabs";
 export type SectionCounts = Readonly<Partial<Record<string, number | null>>>;
 
 /**
+ * What an adopted site has to show: its state, its logs and its use of the machine. It has no
+ * deployments to list, no environment Noust writes, no database it links and no domains it
+ * manages (checklist B-85).
+ */
+const ADOPTED_TABS: ReadonlySet<string> = new Set(["/apps/$domain", "/apps/$domain/logs", "/apps/$domain/metrics", "/apps/$domain/settings"]);
+
+/**
  * The tabs of one app: every section, its domain filled in, and a count after the label where
  * one is given.
  */
-export function appTabs(domain: string, counts: SectionCounts = {}): LinkTab[] {
-  return APP_TABS.map((tab) => {
+export function appTabs(domain: string, counts: SectionCounts = {}, options: { adopted?: boolean } = {}): LinkTab[] {
+  return APP_TABS.filter((tab) => options.adopted !== true || ADOPTED_TABS.has(tab.to)).map((tab) => {
     const count = counts[tab.to];
     return { ...tab, params: { domain }, ...(count !== undefined ? { count } : {}) };
   });

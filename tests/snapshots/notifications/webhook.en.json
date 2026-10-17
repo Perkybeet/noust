@@ -3227,6 +3227,438 @@
     "links": [],
     "excerpt": null
   },
+  "cleanup.completed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000071",
+    "event": "cleanup_success",
+    "code": "cleanup.completed",
+    "state": "ok",
+    "locale": "en",
+    "title": "Disk cleaned: /",
+    "summary": "The server's cleanup policy ran and freed space.",
+    "body": "The server's cleanup policy ran and freed space.\n\nServer: web-1\nUsed: 91% -> 64%\nFreed: 11.5 GB\nActions: journal, pkg-cache, releases\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "used",
+        "label": "Used",
+        "value": "91% -> 64%"
+      },
+      {
+        "key": "freed",
+        "label": "Freed",
+        "value": "11.5 GB"
+      },
+      {
+        "key": "actions",
+        "label": "Actions",
+        "value": "journal, pkg-cache, releases"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": null
+  },
+  "cleanup.partial": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000072",
+    "event": "cleanup_failed",
+    "code": "cleanup.partial",
+    "state": "warning",
+    "locale": "en",
+    "title": "Disk cleanup partly failed: /",
+    "summary": "The cleanup policy ran, but some of its actions failed.",
+    "body": "The cleanup policy ran, but some of its actions failed.\n\nServer: web-1\nUsed: 91% -> 88%\nFreed: 2.0 GB\nActions: journal, pkg-cache, releases\nSee what ran: noust server cleanup-schedule runs\n\nWhat releases reported:\n  rm: cannot remove '/var/www/apps/shop/releases/x': Permission denied\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "used",
+        "label": "Used",
+        "value": "91% -> 88%"
+      },
+      {
+        "key": "freed",
+        "label": "Freed",
+        "value": "2.0 GB"
+      },
+      {
+        "key": "actions",
+        "label": "Actions",
+        "value": "journal, pkg-cache, releases"
+      },
+      {
+        "key": "cleanup_runs",
+        "label": "See what ran",
+        "value": "noust server cleanup-schedule runs"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": {
+      "label": "What releases reported",
+      "lines": [
+        "rm: cannot remove '/var/www/apps/shop/releases/x': Permission denied"
+      ],
+      "omitted": 0
+    }
+  },
+  "cleanup.failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000073",
+    "event": "cleanup_failed",
+    "code": "cleanup.failed",
+    "state": "failed",
+    "locale": "en",
+    "title": "Disk cleanup failed: /",
+    "summary": "The cleanup policy ran and every one of its actions failed, so the disk is as it was.",
+    "body": "The cleanup policy ran and every one of its actions failed, so the disk is as it was.\n\nServer: web-1\nUsed: 93% -> 93%\nActions: journal\nSee what ran: noust server cleanup-schedule runs\n\nWhat journal reported:\n  Failed to vacuum: Read-only file system\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "used",
+        "label": "Used",
+        "value": "93% -> 93%"
+      },
+      {
+        "key": "actions",
+        "label": "Actions",
+        "value": "journal"
+      },
+      {
+        "key": "cleanup_runs",
+        "label": "See what ran",
+        "value": "noust server cleanup-schedule runs"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": {
+      "label": "What journal reported",
+      "lines": [
+        "Failed to vacuum: Read-only file system"
+      ],
+      "omitted": 0
+    }
+  },
+  "cron.timer_stopped": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000074",
+    "event": "cron_missed",
+    "code": "cron.timer_stopped",
+    "state": "warning",
+    "locale": "en",
+    "title": "Scheduled task will not run: shop-sync",
+    "summary": "The task is enabled but its timer is not running, so it will not start. Nothing failed: nothing runs.",
+    "body": "The task is enabled but its timer is not running, so it will not start. Nothing failed: nothing runs.\n\nServer: web-1\nSchedule: *-*-* 03:00:00\nTimer: failed\nStart it again with: noust cron enable shop-sync\n\nOpen in the console: https://console.example.com/n/web-1/cron",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "schedule",
+        "label": "Schedule",
+        "value": "*-*-* 03:00:00"
+      },
+      {
+        "key": "timer",
+        "label": "Timer",
+        "value": "failed"
+      },
+      {
+        "key": "enable_job",
+        "label": "Start it again with",
+        "value": "noust cron enable shop-sync"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/cron"
+      }
+    ],
+    "excerpt": null
+  },
+  "cron.timer_running": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000075",
+    "event": "cron_missed",
+    "code": "cron.timer_running",
+    "state": "ok",
+    "locale": "en",
+    "title": "Scheduled task runs again: shop-sync",
+    "summary": "The task's timer is running again.",
+    "body": "The task's timer is running again.\n\nServer: web-1\nSchedule: *-*-* 03:00:00\n\nOpen in the console: https://console.example.com/n/web-1/cron",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "schedule",
+        "label": "Schedule",
+        "value": "*-*-* 03:00:00"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/cron"
+      }
+    ],
+    "excerpt": null
+  },
+  "probe.failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000076",
+    "event": "probe_failed",
+    "code": "probe.failed",
+    "state": "failed",
+    "locale": "en",
+    "title": "Address not answering: shop-site",
+    "summary": "The address stopped answering what the probe asks of it.",
+    "body": "The address stopped answering what the probe asks of it.\n\nServer: web-1\nAddress: https://shop.example.com/health\nUnreachable since: 2026-10-16 08:14 UTC\nProbe it now with: noust probe run shop-site\n\nWhat came back:\n  HTTP 503 Service Unavailable\n  retry-after: 30\n\nOpen in the console: https://console.example.com/n/web-1/settings/probes",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "address",
+        "label": "Address",
+        "value": "https://shop.example.com/health"
+      },
+      {
+        "key": "since",
+        "label": "Unreachable since",
+        "value": "2026-10-16 08:14 UTC"
+      },
+      {
+        "key": "probe_run",
+        "label": "Probe it now with",
+        "value": "noust probe run shop-site"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/settings/probes"
+      }
+    ],
+    "excerpt": {
+      "label": "What came back",
+      "lines": [
+        "HTTP 503 Service Unavailable",
+        "retry-after: 30"
+      ],
+      "omitted": 0
+    }
+  },
+  "probe.recovered": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000077",
+    "event": "probe_recovered",
+    "code": "probe.recovered",
+    "state": "ok",
+    "locale": "en",
+    "title": "Address answering again: shop-site",
+    "summary": "The address answers what the probe asks of it again.",
+    "body": "The address answers what the probe asks of it again.\n\nServer: web-1\nAddress: https://shop.example.com/health\nWas unreachable for: 7 min 42 s\nAnswered in: 184 ms\n\nOpen in the console: https://console.example.com/n/web-1/settings/probes",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "address",
+        "label": "Address",
+        "value": "https://shop.example.com/health"
+      },
+      {
+        "key": "downtime",
+        "label": "Was unreachable for",
+        "value": "7 min 42 s"
+      },
+      {
+        "key": "latency",
+        "label": "Answered in",
+        "value": "184 ms"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/settings/probes"
+      }
+    ],
+    "excerpt": null
+  },
+  "alert.acknowledged": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000078",
+    "event": "alert_acknowledged",
+    "code": "alert.acknowledged",
+    "state": "info",
+    "locale": "en",
+    "title": "Alert taken: cpu-high",
+    "summary": "alice is looking into it: CPU of the server is still beyond the 90% limit.",
+    "body": "alice is looking into it: CPU of the server is still beyond the 90% limit.\n\nServer: web-1\nRule: cpu-high\nTaken by: alice\nFiring for: 21 min\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "rule",
+        "label": "Rule",
+        "value": "cpu-high"
+      },
+      {
+        "key": "acknowledged_by",
+        "label": "Taken by",
+        "value": "alice"
+      },
+      {
+        "key": "firing_for",
+        "label": "Firing for",
+        "value": "21 min"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": null
+  },
+  "digest.flood": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000079",
+    "event": "digest",
+    "code": "digest.flood",
+    "state": "info",
+    "locale": "en",
+    "title": "Notifications held back",
+    "summary": "3 notifications passed this channel's limit and were held back until now.",
+    "body": "3 notifications passed this channel's limit and were held back until now.\n\nServer: web-1\nNotifications: 3\nBetween: 2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC\n\nDisk cleaned · /\n  When: 2026-09-29 10:45 UTC\n  Detail: The server's cleanup policy ran and freed space.\n\nScheduled task runs again · shop-sync\n  When: 2026-09-29 10:48 UTC\n  Detail: The task's timer is running again.\n\nAddress answering again · shop-site\n  When: 2026-09-29 10:51 UTC\n  Detail: The address answers what the probe asks of it again.",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "events",
+        "label": "Notifications",
+        "value": "3"
+      },
+      {
+        "key": "period",
+        "label": "Between",
+        "value": "2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC"
+      }
+    ],
+    "links": [],
+    "excerpt": null
+  },
+  "digest.summary": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000080",
+    "event": "digest",
+    "code": "digest.summary",
+    "state": "info",
+    "locale": "en",
+    "title": "Scheduled summary",
+    "summary": "3 notifications since the last summary.",
+    "body": "3 notifications since the last summary.\n\nServer: web-1\nNotifications: 3\nBetween: 2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC\n\nDisk cleaned · /\n  When: 2026-09-29 10:45 UTC\n  Detail: The server's cleanup policy ran and freed space.\n\nScheduled task runs again · shop-sync\n  When: 2026-09-29 10:48 UTC\n  Detail: The task's timer is running again.\n\nAddress answering again · shop-site\n  When: 2026-09-29 10:51 UTC\n  Detail: The address answers what the probe asks of it again.",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "events",
+        "label": "Notifications",
+        "value": "3"
+      },
+      {
+        "key": "period",
+        "label": "Between",
+        "value": "2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC"
+      }
+    ],
+    "links": [],
+    "excerpt": null
+  },
   "hostile.deploy_failed": {
     "version": 1,
     "id": "00000000-0000-4000-8000-000000001000",

@@ -435,6 +435,8 @@ AUTH_PATHS = frozenset(
         "/api/auth/passkeys/login",
         "/api/auth/passkeys/elevate",
         "/api/auth/oidc/complete",
+        "/api/auth/ldap/login",
+        "/api/auth/saml/acs",
     }
 )
 
@@ -450,7 +452,9 @@ AUTH_GET_PATHS = frozenset({"/api/auth/oidc/callback"})
 #: (:func:`~noust.web.auth.sign_in_lockout_key`), because only they read the
 #: name: refusing the bare address here would refuse every operator on the
 #: tunnel for one operator's typos.
-SIGN_IN_PATHS = frozenset({"/api/auth/login", "/api/auth/login/second-factor"})
+SIGN_IN_PATHS = frozenset(
+    {"/api/auth/login", "/api/auth/login/second-factor", "/api/auth/ldap/login"}
+)
 
 _token_manager: TokenManager | None = None
 _rate_limiter: RateLimiter | None = None

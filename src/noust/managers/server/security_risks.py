@@ -24,6 +24,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from noust.core import audit as audit_trail
+from noust.core import compliance
 from noust.core.exceptions import ValidationError
 from noust.managers.server.security_catalog import CATALOG
 
@@ -160,7 +161,9 @@ class AcceptedRisks:
                 found[risk.check_id] = risk
         return found
 
-    def accept(self, check_id: str, *, reason: str, by: str, expires_at: datetime) -> AcceptedRisk:
+    def accept(
+        self, check_id: str, *, reason: str | None, by: str, expires_at: datetime
+    ) -> AcceptedRisk:
         """
         Accept a check's finding until a date.
 
@@ -169,7 +172,8 @@ class AcceptedRisks:
 
         Args:
             check_id: The check.
-            reason: Why, 10 to 500 characters.
+            reason: Why, 10 to 500 characters where the ``exception_reasons``
+                control is on (the ENS profile, or the setting); optional elsewhere.
             by: Who.
             expires_at: Until when: in the future, at most
                 :data:`MAX_ACCEPT_DAYS` away. A naive value is read as UTC.
@@ -184,11 +188,16 @@ class AcceptedRisks:
             raise ValidationError(f"There is no check {check_id!r}", field="check_id")
         text = " ".join((reason or "").split())
         low, high = REASON_LENGTH
-        if not low <= len(text) <= high:
-            raise ValidationError(
-                f"Say why the risk is acceptable, in {low} to {high} characters",
-                field="reason",
-            )
+        if compliance.is_on("exception_reasons"):
+            if not low <= len(text) <= high:
+                raise ValidationError(
+                    f"Say why the risk is acceptable, in {low} to {high} characters",
+                    field="reason",
+                )
+        elif len(text) > high:
+            raise ValidationError(f"The reason is at most {high} characters", field="reason")
+        else:
+            text = text or compliance.NO_REASON
         now = _utc(self.clock)
         until = expires_at if expires_at.tzinfo else expires_at.replace(tzinfo=timezone.utc)
         until = until.astimezone(timezone.utc)

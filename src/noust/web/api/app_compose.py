@@ -25,6 +25,7 @@ from noust.core import app_compose_store
 from noust.core.app_compose_store import BUILD_SWITCHES, BUILD_VALUED, UP_SWITCHES, UP_VALUED
 from noust.core.exceptions import ValidationError
 from noust.core.teams import scoped_store
+from noust.deployers.helpers import compose_variables
 from noust.deployers.helpers.compose_settings import (
     change_compose,
     describe_compose,
@@ -68,6 +69,42 @@ class ComposeSettingsRequest(BaseModel):
     build_args: list[str] | None = None
     up_args: list[str] | None = None
     services: list[str] | None = None
+
+
+class ComposeVariableModel(BaseModel):
+    """A variable the compose file asks for, and whether the stack has it. Never its value."""
+
+    name: str
+    status: str = Field(
+        description="set (a value exists), default (the file has a default), unset (no value and "
+        "no default: Compose uses an empty string) or missing (the file requires it)"
+    )
+    required: bool = Field(description="Whether the file requires a value (${NAME:?message})")
+    default: str | None = Field(default=None, description="The default the file gives")
+    message: str = Field(
+        default="", description="What the file says when a required value is missing"
+    )
+    source: str | None = Field(
+        default=None, description="Where the value comes from when set: env (the .env) or process"
+    )
+    used_in: list[str] = Field(
+        default_factory=list, description="The services, or top-level keys, that use it"
+    )
+
+
+class ComposeVariablesResponse(BaseModel):
+    """The variables a stack's compose file asks for."""
+
+    domain: str
+    file: str = Field(description="The compose file read")
+    env_file: str | None = Field(default=None, description="The .env the values were read from")
+    variables: list[ComposeVariableModel] = Field(default_factory=list)
+    missing: list[str] = Field(
+        default_factory=list, description="The required variables nothing gives: a deploy refuses"
+    )
+    unset: list[str] = Field(
+        default_factory=list, description="The variables with no value and no default"
+    )
 
 
 def _response(domain: str, options: app_compose_store.ComposeOptions) -> ComposeSettingsResponse:
@@ -126,6 +163,40 @@ def get_compose_settings(
     """
     validated = _known(domain)
     return _response(validated, describe_compose(validated))
+
+
+@router.get("/{domain}/compose/variables", response_model=ComposeVariablesResponse)
+def get_compose_variables(
+    domain: str, session: Annotated[dict, Depends(get_current_session)]
+) -> ComposeVariablesResponse:
+    """
+    Show the variables a stack's compose file asks for and which of them it has.
+
+    Reads the file and the ``.env`` and runs nothing; a value is never part of the answer, only
+    whether there is one. Edit them with ``PUT /api/apps/{domain}/env``.
+
+    Args:
+        domain: Domain of the application.
+        session: The authenticated session.
+
+    Returns:
+        Every variable with its state, and the ones a deploy would refuse over.
+
+    Raises:
+        HTTPException: 404 when the application is unknown.
+        ValidationError: It is not a Compose stack (400).
+        DeploymentError: Its compose file cannot be found or read.
+    """
+    validated = _known(domain)
+    app = scoped_store().get_app(validated)
+    if app is None or app.app_type != "docker-compose":
+        raise ValidationError(
+            f"{validated} is not a Docker Compose application",
+            details="Only a stack deployed with --type docker-compose has a compose file.",
+            field="domain",
+        )
+    report = compose_variables.report_for(app)
+    return ComposeVariablesResponse(domain=validated, **report.to_dict())
 
 
 @router.put("/{domain}/compose", response_model=ComposeSettingsResponse)

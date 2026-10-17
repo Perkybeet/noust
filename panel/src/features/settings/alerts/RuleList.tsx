@@ -7,7 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BellPlus } from "lucide-react";
 import { useState } from "react";
 
-import { alertKeys, alertRulesQuery, removeAlertRule, switchAlertRule } from "../../../api/queries/alerts";
+import { acknowledgeAlert, alertKeys, alertRulesQuery, handBackAlert, removeAlertRule, switchAlertRule } from "../../../api/queries/alerts";
 import type { AlertMetric, AlertRule, AlertRuleList } from "../../../api/queries/alerts";
 import { QueryState } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
@@ -31,6 +31,54 @@ function stateOf(rule: AlertRule): { status: Status; key: "firing" | "ok" | "off
   const firing = (rule.states ?? []).some((state) => state.state === "firing");
   if (!firing) return { status: "running", key: "ok" };
   return { status: rule.severity === "failed" ? "failed" : "warning", key: "firing" };
+}
+
+/**
+ * One firing subject of a rule: what it reads and since when, and whether somebody has taken it.
+ * Taking it stops the rule's reminders and tells the channels who is on it; handing it back undoes that.
+ */
+function FiringLine({ rule, entry, unit }: { rule: AlertRule; entry: NonNullable<AlertRule["states"]>[number]; unit: string }) {
+  const t = useT();
+  const queryClient = useQueryClient();
+  const subject = entry.subject === "" ? t("alerts.rules.server") : entry.subject;
+  const taken = entry.acknowledged_by !== null && entry.acknowledged_by !== undefined && entry.acknowledged_at !== null && entry.acknowledged_at !== undefined;
+  const change = useMutation({
+    mutationFn: () => (taken ? handBackAlert(rule.name, entry.subject) : acknowledgeAlert(rule.name, entry.subject)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: alertKeys.rules }),
+    onError: (error) => {
+      reportActionError(t(taken ? "alerts.rules.ack.handBackFailed" : "alerts.rules.ack.failed"), error);
+    },
+  });
+  return (
+    <li className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+      <span className="min-w-0">
+        {t.rich("alerts.rules.firingLine", {
+          subject: <Mono key="subject">{subject}</Mono>,
+          value: entry.last_value === null || entry.last_value === undefined ? "-" : formatReading(unit, entry.last_value, t.locale),
+          since: <RelativeTime key="since" value={entry.since} />,
+        })}
+      </span>
+      {taken ? (
+        <span className="text-fg">
+          {t.rich("alerts.rules.ack.taken", {
+            who: <Mono key="who">{entry.acknowledged_by}</Mono>,
+            when: <RelativeTime key="when" value={entry.acknowledged_at ?? 0} />,
+          })}
+        </span>
+      ) : null}
+      <Button
+        size="sm"
+        variant={taken ? "ghost" : "secondary"}
+        loading={change.isPending}
+        aria-label={t(taken ? "alerts.rules.ack.handBackLabel" : "alerts.rules.ack.takeLabel", { subject })}
+        onClick={() => {
+          change.mutate();
+        }}
+      >
+        {t(taken ? "alerts.rules.ack.handBack" : "alerts.rules.ack.take")}
+      </Button>
+    </li>
+  );
 }
 
 function RuleRow({ rule, metrics }: { rule: AlertRule; metrics: readonly AlertMetric[] }) {
@@ -98,15 +146,9 @@ function RuleRow({ rule, metrics }: { rule: AlertRule; metrics: readonly AlertMe
         </div>
       </div>
       {firing.length > 0 ? (
-        <ul className="flex min-w-0 flex-col gap-0.5 text-12 text-fg-muted">
+        <ul className="flex min-w-0 flex-col gap-1 text-12 text-fg-muted">
           {firing.map((entry) => (
-            <li key={entry.subject}>
-              {t.rich("alerts.rules.firingLine", {
-                subject: <Mono key="subject">{entry.subject === "" ? t("alerts.rules.server") : entry.subject}</Mono>,
-                value: entry.last_value === null || entry.last_value === undefined ? "-" : formatReading(unit, entry.last_value, t.locale),
-                since: <RelativeTime key="since" value={entry.since} />,
-              })}
-            </li>
+            <FiringLine key={entry.subject} rule={rule} entry={entry} unit={unit} />
           ))}
         </ul>
       ) : null}

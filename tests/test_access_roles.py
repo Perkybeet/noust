@@ -210,8 +210,9 @@ class TestDefiningRoles:
             AccessManager(world.store).create_role("empty", [])
 
     def test_a_role_that_governs_and_runs_is_refused_with_both_halves_named(
-        self, world: World
+        self, world: World, real_config: Any
     ) -> None:
+        real_config.set("security.separation_of_duties", True)
         with pytest.raises(AccessError) as caught:
             AccessManager(world.store).create_role("god", [P.SECURITY_MANAGE, P.APPS_DEPLOY])
 
@@ -247,7 +248,14 @@ class TestDefiningRoles:
         assert P.APPS_DEPLOY in role.permissions
         assert role.label == "CI"
 
-    def test_a_role_cannot_be_changed_into_a_conflict(self, world: World) -> None:
+    def test_by_default_a_role_may_govern_and_run(self, world: World, real_config: Any) -> None:
+        # An administrator holds both, so a role that does is no stranger.
+        role = AccessManager(world.store).create_role("god", [P.SECURITY_MANAGE, P.APPS_DEPLOY])
+
+        assert P.SECURITY_MANAGE in role.permissions and P.APPS_DEPLOY in role.permissions
+
+    def test_a_role_cannot_be_changed_into_a_conflict(self, world: World, real_config: Any) -> None:
+        real_config.set("security.separation_of_duties", True)
         manager = AccessManager(world.store)
         manager.create_role("ci", [P.APPS_READ])
 
@@ -366,14 +374,20 @@ class TestBinding:
         assert P.DATABASES_READ in fields["instance_permissions"]
         assert P.APPS_READ in fields["instance_permissions"]
 
-    def test_a_role_on_the_server_cannot_make_an_account_govern_and_run(self, world: World) -> None:
+    def test_a_role_on_the_server_cannot_make_an_account_govern_and_run(
+        self, world: World, real_config: Any
+    ) -> None:
+        real_config.set("security.separation_of_duties", True)
         manager = AccessManager(world.store)
         manager.create_role("deployer", [P.APPS_DEPLOY, P.APPS_OPERATE])
 
         with pytest.raises(AccessError, match="govern access and run"):
             manager.bind("sofia", "deployer", scope="instance")
 
-    def test_an_auditor_holds_nothing_besides_auditing(self, world: World) -> None:
+    def test_an_auditor_holds_nothing_besides_auditing(
+        self, world: World, real_config: Any
+    ) -> None:
+        real_config.set("security.separation_of_duties", True)
         manager = AccessManager(world.store)
         manager.create_role("deployer", [P.APPS_DEPLOY])
 
@@ -381,8 +395,9 @@ class TestBinding:
             manager.bind("aurora", "deployer", scope="instance")
 
     def test_redefining_a_role_cannot_break_the_duty_of_an_account_that_holds_it(
-        self, world: World
+        self, world: World, real_config: Any
     ) -> None:
+        real_config.set("security.separation_of_duties", True)
         manager = AccessManager(world.store)
         manager.create_role("reviewer", [P.APPS_READ])
         manager.bind("sofia", "reviewer", scope="instance")
@@ -391,11 +406,11 @@ class TestBinding:
             manager.update_role("reviewer", permissions=[P.APPS_DEPLOY])
 
     def test_the_ens_profile_gives_an_account_one_role(
-        self, world: World, monkeypatch: pytest.MonkeyPatch
+        self, world: World, real_config: Any
     ) -> None:
         manager = AccessManager(world.store)
         manager.create_role("db-reader", [P.DATABASES_READ])
-        monkeypatch.setattr("noust.web.permissions.access._is_ens", lambda: True)
+        real_config.set("security.profile", "ens-medium")
 
         with pytest.raises(AccessError, match="one role"):
             manager.bind("root-admin", "db-reader", scope="instance")
@@ -773,7 +788,8 @@ class TestTheAccessApi:
 
         assert response.status_code == 403
 
-    def test_a_conflicting_role_is_a_validation_error(self, world: World) -> None:
+    def test_a_conflicting_role_is_a_validation_error(self, world: World, real_config: Any) -> None:
+        real_config.set("security.separation_of_duties", True)
         response = world.client.post(
             "/api/access/roles",
             json={"name": "god", "permissions": ["security.manage", "apps.deploy"]},

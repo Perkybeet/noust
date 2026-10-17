@@ -163,7 +163,7 @@ class TestTheButton:
 
         assert response.status_code == 200
         assert response.json() == {
-            "providers": [{"name": "corp", "label": "Acme SSO"}],
+            "providers": [{"name": "corp", "label": "Acme SSO", "protocol": "oidc"}],
             "local_login": True,
         }
         assert "no-store" in response.headers["cache-control"]
@@ -771,6 +771,47 @@ class TestAdministration:
         recorded = logged(sandbox, "auth.oidc.config")
         assert recorded and recorded[-1]["actor"] == "sofia"
         assert "client_secret" in recorded[-1]["detail"] and "s3cret-value" not in str(recorded)
+
+    def test_a_provider_maps_a_group_to_a_role_at_a_project(
+        self, app: Any, idp: FakeIdP, store: NoustStore
+    ) -> None:
+        from noust.core.teams import TeamStore
+        from noust.web.permissions.access import AccessManager
+
+        teams = TeamStore(store)
+        teams.create_team("Acme", slug="acme")
+        teams.create_project("acme", "Web", slug="web")
+        AccessManager(store).create_role("release-manager", ["apps.read", "apps.deploy"])
+        client = self.sign_in_as_security(app)
+        self.elevate(client)
+        mappings = [
+            {"group": "ops", "role": "operator"},
+            {"group": "release", "bind": "release-manager", "team": "acme", "project": "web"},
+        ]
+
+        added = self.put(
+            client,
+            "corp",
+            {
+                "issuer": idp.issuer,
+                "client_id": idp.client_id,
+                "client_secret": "s3cret-value",
+                "group_sync": True,
+                "group_mappings": mappings,
+            },
+        )
+        assert added.status_code == 200, added.text
+        shown = added.json()["group_mappings"]
+
+        assert shown[1]["bind"] == "release-manager" and shown[1]["project"] == "web"
+        assert shown[0]["bind"] is None
+        refused = self.put(
+            client,
+            "corp",
+            {"group_mappings": [{**mappings[1], "bind": "owner"}]},
+        )
+        assert refused.status_code == 400, refused.text
+        assert "cannot give" in refused.text
 
     def test_an_operator_cannot_touch_the_providers(self, app: Any, idp: FakeIdP) -> None:
         codes = make_account("olga", "operator")

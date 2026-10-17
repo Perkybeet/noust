@@ -10,7 +10,7 @@
  * another it shares a channel with.
  */
 
-import type { ConsoleConfig, SmtpBody, SmtpSettings, TelegramChat } from "../../api/queries/config";
+import type { ConsoleConfig, EmailApiBody, EmailApiSettings, SmtpBody, SmtpSettings, TelegramChat } from "../../api/queries/config";
 import { getLocale } from "../../app/locale";
 import { translate } from "../../i18n";
 import type { Locale, T } from "../../i18n";
@@ -18,7 +18,7 @@ import type { Locale, T } from "../../i18n";
 /** What the server sends in place of a secret, and accepts back as "keep the stored one". */
 export const REDACTED = "***";
 
-export type ChannelId = "webhook" | "slack" | "discord" | "telegram" | "email" | "pushover" | "ntfy" | "gotify" | "teams";
+export type ChannelId = "webhook" | "slack" | "discord" | "telegram" | "email" | "pushover" | "ntfy" | "gotify" | "teams" | "mattermost" | "matrix" | "lark" | "pagerduty";
 
 export interface ChannelField {
   /** The key under `notifications.channels.<channel>`. */
@@ -59,7 +59,7 @@ export interface ChannelSpec {
 }
 
 /** The channel ids and their field keys, in the notifier's delivery order (noust.core.notifier.CHANNELS). */
-export const CHANNEL_IDS: readonly ChannelId[] = ["webhook", "slack", "discord", "telegram", "email", "pushover", "ntfy", "gotify", "teams"];
+export const CHANNEL_IDS: readonly ChannelId[] = ["webhook", "slack", "discord", "telegram", "email", "pushover", "ntfy", "gotify", "teams", "mattermost", "matrix", "lark", "pagerduty"];
 
 const CHANNEL_FIELD_KEYS: Readonly<Record<ChannelId, readonly string[]>> = {
   webhook: ["webhook_url", "secret"],
@@ -71,6 +71,10 @@ const CHANNEL_FIELD_KEYS: Readonly<Record<ChannelId, readonly string[]>> = {
   ntfy: ["webhook_url", "token"],
   gotify: ["webhook_url", "token"],
   teams: ["webhook_url"],
+  mattermost: ["webhook_url"],
+  matrix: ["homeserver", "room_id", "access_token"],
+  lark: ["webhook_url", "secret"],
+  pagerduty: ["routing_key", "region"],
 };
 
 /** The channels, translated, in the notifier's delivery order. */
@@ -250,6 +254,98 @@ export function channels(t: T): readonly ChannelSpec[] {
         },
       ],
     },
+    {
+      id: "mattermost",
+      label: t("settings.notifications.channels.mattermost.label"),
+      description: t("settings.notifications.channels.mattermost.description"),
+      fields: [
+        {
+          key: "webhook_url",
+          label: t("settings.notifications.channels.mattermost.webhookUrlLabel"),
+          secret: true,
+          destination: true,
+          placeholder: "https://chat.example.com/hooks/…",
+          description: t("settings.notifications.channels.mattermost.webhookUrlDescription"),
+        },
+      ],
+    },
+    {
+      id: "matrix",
+      label: t("settings.notifications.channels.matrix.label"),
+      description: t("settings.notifications.channels.matrix.description"),
+      fields: [
+        {
+          key: "homeserver",
+          label: t("settings.notifications.channels.matrix.homeserverLabel"),
+          secret: false,
+          destination: true,
+          placeholder: "https://matrix.example.com",
+          description: t("settings.notifications.channels.matrix.homeserverDescription"),
+        },
+        {
+          key: "room_id",
+          label: t("settings.notifications.channels.matrix.roomLabel"),
+          secret: false,
+          destination: true,
+          placeholder: "!AbCdEf:example.com",
+          description: t("settings.notifications.channels.matrix.roomDescription"),
+        },
+        {
+          key: "access_token",
+          label: t("settings.notifications.channels.matrix.tokenLabel"),
+          secret: true,
+          destination: true,
+          placeholder: "",
+          description: t("settings.notifications.channels.matrix.tokenDescription"),
+        },
+      ],
+    },
+    {
+      id: "lark",
+      label: t("settings.notifications.channels.lark.label"),
+      description: t("settings.notifications.channels.lark.description"),
+      fields: [
+        {
+          key: "webhook_url",
+          label: t("settings.notifications.channels.lark.webhookUrlLabel"),
+          secret: true,
+          destination: true,
+          placeholder: "https://open.larksuite.com/open-apis/bot/v2/hook/…",
+          description: t("settings.notifications.channels.lark.webhookUrlDescription"),
+        },
+        {
+          key: "secret",
+          label: t("settings.notifications.channels.lark.secretLabel"),
+          secret: true,
+          optional: true,
+          placeholder: "",
+          description: t("settings.notifications.channels.lark.secretDescription"),
+        },
+      ],
+    },
+    {
+      id: "pagerduty",
+      label: t("settings.notifications.channels.pagerduty.label"),
+      description: t("settings.notifications.channels.pagerduty.description"),
+      fields: [
+        {
+          key: "routing_key",
+          label: t("settings.notifications.channels.pagerduty.routingKeyLabel"),
+          secret: true,
+          destination: true,
+          placeholder: "",
+          description: t("settings.notifications.channels.pagerduty.routingKeyDescription"),
+        },
+        {
+          key: "region",
+          label: t("settings.notifications.channels.pagerduty.regionLabel"),
+          secret: false,
+          optional: true,
+          placeholder: "us",
+          description: t("settings.notifications.channels.pagerduty.regionDescription"),
+        },
+      ],
+    },
   ];
 }
 
@@ -287,11 +383,17 @@ export const EVENT_KINDS: readonly string[] = [
   "approval_decided",
   "alert_firing",
   "alert_resolved",
+  "alert_acknowledged",
   "backup_missing",
   "cron_failed",
   "cron_success",
   "os_patches",
   "token_expiring",
+  "cleanup_failed",
+  "cleanup_success",
+  "cron_missed",
+  "probe_failed",
+  "probe_recovered",
 ];
 
 /**
@@ -299,7 +401,7 @@ export const EVENT_KINDS: readonly string[] = [
  * daily heartbeat for every backup that went right. The notifier reads a missing kind as on,
  * except these (noust.core.notifier, `default = kind not in OFF_BY_DEFAULT`).
  */
-export const OFF_BY_DEFAULT: ReadonlySet<string> = new Set(["deploy_started", "backup_success", "cron_success"]);
+export const OFF_BY_DEFAULT: ReadonlySet<string> = new Set(["deploy_started", "backup_success", "cron_success", "cleanup_success"]);
 
 export type EventGroupId = "deploys" | "backups" | "server" | "alerts" | "fleet" | "approvals";
 
@@ -309,9 +411,9 @@ export const EVENT_GROUPS: readonly { id: EventGroupId; kinds: readonly string[]
   { id: "backups", kinds: ["backup_failed", "backup_missing", "destination_unreachable", "restore_failed", "restore_success", "backup_success"] },
   {
     id: "server",
-    kinds: ["unit_failed", "app_unreachable", "app_recovered", "disk_threshold", "cert_expiring", "os_patches", "token_expiring", "server_rebooted", "server_back"],
+    kinds: ["unit_failed", "app_unreachable", "app_recovered", "disk_threshold", "cert_expiring", "os_patches", "token_expiring", "server_rebooted", "server_back", "cleanup_failed", "cleanup_success"],
   },
-  { id: "alerts", kinds: ["alert_firing", "alert_resolved", "cron_failed", "cron_success"] },
+  { id: "alerts", kinds: ["alert_firing", "alert_acknowledged", "alert_resolved", "probe_failed", "probe_recovered", "cron_failed", "cron_missed", "cron_success"] },
   { id: "fleet", kinds: ["node_unreachable", "node_host_key_changed", "node_recovered"] },
   { id: "approvals", kinds: ["approval_requested", "approval_decided"] },
 ];
@@ -357,11 +459,17 @@ type EventCatalogKey =
   | "approvalDecided"
   | "alertFiring"
   | "alertResolved"
+  | "alertAcknowledged"
   | "backupMissing"
   | "cronFailed"
   | "cronSuccess"
   | "osPatches"
-  | "tokenExpiring";
+  | "tokenExpiring"
+  | "cleanupFailed"
+  | "cleanupSuccess"
+  | "cronMissed"
+  | "probeFailed"
+  | "probeRecovered";
 
 /** The events, translated, in the notifier's order. */
 export function events(t: T): readonly EventSpec[] {
@@ -693,3 +801,80 @@ export function telegramChatName(chat: TelegramChat, locale: Locale = getLocale(
   if (chat.username) return `@${chat.username}`;
   return telegramChatType(chat.type, locale);
 }
+
+
+// ---------------------------------------------------------------------------------------
+// Email through a service's API (GET/PUT /api/config/email-api)
+
+/** The services Noust speaks to, in the order they are offered (noust.core.email_api.PROVIDERS). */
+export const EMAIL_PROVIDERS = ["resend", "postmark", "brevo", "ses"] as const;
+export type EmailProviderId = (typeof EMAIL_PROVIDERS)[number];
+
+/** `""` is the SMTP server: no service is chosen. */
+export type EmailProviderChoice = "" | EmailProviderId;
+
+export type EmailProviderField = "api_key" | "region" | "access_key_id" | "secret_access_key" | "from_address";
+
+/** The fields a service asks for, in the order the form shows them. */
+export function providerFieldsFor(provider: EmailProviderChoice): readonly EmailProviderField[] {
+  if (provider === "") return [];
+  if (provider === "ses") return ["region", "access_key_id", "secret_access_key", "from_address"];
+  return ["api_key", "from_address"];
+}
+
+/** The credentials among them: written only, never read back. */
+export const PROVIDER_SECRETS: ReadonlySet<EmailProviderField> = new Set(["api_key", "access_key_id", "secret_access_key"]);
+
+export interface EmailProviderForm {
+  provider: EmailProviderChoice;
+  from_address: string;
+  region: string;
+  /** Write-only: empty keeps the stored one while the service stays the same. */
+  api_key: string;
+  access_key_id: string;
+  secret_access_key: string;
+}
+
+/** The form's starting values: what the server holds, every credential field empty. */
+export function providerFormFrom(settings: EmailApiSettings): EmailProviderForm {
+  const known = EMAIL_PROVIDERS.find((candidate) => candidate === settings.provider);
+  return { provider: known ?? "", from_address: settings.from_address, region: settings.region, api_key: "", access_key_id: "", secret_access_key: "" };
+}
+
+/** Whether a form differs from what is stored. A typed credential is a change; an empty one keeps the stored one. */
+export function providerFormDirty(form: EmailProviderForm, stored: EmailProviderForm): boolean {
+  if (form.provider !== stored.provider) return true;
+  return providerFieldsFor(form.provider).some((field) => (PROVIDER_SECRETS.has(field) ? form[field].trim() !== "" : form[field].trim() !== stored[field]));
+}
+
+/** The PUT body: only what the chosen service asks for, so a service's leftovers are cleared when it changes. */
+export function providerBody(form: EmailProviderForm): EmailApiBody {
+  const wanted = providerFieldsFor(form.provider);
+  return {
+    provider: form.provider,
+    from_address: wanted.includes("from_address") ? form.from_address.trim() : "",
+    region: wanted.includes("region") ? form.region.trim() : "",
+    api_key: wanted.includes("api_key") ? form.api_key.trim() : "",
+    access_key_id: wanted.includes("access_key_id") ? form.access_key_id.trim() : "",
+    secret_access_key: wanted.includes("secret_access_key") ? form.secret_access_key.trim() : "",
+  };
+}
+
+/** Whether a credential of the stored service is saved, for the placeholder "leave empty to keep it". */
+export function providerSecretSaved(stored: EmailApiSettings, field: EmailProviderField, current: EmailProviderChoice): boolean {
+  if (stored.provider !== current) return false;
+  if (field === "api_key") return stored.api_key_set;
+  if (field === "access_key_id") return stored.access_key_id_set;
+  if (field === "secret_access_key") return stored.secret_access_key_set;
+  return false;
+}
+
+/** The dotted configuration keys the service's settings are refused under, so a refusal lands beside its field. */
+export const PROVIDER_CONFIG_KEYS: Readonly<Record<string, EmailProviderField | "provider">> = {
+  "monitor.email_api.provider": "provider",
+  "monitor.email_api.from_address": "from_address",
+  "monitor.email_api.region": "region",
+  "monitor.email_api.api_key": "api_key",
+  "monitor.email_api.access_key_id": "access_key_id",
+  "monitor.email_api.secret_access_key": "secret_access_key",
+};

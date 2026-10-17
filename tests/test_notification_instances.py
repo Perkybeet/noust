@@ -203,6 +203,8 @@ class TestValidation:
             ({"slack": {"events": ["deploy_failed"]}}, "events must be a mapping"),
             ({"slack": {"route": {"apps": ["bad name"]}}}, "slack.route.apps"),
             ({"slack": {"quiet": {"start": "22:00", "end": "22:00"}}}, "slack.quiet"),
+            ({"slack": {"flood": {"max": 0, "minutes": 5}}}, "slack.flood.max"),
+            ({"slack": {"summary": {"at": "soon"}}}, "slack.summary.at"),
             ({"telegram": {"chat_id": "not-a-chat"}}, "not a Telegram chat id"),
             ({"telegram": {"thread_id": "abc"}}, "thread_id must be a topic number"),
             ({"telegram": {"thread_id": 0}}, "positive topic number"),

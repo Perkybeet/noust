@@ -31,6 +31,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
+from noust.core import compliance
 from noust.core.access import (
     SCOPE_ENVIRONMENT,
     SCOPE_INSTANCE,
@@ -64,7 +65,7 @@ from noust.core.teams.model import (
     refuse_instance_only_member,
 )
 from noust.web.permissions import ALL_PERMISSIONS, DESCRIPTIONS, Permission
-from noust.web.permissions.roles import ADMIN, AUDITOR, OPERATOR, ROLE_PERMISSIONS, VIEWER
+from noust.web.permissions.roles import ADMIN, AUDITOR, OPERATOR, VIEWER, role_table
 
 P = Permission
 
@@ -165,8 +166,12 @@ def _refuse_conflict(subject: str, permissions: Iterable[str]) -> None:
         permissions: The set to check.
 
     Raises:
-        AccessError: When it mixes governing and running (separation of duties).
+        AccessError: When it mixes governing and running (separation of duties),
+            on a server that asks for it (the ENS profile, or
+            ``security.separation_of_duties``).
     """
+    if not compliance.is_on("separation_of_duties"):
+        return
     conflict = separation_conflict(permissions)
     if conflict is not None:
         governing, running = conflict
@@ -259,16 +264,6 @@ def custom_permissions(store: AccessStore) -> dict[str, frozenset[str]]:
         Each custom role's permissions by name.
     """
     return {role.name: frozenset(role.permissions) for role in store.list_roles()}
-
-
-def _is_ens() -> bool:
-    """
-    Returns:
-        Whether the ENS profile is on.
-    """
-    from noust.core.accounts.policy import load_policy
-
-    return load_policy().ens
 
 
 class AccessManager:
@@ -470,7 +465,7 @@ class AccessManager:
             if binding.scope_kind != SCOPE_INSTANCE:
                 continue
             account = self.account(binding.username)
-            base = ROLE_PERMISSIONS.get(account.role, frozenset())
+            base = role_table().get(account.role, frozenset())
             self._check_instance(account, base | permissions)
 
     # ----------------------------------------------------------------- bindings
@@ -504,21 +499,25 @@ class AccessManager:
             permissions: Its role's permissions and every role bound to it.
 
         Raises:
-            AccessError: Under ENS (one account, one role), for an auditor
+            AccessError: Where one account has one role, for an auditor
                 (who checks everybody and holds nothing else), or when the
                 account would govern and run at once.
         """
-        if _is_ens():
+        if compliance.is_on("single_role_per_account"):
             raise AccessError(
-                "The ENS profile gives an account one role",
+                "This server gives an account one role",
                 details=(
-                    "Roles on the whole server are not added to an account's own under "
-                    "ens-medium (op.acc.1.2). Give the role on a team, a project or an "
-                    "environment, or use a second account."
+                    "Roles on the whole server are not added to an account's own while the "
+                    "single_role_per_account control is on (ENS op.acc.1.2). Give the role on "
+                    "a team, a project or an environment, or use a second account."
                 ),
                 field="scope",
             )
-        if account.role == ROLE_AUDITOR and permissions - AUDITOR - {P.SELF}:
+        if (
+            compliance.is_on("separation_of_duties")
+            and account.role == ROLE_AUDITOR
+            and permissions - AUDITOR - {P.SELF}
+        ):
             raise AccessError(
                 f"{account.username!r} is an auditor, who checks everybody and holds nothing more",
                 details="Use another account for what it should be able to do.",
@@ -708,7 +707,7 @@ class AccessManager:
             kind, team=team, project=project, environment=environment
         )
         if scope_kind == SCOPE_INSTANCE:
-            base = ROLE_PERMISSIONS.get(account.role, frozenset())
+            base = role_table().get(account.role, frozenset())
             other = {
                 b.role
                 for b in self.data.list_bindings(account_id=account.id, scope_kind=SCOPE_INSTANCE)

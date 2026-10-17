@@ -33,6 +33,7 @@ import { useAppHeaderActions } from "./AppActions";
 import { AppBanner, useAppCondition } from "./AppBanner";
 import { PendingBanner, usePendingChanges } from "./PendingChanges";
 import { findCertificate } from "./lookups";
+import { isAdopted } from "./adopted";
 import { appTabs } from "./tabs";
 import { jobStep, jobWords, useAppJob } from "./useAppJob";
 import type { AppJob } from "./useAppJob";
@@ -234,7 +235,7 @@ export function AppLayout({ domain }: { domain: string }) {
         }}
         {...(banner !== null ? { banner } : {})}
         {...(job.running !== null || job.failed !== null ? { job: <Job job={job} domain={domain} t={t} /> } : {})}
-        {...(ready ? { tabs: <LinkTabs label={t("nav.landmarks.appSections")} tabs={appTabs(domain)} /> } : {})}
+        {...(ready ? { tabs: <LinkTabs label={t("nav.landmarks.appSections")} tabs={appTabs(domain, {}, { adopted: isAdopted(loaded) })} /> } : {})}
       >
         <div hidden={!ready}>
           <Outlet />

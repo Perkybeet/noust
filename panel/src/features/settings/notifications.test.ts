@@ -13,6 +13,11 @@ import {
   parseHostList,
   looksLikeEmail,
   portForSecurity,
+  providerBody,
+  providerFieldsFor,
+  providerFormDirty,
+  providerFormFrom,
+  providerSecretSaved,
   publicUrlOf,
   readNotificationSettings,
   refusedRecipients,
@@ -121,11 +126,59 @@ describe("the notification settings", () => {
     expect(isChannelConfigured(spec("webhook"), { webhook_url: REDACTED, secret: "" })).toBe(true);
   });
 
-  it("knows the four channels added in 3.4, in the order the notifier tries them", () => {
-    expect(channels(en).map((channel) => channel.id)).toEqual(["webhook", "slack", "discord", "telegram", "email", "pushover", "ntfy", "gotify", "teams"]);
+  it("knows the channels added in 3.4, in the order the notifier tries them", () => {
+    expect(channels(en).map((channel) => channel.id)).toEqual(["webhook", "slack", "discord", "telegram", "email", "pushover", "ntfy", "gotify", "teams", "mattermost", "matrix", "lark", "pagerduty"]);
+    expect(channels(en).find((channel) => channel.id === "matrix")?.fields.map((field) => [field.key, field.secret])).toEqual([
+      ["homeserver", false],
+      ["room_id", false],
+      ["access_token", true],
+    ]);
+    expect(channels(en).find((channel) => channel.id === "pagerduty")?.fields.map((field) => field.key)).toEqual(["routing_key", "region"]);
+    expect(readNotificationSettings({}).channels.pagerduty).toEqual({ routing_key: "", region: "" });
     expect(channels(en).find((channel) => channel.id === "pushover")?.fields.map((field) => field.key)).toEqual(["user_key", "app_token", "device"]);
     expect(readNotificationSettings({}).channels.pushover).toEqual({ user_key: "", app_token: "", device: "" });
     expect(readNotificationSettings({ notifications: { channels: { ntfy: { webhook_url: "***", token: "" } } } }).channels.ntfy).toEqual({ webhook_url: REDACTED, token: "" });
+  });
+
+  it("asks each email service only for what it needs, and reads what the server holds without a credential", () => {
+    expect(providerFieldsFor("")).toEqual([]);
+    expect(providerFieldsFor("resend")).toEqual(["api_key", "from_address"]);
+    expect(providerFieldsFor("postmark")).toEqual(providerFieldsFor("brevo"));
+    expect(providerFieldsFor("ses")).toEqual(["region", "access_key_id", "secret_access_key", "from_address"]);
+    const stored = {
+      provider: "ses",
+      providers: ["resend", "postmark", "brevo", "ses"],
+      from_address: "noust@example.com",
+      region: "eu-west-1",
+      api_key_set: false,
+      access_key_id_set: true,
+      secret_access_key_set: true,
+      recipients: [],
+      configured: false,
+    };
+    expect(providerFormFrom(stored)).toEqual({ provider: "ses", from_address: "noust@example.com", region: "eu-west-1", api_key: "", access_key_id: "", secret_access_key: "" });
+    // A service the console does not know reads as none, rather than showing a value it cannot edit.
+    expect(providerFormFrom({ ...stored, provider: "mailgun" }).provider).toBe("");
+    expect(providerSecretSaved(stored, "access_key_id", "ses")).toBe(true);
+    // A key saved for one service is not kept for another.
+    expect(providerSecretSaved(stored, "api_key", "resend")).toBe(false);
+    expect(providerSecretSaved({ ...stored, provider: "resend", api_key_set: true }, "api_key", "resend")).toBe(true);
+  });
+
+  it("writes only the chosen service's fields, so changing service clears the old one's", () => {
+    const form = { provider: "resend" as const, from_address: " noust@example.com ", region: "eu-west-1", api_key: " re_key ", access_key_id: "AKIA", secret_access_key: "x" };
+    expect(providerBody(form)).toEqual({ provider: "resend", from_address: "noust@example.com", region: "", api_key: "re_key", access_key_id: "", secret_access_key: "" });
+    expect(providerBody({ ...form, provider: "" })).toEqual({ provider: "", from_address: "", region: "", api_key: "", access_key_id: "", secret_access_key: "" });
+  });
+
+  it("is dirty when the service changes or a field of it does, and a typed credential counts, an empty one does not", () => {
+    const stored = { provider: "ses" as const, from_address: "a@example.com", region: "eu-west-1", api_key: "", access_key_id: "", secret_access_key: "" };
+    expect(providerFormDirty(stored, stored)).toBe(false);
+    expect(providerFormDirty({ ...stored, provider: "resend" }, stored)).toBe(true);
+    expect(providerFormDirty({ ...stored, region: "eu-central-1" }, stored)).toBe(true);
+    expect(providerFormDirty({ ...stored, secret_access_key: "new" }, stored)).toBe(true);
+    // A field of another service is not this one's to change.
+    expect(providerFormDirty({ ...stored, api_key: "typed before switching" }, stored)).toBe(false);
   });
 
   it("calls a channel configured only when everything it cannot send without is stored", () => {
@@ -179,16 +232,22 @@ describe("the notification settings", () => {
       "approval_decided",
       "alert_firing",
       "alert_resolved",
+      "alert_acknowledged",
       "backup_missing",
       "cron_failed",
       "cron_success",
       "os_patches",
       "token_expiring",
+      "cleanup_failed",
+      "cleanup_success",
+      "cron_missed",
+      "probe_failed",
+      "probe_recovered",
     ]);
     const grouped = EVENT_GROUPS.flatMap((group) => group.kinds);
     expect([...grouped].sort()).toEqual([...EVENT_KINDS].sort());
     expect(new Set(grouped).size).toBe(grouped.length);
-    expect(events(en).filter((event) => event.offByDefault === true).map((event) => event.kind)).toEqual(["deploy_started", "backup_success", "cron_success"]);
+    expect(events(en).filter((event) => event.offByDefault === true).map((event) => event.kind)).toEqual(["deploy_started", "backup_success", "cron_success", "cleanup_success"]);
     expect(eventSpec(en, "node_host_key_changed").label).toBe("Server's identity changed");
     expect(eventSpec(en, "deploy_hook_failed").label).toBe("Deployed with warnings");
   });

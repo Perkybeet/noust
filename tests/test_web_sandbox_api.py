@@ -110,9 +110,10 @@ class TestApi:
         assert event["details"]["action"] == "enable"
         assert event["details"]["forced"] is True
 
-    def test_building_as_root_needs_sudo_mode_and_a_reason(
-        self, store: NoustStore, audited: list[dict[str, Any]]
+    def test_building_as_root_needs_sudo_mode_and_a_reason_where_the_server_asks(
+        self, store: NoustStore, audited: list[dict[str, Any]], real_config: Any
     ) -> None:
+        real_config.set("security.exception_reasons", True)
         plain = make_client(elevated=False).post(
             f"/api/apps/{DOMAIN}/sandbox/disable", json={"reason": "private registry"}
         )
@@ -124,13 +125,19 @@ class TestApi:
         )
 
         assert plain.status_code == 403
-        assert empty.status_code == 422
+        assert empty.status_code == 400
         assert done.status_code == 200
         assert done.json()["mode"] == "off"
         assert done.json()["reason"] == "private registry"
         assert "private registry" in done.json()["warning"]
         sandbox_events = [e for e in audited if e["event"] == "apps.sandbox"]
         assert [e["details"]["action"] for e in sandbox_events] == ["disable"]
+
+    def test_by_default_a_reason_is_optional(self, store: NoustStore, real_config: Any) -> None:
+        done = make_client(elevated=True).post(f"/api/apps/{DOMAIN}/sandbox/disable", json={})
+
+        assert done.status_code == 200
+        assert done.json()["reason"] == "no reason given"
 
     def test_a_compose_exception_needs_sudo_mode_and_can_be_revoked(
         self, store: NoustStore
@@ -226,11 +233,22 @@ class TestCli:
         state = build_sandbox.get_state(DOMAIN, store=store)
         assert (state.mode, state.reason) == ("off", "npm token")
 
-    def test_disable_needs_a_reason(self, store: NoustStore) -> None:
+    def test_disable_needs_a_reason_where_the_server_asks(
+        self, store: NoustStore, real_config: Any
+    ) -> None:
+        real_config.set("security.exception_reasons", True)
+
         result = invoke("app", "sandbox", "disable", DOMAIN, "--yes")
 
         assert result.exit_code != 0
-        assert "--reason" in result.output
+        assert "needs a reason" in str(result.exception)
+
+    def test_by_default_disable_asks_for_no_reason(
+        self, store: NoustStore, real_config: Any
+    ) -> None:
+        result = invoke("app", "sandbox", "disable", DOMAIN, "--yes")
+
+        assert result.exit_code == 0, result.output
 
     def test_a_compose_exception_can_be_given_before_the_stack_exists(
         self, store: NoustStore

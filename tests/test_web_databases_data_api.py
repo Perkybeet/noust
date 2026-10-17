@@ -352,7 +352,7 @@ def test_a_viewer_may_run_a_read_but_not_a_write(app: FastAPI, wired: SqlRunner)
 
 @pytest.mark.parametrize("ens", [False, True])
 def test_a_write_needs_root_equivalent_under_the_ens_profile(
-    monkeypatch: pytest.MonkeyPatch, ens: bool
+    monkeypatch: pytest.MonkeyPatch, real_config: Any, ens: bool
 ) -> None:
     """A principal with databases.write but not root_equivalent writes only outside ENS."""
     import noust.web.api.databases.query as query_api
@@ -360,7 +360,8 @@ def test_a_write_needs_root_equivalent_under_the_ens_profile(
 
     payload = {"type": "session", "permissions": ["databases.read", "databases.write"]}
     elevations: list[Any] = []
-    monkeypatch.setattr(query_api, "load_policy", lambda: SimpleNamespace(ens=ens))
+    if ens:
+        real_config.set("security.frameworks", ["ens-media"])
     monkeypatch.setattr(query_api, "ensure_elevated", lambda request, session: elevations.append(1))
 
     if ens:

@@ -128,6 +128,17 @@ export function revokeOtherSessions() {
   return request("post", "/api/auth/sessions/revoke-others");
 }
 
+/**
+ * Changes the addresses a live token is accepted from; an empty list lifts the limit. Taking
+ * addresses away needs nothing more, widening asks for "Confirm it's you".
+ */
+export function restrictApiToken(id: number, allowedCidrs: string[]) {
+  return request("patch", "/api/auth/tokens/{token_id}", {
+    params: { token_id: id },
+    body: { allowed_cidrs: allowedCidrs },
+  });
+}
+
 /** Issues a named, scoped token, returned in clear exactly once. Needs "Confirm it's you". */
 export function createApiToken(body: CreateTokenBody) {
   return request("post", "/api/auth/tokens", { body });

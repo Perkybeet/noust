@@ -92,7 +92,7 @@ function columnsFor(t: T): Column<SsoProviderInfo>[] {
 }
 
 /** What the provider answered to the test, check by check, in its own words. */
-function TestResultDialog({ name, result, onClose }: { name: string; result: SsoTestResult; onClose: () => void }) {
+export function TestResultDialog({ name, result, onClose }: { name: string; result: SsoTestResult; onClose: () => void }) {
   const t = useT();
   return (
     <Dialog

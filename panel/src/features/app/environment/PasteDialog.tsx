@@ -10,7 +10,7 @@ import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import type { DraftOp, EnvMap } from "./draft";
-import { nameProblem, parseDotenv, valueProblem } from "./dotenv";
+import { nameProblem, oneLine, parseDotenv, valueProblem } from "./dotenv";
 
 export type PasteMode = "merge" | "replace";
 
@@ -56,7 +56,8 @@ export interface PasteDialogProps {
   onOpenChange: (open: boolean) => void;
   /** The variables the file holds now (masked), to say what each pasted one does. */
   current: EnvMap;
-  onStage: (ops: DraftOp[], summary: string) => void;
+  /** `comments` are the notes found above the pasted variables, by name. */
+  onStage: (ops: DraftOp[], summary: string, comments: ReadonlyMap<string, string>) => void;
 }
 
 /**
@@ -88,7 +89,7 @@ export function PasteDialog({ open, onOpenChange, current, onStage }: PasteDialo
         ? [{ kind: "replace", variables: new Map(parsed.variables) }]
         : [...parsed.variables].map(([name, value]) => ({ kind: "set", name, value }));
     const summary = t(mode === "replace" ? "environment.pasteDialog.stagedSummaryReplace" : "environment.pasteDialog.stagedSummary", { count });
-    onStage(ops, summary);
+    onStage(ops, summary, parsed.comments);
     close(false);
   };
 
@@ -188,9 +189,12 @@ export function PasteDialog({ open, onOpenChange, current, onStage }: PasteDialo
                         {value === "" ? (
                           <span className="text-fg-muted">{t("environment.empty")}</span>
                         ) : (
-                          <Mono tone="muted" truncate title={value}>
-                            {value}
-                          </Mono>
+                          <span className="flex min-w-0 items-baseline gap-2">
+                            <Mono tone="muted" truncate title={value}>
+                              {oneLine(value).text}
+                            </Mono>
+                            {oneLine(value).lines > 1 ? <span className="shrink-0 text-fg-faint">{t("environment.lines", { count: oneLine(value).lines })}</span> : null}
+                          </span>
                         )}
                       </li>
                     );
