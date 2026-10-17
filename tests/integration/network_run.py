@@ -1238,6 +1238,181 @@ def scenario_routes(env: Env) -> None:
 
 
 # ---------------------------------------------------------------------------
+# The history of a site's file, its diff and its restore, on a real nginx
+# ---------------------------------------------------------------------------
+
+#: Runs inside the server: save a text as a site's configuration through the one writer the
+#: console's editor uses (``WebServerManager.replace_site_config``), and print what happened.
+EDIT_SITE = r"""
+import sys
+from noust.core.exceptions import NoustError
+from noust.managers.nginx_manager import NginxManager
+domain, path = sys.argv[1], sys.argv[2]
+text = open(path).read()
+try:
+    NginxManager().replace_site_config(domain, text)
+    print("SAVED")
+except NoustError as exc:
+    print("REFUSED:", exc.message)
+    print((exc.details or "").strip())
+"""
+
+
+def edit_site(env: Env, domain: str, transform: str) -> str:
+    """
+    Save the site's file after a ``sed`` expression, the way the console's editor does.
+
+    Args:
+        env: The environment.
+        domain: The site.
+        transform: A sed script applied to the current text.
+
+    Returns:
+        What the editor's writer printed: ``SAVED`` or ``REFUSED: ...`` with nginx's words.
+    """
+    env.srv(
+        f"sed '{transform}' /etc/nginx/sites-available/{domain} > /tmp/candidate.conf; "
+        f"cat > /tmp/edit_site.py <<'PY'\n{EDIT_SITE}\nPY"
+    )
+    return env.srv(f"/opt/noust/bin/python /tmp/edit_site.py {domain} /tmp/candidate.conf").stdout
+
+
+def history(env: Env, domain: str) -> dict[str, Any]:
+    """The site's history as ``noust site history --json`` reports it."""
+    return json_of(env.srv(f"noust site history {domain} --json"), "site history --json")
+
+
+@scenario("site_history_and_restore")
+def scenario_site_history(env: Env) -> None:
+    """A site's file: every write kept, a hand edit recovered, a bad text refused, a restore."""
+    domain = "hist.test"
+    if env.srv(f"noust status {domain}", check=False).returncode == 0:
+        env.srv(f"noust delete {domain} -y", label="(a re-run) start from nothing")
+    ensure_app(env, domain)
+    served = f"curl -sI -H 'Host: {domain}' http://127.0.0.1/"
+
+    # -- what a deploy wrote is the first version, and it is the file now
+    first = history(env, domain)
+    env.check(
+        {v["source"] for v in first["versions"]} == {"generated"}
+        and first["versions"][0]["current"],
+        f"a deployed site should have generated versions only, the newest current: {first}",
+    )
+    env.check(
+        not first["edited_outside"] and not first["pending_reload"], f"drift at the start: {first}"
+    )
+
+    # -- an edit through the editor's writer: tested by the real nginx, kept, effective after a reload
+    saved = edit_site(
+        env, domain, 's|^\\(\\s*\\)server_tokens off;|&\\n\\1add_header X-History "v2" always;|'
+    )
+    env.check(saved.startswith("SAVED"), f"nginx refused a valid edit: {saved}")
+    env.srv("systemctl reload nginx")
+    env.check("x-history: v2" in env.srv(served).stdout.lower(), "the edited header is not served")
+    after_edit = history(env, domain)
+    env.check(
+        [v["source"] for v in after_edit["versions"]][:2] == ["edit", "generated"],
+        f"the edit was not kept as a version: {after_edit['versions']}",
+    )
+
+    # -- a text nginx refuses: nginx's own words, nothing changes, no version is made
+    before = env.srv(f"sha256sum /etc/nginx/sites-available/{domain}").stdout
+    refused = edit_site(env, domain, "s|^\\(\\s*\\)server_tokens off;|\\1server_tokenz off;|")
+    env.check(
+        refused.startswith("REFUSED")
+        and "server_tokenz" in refused
+        and "unknown directive" in refused,
+        f"nginx's own words are missing from the refusal: {refused!r}",
+    )
+    env.check(
+        env.srv(f"sha256sum /etc/nginx/sites-available/{domain}").stdout == before,
+        "a refused text changed the file",
+    )
+    env.check(
+        len(history(env, domain)["versions"]) == len(after_edit["versions"]),
+        "a refused text made a version",
+    )
+    # ...and a text that would make nginx read a file it must not (root runs the test)
+    hostile = edit_site(env, domain, "s|^\\(\\s*\\)server_tokens off;|&\\n\\1include /etc/shadow;|")
+    env.check(
+        hostile.startswith("REFUSED"), f"a text that includes /etc/shadow was accepted: {hostile!r}"
+    )
+
+    # -- a hand edit nobody told Noust about: drift, then the edit survives in the history
+    env.srv(f'sed -i \'s|X-History "v2"|X-History "by-hand"|\' /etc/nginx/sites-available/{domain}')
+    drifted = history(env, domain)
+    env.check(drifted["edited_outside"], f"a hand edit was not noticed: {drifted}")
+    env.check(
+        drifted["pending_reload"],
+        f"a file written after nginx loaded its configuration is not pending: {drifted}",
+    )
+    env.srv("systemctl reload nginx")
+    env.check(
+        "x-history: by-hand" in env.srv(served).stdout.lower(),
+        "the hand edit is not served after a reload",
+    )
+    env.check(not history(env, domain)["pending_reload"], "still pending after a reload")
+
+    # -- the next time Noust renders the site it overwrites the file; the hand edit is kept first
+    # as 'found' (an update leaves the site alone: this is a change of policy, a new name, a
+    # certificate, anything that renders it again)
+    env.srv(f"noust app policy set {domain} --noindex")
+    sources = [v["source"] for v in history(env, domain)["versions"]]
+    env.check("found" in sources, f"the hand edit was lost to the deploy: {sources}")
+    found = next(v for v in history(env, domain)["versions"] if v["source"] == "found")
+    env.check(
+        "by-hand" in env.srv(f"noust site diff {domain} {found['version']}").stdout,
+        "the diff does not show the hand edit that was recovered",
+    )
+    env.check(
+        "x-history" not in env.srv(served).stdout.lower(), "the deploy kept the hand edit's header"
+    )
+
+    # -- restoring the hand edit: the same write as any edit, a version of its own, effective on reload
+    env.srv(f"noust site restore {domain} {found['version']} --reload")
+    env.check(
+        "x-history: by-hand" in env.srv(served).stdout.lower(), "the restored version is not served"
+    )
+    restored = history(env, domain)
+    env.check(
+        restored["versions"][0]["source"] == "restore",
+        f"a restore is not a version of its own: {restored['versions'][0]}",
+    )
+    env.check(restored["versions"][0]["current"], "the restored version is not the current one")
+    env.check(not restored["edited_outside"], "a restore reads as an edit made outside Noust")
+    env.check(
+        "No difference" in env.srv(f"noust site diff {domain} {found['version']}").stdout,
+        "the restored file differs from the version it came from",
+    )
+
+    # -- a version nginx would refuse now cannot be put back, and the file stays as it is
+    env.srv(
+        "mkdir -p /etc/ssl/noust-hist && cd /etc/ssl/noust-hist && openssl req -x509 -newkey ec "
+        "-pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 3 -subj /CN=hist.test "
+        "-keyout hist.key -out hist.crt 2>/dev/null"
+    )
+    listener = (
+        "server { listen 8443 ssl; server_name hist.test; "
+        "ssl_certificate /etc/ssl/noust-hist/hist.crt; "
+        "ssl_certificate_key /etc/ssl/noust-hist/hist.key; return 204; }"
+    )
+    saved = edit_site(env, domain, "$a\\" + listener)
+    env.check(saved.startswith("SAVED"), f"a valid second listener was refused: {saved}")
+    with_cert = history(env, domain)["versions"][0]["version"]
+    env.srv("rm -rf /etc/ssl/noust-hist")  # the files that version names are gone
+    current = env.srv(f"sha256sum /etc/nginx/sites-available/{domain}").stdout
+    bad = env.srv(f"noust site restore {domain} {with_cert}", check=False)
+    env.check(
+        bad.returncode != 0 and "noust-hist" in (bad.stdout + bad.stderr),
+        f"a restore nginx cannot load was accepted or hid nginx's words: {bad.stdout!r} {bad.stderr!r}",
+    )
+    env.check(
+        env.srv(f"sha256sum /etc/nginx/sites-available/{domain}").stdout == current,
+        "a refused restore changed the file",
+    )
+
+
+# ---------------------------------------------------------------------------
 # More scenarios are added below, one per proof.
 # ---------------------------------------------------------------------------
 
