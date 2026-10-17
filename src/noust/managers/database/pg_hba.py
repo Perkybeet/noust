@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The one block Noust ever puts in ``pg_hba.conf``: an account that must use TLS.
+The two blocks Noust puts in ``pg_hba.conf``: TLS for an account, and a replica's stream.
 
 PostgreSQL decides who may connect, from where and how, in ``pg_hba.conf``, a
 file the distribution owns and Noust has never edited. A database made
@@ -18,20 +18,32 @@ account on that one database and nothing else, and TLS connections fall
 through to the lines that were already there. The block is marked, so removing
 it, and only it, is exact.
 
+The second block lets one replica server stream the write-ahead log (checklist C-14)::
+
+    hostssl replication <account> <address> scram-sha-256
+
+``hostssl`` so that a connection without TLS finds no line and is refused, ``replication`` because
+that keyword is the only way a line matches a replication connection (``all`` does not), one
+account and one address because a replica is one machine. Like the first it is marked and placed
+above every connection line.
+
 Pure text in, text out: reading, writing, checking and reloading are the
-manager's (:meth:`~noust.managers.database.postgres.PostgresManager.set_remote_tls`).
+manager's (:meth:`~noust.managers.database.postgres.PostgresManager.edit_hba`).
 """
 
 from __future__ import annotations
 
+import ipaddress
 import re
 
 #: What a database or an account may be called here. The names reach the file
 #: unquoted, so only what needs no quoting is accepted.
 _NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,62}")
 
-#: What every block of this module opens with, whoever it is for.
+#: What a block of each kind opens with, whoever it is for.
 _BLOCK_OPENING = "# BEGIN noust remote access:"
+_REPLICATION_OPENING = "# BEGIN noust replication:"
+_OPENINGS = (_BLOCK_OPENING, _REPLICATION_OPENING)
 
 
 def _checked(value: str, what: str) -> str:
@@ -121,7 +133,21 @@ def without_block(text: str, account: str) -> str:
         that was opened and never closed is left alone: a half block is not
         guessed at.
     """
-    begin, end = _markers(account)
+    return _strip(text, *_markers(account))
+
+
+def _strip(text: str, begin: str, end: str) -> str:
+    """
+    Take the block fenced by two marker lines out of the file, and nothing else.
+
+    Args:
+        text: The file.
+        begin: The line that opens the block.
+        end: The line that closes it.
+
+    Returns:
+        The file without the block; unchanged when it holds none or the block was never closed.
+    """
     lines = text.splitlines(keepends=True)
     kept: list[str] = []
     index = 0
@@ -156,19 +182,143 @@ def with_block(text: str, database: str, account: str) -> str:
     Raises:
         ValueError: When a name cannot be written unquoted.
     """
-    cleaned = without_block(text, account)
+    return _insert(without_block(text, account), block(database, account))
+
+
+def _insert(cleaned: str, new: str) -> str:
+    """
+    Put a block after the leading comments of the file and above every connection line.
+
+    Args:
+        cleaned: The file without an earlier copy of the block.
+        new: The block, newline-terminated.
+
+    Returns:
+        The file with the block in.
+    """
     lines = cleaned.splitlines(keepends=True)
     at = 0
     # After the leading comments, and above the first connection line or the
     # first block of another account, never inside one.
     while (
         at < len(lines)
-        and not lines[at].strip().startswith(_BLOCK_OPENING)
+        and not lines[at].strip().startswith(_OPENINGS)
         and (not lines[at].strip() or lines[at].lstrip().startswith("#"))
     ):
         at += 1
-    new = block(database, account)
     head = "".join(lines[:at])
     if head and not head.endswith("\n"):
         head += "\n"
     return head + new + "".join(lines[at:])
+
+
+def _replication_markers(account: str) -> tuple[str, str]:
+    """
+    Name the lines that fence a replica's block.
+
+    Args:
+        account: The replication account.
+
+    Returns:
+        The line that opens the block and the line that closes it.
+    """
+    return (
+        f"{_REPLICATION_OPENING} {account}",
+        f"# END noust replication: {account}",
+    )
+
+
+def replica_address(value: str) -> str:
+    """
+    Check the address a replica connects from and write it the way ``pg_hba.conf`` reads it.
+
+    Args:
+        value: An address or a network (``203.0.113.7``, ``10.0.0.0/24``).
+
+    Returns:
+        The network in CIDR form (a lone address becomes a /32 or /128).
+
+    Raises:
+        ValueError: When it is not an address, or is every address (a replica is a machine, and
+            the default of a line that reaches anyone is the opposite of what this is for).
+    """
+    try:
+        network = ipaddress.ip_network(value, strict=False)
+    except ValueError as exc:
+        raise ValueError(f"{value!r} is not an address or a network") from exc
+    if network.prefixlen == 0:
+        raise ValueError("A replica is allowed from an address or a network, not from everywhere")
+    return str(network)
+
+
+def replication_block(account: str, address: str) -> str:
+    """
+    Write the block that lets a replica stream, over TLS only.
+
+    Args:
+        account: The replication account.
+        address: Where the replica connects from (see :func:`replica_address`).
+
+    Returns:
+        The block, newline-terminated.
+
+    Raises:
+        ValueError: When a name or the address cannot be written.
+    """
+    begin, end = _replication_markers(_checked(account, "account"))
+    return (
+        f"{begin}\n"
+        "# Generated by Noust: a replica streams this server's log with this account, over TLS "
+        "only.\n"
+        f"hostssl replication {account} {replica_address(address)} scram-sha-256\n"
+        f"{end}\n"
+    )
+
+
+def has_replication_block(text: str, account: str) -> bool:
+    """
+    Tell whether the file holds a replica's block.
+
+    Args:
+        text: The file.
+        account: The replication account.
+
+    Returns:
+        True when the opening marker is there.
+    """
+    begin, _ = _replication_markers(account)
+    return any(line.strip() == begin for line in text.splitlines())
+
+
+def without_replication_block(text: str, account: str) -> str:
+    """
+    Take a replica's block out of the file, and nothing else.
+
+    Args:
+        text: The file.
+        account: The replication account.
+
+    Returns:
+        The file without the block; unchanged when it holds none.
+    """
+    return _strip(text, *_replication_markers(account))
+
+
+def with_replication_block(text: str, account: str, address: str) -> str:
+    """
+    Put a replica's block above every connection line of the file.
+
+    A block the file already holds for the account is replaced, not repeated.
+
+    Args:
+        text: The file.
+        account: The replication account.
+        address: Where the replica connects from.
+
+    Returns:
+        The file with the block in.
+
+    Raises:
+        ValueError: When a name or the address cannot be written.
+    """
+    return _insert(without_replication_block(text, account), replication_block(account, address))

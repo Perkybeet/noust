@@ -38,7 +38,7 @@ import secrets
 import stat
 import tempfile
 import time
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
@@ -2620,10 +2620,37 @@ class PostgresManager(BaseDatabaseManager):
                 PostgreSQL does not accept what was written (the file is back
                 as it was).
         """
-        if is_rehearsal():
-            return
         self.validate_user_name(username)
         self.validate_database_name(database)
+        self.edit_hba(
+            lambda text: (
+                pg_hba.with_block(text, database, username)
+                if required
+                else pg_hba.without_block(text, username)
+            )
+        )
+
+    def edit_hba(self, update: Callable[[str], str]) -> bool:
+        """
+        Change ``pg_hba.conf`` the one safe way: checked by the server, reloaded, put back on error.
+
+        The file is rewritten, PostgreSQL itself reads it back (``pg_hba_file_rules``) and only a
+        file it accepts is loaded; a file it finds an error in is put back as it was, so a
+        mistake here can never lock every client out.
+
+        Args:
+            update: Text in, text out: the new content of the file (see
+                :mod:`noust.managers.database.pg_hba`).
+
+        Returns:
+            Whether the file changed.
+
+        Raises:
+            DatabaseUserError: When the file cannot be read or written, or PostgreSQL does not
+                accept what was written (the file is back as it was).
+        """
+        if is_rehearsal():
+            return False
         located = self._show("hba_file")
         if not located:
             raise DatabaseUserError(
@@ -2635,13 +2662,9 @@ class PostgresManager(BaseDatabaseManager):
             before = read_config_file(path)
             if before is None:
                 raise DatabaseUserError(f"{path} does not exist")
-            after = (
-                pg_hba.with_block(before, database, username)
-                if required
-                else pg_hba.without_block(before, username)
-            )
+            after = update(before)
             if after == before:
-                return
+                return False
             write_config_file(self.fs, path, after, preserve=True)
         except DatabaseEngineError as exc:
             raise DatabaseUserError(exc.message, details=exc.details) from exc
@@ -2663,6 +2686,7 @@ class PostgresManager(BaseDatabaseManager):
             raise DatabaseUserError(
                 "PostgreSQL did not reload pg_hba.conf, so it was put back", details=output.strip()
             )
+        return True
 
     def _put_back_hba(self, path: Path, text: str, *, reload: bool) -> None:
         """

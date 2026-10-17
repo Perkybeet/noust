@@ -3128,3 +3128,18 @@ def _attach_tls_commands() -> None:
 
 
 _attach_tls_commands()
+
+
+def _attach_replica_commands() -> None:
+    """
+    Add ``replica``: read replicas of the host's PostgreSQL, over TLS.
+
+    It lives in :mod:`noust.cli.commands.db_replica`, which imports this module only at call
+    time, like the other command modules.
+    """
+    from noust.cli.commands import db_replica
+
+    db_replica.register(cli)
+
+
+_attach_replica_commands()

@@ -58,6 +58,14 @@ from noust.core.fs import FileSystem, get_fs, is_rehearsal
 from noust.core.store import get_store
 from noust.managers.backup_destination_files import DestinationFileManager, file_sha256
 from noust.managers.backup_scheduler import BackupScheduler
+from noust.managers.database.cluster_swap import (
+    LOCK_KEY,
+    POLL_SECONDS,
+    READY_TIMEOUT,
+    ClusterSwap,
+    busy_error,
+    holder_text,
+)
 from noust.managers.database.pitr_archive import (
     BaseBackup,
     archive_command,
@@ -78,6 +86,7 @@ from noust.managers.database.postgres import PostgresManager
 
 __all__ = [
     "ENGINE",
+    "LOCK_KEY",
     "PitrManager",
     "RestorePlan",
 ]
@@ -101,26 +110,11 @@ ARCHIVE_TIMEOUT_SECONDS = 60
 #: Seconds a base backup may take.
 BASE_BACKUP_TIMEOUT = 6 * 3600
 
-#: Seconds the engine is given to answer after a restart, and to prove the archive works.
-READY_TIMEOUT = 180
+#: Seconds the engine is given to prove the archive works.
 ARCHIVE_PROOF_TIMEOUT = 120
 
 #: Seconds a recovery may take before it is called failed.
 RECOVERY_TIMEOUT = 3600
-
-#: Seconds between two looks at the engine while waiting for it.
-POLL_SECONDS = 2.0
-
-#: Seconds a stopping engine is given to finish its shutdown checkpoint and exit.
-STOP_TIMEOUT_SECONDS = 180
-
-#: Seconds a started engine is given to write its process file before a missing one means it
-#: died. ``systemctl start postgresql`` succeeds on Debian whatever the cluster does (the unit
-#: only wants the clusters'), so the engine's own process is the thing to look at.
-STARTUP_GRACE_SECONDS = 20
-
-#: Journal lines an error shows.
-JOURNAL_LINES = 40
 
 #: The destinations' folders: ``databases/postgresql/pitr/<system identifier>/<kind>``.
 BASE_FOLDER = "base"
@@ -129,9 +123,6 @@ WAL_FOLDER = "wal"
 #: What the engine is given besides the command: the interval of the forced switch.
 _SETTINGS_WE_SET = ("archive_mode", "archive_command", "archive_timeout")
 
-
-#: The name the one-at-a-time lock of this area is kept under (``noust.core.applock``).
-LOCK_KEY = "database-postgresql-pitr"
 
 _Method = TypeVar("_Method", bound=Callable[..., Any])
 
@@ -163,20 +154,9 @@ def _exclusive(operation: str, *, skip_when_busy: bool = False) -> Callable[[_Me
             except AppBusyError as busy:
                 if busy.domain != LOCK_KEY:
                     raise
-                holder = busy.holder
-                running = (
-                    f"{holder.operation} (since {holder.started_at}, pid {holder.pid})"
-                    if holder
-                    else "another operation"
-                )
                 if skip_when_busy:
-                    return {"base": None, "pruned": {}, "sync": {}, "skipped": running}
-                raise DatabaseBackupError(
-                    f"Cannot start the {operation}: {running} is still running",
-                    details="Only one change to the archive, the base backups or the cluster "
-                    "runs at a time. Wait for it to finish, then retry. The lock is released "
-                    "the moment its process exits.",
-                ) from busy
+                    return {"base": None, "pruned": {}, "sync": {}, "skipped": holder_text(busy)}
+                raise busy_error(busy, operation) from busy
 
         return guarded  # type: ignore[return-value]
 
@@ -291,6 +271,16 @@ class PitrManager:
         self._sleep = sleep
         self._archive_root = archive_root
         self._backup_root = backup_root
+        self._swap: ClusterSwap | None = None
+
+    @property
+    def swap(self) -> ClusterSwap:
+        """The steps of replacing the cluster, shared with the replica join."""
+        if self._swap is None:
+            self._swap = ClusterSwap(
+                self.manager, fs=self._fs, clock=self._clock, sleep=self._sleep
+            )
+        return self._swap
 
     def _audit(self, event: str, outcome: str = "ok", **details: Any) -> None:
         """
@@ -414,96 +404,32 @@ class PitrManager:
         Returns:
             Whether the engine answers a query.
         """
-        ok, _output = self.manager._execute_sql("SELECT 1;", timeout=15)
-        return ok
+        return self.swap.alive()
 
     def _wait_ready(self, timeout: int = READY_TIMEOUT) -> None:
         """
-        Wait for the engine to answer after a restart.
+        Wait for the engine to answer after a restart (see :class:`ClusterSwap`).
 
         Args:
             timeout: Seconds to wait.
-
-        Raises:
-            DatabaseEngineError: When it does not, with the end of its journal.
         """
-        deadline = self._clock() + timedelta(seconds=timeout)
-        while True:
-            if self._alive():
-                return
-            if self._clock() >= deadline:
-                raise DatabaseEngineError(
-                    "PostgreSQL did not answer after the restart",
-                    details=self._journal(),
-                )
-            self._sleep(POLL_SECONDS)
+        self.swap.wait_ready(timeout)
 
     def _journal(self) -> str:
         """
         Returns:
-            The end of the engine's journal, verbatim, for an error to carry: its unit, and the
-            per-cluster units Debian's packages start (``postgresql@16-main``), which are where
-            a cluster that did not come up says why.
+            The end of the engine's journal, verbatim, for an error to carry.
         """
-        result = self.manager._exec(
-            [
-                "journalctl",
-                "-u",
-                self.manager.service_unit(),
-                "-u",
-                "postgresql@*",
-                "-n",
-                str(JOURNAL_LINES),
-                "--no-pager",
-            ],
-            timeout=60,
-        )
-        return (result.stdout if result.success else result.stderr).strip()
-
-    @staticmethod
-    def _postmaster_running(data: Path) -> bool:
-        """
-        Say whether the engine's server process is running, by the file it keeps.
-
-        Args:
-            data: The data directory.
-
-        Returns:
-            Whether ``postmaster.pid`` names a live process.
-        """
-        try:
-            first = (data / "postmaster.pid").read_text(encoding="utf-8").splitlines()[0]
-        except (OSError, IndexError):
-            return False
-        return first.strip().isdigit() and Path(f"/proc/{first.strip()}").exists()
+        return self.swap.journal()
 
     def _stop_engine(self, data: Path) -> None:
         """
         Stop the engine and wait until its server process is really gone.
 
-        ``systemctl stop`` is not the end of it: on Debian the unit that is stopped only asks
-        the cluster's own unit to stop, and a server that is still writing its shutdown
-        checkpoint writes it to the data directory *by name*, so a directory renamed or
-        replaced meanwhile gets that write, and the one that was set aside never records that
-        it was shut down cleanly.
-
         Args:
             data: The data directory the engine runs on.
-
-        Raises:
-            DatabaseBackupError: When the server process is still there after the wait. Nothing
-                was changed.
         """
-        self.manager.stop()
-        deadline = self._clock() + timedelta(seconds=STOP_TIMEOUT_SECONDS)
-        while self._postmaster_running(data):
-            if self._clock() >= deadline:
-                raise DatabaseBackupError(
-                    "PostgreSQL did not stop",
-                    details=f"Its server process (see {data / 'postmaster.pid'}) was still "
-                    f"running {STOP_TIMEOUT_SECONDS} seconds after the stop. Nothing was changed.",
-                )
-            self._sleep(POLL_SECONDS / 4)
+        self.swap.stop_engine(data)
 
     def facts(self) -> dict[str, Any]:
         """
@@ -1734,15 +1660,7 @@ class PitrManager:
                     f"The last segment could not be archived before the recovery: {exc.message}"
                 )
         self._stop_engine(data)
-        try:
-            self.fs.rename(data, saved)
-        except OSError as exc:
-            self.manager.start()
-            raise DatabaseBackupError(
-                "The data directory could not be set aside",
-                details=f"{exc}. A directory that is a mount point cannot be renamed; nothing "
-                "was changed.",
-            ) from exc
+        self.swap.set_aside(data, saved)
         try:
             self._lay_down(plan, policy, data)
             self.manager.start()
@@ -1849,22 +1767,9 @@ class PitrManager:
             DatabaseBackupError: When the engine's process is gone or the time runs out, with
                 its journal.
         """
-        began = self._clock()
-        deadline = began + timedelta(seconds=timeout)
-        grace = began + timedelta(seconds=STARTUP_GRACE_SECONDS)
-        while True:
-            ok, output = self.manager._execute_sql("SELECT pg_is_in_recovery();", timeout=15)
-            if ok and output.strip() == "f":
-                return
-            if not self._postmaster_running(data) and self._clock() >= grace:
-                raise DatabaseBackupError(
-                    "PostgreSQL stopped during the recovery", details=self._journal()
-                )
-            if self._clock() >= deadline:
-                raise DatabaseBackupError(
-                    f"The recovery did not finish in {timeout} seconds", details=self._journal()
-                )
-            self._sleep(POLL_SECONDS)
+        self.swap.wait_until(
+            data, "SELECT pg_is_in_recovery();", "f", timeout=timeout, what="the recovery"
+        )
 
     def _put_back(self, data: Path, saved: Path) -> None:
         """
@@ -1874,21 +1779,4 @@ class PitrManager:
             data: The data directory the attempt used.
             saved: Where the previous one was set aside.
         """
-        failed = Path(f"{data}.noust-failed-recovery")
-        try:
-            self._stop_engine(data)
-        except (DatabaseEngineError, DatabaseBackupError) as exc:
-            self.manager.logger.warning(
-                f"Could not stop the engine after the failure: {exc.message}"
-            )
-        try:
-            if failed.exists():
-                # An earlier failed attempt is replaced by this one: only the last is kept.
-                self.fs.remove_tree(failed)
-            self.fs.rename(data, failed)
-            self.fs.rename(saved, data)
-            self.manager.start()
-        except (OSError, DatabaseEngineError) as exc:
-            self.manager.logger.error(
-                f"The previous data directory could not be put back: {exc}. It is at {saved}."
-            )
+        self.swap.put_back(data, saved, ".noust-failed-recovery")

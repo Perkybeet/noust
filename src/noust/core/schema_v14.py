@@ -400,6 +400,32 @@ CREATE TABLE IF NOT EXISTS db_host_tls (
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+-- db_replication: the replicas of a host engine, from both ends
+-- (noust.managers.database.replication_records is its only reader and writer). 'primary' rows
+-- are a replica this server made room for: the account, the slot, the address allowed to stream,
+-- what the firewall was told and the setting changed so it could connect. A 'replica' row is
+-- this server following a primary: where, the passfile it connects with and the data directory
+-- that was set aside. Never a password: the primary's lives in the secret store and the
+-- replica's in its passfile.
+CREATE TABLE IF NOT EXISTS db_replication (
+    engine TEXT NOT NULL DEFAULT 'postgresql',
+    side TEXT NOT NULL CHECK (side IN ('primary', 'replica')),
+    name TEXT NOT NULL,
+    account TEXT NOT NULL,
+    slot TEXT NOT NULL,
+    host TEXT NOT NULL,
+    port INTEGER NOT NULL,
+    source TEXT,
+    listen_was TEXT,
+    firewall TEXT NOT NULL DEFAULT '{}',
+    passfile TEXT,
+    saved_as TEXT,
+    state TEXT NOT NULL DEFAULT 'prepared',
+    last_error TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (engine, side, name)
+);
 """
 DATABASES_COLUMNS: list[tuple[str, str, str]] = [
     # How a client verifies the engine a link signs in to: require, verify-ca or

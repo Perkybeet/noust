@@ -44,6 +44,7 @@ import os
 import shlex
 import subprocess
 import sys
+import tempfile
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -175,6 +176,18 @@ MACHINES: dict[str, Machine] = {
     ),
 }
 
+# A second server for the scenarios that need two (a primary and its replica): the same image,
+# no Docker of its own.
+MACHINES["replica"] = Machine(
+    key="replica",
+    container=f"{PREFIX}-replica",
+    image=run.IMAGE_TAG,
+)
+
+#: The network the machines of a two-server scenario share, with the names they reach each other by.
+NETWORK = f"{PREFIX}-net"
+ALIASES = {"ubuntu": "primary.noust.test", "replica": "replica.noust.test"}
+
 #: The machines this run started, so that the end of the run removes them.
 _STARTED: list[Machine] = []
 
@@ -184,13 +197,64 @@ def exists(kind: str, name: str) -> bool:
     Say whether a Docker object of this runner's exists.
 
     Args:
-        kind: ``container``, ``volume`` or ``image``.
+        kind: ``container``, ``volume``, ``image`` or ``network``.
         name: Its exact name.
 
     Returns:
         Whether it does.
     """
     return sh(["docker", kind, "inspect", name], timeout=30, check=False).returncode == 0
+
+
+def join_network(machine: Machine) -> None:
+    """
+    Put a machine on the runner's network, under the name the other machines reach it by.
+
+    The network is made once, labelled, and removed with the machines (or by ``--purge``); a
+    machine already on it is left alone.
+
+    Args:
+        machine: The machine.
+    """
+    if not exists("network", NETWORK):
+        sh(["docker", "network", "create", "--label", LABEL, NETWORK], timeout=30)
+    attached = sh(
+        ["docker", "inspect", "-f", "{{json .NetworkSettings.Networks}}", machine.container],
+        timeout=30,
+    ).stdout
+    if NETWORK not in attached:
+        sh(
+            [
+                "docker",
+                "network",
+                "connect",
+                "--alias",
+                ALIASES[machine.key],
+                NETWORK,
+                machine.container,
+            ],
+            timeout=30,
+        )
+
+
+def address_on_network(machine: Machine) -> str:
+    """
+    Args:
+        machine: A machine on the runner's network.
+
+    Returns:
+        Its address there.
+    """
+    return sh(
+        [
+            "docker",
+            "inspect",
+            "-f",
+            '{{(index .NetworkSettings.Networks "' + NETWORK + '").IPAddress}}',
+            machine.container,
+        ],
+        timeout=30,
+    ).stdout.strip()
 
 
 def build_image(machine: Machine) -> None:
@@ -421,6 +485,8 @@ def purge(*, images: bool) -> None:
     """
     for machine in MACHINES.values():
         remove_machine(machine)
+    if exists("network", NETWORK):
+        sh(["docker", "network", "rm", NETWORK], timeout=60, check=False)
     if not images:
         return
     for machine in MACHINES.values():
@@ -437,14 +503,21 @@ def purge(*, images: bool) -> None:
 ScenarioFn = Callable[[Any], None]
 SCENARIOS: list[tuple[str, str, ScenarioFn]] = []
 
+#: The other machines a scenario needs besides the one it runs on, by scenario name.
+ALSO: dict[str, tuple[str, ...]] = {}
 
-def engines_scenario(name: str, *, machine: str = "ubuntu") -> Callable[[ScenarioFn], ScenarioFn]:
+
+def engines_scenario(
+    name: str, *, machine: str = "ubuntu", also: tuple[str, ...] = ()
+) -> Callable[[ScenarioFn], ScenarioFn]:
     """
     Register a scenario.
 
     Args:
         name: The name ``--scenario`` takes.
         machine: The key of the machine it runs on.
+        also: The keys of other machines it needs; they are started, put on the runner's network
+            and reachable with :func:`peer`.
 
     Returns:
         The decorator.
@@ -452,9 +525,37 @@ def engines_scenario(name: str, *, machine: str = "ubuntu") -> Callable[[Scenari
 
     def decorator(fn: ScenarioFn) -> ScenarioFn:
         SCENARIOS.append((name, machine, fn))
+        ALSO[name] = also
         return fn
 
     return decorator
+
+
+def peer(sc: Any, key: str) -> Any:
+    """
+    Drive another machine of a two-server scenario.
+
+    Args:
+        sc: The scenario of the machine it runs on; the evidence is shared, in order.
+        key: The machine's key (``replica``).
+
+    Returns:
+        A scenario bound to that machine's container, whose commands are tagged in the evidence.
+    """
+    other = Scenario(container=MACHINES[key].container, evidence=sc.evidence)
+    other.tag = f"[{key}] "
+    return other
+
+
+def tag(sc: Any) -> str:
+    """
+    Args:
+        sc: A scenario.
+
+    Returns:
+        The prefix its evidence lines carry: the machine's key for a peer, nothing otherwise.
+    """
+    return str(getattr(sc, "tag", ""))
 
 
 def noust(sc: Any, arguments: str, *, timeout: int = 120, check: bool = True) -> Any:
@@ -470,7 +571,9 @@ def noust(sc: Any, arguments: str, *, timeout: int = 120, check: bool = True) ->
     Returns:
         The completed process.
     """
-    return sc.run(f"noust {arguments}", timeout=timeout, check=check, label=f"noust {arguments}")
+    return sc.run(
+        f"noust {arguments}", timeout=timeout, check=check, label=f"{tag(sc)}noust {arguments}"
+    )
 
 
 def pull(sc: Any, image: str) -> None:
@@ -814,7 +917,10 @@ def psql(sc: Any, database: str, sql: str) -> str:
     Returns:
         psql's output, stripped.
     """
-    done = sc.run(f"{PSQL} -d {database} -c {shlex.quote(sql)}", label=f"psql {database}: {sql}")
+    done = sc.run(
+        f"{PSQL} -d {database} -c {shlex.quote(sql)}",
+        label=f"{tag(sc)}psql {database}: {sql}",
+    )
     return done.stdout.strip()
 
 
@@ -1529,6 +1635,433 @@ def scenario_sealed_backups(sc: Any) -> None:
 
 
 # ---------------------------------------------------------------------------
+# C-14: replicas
+# ---------------------------------------------------------------------------
+
+REPLICA_PRIMARY_HOST = "primary.noust.test"
+REPLICA_LINEAGE = f"/etc/letsencrypt/live/{REPLICA_PRIMARY_HOST}"
+
+
+def carry(sc: Any, source_box: str, target_box: str, path: str) -> None:
+    """
+    Copy a file from one machine to another through the host, without printing it.
+
+    Args:
+        sc: The scenario, for the evidence line.
+        source_box: The container it is in.
+        target_box: The container it goes to.
+        path: Its path on both.
+    """
+    with tempfile.TemporaryDirectory() as scratch:
+        local = Path(scratch) / "carried"
+        sh(["docker", "cp", f"{source_box}:{path}", str(local)], timeout=60)
+        sh(["docker", "exec", target_box, "mkdir", "-p", str(Path(path).parent)], timeout=30)
+        sh(["docker", "cp", str(local), f"{target_box}:{path}"], timeout=60)
+    sc.evidence.append(f"$ carried {path} from {source_box} to {target_box}\n(exit=0)")
+
+
+def rewrite_token(sc: Any, path: str, target: str, edit: str) -> None:
+    """
+    Make a damaged copy of a join code, on the machine that will read it.
+
+    Args:
+        sc: The scenario of that machine.
+        path: The code to start from.
+        target: Where the damaged copy goes.
+        edit: Python that changes the decoded object ``body`` in place.
+    """
+    script = (
+        "import base64, json, pathlib\n"
+        f"raw = pathlib.Path({path!r}).read_text().strip().split(':', 2)[2]\n"
+        "body = json.loads(base64.urlsafe_b64decode(raw))\n"
+        f"{edit}\n"
+        "text = base64.urlsafe_b64encode(json.dumps(body, separators=(',', ':'), "
+        "sort_keys=True).encode()).decode()\n"
+        f"pathlib.Path({target!r}).write_text('noust-replica:v1:' + text + '\\n')\n"
+    )
+    sc.run(f"python3 -c {shlex.quote(script)}", label=f"damage a copy of the join code: {edit}")
+
+
+@engines_scenario("replication_postgresql", also=("replica",))
+def scenario_replication_postgresql(sc: Any) -> None:
+    """
+    C-14: a PostgreSQL replica on another server, with an account of its own, over TLS.
+
+    Two real servers on one network, each with PostgreSQL installed by Noust. The primary gets a
+    certificate for the name the replica uses and is prepared (an account that can only replicate,
+    a slot, one pg_hba.conf line); a connection without TLS, or with a wrong password, is refused
+    by the engine; the replica joins with the code, copies the cluster, and streams: its data is
+    the primary's, it refuses writes, and the primary's pg_stat_ssl says the walsender is on TLS. A
+    join that cannot trust the primary's certificate, or has a wrong password, changes nothing; one
+    whose standby cannot start puts the previous data directory back. Then the replica is promoted,
+    accepts writes on its own, and removing the replica from the primary undoes everything.
+    """
+    other = peer(sc, "replica")
+    boxes = (sc, other)
+    token = "/root/join.token"
+    replica_ip = address_on_network(MACHINES["replica"])
+    primary_ip = address_on_network(MACHINES["ubuntu"])
+    try:
+        for box in boxes:
+            # What an earlier run left, before the engine under it is replaced.
+            box.run(
+                "noust db replica promote --yes; noust db replica remove reports --yes",
+                check=False,
+                timeout=300,
+            )
+            noust(box, "db uninstall postgresql --purge -f", timeout=900, check=False)
+            noust(box, "db install postgresql", timeout=1800)
+            box.run(
+                "grep -v noust.test /etc/hosts > /tmp/hosts.new; "
+                f"echo '{primary_ip} {REPLICA_PRIMARY_HOST}' >> /tmp/hosts.new; "
+                "cat /tmp/hosts.new > /etc/hosts"
+            )
+        port = int(psql(sc, "postgres", "show port"))
+        sc.run(f'{PSQL} -c "create database shop"')
+        psql(sc, "shop", "create table t as select g as id from generate_series(1, 100) g")
+        sc.run(f"{PSQL} -c \"create role app login password 'apppass'\"")
+        psql(other, "postgres", "create database local_marker")
+
+        # --- the primary refuses to be prepared while it cannot be reached or trusted
+        no_tls = noust(
+            sc,
+            f"db replica prepare reports --from {replica_ip} --host {REPLICA_PRIMARY_HOST} "
+            "--listen '*' --plan",
+            check=False,
+        )
+        sc.check(
+            no_tls.returncode != 0 and "db tls enable" in no_tls.stdout + no_tls.stderr,
+            f"a primary that serves no certificate is refused with the fix: {no_tls.stdout}",
+        )
+        issue_certificate(sc, directory=REPLICA_LINEAGE, names=REPLICA_PRIMARY_HOST)
+        noust(sc, f"db tls enable -e postgresql --host {REPLICA_PRIMARY_HOST} --yes", timeout=300)
+        sc.run(f'{PSQL} -c "show ssl"')
+        loopback = noust(
+            sc,
+            f"db replica prepare reports --from {replica_ip} --host {REPLICA_PRIMARY_HOST} "
+            "--ca-file /root/tls-ca/ca.pem --plan",
+            check=False,
+        )
+        sc.check(
+            loopback.returncode != 0 and "listens on" in loopback.stdout + loopback.stderr,
+            f"a primary that listens on the loopback only says so: {loopback.stdout}",
+        )
+        wrong_name = noust(
+            sc,
+            f"db replica prepare reports --from {replica_ip} --host other.noust.test "
+            "--listen '*' --ca-file /root/tls-ca/ca.pem --plan",
+            check=False,
+        )
+        sc.check(
+            wrong_name.returncode != 0
+            and "would not be accepted" in wrong_name.stdout + wrong_name.stderr,
+            f"a name the certificate does not cover is refused: {wrong_name.stdout}",
+        )
+        untrusted = noust(
+            sc,
+            f"db replica prepare reports --from {replica_ip} --host {REPLICA_PRIMARY_HOST} "
+            "--listen '*' --plan",
+            check=False,
+        )
+        sc.check(
+            untrusted.returncode != 0 and "would not be accepted" in untrusted.stdout,
+            f"an authority the replica does not trust is refused: {untrusted.stdout}",
+        )
+        sc.check(
+            psql(sc, "postgres", "select count(*) from pg_roles where rolname like 'noust_repl%'")
+            == "0",
+            "the refusals made nothing",
+        )
+
+        # --- prepared: an account that can only replicate, a slot, one line, a code
+        noust(
+            sc,
+            f"db replica prepare reports --from {replica_ip} --host {REPLICA_PRIMARY_HOST} "
+            f"--listen '*' --ca-file /root/tls-ca/ca.pem --open-firewall --token-file {token} --yes",
+            timeout=600,
+        )
+        sc.check(
+            psql(
+                sc,
+                "postgres",
+                "select rolreplication, rolsuper, rolcanlogin from pg_roles "
+                "where rolname = 'noust_repl_reports'",
+            )
+            == "t|f|t",
+            "the account replicates, logs in, and is not a superuser",
+        )
+        sc.check(
+            psql(sc, "postgres", "select slot_name from pg_replication_slots") == "noust_reports",
+            "the slot exists",
+        )
+        sc.check(
+            psql(sc, "postgres", "show listen_addresses") == "*",
+            "PostgreSQL listens where the replica can reach it",
+        )
+        hba = sc.run(
+            "grep -h -A2 'BEGIN noust replication' $(runuser -u postgres -- psql -X -tA "
+            "-c 'show hba_file')"
+        ).stdout
+        sc.check(
+            f"hostssl replication noust_repl_reports {replica_ip}/32 scram-sha-256" in hba,
+            f"one hostssl line for that account and address: {hba}",
+        )
+
+        # --- the engine itself refuses what is not TLS, the wrong password and any other use
+        carry(sc, MACHINES["ubuntu"].container, MACHINES["replica"].container, token)
+        password = (
+            'PW=$(python3 -c "import base64,json;'
+            f"print(json.loads(base64.urlsafe_b64decode(open('{token}').read().strip()"
+            ".split(':',2)[2]))['w'])\"); "
+        )
+        conn = (
+            f"host={REPLICA_PRIMARY_HOST} port={port} user=noust_repl_reports "
+            "replication=true connect_timeout=10"
+        )
+        tls = "sslmode=verify-full sslrootcert=/root/tls-ca/ca.pem"
+        carry(
+            sc, MACHINES["ubuntu"].container, MACHINES["replica"].container, "/root/tls-ca/ca.pem"
+        )
+        clear = other.run(
+            f"{password} PGPASSWORD=$PW psql -X -tA '{conn} sslmode=disable' -c IDENTIFY_SYSTEM",
+            check=False,
+            label="a replication connection without TLS (password hidden)",
+        )
+        sc.check(
+            clear.returncode != 0 and "no pg_hba.conf entry" in clear.stderr,
+            f"a connection without TLS finds no line: {clear.stderr}",
+        )
+        wrong = other.run(
+            f"PGPASSWORD=nope psql -X -tA '{conn} {tls}' -c IDENTIFY_SYSTEM",
+            check=False,
+            label="a replication connection with the wrong password",
+        )
+        sc.check(
+            wrong.returncode != 0 and "password authentication failed" in wrong.stderr,
+            f"a wrong password is refused: {wrong.stderr}",
+        )
+        data = other.run(
+            f"{password} PGPASSWORD=$PW psql -X -tA "  # noqa: S608
+            f"'host={REPLICA_PRIMARY_HOST} port={port} user=noust_repl_reports dbname=shop {tls}' "
+            "-c 'select count(*) from t'",
+            check=False,
+            label="the replication account reading a table (password hidden)",
+        )
+        sc.check(
+            data.returncode != 0 and "no pg_hba.conf entry" in data.stderr,
+            f"the account cannot read data: {data.stderr}",
+        )
+        good = other.run(
+            f"{password} PGPASSWORD=$PW psql -X -tA '{conn} {tls}' -c IDENTIFY_SYSTEM",
+            label="a replication connection over verified TLS (password hidden)",
+        )
+        sc.check("|" in good.stdout, "the right account, over verified TLS, is let in")
+
+        # --- a join that cannot work changes nothing
+        rewrite_token(other, token, "/root/bad-password.token", "body['w'] = 'x' * 40")
+        planned_bad = noust(
+            other, "db replica join --token-file /root/bad-password.token --plan", check=False
+        )
+        sc.check(planned_bad.returncode == 0, "the plan of a join with a wrong password is fine")
+        refused = noust(
+            other,
+            "db replica join --token-file /root/bad-password.token --replace-data",
+            timeout=300,
+            check=False,
+        )
+        sc.check(
+            refused.returncode != 0
+            and "password authentication failed" in refused.stdout + refused.stderr,
+            f"the engine's own words reach the operator: {refused.stdout} {refused.stderr}",
+        )
+        other.run(
+            "mkdir -p /root/other-ca && cd /root/other-ca && openssl req -x509 -newkey rsa:2048 "
+            "-nodes -keyout k.pem -out ca.pem -days 2 -subj '/CN=Another CA' 2>/dev/null"
+        )
+        rewrite_token(
+            other,
+            token,
+            "/root/bad-ca.token",
+            "body['c'] = open('/root/other-ca/ca.pem').read()",
+        )
+        untrusted_join = noust(
+            other,
+            "db replica join --token-file /root/bad-ca.token --replace-data",
+            timeout=300,
+            check=False,
+        )
+        sc.check(
+            untrusted_join.returncode != 0
+            and "certificate verify failed" in untrusted_join.stdout + untrusted_join.stderr,
+            f"a primary whose certificate is not trusted is refused: {untrusted_join.stdout}",
+        )
+        sc.check(
+            psql(
+                other, "postgres", "select count(*) from pg_database where datname = 'local_marker'"
+            )
+            == "1"
+            and psql(other, "postgres", "select pg_is_in_recovery()") == "f",
+            "the refused joins changed nothing",
+        )
+        leftovers = other.run(
+            "ls -d /var/lib/postgresql/*/main.noust-* /var/lib/postgresql/.noust-replica/* "
+            "2>/dev/null | wc -l"
+        ).stdout.strip()
+        sc.check(leftovers == "0", f"and left nothing behind: {leftovers}")
+
+        # --- a standby that cannot start puts the previous data directory back
+        sc.run(f'{PSQL} -c "alter system set max_connections = 300"')
+        sc.run("systemctl restart postgresql && sleep 3")
+        wedged = noust(
+            other,
+            f"db replica join --token-file {token} --replace-data",
+            timeout=900,
+            check=False,
+        )
+        sc.check(
+            wedged.returncode != 0 and "previous data is back" in wedged.stdout + wedged.stderr,
+            f"a replica that cannot start says the previous data is back: {wedged.stdout}",
+        )
+        sc.check(
+            psql(
+                other, "postgres", "select count(*) from pg_database where datname = 'local_marker'"
+            )
+            == "1"
+            and psql(other, "postgres", "select pg_is_in_recovery()") == "f",
+            "this server runs on what it held before",
+        )
+        sc.check(
+            other.run(
+                "ls -d /var/lib/postgresql/*/main.noust-failed-replica | wc -l"
+            ).stdout.strip()
+            == "1",
+            "the failed attempt is kept for inspection",
+        )
+        sc.run(f'{PSQL} -c "alter system reset max_connections"')
+        sc.run("systemctl restart postgresql && sleep 3")
+        other.run("rm -rf /var/lib/postgresql/*/main.noust-failed-replica")
+
+        # --- the join: a copy of the primary, streaming over TLS
+        planned_join = json_of(
+            noust(other, f"db replica join --token-file {token} --plan --json"), "join --plan"
+        )
+        sc.check(
+            planned_join["ok"] and "local_marker" in planned_join["databases"], str(planned_join)
+        )
+        noust(other, f"db replica join --token-file {token} --replace-data", timeout=1800)
+        sc.check(psql(other, "postgres", "select pg_is_in_recovery()") == "t", "it is a standby")
+        sc.check(
+            psql(other, "shop", "select count(*) from t") == "100", "it holds the primary's data"
+        )
+        sc.check(
+            psql(other, "postgres", "select count(*) from pg_roles where rolname = 'app'") == "1",
+            "the primary's roles came with it",
+        )
+        sc.check(
+            psql(
+                other, "postgres", "select count(*) from pg_database where datname = 'local_marker'"
+            )
+            == "0",
+            "and its own databases are gone from the running server",
+        )
+        read_only = other.run(f"{PSQL} -d shop -c 'insert into t values (1000)'", check=False)  # noqa: S608
+        sc.check(
+            read_only.returncode != 0 and "read-only" in read_only.stderr,
+            f"the replica refuses writes: {read_only.stderr}",
+        )
+        conf = other.run(f"{PSQL} -c 'show primary_conninfo'").stdout
+        sc.check(
+            "sslmode='verify-full'" in conf and "passfile=" in conf and "sslrootcert=" in conf, conf
+        )
+        sc.check("password=" not in conf, "the password is not in the connection string")
+        sc.check(
+            other.run(
+                "ls -d /var/lib/postgresql/*/main.noust-before-replica | wc -l"
+            ).stdout.strip()
+            == "1",
+            "the replica's own data directory was set aside",
+        )
+
+        # --- the primary sees it: streaming, on TLS
+        sc.run(f"{PSQL} -d shop -c 'insert into t select g from generate_series(101, 150) g'")  # noqa: S608
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline:
+            if psql(other, "shop", "select count(*) from t") == "150":
+                break
+            time.sleep(2)
+        sc.check(
+            psql(other, "shop", "select count(*) from t") == "150", "what is written there arrives"
+        )
+        seen = sc.run(
+            f'{PSQL} -c "select r.state, s.ssl, s.version from pg_stat_replication r '  # noqa: S608
+            'join pg_stat_ssl s on s.pid = r.pid"'
+        ).stdout.strip()
+        sc.check(seen.startswith("streaming|t|TLS"), f"the walsender is on TLS: {seen}")
+        view = json_of(noust(sc, "db replica status --json"), "status on the primary")
+        entry = view["replicas"][0]
+        sc.check(
+            view["role"] == "primary"
+            and entry["connected"]
+            and entry["tls"] is True
+            and entry["state"] == "streaming",
+            str(view),
+        )
+        following = json_of(noust(other, "db replica status --json"), "status on the replica")
+        sc.check(
+            following["role"] == "replica"
+            and following["follows"]["state"] == "streaming"
+            and following["follows"]["sslmode"] == "verify-full",
+            str(following),
+        )
+
+        # --- promoted, it stands on its own; removed, the primary is as it was
+        noust(other, "db replica promote --yes", timeout=300)
+        sc.check(psql(other, "postgres", "select pg_is_in_recovery()") == "f", "it accepts writes")
+        psql(other, "shop", "insert into t values (2000)")
+        sc.check(
+            psql(sc, "shop", "select count(*) from t where id = 2000") == "0",
+            "and no longer follows",
+        )
+        sc.check(
+            other.run("ls /var/lib/postgresql/.noust-replica/ 2>/dev/null | wc -l").stdout.strip()
+            == "0",
+            "its passfile is gone",
+        )
+        noust(sc, "db replica remove reports --restore-listen --yes", timeout=600)
+        sc.check(
+            psql(sc, "postgres", "select count(*) from pg_replication_slots") == "0"
+            and psql(
+                sc, "postgres", "select count(*) from pg_roles where rolname like 'noust_repl%'"
+            )
+            == "0",
+            "the slot and the account are gone",
+        )
+        sc.check(
+            sc.run(
+                "grep -c 'noust replication' $(runuser -u postgres -- psql -X -tA "
+                "-c 'show hba_file')",
+                check=False,
+            ).stdout.strip()
+            == "0",
+            "and so is the pg_hba.conf line",
+        )
+        sc.check(
+            psql(sc, "postgres", "show listen_addresses") == "localhost", "listening as before"
+        )
+    finally:
+        for box in boxes:
+            box.run(
+                "noust db replica promote --yes; noust db replica remove reports --yes; "
+                "noust db tls disable -e postgresql; "
+                f"rm -rf {token} /root/bad-*.token /root/other-ca /var/lib/postgresql/*/main.noust-* "
+                f"{REPLICA_LINEAGE} /var/lib/postgresql/.noust-replica",
+                timeout=300,
+                check=False,
+                label=f"{tag(box)}cleanup",
+            )
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -1610,6 +2143,23 @@ def main(argv: list[str] | None = None) -> int:
                     setup_errors.append(f"{key}: {exc}")
                     continue
                 ready.add(key)
+            try:
+                for other_key in ALSO.get(name, ()):
+                    other = MACHINES[other_key]
+                    if other_key not in ready:
+                        prepare(
+                            other,
+                            dev=args.dev,
+                            wheel=wheel,
+                            attach=args.attach and exists("container", other.container),
+                        )
+                        ready.add(other_key)
+                    join_network(other)
+                if ALSO.get(name):
+                    join_network(machine)
+            except HarnessError as exc:
+                setup_errors.append(f"{name}: {exc}")
+                continue
             print(f"\n=== {name} [{key}] ===")
             attempted += 1
             sc = Scenario(container=machine.container)
@@ -1636,6 +2186,8 @@ def main(argv: list[str] | None = None) -> int:
         else:
             for machine in list(_STARTED):
                 remove_machine(machine)
+            if exists("network", NETWORK):
+                sh(["docker", "network", "rm", NETWORK], timeout=60, check=False)
 
     elapsed = time.monotonic() - started
     for problem in setup_errors:

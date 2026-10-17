@@ -681,6 +681,92 @@ The engine does not require TLS of every client because of this; what a public d
 requires is in [Making a database public](#making-a-database-public-on-purpose). Redis, Valkey and
 MongoDB are not covered, and an instance has its own certificate (`noust db instance tls`).
 
+## Read replicas of PostgreSQL, over TLS
+
+A replica is another server's PostgreSQL that follows this one's write-ahead log and answers
+read-only queries: reports and backups can run on it, and it takes over (`promote`) if the primary is
+lost. It is the engine's own streaming replication, driven by two commands, one on each server, and it
+is TLS-only: the primary needs a certificate clients can verify (see the section above), the replica
+connects with `sslmode=verify-full`, and the account it connects with can do nothing but replicate.
+
+```bash
+# On the primary
+noust db replica prepare reports --from 203.0.113.7 --host db.example.com --listen '*' \
+    --open-firewall --token-file /root/reports.token --plan      # what it would do, and what stops it
+noust db replica prepare reports --from 203.0.113.7 --host db.example.com --listen '*' \
+    --open-firewall --token-file /root/reports.token             # asks before restarting PostgreSQL
+
+# Carry the file to the replica server (it holds the replication password), then there
+noust db replica join --token-file /root/reports.token --plan
+noust db replica join --token-file /root/reports.token --replace-data
+
+noust db replica status                    # on either server
+noust db replica promote                   # on the replica: it becomes a primary of its own
+noust db replica remove reports            # on the primary: the account, the slot and the line go
+```
+
+- **What `prepare` makes on the primary.** An account `noust_repl_<name>` with `REPLICATION LOGIN` and a
+  generated password (SCRAM), a physical slot `noust_<name>` (so the primary keeps the log the replica
+  has not read yet, from the moment the slot exists), and one marked line in `pg_hba.conf`:
+  `hostssl replication noust_repl_<name> <address> scram-sha-256`. The line is checked by the server
+  (`pg_hba_file_rules`) before it is loaded and put back as it was if the server finds an error in it;
+  a connection without TLS finds no line, and the account cannot open any database. If PostgreSQL
+  listens on the loopback only, `--listen` says where it should listen too (an address of this server,
+  or `*`): that is the one thing that restarts it. `--open-firewall` allows the port from the
+  replica's address through ufw or firewalld, and `remove` takes that rule away if Noust made it.
+- **TLS is checked before anything is made.** The primary runs, against itself, the handshake the
+  replica will run: the certificate must be signed by an authority the replica trusts and valid for
+  `--host`. A private authority is given with `--ca-file` and travels in the join code. When the
+  certificate would be refused, nothing is created and the message carries openssl's own words.
+- **The join code** (`noust-replica:v1:...`) holds the primary's address, the account, its password,
+  the slot, the authority and what the primary requires of a standby. It is a secret: it goes to a
+  file only root reads (`--token-file`) or is printed once, and `noust db replica token <name>` prints
+  it again on the primary. It is never part of a `--plan`, a log line, an audit event or the store.
+- **What `join` does to the replica server.** The primary's cluster is copied with `pg_basebackup`
+  into a directory beside this server's own, *while this server keeps running*: a primary that cannot
+  be reached, whose certificate is not trusted, whose password is wrong or whose disk is too small to
+  receive the copy changes nothing. Then PostgreSQL stops once (waited for until its server process is
+  gone), the data directory is **renamed to `<data directory>.noust-before-replica`, never deleted**,
+  the copy takes its place and PostgreSQL starts as a standby. The databases of this server are
+  replaced by the primary's, which is why the plan lists them and `--replace-data` is asked for;
+  `--discard-previous` deletes the old directory once the replica streams.
+- **When the replica does not start following** (a setting the primary raised since, a version
+  mismatch, a primary that went away) the failed attempt is kept at
+  `<data directory>.noust-failed-replica`, the previous directory is put back and started, and the
+  error carries the engine's journal. A replica is a physical copy, so the major version of
+  PostgreSQL must be the same on both servers.
+- **What the replica keeps of itself.** The copy brings the primary's `postgresql.auto.conf` (every
+  `ALTER SYSTEM` the primary had: its certificate paths, its archiving, its addresses) and, on layouts
+  that keep configuration in the data directory, its configuration files. A replica is another
+  machine: it keeps its own settings and files, takes the capacity settings a standby must match
+  (`max_connections`, `max_worker_processes`, `max_wal_senders`, `max_prepared_transactions`,
+  `max_locks_per_transaction`: the larger of its own and the primary's), and follows. The password is in
+  a passfile of the `postgres` account (`~postgres/.noust-replica/<name>.pgpass`, 0600) that
+  `primary_conninfo` names, never in a setting.
+- **Watching it.** `status` on the primary reads each replica from the engine itself: whether it is
+  connected, `streaming` or catching up, how far behind in bytes, the TLS version of its connection
+  (`pg_stat_ssl`: a connection without TLS is called out), and how much log its slot holds. A replica
+  that is gone while its slot stays makes the primary keep the log until its disk fills, so `status`
+  warns when a slot holds more than 2 GiB of a replica that is not connected. On the replica it shows
+  the receiver, the replay delay and the `sslmode` it follows with.
+- **Promote and remove.** `promote` ends the following (`pg_promote`), forgets where it followed and
+  deletes the passfile; the old primary keeps the slot until `noust db replica remove <name>` is run
+  there, and the message says so. `remove` takes away the account, the slot (ending the sender first),
+  the `pg_hba.conf` line, the firewall rule Noust made and the password; `--restore-listen` also
+  puts `listen_addresses` back (a restart) when no other replica needs it.
+- **What it does not do yet.** PostgreSQL of the server only, not an instance; a replica of a replica
+  (cascading) and synchronous replication are not set up; point-in-time recovery must be off on a
+  server that joins (the copy has the primary's identity) and is turned on again after promoting; no
+  automatic failover: promoting is a decision; the console does not show replicas yet (the
+  commands are the interface).
+
+Tested against two real servers on one network (`tests/integration/engines_run.py`, scenario
+`replication_postgresql`): the engine refuses a connection without TLS and a wrong password, the
+replica copies the cluster, streams, refuses writes and is seen on TLS 1.3 by the primary's
+`pg_stat_ssl`; a join with a wrong password or an untrusted certificate changes nothing; a standby
+that cannot start puts the previous data directory back; promoting and removing leave both servers
+as independent as before.
+
 ## Making a database public, on purpose
 
 A database is private: its engine listens on the loopback and `noust db connect-info` prints the SSH

@@ -36,6 +36,7 @@ from noust.core.runner import CommandResult, SubprocessRunner, set_runner
 from noust.core.store import NoustStore, get_store
 from noust.managers.backup_destination_files import DestinationFileManager, file_sha256
 from noust.managers.database import flavours
+from noust.managers.database.cluster_swap import ClusterSwap
 from noust.managers.database.pitr import (
     BASE_FOLDER,
     ENGINE,
@@ -894,7 +895,7 @@ def test_a_server_that_does_not_stop_changes_nothing(
     enabled: PitrManager, engine: SimulatedPostgres, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     (engine.data / "marker").write_text("before")
-    monkeypatch.setattr(PitrManager, "_postmaster_running", staticmethod(lambda data: True))
+    monkeypatch.setattr(ClusterSwap, "postmaster_running", staticmethod(lambda data: True))
 
     with pytest.raises(DatabaseBackupError, match="did not stop"):
         enabled.restore(None, confirmed=True)
