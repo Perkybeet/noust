@@ -27,14 +27,13 @@ from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.fs import get_fs
 from noust.core.logger import Logger
-from noust.managers.database.mysql import MySQLManager
-from noust.managers.database.postgres import PostgresManager
 from noust.managers.database.replication import ReplicationManager
 from noust.managers.database.replication_mysql import MySqlReplication
+from noust.managers.database.replication_select import REPLICA_ENGINES, replication_for
 from noust.managers.database.replication_token import parse as parse_code
 
 #: The engines a replica is offered for: PostgreSQL, and MySQL or MariaDB, whichever is installed.
-ENGINES = ("postgresql", "mysql")
+ENGINES = REPLICA_ENGINES
 
 
 def _replication(
@@ -48,24 +47,15 @@ def _replication(
         engine: ``postgresql``, or ``mysql`` for MySQL and MariaDB.
 
     Returns:
-        The manager over the server's engine, resolved the way every ``noust db`` command
-        resolves one.
+        The manager over the server's engine, chosen the way the API chooses it
+        (:func:`~noust.managers.database.replication_select.replication_for`).
 
     Raises:
-        ValidationError: When the engine resolved is not the manager that was asked for.
+        ValidationError: When the engine has no replicas to offer.
     """
     from noust.cli.commands.db import _service
 
-    manager = _service(logger).manager(engine)
-    if engine == "mysql":
-        if not isinstance(manager, MySQLManager):
-            raise ValidationError(
-                "Replicas of this engine are for MySQL and MariaDB", field="engine"
-            )
-        return MySqlReplication(manager)
-    if not isinstance(manager, PostgresManager):
-        raise ValidationError("Replicas of this engine are for PostgreSQL", field="engine")
-    return ReplicationManager(manager)
+    return replication_for(_service(logger).manager(engine))
 
 
 #: The option every command that is for one engine takes.

@@ -427,6 +427,7 @@ EVENTS: dict[str, EventSpec] = {
             "db.replica.join": "This server became a replica of another server's PostgreSQL.",
             "db.replica.promote": "A replica stopped following its primary and began accepting writes.",
             "db.replica.remove": "A replica was taken away from the primary that served it.",
+            "db.replica.token": "The join code of a replica was shown again.",
             "db.import": "A dump from elsewhere was imported into a database.",
             "db.import.upload": "A dump was uploaded to be imported into a database.",
             "db.import.cluster": "A dump of every database of an engine was imported.",

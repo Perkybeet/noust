@@ -73,10 +73,6 @@ __all__ = [
 
 _log = logging.getLogger(__name__)
 
-#: A line a dump of one database starts with, so that the file Noust cuts out of a cluster
-#: dump reads as what the engine's check expects.
-_SECTION_HEAD = "--\n-- PostgreSQL database dump\n--\n\n"
-
 
 @dataclass(frozen=True)
 class RolePlan:
@@ -323,9 +319,6 @@ class ClusterImporter:
         sections = scratch / "databases"
         self.imports.fs.make_dir(sections, mode=0o700)
         cluster = read_cluster(prepared.path, sections)
-        for database in cluster.databases:
-            if database.path is not None:
-                _dress(database.path)
         return fmt, cluster
 
     # ----------------------------------------------------------------- planning
@@ -708,20 +701,6 @@ class ClusterImporter:
 
 
 # ----------------------------------------------------------------------- helpers
-
-
-def _dress(path: Path) -> None:
-    """
-    Put the comment a pg_dump starts with at the head of a file cut out of a dump of all databases.
-
-    The engine's check reads a plain dump by its head and its tail; the part after ``\\connect``
-    has the tail only.
-
-    Args:
-        path: The database's file, owner-only.
-    """
-    body = path.read_bytes()
-    path.write_bytes(_SECTION_HEAD.encode() + body)
 
 
 def _decide_role(role: RoleSpec, existing: set[str]) -> RolePlan:

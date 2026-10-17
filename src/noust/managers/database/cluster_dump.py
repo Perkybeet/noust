@@ -86,6 +86,10 @@ _NAME = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_$-]{0,62}")
 #: The head of the pg_dumpall file.
 _CLUSTER_HEADER = b"PostgreSQL database cluster dump"
 
+#: What each database's file starts with: the comment a pg_dump starts with, which the engine's check
+#: reads a plain dump by (the part after ``\\connect`` has the closing comment only).
+SECTION_HEAD = b"--\n-- PostgreSQL database dump\n--\n\n"
+
 _IDENT = r'(?:"(?:[^"]|"")+"|[A-Za-z_][A-Za-z0-9_$]*)'
 
 _CREATE_ROLE = re.compile(rf"\s*CREATE\s+ROLE\s+({_IDENT})\s*;\s*", re.IGNORECASE)
@@ -430,6 +434,7 @@ class _Reader:
             )
         spec.path = self.scratch / f"database-{len(self.result.databases):03d}.sql"
         descriptor = _create_private(spec.path)
+        descriptor.write(SECTION_HEAD)
         self._out = descriptor
         self._current = spec
         self._statement = []

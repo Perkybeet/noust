@@ -11,6 +11,7 @@ and quoting, privilege whitelists, ownership guards, the store and the runner
 all live below it.
 
 - :mod:`.engines`: install, start, stop, status, capabilities, support.
+- :mod:`.host_tls`: the certificate of a name that PostgreSQL, MySQL and MariaDB of the server present.
 - :mod:`.databases`: list, create, describe, drop, adopt, fix-owner.
 - :mod:`.extensions`: the PostgreSQL extensions of a database.
 - :mod:`.users`: accounts, access profiles, password rotation and reveal.
@@ -33,6 +34,7 @@ all live below it.
 - :mod:`.browse`: the data explorer, the row editor and the Redis key browser.
 - :mod:`.metrics`: engine and database metrics, slow queries.
 - :mod:`.pitr`: recover PostgreSQL to an instant: the log archived, base backups, the recovery.
+- :mod:`.replicas`: read replicas of PostgreSQL, MySQL and MariaDB: make room, join, watch, promote, remove.
 - :mod:`.links`: ``/api/apps/{domain}/databases``, mounted under ``/apps``
   as :data:`apps_router`.
 
@@ -53,6 +55,7 @@ from noust.web.api.databases import (
     engines,
     exposure,
     extensions,
+    host_tls,
     imports,
     instances,
     limits,
@@ -62,6 +65,7 @@ from noust.web.api.databases import (
     pitr,
     public,
     query,
+    replicas,
     tls,
     tuning,
     users,
@@ -74,6 +78,7 @@ from noust.web.api.deps import NoustErrorRoute
 #: The routers mounted under ``/api/databases``, in order.
 AREAS = (
     engines.router,
+    host_tls.router,
     databases.router,
     extensions.router,
     users.router,
@@ -92,6 +97,7 @@ AREAS = (
     metrics.router,
     public.router,
     pitr.router,
+    replicas.router,
 )
 
 router = APIRouter(route_class=NoustErrorRoute)
