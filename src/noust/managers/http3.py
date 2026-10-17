@@ -186,7 +186,7 @@ class Http3:
             the command that opens the port when it is closed.
         """
         firewall = self._firewall or Firewall(
-            SecurityProbe(runner=self._web.runner), None, actor="noust http3"
+            SecurityProbe(runner=self._web.runner), None, actor="http3"
         )
         state = firewall.state()
         if not state.active:

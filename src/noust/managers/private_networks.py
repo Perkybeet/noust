@@ -203,7 +203,7 @@ class PrivateNetworks:
                 return network
         raise ResourceNotFoundError(
             f"This server is not on a private network called {name}",
-            details="List them with: noust app private networks",
+            details="List them with: noust app policy private networks",
         )
 
     # -- Tailscale ---------------------------------------------------------
