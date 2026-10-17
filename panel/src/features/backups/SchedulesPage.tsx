@@ -18,6 +18,7 @@ import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
 import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
+import { StatusPill } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { calendarWords } from "../cron/data";
@@ -92,6 +93,19 @@ export function SchedulesPage() {
           </Mono>
         </span>
       ),
+    },
+    {
+      id: "status",
+      header: t("backups.schedules.columns.status"),
+      width: "w-36",
+      // The timer decides: with a next run it will fire; "pending" is a schedule on record that
+      // systemd does not run, which no backup will come from until it is fixed.
+      cell: (row) =>
+        row.next_run === "pending" ? (
+          <StatusPill appearance="inline" size="sm" state="warning" label={t("backups.schedules.timerOff")} />
+        ) : (
+          <StatusPill appearance="inline" size="sm" state="running" label={t("backups.schedules.active")} />
+        ),
     },
     {
       id: "next_run",

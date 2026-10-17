@@ -2026,7 +2026,10 @@ def backup_destination() -> None:
     "--type",
     "backend",
     required=True,
-    help="Backend: sftp, smb, webdav, s3, b2, drive, onedrive, dropbox, pcloud, local.",
+    help=(
+        "Backend: sftp, smb, ftp, webdav, s3, b2, azureblob, gcs, drive, onedrive, "
+        "dropbox, box, pcloud, local."
+    ),
 )
 @click.option(
     "--field",

@@ -79,6 +79,7 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "BACKEND_FIELDS",
     "DEFAULT_REMOTE_PATH",
+    "RCLONE_TYPES",
     "BackendField",
     "BackupDestinationManager",
     "backend_fields",
@@ -152,6 +153,9 @@ class BackendField:
         help: One line of guidance, shown under the field.
         choices: Fixed set of values, when the field is a choice rather than
             free text; empty for free text.
+        strict: The choices are the only values rclone accepts (a boolean), so
+            another one is refused here instead of failing at the first backup.
+            A provider or a vendor is a suggestion and stays free text.
     """
 
     key: str
@@ -162,6 +166,7 @@ class BackendField:
     placeholder: str = ""
     help: str = ""
     choices: tuple[str, ...] = ()
+    strict: bool = False
 
 
 #: One field every backend shares: where under the remote backups are written.
@@ -230,6 +235,9 @@ BACKEND_FIELDS: dict[str, list[BackendField]] = {
                 "Minio",
                 "Hetzner",
                 "Scaleway",
+                "DigitalOcean",
+                "IDrive",
+                "Ceph",
                 "Other",
             ),
         ),
@@ -280,8 +288,73 @@ BACKEND_FIELDS: dict[str, list[BackendField]] = {
             help='Run "rclone authorize pcloud" on your own machine and paste the JSON it prints.',
         ),
     ],
+    "azureblob": [
+        BackendField(
+            "account",
+            "Storage account",
+            required=True,
+            help="The storage account's name, as the Azure portal shows it.",
+        ),
+        BackendField(
+            "key",
+            "Account key",
+            secret=True,
+            required=True,
+            help="One of the storage account's access keys. The folder below starts with the "
+            "container: container/noust-backups.",
+        ),
+    ],
+    "gcs": [
+        BackendField(
+            "service_account_credentials",
+            "Service account key (JSON)",
+            secret=True,
+            required=True,
+            help="The JSON key of a service account that can write to the bucket "
+            "(Storage Object Admin on it). The folder below starts with the bucket: "
+            "bucket/noust-backups.",
+        ),
+        BackendField(
+            "bucket_policy_only",
+            "Uniform bucket-level access",
+            required=False,
+            choices=("true", "false"),
+            strict=True,
+            placeholder="true",
+            help="true when the bucket uses uniform bucket-level access, the default for new ones.",
+        ),
+    ],
+    "ftp": [
+        BackendField("host", "Host", required=True, help="FTP server address."),
+        BackendField("user", "User", required=True),
+        BackendField("port", "Port", required=False, placeholder="21"),
+        BackendField("pass", "Password", secret=True, obscure=True, required=True),
+        BackendField(
+            "explicit_tls",
+            "Explicit FTPS",
+            required=True,
+            choices=("true", "false"),
+            strict=True,
+            placeholder="true",
+            help="Plain FTP sends the password and the backups unencrypted: choose true unless "
+            "the server cannot do FTPS.",
+        ),
+    ],
+    "box": [
+        BackendField(
+            "token",
+            "Token",
+            secret=True,
+            required=True,
+            help='Run "rclone authorize box" on your own machine and paste the JSON it prints.',
+        ),
+    ],
     "local": [],
 }
+
+#: The name rclone knows a backend by, where it is not the name Noust uses: Google Cloud
+#: Storage is ``google cloud storage`` there, a name with spaces nobody types in a command.
+RCLONE_TYPES: dict[str, str] = {"gcs": "google cloud storage"}
 
 
 def backend_fields(backend: str) -> list[BackendField]:
@@ -355,9 +428,9 @@ def resolve_encryption(
 
 
 #: The setting of each network backend that names the host rclone connects to.
-#: The backends of a provider (B2, Drive, OneDrive, Dropbox, pCloud) have none:
+#: The backends of a provider (B2, Azure, Google Cloud, Box, Drive, OneDrive, Dropbox, pCloud) have none:
 #: the provider is the address, and a local destination makes no connection.
-_HOST_SETTING = {"sftp": "host", "smb": "host", "webdav": "url", "s3": "endpoint"}
+_HOST_SETTING = {"sftp": "host", "smb": "host", "ftp": "host", "webdav": "url", "s3": "endpoint"}
 
 
 def destination_host(backend: str, settings: dict[str, str]) -> str | None:
@@ -984,7 +1057,8 @@ class BackupDestinationManager:
 
         Raises:
             BackupError: When a field name is not one the backend declares,
-                or a required field is missing on a non-partial call.
+                a required field is missing on a non-partial call, or a field
+                whose choices are strict holds another value.
         """
         specs = {spec.key: spec for spec in backend_fields(backend)}
         unknown = set(fields) - set(specs)
@@ -1005,6 +1079,11 @@ class BackupDestinationManager:
                         details=spec.help or f"{spec.label} is required.",
                     )
                 continue
+            if spec.strict and raw not in spec.choices:
+                raise BackupError(
+                    f"{spec.label} must be {' or '.join(spec.choices)}, not {raw!r}",
+                    details=spec.help or f"Choose one of: {', '.join(spec.choices)}.",
+                )
             if spec.secret:
                 secret_values[key] = raw
             else:
@@ -1324,7 +1403,9 @@ class BackupDestinationManager:
         secret_values = self.secrets.read_protected_json(_secret_namespace(name))
 
         env: dict[str, str] = {
-            f"RCLONE_CONFIG_{prefix}_TYPE": destination.backend,
+            f"RCLONE_CONFIG_{prefix}_TYPE": RCLONE_TYPES.get(
+                destination.backend, destination.backend
+            ),
             # rclone's defaults retry an unreachable server for about a minute
             # and a half; a destination that is down should say so in seconds.
             # Flags as environment, so every command gets them.
