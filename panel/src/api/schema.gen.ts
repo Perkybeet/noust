@@ -6928,6 +6928,7 @@ export interface paths {
          *
          *     Raises:
          *         AccountNotFoundError: When no account has that name.
+         *         AccountError: For one's own account.
          */
         post: operations["enable_account_api_auth_accounts__username__enable_post"];
         delete?: never;
@@ -7285,6 +7286,150 @@ export interface paths {
          *             used or expired - counted by the lockout like a wrong password.
          */
         post: operations["open_invitation_api_auth_invitations_open_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/ldap/directories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Directories
+         * @description List the configured directories, without their passwords.
+         *
+         *     Args:
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         Each directory and whether its service account's password is stored.
+         */
+        get: operations["list_directories_api_auth_ldap_directories_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/ldap/directories/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Directory
+         * @description Add a directory or change one, in sudo mode: it decides who may sign in.
+         *
+         *     Args:
+         *         name: The directory's name.
+         *         request: The request.
+         *         body: The settings to set.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         The directory as it is now.
+         *
+         *     Raises:
+         *         ValidationError: When a setting is refused; nothing is written.
+         */
+        put: operations["put_directory_api_auth_ldap_directories__name__put"];
+        post?: never;
+        /**
+         * Delete Directory
+         * @description Remove a directory and its password, in sudo mode.
+         *
+         *     Args:
+         *         name: The directory's name.
+         *         request: The request.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         A confirmation.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such directory.
+         *         LocalLoginRefused: 400 while local sign-in is off and this is the last way in.
+         */
+        delete: operations["delete_directory_api_auth_ldap_directories__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/ldap/directories/{name}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Directory
+         * @description Look at a directory the way a sign-in would: the connection, the service account, the base.
+         *
+         *     Signs nobody in and writes nothing. A directory that cannot be reached is a failed check,
+         *     not an error.
+         *
+         *     Args:
+         *         name: The directory's name.
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         Each check and whether all passed.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such directory.
+         */
+        post: operations["test_directory_api_auth_ldap_directories__name__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/ldap/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Login
+         * @description Sign in with a directory's name and password.
+         *
+         *     An account with a second factor is answered the step it owes
+         *     (``second_factor``), to be finished at ``POST /api/auth/login/second-factor``;
+         *     one without is signed in, its session fit only to enrol one.
+         *
+         *     Args:
+         *         request: The request.
+         *         response: Used to set the session cookies.
+         *         body: The directory and the credentials.
+         *
+         *     Returns:
+         *         Exactly what ``POST /api/auth/login`` answers.
+         *
+         *     Raises:
+         *         HTTPException: 401 ``invalid_credentials`` for a wrong name or password; 403
+         *             ``sign_in_refused`` when the policy does not admit the person; 503
+         *             ``sign_in_unavailable`` when the directory cannot be asked; 429 ``locked_out``.
+         */
+        post: operations["login_api_auth_ldap_login_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8147,6 +8292,320 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/saml/acs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assertion Consumer Service
+         * @description Take the identity provider's answer: verify it, admit the person, hand over a ticket.
+         *
+         *     A response that is not right (a signature that does not verify, another audience, an assertion
+         *     seen before, another browser's cookie) is counted against the address like a wrong password
+         *     and audited; a provider that says the person did not sign in, one that is off, or a person the
+         *     policy does not admit, is audited but not counted. The reason is for the audit trail: the
+         *     sign-in page is told one word.
+         *
+         *     Args:
+         *         request: The request, the browser posting the provider's form.
+         *
+         *     Returns:
+         *         A redirect to the sign-in page carrying the ticket, or the reason.
+         */
+        post: operations["assertion_consumer_service_api_auth_saml_acs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/saml/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Providers
+         * @description List the configured SAML providers.
+         *
+         *     Args:
+         *         request: The request, for the addresses it implies.
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         The providers and the address a response is posted to.
+         */
+        get: operations["list_providers_api_auth_saml_config_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/saml/config/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Provider
+         * @description Add a SAML provider or change one, in sudo mode: it decides who may sign in.
+         *
+         *     Args:
+         *         provider: The provider's name.
+         *         request: The request.
+         *         body: The settings to set.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         The provider as it is now.
+         *
+         *     Raises:
+         *         ValidationError: When a setting is refused; nothing is written.
+         */
+        put: operations["put_provider_api_auth_saml_config__provider__put"];
+        post?: never;
+        /**
+         * Delete Provider
+         * @description Remove a SAML provider, in sudo mode.
+         *
+         *     Accounts keep their links and their other ways in; one that had no password can no longer sign
+         *     in until it is given one (``noust user invite``).
+         *
+         *     Args:
+         *         provider: The provider's name.
+         *         request: The request.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         A confirmation.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such provider.
+         *         LocalLoginRefused: 400 while local sign-in is off and this is the last way in.
+         */
+        delete: operations["delete_provider_api_auth_saml_config__provider__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/saml/config/{provider}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Try Provider
+         * @description Look at a provider the way a sign-in would: its certificates, its address, what it is told.
+         *
+         *     Signs nobody in and writes nothing.
+         *
+         *     Args:
+         *         provider: The provider's name.
+         *         request: The request, for the addresses this server tells the provider.
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         Each check and whether all passed.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such provider.
+         */
+        post: operations["try_provider_api_auth_saml_config__provider__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/saml/metadata/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Metadata
+         * @description Describe this server to an identity provider: what to register it from.
+         *
+         *     Anonymous, because the provider fetches it: the entity id, where responses are posted and that
+         *     assertions must be signed are not secret.
+         *
+         *     Args:
+         *         request: The request, for the address people reach the console at.
+         *         provider: The provider's name.
+         *
+         *     Returns:
+         *         The service provider's metadata document.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such provider.
+         */
+        get: operations["metadata_api_auth_saml_metadata__provider__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/saml/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Start
+         * @description Begin a sign-in: remember it and send the browser to the identity provider.
+         *
+         *     Anonymous, and it writes only a short-lived record of the sign-in; the provider is chosen from
+         *     those configured, never from the request. Whatever goes wrong, the browser lands on the
+         *     sign-in page with a one-word reason.
+         *
+         *     Args:
+         *         request: The request.
+         *         provider: The provider's name.
+         *         next: The console page to go to afterwards; reduced to a path of this console.
+         *
+         *     Returns:
+         *         A redirect to the provider, setting the cookie that ties the answer to this browser, or to
+         *         the sign-in page.
+         */
+        get: operations["start_api_auth_saml_start_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/scim/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Sources
+         * @description List the sources of provisioning, without their tokens.
+         *
+         *     Args:
+         *         request: The request, for the address to point providers at.
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         The sources and the SCIM endpoint.
+         */
+        get: operations["list_sources_api_auth_scim_sources_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/scim/sources/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Source
+         * @description Add a source or change one, in sudo mode: it decides who may have an account.
+         *
+         *     Args:
+         *         name: The source's name.
+         *         request: The request.
+         *         body: The settings to set.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         The source as it is now and, when one was issued, its token (the only time).
+         *
+         *     Raises:
+         *         ValidationError: When a setting is refused or names something that does not exist;
+         *             nothing is written then.
+         */
+        put: operations["put_source_api_auth_scim_sources__name__put"];
+        post?: never;
+        /**
+         * Delete Source
+         * @description Remove a source and its roster, in sudo mode. The accounts it made stay as they are.
+         *
+         *     Args:
+         *         name: The source's name.
+         *         request: The request.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         A confirmation.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such source.
+         */
+        delete: operations["delete_source_api_auth_scim_sources__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/scim/sources/{name}/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Users
+         * @description List the people a source provisioned, with their account's state.
+         *
+         *     Args:
+         *         name: The source's name.
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         The roster, the first 500.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such source.
+         */
+        get: operations["list_users_api_auth_scim_sources__name__users_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/session": {
         parameters: {
             query?: never;
@@ -8410,7 +8869,30 @@ export interface paths {
         delete: operations["revoke_api_token_api_auth_tokens__token_id__delete"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Restrict Api Token
+         * @description Change the networks an API token is accepted from, without issuing another.
+         *
+         *     A person changes their own tokens; whoever governs accounts, any. Taking
+         *     addresses away needs nothing more; widening the reach (lifting the
+         *     restriction, adding a network) needs sudo mode, like issuing a token does
+         *     for the person who holds it.
+         *
+         *     Args:
+         *         token_id: The record's id, as listed by ``GET /api/auth/tokens``.
+         *         body: The networks; empty lifts the restriction.
+         *         request: The incoming request.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The token as it is now.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the caller has no live token with that id; 400
+         *             for a fleet token or an entry that is not a network; 403
+         *             ``elevation_required`` when the change widens it.
+         */
+        patch: operations["restrict_api_token_api_auth_tokens__token_id__patch"];
         trace?: never;
     };
     "/api/auth/verify": {
@@ -9427,6 +9909,120 @@ export interface paths {
          *             :func:`~noust.web.api.deps.require_elevated`.
          */
         post: operations["revoke_certificate_api_certs__domain__revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/compliance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Compliance
+         * @description Say which frameworks are on, which controls they force, and what enabling each would change.
+         *
+         *     Args:
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         Every framework and control as it stands.
+         */
+        get: operations["get_compliance_api_compliance_get"];
+        /**
+         * Change Compliance
+         * @description Turn frameworks on or off and set controls.
+         *
+         *     Turning a framework on or a control stricter needs only the permission to change
+         *     security settings. Turning a framework off, or loosening a control, needs sudo
+         *     mode. A change with warnings is made only once ``acknowledge`` is true.
+         *
+         *     Args:
+         *         request: The request.
+         *         body: What to change.
+         *         session: The authenticated payload.
+         *
+         *     Returns:
+         *         What changed and the picture afterwards.
+         *
+         *     Raises:
+         *         HTTPException: 403 ``elevation_required`` when the change loosens something
+         *             and sudo mode is not open.
+         *         ValidationError: When the change is refused: an unknown name, a control looser
+         *             than a framework asks, warnings not acknowledged.
+         *         ConfigError: When the configuration cannot be written.
+         */
+        put: operations["change_compliance_api_compliance_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/compliance/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check Compliance
+         * @description Judge this server framework by framework, with the clause of each finding.
+         *
+         *     Reads the server's state (the last hardening report, the accounts, the backups);
+         *     a pass means the technical control is in force, never that the server complies.
+         *
+         *     Args:
+         *         framework: Frameworks to judge; the ones that are on by default.
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         The findings per framework.
+         *
+         *     Raises:
+         *         ValidationError: For a framework that does not exist.
+         */
+        get: operations["check_compliance_api_compliance_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/compliance/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Change
+         * @description Say what a change would do, writing nothing.
+         *
+         *     Args:
+         *         body: The frameworks and controls to change.
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         The controls whose value changes, whether it loosens anything, and what
+         *         about this server the caller must see first.
+         *
+         *     Raises:
+         *         ValidationError: For a framework or a control that does not exist, or a
+         *             control set looser than an enabled framework asks.
+         */
+        post: operations["plan_change_api_compliance_plan_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19286,6 +19882,431 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/scim/v2/.search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search Everything
+         * @description Search users and groups together, with the query in the body (RFC 7644 section 3.4.3).
+         *
+         *     A filter that only one of them can answer is answered by that one. The window is applied to
+         *     the users first and then the groups, up to 200 of each.
+         *
+         *     Args:
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: A SearchRequest.
+         *
+         *     Returns:
+         *         A ListResponse of both kinds.
+         */
+        post: operations["search_everything_api_scim_v2__search_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/Groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Groups
+         * @description Args:
+         *         request: The request.
+         *         source: The authenticated source.
+         *         filter: ``attribute eq "value"``.
+         *         startIndex: The 1-based index of the first result.
+         *         count: How many, at most 200.
+         *         shape: ``attributes`` and ``excludedAttributes``.
+         *
+         *     Returns:
+         *         A ListResponse.
+         */
+        get: operations["list_groups_api_scim_v2_Groups_get"];
+        put?: never;
+        /**
+         * Create Group
+         * @description Args:
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: The group document.
+         *         shape: ``attributes`` and ``excludedAttributes``.
+         *
+         *     Returns:
+         *         201 with the group and its ``Location``.
+         */
+        post: operations["create_group_api_scim_v2_Groups_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/Groups/.search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search Groups
+         * @description List groups with the query in the body.
+         *
+         *     Args:
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: A SearchRequest.
+         *
+         *     Returns:
+         *         A ListResponse.
+         */
+        post: operations["search_groups_api_scim_v2_Groups__search_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/Groups/{group_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Group
+         * @description Args:
+         *         group_id: The id the provider uses.
+         *         request: The request.
+         *         source: The authenticated source.
+         *         shape: ``attributes`` and ``excludedAttributes``.
+         *
+         *     Returns:
+         *         The group.
+         */
+        get: operations["get_group_api_scim_v2_Groups__group_id__get"];
+        /**
+         * Replace Group
+         * @description Args:
+         *         group_id: The id the provider uses.
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: The whole group document.
+         *
+         *     Returns:
+         *         The group after.
+         */
+        put: operations["replace_group_api_scim_v2_Groups__group_id__put"];
+        post?: never;
+        /**
+         * Delete Group
+         * @description Args:
+         *         group_id: The id the provider uses.
+         *         request: The request.
+         *         source: The authenticated source.
+         *
+         *     Returns:
+         *         204.
+         */
+        delete: operations["delete_group_api_scim_v2_Groups__group_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Patch Group
+         * @description Args:
+         *         group_id: The id the provider uses.
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: A PatchOp.
+         *
+         *     Returns:
+         *         The group after.
+         */
+        patch: operations["patch_group_api_scim_v2_Groups__group_id__patch"];
+        trace?: never;
+    };
+    "/api/scim/v2/ResourceTypes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resource Types
+         * @description Args:
+         *         request: The request.
+         *         _source: The authenticated source.
+         *
+         *     Returns:
+         *         A ListResponse of the two resource types: User and Group.
+         */
+        get: operations["resource_types_api_scim_v2_ResourceTypes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/ResourceTypes/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resource Type
+         * @description Args:
+         *         name: ``User`` or ``Group``.
+         *         request: The request.
+         *         _source: The authenticated source.
+         *
+         *     Returns:
+         *         The resource type.
+         *
+         *     Raises:
+         *         ScimError: 404 when there is none of that name.
+         */
+        get: operations["resource_type_api_scim_v2_ResourceTypes__name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/Schemas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Schemas
+         * @description Args:
+         *         request: The request.
+         *         _source: The authenticated source.
+         *
+         *     Returns:
+         *         A ListResponse of the attributes this server models.
+         */
+        get: operations["schemas_api_scim_v2_Schemas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/Schemas/{schema_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Schema
+         * @description Args:
+         *         schema_id: The schema's URN.
+         *         request: The request.
+         *         _source: The authenticated source.
+         *
+         *     Returns:
+         *         The schema.
+         *
+         *     Raises:
+         *         ScimError: 404 when there is none of that id.
+         */
+        get: operations["schema_api_scim_v2_Schemas__schema_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/ServiceProviderConfig": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Service Provider Config
+         * @description Say what this server supports, as providers ask before they provision.
+         *
+         *     Args:
+         *         _source: The authenticated source.
+         *
+         *     Returns:
+         *         The configuration: PATCH, filtering by equality, no bulk, no sorting, no passwords.
+         */
+        get: operations["service_provider_config_api_scim_v2_ServiceProviderConfig_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/Users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Users
+         * @description List the users this source provisioned, or find one by ``userName`` or ``externalId``.
+         *
+         *     Args:
+         *         request: The request.
+         *         source: The authenticated source.
+         *         filter: ``attribute eq "value"``.
+         *         startIndex: The 1-based index of the first result.
+         *         count: How many, at most 200.
+         *         shape: ``attributes`` and ``excludedAttributes``.
+         *
+         *     Returns:
+         *         A ListResponse.
+         */
+        get: operations["list_users_api_scim_v2_Users_get"];
+        put?: never;
+        /**
+         * Create User
+         * @description Provision a person.
+         *
+         *     Args:
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: The user document.
+         *         shape: ``attributes`` and ``excludedAttributes``.
+         *
+         *     Returns:
+         *         201 with the user and its ``Location``.
+         */
+        post: operations["create_user_api_scim_v2_Users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/Users/.search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search Users
+         * @description List users with the query in the body, as providers do when it is too long for an address.
+         *
+         *     Args:
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: A SearchRequest.
+         *
+         *     Returns:
+         *         A ListResponse.
+         */
+        post: operations["search_users_api_scim_v2_Users__search_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/Users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get User
+         * @description Args:
+         *         user_id: The id the provider uses.
+         *         request: The request.
+         *         source: The authenticated source.
+         *         shape: ``attributes`` and ``excludedAttributes``.
+         *
+         *     Returns:
+         *         The user.
+         */
+        get: operations["get_user_api_scim_v2_Users__user_id__get"];
+        /**
+         * Replace User
+         * @description Args:
+         *         user_id: The id the provider uses.
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: The whole user document.
+         *
+         *     Returns:
+         *         The user after.
+         */
+        put: operations["replace_user_api_scim_v2_Users__user_id__put"];
+        post?: never;
+        /**
+         * Delete User
+         * @description Switch the person's account off and forget the entry.
+         *
+         *     Args:
+         *         user_id: The id the provider uses.
+         *         request: The request.
+         *         source: The authenticated source.
+         *
+         *     Returns:
+         *         204.
+         */
+        delete: operations["delete_user_api_scim_v2_Users__user_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Patch User
+         * @description Args:
+         *         user_id: The id the provider uses.
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: A PatchOp.
+         *
+         *     Returns:
+         *         The user after.
+         */
+        patch: operations["patch_user_api_scim_v2_Users__user_id__patch"];
+        trace?: never;
+    };
     "/api/secret-providers": {
         parameters: {
             query?: never;
@@ -25260,13 +26281,16 @@ export interface components {
         };
         /**
          * AcceptRiskRequest
-         * @description Accept a finding: why (10 to 500 characters) and until when (ISO date or date-time).
+         * @description Accept a finding: why and until when (ISO date or date-time).
+         *
+         *     The reason (10 to 500 characters) is required only under the ENS profile or with
+         *     ``security.exception_reasons`` on.
          */
         AcceptRiskRequest: {
             /** Expires At */
             expires_at: string;
             /** Reason */
-            reason: string;
+            reason?: string | null;
         };
         /**
          * AcceptedRiskOut
@@ -26160,6 +27184,17 @@ export interface components {
         ApiTokenListResponse: {
             /** Tokens */
             tokens: components["schemas"]["ApiTokenInfo"][];
+        };
+        /**
+         * ApiTokenNetworks
+         * @description The networks to restrict a live API token to.
+         *
+         *     Attributes:
+         *         allowed_cidrs: Addresses or networks it is accepted from; empty lifts the restriction.
+         */
+        ApiTokenNetworks: {
+            /** Allowed Cidrs */
+            allowed_cidrs: string[];
         };
         /**
          * ApiTokenRequest
@@ -29178,6 +30213,23 @@ export interface components {
             webserver: string;
         };
         /**
+         * CertificateInfo
+         * @description A signing certificate, described the way an operator compares it with the provider's.
+         *
+         *     Attributes:
+         *         subject: Its subject.
+         *         fingerprint: Its SHA-256 fingerprint, hex.
+         *         not_after: When it stops being valid, UNIX seconds.
+         */
+        CertificateInfo: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Not After */
+            not_after: number;
+            /** Subject */
+            subject: string;
+        };
+        /**
          * CertificateModel
          * @description What an application serves.
          *
@@ -29365,6 +30417,53 @@ export interface components {
              * @default []
              */
             validate_command: string[];
+        };
+        /**
+         * ChangeRequest
+         * @description A change of frameworks and controls.
+         *
+         *     Attributes:
+         *         enable: Frameworks to turn on.
+         *         disable: Frameworks to turn off.
+         *         controls: Control to the value wanted for its setting: on or off, a number,
+         *             a choice, or null for no limit.
+         *         acknowledge: The caller saw the warnings of the plan and goes ahead.
+         */
+        ChangeRequest: {
+            /**
+             * Acknowledge
+             * @default false
+             */
+            acknowledge: boolean;
+            /** Controls */
+            controls?: {
+                [key: string]: unknown;
+            };
+            /** Disable */
+            disable?: string[];
+            /** Enable */
+            enable?: string[];
+        };
+        /**
+         * ChangeResult
+         * @description What a change did.
+         *
+         *     Attributes:
+         *         enabled_before: The frameworks on before.
+         *         enabled_after: The frameworks on after.
+         *         settings: Control to the value its setting now holds, for the ones changed.
+         *         state: The picture afterwards.
+         */
+        ChangeResult: {
+            /** Enabled After */
+            enabled_after: string[];
+            /** Enabled Before */
+            enabled_before: string[];
+            /** Settings */
+            settings: {
+                [key: string]: unknown;
+            };
+            state: components["schemas"]["ComplianceState"];
         };
         /**
          * ChangelogEntryOut
@@ -29582,6 +30681,41 @@ export interface components {
             warning: number;
         };
         /**
+         * CheckFinding
+         * @description One control of one framework, judged.
+         *
+         *     Attributes:
+         *         framework: The framework.
+         *         control: The control.
+         *         clauses: The clauses it serves, ``id: title``.
+         *         status: ``ok``, ``warning``, ``fail`` or ``n/a``.
+         *         required: What the framework asks.
+         *         actual: The value in force.
+         *         summary: What was found.
+         *         evidence: Values and facts, verbatim.
+         *         remediation: What to do.
+         */
+        CheckFinding: {
+            /** Actual */
+            actual?: unknown;
+            /** Clauses */
+            clauses: string[];
+            /** Control */
+            control: string;
+            /** Evidence */
+            evidence: string[];
+            /** Framework */
+            framework: string;
+            /** Remediation */
+            remediation: string;
+            /** Required */
+            required?: unknown;
+            /** Status */
+            status: string;
+            /** Summary */
+            summary: string;
+        };
+        /**
          * CheckFixOut
          * @description How a finding is fixed: ``automatic``, ``action``, ``guided`` or ``none``.
          */
@@ -29616,8 +30750,42 @@ export interface components {
             summary: string;
         };
         /**
+         * CheckFramework
+         * @description One framework's findings.
+         *
+         *     Attributes:
+         *         framework: Its id.
+         *         name: How it is called.
+         *         enabled: Whether it is on.
+         *         verdict: The worst status.
+         *         counts: Findings per status.
+         *         findings: One per control it asks of.
+         *         organisational: What stays yours.
+         *         not_covered: Technical requirements Noust does not enforce.
+         */
+        CheckFramework: {
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Enabled */
+            enabled: boolean;
+            /** Findings */
+            findings: components["schemas"]["CheckFinding"][];
+            /** Framework */
+            framework: string;
+            /** Name */
+            name: string;
+            /** Not Covered */
+            not_covered: string[];
+            /** Organisational */
+            organisational: string[];
+            /** Verdict */
+            verdict: string;
+        };
+        /**
          * CheckInfo
-         * @description One thing looked at when a provider is tested.
+         * @description One thing looked at when a source is tested.
          *
          *     Attributes:
          *         name: What.
@@ -29631,28 +30799,6 @@ export interface components {
             name: string;
             /** Ok */
             ok: boolean;
-        };
-        /**
-         * CheckResponse
-         * @description What asking a probe now got.
-         *
-         *     Attributes:
-         *         ok: It answered well.
-         *         status: The HTTP status.
-         *         latency_ms: How long it took.
-         *         error: What was wrong, in one line.
-         *         probe: The probe as it stands now.
-         */
-        CheckResponse: {
-            /** Error */
-            error?: string | null;
-            /** Latency Ms */
-            latency_ms?: number | null;
-            /** Ok */
-            ok: boolean;
-            probe: components["schemas"]["ProbeModel"];
-            /** Status */
-            status?: number | null;
         };
         /**
          * ChecksOut
@@ -30189,6 +31335,26 @@ export interface components {
             provider: string;
         };
         /**
+         * ComplianceState
+         * @description The frameworks and the controls.
+         *
+         *     Attributes:
+         *         frameworks: Every framework, in catalog order.
+         *         controls: Every control, in catalog order.
+         *         legacy_profile: What ``security.profile`` holds.
+         *         unknown: Names in ``security.frameworks`` this version does not know.
+         */
+        ComplianceState: {
+            /** Controls */
+            controls: components["schemas"]["ControlInfo"][];
+            /** Frameworks */
+            frameworks: components["schemas"]["FrameworkInfo"][];
+            /** Legacy Profile */
+            legacy_profile: string;
+            /** Unknown */
+            unknown: string[];
+        };
+        /**
          * ComposeAnalysisOut
          * @description What a document is, before it runs.
          *
@@ -30253,9 +31419,9 @@ export interface components {
         ComposeExceptionRequest: {
             /**
              * Reason
-             * @description Why, recorded and shown
+             * @description Why, recorded and shown; required under the ENS profile or with security.exception_reasons on
              */
-            reason: string;
+            reason?: string | null;
         };
         /**
          * ComposeServiceOut
@@ -30855,6 +32021,56 @@ export interface components {
              * @description Container paths kept in named volumes
              */
             volumes: string[];
+        };
+        /**
+         * ControlInfo
+         * @description A control as it stands on this server.
+         *
+         *     Attributes:
+         *         id: Its name.
+         *         group: ``access``, ``accountability``, ``backup`` or ``network``.
+         *         kind: ``flag``, ``choice``, ``min`` or ``max``.
+         *         standard: The default.
+         *         key: The configuration key of its own setting.
+         *         choices: For a choice, from the weakest to the strictest.
+         *         unit: What a number counts.
+         *         check_only: Whether nothing refuses it; only the check reads it.
+         *         value: The value in force.
+         *         operator: The operator's own setting.
+         *         floor: What the enabled frameworks leave of it.
+         *         forced_by: The enabled frameworks that ask anything of it, strictest first.
+         *         locked: Whether one does, so it cannot be loosened.
+         *         enabled: Whether it asks for more than the default.
+         */
+        ControlInfo: {
+            /** Check Only */
+            check_only: boolean;
+            /** Choices */
+            choices: string[];
+            /** Enabled */
+            enabled: boolean;
+            /** Floor */
+            floor?: unknown;
+            /** Forced By */
+            forced_by: string[];
+            /** Group */
+            group: string;
+            /** Id */
+            id: string;
+            /** Key */
+            key: string;
+            /** Kind */
+            kind: string;
+            /** Locked */
+            locked: boolean;
+            /** Operator */
+            operator?: unknown;
+            /** Standard */
+            standard?: unknown;
+            /** Unit */
+            unit: string;
+            /** Value */
+            value?: unknown;
         };
         /**
          * ConversionRequest
@@ -32889,6 +34105,230 @@ export interface components {
             directive: string;
         };
         /**
+         * DirectoriesResponse
+         * @description The configured directories.
+         *
+         *     Attributes:
+         *         directories: Each one.
+         */
+        DirectoriesResponse: {
+            /** Directories */
+            directories: components["schemas"]["DirectoryInfo"][];
+        };
+        /**
+         * DirectoryInfo
+         * @description A configured directory, with no password in it.
+         *
+         *     Attributes:
+         *         name: Its short name.
+         *         label: What the sign-in page says.
+         *         enabled: Whether the sign-in page offers it.
+         *         host: Its name or address.
+         *         port: Its port.
+         *         tls: ``ldaps``, ``starttls`` or ``none``.
+         *         ca_file: The authority bundle it is trusted by, when not the system's.
+         *         bind_dn: The service account that searches; empty searches anonymously.
+         *         bind_password_set: Whether that account's password is stored (never its value).
+         *         user_base: Where people are searched from.
+         *         user_filter: The search, with ``{username}``.
+         *         subject_attribute: The directory's stable id for a person.
+         *         email_attribute: Where their address is.
+         *         name_attribute: Where their display name is.
+         *         username_attribute: Where their login name is.
+         *         groups_attribute: Where the groups they are in are listed.
+         *         group_base: Where groups are searched, when the entry does not list them.
+         *         group_filter: That search, with ``{dn}`` and ``{username}``.
+         *         timeout_seconds: How long one sign-in may take.
+         *         provisioning: A first sign-in: ``off``, ``invite`` or ``auto``.
+         *         default_role: The role of an account that provisioning creates.
+         *         default_team: The team it joins.
+         *         default_team_role: Its role there.
+         *         link_by_email: Link a first sign-in to the account of its address.
+         *         allowed_domains: Only these e-mail domains.
+         *         require_email_verified: Refuse a person without an address.
+         *         assume_email_verified: Take the directory's address as verified.
+         *         group_sync: Whether groups decide roles, memberships and scoped roles.
+         *         group_mappings: What each group means.
+         *         created_at: When it was configured.
+         *         created_by: Who configured it.
+         */
+        DirectoryInfo: {
+            /** Allowed Domains */
+            allowed_domains: string[];
+            /** Assume Email Verified */
+            assume_email_verified: boolean;
+            /** Bind Dn */
+            bind_dn: string;
+            /** Bind Password Set */
+            bind_password_set: boolean;
+            /** Ca File */
+            ca_file?: string | null;
+            /** Created At */
+            created_at: number;
+            /** Created By */
+            created_by?: string | null;
+            /** Default Role */
+            default_role: string;
+            /** Default Team */
+            default_team?: string | null;
+            /** Default Team Role */
+            default_team_role?: string | null;
+            /** Email Attribute */
+            email_attribute: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Group Base */
+            group_base: string;
+            /** Group Filter */
+            group_filter: string;
+            /** Group Mappings */
+            group_mappings: components["schemas"]["Mapping"][];
+            /** Group Sync */
+            group_sync: boolean;
+            /** Groups Attribute */
+            groups_attribute: string;
+            /** Host */
+            host: string;
+            /** Label */
+            label: string;
+            /** Link By Email */
+            link_by_email: boolean;
+            /** Name */
+            name: string;
+            /** Name Attribute */
+            name_attribute: string;
+            /** Port */
+            port: number;
+            /** Provisioning */
+            provisioning: string;
+            /** Require Email Verified */
+            require_email_verified: boolean;
+            /** Subject Attribute */
+            subject_attribute: string;
+            /** Timeout Seconds */
+            timeout_seconds: number;
+            /** Tls */
+            tls: string;
+            /** User Base */
+            user_base: string;
+            /** User Filter */
+            user_filter: string;
+            /** Username Attribute */
+            username_attribute: string;
+        };
+        /**
+         * DirectoryRemoved
+         * @description A confirmation that a directory was removed.
+         *
+         *     Attributes:
+         *         success: Always true.
+         *         removed: Its name.
+         */
+        DirectoryRemoved: {
+            /** Removed */
+            removed: string;
+            /** Success */
+            success: boolean;
+        };
+        /**
+         * DirectorySettings
+         * @description The settings of a directory to set; omitted ones are left as they are.
+         *
+         *     Attributes:
+         *         label: What the sign-in page says.
+         *         enabled: Whether the sign-in page offers it.
+         *         host: Its name or address.
+         *         port: Its port.
+         *         tls: ``ldaps``, ``starttls`` or ``none`` (this machine only).
+         *         ca_file: An authority bundle to trust instead of the system's.
+         *         bind_dn: The service account that searches.
+         *         bind_password: Its password, stored apart and never shown again.
+         *         clear_bind_password: Forget the stored password (search anonymously).
+         *         user_base: Where people are searched from.
+         *         user_filter: The search, with ``{username}``.
+         *         subject_attribute: The directory's stable id for a person.
+         *         email_attribute: Where their address is.
+         *         name_attribute: Where their display name is.
+         *         username_attribute: Where their login name is.
+         *         groups_attribute: Where the groups they are in are listed.
+         *         group_base: Where groups are searched.
+         *         group_filter: That search, with ``{dn}`` and ``{username}``.
+         *         timeout_seconds: How long one sign-in may take.
+         *         provisioning: ``off``, ``invite`` or ``auto``.
+         *         default_role: The role of a created account.
+         *         default_team: The team a created account joins.
+         *         default_team_role: Its role there.
+         *         link_by_email: Link a first sign-in to the account of its address.
+         *         allowed_domains: Only these e-mail domains.
+         *         require_email_verified: Refuse a person without an address.
+         *         assume_email_verified: Take the directory's address as verified.
+         *         group_sync: Let groups decide roles, memberships and scoped roles.
+         *         group_mappings: What each group means.
+         */
+        DirectorySettings: {
+            /** Allowed Domains */
+            allowed_domains?: string[] | null;
+            /** Assume Email Verified */
+            assume_email_verified?: boolean | null;
+            /** Bind Dn */
+            bind_dn?: string | null;
+            /** Bind Password */
+            bind_password?: string | null;
+            /** Ca File */
+            ca_file?: string | null;
+            /**
+             * Clear Bind Password
+             * @default false
+             */
+            clear_bind_password: boolean;
+            /** Default Role */
+            default_role?: string | null;
+            /** Default Team */
+            default_team?: string | null;
+            /** Default Team Role */
+            default_team_role?: string | null;
+            /** Email Attribute */
+            email_attribute?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Group Base */
+            group_base?: string | null;
+            /** Group Filter */
+            group_filter?: string | null;
+            /** Group Mappings */
+            group_mappings?: components["schemas"]["Mapping"][] | null;
+            /** Group Sync */
+            group_sync?: boolean | null;
+            /** Groups Attribute */
+            groups_attribute?: string | null;
+            /** Host */
+            host?: string | null;
+            /** Label */
+            label?: string | null;
+            /** Link By Email */
+            link_by_email?: boolean | null;
+            /** Name Attribute */
+            name_attribute?: string | null;
+            /** Port */
+            port?: number | null;
+            /** Provisioning */
+            provisioning?: string | null;
+            /** Require Email Verified */
+            require_email_verified?: boolean | null;
+            /** Subject Attribute */
+            subject_attribute?: string | null;
+            /** Timeout Seconds */
+            timeout_seconds?: number | null;
+            /** Tls */
+            tls?: string | null;
+            /** User Base */
+            user_base?: string | null;
+            /** User Filter */
+            user_filter?: string | null;
+            /** Username Attribute */
+            username_attribute?: string | null;
+        };
+        /**
          * DiskEntry
          * @description Capacity of one filesystem.
          *
@@ -33566,6 +35006,31 @@ export interface components {
             engines?: string[];
             /** Kind */
             kind: string;
+        };
+        /**
+         * EffectInfo
+         * @description What a change does to one control.
+         *
+         *     Attributes:
+         *         control: The control.
+         *         before: The value in force now.
+         *         after: The value in force once the change is made.
+         *         forced_by: The frameworks that will ask anything of it.
+         *         clauses: For each of them, the clauses it serves.
+         */
+        EffectInfo: {
+            /** After */
+            after?: unknown;
+            /** Before */
+            before?: unknown;
+            /** Clauses */
+            clauses: {
+                [key: string]: string[];
+            };
+            /** Control */
+            control: string;
+            /** Forced By */
+            forced_by: string[];
         };
         /**
          * ElevateRequest
@@ -35839,6 +37304,77 @@ export interface components {
             presets: components["schemas"]["ForwardAuthPreset"][];
         };
         /**
+         * FrameworkChange
+         * @description What enabling a framework would change in one control.
+         *
+         *     Attributes:
+         *         control: The control.
+         *         before: The value in force now.
+         *         after: The value the framework asks.
+         *         clauses: The clauses that value serves.
+         */
+        FrameworkChange: {
+            /** After */
+            after?: unknown;
+            /** Before */
+            before?: unknown;
+            /** Clauses */
+            clauses: string[];
+            /** Control */
+            control: string;
+        };
+        /**
+         * FrameworkInfo
+         * @description A compliance framework and where it stands.
+         *
+         *     Attributes:
+         *         id: Its name in ``security.frameworks``.
+         *         name: How it is called.
+         *         family: ``ens``, ``iso``, ``nis2``, ``cis``, ``soc2`` or ``gdpr``.
+         *         level: The level inside the family, or empty.
+         *         summary: What it is, in a sentence.
+         *         reference: The law or the standard it refers to.
+         *         enabled: Whether it is on.
+         *         source: ``setting`` (it is in ``security.frameworks``) or ``profile`` (only
+         *             ``security.profile`` says so), when it is on.
+         *         turns_on: The controls it asks for more than the default of.
+         *         requirement_count: How many controls it asks anything of.
+         *         changes: What enabling it would change right now; empty when it is on.
+         *         organisational: What stays yours.
+         *         not_covered: Technical requirements Noust does not enforce.
+         *         includes: A framework this one contains.
+         */
+        FrameworkInfo: {
+            /** Changes */
+            changes: components["schemas"]["FrameworkChange"][];
+            /** Enabled */
+            enabled: boolean;
+            /** Family */
+            family: string;
+            /** Id */
+            id: string;
+            /** Includes */
+            includes?: string | null;
+            /** Level */
+            level: string;
+            /** Name */
+            name: string;
+            /** Not Covered */
+            not_covered: string[];
+            /** Organisational */
+            organisational: string[];
+            /** Reference */
+            reference: string;
+            /** Requirement Count */
+            requirement_count: number;
+            /** Source */
+            source?: string | null;
+            /** Summary */
+            summary: string;
+            /** Turns On */
+            turns_on: string[];
+        };
+        /**
          * FreezeOut
          * @description A freeze of deploys.
          */
@@ -38012,6 +39548,29 @@ export interface components {
             status: string;
         };
         /**
+         * LdapLoginRequest
+         * @description A person signing in with the name and password they have in a directory.
+         *
+         *     Attributes:
+         *         directory: The directory's name, as the sign-in page lists it.
+         *         username: What they type to sign in there.
+         *         password: Their password.
+         *         bearer: Also return the session token in the body, for clients without a cookie jar.
+         */
+        LdapLoginRequest: {
+            /**
+             * Bearer
+             * @default false
+             */
+            bearer: boolean;
+            /** Directory */
+            directory: string;
+            /** Password */
+            password: string;
+            /** Username */
+            username: string;
+        };
+        /**
          * LiftedResponse
          * @description What lifting did.
          */
@@ -38785,17 +40344,27 @@ export interface components {
         };
         /**
          * Mapping
-         * @description One line of a provider's group mapping.
+         * @description One line of a source's group mapping.
          *
          *     Attributes:
-         *         group: The group, as the provider's claim spells it.
+         *         group: The group, as the source spells it.
          *         role: The instance role it gives (``viewer``, ``operator`` or ``admin``).
-         *         team: The team it puts the person in.
+         *         team: The team it puts the person in, or the team a role is held in.
          *         team_role: Their role there.
+         *         bind: The role held at the scope the team, project and environment name:
+         *             a built-in team role or a custom role.
+         *         project: The project a ``bind`` is held at.
+         *         environment: The environment a ``bind`` is held at.
          */
         Mapping: {
+            /** Bind */
+            bind?: string | null;
+            /** Environment */
+            environment?: string | null;
             /** Group */
             group: string;
+            /** Project */
+            project?: string | null;
             /** Role */
             role?: string | null;
             /** Team */
@@ -40941,6 +42510,37 @@ export interface components {
             servers: components["schemas"]["ServerStatusOut"][];
         };
         /**
+         * PlanInfo
+         * @description What a change would do, before it is made.
+         *
+         *     Attributes:
+         *         enable: Frameworks that will be turned on.
+         *         disable: Frameworks that will be turned off.
+         *         settings: Control to the value its setting will hold.
+         *         enabled_after: The frameworks on afterwards.
+         *         effects: The controls whose value in force changes.
+         *         loosens: Whether anything protects less afterwards, which asks sudo mode.
+         *         warnings: What a person must acknowledge.
+         */
+        PlanInfo: {
+            /** Disable */
+            disable: string[];
+            /** Effects */
+            effects: components["schemas"]["EffectInfo"][];
+            /** Enable */
+            enable: string[];
+            /** Enabled After */
+            enabled_after: string[];
+            /** Loosens */
+            loosens: boolean;
+            /** Settings */
+            settings: {
+                [key: string]: unknown;
+            };
+            /** Warnings */
+            warnings: components["schemas"]["WarningInfo"][];
+        };
+        /**
          * PlanRequest
          * @description Request to preview a manifest.
          */
@@ -42390,12 +43990,20 @@ export interface components {
          *     Attributes:
          *         name: The provider's short name, for ``/start?provider=``.
          *         label: What the button says after "Sign in with".
+         *         protocol: ``oidc`` or ``saml`` (a button that leaves for the provider, at
+         *             ``/api/auth/<protocol>/start``) or ``ldap`` (a directory the sign-in page asks for a
+         *             name and a password).
          */
         ProviderChoice: {
             /** Label */
             label: string;
             /** Name */
             name: string;
+            /**
+             * Protocol
+             * @default oidc
+             */
+            protocol: string;
         };
         /**
          * ProviderChoices
@@ -46147,15 +47755,231 @@ export interface components {
             provider: string;
         };
         /**
+         * SamlProviderInfo
+         * @description A configured SAML provider. Nothing in it is secret.
+         *
+         *     Attributes:
+         *         name: Its short name.
+         *         label: What the button says after "Sign in with".
+         *         enabled: Whether the sign-in page offers it.
+         *         idp_entity_id: Its entity id.
+         *         sso_url: Where the browser is sent to sign in.
+         *         certificates: Its signing certificates, in PEM.
+         *         certificate_details: Each of them, described.
+         *         sp_entity_id: The entity id the operator set; empty derives it.
+         *         entity_id: The entity id Noust presents to it.
+         *         acs_url: The address its response is posted to, to register with it.
+         *         metadata_url: Where this server's metadata for it is published.
+         *         subject_attribute: The attribute that identifies a person; empty uses the NameID.
+         *         email_attribute: Where their address is.
+         *         name_attribute: Where their display name is.
+         *         username_attribute: Where their login name is.
+         *         groups_attribute: Where their groups are.
+         *         clock_skew_seconds: Tolerated clock difference.
+         *         provisioning: ``off``, ``invite`` or ``auto``.
+         *         default_role: The role of an account a first sign-in creates.
+         *         default_team: The team it joins.
+         *         default_team_role: Its role there.
+         *         link_by_email: Whether a first sign-in links by e-mail.
+         *         allowed_domains: When not empty, the e-mail domains allowed.
+         *         require_email_verified: Whether an address must be present.
+         *         assume_email_verified: Whether the provider's address counts as verified.
+         *         require_amr: When not empty, the authentication contexts one of which is required.
+         *         group_sync: Whether groups decide roles and teams.
+         *         group_mappings: What each group means.
+         *         created_at: When it was configured, UNIX seconds.
+         *         created_by: Who configured it.
+         *         updated_at: Last change, UNIX seconds.
+         *         updated_by: Who made it.
+         */
+        SamlProviderInfo: {
+            /** Acs Url */
+            acs_url: string;
+            /** Allowed Domains */
+            allowed_domains: string[];
+            /** Assume Email Verified */
+            assume_email_verified: boolean;
+            /** Certificate Details */
+            certificate_details: components["schemas"]["CertificateInfo"][];
+            /** Certificates */
+            certificates: string[];
+            /** Clock Skew Seconds */
+            clock_skew_seconds: number;
+            /** Created At */
+            created_at: number;
+            /** Created By */
+            created_by?: string | null;
+            /** Default Role */
+            default_role: string;
+            /** Default Team */
+            default_team?: string | null;
+            /** Default Team Role */
+            default_team_role?: string | null;
+            /** Email Attribute */
+            email_attribute: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Entity Id */
+            entity_id: string;
+            /** Group Mappings */
+            group_mappings: components["schemas"]["Mapping"][];
+            /** Group Sync */
+            group_sync: boolean;
+            /** Groups Attribute */
+            groups_attribute: string;
+            /** Idp Entity Id */
+            idp_entity_id: string;
+            /** Label */
+            label: string;
+            /** Link By Email */
+            link_by_email: boolean;
+            /** Metadata Url */
+            metadata_url: string;
+            /** Name */
+            name: string;
+            /** Name Attribute */
+            name_attribute: string;
+            /** Provisioning */
+            provisioning: string;
+            /** Require Amr */
+            require_amr: string[];
+            /** Require Email Verified */
+            require_email_verified: boolean;
+            /** Sp Entity Id */
+            sp_entity_id: string;
+            /** Sso Url */
+            sso_url: string;
+            /** Subject Attribute */
+            subject_attribute: string;
+            /** Updated At */
+            updated_at: number;
+            /** Updated By */
+            updated_by?: string | null;
+            /** Username Attribute */
+            username_attribute: string;
+        };
+        /**
+         * SamlProvidersResponse
+         * @description Every configured SAML provider.
+         *
+         *     Attributes:
+         *         providers: The providers, by name.
+         *         acs_url: The address a response is posted to: the same for every provider.
+         *         secure: Whether the console is reached over TLS, which a POST answer needs.
+         */
+        SamlProvidersResponse: {
+            /** Acs Url */
+            acs_url: string;
+            /** Providers */
+            providers: components["schemas"]["SamlProviderInfo"][];
+            /** Secure */
+            secure: boolean;
+        };
+        /**
+         * SamlRemoved
+         * @description A confirmation that a provider was removed.
+         *
+         *     Attributes:
+         *         success: Always true.
+         *         removed: Its name.
+         */
+        SamlRemoved: {
+            /** Removed */
+            removed: string;
+            /** Success */
+            success: boolean;
+        };
+        /**
+         * SamlSettings
+         * @description What to set on a SAML provider; whatever is left out keeps its value.
+         *
+         *     Attributes:
+         *         label: What the button says after "Sign in with".
+         *         enabled: Whether the sign-in page offers it.
+         *         idp_metadata: The identity provider's metadata XML: its entity id, sign-in address and
+         *             signing certificates are read from it (the settings beside it win).
+         *         idp_entity_id: Its entity id.
+         *         sso_url: Its sign-in address (HTTP-Redirect binding).
+         *         certificates: Its signing certificates, PEM or bare base64: replaces the list.
+         *         sp_entity_id: The entity id Noust presents; empty derives it from the console's address.
+         *         subject_attribute: The attribute that identifies a person; empty uses the NameID.
+         *         email_attribute: Where their address is.
+         *         name_attribute: Where their display name is.
+         *         username_attribute: Where their login name is.
+         *         groups_attribute: Where their groups are.
+         *         clock_skew_seconds: Tolerated clock difference, up to 300.
+         *         provisioning: ``off``, ``invite`` or ``auto``.
+         *         default_role: ``viewer``, ``operator`` or ``admin``.
+         *         default_team: The team a created account joins.
+         *         default_team_role: Its role there.
+         *         link_by_email: Link a first sign-in to the account of its address.
+         *         allowed_domains: Only these e-mail domains.
+         *         require_email_verified: Refuse a person without an address.
+         *         assume_email_verified: Take the provider's address as verified.
+         *         require_amr: One of these authentication context classes must be reported.
+         *         group_sync: Let groups decide roles, memberships and scoped roles.
+         *         group_mappings: What each group means.
+         */
+        SamlSettings: {
+            /** Allowed Domains */
+            allowed_domains?: string[] | null;
+            /** Assume Email Verified */
+            assume_email_verified?: boolean | null;
+            /** Certificates */
+            certificates?: string[] | null;
+            /** Clock Skew Seconds */
+            clock_skew_seconds?: number | null;
+            /** Default Role */
+            default_role?: string | null;
+            /** Default Team */
+            default_team?: string | null;
+            /** Default Team Role */
+            default_team_role?: string | null;
+            /** Email Attribute */
+            email_attribute?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Group Mappings */
+            group_mappings?: components["schemas"]["Mapping"][] | null;
+            /** Group Sync */
+            group_sync?: boolean | null;
+            /** Groups Attribute */
+            groups_attribute?: string | null;
+            /** Idp Entity Id */
+            idp_entity_id?: string | null;
+            /** Idp Metadata */
+            idp_metadata?: string | null;
+            /** Label */
+            label?: string | null;
+            /** Link By Email */
+            link_by_email?: boolean | null;
+            /** Name Attribute */
+            name_attribute?: string | null;
+            /** Provisioning */
+            provisioning?: string | null;
+            /** Require Amr */
+            require_amr?: string[] | null;
+            /** Require Email Verified */
+            require_email_verified?: boolean | null;
+            /** Sp Entity Id */
+            sp_entity_id?: string | null;
+            /** Sso Url */
+            sso_url?: string | null;
+            /** Subject Attribute */
+            subject_attribute?: string | null;
+            /** Username Attribute */
+            username_attribute?: string | null;
+        };
+        /**
          * SandboxDisableRequest
          * @description Building as root, and why.
          */
         SandboxDisableRequest: {
             /**
              * Reason
-             * @description Why, recorded and shown
+             * @description Why, recorded and shown; required under the ENS profile or with security.exception_reasons on
              */
-            reason: string;
+            reason?: string | null;
         };
         /**
          * SandboxEnableRequest
@@ -46586,6 +48410,193 @@ export interface components {
         SchemasResponse: {
             /** Schemas */
             schemas: components["schemas"]["SchemaResponse"][];
+        };
+        /**
+         * ScimRemoved
+         * @description A confirmation that a source was removed.
+         *
+         *     Attributes:
+         *         success: Always true.
+         *         removed: Its name.
+         */
+        ScimRemoved: {
+            /** Removed */
+            removed: string;
+            /** Success */
+            success: boolean;
+        };
+        /**
+         * ScimSourceInfo
+         * @description A source of provisioning, without its token.
+         *
+         *     Attributes:
+         *         name: Its short name.
+         *         label: What a person reads about it.
+         *         enabled: Whether its token is accepted.
+         *         token_hint: The last characters of its token, to tell tokens apart.
+         *         token_created_at: When the token was issued.
+         *         last_used_at: When it last authenticated a request.
+         *         last_used_ip: From where.
+         *         default_role: The role of an account it creates.
+         *         default_team: The team a new account joins.
+         *         default_team_role: Its role there.
+         *         link_by_email: Attach a user to the account that already has their e-mail.
+         *         allowed_domains: Only these e-mail domains; any when empty.
+         *         group_sync: Whether its groups decide roles, memberships and scoped roles.
+         *         group_mappings: What each group means.
+         *         users: How many people it has provisioned.
+         *         created_at: When it was configured.
+         *         created_by: Who configured it.
+         */
+        ScimSourceInfo: {
+            /** Allowed Domains */
+            allowed_domains: string[];
+            /** Created At */
+            created_at: number;
+            /** Created By */
+            created_by?: string | null;
+            /** Default Role */
+            default_role: string;
+            /** Default Team */
+            default_team?: string | null;
+            /** Default Team Role */
+            default_team_role?: string | null;
+            /** Enabled */
+            enabled: boolean;
+            /** Group Mappings */
+            group_mappings: components["schemas"]["Mapping"][];
+            /** Group Sync */
+            group_sync: boolean;
+            /** Label */
+            label: string;
+            /** Last Used At */
+            last_used_at?: number | null;
+            /** Last Used Ip */
+            last_used_ip?: string | null;
+            /** Link By Email */
+            link_by_email: boolean;
+            /** Name */
+            name: string;
+            /** Token Created At */
+            token_created_at: number;
+            /** Token Hint */
+            token_hint: string;
+            /** Users */
+            users: number;
+        };
+        /**
+         * ScimSourceSaved
+         * @description A source after it was set, and its token when one was issued.
+         *
+         *     Attributes:
+         *         source: The source as it is now.
+         *         token: The bearer token, in clear, exactly once; None when the source kept its own.
+         *         base_url: The SCIM endpoint to give the identity provider.
+         */
+        ScimSourceSaved: {
+            /** Base Url */
+            base_url: string;
+            source: components["schemas"]["ScimSourceInfo"];
+            /** Token */
+            token?: string | null;
+        };
+        /**
+         * ScimSourceSettings
+         * @description The settings of a source to set; omitted ones are left as they are.
+         *
+         *     Attributes:
+         *         label: What a person reads about it.
+         *         enabled: Whether its token is accepted.
+         *         default_role: ``viewer``, ``operator`` or ``admin``.
+         *         default_team: The team a created account joins.
+         *         default_team_role: Its role there.
+         *         link_by_email: Attach a user to the account of the same e-mail.
+         *         allowed_domains: Only these e-mail domains.
+         *         group_sync: Let its groups decide roles, memberships and scoped roles.
+         *         group_mappings: What each group means.
+         *         rotate_token: Issue a new token (the old one stops working at once).
+         */
+        ScimSourceSettings: {
+            /** Allowed Domains */
+            allowed_domains?: string[] | null;
+            /** Default Role */
+            default_role?: string | null;
+            /** Default Team */
+            default_team?: string | null;
+            /** Default Team Role */
+            default_team_role?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Group Mappings */
+            group_mappings?: components["schemas"]["Mapping"][] | null;
+            /** Group Sync */
+            group_sync?: boolean | null;
+            /** Label */
+            label?: string | null;
+            /** Link By Email */
+            link_by_email?: boolean | null;
+            /**
+             * Rotate Token
+             * @default false
+             */
+            rotate_token: boolean;
+        };
+        /**
+         * ScimSourcesResponse
+         * @description The sources, and where they are to be pointed.
+         *
+         *     Attributes:
+         *         base_url: The address to give each identity provider as the SCIM endpoint.
+         *         sources: Every configured source.
+         */
+        ScimSourcesResponse: {
+            /** Base Url */
+            base_url: string;
+            /** Sources */
+            sources: components["schemas"]["ScimSourceInfo"][];
+        };
+        /**
+         * ScimUserInfo
+         * @description A person a source provisioned.
+         *
+         *     Attributes:
+         *         id: The id the provider uses.
+         *         user_name: Its ``userName``.
+         *         account: The account's name.
+         *         status: The account's status.
+         *         role: The account's role.
+         *         disabled_by_scim: Whether the provider switched it off.
+         *         groups: The groups it pushed them into.
+         */
+        ScimUserInfo: {
+            /** Account */
+            account: string;
+            /** Disabled By Scim */
+            disabled_by_scim: boolean;
+            /** Groups */
+            groups: string[];
+            /** Id */
+            id: string;
+            /** Role */
+            role: string;
+            /** Status */
+            status: string;
+            /** User Name */
+            user_name: string;
+        };
+        /**
+         * ScimUsersResponse
+         * @description The roster of a source.
+         *
+         *     Attributes:
+         *         total: How many people it provisioned.
+         *         users: The first 500.
+         */
+        ScimUsersResponse: {
+            /** Total */
+            total: number;
+            /** Users */
+            users: components["schemas"]["ScimUserInfo"][];
         };
         /**
          * ScriptBody
@@ -50255,7 +52266,7 @@ export interface components {
         };
         /**
          * TestResponse
-         * @description A provider looked at the way a sign-in would, without signing anybody in.
+         * @description A source looked at the way a sign-in would, without signing anybody in.
          *
          *     Attributes:
          *         ok: Whether every check passed.
@@ -52718,6 +54729,20 @@ export interface components {
             webserver: string;
         };
         /**
+         * WarningInfo
+         * @description Something about this server a change would affect.
+         *
+         *     Attributes:
+         *         id: What it is.
+         *         count: How many it concerns, when it counts.
+         */
+        WarningInfo: {
+            /** Count */
+            count?: number | null;
+            /** Id */
+            id: string;
+        };
+        /**
          * WebConfig
          * @description Web interface configuration.
          */
@@ -53809,6 +55834,28 @@ export interface components {
             user_data_limit: number;
         };
         /**
+         * CheckResponse
+         * @description The result of the compliance check.
+         *
+         *     Attributes:
+         *         verdict: The worst verdict among the frameworks.
+         *         frameworks: One per framework judged.
+         *         errors: Areas that could not be read.
+         *         disclaimer: What a pass does and does not mean.
+         */
+        noust__web__api__compliance__CheckResponse: {
+            /** Disclaimer */
+            disclaimer: string;
+            /** Errors */
+            errors: {
+                [key: string]: string;
+            };
+            /** Frameworks */
+            frameworks: components["schemas"]["CheckFramework"][];
+            /** Verdict */
+            verdict: string;
+        };
+        /**
          * PolicyDestination
          * @description One remote destination a policy sends its dumps to.
          *
@@ -54676,6 +56723,28 @@ export interface components {
             updated_at?: string | null;
             /** Url */
             url: string;
+        };
+        /**
+         * CheckResponse
+         * @description What asking a probe now got.
+         *
+         *     Attributes:
+         *         ok: It answered well.
+         *         status: The HTTP status.
+         *         latency_ms: How long it took.
+         *         error: What was wrong, in one line.
+         *         probe: The probe as it stands now.
+         */
+        noust__web__api__probes__CheckResponse: {
+            /** Error */
+            error?: string | null;
+            /** Latency Ms */
+            latency_ms?: number | null;
+            /** Ok */
+            ok: boolean;
+            probe: components["schemas"]["ProbeModel"];
+            /** Status */
+            status?: number | null;
         };
         /**
          * ProcessInfo
@@ -63274,6 +65343,156 @@ export interface operations {
             };
         };
     };
+    list_directories_api_auth_ldap_directories_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectoriesResponse"];
+                };
+            };
+        };
+    };
+    put_directory_api_auth_ldap_directories__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DirectorySettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectoryInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_directory_api_auth_ldap_directories__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectoryRemoved"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_directory_api_auth_ldap_directories__name__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    login_api_auth_ldap_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LdapLoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     login_api_auth_login_post: {
         parameters: {
             query?: never;
@@ -64083,6 +66302,328 @@ export interface operations {
             };
         };
     };
+    assertion_consumer_service_api_auth_saml_acs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": {
+                    /** @description What the sign-in sent with its request. */
+                    RelayState: string;
+                    /** @description The base64 response. */
+                    SAMLResponse: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            303: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_providers_api_auth_saml_config_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SamlProvidersResponse"];
+                };
+            };
+        };
+    };
+    put_provider_api_auth_saml_config__provider__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SamlSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SamlProviderInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_provider_api_auth_saml_config__provider__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SamlRemoved"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    try_provider_api_auth_saml_config__provider__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    metadata_api_auth_saml_metadata__provider__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/samlmetadata+xml": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_api_auth_saml_start_get: {
+        parameters: {
+            query: {
+                provider: string;
+                next?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_sources_api_auth_scim_sources_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScimSourcesResponse"];
+                };
+            };
+        };
+    };
+    put_source_api_auth_scim_sources__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScimSourceSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScimSourceSaved"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_source_api_auth_scim_sources__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScimRemoved"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_users_api_auth_scim_sources__name__users_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScimUsersResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_session_info_api_auth_session_get: {
         parameters: {
             query?: never;
@@ -64265,6 +66806,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RevokedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restrict_api_token_api_auth_tokens__token_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApiTokenNetworks"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiTokenInfo"];
                 };
             };
             /** @description Validation Error */
@@ -65373,6 +67949,123 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CertActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_compliance_api_compliance_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceState"];
+                };
+            };
+        };
+    };
+    change_compliance_api_compliance_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_compliance_api_compliance_check_get: {
+        parameters: {
+            query?: {
+                framework?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__compliance__CheckResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_change_api_compliance_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanInfo"];
                 };
             };
             /** @description Validation Error */
@@ -75477,7 +78170,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CheckResponse"];
+                    "application/json": components["schemas"]["noust__web__api__probes__CheckResponse"];
                 };
             };
             /** @description Validation Error */
@@ -76202,6 +78895,665 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RegistryLoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_everything_api_scim_v2__search_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_groups_api_scim_v2_Groups_get: {
+        parameters: {
+            query?: {
+                filter?: string | null;
+                startIndex?: number | null;
+                count?: number | null;
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_group_api_scim_v2_Groups_post: {
+        parameters: {
+            query?: {
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_groups_api_scim_v2_Groups__search_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_group_api_scim_v2_Groups__group_id__get: {
+        parameters: {
+            query?: {
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
+            header?: never;
+            path: {
+                group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replace_group_api_scim_v2_Groups__group_id__put: {
+        parameters: {
+            query?: {
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
+            header?: never;
+            path: {
+                group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_group_api_scim_v2_Groups__group_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_group_api_scim_v2_Groups__group_id__patch: {
+        parameters: {
+            query?: {
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
+            header?: never;
+            path: {
+                group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resource_types_api_scim_v2_ResourceTypes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+        };
+    };
+    resource_type_api_scim_v2_ResourceTypes__name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    schemas_api_scim_v2_Schemas_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+        };
+    };
+    schema_api_scim_v2_Schemas__schema_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                schema_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    service_provider_config_api_scim_v2_ServiceProviderConfig_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+        };
+    };
+    list_users_api_scim_v2_Users_get: {
+        parameters: {
+            query?: {
+                filter?: string | null;
+                startIndex?: number | null;
+                count?: number | null;
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_user_api_scim_v2_Users_post: {
+        parameters: {
+            query?: {
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_users_api_scim_v2_Users__search_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_user_api_scim_v2_Users__user_id__get: {
+        parameters: {
+            query?: {
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replace_user_api_scim_v2_Users__user_id__put: {
+        parameters: {
+            query?: {
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_user_api_scim_v2_Users__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_user_api_scim_v2_Users__user_id__patch: {
+        parameters: {
+            query?: {
+                attributes?: string | null;
+                excludedAttributes?: string | null;
+            };
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/scim+json": string;
                 };
             };
             /** @description Validation Error */

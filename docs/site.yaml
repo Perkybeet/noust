@@ -123,7 +123,7 @@ sections:
         summary: Teams, projects and environments, and what each role sees.
       - source: docs/sso.md
         slug: sso
-        summary: Single sign-on with OpenID Connect.
+        summary: Single sign-on with OpenID Connect or SAML, directories (LDAP, Active Directory) and SCIM provisioning.
       - source: docs/manifest.md
         slug: manifest
         summary: "A server written down in git: plan, apply and export."
@@ -166,6 +166,9 @@ sections:
       - source: docs/ENS.md
         slug: ens
         summary: Spain's Esquema Nacional de Seguridad, category medium (in Spanish, with an English summary).
+      - source: docs/COMPLIANCE.md
+        slug: compliance
+        summary: Compliance as controls, and the frameworks (ENS, ISO/IEC 27001, NIS2, CIS, SOC 2, GDPR) that switch them on, the clause each control serves and what stays organisational.
 
   - title: Upgrading
     pages:

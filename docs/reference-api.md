@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-910 operations.
+951 operations.
 
 ## Access
 
@@ -250,6 +250,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | DELETE | `/api/auth/sessions/{sid_prefix}` | Revoke One Session | `self` |  |  |
 | GET | `/api/auth/tokens` | List Api Tokens | `self` |  |  |
 | POST | `/api/auth/tokens` | Create Api Token | `self` | yes |  |
+| PATCH | `/api/auth/tokens/{token_id}` | Restrict Api Token | `self` |  |  |
 | DELETE | `/api/auth/tokens/{token_id}` | Revoke Api Token | `self` |  |  |
 | GET | `/api/auth/verify` | Verify Token | `self` |  |  |
 | POST | `/api/auth/ws-ticket` | Create Ws Ticket | `self` |  |  |
@@ -323,6 +324,10 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 
 | Method | Path | What it does | Permission | Sudo | Approval |
 |---|---|---|---|---|---|
+| GET | `/api/compliance` | Get Compliance | `settings.read` |  |  |
+| PUT | `/api/compliance` | Change Compliance | `security.manage` |  |  |
+| GET | `/api/compliance/check` | Check Compliance | `compliance.read` |  |  |
+| POST | `/api/compliance/plan` | Plan Change | `security.manage` |  |  |
 | GET | `/api/ens/access-review` | Ens Access Review | `accounts.read` |  |  |
 | POST | `/api/ens/access-review` | Ens Access Review Attest | `accounts.manage` |  |  |
 | GET | `/api/ens/check` | Ens Check | `compliance.read` |  |  |
@@ -890,6 +895,31 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | DELETE | `/api/registries/{name}` | Remove Registry Login | `apps.manage` | yes |  |
 | POST | `/api/registries/{name}/test` | Test Registry Login | `apps.manage` | yes |  |
 
+## SCIM provisioning
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| POST | `/api/scim/v2/.search` | Search Everything | `public` |  |  |
+| GET | `/api/scim/v2/Groups` | List Groups | `public` |  |  |
+| POST | `/api/scim/v2/Groups` | Create Group | `public` |  |  |
+| POST | `/api/scim/v2/Groups/.search` | Search Groups | `public` |  |  |
+| GET | `/api/scim/v2/Groups/{group_id}` | Get Group | `public` |  |  |
+| PUT | `/api/scim/v2/Groups/{group_id}` | Replace Group | `public` |  |  |
+| PATCH | `/api/scim/v2/Groups/{group_id}` | Patch Group | `public` |  |  |
+| DELETE | `/api/scim/v2/Groups/{group_id}` | Delete Group | `public` |  |  |
+| GET | `/api/scim/v2/ResourceTypes` | Resource Types | `public` |  |  |
+| GET | `/api/scim/v2/ResourceTypes/{name}` | Resource Type | `public` |  |  |
+| GET | `/api/scim/v2/Schemas` | Schemas | `public` |  |  |
+| GET | `/api/scim/v2/Schemas/{schema_id}` | Schema | `public` |  |  |
+| GET | `/api/scim/v2/ServiceProviderConfig` | Service Provider Config | `public` |  |  |
+| GET | `/api/scim/v2/Users` | List Users | `public` |  |  |
+| POST | `/api/scim/v2/Users` | Create User | `public` |  |  |
+| POST | `/api/scim/v2/Users/.search` | Search Users | `public` |  |  |
+| GET | `/api/scim/v2/Users/{user_id}` | Get User | `public` |  |  |
+| PUT | `/api/scim/v2/Users/{user_id}` | Replace User | `public` |  |  |
+| PATCH | `/api/scim/v2/Users/{user_id}` | Patch User | `public` |  |  |
+| DELETE | `/api/scim/v2/Users/{user_id}` | Delete User | `public` |  |  |
+
 ## Self Backup
 
 | Method | Path | What it does | Permission | Sudo | Approval |
@@ -1000,6 +1030,11 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 
 | Method | Path | What it does | Permission | Sudo | Approval |
 |---|---|---|---|---|---|
+| GET | `/api/auth/ldap/directories` | List Directories | `accounts.read` |  |  |
+| PUT | `/api/auth/ldap/directories/{name}` | Put Directory | `accounts.manage` | yes |  |
+| DELETE | `/api/auth/ldap/directories/{name}` | Delete Directory | `accounts.manage` | yes |  |
+| POST | `/api/auth/ldap/directories/{name}/test` | Test Directory | `accounts.manage` |  |  |
+| POST | `/api/auth/ldap/login` | Login | `public` |  |  |
 | GET | `/api/auth/oidc/callback` | Callback | `public` |  |  |
 | POST | `/api/auth/oidc/complete` | Complete | `public` |  |  |
 | GET | `/api/auth/oidc/config` | List Providers | `accounts.read` |  |  |
@@ -1013,6 +1048,17 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | PUT | `/api/auth/oidc/local-login` | Put Local Login | `accounts.manage` | yes |  |
 | GET | `/api/auth/oidc/providers` | List Choices | `public` |  |  |
 | GET | `/api/auth/oidc/start` | Start | `public` |  |  |
+| POST | `/api/auth/saml/acs` | Assertion Consumer Service | `public` |  |  |
+| GET | `/api/auth/saml/config` | List Providers | `accounts.read` |  |  |
+| PUT | `/api/auth/saml/config/{provider}` | Put Provider | `accounts.manage` | yes |  |
+| DELETE | `/api/auth/saml/config/{provider}` | Delete Provider | `accounts.manage` | yes |  |
+| POST | `/api/auth/saml/config/{provider}/test` | Try Provider | `accounts.manage` |  |  |
+| GET | `/api/auth/saml/metadata/{provider}` | Metadata | `public` |  |  |
+| GET | `/api/auth/saml/start` | Start | `public` |  |  |
+| GET | `/api/auth/scim/sources` | List Sources | `accounts.read` |  |  |
+| PUT | `/api/auth/scim/sources/{name}` | Put Source | `accounts.manage` | yes |  |
+| DELETE | `/api/auth/scim/sources/{name}` | Delete Source | `accounts.manage` | yes |  |
+| GET | `/api/auth/scim/sources/{name}/users` | List Users | `accounts.read` |  |  |
 
 ## Sites
 

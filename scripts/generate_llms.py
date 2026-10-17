@@ -80,6 +80,10 @@ DOCUMENTS: tuple[tuple[str, str], ...] = (
     ("probes.md", "Probes of an address from outside the application, and a public status page"),
     ("logs.md", "Searching the logs of every application and server, and how long they are kept"),
     ("ENS.md", "The ENS category MEDIUM profile and its evidence"),
+    (
+        "COMPLIANCE.md",
+        "Compliance controls and the frameworks that switch them on, with the clause each serves",
+    ),
     ("PLATFORMS.md", "Supported operating systems, processors and the installer"),
 )
 

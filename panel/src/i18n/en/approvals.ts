@@ -94,7 +94,7 @@ export const approvals = {
     description: "Calls that wait for a second person, and the ones already decided.",
     descriptionWho: "Calls that wait for a second person. Who decides: {approvers}. Nobody decides their own.",
     offTitle: "Approvals are off on this server",
-    off: "Nothing waits for a second person here. They are on under the ENS profile, or with approval.enabled in the configuration.",
+    off: "Nothing waits for a second person here. They are on with approval.enabled in the configuration, or when a compliance framework such as ENS asks for them.",
     filterLabel: "Filter requests",
     viewLabel: "Show",
     viewWaiting: "Waiting",

@@ -22,17 +22,29 @@ lands in shell history: it is typed at a hidden prompt, or piped with
 from __future__ import annotations
 
 import json
-import sys
-from datetime import datetime
 from typing import Any
 
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.cli.commands.auth_common import (
+    describe_mapping,
+    either_flag,
+    format_time,
+    mappings_from_options,
+    read_secret,
+    record_audit,
+)
+from noust.cli.commands.auth_ldap import ldap
+from noust.cli.commands.auth_saml import saml
+from noust.cli.commands.auth_scim import scim
 from noust.core.accounts.oidc import OidcManager
-from noust.core.accounts.oidc_model import PROVIDER_ROLES, PROVISIONING, OidcProvider
+from noust.core.accounts.oidc_model import (
+    PROVIDER_ROLES,
+    PROVISIONING,
+    OidcProvider,
+)
 from noust.core.config import Config
-from noust.core.exceptions import ValidationError
 from noust.core.teams.model import TEAM_ROLES
 
 CALLBACK = "/api/auth/oidc/callback"
@@ -44,33 +56,6 @@ def _manager() -> OidcManager:
         The single sign-in manager over this server's store.
     """
     return OidcManager()
-
-
-def _record(event: str, target: str, detail: dict[str, Any] | None = None) -> None:
-    """
-    Put a change on the audit trail, as whoever runs this command.
-
-    Args:
-        event: The catalog name.
-        target: What it was done to.
-        detail: Context, never a credential.
-    """
-    from noust.core.audit import record
-
-    record(event, target=target, details=detail)
-
-
-def _fmt(timestamp: float | None) -> str:
-    """
-    Args:
-        timestamp: UNIX seconds, or None.
-
-    Returns:
-        Local time for a table cell, or ``-``.
-    """
-    if timestamp is None:
-        return "-"
-    return datetime.fromtimestamp(timestamp).isoformat(sep=" ", timespec="seconds")
 
 
 def _callback_for(provider: OidcProvider) -> str | None:
@@ -86,86 +71,6 @@ def _callback_for(provider: OidcProvider) -> str | None:
         return provider.redirect_uri
     public = str(Config().get("web.public_url") or "").strip().rstrip("/")
     return public + CALLBACK if public else None
-
-
-def _read_secret(name: str, from_stdin: bool, prompt: bool) -> str | None:
-    """
-    Read a client secret without it ever touching the command line.
-
-    Args:
-        name: The provider, for the prompt.
-        from_stdin: Read one line from standard input.
-        prompt: Ask at a hidden prompt.
-
-    Returns:
-        The secret, or None when neither was asked for.
-
-    Raises:
-        ValidationError: When standard input is empty.
-    """
-    if from_stdin:
-        line = sys.stdin.readline().rstrip("\r\n")
-        if not line:
-            raise ValidationError(
-                "No client secret on standard input",
-                details="Pipe it in, such as: printf '%s\\n' \"$SECRET\" | noust auth oidc set ...",
-            )
-        return line
-    if prompt:
-        return str(click.prompt(f"Client secret for {name}", hide_input=True, type=str))
-    return None
-
-
-def _flag(given: tuple[bool, bool], what: str) -> bool | None:
-    """
-    Args:
-        given: Whether the "on" flag and the "off" flag were passed.
-        what: The setting, for the message.
-
-    Returns:
-        True, False, or None when neither was passed.
-
-    Raises:
-        ValidationError: When both were.
-    """
-    on, off = given
-    if on and off:
-        raise ValidationError(f"Pass only one of the two {what} flags")
-    return True if on else False if off else None
-
-
-def _mappings(roles: tuple[str, ...], teams: tuple[str, ...]) -> list[dict[str, str]]:
-    """
-    Read the ``--map-role`` and ``--map-team`` options.
-
-    Args:
-        roles: ``GROUP=ROLE`` each.
-        teams: ``GROUP=TEAM:ROLE`` each.
-
-    Returns:
-        The mapping, roles first (the first role mapping that matches decides).
-
-    Raises:
-        ValidationError: When one is not of its shape.
-    """
-    found: list[dict[str, str]] = []
-    for text in roles:
-        group, _, role = text.rpartition("=")
-        if not group or not role:
-            raise ValidationError(
-                f"Not GROUP=ROLE: {text!r}", details="Such as --map-role noust-admins=admin."
-            )
-        found.append({"group": group, "role": role})
-    for text in teams:
-        group, _, target = text.rpartition("=")
-        team, _, team_role = target.partition(":")
-        if not group or not team:
-            raise ValidationError(
-                f"Not GROUP=TEAM:ROLE: {text!r}",
-                details="Such as --map-team acme-ops=acme:operator.",
-            )
-        found.append({"group": group, "team": team, "team_role": team_role or "viewer"})
-    return found
 
 
 def _describe(ctx: Context, provider: OidcProvider, has_secret: bool) -> None:
@@ -211,12 +116,7 @@ def _describe(ctx: Context, provider: OidcProvider, has_secret: bool) -> None:
     for key, value in rows:
         logger.key_value(key, value)
     for mapping in provider.group_mappings:
-        meaning = (
-            f"role {mapping.role}"
-            if mapping.role
-            else f"team {mapping.team} as {mapping.team_role}"
-        )
-        logger.key_value(f"group {mapping.group}", meaning)
+        logger.key_value(f"group {mapping.group}", describe_mapping(mapping))
     callback = _callback_for(provider)
     logger.key_value(
         "redirect URI to register",
@@ -227,6 +127,11 @@ def _describe(ctx: Context, provider: OidcProvider, has_secret: bool) -> None:
 @click.group("auth", cls=NoustGroup)
 def cli() -> None:
     """How people sign in to the console besides a password."""
+
+
+cli.add_command(scim)
+cli.add_command(ldap)
+cli.add_command(saml)
 
 
 @cli.group("oidc", cls=NoustGroup)
@@ -335,6 +240,15 @@ def oidc() -> None:
     multiple=True,
     help="GROUP=TEAM:ROLE: members join this team (repeat).",
 )
+@click.option(
+    "--map-binding",
+    "map_bindings",
+    multiple=True,
+    help=(
+        "GROUP=ROLE@TEAM[/PROJECT[/ENVIRONMENT]]: members hold this role there, a built-in "
+        "one on a project or a custom one anywhere (repeat)."
+    ),
+)
 @click.option("--clear-mappings", is_flag=True, help="Forget every group mapping.")
 @click.option(
     "--redirect-uri",
@@ -374,6 +288,7 @@ def set_command(
     sync_off: bool,
     map_roles: tuple[str, ...],
     map_teams: tuple[str, ...],
+    map_bindings: tuple[str, ...],
     clear_mappings: bool,
     redirect_uri: str | None,
 ) -> None:
@@ -390,11 +305,11 @@ def set_command(
         "client_id": client_id,
         "label": label,
         "scopes": scopes,
-        "enabled": _flag((enable, disable), "--enable/--disable"),
-        "require_email_verified": _flag(
+        "enabled": either_flag((enable, disable), "--enable/--disable"),
+        "require_email_verified": either_flag(
             (verified_on, verified_off), "--require-email-verified/--allow-unverified-email"
         ),
-        "assume_email_verified": _flag(
+        "assume_email_verified": either_flag(
             (assume_on, assume_off), "--assume-email-verified/--no-assume-email-verified"
         ),
         "clock_skew_seconds": clock_skew,
@@ -402,27 +317,29 @@ def set_command(
         "default_role": default_role,
         "default_team": default_team,
         "default_team_role": default_team_role,
-        "link_by_email": _flag((link_on, link_off), "--link-by-email/--no-link-by-email"),
+        "link_by_email": either_flag((link_on, link_off), "--link-by-email/--no-link-by-email"),
         "groups_claim": groups_claim,
-        "group_sync": _flag((sync_on, sync_off), "--group-sync/--no-group-sync"),
+        "group_sync": either_flag((sync_on, sync_off), "--group-sync/--no-group-sync"),
         "redirect_uri": redirect_uri,
     }
     if domains or clear_domains:
         changes["allowed_domains"] = list(domains)
     if amr or clear_amr:
         changes["require_amr"] = list(amr)
-    if map_roles or map_teams or clear_mappings:
-        changes["group_mappings"] = _mappings(map_roles, map_teams)
+    if map_roles or map_teams or map_bindings or clear_mappings:
+        changes["group_mappings"] = mappings_from_options(map_roles, map_teams, map_bindings)
     changes = {key: value for key, value in changes.items() if value is not None}
 
-    secret = _read_secret(name, client_secret_stdin, prompt_secret)
+    secret = read_secret(
+        "client secret", name, client_secret_stdin, prompt_secret, "noust auth oidc set ..."
+    )
     manager = _manager()
     existed = manager.provider(name) is not None
     provider = manager.configure(
         name, changes, client_secret=secret, clear_secret=clear_secret, actor="cli"
     )
     names = sorted([*changes, *(["client_secret"] if secret else [])])
-    _record(
+    record_audit(
         "auth.oidc.config",
         f"provider:{provider.name}",
         {"change": "changed" if existed else "added", "settings": names},
@@ -538,7 +455,7 @@ def remove_command(ctx: Context, name: str, force: bool) -> None:
         ctx.logger.info("Cancelled")
         return
     manager.remove(name)
-    _record("auth.oidc.config", f"provider:{provider.name}", {"change": "removed"})
+    record_audit("auth.oidc.config", f"provider:{provider.name}", {"change": "removed"})
     ctx.logger.success(f"Provider removed: {provider.name}")
 
 
@@ -554,7 +471,7 @@ def remove_command(ctx: Context, name: str, force: bool) -> None:
 def link_command(ctx: Context, name: str, username: str, subject: str) -> None:
     """Link an account to a person at a provider, so they sign in as it."""
     identity = _manager().link(name, username, subject, actor="cli")
-    _record(
+    record_audit(
         "auth.oidc.link",
         f"account:{username.strip().lower()}",
         {"provider": identity.provider, "subject": identity.subject[:64]},
@@ -574,7 +491,7 @@ def unlink_command(ctx: Context, identity_id: int) -> None:
     found = manager.data.get_identity(identity_id)
     account = manager.accounts.get(found.account_id) if found else None
     removed = manager.unlink_identity(identity_id)
-    _record(
+    record_audit(
         "auth.oidc.unlink",
         f"account:{account.username if account else removed.account_id}",
         {"provider": removed.provider, "subject": removed.subject[:64]},
@@ -620,7 +537,7 @@ def identities_command(ctx: Context, username: str | None) -> None:
                 item.provider,
                 item.subject,
                 item.email or "-",
-                _fmt(item.last_login_at),
+                format_time(item.last_login_at),
             ]
             for item in links
         ],
@@ -679,7 +596,7 @@ def local_login_off(ctx: Context) -> None:
     the server, and so does this command line.
     """
     Config().set("auth.local_login.enabled", False)
-    _record("auth.local_login.change", "setting:local_login", {"change": "disabled"})
+    record_audit("auth.local_login.change", "setting:local_login", {"change": "disabled"})
     ctx.logger.success("Password and passkey sign-in is off.")
     _local_login_report(ctx)
 
@@ -689,7 +606,7 @@ def local_login_off(ctx: Context) -> None:
 def local_login_on(ctx: Context) -> None:
     """Accept passwords and passkeys again."""
     Config().set("auth.local_login.enabled", True)
-    _record("auth.local_login.change", "setting:local_login", {"change": "enabled"})
+    record_audit("auth.local_login.change", "setting:local_login", {"change": "enabled"})
     ctx.logger.success("Password and passkey sign-in is on.")
 
 
@@ -708,7 +625,9 @@ def local_login_exempt_add(ctx: Context, username: str) -> None:
     account = _manager().accounts.require(username)
     names = clean_exempt([*sorted(load_policy().exempt), account.username])
     Config().set("auth.local_login.exempt", names)
-    _record("auth.local_login.change", f"account:{account.username}", {"change": "exempt added"})
+    record_audit(
+        "auth.local_login.change", f"account:{account.username}", {"change": "exempt added"}
+    )
     ctx.logger.success(f"{account.username} keeps its password when the others cannot use theirs.")
 
 
@@ -722,5 +641,5 @@ def local_login_exempt_remove(ctx: Context, username: str) -> None:
     name = username.strip().lower()
     names = clean_exempt([item for item in sorted(load_policy().exempt) if item != name])
     Config().set("auth.local_login.exempt", names)
-    _record("auth.local_login.change", f"account:{name}", {"change": "exempt removed"})
+    record_audit("auth.local_login.change", f"account:{name}", {"change": "exempt removed"})
     ctx.logger.success(f"{name} no longer keeps its password.")

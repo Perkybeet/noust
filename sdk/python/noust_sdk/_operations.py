@@ -247,6 +247,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("authentication", "revoke_one_session"): ("DELETE", "/api/auth/sessions/{sid_prefix}", "self", False),
     ("authentication", "list_api_tokens"): ("GET", "/api/auth/tokens", "self", False),
     ("authentication", "create_api_token"): ("POST", "/api/auth/tokens", "self", True),
+    ("authentication", "restrict_api_token"): ("PATCH", "/api/auth/tokens/{token_id}", "self", False),
     ("authentication", "revoke_api_token"): ("DELETE", "/api/auth/tokens/{token_id}", "self", False),
     ("authentication", "verify_token"): ("GET", "/api/auth/verify", "self", False),
     ("authentication", "create_ws_ticket"): ("POST", "/api/auth/ws-ticket", "self", False),
@@ -290,6 +291,10 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("certificates", "delete_certificate"): ("DELETE", "/api/certs/{domain}", "apps.manage", True),
     ("certificates", "renew_certificate"): ("POST", "/api/certs/{domain}/renew", "apps.operate", False),
     ("certificates", "revoke_certificate"): ("POST", "/api/certs/{domain}/revoke", "apps.manage", True),
+    ("compliance", "get_compliance"): ("GET", "/api/compliance", "settings.read", False),
+    ("compliance", "change_compliance"): ("PUT", "/api/compliance", "security.manage", False),
+    ("compliance", "check_compliance"): ("GET", "/api/compliance/check", "compliance.read", False),
+    ("compliance", "plan_change"): ("POST", "/api/compliance/plan", "security.manage", False),
     ("compliance", "ens_access_review"): ("GET", "/api/ens/access-review", "accounts.read", False),
     ("compliance", "ens_access_review_attest"): ("POST", "/api/ens/access-review", "accounts.manage", False),
     ("compliance", "ens_check"): ("GET", "/api/ens/check", "compliance.read", False),
@@ -706,6 +711,26 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("registries", "change_registry_login"): ("PATCH", "/api/registries/{name}", "apps.manage", True),
     ("registries", "remove_registry_login"): ("DELETE", "/api/registries/{name}", "apps.manage", True),
     ("registries", "test_registry_login"): ("POST", "/api/registries/{name}/test", "apps.manage", True),
+    ("scim_provisioning", "search_everything"): ("POST", "/api/scim/v2/.search", "public", False),
+    ("scim_provisioning", "list_groups"): ("GET", "/api/scim/v2/Groups", "public", False),
+    ("scim_provisioning", "create_group"): ("POST", "/api/scim/v2/Groups", "public", False),
+    ("scim_provisioning", "search_groups"): ("POST", "/api/scim/v2/Groups/.search", "public", False),
+    ("scim_provisioning", "get_group"): ("GET", "/api/scim/v2/Groups/{group_id}", "public", False),
+    ("scim_provisioning", "replace_group"): ("PUT", "/api/scim/v2/Groups/{group_id}", "public", False),
+    ("scim_provisioning", "patch_group"): ("PATCH", "/api/scim/v2/Groups/{group_id}", "public", False),
+    ("scim_provisioning", "delete_group"): ("DELETE", "/api/scim/v2/Groups/{group_id}", "public", False),
+    ("scim_provisioning", "resource_types"): ("GET", "/api/scim/v2/ResourceTypes", "public", False),
+    ("scim_provisioning", "resource_type"): ("GET", "/api/scim/v2/ResourceTypes/{name}", "public", False),
+    ("scim_provisioning", "schemas"): ("GET", "/api/scim/v2/Schemas", "public", False),
+    ("scim_provisioning", "schema"): ("GET", "/api/scim/v2/Schemas/{schema_id}", "public", False),
+    ("scim_provisioning", "service_provider_config"): ("GET", "/api/scim/v2/ServiceProviderConfig", "public", False),
+    ("scim_provisioning", "list_users"): ("GET", "/api/scim/v2/Users", "public", False),
+    ("scim_provisioning", "create_user"): ("POST", "/api/scim/v2/Users", "public", False),
+    ("scim_provisioning", "search_users"): ("POST", "/api/scim/v2/Users/.search", "public", False),
+    ("scim_provisioning", "get_user"): ("GET", "/api/scim/v2/Users/{user_id}", "public", False),
+    ("scim_provisioning", "replace_user"): ("PUT", "/api/scim/v2/Users/{user_id}", "public", False),
+    ("scim_provisioning", "patch_user"): ("PATCH", "/api/scim/v2/Users/{user_id}", "public", False),
+    ("scim_provisioning", "delete_user"): ("DELETE", "/api/scim/v2/Users/{user_id}", "public", False),
     ("self_backup", "overview"): ("GET", "/api/self-backup", "backups.read", False),
     ("self_backup", "create_bundle"): ("POST", "/api/self-backup", "backups.run", False),
     ("self_backup", "run_schedule"): ("POST", "/api/self-backup/run", "backups.run", False),
@@ -797,6 +822,11 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("services", "restart_service"): ("POST", "/api/services/{name}/restart", "apps.operate", False),
     ("services", "start_service"): ("POST", "/api/services/{name}/start", "apps.operate", False),
     ("services", "stop_service"): ("POST", "/api/services/{name}/stop", "apps.operate", False),
+    ("single_sign_on", "list_directories"): ("GET", "/api/auth/ldap/directories", "accounts.read", False),
+    ("single_sign_on", "put_directory"): ("PUT", "/api/auth/ldap/directories/{name}", "accounts.manage", True),
+    ("single_sign_on", "delete_directory"): ("DELETE", "/api/auth/ldap/directories/{name}", "accounts.manage", True),
+    ("single_sign_on", "test_directory"): ("POST", "/api/auth/ldap/directories/{name}/test", "accounts.manage", False),
+    ("single_sign_on", "login"): ("POST", "/api/auth/ldap/login", "public", False),
     ("single_sign_on", "callback"): ("GET", "/api/auth/oidc/callback", "public", False),
     ("single_sign_on", "complete"): ("POST", "/api/auth/oidc/complete", "public", False),
     ("single_sign_on", "list_providers"): ("GET", "/api/auth/oidc/config", "accounts.read", False),
@@ -810,6 +840,17 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("single_sign_on", "put_local_login"): ("PUT", "/api/auth/oidc/local-login", "accounts.manage", True),
     ("single_sign_on", "list_choices"): ("GET", "/api/auth/oidc/providers", "public", False),
     ("single_sign_on", "start"): ("GET", "/api/auth/oidc/start", "public", False),
+    ("single_sign_on", "assertion_consumer_service"): ("POST", "/api/auth/saml/acs", "public", False),
+    ("single_sign_on", "list_providers_get"): ("GET", "/api/auth/saml/config", "accounts.read", False),
+    ("single_sign_on", "put_provider_put"): ("PUT", "/api/auth/saml/config/{provider}", "accounts.manage", True),
+    ("single_sign_on", "delete_provider_delete"): ("DELETE", "/api/auth/saml/config/{provider}", "accounts.manage", True),
+    ("single_sign_on", "try_provider_post"): ("POST", "/api/auth/saml/config/{provider}/test", "accounts.manage", False),
+    ("single_sign_on", "metadata"): ("GET", "/api/auth/saml/metadata/{provider}", "public", False),
+    ("single_sign_on", "start_get"): ("GET", "/api/auth/saml/start", "public", False),
+    ("single_sign_on", "list_sources"): ("GET", "/api/auth/scim/sources", "accounts.read", False),
+    ("single_sign_on", "put_source"): ("PUT", "/api/auth/scim/sources/{name}", "accounts.manage", True),
+    ("single_sign_on", "delete_source"): ("DELETE", "/api/auth/scim/sources/{name}", "accounts.manage", True),
+    ("single_sign_on", "list_users"): ("GET", "/api/auth/scim/sources/{name}/users", "accounts.read", False),
     ("sites", "list_sites"): ("GET", "/api/sites", "apps.read", False),
     ("sites", "create_site"): ("POST", "/api/sites", "apps.manage", False),
     ("sites", "reload_webserver"): ("POST", "/api/sites/reload", "apps.operate", False),
@@ -2425,7 +2466,7 @@ class Audit:
 
 
 class Authentication:
-    """Authentication: 38 operations."""
+    """Authentication: 39 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -2709,6 +2750,14 @@ class Authentication:
 
         Needs: permission `self`, sudo mode."""
         return self._call("POST", "/api/auth/tokens", query=None, body=body)
+
+    def restrict_api_token(self, token_id: int | str, body: "ApiTokenNetworks") -> "ApiTokenInfo":
+        """PATCH /api/auth/tokens/{token_id}
+
+        Restrict Api Token
+
+        Needs: permission `self`."""
+        return self._call("PATCH", f"/api/auth/tokens/{quote(str(token_id), safe='')}", query=None, body=body)
 
     def revoke_api_token(self, token_id: int | str) -> "RevokedResponse":
         """DELETE /api/auth/tokens/{token_id}
@@ -3097,10 +3146,42 @@ class Certificates:
 
 
 class Compliance:
-    """Compliance: 8 operations."""
+    """Compliance: 12 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
+
+    def get_compliance(self) -> "ComplianceState":
+        """GET /api/compliance
+
+        Get Compliance
+
+        Needs: permission `settings.read`."""
+        return self._call("GET", "/api/compliance", query=None, body=None)
+
+    def change_compliance(self, body: "ChangeRequest") -> "ChangeResult":
+        """PUT /api/compliance
+
+        Change Compliance
+
+        Needs: permission `security.manage`."""
+        return self._call("PUT", "/api/compliance", query=None, body=body)
+
+    def check_compliance(self, *, framework: Union[list[str], None] = None) -> "NoustWebApiComplianceCheckResponse":
+        """GET /api/compliance/check
+
+        Check Compliance
+
+        Needs: permission `compliance.read`."""
+        return self._call("GET", "/api/compliance/check", query={"framework": framework}, body=None)
+
+    def plan_change(self, body: "ChangeRequest") -> "PlanInfo":
+        """POST /api/compliance/plan
+
+        Plan Change
+
+        Needs: permission `security.manage`."""
+        return self._call("POST", "/api/compliance/plan", query=None, body=body)
 
     def ens_access_review(self) -> "AccessReviewResponse":
         """GET /api/ens/access-review
@@ -6470,7 +6551,7 @@ class Probes:
         Needs: permission `server.manage`."""
         return self._call("DELETE", f"/api/probes/{quote(str(name), safe='')}", query=None, body=None)
 
-    def check_probe(self, name: str) -> "CheckResponse":
+    def check_probe(self, name: str) -> "NoustWebApiProbesCheckResponse":
         """POST /api/probes/{name}/check
 
         Check Probe
@@ -6669,6 +6750,174 @@ class Registries:
 
         Needs: permission `apps.manage`, sudo mode."""
         return self._call("POST", f"/api/registries/{quote(str(name), safe='')}/test", query=None, body=None)
+
+
+
+class SCIMProvisioning:
+    """SCIM provisioning: 20 operations."""
+
+    def __init__(self, call: Call) -> None:
+        self._call = call
+
+    def search_everything(self, body: dict[str, Any]) -> bytes:
+        """POST /api/scim/v2/.search
+
+        Search Everything
+
+        Needs: permission `public`."""
+        return self._call("POST", "/api/scim/v2/.search", query=None, body=body, binary=True)
+
+    def list_groups(self, *, filter: Union[str, None] = None, startIndex: Union[int, None] = None, count: Union[int, None] = None, attributes: Union[str, None] = None, excludedAttributes: Union[str, None] = None) -> bytes:
+        """GET /api/scim/v2/Groups
+
+        List Groups
+
+        Needs: permission `public`."""
+        return self._call("GET", "/api/scim/v2/Groups", query={"filter": filter, "startIndex": startIndex, "count": count, "attributes": attributes, "excludedAttributes": excludedAttributes}, body=None, binary=True)
+
+    def create_group(self, body: dict[str, Any], *, attributes: Union[str, None] = None, excludedAttributes: Union[str, None] = None) -> bytes:
+        """POST /api/scim/v2/Groups
+
+        Create Group
+
+        Needs: permission `public`."""
+        return self._call("POST", "/api/scim/v2/Groups", query={"attributes": attributes, "excludedAttributes": excludedAttributes}, body=body, binary=True)
+
+    def search_groups(self, body: dict[str, Any]) -> bytes:
+        """POST /api/scim/v2/Groups/.search
+
+        Search Groups
+
+        Needs: permission `public`."""
+        return self._call("POST", "/api/scim/v2/Groups/.search", query=None, body=body, binary=True)
+
+    def get_group(self, group_id: str, *, attributes: Union[str, None] = None, excludedAttributes: Union[str, None] = None) -> bytes:
+        """GET /api/scim/v2/Groups/{group_id}
+
+        Get Group
+
+        Needs: permission `public`."""
+        return self._call("GET", f"/api/scim/v2/Groups/{quote(str(group_id), safe='')}", query={"attributes": attributes, "excludedAttributes": excludedAttributes}, body=None, binary=True)
+
+    def replace_group(self, group_id: str, body: dict[str, Any], *, attributes: Union[str, None] = None, excludedAttributes: Union[str, None] = None) -> bytes:
+        """PUT /api/scim/v2/Groups/{group_id}
+
+        Replace Group
+
+        Needs: permission `public`."""
+        return self._call("PUT", f"/api/scim/v2/Groups/{quote(str(group_id), safe='')}", query={"attributes": attributes, "excludedAttributes": excludedAttributes}, body=body, binary=True)
+
+    def patch_group(self, group_id: str, body: dict[str, Any], *, attributes: Union[str, None] = None, excludedAttributes: Union[str, None] = None) -> bytes:
+        """PATCH /api/scim/v2/Groups/{group_id}
+
+        Patch Group
+
+        Needs: permission `public`."""
+        return self._call("PATCH", f"/api/scim/v2/Groups/{quote(str(group_id), safe='')}", query={"attributes": attributes, "excludedAttributes": excludedAttributes}, body=body, binary=True)
+
+    def delete_group(self, group_id: str) -> Any:
+        """DELETE /api/scim/v2/Groups/{group_id}
+
+        Delete Group
+
+        Needs: permission `public`."""
+        return self._call("DELETE", f"/api/scim/v2/Groups/{quote(str(group_id), safe='')}", query=None, body=None)
+
+    def resource_types(self) -> bytes:
+        """GET /api/scim/v2/ResourceTypes
+
+        Resource Types
+
+        Needs: permission `public`."""
+        return self._call("GET", "/api/scim/v2/ResourceTypes", query=None, body=None, binary=True)
+
+    def resource_type(self, name: str) -> bytes:
+        """GET /api/scim/v2/ResourceTypes/{name}
+
+        Resource Type
+
+        Needs: permission `public`."""
+        return self._call("GET", f"/api/scim/v2/ResourceTypes/{quote(str(name), safe='')}", query=None, body=None, binary=True)
+
+    def schemas(self) -> bytes:
+        """GET /api/scim/v2/Schemas
+
+        Schemas
+
+        Needs: permission `public`."""
+        return self._call("GET", "/api/scim/v2/Schemas", query=None, body=None, binary=True)
+
+    def schema(self, schema_id: str) -> bytes:
+        """GET /api/scim/v2/Schemas/{schema_id}
+
+        Schema
+
+        Needs: permission `public`."""
+        return self._call("GET", f"/api/scim/v2/Schemas/{quote(str(schema_id), safe='')}", query=None, body=None, binary=True)
+
+    def service_provider_config(self) -> bytes:
+        """GET /api/scim/v2/ServiceProviderConfig
+
+        Service Provider Config
+
+        Needs: permission `public`."""
+        return self._call("GET", "/api/scim/v2/ServiceProviderConfig", query=None, body=None, binary=True)
+
+    def list_users(self, *, filter: Union[str, None] = None, startIndex: Union[int, None] = None, count: Union[int, None] = None, attributes: Union[str, None] = None, excludedAttributes: Union[str, None] = None) -> bytes:
+        """GET /api/scim/v2/Users
+
+        List Users
+
+        Needs: permission `public`."""
+        return self._call("GET", "/api/scim/v2/Users", query={"filter": filter, "startIndex": startIndex, "count": count, "attributes": attributes, "excludedAttributes": excludedAttributes}, body=None, binary=True)
+
+    def create_user(self, body: dict[str, Any], *, attributes: Union[str, None] = None, excludedAttributes: Union[str, None] = None) -> bytes:
+        """POST /api/scim/v2/Users
+
+        Create User
+
+        Needs: permission `public`."""
+        return self._call("POST", "/api/scim/v2/Users", query={"attributes": attributes, "excludedAttributes": excludedAttributes}, body=body, binary=True)
+
+    def search_users(self, body: dict[str, Any]) -> bytes:
+        """POST /api/scim/v2/Users/.search
+
+        Search Users
+
+        Needs: permission `public`."""
+        return self._call("POST", "/api/scim/v2/Users/.search", query=None, body=body, binary=True)
+
+    def get_user(self, user_id: str, *, attributes: Union[str, None] = None, excludedAttributes: Union[str, None] = None) -> bytes:
+        """GET /api/scim/v2/Users/{user_id}
+
+        Get User
+
+        Needs: permission `public`."""
+        return self._call("GET", f"/api/scim/v2/Users/{quote(str(user_id), safe='')}", query={"attributes": attributes, "excludedAttributes": excludedAttributes}, body=None, binary=True)
+
+    def replace_user(self, user_id: str, body: dict[str, Any], *, attributes: Union[str, None] = None, excludedAttributes: Union[str, None] = None) -> bytes:
+        """PUT /api/scim/v2/Users/{user_id}
+
+        Replace User
+
+        Needs: permission `public`."""
+        return self._call("PUT", f"/api/scim/v2/Users/{quote(str(user_id), safe='')}", query={"attributes": attributes, "excludedAttributes": excludedAttributes}, body=body, binary=True)
+
+    def patch_user(self, user_id: str, body: dict[str, Any], *, attributes: Union[str, None] = None, excludedAttributes: Union[str, None] = None) -> bytes:
+        """PATCH /api/scim/v2/Users/{user_id}
+
+        Patch User
+
+        Needs: permission `public`."""
+        return self._call("PATCH", f"/api/scim/v2/Users/{quote(str(user_id), safe='')}", query={"attributes": attributes, "excludedAttributes": excludedAttributes}, body=body, binary=True)
+
+    def delete_user(self, user_id: str) -> Any:
+        """DELETE /api/scim/v2/Users/{user_id}
+
+        Delete User
+
+        Needs: permission `public`."""
+        return self._call("DELETE", f"/api/scim/v2/Users/{quote(str(user_id), safe='')}", query=None, body=None)
 
 
 
@@ -7425,10 +7674,50 @@ class Services:
 
 
 class SingleSignOn:
-    """Single sign-on: 13 operations."""
+    """Single sign-on: 29 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
+
+    def list_directories(self) -> "DirectoriesResponse":
+        """GET /api/auth/ldap/directories
+
+        List Directories
+
+        Needs: permission `accounts.read`."""
+        return self._call("GET", "/api/auth/ldap/directories", query=None, body=None)
+
+    def put_directory(self, name: str, body: "DirectorySettings") -> "DirectoryInfo":
+        """PUT /api/auth/ldap/directories/{name}
+
+        Put Directory
+
+        Needs: permission `accounts.manage`, sudo mode."""
+        return self._call("PUT", f"/api/auth/ldap/directories/{quote(str(name), safe='')}", query=None, body=body)
+
+    def delete_directory(self, name: str) -> "DirectoryRemoved":
+        """DELETE /api/auth/ldap/directories/{name}
+
+        Delete Directory
+
+        Needs: permission `accounts.manage`, sudo mode."""
+        return self._call("DELETE", f"/api/auth/ldap/directories/{quote(str(name), safe='')}", query=None, body=None)
+
+    def test_directory(self, name: str) -> "TestResponse":
+        """POST /api/auth/ldap/directories/{name}/test
+
+        Test Directory
+
+        Needs: permission `accounts.manage`."""
+        return self._call("POST", f"/api/auth/ldap/directories/{quote(str(name), safe='')}/test", query=None, body=None)
+
+    def login(self, body: "LdapLoginRequest") -> "LoginResponse":
+        """POST /api/auth/ldap/login
+
+        Login
+
+        Needs: permission `public`."""
+        return self._call("POST", "/api/auth/ldap/login", query=None, body=body)
 
     def callback(self, *, code: Union[str, None] = None, state: Union[str, None] = None, error: Union[str, None] = None) -> Any:
         """GET /api/auth/oidc/callback
@@ -7533,6 +7822,94 @@ class SingleSignOn:
 
         Needs: permission `public`."""
         return self._call("GET", "/api/auth/oidc/start", query={"provider": provider, "next": next}, body=None)
+
+    def assertion_consumer_service(self) -> Any:
+        """POST /api/auth/saml/acs
+
+        Assertion Consumer Service
+
+        Needs: permission `public`."""
+        return self._call("POST", "/api/auth/saml/acs", query=None, body=None)
+
+    def list_providers_get(self) -> "SamlProvidersResponse":
+        """GET /api/auth/saml/config
+
+        List Providers
+
+        Needs: permission `accounts.read`."""
+        return self._call("GET", "/api/auth/saml/config", query=None, body=None)
+
+    def put_provider_put(self, provider: str, body: "SamlSettings") -> "SamlProviderInfo":
+        """PUT /api/auth/saml/config/{provider}
+
+        Put Provider
+
+        Needs: permission `accounts.manage`, sudo mode."""
+        return self._call("PUT", f"/api/auth/saml/config/{quote(str(provider), safe='')}", query=None, body=body)
+
+    def delete_provider_delete(self, provider: str) -> "SamlRemoved":
+        """DELETE /api/auth/saml/config/{provider}
+
+        Delete Provider
+
+        Needs: permission `accounts.manage`, sudo mode."""
+        return self._call("DELETE", f"/api/auth/saml/config/{quote(str(provider), safe='')}", query=None, body=None)
+
+    def try_provider_post(self, provider: str) -> "TestResponse":
+        """POST /api/auth/saml/config/{provider}/test
+
+        Try Provider
+
+        Needs: permission `accounts.manage`."""
+        return self._call("POST", f"/api/auth/saml/config/{quote(str(provider), safe='')}/test", query=None, body=None)
+
+    def metadata(self, provider: str) -> bytes:
+        """GET /api/auth/saml/metadata/{provider}
+
+        Metadata
+
+        Needs: permission `public`."""
+        return self._call("GET", f"/api/auth/saml/metadata/{quote(str(provider), safe='')}", query=None, body=None, binary=True)
+
+    def start_get(self, *, provider: str, next: Union[str, None] = None) -> Any:
+        """GET /api/auth/saml/start
+
+        Start
+
+        Needs: permission `public`."""
+        return self._call("GET", "/api/auth/saml/start", query={"provider": provider, "next": next}, body=None)
+
+    def list_sources(self) -> "ScimSourcesResponse":
+        """GET /api/auth/scim/sources
+
+        List Sources
+
+        Needs: permission `accounts.read`."""
+        return self._call("GET", "/api/auth/scim/sources", query=None, body=None)
+
+    def put_source(self, name: str, body: "ScimSourceSettings") -> "ScimSourceSaved":
+        """PUT /api/auth/scim/sources/{name}
+
+        Put Source
+
+        Needs: permission `accounts.manage`, sudo mode."""
+        return self._call("PUT", f"/api/auth/scim/sources/{quote(str(name), safe='')}", query=None, body=body)
+
+    def delete_source(self, name: str) -> "ScimRemoved":
+        """DELETE /api/auth/scim/sources/{name}
+
+        Delete Source
+
+        Needs: permission `accounts.manage`, sudo mode."""
+        return self._call("DELETE", f"/api/auth/scim/sources/{quote(str(name), safe='')}", query=None, body=None)
+
+    def list_users(self, name: str) -> "ScimUsersResponse":
+        """GET /api/auth/scim/sources/{name}/users
+
+        List Users
+
+        Needs: permission `accounts.read`."""
+        return self._call("GET", f"/api/auth/scim/sources/{quote(str(name), safe='')}/users", query=None, body=None)
 
 
 
@@ -8724,6 +9101,7 @@ class Api:
     probes: Probes
     recipes: Recipes
     registries: Registries
+    scim_provisioning: SCIMProvisioning
     self_backup: SelfBackup
     server: Server
     services: Services
@@ -8783,6 +9161,7 @@ class Api:
         self.probes = Probes(call)
         self.recipes = Recipes(call)
         self.registries = Registries(call)
+        self.scim_provisioning = SCIMProvisioning(call)
         self.self_backup = SelfBackup(call)
         self.server = Server(call)
         self.services = Services(call)

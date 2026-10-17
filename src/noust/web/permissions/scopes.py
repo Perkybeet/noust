@@ -320,7 +320,13 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/manifest/apply", SCOPED),
     _rule("/api/manifest/**", OPEN),
     # --- the rest is about the server, or about nobody ------------------------
+    # Who may have an account here belongs to no team: the sources of provisioning are the
+    # server's, and the provider that calls /api/scim presents a token, not a team.
+    _rule("/api/auth/scim/**", INSTANCE),
+    _rule("/api/auth/ldap/**", INSTANCE),
+    _rule("/api/auth/saml/**", INSTANCE),
     _rule("/api/auth/**", OPEN),
+    _rule("/api/scim/**", OPEN),
     _rule("/api/approvals/**", OPEN),
     _rule("/api/audit/**", OPEN),
     _rule("/api/openapi.json", OPEN),
@@ -345,6 +351,11 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/secret-providers/**", INSTANCE),
     _rule("/api/ens/inventory/**", INSTANCE),
     _rule("/api/ens/**", OPEN),
+    # Which frameworks protect the server is read by anybody; changing them changes the
+    # whole server's settings, which no team owns.
+    _rule("/api/compliance/plan", INSTANCE),
+    _rule("/api/compliance", INSTANCE, methods=("PUT",)),
+    _rule("/api/compliance/**", OPEN),
     _rule("/api/system/version", OPEN),
     _rule("/api/system/cpu", OPEN),
     _rule("/api/system/memory", OPEN),

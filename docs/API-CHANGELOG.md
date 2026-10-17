@@ -136,6 +136,28 @@ API version 1.
   `/api/auth/oidc/config/{provider}` (`PUT`, `DELETE`), `/api/auth/oidc/config/{provider}/test` and
   `/api/auth/oidc/identities`. `POST /api/auth/login/second-factor` also finishes the step a provider's
   answer opens, and `auth_method` of a session may now be `oidc`.
+- Single sign-on through a SAML 2.0 provider ([sso.md](sso.md#saml-20)): `GET /api/auth/saml/start`,
+  `POST /api/auth/saml/acs` (a form, `SAMLResponse` and `RelayState`) and
+  `GET /api/auth/saml/metadata/{provider}` (public; the first two are counted by the sign-in lockout),
+  and the security officer's `/api/auth/saml/config`, `/api/auth/saml/config/{provider}` (`PUT`,
+  `DELETE`) and `/api/auth/saml/config/{provider}/test`. `GET /api/auth/oidc/providers` lists them with
+  `protocol: "saml"`, a button that starts at `/api/auth/saml/start`; the ticket is collected at
+  `POST /api/auth/oidc/complete` like any other, and `auth_method` of a session may be `saml`.
+- Sign-in against a directory ([sso.md](sso.md#directories-ldap-active-directory)):
+  `POST /api/auth/ldap/login` (public, counted by the sign-in lockout) and the security officer's
+  `/api/auth/ldap/directories`, `/api/auth/ldap/directories/{name}` (`PUT`, `DELETE`) and
+  `/api/auth/ldap/directories/{name}/test`. `GET /api/auth/oidc/providers` lists them with
+  `protocol: "ldap"` and gains the `protocol` field on every entry.
+- SCIM 2.0 provisioning ([sso.md](sso.md#provisioning-scim)): `/api/scim/v2` (`ServiceProviderConfig`,
+  `ResourceTypes`, `Schemas`, `Users`, `Groups`), authenticated by the bearer token of a source, and the
+  security officer's `/api/auth/scim/sources`, `/api/auth/scim/sources/{name}` (`PUT`, `DELETE`) and
+  `/api/auth/scim/sources/{name}/users`.
+- `POST /api/auth/oidc/identities` links a person at a SAML provider or a directory as well, by the
+  name of the source. Group mappings take `bind`, `project` and `environment` (a role held at a project
+  or an environment) beside `role`, `team` and `team_role`.
+- `PATCH /api/auth/tokens/{token_id}` changes where a token is accepted from (`allowed_cidrs`); adding
+  addresses or lifting the limit needs sudo mode. A token gets `403 api_disabled` while
+  `web.api_enabled` is `false`.
 - A site's policy ([network.md](network.md)): `GET`, `PUT` and `DELETE /api/apps/{domain}/policy`,
   `PUT` and `DELETE /api/apps/{domain}/policy/users/{username}`, and the server's
   `GET /api/policy/cloudflare-ranges` with `POST .../refresh`. A list that would refuse the caller's

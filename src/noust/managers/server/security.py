@@ -278,13 +278,13 @@ class ServerSecurity:
         """
         return self.risks.history()
 
-    def accept_risk(self, check_id: str, *, reason: str, until: datetime) -> AcceptedRisk:
+    def accept_risk(self, check_id: str, *, reason: str | None, until: datetime) -> AcceptedRisk:
         """
         Accept a check's finding until a date.
 
         Args:
             check_id: The check.
-            reason: Why.
+            reason: Why; required only where ``security.exception_reasons`` is on.
             until: Until when.
 
         Returns:

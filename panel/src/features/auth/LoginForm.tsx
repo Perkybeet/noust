@@ -7,7 +7,7 @@ import type { ReactNode, SyntheticEvent } from "react";
 import { isApiError } from "../../api/client";
 import { login, loginSecondFactor, sessionQuery } from "../../api/queries/auth";
 import type { SecondFactorStep, SessionInfo } from "../../api/queries/auth";
-import { completeSso } from "../../api/queries/sso";
+import { completeSso, directorySignIn } from "../../api/queries/sso";
 import { announce } from "../../app/Announcer";
 import { nodeOfConsolePath } from "../../app/nodeRoute";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -17,6 +17,7 @@ import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
+import { Select } from "../../components/ui/Select";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { signInWithPasskey } from "./passkeys";
@@ -136,6 +137,14 @@ export function LoginForm({ next, expired, mode, onModeChange, sso, ssoError }: 
   const providers = useSsoProviders();
   // With passwords turned off for single sign-on, the account form is a way back, not the way in.
   const localSignIn = useLocalSignIn();
+  // A directory is signed in against with a name and a password, in the form; a provider is a
+  // button that leaves for it.
+  const directories = providers.filter((provider) => provider.protocol === "ldap");
+  const buttonProviders = providers.filter((provider) => provider.protocol !== "ldap");
+  const [pickedDirectory, setPickedDirectory] = useState<string | null>(null);
+  // With passwords turned off, the directory is the way in the form leads with.
+  const directoryName = pickedDirectory ?? (!localSignIn ? (directories[0]?.name ?? "") : "");
+  const signInDirectory = directories.find((directory) => directory.name === directoryName);
   const [ssoBusy, setSsoBusy] = useState(sso !== undefined);
   const collectedTicket = useRef<string | null>(null);
 
@@ -326,13 +335,16 @@ export function LoginForm({ next, expired, mode, onModeChange, sso, ssoError }: 
     setPending(true);
     try {
       const name = username.trim();
-      const answer = await login({ username: name, password, bearer: false });
+      const answer =
+        signInDirectory === undefined
+          ? await login({ username: name, password, bearer: false })
+          : await directorySignIn({ directory: signInDirectory.name, username: name, password, bearer: false });
       setPassword("");
       if (answer.second_factor) {
         // The password was right and the account has a second factor: that step is next.
         const step = answer.second_factor;
         setCode("");
-        setFactor({ ...step, name });
+        setFactor({ ...step, name, ...(signInDirectory === undefined ? {} : { via: signInDirectory.label }) });
         const codeFirst = step.methods.includes("totp") || step.methods.includes("backup_code");
         announce(codeFirst ? t("auth.account.codeAnnounce") : t("auth.account.passkeyAnnounce"));
         return;
@@ -344,6 +356,15 @@ export function LoginForm({ next, expired, mode, onModeChange, sso, ssoError }: 
         return;
       }
       setPassword("");
+      if (isApiError(error) && (error.error === "sign_in_refused" || error.error === "sign_in_unavailable")) {
+        // Not a wrong password: the directory knows the person and this server will not have them,
+        // or could not ask. Said in the server's words, without the hint about retyping.
+        setFailure({
+          title: error.error === "sign_in_refused" ? t("auth.directory.refusedTitle") : t("auth.directory.unavailableTitle"),
+          error,
+        });
+        return;
+      }
       setFailure({ title: t("auth.account.failedTitle"), error, hint: t("auth.account.failedHint") });
       passwordRef.current?.focus();
     } finally {
@@ -654,6 +675,20 @@ export function LoginForm({ next, expired, mode, onModeChange, sso, ssoError }: 
   const accountForm = (showNotices: boolean) => (
     <form onSubmit={(event) => void submitAccount(event)} noValidate className="flex flex-col gap-5">
       {showNotices ? notices : null}
+      {directories.length > 0 ? (
+        <Field label={t("auth.directory.signInWith")} nativeLabel={false}>
+          <Select
+            options={[
+              { value: "", label: t("auth.directory.thisServer") },
+              ...directories.map((directory) => ({ value: directory.name, label: directory.label })),
+            ]}
+            value={directoryName}
+            onValueChange={(value) => {
+              setPickedDirectory(value);
+            }}
+          />
+        </Field>
+      ) : null}
       <Field label={t("auth.account.username")} error={fieldErrors.username}>
         <Input
           ref={usernameRef}
@@ -689,14 +724,14 @@ export function LoginForm({ next, expired, mode, onModeChange, sso, ssoError }: 
     </form>
   );
 
-  if (!localSignIn && providers.length > 0) {
+  if (!localSignIn && buttonProviders.length > 0 && directories.length === 0) {
     // The identity provider is the way in; a password or a passkey is for the accounts that were
     // kept one, so it is offered behind a link and not drawn as an equal choice.
     return (
       <div className="flex flex-col gap-5">
         {notices}
         <div className="flex flex-col gap-3">
-          <SsoButtons providers={providers} next={next} disabled={locked} />
+          <SsoButtons providers={buttonProviders} next={next} disabled={locked} />
         </div>
         <Disclosure label={t("ssoAdmin.signIn.localLink")}>
           <div className="flex flex-col gap-5">
@@ -718,11 +753,11 @@ export function LoginForm({ next, expired, mode, onModeChange, sso, ssoError }: 
 
   return (
     <div className="flex flex-col gap-5">
-      {passkeysHere || providers.length > 0 ? (
+      {(passkeysHere && localSignIn) || buttonProviders.length > 0 ? (
         <>
           <div className="flex flex-col gap-3">
-            {passkeysHere ? passkeyButton : null}
-            <SsoButtons providers={providers} next={next} disabled={locked} />
+            {passkeysHere && localSignIn ? passkeyButton : null}
+            <SsoButtons providers={buttonProviders} next={next} disabled={locked} />
           </div>
           <Or t={t} />
         </>

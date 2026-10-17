@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 from click.testing import CliRunner
@@ -176,7 +177,10 @@ def test_the_first_admin_adopts_the_tokens_issued_before(runner: CliRunner) -> N
     manager.sessions.close()
 
 
-def test_separation_of_duties_and_its_exception(runner: CliRunner) -> None:
+def test_separation_of_duties_and_its_exception(runner: CliRunner, real_config: Any) -> None:
+    # A control the operator chooses (item 83): never on by itself.
+    real_config.set("security.roles_split", True)
+    real_config.set("security.separation_of_duties", True)
     run(
         runner,
         "user",

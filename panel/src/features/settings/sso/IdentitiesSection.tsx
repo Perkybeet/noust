@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
+import { directoriesQuery } from "../../../api/queries/ldap";
+import { samlProvidersQuery } from "../../../api/queries/saml";
 import { linkIdentity, ssoAdminKeys, ssoConfigQuery, ssoIdentitiesQuery, unlinkIdentity } from "../../../api/queries/ssoAdmin";
 import type { SsoIdentity } from "../../../api/queries/ssoAdmin";
 import { ErrorBlock, QueryState } from "../../../components/page/QueryState";
@@ -69,6 +71,8 @@ function LinkDialog({ onClose }: { onClose: () => void }) {
   const formId = useId();
   const accounts = useQuery(accountsQuery());
   const config = useQuery(ssoConfigQuery());
+  const saml = useQuery(samlProvidersQuery());
+  const directories = useQuery(directoriesQuery());
   const [username, setUsername] = useState("");
   const [provider, setProvider] = useState("");
   const [subject, setSubject] = useState("");
@@ -82,7 +86,12 @@ function LinkDialog({ onClose }: { onClose: () => void }) {
   });
   const errors = splitErrors(link.error, LINK_FIELDS);
   const people = (accounts.data?.accounts ?? []).filter((account) => account.status === "active");
-  const providers = config.data?.providers ?? [];
+  // Whoever signs people in can be linked to by hand: a provider, a SAML provider, a directory.
+  const providers = [
+    ...(config.data?.providers ?? []),
+    ...(saml.data?.providers ?? []),
+    ...(directories.data?.directories ?? []),
+  ];
 
   return (
     <Dialog

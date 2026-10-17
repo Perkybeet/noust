@@ -170,7 +170,10 @@ def profile_command(ctx: Context) -> None:
         ],
     )
     if current != profile.PROFILE_ENS_MEDIUM:
-        ctx.logger.info("Turn it on with: noust config set security.profile ens-medium")
+        ctx.logger.info(
+            "Turn it on with: noust compliance enable ens-media "
+            "(or noust config set security.profile ens-medium)"
+        )
 
 
 @cli.group("inventory", cls=NoustGroup)

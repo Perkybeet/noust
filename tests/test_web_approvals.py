@@ -81,6 +81,12 @@ def cron(monkeypatch: pytest.MonkeyPatch) -> type[RecordingCron]:
     return RecordingCron
 
 
+@pytest.fixture(autouse=True)
+def split_roles(real_config: Any) -> None:
+    """Four-eyes approvals are what a server with the roles split uses (ENS op.acc.3)."""
+    real_config.set("security.roles_split", True)
+
+
 @pytest.fixture
 def policy(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     """The approval policy in force, editable by a test."""
@@ -489,8 +495,9 @@ class TestAccountsCannotBeMadeWithoutASecondPerson:
         assert "your own account" in refused.json()["detail"]
 
     def test_nobody_recovers_another_account_of_theirs_with_a_role_they_may_not_hold(
-        self, app: Any
+        self, app: Any, real_config: Any
     ) -> None:
+        real_config.set("security.separation_of_duties", True)
         accounts = get_token_manager().accounts
         accounts.add_exception("person-1", "Single operator for the migration", days=1)
         accounts.create("sam-ops", "admin", password=PASSWORD, person_ref="person-1")

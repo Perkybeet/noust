@@ -20,8 +20,10 @@ exactly why what it does must be recorded. The hook in
 3. Arguments are recorded sanitised (:func:`sanitize_arguments`): never a
    secret, whatever the option is called.
 4. ``--reason`` (before or after the command name) is recorded with it, and
-   is required under ``security.profile: ens-medium`` (op.exp.5.1, change
-   reference); without it the command exits 2 before doing anything.
+   is required under ``security.profile: ens-medium`` or when
+   ``security.change_reasons`` is on (op.exp.5.1, change reference; item 83:
+   a compliance control is chosen, never the default); without it the command
+   exits 2 before doing anything.
 5. The entry points a unit, a timer or a package script runs
    (:data:`SYSTEM_ENTRY_POINTS`) are audited like any other change but need
    no reason: nobody is there to type one, and a timer 3.0 wrote cannot be
@@ -58,7 +60,7 @@ from typing import Any
 
 import click
 
-from noust.core import audit
+from noust.core import audit, compliance
 from noust.core.audit import failclosed
 from noust.core.audit.ledger import install_ledger
 from noust.core.audit.sanitize import clean_details, secret_name
@@ -210,6 +212,20 @@ def is_read_only(
     return bool(declared)
 
 
+def _why_reasons_are_asked() -> str:
+    """
+    Returns:
+        What makes this server ask for a reason: the ENS profile, or the
+        operator's own setting.
+    """
+    from noust.core.compliance import resolve
+
+    forced = resolve.resolve("change_reasons").forced_by
+    if forced:
+        return f"{', '.join(forced)} require it"
+    return "security.change_reasons is on"
+
+
 def security_profile() -> str:
     """
     The configured security profile.
@@ -350,15 +366,11 @@ class AuditedInvocation(AbstractContextManager["AuditedInvocation"]):
                     f"written: {why}.",
                     details=failclosed.HINT,
                 )
-        if (
-            not self._reason
-            and not entry_point
-            and profile.defaults_for(security_profile()).cli_reason_required
-        ):
+        if not self._reason and not entry_point and compliance.is_on("change_reasons"):
             raise click.UsageError(
-                f"'noust {self.path}' changes this server, and the {ENS_PROFILE} security "
-                'profile requires a reason for every change. Add --reason "<change reference '
-                'or why>"; it is recorded in the audit log with the command.'
+                f"'noust {self.path}' changes this server, and this server asks for a reason "
+                f"for every change ({_why_reasons_are_asked()}). Add --reason "
+                '"<change reference or why>"; it is recorded in the audit log with the command.'
             )
         self.active = True
         self._actor = audit.cli_actor()

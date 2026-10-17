@@ -831,7 +831,7 @@ selected server's, or this central's.
 | API reference | Server | Every route the server answers, with the permission it needs, what it takes and answers, a curl to copy, and a way to try a read |
 | Accounts | Central | Accounts, roles, invitations, separation-of-duties exceptions (with `accounts.read`) |
 | Roles and access | Central | Who holds which role and where (an environment, a project, a team, the server), granting and revoking, and the roles of your own (with `accounts.read`; [teams.md](teams.md#roles-where-they-are-needed)) |
-| Single sign-on | Central | The identity providers (added, tested, removed), the people linked to them, and the switch that turns passwords and passkeys off, naming the accounts that keep theirs ([sso.md](sso.md)) |
+| Single sign-on | Central | The identity providers (OpenID Connect, SAML), directories and SCIM provisioning sources (added, tested, removed), the people linked to them, and the switch that turns passwords and passkeys off, naming the accounts that keep theirs ([sso.md](sso.md)) |
 | Security | Central | Your password, second factor and passkeys; sessions; the sign-in policy and the notice |
 | API tokens | Central | Your tokens: issue (shown once), narrow, bind to a team, a project or an environment, list (with where each reaches and when it expires) and revoke |
 | Approvals | Central | Four-eyes requests: yours, and those waiting for you to decide |

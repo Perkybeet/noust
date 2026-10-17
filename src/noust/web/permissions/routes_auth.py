@@ -36,6 +36,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/auth/tokens"): Permission.SELF,
     ("POST", "/api/auth/tokens"): Permission.SELF,
     ("DELETE", "/api/auth/tokens/{token_id}"): Permission.SELF,
+    ("PATCH", "/api/auth/tokens/{token_id}"): Permission.SELF,
     ("POST", "/api/auth/fleet/revoke"): Permission.SELF,
     ("POST", "/api/auth/password"): Permission.SELF,
     ("POST", "/api/auth/notice/accept"): Permission.SELF,

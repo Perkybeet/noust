@@ -126,6 +126,24 @@ describe("the sign-in page with an identity provider", () => {
     expect(links.map((link) => link.textContent)).toEqual(["Sign in with Acme SSO", "Sign in with Google"]);
   });
 
+  it("starts a SAML provider where the SAML sign-in keeps its state, with the same destination", async () => {
+    ssoBackend({
+      providers: {
+        providers: [
+          { name: "corp", label: "Acme SSO", protocol: "oidc" },
+          { name: "entra", label: "Entra ID", protocol: "saml" },
+        ],
+      },
+    });
+    renderConsole("/login?next=%2Fapps");
+
+    const oidc = await screen.findByRole("link", { name: "Sign in with Acme SSO" });
+    const saml = screen.getByRole("link", { name: "Sign in with Entra ID" });
+
+    expect(oidc).toHaveAttribute("href", "/api/auth/oidc/start?provider=corp&next=%2Fapps");
+    expect(saml).toHaveAttribute("href", "/api/auth/saml/start?provider=entra&next=%2Fapps");
+  });
+
   it("shows no button when no provider is configured, and none when the server cannot say", async () => {
     ssoBackend({ providers: { providers: [] } });
     const first = renderConsole("/login");
@@ -264,5 +282,117 @@ describe("the sign-in page with an identity provider", () => {
     expect(screen.getByText("No se pudo iniciar sesión con tu proveedor")).toBeInTheDocument();
     expect(screen.getByText(/Pide a un responsable de seguridad que te invite/)).toBeInTheDocument();
     await expectNoAxeViolations(document.body, { page: true });
+  });
+});
+
+
+const DIRECTORY = { providers: [{ name: "corp", label: "Acme directory", protocol: "ldap" }], local_login: true };
+
+/** A directory is configured: the form asks for the name and password people have there. */
+function directoryBackend(options: { providers?: unknown; second?: boolean; answer?: () => Response } = {}) {
+  let signedIn = false;
+  return fakeBackend({
+    ...signedInRoutes(MARIA),
+    "GET /api/auth/session": () => json(200, signedIn ? MARIA : SIGNED_OUT),
+    "GET /api/auth/oidc/providers": () => json(200, options.providers ?? DIRECTORY),
+    "POST /api/auth/ldap/login": () => {
+      if (options.answer) return options.answer();
+      if (options.second) {
+        return json(200, { success: false, expires_in: 0, csrf_token: "", second_factor: { challenge: CHALLENGE, expires_in: 300, methods: ["totp"] } });
+      }
+      signedIn = true;
+      return json(200, signedInAnswer().login);
+    },
+    "POST /api/auth/login": () => problem(401, "invalid_credentials", "Invalid username or password."),
+    "POST /api/auth/login/second-factor": (call: RecordedCall) => {
+      const body = call.body as { challenge: string; code: string };
+      if (body.challenge !== CHALLENGE || body.code !== CODE) return problem(401, "invalid_totp", "Invalid two-factor code.");
+      signedIn = true;
+      return json(200, signedInAnswer().login);
+    },
+  });
+}
+
+describe("the sign-in page with a directory", () => {
+  it("asks which account to sign in with, and shows the directory as a choice rather than a button", async () => {
+    directoryBackend();
+    const { user } = renderConsole("/login");
+
+    const choice = await screen.findByRole("combobox", { name: "Sign in with" });
+    // No button leaves for it: its name and password are typed here.
+    expect(screen.queryByRole("link", { name: /Acme directory/ })).not.toBeInTheDocument();
+    await user.click(choice);
+    expect(await screen.findByRole("option", { name: "An account of this server" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Acme directory" })).toBeInTheDocument();
+    await expectNoAxeViolations(document.body);
+  });
+
+  it("sends the name and password to the directory when it is chosen, and to the server when it is not", async () => {
+    const backend = directoryBackend();
+    const { user } = renderConsole("/login");
+    await screen.findByRole("combobox", { name: "Sign in with" });
+
+    await user.type(screen.getByLabelText("Username or email"), "maria");
+    await user.type(screen.getByLabelText("Password"), "wrong");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/auth/login")).toHaveLength(1);
+    });
+    expect(backend.callsTo("POST /api/auth/ldap/login")).toHaveLength(0);
+
+    await user.click(screen.getByRole("combobox", { name: "Sign in with" }));
+    await user.click(await screen.findByRole("option", { name: "Acme directory" }));
+    await user.type(screen.getByLabelText("Password"), "correct horse");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/auth/ldap/login")).toHaveLength(1);
+    });
+    expect(backend.callsTo("POST /api/auth/ldap/login")[0]?.body).toEqual({
+      directory: "corp",
+      username: "maria",
+      password: "correct horse",
+      bearer: false,
+    });
+  });
+
+  it("owes the second factor after the directory, and says who vouched", async () => {
+    directoryBackend({ second: true });
+    const { user } = renderConsole("/login");
+    await user.click(await screen.findByRole("combobox", { name: "Sign in with" }));
+    await user.click(await screen.findByRole("option", { name: "Acme directory" }));
+    await user.type(screen.getByLabelText("Username or email"), "maria");
+    await user.type(screen.getByLabelText("Password"), "correct horse");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(await screen.findByText("Signed in with Acme directory.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Two-factor code")).toBeInTheDocument();
+  });
+
+  it("says a person the policy does not admit is not a wrong password", async () => {
+    directoryBackend({
+      answer: () => problem(403, "sign_in_refused", "This sign-in is not allowed on this server."),
+    });
+    const { user } = renderConsole("/login");
+    await user.click(await screen.findByRole("combobox", { name: "Sign in with" }));
+    await user.click(await screen.findByRole("option", { name: "Acme directory" }));
+    await user.type(screen.getByLabelText("Username or email"), "maria");
+    await user.type(screen.getByLabelText("Password"), "correct horse");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    const alerts = await screen.findAllByRole("alert");
+    const said = alerts.map((alert) => alert.textContent).join(" ");
+    expect(said).toContain("This sign-in is not allowed on this server.");
+    expect(said).not.toContain("Check your username");
+  });
+
+  it("leads with the directory once passwords are turned off, with no passkey offered", async () => {
+    directoryBackend({ providers: { ...DIRECTORY, local_login: false } });
+    renderConsole("/login");
+
+    const choice = await screen.findByRole("combobox", { name: "Sign in with" });
+
+    expect(choice).toHaveTextContent("Acme directory");
+    expect(screen.queryByRole("button", { name: /passkey/i })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Username or email")).toBeVisible();
   });
 });

@@ -32,19 +32,25 @@
         "type": "object"
       },
       "AcceptRiskRequest": {
-        "description": "Accept a finding: why (10 to 500 characters) and until when (ISO date or date-time).",
+        "description": "Accept a finding: why and until when (ISO date or date-time).\n\nThe reason (10 to 500 characters) is required only under the ENS profile or with\n``security.exception_reasons`` on.",
         "properties": {
           "expires_at": {
             "title": "Expires At",
             "type": "string"
           },
           "reason": {
-            "title": "Reason",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
           }
         },
         "required": [
-          "reason",
           "expires_at"
         ],
         "title": "AcceptRiskRequest",
@@ -1840,6 +1846,24 @@
           "tokens"
         ],
         "title": "ApiTokenListResponse",
+        "type": "object"
+      },
+      "ApiTokenNetworks": {
+        "description": "The networks to restrict a live API token to.\n\nAttributes:\n    allowed_cidrs: Addresses or networks it is accepted from; empty lifts the restriction.",
+        "properties": {
+          "allowed_cidrs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Allowed Cidrs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "allowed_cidrs"
+        ],
+        "title": "ApiTokenNetworks",
         "type": "object"
       },
       "ApiTokenRequest": {
@@ -7469,6 +7493,30 @@
         "title": "CertRequest",
         "type": "object"
       },
+      "CertificateInfo": {
+        "description": "A signing certificate, described the way an operator compares it with the provider's.\n\nAttributes:\n    subject: Its subject.\n    fingerprint: Its SHA-256 fingerprint, hex.\n    not_after: When it stops being valid, UNIX seconds.",
+        "properties": {
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "not_after": {
+            "title": "Not After",
+            "type": "number"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "fingerprint",
+          "not_after"
+        ],
+        "title": "CertificateInfo",
+        "type": "object"
+      },
       "CertificateModel": {
         "description": "What an application serves.\n\nAttributes:\n    name: The lineage or upload.\n    names: The names on it.\n    issuer: Its issuer.\n    expires_on: ``YYYY-MM-DD``.\n    days_remaining: Whole days until it expires.\n    source: ``letsencrypt`` or ``custom``.",
         "properties": {
@@ -7792,6 +7840,72 @@
           "proof"
         ],
         "title": "ChangeOut",
+        "type": "object"
+      },
+      "ChangeRequest": {
+        "description": "A change of frameworks and controls.\n\nAttributes:\n    enable: Frameworks to turn on.\n    disable: Frameworks to turn off.\n    controls: Control to the value wanted for its setting: on or off, a number,\n        a choice, or null for no limit.\n    acknowledge: The caller saw the warnings of the plan and goes ahead.",
+        "properties": {
+          "acknowledge": {
+            "default": false,
+            "title": "Acknowledge",
+            "type": "boolean"
+          },
+          "controls": {
+            "additionalProperties": true,
+            "title": "Controls",
+            "type": "object"
+          },
+          "disable": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Disable",
+            "type": "array"
+          },
+          "enable": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Enable",
+            "type": "array"
+          }
+        },
+        "title": "ChangeRequest",
+        "type": "object"
+      },
+      "ChangeResult": {
+        "description": "What a change did.\n\nAttributes:\n    enabled_before: The frameworks on before.\n    enabled_after: The frameworks on after.\n    settings: Control to the value its setting now holds, for the ones changed.\n    state: The picture afterwards.",
+        "properties": {
+          "enabled_after": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Enabled After",
+            "type": "array"
+          },
+          "enabled_before": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Enabled Before",
+            "type": "array"
+          },
+          "settings": {
+            "additionalProperties": true,
+            "title": "Settings",
+            "type": "object"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ComplianceState"
+          }
+        },
+        "required": [
+          "enabled_before",
+          "enabled_after",
+          "settings",
+          "state"
+        ],
+        "title": "ChangeResult",
         "type": "object"
       },
       "ChangelogEntryOut": {
@@ -8165,6 +8279,62 @@
         "title": "CheckCountsOut",
         "type": "object"
       },
+      "CheckFinding": {
+        "description": "One control of one framework, judged.\n\nAttributes:\n    framework: The framework.\n    control: The control.\n    clauses: The clauses it serves, ``id: title``.\n    status: ``ok``, ``warning``, ``fail`` or ``n/a``.\n    required: What the framework asks.\n    actual: The value in force.\n    summary: What was found.\n    evidence: Values and facts, verbatim.\n    remediation: What to do.",
+        "properties": {
+          "actual": {
+            "title": "Actual"
+          },
+          "clauses": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Clauses",
+            "type": "array"
+          },
+          "control": {
+            "title": "Control",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "framework": {
+            "title": "Framework",
+            "type": "string"
+          },
+          "remediation": {
+            "title": "Remediation",
+            "type": "string"
+          },
+          "required": {
+            "title": "Required"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "framework",
+          "control",
+          "clauses",
+          "status",
+          "summary",
+          "evidence",
+          "remediation"
+        ],
+        "title": "CheckFinding",
+        "type": "object"
+      },
       "CheckFixOut": {
         "description": "How a finding is fixed: ``automatic``, ``action``, ``guided`` or ``none``.",
         "properties": {
@@ -8235,8 +8405,69 @@
         "title": "CheckFixOut",
         "type": "object"
       },
+      "CheckFramework": {
+        "description": "One framework's findings.\n\nAttributes:\n    framework: Its id.\n    name: How it is called.\n    enabled: Whether it is on.\n    verdict: The worst status.\n    counts: Findings per status.\n    findings: One per control it asks of.\n    organisational: What stays yours.\n    not_covered: Technical requirements Noust does not enforce.",
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/CheckFinding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "framework": {
+            "title": "Framework",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "not_covered": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Not Covered",
+            "type": "array"
+          },
+          "organisational": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Organisational",
+            "type": "array"
+          },
+          "verdict": {
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "framework",
+          "name",
+          "enabled",
+          "verdict",
+          "counts",
+          "findings",
+          "organisational",
+          "not_covered"
+        ],
+        "title": "CheckFramework",
+        "type": "object"
+      },
       "CheckInfo": {
-        "description": "One thing looked at when a provider is tested.\n\nAttributes:\n    name: What.\n    ok: Whether it is right.\n    detail: What was found, or what is wrong.",
+        "description": "One thing looked at when a source is tested.\n\nAttributes:\n    name: What.\n    ok: Whether it is right.\n    detail: What was found, or what is wrong.",
         "properties": {
           "detail": {
             "title": "Detail",
@@ -8257,57 +8488,6 @@
           "detail"
         ],
         "title": "CheckInfo",
-        "type": "object"
-      },
-      "CheckResponse": {
-        "description": "What asking a probe now got.\n\nAttributes:\n    ok: It answered well.\n    status: The HTTP status.\n    latency_ms: How long it took.\n    error: What was wrong, in one line.\n    probe: The probe as it stands now.",
-        "properties": {
-          "error": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Error"
-          },
-          "latency_ms": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Latency Ms"
-          },
-          "ok": {
-            "title": "Ok",
-            "type": "boolean"
-          },
-          "probe": {
-            "$ref": "#/components/schemas/ProbeModel"
-          },
-          "status": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Status"
-          }
-        },
-        "required": [
-          "ok",
-          "probe"
-        ],
-        "title": "CheckResponse",
         "type": "object"
       },
       "ChecksOut": {
@@ -9312,6 +9492,44 @@
         "title": "CompleteResponse",
         "type": "object"
       },
+      "ComplianceState": {
+        "description": "The frameworks and the controls.\n\nAttributes:\n    frameworks: Every framework, in catalog order.\n    controls: Every control, in catalog order.\n    legacy_profile: What ``security.profile`` holds.\n    unknown: Names in ``security.frameworks`` this version does not know.",
+        "properties": {
+          "controls": {
+            "items": {
+              "$ref": "#/components/schemas/ControlInfo"
+            },
+            "title": "Controls",
+            "type": "array"
+          },
+          "frameworks": {
+            "items": {
+              "$ref": "#/components/schemas/FrameworkInfo"
+            },
+            "title": "Frameworks",
+            "type": "array"
+          },
+          "legacy_profile": {
+            "title": "Legacy Profile",
+            "type": "string"
+          },
+          "unknown": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unknown",
+            "type": "array"
+          }
+        },
+        "required": [
+          "frameworks",
+          "controls",
+          "legacy_profile",
+          "unknown"
+        ],
+        "title": "ComplianceState",
+        "type": "object"
+      },
       "ComposeAnalysisOut": {
         "description": "What a document is, before it runs.\n\nAttributes:\n    deployable: Whether nothing refuses it.\n    services: Its services.\n    variables: Its variables.\n    web: The services that publish a port.\n    refused: Why it cannot be deployed as it is.\n    warned: What is worth knowing.",
         "properties": {
@@ -9412,16 +9630,19 @@
         "description": "Allowing a compose stack what is root on the host, and why.",
         "properties": {
           "reason": {
-            "description": "Why, recorded and shown",
-            "maxLength": 500,
-            "minLength": 1,
-            "title": "Reason",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why, recorded and shown; required under the ENS profile or with security.exception_reasons on",
+            "title": "Reason"
           }
         },
-        "required": [
-          "reason"
-        ],
         "title": "ComposeExceptionRequest",
         "type": "object"
       },
@@ -10628,6 +10849,83 @@
           "registry_password_set"
         ],
         "title": "ContainerSettingsResponse",
+        "type": "object"
+      },
+      "ControlInfo": {
+        "description": "A control as it stands on this server.\n\nAttributes:\n    id: Its name.\n    group: ``access``, ``accountability``, ``backup`` or ``network``.\n    kind: ``flag``, ``choice``, ``min`` or ``max``.\n    standard: The default.\n    key: The configuration key of its own setting.\n    choices: For a choice, from the weakest to the strictest.\n    unit: What a number counts.\n    check_only: Whether nothing refuses it; only the check reads it.\n    value: The value in force.\n    operator: The operator's own setting.\n    floor: What the enabled frameworks leave of it.\n    forced_by: The enabled frameworks that ask anything of it, strictest first.\n    locked: Whether one does, so it cannot be loosened.\n    enabled: Whether it asks for more than the default.",
+        "properties": {
+          "check_only": {
+            "title": "Check Only",
+            "type": "boolean"
+          },
+          "choices": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "floor": {
+            "title": "Floor"
+          },
+          "forced_by": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Forced By",
+            "type": "array"
+          },
+          "group": {
+            "title": "Group",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "operator": {
+            "title": "Operator"
+          },
+          "standard": {
+            "title": "Standard"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value"
+          }
+        },
+        "required": [
+          "id",
+          "group",
+          "kind",
+          "key",
+          "choices",
+          "unit",
+          "check_only",
+          "forced_by",
+          "locked",
+          "enabled"
+        ],
+        "title": "ControlInfo",
         "type": "object"
       },
       "ConversionRequest": {
@@ -14331,6 +14629,581 @@
         "title": "DirectiveChangeOut",
         "type": "object"
       },
+      "DirectoriesResponse": {
+        "description": "The configured directories.\n\nAttributes:\n    directories: Each one.",
+        "properties": {
+          "directories": {
+            "items": {
+              "$ref": "#/components/schemas/DirectoryInfo"
+            },
+            "title": "Directories",
+            "type": "array"
+          }
+        },
+        "required": [
+          "directories"
+        ],
+        "title": "DirectoriesResponse",
+        "type": "object"
+      },
+      "DirectoryInfo": {
+        "description": "A configured directory, with no password in it.\n\nAttributes:\n    name: Its short name.\n    label: What the sign-in page says.\n    enabled: Whether the sign-in page offers it.\n    host: Its name or address.\n    port: Its port.\n    tls: ``ldaps``, ``starttls`` or ``none``.\n    ca_file: The authority bundle it is trusted by, when not the system's.\n    bind_dn: The service account that searches; empty searches anonymously.\n    bind_password_set: Whether that account's password is stored (never its value).\n    user_base: Where people are searched from.\n    user_filter: The search, with ``{username}``.\n    subject_attribute: The directory's stable id for a person.\n    email_attribute: Where their address is.\n    name_attribute: Where their display name is.\n    username_attribute: Where their login name is.\n    groups_attribute: Where the groups they are in are listed.\n    group_base: Where groups are searched, when the entry does not list them.\n    group_filter: That search, with ``{dn}`` and ``{username}``.\n    timeout_seconds: How long one sign-in may take.\n    provisioning: A first sign-in: ``off``, ``invite`` or ``auto``.\n    default_role: The role of an account that provisioning creates.\n    default_team: The team it joins.\n    default_team_role: Its role there.\n    link_by_email: Link a first sign-in to the account of its address.\n    allowed_domains: Only these e-mail domains.\n    require_email_verified: Refuse a person without an address.\n    assume_email_verified: Take the directory's address as verified.\n    group_sync: Whether groups decide roles, memberships and scoped roles.\n    group_mappings: What each group means.\n    created_at: When it was configured.\n    created_by: Who configured it.",
+        "properties": {
+          "allowed_domains": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Domains",
+            "type": "array"
+          },
+          "assume_email_verified": {
+            "title": "Assume Email Verified",
+            "type": "boolean"
+          },
+          "bind_dn": {
+            "title": "Bind Dn",
+            "type": "string"
+          },
+          "bind_password_set": {
+            "title": "Bind Password Set",
+            "type": "boolean"
+          },
+          "ca_file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ca File"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "default_role": {
+            "title": "Default Role",
+            "type": "string"
+          },
+          "default_team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team"
+          },
+          "default_team_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team Role"
+          },
+          "email_attribute": {
+            "title": "Email Attribute",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "group_base": {
+            "title": "Group Base",
+            "type": "string"
+          },
+          "group_filter": {
+            "title": "Group Filter",
+            "type": "string"
+          },
+          "group_mappings": {
+            "items": {
+              "$ref": "#/components/schemas/Mapping"
+            },
+            "title": "Group Mappings",
+            "type": "array"
+          },
+          "group_sync": {
+            "title": "Group Sync",
+            "type": "boolean"
+          },
+          "groups_attribute": {
+            "title": "Groups Attribute",
+            "type": "string"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "link_by_email": {
+            "title": "Link By Email",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "name_attribute": {
+            "title": "Name Attribute",
+            "type": "string"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "provisioning": {
+            "title": "Provisioning",
+            "type": "string"
+          },
+          "require_email_verified": {
+            "title": "Require Email Verified",
+            "type": "boolean"
+          },
+          "subject_attribute": {
+            "title": "Subject Attribute",
+            "type": "string"
+          },
+          "timeout_seconds": {
+            "title": "Timeout Seconds",
+            "type": "integer"
+          },
+          "tls": {
+            "title": "Tls",
+            "type": "string"
+          },
+          "user_base": {
+            "title": "User Base",
+            "type": "string"
+          },
+          "user_filter": {
+            "title": "User Filter",
+            "type": "string"
+          },
+          "username_attribute": {
+            "title": "Username Attribute",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "enabled",
+          "host",
+          "port",
+          "tls",
+          "bind_dn",
+          "bind_password_set",
+          "user_base",
+          "user_filter",
+          "subject_attribute",
+          "email_attribute",
+          "name_attribute",
+          "username_attribute",
+          "groups_attribute",
+          "group_base",
+          "group_filter",
+          "timeout_seconds",
+          "provisioning",
+          "default_role",
+          "link_by_email",
+          "allowed_domains",
+          "require_email_verified",
+          "assume_email_verified",
+          "group_sync",
+          "group_mappings",
+          "created_at"
+        ],
+        "title": "DirectoryInfo",
+        "type": "object"
+      },
+      "DirectoryRemoved": {
+        "description": "A confirmation that a directory was removed.\n\nAttributes:\n    success: Always true.\n    removed: Its name.",
+        "properties": {
+          "removed": {
+            "title": "Removed",
+            "type": "string"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success",
+          "removed"
+        ],
+        "title": "DirectoryRemoved",
+        "type": "object"
+      },
+      "DirectorySettings": {
+        "description": "The settings of a directory to set; omitted ones are left as they are.\n\nAttributes:\n    label: What the sign-in page says.\n    enabled: Whether the sign-in page offers it.\n    host: Its name or address.\n    port: Its port.\n    tls: ``ldaps``, ``starttls`` or ``none`` (this machine only).\n    ca_file: An authority bundle to trust instead of the system's.\n    bind_dn: The service account that searches.\n    bind_password: Its password, stored apart and never shown again.\n    clear_bind_password: Forget the stored password (search anonymously).\n    user_base: Where people are searched from.\n    user_filter: The search, with ``{username}``.\n    subject_attribute: The directory's stable id for a person.\n    email_attribute: Where their address is.\n    name_attribute: Where their display name is.\n    username_attribute: Where their login name is.\n    groups_attribute: Where the groups they are in are listed.\n    group_base: Where groups are searched.\n    group_filter: That search, with ``{dn}`` and ``{username}``.\n    timeout_seconds: How long one sign-in may take.\n    provisioning: ``off``, ``invite`` or ``auto``.\n    default_role: The role of a created account.\n    default_team: The team a created account joins.\n    default_team_role: Its role there.\n    link_by_email: Link a first sign-in to the account of its address.\n    allowed_domains: Only these e-mail domains.\n    require_email_verified: Refuse a person without an address.\n    assume_email_verified: Take the directory's address as verified.\n    group_sync: Let groups decide roles, memberships and scoped roles.\n    group_mappings: What each group means.",
+        "properties": {
+          "allowed_domains": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Domains"
+          },
+          "assume_email_verified": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assume Email Verified"
+          },
+          "bind_dn": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bind Dn"
+          },
+          "bind_password": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bind Password"
+          },
+          "ca_file": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ca File"
+          },
+          "clear_bind_password": {
+            "default": false,
+            "title": "Clear Bind Password",
+            "type": "boolean"
+          },
+          "default_role": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Role"
+          },
+          "default_team": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team"
+          },
+          "default_team_role": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team Role"
+          },
+          "email_attribute": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email Attribute"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "group_base": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Base"
+          },
+          "group_filter": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Filter"
+          },
+          "group_mappings": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Mapping"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Mappings"
+          },
+          "group_sync": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Sync"
+          },
+          "groups_attribute": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Groups Attribute"
+          },
+          "host": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "link_by_email": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link By Email"
+          },
+          "name_attribute": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name Attribute"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "provisioning": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provisioning"
+          },
+          "require_email_verified": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Require Email Verified"
+          },
+          "subject_attribute": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Attribute"
+          },
+          "timeout_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout Seconds"
+          },
+          "tls": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tls"
+          },
+          "user_base": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Base"
+          },
+          "user_filter": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Filter"
+          },
+          "username_attribute": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username Attribute"
+          }
+        },
+        "title": "DirectorySettings",
+        "type": "object"
+      },
       "DiskEntry": {
         "description": "Capacity of one filesystem.\n\nAttributes:\n    mountpoint: Where it is mounted.\n    device: Backing device.\n    fstype: Filesystem type.\n    total_bytes: Size.\n    used_bytes: Bytes in use.\n    free_bytes: Bytes available.\n    percent: Percentage used.",
         "properties": {
@@ -15652,6 +16525,45 @@
           "description"
         ],
         "title": "DumpFormatResponse",
+        "type": "object"
+      },
+      "EffectInfo": {
+        "description": "What a change does to one control.\n\nAttributes:\n    control: The control.\n    before: The value in force now.\n    after: The value in force once the change is made.\n    forced_by: The frameworks that will ask anything of it.\n    clauses: For each of them, the clauses it serves.",
+        "properties": {
+          "after": {
+            "title": "After"
+          },
+          "before": {
+            "title": "Before"
+          },
+          "clauses": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Clauses",
+            "type": "object"
+          },
+          "control": {
+            "title": "Control",
+            "type": "string"
+          },
+          "forced_by": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Forced By",
+            "type": "array"
+          }
+        },
+        "required": [
+          "control",
+          "forced_by",
+          "clauses"
+        ],
+        "title": "EffectInfo",
         "type": "object"
       },
       "ElevateRequest": {
@@ -19813,6 +20725,137 @@
           "presets"
         ],
         "title": "ForwardAuthPresets",
+        "type": "object"
+      },
+      "FrameworkChange": {
+        "description": "What enabling a framework would change in one control.\n\nAttributes:\n    control: The control.\n    before: The value in force now.\n    after: The value the framework asks.\n    clauses: The clauses that value serves.",
+        "properties": {
+          "after": {
+            "title": "After"
+          },
+          "before": {
+            "title": "Before"
+          },
+          "clauses": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Clauses",
+            "type": "array"
+          },
+          "control": {
+            "title": "Control",
+            "type": "string"
+          }
+        },
+        "required": [
+          "control",
+          "clauses"
+        ],
+        "title": "FrameworkChange",
+        "type": "object"
+      },
+      "FrameworkInfo": {
+        "description": "A compliance framework and where it stands.\n\nAttributes:\n    id: Its name in ``security.frameworks``.\n    name: How it is called.\n    family: ``ens``, ``iso``, ``nis2``, ``cis``, ``soc2`` or ``gdpr``.\n    level: The level inside the family, or empty.\n    summary: What it is, in a sentence.\n    reference: The law or the standard it refers to.\n    enabled: Whether it is on.\n    source: ``setting`` (it is in ``security.frameworks``) or ``profile`` (only\n        ``security.profile`` says so), when it is on.\n    turns_on: The controls it asks for more than the default of.\n    requirement_count: How many controls it asks anything of.\n    changes: What enabling it would change right now; empty when it is on.\n    organisational: What stays yours.\n    not_covered: Technical requirements Noust does not enforce.\n    includes: A framework this one contains.",
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/FrameworkChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "family": {
+            "title": "Family",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "includes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Includes"
+          },
+          "level": {
+            "title": "Level",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "not_covered": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Not Covered",
+            "type": "array"
+          },
+          "organisational": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Organisational",
+            "type": "array"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "requirement_count": {
+            "title": "Requirement Count",
+            "type": "integer"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "turns_on": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Turns On",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "family",
+          "level",
+          "summary",
+          "reference",
+          "enabled",
+          "turns_on",
+          "requirement_count",
+          "changes",
+          "organisational",
+          "not_covered"
+        ],
+        "title": "FrameworkInfo",
         "type": "object"
       },
       "FreezeOut": {
@@ -24064,6 +25107,38 @@
         "title": "LastDeploymentOut",
         "type": "object"
       },
+      "LdapLoginRequest": {
+        "description": "A person signing in with the name and password they have in a directory.\n\nAttributes:\n    directory: The directory's name, as the sign-in page lists it.\n    username: What they type to sign in there.\n    password: Their password.\n    bearer: Also return the session token in the body, for clients without a cookie jar.",
+        "properties": {
+          "bearer": {
+            "default": false,
+            "title": "Bearer",
+            "type": "boolean"
+          },
+          "directory": {
+            "maxLength": 32,
+            "title": "Directory",
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 1024,
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 256,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "directory",
+          "username",
+          "password"
+        ],
+        "title": "LdapLoginRequest",
+        "type": "object"
+      },
       "LiftedResponse": {
         "description": "What lifting did.",
         "properties": {
@@ -25559,12 +26634,45 @@
         "type": "object"
       },
       "Mapping": {
-        "description": "One line of a provider's group mapping.\n\nAttributes:\n    group: The group, as the provider's claim spells it.\n    role: The instance role it gives (``viewer``, ``operator`` or ``admin``).\n    team: The team it puts the person in.\n    team_role: Their role there.",
+        "description": "One line of a source's group mapping.\n\nAttributes:\n    group: The group, as the source spells it.\n    role: The instance role it gives (``viewer``, ``operator`` or ``admin``).\n    team: The team it puts the person in, or the team a role is held in.\n    team_role: Their role there.\n    bind: The role held at the scope the team, project and environment name:\n        a built-in team role or a custom role.\n    project: The project a ``bind`` is held at.\n    environment: The environment a ``bind`` is held at.",
         "properties": {
+          "bind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bind"
+          },
+          "environment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment"
+          },
           "group": {
             "maxLength": 256,
             "title": "Group",
             "type": "string"
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project"
           },
           "role": {
             "anyOf": [
@@ -29661,6 +30769,66 @@
         "title": "PlacementStatusOut",
         "type": "object"
       },
+      "PlanInfo": {
+        "description": "What a change would do, before it is made.\n\nAttributes:\n    enable: Frameworks that will be turned on.\n    disable: Frameworks that will be turned off.\n    settings: Control to the value its setting will hold.\n    enabled_after: The frameworks on afterwards.\n    effects: The controls whose value in force changes.\n    loosens: Whether anything protects less afterwards, which asks sudo mode.\n    warnings: What a person must acknowledge.",
+        "properties": {
+          "disable": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Disable",
+            "type": "array"
+          },
+          "effects": {
+            "items": {
+              "$ref": "#/components/schemas/EffectInfo"
+            },
+            "title": "Effects",
+            "type": "array"
+          },
+          "enable": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Enable",
+            "type": "array"
+          },
+          "enabled_after": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Enabled After",
+            "type": "array"
+          },
+          "loosens": {
+            "title": "Loosens",
+            "type": "boolean"
+          },
+          "settings": {
+            "additionalProperties": true,
+            "title": "Settings",
+            "type": "object"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/WarningInfo"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "enable",
+          "disable",
+          "settings",
+          "enabled_after",
+          "effects",
+          "loosens",
+          "warnings"
+        ],
+        "title": "PlanInfo",
+        "type": "object"
+      },
       "PlanRequest": {
         "description": "Request to preview a manifest.",
         "properties": {
@@ -32296,7 +33464,7 @@
         "type": "object"
       },
       "ProviderChoice": {
-        "description": "One way to sign in, as the sign-in page offers it.\n\nAttributes:\n    name: The provider's short name, for ``/start?provider=``.\n    label: What the button says after \"Sign in with\".",
+        "description": "One way to sign in, as the sign-in page offers it.\n\nAttributes:\n    name: The provider's short name, for ``/start?provider=``.\n    label: What the button says after \"Sign in with\".\n    protocol: ``oidc`` or ``saml`` (a button that leaves for the provider, at\n        ``/api/auth/<protocol>/start``) or ``ldap`` (a directory the sign-in page asks for a\n        name and a password).",
         "properties": {
           "label": {
             "title": "Label",
@@ -32304,6 +33472,11 @@
           },
           "name": {
             "title": "Name",
+            "type": "string"
+          },
+          "protocol": {
+            "default": "oidc",
+            "title": "Protocol",
             "type": "string"
           }
         },
@@ -39165,20 +40338,575 @@
         "title": "SSLSettingsResponse",
         "type": "object"
       },
-      "SandboxDisableRequest": {
-        "description": "Building as root, and why.",
+      "SamlProviderInfo": {
+        "description": "A configured SAML provider. Nothing in it is secret.\n\nAttributes:\n    name: Its short name.\n    label: What the button says after \"Sign in with\".\n    enabled: Whether the sign-in page offers it.\n    idp_entity_id: Its entity id.\n    sso_url: Where the browser is sent to sign in.\n    certificates: Its signing certificates, in PEM.\n    certificate_details: Each of them, described.\n    sp_entity_id: The entity id the operator set; empty derives it.\n    entity_id: The entity id Noust presents to it.\n    acs_url: The address its response is posted to, to register with it.\n    metadata_url: Where this server's metadata for it is published.\n    subject_attribute: The attribute that identifies a person; empty uses the NameID.\n    email_attribute: Where their address is.\n    name_attribute: Where their display name is.\n    username_attribute: Where their login name is.\n    groups_attribute: Where their groups are.\n    clock_skew_seconds: Tolerated clock difference.\n    provisioning: ``off``, ``invite`` or ``auto``.\n    default_role: The role of an account a first sign-in creates.\n    default_team: The team it joins.\n    default_team_role: Its role there.\n    link_by_email: Whether a first sign-in links by e-mail.\n    allowed_domains: When not empty, the e-mail domains allowed.\n    require_email_verified: Whether an address must be present.\n    assume_email_verified: Whether the provider's address counts as verified.\n    require_amr: When not empty, the authentication contexts one of which is required.\n    group_sync: Whether groups decide roles and teams.\n    group_mappings: What each group means.\n    created_at: When it was configured, UNIX seconds.\n    created_by: Who configured it.\n    updated_at: Last change, UNIX seconds.\n    updated_by: Who made it.",
         "properties": {
-          "reason": {
-            "description": "Why, recorded and shown",
-            "maxLength": 500,
-            "minLength": 1,
-            "title": "Reason",
+          "acs_url": {
+            "title": "Acs Url",
+            "type": "string"
+          },
+          "allowed_domains": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Domains",
+            "type": "array"
+          },
+          "assume_email_verified": {
+            "title": "Assume Email Verified",
+            "type": "boolean"
+          },
+          "certificate_details": {
+            "items": {
+              "$ref": "#/components/schemas/CertificateInfo"
+            },
+            "title": "Certificate Details",
+            "type": "array"
+          },
+          "certificates": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Certificates",
+            "type": "array"
+          },
+          "clock_skew_seconds": {
+            "title": "Clock Skew Seconds",
+            "type": "integer"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "default_role": {
+            "title": "Default Role",
+            "type": "string"
+          },
+          "default_team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team"
+          },
+          "default_team_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team Role"
+          },
+          "email_attribute": {
+            "title": "Email Attribute",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "entity_id": {
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "group_mappings": {
+            "items": {
+              "$ref": "#/components/schemas/Mapping"
+            },
+            "title": "Group Mappings",
+            "type": "array"
+          },
+          "group_sync": {
+            "title": "Group Sync",
+            "type": "boolean"
+          },
+          "groups_attribute": {
+            "title": "Groups Attribute",
+            "type": "string"
+          },
+          "idp_entity_id": {
+            "title": "Idp Entity Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "link_by_email": {
+            "title": "Link By Email",
+            "type": "boolean"
+          },
+          "metadata_url": {
+            "title": "Metadata Url",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "name_attribute": {
+            "title": "Name Attribute",
+            "type": "string"
+          },
+          "provisioning": {
+            "title": "Provisioning",
+            "type": "string"
+          },
+          "require_amr": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Require Amr",
+            "type": "array"
+          },
+          "require_email_verified": {
+            "title": "Require Email Verified",
+            "type": "boolean"
+          },
+          "sp_entity_id": {
+            "title": "Sp Entity Id",
+            "type": "string"
+          },
+          "sso_url": {
+            "title": "Sso Url",
+            "type": "string"
+          },
+          "subject_attribute": {
+            "title": "Subject Attribute",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "number"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By"
+          },
+          "username_attribute": {
+            "title": "Username Attribute",
             "type": "string"
           }
         },
         "required": [
-          "reason"
+          "name",
+          "label",
+          "enabled",
+          "idp_entity_id",
+          "sso_url",
+          "certificates",
+          "certificate_details",
+          "sp_entity_id",
+          "entity_id",
+          "acs_url",
+          "metadata_url",
+          "subject_attribute",
+          "email_attribute",
+          "name_attribute",
+          "username_attribute",
+          "groups_attribute",
+          "clock_skew_seconds",
+          "provisioning",
+          "default_role",
+          "link_by_email",
+          "allowed_domains",
+          "require_email_verified",
+          "assume_email_verified",
+          "require_amr",
+          "group_sync",
+          "group_mappings",
+          "created_at",
+          "updated_at"
         ],
+        "title": "SamlProviderInfo",
+        "type": "object"
+      },
+      "SamlProvidersResponse": {
+        "description": "Every configured SAML provider.\n\nAttributes:\n    providers: The providers, by name.\n    acs_url: The address a response is posted to: the same for every provider.\n    secure: Whether the console is reached over TLS, which a POST answer needs.",
+        "properties": {
+          "acs_url": {
+            "title": "Acs Url",
+            "type": "string"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/SamlProviderInfo"
+            },
+            "title": "Providers",
+            "type": "array"
+          },
+          "secure": {
+            "title": "Secure",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "providers",
+          "acs_url",
+          "secure"
+        ],
+        "title": "SamlProvidersResponse",
+        "type": "object"
+      },
+      "SamlRemoved": {
+        "description": "A confirmation that a provider was removed.\n\nAttributes:\n    success: Always true.\n    removed: Its name.",
+        "properties": {
+          "removed": {
+            "title": "Removed",
+            "type": "string"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success",
+          "removed"
+        ],
+        "title": "SamlRemoved",
+        "type": "object"
+      },
+      "SamlSettings": {
+        "description": "What to set on a SAML provider; whatever is left out keeps its value.\n\nAttributes:\n    label: What the button says after \"Sign in with\".\n    enabled: Whether the sign-in page offers it.\n    idp_metadata: The identity provider's metadata XML: its entity id, sign-in address and\n        signing certificates are read from it (the settings beside it win).\n    idp_entity_id: Its entity id.\n    sso_url: Its sign-in address (HTTP-Redirect binding).\n    certificates: Its signing certificates, PEM or bare base64: replaces the list.\n    sp_entity_id: The entity id Noust presents; empty derives it from the console's address.\n    subject_attribute: The attribute that identifies a person; empty uses the NameID.\n    email_attribute: Where their address is.\n    name_attribute: Where their display name is.\n    username_attribute: Where their login name is.\n    groups_attribute: Where their groups are.\n    clock_skew_seconds: Tolerated clock difference, up to 300.\n    provisioning: ``off``, ``invite`` or ``auto``.\n    default_role: ``viewer``, ``operator`` or ``admin``.\n    default_team: The team a created account joins.\n    default_team_role: Its role there.\n    link_by_email: Link a first sign-in to the account of its address.\n    allowed_domains: Only these e-mail domains.\n    require_email_verified: Refuse a person without an address.\n    assume_email_verified: Take the provider's address as verified.\n    require_amr: One of these authentication context classes must be reported.\n    group_sync: Let groups decide roles, memberships and scoped roles.\n    group_mappings: What each group means.",
+        "properties": {
+          "allowed_domains": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Domains"
+          },
+          "assume_email_verified": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assume Email Verified"
+          },
+          "certificates": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 12,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificates"
+          },
+          "clock_skew_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clock Skew Seconds"
+          },
+          "default_role": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Role"
+          },
+          "default_team": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team"
+          },
+          "default_team_role": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team Role"
+          },
+          "email_attribute": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email Attribute"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "group_mappings": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Mapping"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Mappings"
+          },
+          "group_sync": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Sync"
+          },
+          "groups_attribute": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Groups Attribute"
+          },
+          "idp_entity_id": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idp Entity Id"
+          },
+          "idp_metadata": {
+            "anyOf": [
+              {
+                "maxLength": 1048576,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idp Metadata"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "link_by_email": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link By Email"
+          },
+          "name_attribute": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name Attribute"
+          },
+          "provisioning": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provisioning"
+          },
+          "require_amr": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Require Amr"
+          },
+          "require_email_verified": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Require Email Verified"
+          },
+          "sp_entity_id": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sp Entity Id"
+          },
+          "sso_url": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sso Url"
+          },
+          "subject_attribute": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Attribute"
+          },
+          "username_attribute": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username Attribute"
+          }
+        },
+        "title": "SamlSettings",
+        "type": "object"
+      },
+      "SandboxDisableRequest": {
+        "description": "Building as root, and why.",
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why, recorded and shown; required under the ENS profile or with security.exception_reasons on",
+            "title": "Reason"
+          }
+        },
         "title": "SandboxDisableRequest",
         "type": "object"
       },
@@ -40060,6 +41788,396 @@
           "schemas"
         ],
         "title": "SchemasResponse",
+        "type": "object"
+      },
+      "ScimRemoved": {
+        "description": "A confirmation that a source was removed.\n\nAttributes:\n    success: Always true.\n    removed: Its name.",
+        "properties": {
+          "removed": {
+            "title": "Removed",
+            "type": "string"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success",
+          "removed"
+        ],
+        "title": "ScimRemoved",
+        "type": "object"
+      },
+      "ScimSourceInfo": {
+        "description": "A source of provisioning, without its token.\n\nAttributes:\n    name: Its short name.\n    label: What a person reads about it.\n    enabled: Whether its token is accepted.\n    token_hint: The last characters of its token, to tell tokens apart.\n    token_created_at: When the token was issued.\n    last_used_at: When it last authenticated a request.\n    last_used_ip: From where.\n    default_role: The role of an account it creates.\n    default_team: The team a new account joins.\n    default_team_role: Its role there.\n    link_by_email: Attach a user to the account that already has their e-mail.\n    allowed_domains: Only these e-mail domains; any when empty.\n    group_sync: Whether its groups decide roles, memberships and scoped roles.\n    group_mappings: What each group means.\n    users: How many people it has provisioned.\n    created_at: When it was configured.\n    created_by: Who configured it.",
+        "properties": {
+          "allowed_domains": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Domains",
+            "type": "array"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "default_role": {
+            "title": "Default Role",
+            "type": "string"
+          },
+          "default_team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team"
+          },
+          "default_team_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team Role"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "group_mappings": {
+            "items": {
+              "$ref": "#/components/schemas/Mapping"
+            },
+            "title": "Group Mappings",
+            "type": "array"
+          },
+          "group_sync": {
+            "title": "Group Sync",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "last_used_ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used Ip"
+          },
+          "link_by_email": {
+            "title": "Link By Email",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "token_created_at": {
+            "title": "Token Created At",
+            "type": "number"
+          },
+          "token_hint": {
+            "title": "Token Hint",
+            "type": "string"
+          },
+          "users": {
+            "title": "Users",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "enabled",
+          "token_hint",
+          "token_created_at",
+          "default_role",
+          "link_by_email",
+          "allowed_domains",
+          "group_sync",
+          "group_mappings",
+          "users",
+          "created_at"
+        ],
+        "title": "ScimSourceInfo",
+        "type": "object"
+      },
+      "ScimSourceSaved": {
+        "description": "A source after it was set, and its token when one was issued.\n\nAttributes:\n    source: The source as it is now.\n    token: The bearer token, in clear, exactly once; None when the source kept its own.\n    base_url: The SCIM endpoint to give the identity provider.",
+        "properties": {
+          "base_url": {
+            "title": "Base Url",
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ScimSourceInfo"
+          },
+          "token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token"
+          }
+        },
+        "required": [
+          "source",
+          "base_url"
+        ],
+        "title": "ScimSourceSaved",
+        "type": "object"
+      },
+      "ScimSourceSettings": {
+        "description": "The settings of a source to set; omitted ones are left as they are.\n\nAttributes:\n    label: What a person reads about it.\n    enabled: Whether its token is accepted.\n    default_role: ``viewer``, ``operator`` or ``admin``.\n    default_team: The team a created account joins.\n    default_team_role: Its role there.\n    link_by_email: Attach a user to the account of the same e-mail.\n    allowed_domains: Only these e-mail domains.\n    group_sync: Let its groups decide roles, memberships and scoped roles.\n    group_mappings: What each group means.\n    rotate_token: Issue a new token (the old one stops working at once).",
+        "properties": {
+          "allowed_domains": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Domains"
+          },
+          "default_role": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Role"
+          },
+          "default_team": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team"
+          },
+          "default_team_role": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team Role"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "group_mappings": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Mapping"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Mappings"
+          },
+          "group_sync": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Sync"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "link_by_email": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link By Email"
+          },
+          "rotate_token": {
+            "default": false,
+            "title": "Rotate Token",
+            "type": "boolean"
+          }
+        },
+        "title": "ScimSourceSettings",
+        "type": "object"
+      },
+      "ScimSourcesResponse": {
+        "description": "The sources, and where they are to be pointed.\n\nAttributes:\n    base_url: The address to give each identity provider as the SCIM endpoint.\n    sources: Every configured source.",
+        "properties": {
+          "base_url": {
+            "title": "Base Url",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/ScimSourceInfo"
+            },
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "base_url",
+          "sources"
+        ],
+        "title": "ScimSourcesResponse",
+        "type": "object"
+      },
+      "ScimUserInfo": {
+        "description": "A person a source provisioned.\n\nAttributes:\n    id: The id the provider uses.\n    user_name: Its ``userName``.\n    account: The account's name.\n    status: The account's status.\n    role: The account's role.\n    disabled_by_scim: Whether the provider switched it off.\n    groups: The groups it pushed them into.",
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "disabled_by_scim": {
+            "title": "Disabled By Scim",
+            "type": "boolean"
+          },
+          "groups": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "user_name": {
+            "title": "User Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "user_name",
+          "account",
+          "status",
+          "role",
+          "disabled_by_scim",
+          "groups"
+        ],
+        "title": "ScimUserInfo",
+        "type": "object"
+      },
+      "ScimUsersResponse": {
+        "description": "The roster of a source.\n\nAttributes:\n    total: How many people it provisioned.\n    users: The first 500.",
+        "properties": {
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "users": {
+            "items": {
+              "$ref": "#/components/schemas/ScimUserInfo"
+            },
+            "title": "Users",
+            "type": "array"
+          }
+        },
+        "required": [
+          "total",
+          "users"
+        ],
+        "title": "ScimUsersResponse",
         "type": "object"
       },
       "ScriptBody": {
@@ -47126,7 +49244,7 @@
         "type": "object"
       },
       "TestResponse": {
-        "description": "A provider looked at the way a sign-in would, without signing anybody in.\n\nAttributes:\n    ok: Whether every check passed.\n    checks: Each thing looked at.",
+        "description": "A source looked at the way a sign-in would, without signing anybody in.\n\nAttributes:\n    ok: Whether every check passed.\n    checks: Each thing looked at.",
         "properties": {
           "checks": {
             "items": {
@@ -51929,6 +54047,31 @@
         "title": "WafModel",
         "type": "object"
       },
+      "WarningInfo": {
+        "description": "Something about this server a change would affect.\n\nAttributes:\n    id: What it is.\n    count: How many it concerns, when it counts.",
+        "properties": {
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "WarningInfo",
+        "type": "object"
+      },
       "WebConfig": {
         "description": "Web interface configuration.",
         "properties": {
@@ -53923,6 +56066,41 @@
         "title": "ProviderOut",
         "type": "object"
       },
+      "noust__web__api__compliance__CheckResponse": {
+        "description": "The result of the compliance check.\n\nAttributes:\n    verdict: The worst verdict among the frameworks.\n    frameworks: One per framework judged.\n    errors: Areas that could not be read.\n    disclaimer: What a pass does and does not mean.",
+        "properties": {
+          "disclaimer": {
+            "title": "Disclaimer",
+            "type": "string"
+          },
+          "errors": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "object"
+          },
+          "frameworks": {
+            "items": {
+              "$ref": "#/components/schemas/CheckFramework"
+            },
+            "title": "Frameworks",
+            "type": "array"
+          },
+          "verdict": {
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "verdict",
+          "frameworks",
+          "errors",
+          "disclaimer"
+        ],
+        "title": "CheckResponse",
+        "type": "object"
+      },
       "noust__web__api__databases__backups__PolicyDestination": {
         "description": "One remote destination a policy sends its dumps to.\n\nAttributes:\n    name: A destination created under ``/api/backup-destinations``, which\n        keeps its own encryption.\n    retention_count: This server's scheduled dumps of the database to keep\n        there; null for no limit.\n    retention_days: Maximum age in days of those; null for no limit.\n    retention_gb: The most those may weigh together there, in gigabytes; null\n        for no limit. The newest always stays.",
         "properties": {
@@ -55437,6 +57615,57 @@
           "expires_at"
         ],
         "title": "PreviewOut",
+        "type": "object"
+      },
+      "noust__web__api__probes__CheckResponse": {
+        "description": "What asking a probe now got.\n\nAttributes:\n    ok: It answered well.\n    status: The HTTP status.\n    latency_ms: How long it took.\n    error: What was wrong, in one line.\n    probe: The probe as it stands now.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "probe": {
+            "$ref": "#/components/schemas/ProbeModel"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "required": [
+          "ok",
+          "probe"
+        ],
+        "title": "CheckResponse",
         "type": "object"
       },
       "noust__web__api__processes__ProcessInfo": {
@@ -68501,7 +70730,7 @@
     },
     "/api/auth/accounts/{username}/enable": {
       "post": {
-        "description": "Enable a disabled account again.\n\nArgs:\n    username: The account's name.\n    request: The incoming request.\n    session: The authenticated payload, in sudo mode.\n\nReturns:\n    The account after the change.\n\nRaises:\n    AccountNotFoundError: When no account has that name.",
+        "description": "Enable a disabled account again.\n\nArgs:\n    username: The account's name.\n    request: The incoming request.\n    session: The authenticated payload, in sudo mode.\n\nReturns:\n    The account after the change.\n\nRaises:\n    AccountNotFoundError: When no account has that name.\n    AccountError: For one's own account.",
         "operationId": "enable_account_api_auth_accounts__username__enable_post",
         "parameters": [
           {
@@ -68964,6 +71193,214 @@
         "summary": "Open Invitation",
         "tags": [
           "Authentication"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/auth/ldap/directories": {
+      "get": {
+        "description": "List the configured directories, without their passwords.\n\nArgs:\n    _session: The authenticated payload.\n\nReturns:\n    Each directory and whether its service account's password is stored.",
+        "operationId": "list_directories_api_auth_ldap_directories_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoriesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Directories",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.read"
+      }
+    },
+    "/api/auth/ldap/directories/{name}": {
+      "delete": {
+        "description": "Remove a directory and its password, in sudo mode.\n\nArgs:\n    name: The directory's name.\n    request: The request.\n    session: The authenticated payload, in sudo mode.\n\nReturns:\n    A confirmation.\n\nRaises:\n    HTTPException: 404 when there is no such directory.\n    LocalLoginRefused: 400 while local sign-in is off and this is the last way in.",
+        "operationId": "delete_directory_api_auth_ldap_directories__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryRemoved"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Directory",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      },
+      "put": {
+        "description": "Add a directory or change one, in sudo mode: it decides who may sign in.\n\nArgs:\n    name: The directory's name.\n    request: The request.\n    body: The settings to set.\n    session: The authenticated payload, in sudo mode.\n\nReturns:\n    The directory as it is now.\n\nRaises:\n    ValidationError: When a setting is refused; nothing is written.",
+        "operationId": "put_directory_api_auth_ldap_directories__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DirectorySettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Directory",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/auth/ldap/directories/{name}/test": {
+      "post": {
+        "description": "Look at a directory the way a sign-in would: the connection, the service account, the base.\n\nSigns nobody in and writes nothing. A directory that cannot be reached is a failed check,\nnot an error.\n\nArgs:\n    name: The directory's name.\n    _session: The authenticated payload.\n\nReturns:\n    Each check and whether all passed.\n\nRaises:\n    HTTPException: 404 when there is no such directory.",
+        "operationId": "test_directory_api_auth_ldap_directories__name__test_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Test Directory",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.manage"
+      }
+    },
+    "/api/auth/ldap/login": {
+      "post": {
+        "description": "Sign in with a directory's name and password.\n\nAn account with a second factor is answered the step it owes\n(``second_factor``), to be finished at ``POST /api/auth/login/second-factor``;\none without is signed in, its session fit only to enrol one.\n\nArgs:\n    request: The request.\n    response: Used to set the session cookies.\n    body: The directory and the credentials.\n\nReturns:\n    Exactly what ``POST /api/auth/login`` answers.\n\nRaises:\n    HTTPException: 401 ``invalid_credentials`` for a wrong name or password; 403\n        ``sign_in_refused`` when the policy does not admit the person; 503\n        ``sign_in_unavailable`` when the directory cannot be asked; 429 ``locked_out``.",
+        "operationId": "login_api_auth_ldap_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LdapLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login",
+        "tags": [
+          "Single sign-on"
         ],
         "x-noust-permission": "public"
       }
@@ -70092,6 +72529,476 @@
         "x-noust-permission": "self"
       }
     },
+    "/api/auth/saml/acs": {
+      "post": {
+        "description": "Take the identity provider's answer: verify it, admit the person, hand over a ticket.\n\nA response that is not right (a signature that does not verify, another audience, an assertion\nseen before, another browser's cookie) is counted against the address like a wrong password\nand audited; a provider that says the person did not sign in, one that is off, or a person the\npolicy does not admit, is audited but not counted. The reason is for the audit trail: the\nsign-in page is told one word.\n\nArgs:\n    request: The request, the browser posting the provider's form.\n\nReturns:\n    A redirect to the sign-in page carrying the ticket, or the reason.",
+        "operationId": "assertion_consumer_service_api_auth_saml_acs_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "properties": {
+                  "RelayState": {
+                    "description": "What the sign-in sent with its request.",
+                    "type": "string"
+                  },
+                  "SAMLResponse": {
+                    "description": "The base64 response.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "SAMLResponse",
+                  "RelayState"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "303": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Assertion Consumer Service",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/auth/saml/config": {
+      "get": {
+        "description": "List the configured SAML providers.\n\nArgs:\n    request: The request, for the addresses it implies.\n    _session: The authenticated payload.\n\nReturns:\n    The providers and the address a response is posted to.",
+        "operationId": "list_providers_api_auth_saml_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SamlProvidersResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Providers",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.read"
+      }
+    },
+    "/api/auth/saml/config/{provider}": {
+      "delete": {
+        "description": "Remove a SAML provider, in sudo mode.\n\nAccounts keep their links and their other ways in; one that had no password can no longer sign\nin until it is given one (``noust user invite``).\n\nArgs:\n    provider: The provider's name.\n    request: The request.\n    session: The authenticated payload, in sudo mode.\n\nReturns:\n    A confirmation.\n\nRaises:\n    HTTPException: 404 when there is no such provider.\n    LocalLoginRefused: 400 while local sign-in is off and this is the last way in.",
+        "operationId": "delete_provider_api_auth_saml_config__provider__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "title": "Provider",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SamlRemoved"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Provider",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      },
+      "put": {
+        "description": "Add a SAML provider or change one, in sudo mode: it decides who may sign in.\n\nArgs:\n    provider: The provider's name.\n    request: The request.\n    body: The settings to set.\n    session: The authenticated payload, in sudo mode.\n\nReturns:\n    The provider as it is now.\n\nRaises:\n    ValidationError: When a setting is refused; nothing is written.",
+        "operationId": "put_provider_api_auth_saml_config__provider__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "title": "Provider",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SamlSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SamlProviderInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Provider",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/auth/saml/config/{provider}/test": {
+      "post": {
+        "description": "Look at a provider the way a sign-in would: its certificates, its address, what it is told.\n\nSigns nobody in and writes nothing.\n\nArgs:\n    provider: The provider's name.\n    request: The request, for the addresses this server tells the provider.\n    _session: The authenticated payload.\n\nReturns:\n    Each check and whether all passed.\n\nRaises:\n    HTTPException: 404 when there is no such provider.",
+        "operationId": "try_provider_api_auth_saml_config__provider__test_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "title": "Provider",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Try Provider",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.manage"
+      }
+    },
+    "/api/auth/saml/metadata/{provider}": {
+      "get": {
+        "description": "Describe this server to an identity provider: what to register it from.\n\nAnonymous, because the provider fetches it: the entity id, where responses are posted and that\nassertions must be signed are not secret.\n\nArgs:\n    request: The request, for the address people reach the console at.\n    provider: The provider's name.\n\nReturns:\n    The service provider's metadata document.\n\nRaises:\n    HTTPException: 404 when there is no such provider.",
+        "operationId": "metadata_api_auth_saml_metadata__provider__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "maxLength": 32,
+              "title": "Provider",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/samlmetadata+xml": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Metadata",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/auth/saml/start": {
+      "get": {
+        "description": "Begin a sign-in: remember it and send the browser to the identity provider.\n\nAnonymous, and it writes only a short-lived record of the sign-in; the provider is chosen from\nthose configured, never from the request. Whatever goes wrong, the browser lands on the\nsign-in page with a one-word reason.\n\nArgs:\n    request: The request.\n    provider: The provider's name.\n    next: The console page to go to afterwards; reduced to a path of this console.\n\nReturns:\n    A redirect to the provider, setting the cookie that ties the answer to this browser, or to\n    the sign-in page.",
+        "operationId": "start_api_auth_saml_start_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "maxLength": 32,
+              "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "next",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Next"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/auth/scim/sources": {
+      "get": {
+        "description": "List the sources of provisioning, without their tokens.\n\nArgs:\n    request: The request, for the address to point providers at.\n    _session: The authenticated payload.\n\nReturns:\n    The sources and the SCIM endpoint.",
+        "operationId": "list_sources_api_auth_scim_sources_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScimSourcesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Sources",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.read"
+      }
+    },
+    "/api/auth/scim/sources/{name}": {
+      "delete": {
+        "description": "Remove a source and its roster, in sudo mode. The accounts it made stay as they are.\n\nArgs:\n    name: The source's name.\n    request: The request.\n    session: The authenticated payload, in sudo mode.\n\nReturns:\n    A confirmation.\n\nRaises:\n    HTTPException: 404 when there is no such source.",
+        "operationId": "delete_source_api_auth_scim_sources__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScimRemoved"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Source",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      },
+      "put": {
+        "description": "Add a source or change one, in sudo mode: it decides who may have an account.\n\nArgs:\n    name: The source's name.\n    request: The request.\n    body: The settings to set.\n    session: The authenticated payload, in sudo mode.\n\nReturns:\n    The source as it is now and, when one was issued, its token (the only time).\n\nRaises:\n    ValidationError: When a setting is refused or names something that does not exist;\n        nothing is written then.",
+        "operationId": "put_source_api_auth_scim_sources__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScimSourceSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScimSourceSaved"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Source",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/auth/scim/sources/{name}/users": {
+      "get": {
+        "description": "List the people a source provisioned, with their account's state.\n\nArgs:\n    name: The source's name.\n    _session: The authenticated payload.\n\nReturns:\n    The roster, the first 500.\n\nRaises:\n    HTTPException: 404 when there is no such source.",
+        "operationId": "list_users_api_auth_scim_sources__name__users_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScimUsersResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Users",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.read"
+      }
+    },
     "/api/auth/session": {
       "get": {
         "description": "Report whether the caller is signed in, without demanding that they are.\n\nEvery other endpoint under ``/api`` requires ``require_auth`` and answers\n401 to an anonymous caller; this one exists so the console has something\nto call before it knows which of those two things it is. A caller that\npresents nothing is not guessing anything and is not counted. A caller\nthat presents a credential is checked exactly as ``require_auth`` checks\none, through :func:`~noust.web.auth.verify_credential`, and a wrong one is\ncounted towards the lockout: the answer here says whether the value was\nthe master token, so without counting this was a guessing oracle with no\nlimit. A session cookie this server signed but that has since expired is\nnot a guess and is not counted.\n\nArgs:\n    request: The incoming request.\n\nReturns:\n    The session's bootstrap information; for no credential, or an expired\n    or revoked one, ``authenticated=False`` and the sign-in label only.",
@@ -70331,6 +73238,58 @@
           }
         },
         "summary": "Revoke Api Token",
+        "tags": [
+          "Authentication"
+        ],
+        "x-noust-permission": "self"
+      },
+      "patch": {
+        "description": "Change the networks an API token is accepted from, without issuing another.\n\nA person changes their own tokens; whoever governs accounts, any. Taking\naddresses away needs nothing more; widening the reach (lifting the\nrestriction, adding a network) needs sudo mode, like issuing a token does\nfor the person who holds it.\n\nArgs:\n    token_id: The record's id, as listed by ``GET /api/auth/tokens``.\n    body: The networks; empty lifts the restriction.\n    request: The incoming request.\n    session: The authenticated session.\n\nReturns:\n    The token as it is now.\n\nRaises:\n    HTTPException: 404 when the caller has no live token with that id; 400\n        for a fleet token or an entry that is not a network; 403\n        ``elevation_required`` when the change widens it.",
+        "operationId": "restrict_api_token_api_auth_tokens__token_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token_id",
+            "required": true,
+            "schema": {
+              "title": "Token Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApiTokenNetworks"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiTokenInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restrict Api Token",
         "tags": [
           "Authentication"
         ],
@@ -71946,6 +74905,167 @@
         ],
         "x-noust-permission": "apps.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/compliance": {
+      "get": {
+        "description": "Say which frameworks are on, which controls they force, and what enabling each would change.\n\nArgs:\n    _session: The authenticated payload.\n\nReturns:\n    Every framework and control as it stands.",
+        "operationId": "get_compliance_api_compliance_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Compliance",
+        "tags": [
+          "Compliance"
+        ],
+        "x-noust-permission": "settings.read"
+      },
+      "put": {
+        "description": "Turn frameworks on or off and set controls.\n\nTurning a framework on or a control stricter needs only the permission to change\nsecurity settings. Turning a framework off, or loosening a control, needs sudo\nmode. A change with warnings is made only once ``acknowledge`` is true.\n\nArgs:\n    request: The request.\n    body: What to change.\n    session: The authenticated payload.\n\nReturns:\n    What changed and the picture afterwards.\n\nRaises:\n    HTTPException: 403 ``elevation_required`` when the change loosens something\n        and sudo mode is not open.\n    ValidationError: When the change is refused: an unknown name, a control looser\n        than a framework asks, warnings not acknowledged.\n    ConfigError: When the configuration cannot be written.",
+        "operationId": "change_compliance_api_compliance_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change Compliance",
+        "tags": [
+          "Compliance"
+        ],
+        "x-noust-permission": "security.manage"
+      }
+    },
+    "/api/compliance/check": {
+      "get": {
+        "description": "Judge this server framework by framework, with the clause of each finding.\n\nReads the server's state (the last hardening report, the accounts, the backups);\na pass means the technical control is in force, never that the server complies.\n\nArgs:\n    framework: Frameworks to judge; the ones that are on by default.\n    _session: The authenticated payload.\n\nReturns:\n    The findings per framework.\n\nRaises:\n    ValidationError: For a framework that does not exist.",
+        "operationId": "check_compliance_api_compliance_check_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "framework",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Framework"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__compliance__CheckResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Compliance",
+        "tags": [
+          "Compliance"
+        ],
+        "x-noust-permission": "compliance.read"
+      }
+    },
+    "/api/compliance/plan": {
+      "post": {
+        "description": "Say what a change would do, writing nothing.\n\nArgs:\n    body: The frameworks and controls to change.\n    _session: The authenticated payload.\n\nReturns:\n    The controls whose value changes, whether it loosens anything, and what\n    about this server the caller must see first.\n\nRaises:\n    ValidationError: For a framework or a control that does not exist, or a\n        control set looser than an enabled framework asks.",
+        "operationId": "plan_change_api_compliance_plan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan Change",
+        "tags": [
+          "Compliance"
+        ],
+        "x-noust-permission": "security.manage"
       }
     },
     "/api/compose/analyze": {
@@ -87647,7 +90767,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CheckResponse"
+                  "$ref": "#/components/schemas/noust__web__api__probes__CheckResponse"
                 }
               }
             },
@@ -88734,6 +91854,1278 @@
         ],
         "x-noust-permission": "apps.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/scim/v2/.search": {
+      "post": {
+        "description": "Search users and groups together, with the query in the body (RFC 7644 section 3.4.3).\n\nA filter that only one of them can answer is answered by that one. The window is applied to\nthe users first and then the groups, up to 200 of each.\n\nArgs:\n    request: The request.\n    source: The authenticated source.\n    body: A SearchRequest.\n\nReturns:\n    A ListResponse of both kinds.",
+        "operationId": "search_everything_api_scim_v2__search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/scim+json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Everything",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/scim/v2/Groups": {
+      "get": {
+        "description": "Args:\n    request: The request.\n    source: The authenticated source.\n    filter: ``attribute eq \"value\"``.\n    startIndex: The 1-based index of the first result.\n    count: How many, at most 200.\n    shape: ``attributes`` and ``excludedAttributes``.\n\nReturns:\n    A ListResponse.",
+        "operationId": "list_groups_api_scim_v2_Groups_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "filter",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Filter"
+            }
+          },
+          {
+            "in": "query",
+            "name": "startIndex",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 1000000,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Startindex"
+            }
+          },
+          {
+            "in": "query",
+            "name": "count",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 10000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Count"
+            }
+          },
+          {
+            "in": "query",
+            "name": "attributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Attributes"
+            }
+          },
+          {
+            "in": "query",
+            "name": "excludedAttributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Excludedattributes"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/scim+json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Groups",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      },
+      "post": {
+        "description": "Args:\n    request: The request.\n    source: The authenticated source.\n    body: The group document.\n    shape: ``attributes`` and ``excludedAttributes``.\n\nReturns:\n    201 with the group and its ``Location``.",
+        "operationId": "create_group_api_scim_v2_Groups_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "attributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Attributes"
+            }
+          },
+          {
+            "in": "query",
+            "name": "excludedAttributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Excludedattributes"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/scim+json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Group",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/scim/v2/Groups/.search": {
+      "post": {
+        "description": "List groups with the query in the body.\n\nArgs:\n    request: The request.\n    source: The authenticated source.\n    body: A SearchRequest.\n\nReturns:\n    A ListResponse.",
+        "operationId": "search_groups_api_scim_v2_Groups__search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/scim+json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Groups",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/scim/v2/Groups/{group_id}": {
+      "delete": {
+        "description": "Args:\n    group_id: The id the provider uses.\n    request: The request.\n    source: The authenticated source.\n\nReturns:\n    204.",
+        "operationId": "delete_group_api_scim_v2_Groups__group_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Group",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      },
+      "get": {
+        "description": "Args:\n    group_id: The id the provider uses.\n    request: The request.\n    source: The authenticated source.\n    shape: ``attributes`` and ``excludedAttributes``.\n\nReturns:\n    The group.",
+        "operationId": "get_group_api_scim_v2_Groups__group_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "attributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Attributes"
+            }
+          },
+          {
+            "in": "query",
+            "name": "excludedAttributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Excludedattributes"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/scim+json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Group",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      },
+      "patch": {
+        "description": "Args:\n    group_id: The id the provider uses.\n    request: The request.\n    source: The authenticated source.\n    body: A PatchOp.\n\nReturns:\n    The group after.",
+        "operationId": "patch_group_api_scim_v2_Groups__group_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "attributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Attributes"
+            }
+          },
+          {
+            "in": "query",
+            "name": "excludedAttributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Excludedattributes"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/scim+json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Group",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      },
+      "put": {
+        "description": "Args:\n    group_id: The id the provider uses.\n    request: The request.\n    source: The authenticated source.\n    body: The whole group document.\n\nReturns:\n    The group after.",
+        "operationId": "replace_group_api_scim_v2_Groups__group_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "attributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Attributes"
+            }
+          },
+          {
+            "in": "query",
+            "name": "excludedAttributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Excludedattributes"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/scim+json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replace Group",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/scim/v2/ResourceTypes": {
+      "get": {
+        "description": "Args:\n    request: The request.\n    _source: The authenticated source.\n\nReturns:\n    A ListResponse of the two resource types: User and Group.",
+        "operationId": "resource_types_api_scim_v2_ResourceTypes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/scim+json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Resource Types",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/scim/v2/ResourceTypes/{name}": {
+      "get": {
+        "description": "Args:\n    name: ``User`` or ``Group``.\n    request: The request.\n    _source: The authenticated source.\n\nReturns:\n    The resource type.\n\nRaises:\n    ScimError: 404 when there is none of that name.",
+        "operationId": "resource_type_api_scim_v2_ResourceTypes__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/scim+json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resource Type",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/scim/v2/Schemas": {
+      "get": {
+        "description": "Args:\n    request: The request.\n    _source: The authenticated source.\n\nReturns:\n    A ListResponse of the attributes this server models.",
+        "operationId": "schemas_api_scim_v2_Schemas_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/scim+json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Schemas",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/scim/v2/Schemas/{schema_id}": {
+      "get": {
+        "description": "Args:\n    schema_id: The schema's URN.\n    request: The request.\n    _source: The authenticated source.\n\nReturns:\n    The schema.\n\nRaises:\n    ScimError: 404 when there is none of that id.",
+        "operationId": "schema_api_scim_v2_Schemas__schema_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schema_id",
+            "required": true,
+            "schema": {
+              "title": "Schema Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/scim+json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Schema",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/scim/v2/ServiceProviderConfig": {
+      "get": {
+        "description": "Say what this server supports, as providers ask before they provision.\n\nArgs:\n    _source: The authenticated source.\n\nReturns:\n    The configuration: PATCH, filtering by equality, no bulk, no sorting, no passwords.",
+        "operationId": "service_provider_config_api_scim_v2_ServiceProviderConfig_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/scim+json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Service Provider Config",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/scim/v2/Users": {
+      "get": {
+        "description": "List the users this source provisioned, or find one by ``userName`` or ``externalId``.\n\nArgs:\n    request: The request.\n    source: The authenticated source.\n    filter: ``attribute eq \"value\"``.\n    startIndex: The 1-based index of the first result.\n    count: How many, at most 200.\n    shape: ``attributes`` and ``excludedAttributes``.\n\nReturns:\n    A ListResponse.",
+        "operationId": "list_users_api_scim_v2_Users_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "filter",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Filter"
+            }
+          },
+          {
+            "in": "query",
+            "name": "startIndex",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 1000000,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Startindex"
+            }
+          },
+          {
+            "in": "query",
+            "name": "count",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 10000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Count"
+            }
+          },
+          {
+            "in": "query",
+            "name": "attributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Attributes"
+            }
+          },
+          {
+            "in": "query",
+            "name": "excludedAttributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Excludedattributes"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/scim+json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Users",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      },
+      "post": {
+        "description": "Provision a person.\n\nArgs:\n    request: The request.\n    source: The authenticated source.\n    body: The user document.\n    shape: ``attributes`` and ``excludedAttributes``.\n\nReturns:\n    201 with the user and its ``Location``.",
+        "operationId": "create_user_api_scim_v2_Users_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "attributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Attributes"
+            }
+          },
+          {
+            "in": "query",
+            "name": "excludedAttributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Excludedattributes"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/scim+json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create User",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/scim/v2/Users/.search": {
+      "post": {
+        "description": "List users with the query in the body, as providers do when it is too long for an address.\n\nArgs:\n    request: The request.\n    source: The authenticated source.\n    body: A SearchRequest.\n\nReturns:\n    A ListResponse.",
+        "operationId": "search_users_api_scim_v2_Users__search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/scim+json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Users",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/scim/v2/Users/{user_id}": {
+      "delete": {
+        "description": "Switch the person's account off and forget the entry.\n\nArgs:\n    user_id: The id the provider uses.\n    request: The request.\n    source: The authenticated source.\n\nReturns:\n    204.",
+        "operationId": "delete_user_api_scim_v2_Users__user_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete User",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      },
+      "get": {
+        "description": "Args:\n    user_id: The id the provider uses.\n    request: The request.\n    source: The authenticated source.\n    shape: ``attributes`` and ``excludedAttributes``.\n\nReturns:\n    The user.",
+        "operationId": "get_user_api_scim_v2_Users__user_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "attributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Attributes"
+            }
+          },
+          {
+            "in": "query",
+            "name": "excludedAttributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Excludedattributes"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/scim+json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get User",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      },
+      "patch": {
+        "description": "Args:\n    user_id: The id the provider uses.\n    request: The request.\n    source: The authenticated source.\n    body: A PatchOp.\n\nReturns:\n    The user after.",
+        "operationId": "patch_user_api_scim_v2_Users__user_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "attributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Attributes"
+            }
+          },
+          {
+            "in": "query",
+            "name": "excludedAttributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Excludedattributes"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/scim+json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch User",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      },
+      "put": {
+        "description": "Args:\n    user_id: The id the provider uses.\n    request: The request.\n    source: The authenticated source.\n    body: The whole user document.\n\nReturns:\n    The user after.",
+        "operationId": "replace_user_api_scim_v2_Users__user_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "attributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Attributes"
+            }
+          },
+          {
+            "in": "query",
+            "name": "excludedAttributes",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Excludedattributes"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/scim+json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replace User",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
       }
     },
     "/api/secret-providers": {

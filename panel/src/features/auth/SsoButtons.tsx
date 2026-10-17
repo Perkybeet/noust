@@ -43,7 +43,7 @@ export function SsoButtons({ providers, next, disabled = false }: SsoButtonsProp
       {providers.map((provider) => (
         <a
           key={provider.name}
-          href={ssoStartHref(provider.name, next)}
+          href={ssoStartHref(provider.name, next, provider.protocol)}
           data-variant="secondary"
           aria-disabled={disabled || undefined}
           className={buttonClassName("secondary", "lg", disabled ? "w-full opacity-50" : "w-full")}

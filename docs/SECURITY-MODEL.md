@@ -62,7 +62,7 @@ central that has been compromised, an application that has been compromised.
 **What fails if it stops holding.**
 
   - `tests/test_build_sandbox.py::test_the_sandbox_failing_its_self_test_stops_the_build_instead_of_running_as_root`
-  - `tests/test_build_sandbox.py::test_building_as_root_needs_a_reason`
+  - `tests/test_build_sandbox.py::test_building_as_root_needs_a_reason_where_the_server_asks_for_one`
   - `tests/test_build_sandbox.py::test_another_applications_env_outside_the_apps_directory_is_inaccessible`
   - `tests/test_runner_sandbox.py::TestSandboxArgv::test_every_level_one_property_is_there`
   - `tests/test_sandbox_default.py::test_a_passing_trial_turns_the_sandbox_on_and_the_update_builds_in_it`
@@ -134,7 +134,7 @@ central that has been compromised, an application that has been compromised.
 **What fails if it stops holding.**
 
   - `tests/test_permission_routes.py::TestTheRoles::test_operators_restart_renew_and_deploy_but_do_not_change`
-  - `tests/test_permission_routes.py::TestTheRoles::test_admin_does_not_govern_security_accounts_or_the_audit`
+  - `tests/test_permission_routes.py::TestTheRoles::test_admin_does_not_govern_security_accounts_or_the_audit_under_the_ens_matrix`
   - `tests/test_web_sudo.py::test_revoking_a_certificate_requires_elevation`
   - `tests/test_web_sudo.py::test_an_idle_window_closes_fifteen_minutes_after_the_last_elevated_action`
   - `tests/test_web_oidc.py::TestTheWholeSignIn::test_the_providers_claims_about_its_own_mfa_do_not_skip_ours`
@@ -322,51 +322,51 @@ holds every permission, afterwards (it is break-glass) all but `audit.manage`, a
 only what recovering an account takes.
 
 <!-- generated:roles -->
-| Permission | What it allows | viewer | operator | admin | security | auditor |
-|---|---|---|---|---|---|---|
-| `accounts.manage` | Create, change, lock and remove accounts; others' sessions |  |  |  | yes |  |
-| `accounts.read` | See accounts and separation-of-duties exceptions |  |  |  | yes | yes |
-| `apps.deploy` | Update, roll back, activate a release, rebuild |  | yes | yes |  |  |
-| `apps.manage` | Create, configure and delete applications, sites and domains |  |  | yes |  |  |
-| `apps.operate` | Start, stop and restart; renew certificates; run cron jobs |  | yes | yes |  |  |
-| `apps.read` | See applications, sites, certificates, jobs, logs and deployments | yes | yes | yes | yes | yes |
-| `apps.terminal` | A terminal and one-off commands as an application's own account, with its secrets |  |  | yes |  |  |
-| `audit.manage` | Manage the audit log and activity history |  |  |  | yes |  |
-| `audit.read` | Read the whole audit log |  |  |  | yes | yes |
-| `backups.manage` | Restore, delete, and configure destinations |  |  | yes |  |  |
-| `backups.read` | See backups, schedules and destinations | yes | yes | yes | yes | yes |
-| `backups.run` | Create and verify backups |  | yes | yes |  |  |
-| `compliance.read` | Read the ENS compliance check and its evidence report |  |  | yes | yes | yes |
-| `databases.manage` | Install engines, drop databases, restore dumps |  |  | yes |  |  |
-| `databases.read` | See database engines, databases and users | yes | yes | yes | yes | yes |
-| `databases.write` | Create databases and users, run queries |  |  | yes |  |  |
-| `fleet.manage` | Add and remove servers |  |  | yes |  |  |
-| `fleet.read` | See the servers this central manages | yes | yes | yes | yes | yes |
-| `root_equivalent` | Raw units, cron commands, backup hooks, raw site configuration |  |  | yes |  |  |
-| `secrets.reveal` | Read secrets in clear: .env values, exports, keys |  |  | yes |  |  |
-| `security.manage` | Change security settings: console access, sign-in policy |  |  |  | yes |  |
-| `self` | Own session, second factor, password, tokens and usage notice | yes | yes | yes | yes | yes |
-| `server.host_access` | Change the host itself: SSH, firewall, packages |  |  | yes |  |  |
-| `server.manage` | Manage the server: services, the monitor |  |  | yes |  |  |
-| `server.read` | See the server: system, services, metrics, monitor | yes | yes | yes | yes | yes |
-| `server.terminal` | A root shell on the server itself, in the browser |  |  | yes |  |  |
-| `settings.manage` | Change the configuration outside security settings |  |  | yes |  |  |
-| `settings.read` | Read the configuration, secrets redacted | yes | yes | yes | yes | yes |
-| `teams.manage` | Create and delete teams, projects and environments, and their members |  |  | yes |  |  |
-| `teams.read` | See the teams, projects and environments one belongs to | yes | yes | yes | yes | yes |
+| Permission | What it allows | viewer | operator | admin (roles split) | security | auditor | admin (default) |
+|---|---|---|---|---|---|---|---|
+| `accounts.manage` | Create, change, lock and remove accounts; others' sessions |  |  |  | yes |  | yes |
+| `accounts.read` | See accounts and separation-of-duties exceptions |  |  |  | yes | yes | yes |
+| `apps.deploy` | Update, roll back, activate a release, rebuild |  | yes | yes |  |  | yes |
+| `apps.manage` | Create, configure and delete applications, sites and domains |  |  | yes |  |  | yes |
+| `apps.operate` | Start, stop and restart; renew certificates; run cron jobs |  | yes | yes |  |  | yes |
+| `apps.read` | See applications, sites, certificates, jobs, logs and deployments | yes | yes | yes | yes | yes | yes |
+| `apps.terminal` | A terminal and one-off commands as an application's own account, with its secrets |  |  | yes |  |  | yes |
+| `audit.manage` | Manage the audit log and activity history |  |  |  | yes |  | yes |
+| `audit.read` | Read the whole audit log |  |  |  | yes | yes | yes |
+| `backups.manage` | Restore, delete, and configure destinations |  |  | yes |  |  | yes |
+| `backups.read` | See backups, schedules and destinations | yes | yes | yes | yes | yes | yes |
+| `backups.run` | Create and verify backups |  | yes | yes |  |  | yes |
+| `compliance.read` | Read the ENS compliance check and its evidence report |  |  | yes | yes | yes | yes |
+| `databases.manage` | Install engines, drop databases, restore dumps |  |  | yes |  |  | yes |
+| `databases.read` | See database engines, databases and users | yes | yes | yes | yes | yes | yes |
+| `databases.write` | Create databases and users, run queries |  |  | yes |  |  | yes |
+| `fleet.manage` | Add and remove servers |  |  | yes |  |  | yes |
+| `fleet.read` | See the servers this central manages | yes | yes | yes | yes | yes | yes |
+| `root_equivalent` | Raw units, cron commands, backup hooks, raw site configuration |  |  | yes |  |  | yes |
+| `secrets.reveal` | Read secrets in clear: .env values, exports, keys |  |  | yes |  |  | yes |
+| `security.manage` | Change security settings: console access, sign-in policy |  |  |  | yes |  | yes |
+| `self` | Own session, second factor, password, tokens and usage notice | yes | yes | yes | yes | yes | yes |
+| `server.host_access` | Change the host itself: SSH, firewall, packages |  |  | yes |  |  | yes |
+| `server.manage` | Manage the server: services, the monitor |  |  | yes |  |  | yes |
+| `server.read` | See the server: system, services, metrics, monitor | yes | yes | yes | yes | yes | yes |
+| `server.terminal` | A root shell on the server itself, in the browser |  |  | yes |  |  | yes |
+| `settings.manage` | Change the configuration outside security settings |  |  | yes |  |  | yes |
+| `settings.read` | Read the configuration, secrets redacted | yes | yes | yes | yes | yes | yes |
+| `teams.manage` | Create and delete teams, projects and environments, and their members |  |  | yes |  |  | yes |
+| `teams.read` | See the teams, projects and environments one belongs to | yes | yes | yes | yes | yes | yes |
 <!-- /generated:roles -->
 
 ### The routes
 
 <!-- generated:routes -->
-- **910** API operations. **896** need a permission (`x-noust-permission`) and **14** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **309** operations need sudo mode and **38** can need a second person.
+- **951** API operations. **913** need a permission (`x-noust-permission`) and **38** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **315** operations need sudo mode and **38** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
 |---|---|
-| `accounts.manage` | 22 |
-| `accounts.read` | 8 |
+| `accounts.manage` | 30 |
+| `accounts.read` | 12 |
 | `apps.deploy` | 24 |
 | `apps.manage` | 137 |
 | `apps.operate` | 32 |
@@ -377,23 +377,23 @@ only what recovering an account takes.
 | `backups.manage` | 22 |
 | `backups.read` | 19 |
 | `backups.run` | 14 |
-| `compliance.read` | 3 |
+| `compliance.read` | 4 |
 | `databases.manage` | 34 |
 | `databases.read` | 56 |
 | `databases.write` | 12 |
 | `fleet.manage` | 38 |
 | `fleet.read` | 20 |
-| `public` | 14 |
+| `public` | 38 |
 | `root_equivalent` | 18 |
 | `secrets.reveal` | 13 |
-| `security.manage` | 6 |
-| `self` | 40 |
+| `security.manage` | 8 |
+| `self` | 41 |
 | `server.host_access` | 21 |
 | `server.manage` | 55 |
 | `server.read` | 75 |
 | `server.terminal` | 1 |
 | `settings.manage` | 26 |
-| `settings.read` | 21 |
+| `settings.read` | 22 |
 | `teams.manage` | 14 |
 | `teams.read` | 10 |
 <!-- /generated:routes -->
@@ -485,16 +485,16 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **454** events.
+The catalogue holds **471** events.
 
 | Category | Events |
 |---|---|
-| access | 35 |
+| access | 46 |
 | account | 36 |
-| config | 24 |
+| config | 29 |
 | change | 300 |
 | read | 20 |
-| denial | 15 |
+| denial | 16 |
 | system | 21 |
 | host | 3 |
 <!-- /generated:audit -->

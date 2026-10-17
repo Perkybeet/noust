@@ -55,6 +55,7 @@ from noust.web.api.cert_settings import router as cert_settings_router
 from noust.web.api.certs import router as certs_router
 from noust.web.api.client_certs import router as client_certs_router
 from noust.web.api.cloud import router as cloud_router
+from noust.web.api.compliance import router as compliance_router
 from noust.web.api.compose import router as compose_router
 from noust.web.api.config import router as config_router
 from noust.web.api.console_exposure import router as console_exposure_router
@@ -82,6 +83,7 @@ from noust.web.api.identity import router as identity_router
 from noust.web.api.import_remote import router as import_remote_router
 from noust.web.api.integrations import router as integrations_router
 from noust.web.api.jobs import router as jobs_router
+from noust.web.api.ldap import router as ldap_router
 from noust.web.api.log_drains import router as log_drains_router
 from noust.web.api.log_search import router as log_search_router
 from noust.web.api.manifest import router as manifest_router
@@ -108,7 +110,10 @@ from noust.web.api.recipes import router as recipes_router
 from noust.web.api.registries import apps_router as app_registry_logins_router
 from noust.web.api.registries import router as registries_router
 from noust.web.api.restore_drills import router as restore_drills_router
+from noust.web.api.saml import router as saml_router
 from noust.web.api.sandbox import router as sandbox_router
+from noust.web.api.scim import router as scim_router
+from noust.web.api.scim_admin import router as scim_admin_router
 from noust.web.api.scope import enforce_scope
 from noust.web.api.secret_providers import router as secret_providers_router
 from noust.web.api.self_backup import router as self_backup_router
@@ -188,6 +193,7 @@ router = APIRouter(
 router.include_router(auth_router, prefix="/auth", tags=["Authentication"])
 router.include_router(audit_router, prefix="/audit", tags=["Audit"])
 router.include_router(ens_router, prefix="/ens", tags=["Compliance"])
+router.include_router(compliance_router, prefix="/compliance", tags=["Compliance"])
 # Before apps_router: POST /apps/import must not reach a route that reads
 # "import" as a domain. It also owns GET "/{domain}/export", which apps.py
 # does not define.
@@ -383,6 +389,10 @@ router.include_router(fleet_self_router, prefix="/auth/fleet", tags=["Fleet"])
 router.include_router(passkeys_router, prefix="/auth/passkeys", tags=["Passkeys"])
 # Single sign-in through an identity provider (3.4): the same place, for the same reason.
 router.include_router(oidc_router, prefix="/auth/oidc", tags=["Single sign-on"])
+router.include_router(ldap_router, prefix="/auth/ldap", tags=["Single sign-on"])
+router.include_router(saml_router, prefix="/auth/saml", tags=["Single sign-on"])
+router.include_router(scim_admin_router, prefix="/auth/scim", tags=["Single sign-on"])
+router.include_router(scim_router, prefix="/scim/v2", tags=["SCIM provisioning"])
 router.include_router(approvals_router, prefix="/approvals", tags=["Approvals"])
 router.include_router(fleet_router, prefix="/fleet", tags=["Fleet"])
 router.include_router(fleet_placements_router, prefix="/fleet/placements", tags=["Fleet"])

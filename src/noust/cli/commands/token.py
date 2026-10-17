@@ -145,13 +145,14 @@ def list_command(ctx: Context) -> None:
 
     access = AccessStore()
     logger.table(
-        ["ID", "Name", "Scope", "Bound to", "Created", "Expires", "Last used", "Revoked"],
+        ["ID", "Name", "Scope", "Bound to", "From", "Created", "Expires", "Last used", "Revoked"],
         [
             [
                 str(record["id"]),
                 record["name"],
                 record["scope"],
                 _bound(access, record),
+                ", ".join(record.get("allowed_cidrs") or []) or "anywhere",
                 _fmt(record["created_at"]),
                 _expires(record),
                 _fmt(record["last_used_at"]),
@@ -195,6 +196,12 @@ def list_command(ctx: Context) -> None:
 )
 @click.option("--project", default=None, help="Bind it to this project of the team.")
 @click.option("--env", "environment", default=None, help="Bind it to this environment.")
+@click.option(
+    "--allow-ip",
+    "allow_ips",
+    multiple=True,
+    help="Accept the token only from this address or network (repeat). Omitted: from anywhere.",
+)
 @pass_context
 def create_command(
     ctx: Context,
@@ -206,6 +213,7 @@ def create_command(
     team: str | None,
     project: str | None,
     environment: str | None,
+    allow_ips: tuple[str, ...],
 ) -> None:
     """
     Issue a named, scoped API token. NAME must be unique across every token
@@ -225,6 +233,7 @@ def create_command(
         owner=account,
         created_by="cli",
         permissions=list(permissions) or None,
+        allowed_cidrs=list(allow_ips) or None,
         bound=bound,
     )
 
@@ -243,6 +252,46 @@ def create_command(
         logger.warning("Rehearsal: this token was not saved and will not authenticate.")
     else:
         logger.warning("This is the only time the token is shown. Store it now.")
+
+
+@cli.command("set")
+@click.argument("token_id", type=int)
+@click.option(
+    "--allow-ip",
+    "allow_ips",
+    multiple=True,
+    help="Accept the token only from this address or network (repeat); replaces the list.",
+)
+@click.option("--any-ip", is_flag=True, help="Accept the token from anywhere again.")
+@pass_context
+def set_command(ctx: Context, token_id: int, allow_ips: tuple[str, ...], any_ip: bool) -> None:
+    """
+    Change the networks a live API token is accepted from, without issuing another.
+
+    The token keeps working from the new list the moment this returns, and a
+    request from anywhere else is refused as a stolen credential would be.
+    """
+    if bool(allow_ips) == any_ip:
+        raise click.UsageError("Give --allow-ip (one or more) or --any-ip.")
+    manager = token_manager()
+    before = manager.get_api_token(token_id)
+    changed = manager.set_api_token_networks(token_id, list(allow_ips) or None)
+    if before is None or changed is None:
+        raise click.ClickException(f"No live API token with id {token_id}.")
+    from noust.core.audit import record
+
+    record(
+        "auth.token.update",
+        target=f"token:{token_id}",
+        details={
+            "detail": f"token '{before['name']}' accepted from "
+            f"{', '.join(changed.get('allowed_cidrs') or []) or 'anywhere'}"
+        },
+    )
+    ctx.logger.success(
+        f"API token {before['name']} is accepted from "
+        f"{', '.join(changed.get('allowed_cidrs') or []) or 'anywhere'}."
+    )
 
 
 @cli.command("revoke")

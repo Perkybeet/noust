@@ -10,7 +10,7 @@ export const accounts: Catalog<typeof en> = {
   roles: {
     viewer: { label: "Lector", description: "Lo ve todo, con los secretos ocultos, y no cambia nada." },
     operator: { label: "Operador", description: "Además reinicia, despliega, revierte, renueva certificados y hace copias." },
-    admin: { label: "Administrador", description: "Además crea, configura y borra, y lee secretos. No gestiona cuentas." },
+    admin: { label: "Administrador", description: "Además crea, configura y borra, y lee secretos, y gestiona cuentas, ajustes de seguridad y auditoría salvo que los roles estén separados (el ENS y otros marcos lo piden)." },
     security: { label: "Responsable de seguridad", description: "Gestiona cuentas, roles y la configuración de seguridad, y lee la auditoría. No despliega nada." },
     auditor: { label: "Auditor", description: "Lo lee todo, las cuentas y toda la auditoría. No cambia nada." },
   },
@@ -201,6 +201,16 @@ export const accounts: Catalog<typeof en> = {
     anyAddress: "Cualquier sitio",
     addressesLabel: "Solo desde",
     addressesHint: "Direcciones o rangos desde los que funciona el token, como 203.0.113.0/24. Uno por línea; vacío para cualquier sitio.",
+    networks: {
+      label: "Cambiar desde dónde funciona {name}",
+      text: "Desde",
+      title: "Desde dónde funciona {name}",
+      description:
+        "Cambia las direcciones desde las que se acepta este token sin emitir otro. Una petición desde cualquier otro sitio se rechaza. Quitar direcciones es inmediato; añadirlas, o quitar el límite, te pide confirmar que eres tú.",
+      save: "Guardar direcciones",
+      savedToast: "Se cambió desde dónde funciona {name}",
+      errorTitle: "No se cambiaron las direcciones",
+    },
     capped: "Limitado a lo que puede hacer {name}",
     cappedMaster: "Lo que podrá hacer el token",
     dropped: "Se quedan fuera, porque el dueño no puede: {permissions}.",
