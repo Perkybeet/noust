@@ -23,6 +23,7 @@ import { cx } from "../../lib/cx";
 import { formatPercent } from "../../lib/format";
 import { reasonText } from "../overview/NeedsAttention";
 import { useFleetActions } from "./BulkActionDialog";
+import { FleetMetricsCard } from "./FleetMetricsCard";
 import {
   ACTION_WORDS,
   attentionOf,
@@ -447,6 +448,7 @@ export function SummaryTab() {
           className="rounded-none border-0 shadow-none"
         />
       </Card>
+      <FleetMetricsCard />
       <CommandHint label={t("fleet.page.fromTerminal")} command="noust fleet status" />
     </div>
   );

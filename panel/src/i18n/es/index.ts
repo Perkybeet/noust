@@ -35,6 +35,7 @@ export { dumpImport } from "./dumpImport";
 export { enroll } from "./enroll";
 export { environment } from "./environment";
 export { fleet } from "./fleet";
+export { fleetCompare } from "./fleetCompare";
 export { githubHost } from "./githubHost";
 export { gitlab } from "./gitlab";
 export { language } from "./language";

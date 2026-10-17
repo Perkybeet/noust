@@ -6,6 +6,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
+import { fleetRoutes } from "../fleet/testFixtures";
 import { screenWidth } from "../app/testRoutes";
 
 const NOW = 1_790_000_000;
@@ -60,6 +61,8 @@ describe("Logs", () => {
     // (whose it is, then the message verbatim) is held by data.test.ts.
     expect(screen.getByRole("region", { name: "Matching log lines" })).toBeInTheDocument();
     expect(screen.getByText("noust log search --since 1h")).toBeInTheDocument();
+    // A lone server has no other servers to search.
+    expect(screen.queryByRole("radio", { name: "Every server" })).toBeNull();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
@@ -135,6 +138,51 @@ describe("Logs", () => {
   it("asks nothing to be searched when there are no applications", { timeout: 30_000 }, async () => {
     await pageAt("/logs", { "GET /api/logs/search": () => json(200, found({ lines: [], matched: 0, scanned: 0, apps: [] })) });
     expect(await screen.findByText("No applications to search yet")).toBeInTheDocument();
+  });
+
+  describe("on a central", () => {
+    async function central(path = "/logs") {
+      screenWidth(1440);
+      const backend = fakeBackend({
+        ...fleetRoutes(),
+        "GET /api/apps": () => json(200, APPS),
+        "GET /api/logs/search": () => json(200, found()),
+      });
+      const harness = renderConsole(path);
+      await screen.findByRole("heading", { level: 1, name: "Logs" });
+      return { ...harness, backend };
+    }
+
+    it("searches every server at once, naming the one each line came from and what a server left out", { timeout: 40_000 }, async () => {
+      const { user, backend, location } = await central();
+      await screen.findByText("3 of 5 matching lines shown, out of 340 examined.");
+      expect(backend.callsTo("GET /api/fleet/logs")).toHaveLength(0);
+
+      await user.click(screen.getByRole("radio", { name: "Every server" }));
+
+      expect(await screen.findByText(/2 matching lines from 4 servers\. Up to 100 lines from each server\./)).toBeInTheDocument();
+      const call = backend.callsTo("GET /api/fleet/logs")[0];
+      expect(call?.search.get("q")).toBe("");
+      expect(call?.search.get("since")).toBe("1h");
+      expect(call?.search.get("limit")).toBe("100");
+      expect(location().search).toEqual({ scope: "fleet" });
+      // A server that could not search, and one that did not answer, are said rather than hidden.
+      expect(screen.getByText("old-1: The search stopped at its scan limit; older matches may exist.")).toBeInTheDocument();
+      expect(screen.getByText("2 of 4 servers did not answer fully")).toBeInTheDocument();
+      expect(screen.getByText("noust fleet logs --since 1h")).toBeInTheDocument();
+      // One server's applications are not another's: the filter waits until a single server is searched.
+      expect(screen.getByRole("combobox", { name: "Application" })).toBeDisabled();
+    });
+
+    it("opens on every server from the address and goes back to this one", { timeout: 40_000 }, async () => {
+      const { user, location } = await central("/logs?scope=fleet&q=refused");
+      expect(await screen.findByText(/2 matching lines from 4 servers/)).toBeInTheDocument();
+      expect(screen.getByRole("radio", { name: "Every server" })).toBeChecked();
+      await user.click(screen.getByRole("radio", { name: "This server" }));
+      await waitFor(() => {
+        expect(location().search).toEqual({ q: "refused" });
+      });
+    });
   });
 
   it("reads in Spanish, with no accessibility violations", { timeout: 30_000 }, async () => {

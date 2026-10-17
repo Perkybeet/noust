@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { paramsOf, searchCommand, stamp, validateLogsSearch, viewerLevel, viewerLines } from "./data";
+import { fleetViewerLines, paramsOf, searchCommand, stamp, validateLogsSearch, viewerLevel, viewerLines } from "./data";
 
 describe("the log search's question", () => {
   it("reads the address, dropping anything malformed instead of failing", () => {
@@ -14,6 +14,9 @@ describe("the log search's question", () => {
     // The hour is the default, so it is not carried in the address.
     expect(validateLogsSearch({ since: "1h" })).toEqual({});
     expect(validateLogsSearch({ q: "x".repeat(2000) }).q).toHaveLength(1000);
+    // Every server is the one scope there is besides the server in view.
+    expect(validateLogsSearch({ scope: "fleet" })).toEqual({ scope: "fleet" });
+    expect(validateLogsSearch({ scope: "galaxy" })).toEqual({});
   });
 
   it("asks the API for the hour, every application and 300 lines when nothing is said", () => {
@@ -32,6 +35,21 @@ describe("the log search's question", () => {
     expect(searchCommand({ q: "timeout", app: "shop.example.com", since: "24h", level: "err" })).toBe("noust log search timeout --app shop.example.com --since 24h --level err");
     expect(searchCommand({ q: "connection refused -health" })).toBe("noust log search 'connection refused -health' --since 1h");
     expect(searchCommand({ q: "it's" })).toBe("noust log search 'it'\\''s' --since 1h");
+    // Every server has a command of its own, which has no application filter.
+    expect(searchCommand({ scope: "fleet", q: "timeout", app: "shop.example.com", level: "err" })).toBe("noust fleet logs timeout --since 1h --level err");
+  });
+});
+
+describe("the lines of every server", () => {
+  it("reads the rows that are lines, oldest first, each naming its server, and leaves the notes out", () => {
+    const lines = fleetViewerLines([
+      { type: "line", ts: 1_790_000_100, node: "web-2", app: "shop.example.com", source: "journal", unit: "shop.service", level: "err", message: "newer" },
+      { type: "line", ts: 1_790_000_000, node: "web-01", app: "blog.example.com", source: "container", unit: "web", level: null, message: "older" },
+      { type: "note", ts: null, node: "old-1", message: "the scan stopped" },
+      { type: "line", ts: "not a time", node: "web-2", message: "broken row" },
+    ]);
+    expect(lines.map((line) => line.text.replace(/^\S+ \S+ /, ""))).toEqual(["[web-01] blog.example.com/web: older", "[web-2] shop.example.com: newer"]);
+    expect(lines.map((line) => line.level)).toEqual([undefined, "error"]);
   });
 });
 

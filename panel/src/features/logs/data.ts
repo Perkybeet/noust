@@ -20,9 +20,13 @@ export type LogLevel = (typeof LEVELS)[number];
 /** Most lines one search returns; the server's own ceiling is 1000. */
 export const LINES = 300;
 
+/** `fleet` searches every server a central manages instead of the one in view. */
+export type LogsScope = "fleet";
+
 export interface LogsSearch {
   q?: string;
   app?: string;
+  scope?: LogsScope;
   since?: Exclude<LogWindow, "1h">;
   level?: LogLevel;
 }
@@ -42,6 +46,7 @@ export function validateLogsSearch(search: Record<string, unknown>): LogsSearch 
   return {
     ...(q !== undefined ? { q } : {}),
     ...(app !== undefined ? { app } : {}),
+    ...(search["scope"] === "fleet" ? { scope: "fleet" as const } : {}),
     ...(typeof since === "string" && since !== DEFAULT_WINDOW && (WINDOWS as readonly string[]).includes(since) ? { since: since as Exclude<LogWindow, "1h"> } : {}),
     ...(typeof level === "string" && (LEVELS as readonly string[]).includes(level) ? { level: level as LogLevel } : {}),
   };
@@ -61,9 +66,10 @@ export function paramsOf(search: LogsSearch): LogSearchParams {
 /** The command that asks the same thing from a terminal. */
 export function searchCommand(search: LogsSearch): string {
   const quote = (value: string): string => (/^[\w.@%+=:,/-]+$/.test(value) ? value : `'${value.replaceAll("'", `'\\''`)}'`);
-  const parts = ["noust log search"];
+  const fleet = search.scope === "fleet";
+  const parts = [fleet ? "noust fleet logs" : "noust log search"];
   if (search.q !== undefined) parts.push(quote(search.q));
-  if (search.app !== undefined) parts.push(`--app ${quote(search.app)}`);
+  if (search.app !== undefined && !fleet) parts.push(`--app ${quote(search.app)}`);
   parts.push(`--since ${search.since ?? DEFAULT_WINDOW}`);
   if (search.level !== undefined) parts.push(`--level ${search.level}`);
   return parts.join(" ");
@@ -98,6 +104,35 @@ function two(value: number): string {
 export function stamp(ts: number): string {
   const moment = new Date(ts * 1000);
   return `${String(moment.getFullYear())}-${two(moment.getMonth() + 1)}-${two(moment.getDate())} ${two(moment.getHours())}:${two(moment.getMinutes())}:${two(moment.getSeconds())}`;
+}
+
+/** Whatever a fleet row holds, as the text or number it is, or nothing. */
+function textOf(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+/**
+ * The lines of a search over every server: each row is one line a server found, labelled with the
+ * server, and the viewer reads them oldest first like a single server's. Notes are not lines.
+ */
+export function fleetViewerLines(rows: readonly Record<string, unknown>[]): LogLine[] {
+  const lines = rows.filter((row) => row["type"] === "line" && typeof row["ts"] === "number");
+  return lines
+    .map((row) => ({
+      ts: row["ts"] as number,
+      node: textOf(row["node"]) ?? "",
+      app: textOf(row["app"]) ?? "",
+      source: textOf(row["source"]) ?? "journal",
+      unit: textOf(row["unit"]) ?? "",
+      level: textOf(row["level"]) ?? null,
+      message: textOf(row["message"]) ?? "",
+    }))
+    .sort((a, b) => a.ts - b.ts)
+    .map((line, id) => {
+      const who = line.app !== "" ? (line.source === "container" ? `${line.app}/${line.unit}` : line.app) : line.unit;
+      const level = viewerLevel(line.level);
+      return { id, text: `${stamp(line.ts)} [${line.node}] ${who}: ${line.message}`, ...(level !== undefined ? { level } : {}) };
+    });
 }
 
 /**

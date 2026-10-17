@@ -12,6 +12,7 @@ import { useMemo } from "react";
 
 import { isApiError } from "../../api/client";
 import { appsQuery } from "../../api/queries/apps";
+import { fleetLogsQuery } from "../../api/queries/fleetCompare";
 import { logSearchQuery } from "../../api/queries/logSearch";
 import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
@@ -25,8 +26,10 @@ import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
-import { DEFAULT_WINDOW, LEVELS, WINDOWS, paramsOf, searchCommand, viewerLines } from "./data";
-import type { LogLevel, LogWindow, LogsSearch } from "./data";
+import { useHasFleet } from "../../nodes/servers";
+import { PartialNotice } from "../fleet/parts";
+import { DEFAULT_WINDOW, LEVELS, WINDOWS, fleetViewerLines, paramsOf, searchCommand, viewerLines } from "./data";
+import type { LogLevel, LogWindow, LogsScope, LogsSearch } from "./data";
 
 /** Select's value for "no filter": an option needs a value. */
 const ALL = "__all";
@@ -47,18 +50,28 @@ function levelOptions(t: T): { value: LogLevel | typeof ALL; label: string }[] {
 /** A change to the question: a key set to undefined is cleared. */
 type Patch = { [K in keyof LogsSearch]?: LogsSearch[K] | undefined };
 
+/** Lines asked of each server when every server is searched. */
+const FLEET_LINES = 100;
+
 export function LogSearchPage({ search, onSearchChange }: LogSearchPageProps) {
   const t = useT();
+  const hasFleet = useHasFleet();
+  const fleet = hasFleet && search.scope === "fleet";
   const apps = useQuery(appsQuery());
-  const result = useQuery(logSearchQuery(paramsOf(search)));
+  const params = paramsOf(search);
+  const result = useQuery({ ...logSearchQuery(params), enabled: !fleet });
+  const across = useQuery({ ...fleetLogsQuery({ q: params.q, since: params.since, level: params.level, limit: FLEET_LINES }), enabled: fleet });
   // Newest first from the server; a viewer reads oldest first and follows the end.
   const lines = useMemo(() => (result.data === undefined ? [] : viewerLines([...result.data.lines].reverse())), [result.data]);
+  const fleetLines = useMemo(() => (across.data === undefined ? [] : fleetViewerLines(across.data.items)), [across.data]);
+  const fleetNotes = (across.data?.items ?? []).filter((row) => row["type"] === "note");
 
   const set = (patch: Patch): void => {
     const next: Patch = { ...search, ...patch };
     const clean: LogsSearch = {};
     if (next.q) clean.q = next.q;
     if (next.app) clean.app = next.app;
+    if (next.scope) clean.scope = next.scope;
     if (next.since) clean.since = next.since;
     if (next.level) clean.level = next.level;
     onSearchChange(clean);
@@ -98,8 +111,22 @@ export function LogSearchPage({ search, onSearchChange }: LogSearchPageProps) {
           }}
           filters={
             <>
+              {hasFleet ? (
+                <SegmentedControl<"server" | LogsScope>
+                  label={t("fleetCompare.logs.scopeLabel")}
+                  value={fleet ? "fleet" : "server"}
+                  onValueChange={(scope) => {
+                    set({ scope: scope === "fleet" ? "fleet" : undefined });
+                  }}
+                  options={[
+                    { value: "server", label: t("fleetCompare.logs.thisServer") },
+                    { value: "fleet", label: t("fleetCompare.logs.everyServer") },
+                  ]}
+                />
+              ) : null}
               <Select
                 aria-label={t("logSearch.appLabel")}
+                disabled={fleet}
                 value={search.app ?? ALL}
                 onValueChange={(app) => {
                   set({ app: app === ALL ? undefined : app });
@@ -130,7 +157,47 @@ export function LogSearchPage({ search, onSearchChange }: LogSearchPageProps) {
       }
       footer={<CommandHint command={searchCommand(search)} label={t("logSearch.fromTerminal")} />}
     >
-      {result.isError && result.data === undefined ? (
+      {fleet ? (
+        <div className="flex min-w-0 flex-col gap-4">
+          <PartialNotice view={across.data} />
+          {across.isError && across.data === undefined ? (
+            <ErrorBlock
+              error={across.error}
+              title={t("fleetCompare.logs.loadFailed")}
+              onRetry={() => {
+                void across.refetch();
+              }}
+              retrying={across.isRefetching}
+            />
+          ) : across.data === undefined ? (
+            <div aria-busy="true" className="flex h-editor min-h-0 min-w-0 flex-col">
+              <span className="sr-only">{t("logSearch.loading")}</span>
+              <LogViewer lines={[]} height="fill" searchable={false} loading label={t("logSearch.viewerLabel")} emptyMessage={t("logSearch.loading")} />
+            </div>
+          ) : (
+            <>
+              <p role="status" className="text-13 text-fg-muted">
+                {fleetLines.length === 0
+                  ? t("fleetCompare.logs.nothing")
+                  : `${t("fleetCompare.logs.summary", { count: fleetLines.length, servers: across.data.nodes.length })} ${t("fleetCompare.logs.perServer", { limit: FLEET_LINES })}`}
+              </p>
+              {search.app !== undefined ? <Notice tone="info">{t("fleetCompare.logs.appNote")}</Notice> : null}
+              {fleetNotes.length > 0 ? (
+                <ul className="flex flex-col gap-1 text-12 text-fg-muted">
+                  {fleetNotes.map((row) => (
+                    <li key={`${String(row["node"])}:${String(row["message"])}`} translate="no">
+                      {`${String(row["node"])}: ${String(row["message"])}`}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              <div className="flex h-editor min-h-0 min-w-0 flex-col">
+                <LogViewer lines={fleetLines} height="fill" follow searchable={false} label={t("logSearch.viewerLabel")} filename="logs.log" emptyMessage={t("logSearch.empty")} />
+              </div>
+            </>
+          )}
+        </div>
+      ) : result.isError && result.data === undefined ? (
         // A query the server cannot read is the question's fault: its own words, verbatim, beside the box.
         <ErrorBlock
           error={result.error}
@@ -178,7 +245,7 @@ export function LogSearchPage({ search, onSearchChange }: LogSearchPageProps) {
               />
             </div>
           )}
-          {search.q !== undefined || search.app !== undefined || search.level !== undefined || search.since !== undefined ? (
+          {search.q !== undefined || search.app !== undefined || search.level !== undefined || search.since !== undefined || search.scope !== undefined ? (
             <div>
               <Button
                 size="sm"
