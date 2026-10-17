@@ -182,6 +182,25 @@ def test_a_compose_request_carries_its_options_to_the_job(
     assert kwargs["skip_database"] is False
 
 
+def test_a_stack_is_given_no_port_unless_one_is_asked_for(
+    client: TestClient, queued: list[dict[str, Any]]
+) -> None:
+    """The site follows the port the stack publishes (docs/compose.md), not a free one nobody uses.
+
+    The real-machine harness found a stack created without a port proxied to the free port
+    Noust picked for it, which answered 502 while the stack served on its own.
+    """
+    stack = {**FORM, "app_type": "docker-compose"}
+
+    client.post("/api/apps", json=stack)
+    client.post("/api/apps", json={**stack, "domain": "other.example.com", "port": 3777})
+    client.post("/api/apps", json={**FORM, "domain": "node.example.com"})
+
+    assert queued[0]["kwargs"]["port"] is None
+    assert queued[1]["kwargs"]["port"] == 3777
+    assert isinstance(queued[2]["kwargs"]["port"], int), "other types are still given a free port"
+
+
 def test_the_job_hands_the_options_to_the_deployer(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     The last hop: the job function must forward the options to ``configure``

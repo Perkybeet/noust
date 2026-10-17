@@ -83,7 +83,12 @@ from noust.managers.nginx_manager import NginxManager
 from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.managers.source_manager import SourceManager
 from noust.recipes import RecipeError, get_recipe
-from noust.recipes.deploy import finish_recipe, plan_recipe, refuse_conflicts
+from noust.recipes.deploy import (
+    finish_recipe,
+    keep_after_failed_deploy,
+    plan_recipe,
+    refuse_conflicts,
+)
 from noust.validators.domain import should_include_www, validate_domain
 from noust.validators.environment import is_valid_env_name
 from noust.validators.port import find_available_port, validate_port, validate_unclaimed_port
@@ -313,6 +318,10 @@ def _create_app(
 
     if port:
         port = validate_unclaimed_port(validate_port(port), get_store().ports_owned_by_apps())
+    elif app_type == "docker-compose":
+        # A stack publishes its own ports, and the site goes to the one it publishes for `/`
+        # (docs/compose.md); a free port Noust picked would be one nothing listens on.
+        port = None
     else:
         port = find_available_port(preferred=3000, exclude=get_store().ports_owned_by_apps())
         if not port:
@@ -356,7 +365,7 @@ def _create_app(
     logger.key_value("Domain", domain)
     logger.key_value("Source", source)
     logger.key_value("Type", "detected from the source" if app_type == "auto" else app_type)
-    logger.key_value("Port", str(port))
+    logger.key_value("Port", str(port) if port else "the one the stack publishes")
     logger.key_value("Package Manager", package_manager)
     logger.key_value("SSL", "Yes" if ssl else "No")
     if ssl and www and should_include_www(domain):
@@ -762,7 +771,11 @@ def _create_from_recipe(
         replace_existing=replace_existing,
         **plan.configure_arguments(),
     )
-    deployer.deploy()
+    try:
+        deployer.deploy()
+    except NoustError as exc:
+        keep_after_failed_deploy(plan, exc, logger=logger)
+        raise
 
     notes = finish_recipe(plan, logger=logger, default_backups=default_backups)
     if notes:
