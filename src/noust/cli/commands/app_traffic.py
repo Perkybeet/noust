@@ -8,10 +8,12 @@
     noust app traffic shop.example.com --window 7d --top 20
     noust app traffic shop.example.com --json
 
-Requests and how they ended, bytes served, the pages asked for most, the
-networks they came from, the status codes and the referrers. It reads the
-history the monitor keeps (``noust monitor enable`` records it); query strings
-are never kept and a client is its network, not its address.
+Requests and how they ended, bytes served, how long they took (the median and the
+p95), how many different visitors there were, the pages asked for most, the networks
+they came from, the status codes and the referrers. It reads the history the monitor
+keeps (``noust monitor enable`` records it); query strings are never kept and a client
+is its network, not its address. The time a request took is in the log of the sites
+Noust writes from 4.0 on; a site written before that has it from its next update.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ import json
 import click
 
 from noust.cli.app import Context, NoustCommand, json_option, pass_context
+from noust.core.alerts.model import format_value
 from noust.core.exceptions import NoustError
 from noust.core.store import get_store
 from noust.monitor.timeseries import MetricsStore, default_metrics_db_path
@@ -55,7 +58,7 @@ def _size(value: int) -> str:
     return f"{value} B"
 
 
-def _row(point: TrafficPoint) -> dict[str, int]:
+def _row(point: TrafficPoint) -> dict[str, int | float | None]:
     """
     Args:
         point: One step of the traffic.
@@ -71,6 +74,9 @@ def _row(point: TrafficPoint) -> dict[str, int]:
         "s4xx": point.s4xx,
         "s5xx": point.s5xx,
         "bytes": point.bytes,
+        "latency_p50_ms": None if point.latency_p50_ms is None else round(point.latency_p50_ms, 1),
+        "latency_p95_ms": None if point.latency_p95_ms is None else round(point.latency_p95_ms, 1),
+        "visitors": point.visitors,
     }
 
 
@@ -138,6 +144,14 @@ def traffic_command(ctx: Context, domain: str, window: str, top: int) -> None:
         f"{totals.s2xx:,} 2xx, {totals.s3xx:,} 3xx, {totals.s4xx:,} 4xx, {totals.s5xx:,} 5xx",
     )
     ctx.logger.key_value("Served", _size(totals.bytes))
+    if totals.visitors is not None:
+        ctx.logger.key_value("Visitors", f"{totals.visitors:,} different")
+    if totals.latency_p50_ms is not None and totals.latency_p95_ms is not None:
+        ctx.logger.key_value(
+            "Took",
+            f"{format_value('ms', totals.latency_p50_ms)} median, "
+            f"{format_value('ms', totals.latency_p95_ms)} p95",
+        )
     for dimension, heading in HEADINGS.items():
         ranked = found.top.get(dimension) or []
         if not ranked:
