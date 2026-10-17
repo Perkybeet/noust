@@ -418,6 +418,7 @@ EVENTS: dict[str, EventSpec] = {
             "db.restore": "A database dump was restored.",
             "backup.encryption.key": "A key for sealing the backups kept on this server was made.",
             "backup.encryption.stop": "Backups kept on this server stopped being sealed.",
+            "backup.encryption.seal": "Backups already on this server's disk were sealed.",
             "db.tls.enable": "A host database engine was given a certificate to serve TLS with.",
             "db.tls.refresh": "A host database engine loaded the renewed certificate it serves.",
             "db.tls.disable": "A host database engine was taken off the certificate Noust gave it.",
@@ -618,6 +619,7 @@ EVENTS: dict[str, EventSpec] = {
     **_reads(
         {
             "apps.env.reveal": "An application's secret environment values were shown.",
+            "backup.encryption.reveal": "A key for sealing the backups kept on this server was shown.",
             "apps.export.secrets": "An application was exported with its secrets.",
             "store.export.secrets": "The store was dumped with the secret values of its records.",
             "audit.read": "The audit log was read.",

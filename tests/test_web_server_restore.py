@@ -197,6 +197,7 @@ class TestRestoring:
         assert job["kwargs"]["apps"] == ["shop.example.com"]
         assert job["kwargs"]["from_destination"] == "nas"
         assert job["metadata"]["kind"] == "server-restore"
+        assert str(job["job_type"].value) == "custom", "a failed one is not announced as a backup"
 
     def test_the_job_never_touches_the_state_here(
         self, monkeypatch: pytest.MonkeyPatch, store: NoustStore

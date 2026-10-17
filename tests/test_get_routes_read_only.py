@@ -64,6 +64,8 @@ READS_THAT_SOUND_LIKE_ACTIONS = {
     "/api/auth/saml/start": "the redirect to the SAML identity provider that begins a sign-in",
     "/api/server/restore/plan": "what restoring the server would do: it reads the store, the "
     "machine and the destinations and changes nothing",
+    "/api/backups/encryption/seal-existing": "how many backups in clear sealing them would touch, "
+    "counted and not sealed; the POST seals",
 }
 
 #: Reads that ask for sudo mode. Template to why a GET and not a POST.
@@ -75,6 +77,9 @@ SENSITIVE_READS = {
     "/api/apps/{domain}/files/download": "the same file, downloaded with a link",
     "/api/apps/{domain}/mounts/content": "the text of a mounted file, which is a secret "
     "as often as it is a configuration",
+    "/api/backups/encryption/keys/{key_id}": "a key the backups on the disk are sealed with, "
+    "shown to keep it elsewhere; it asks for sudo mode and the permission that reads secrets, "
+    "and the read is recorded without the value",
 }
 
 

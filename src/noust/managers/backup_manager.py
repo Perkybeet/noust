@@ -1974,6 +1974,34 @@ class BackupManager:
             app_backup_dir / f"{backup.id}.json",
         )
 
+    def record_resealed(self, backup: BackupMetadata, *, size_bytes: int, checksum: str) -> None:
+        """
+        Write a backup's sidecar again after its archive was sealed in place.
+
+        Sealing changes the bytes the sidecar describes, and its MAC covers the checksum, so the
+        size, the checksum and the MAC are written together: the sidecar of a sealed archive
+        authenticates the file that is on the disk, as it does for one sealed when it was made.
+
+        Args:
+            backup: The backup, as :meth:`get_backup` returned it.
+            size_bytes: The stored archive's size now.
+            checksum: Its SHA-256 now.
+
+        Raises:
+            BackupError: When the sidecar cannot be written; the archive is then sealed and the
+                sidecar still describes it in clear, which sealing again repairs.
+        """
+        backup.size_bytes = size_bytes
+        backup.checksum = checksum
+        sidecar = self.local_files(backup)[1]
+        try:
+            self.fs.write_text(sidecar, self._sidecar_text(backup), mode=SECRET_MODE)
+        except OSError as exc:
+            raise BackupError(
+                f"Could not write the metadata of {backup.id} after sealing it",
+                details=f"{exc}. Seal the existing backups again: it repairs this.",
+            ) from exc
+
     def checksum_of(self, path: Path) -> str:
         """
         Compute the SHA256 checksum of a file, the same way a backup is checksummed.

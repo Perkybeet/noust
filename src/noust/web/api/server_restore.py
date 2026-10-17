@@ -183,7 +183,9 @@ def restore(
     """
     return queue(
         session,
-        job_type=JobType.BACKUP,
+        # Not BACKUP: a failed backup job is announced as a failed backup, and this is a
+        # restore of a whole server, which reports through its own report.
+        job_type=JobType.CUSTOM,
         name="Restore the server",
         description="Installing what is missing and restoring the databases and applications",
         func=restore_job,

@@ -1539,6 +1539,33 @@ class VolumeBackupManager:
         """
         return self._directory(metadata.app_name) / f"{metadata.id}{ARCHIVE_SUFFIX}"
 
+    def record_resealed(
+        self, metadata: VolumeBackupMetadata, *, size_bytes: int, checksum: str
+    ) -> None:
+        """
+        Write a backup's sidecar again after its archive was sealed in place.
+
+        The MAC covers the checksum, so size, checksum and MAC are written together: the sidecar
+        authenticates the file that is on the disk, as for an archive sealed when it was made.
+
+        Args:
+            metadata: The backup.
+            size_bytes: The stored archive's size now.
+            checksum: Its SHA-256 now.
+
+        Raises:
+            BackupError: When the sidecar cannot be written; sealing again repairs it.
+        """
+        metadata.size_bytes = size_bytes
+        metadata.checksum = checksum
+        try:
+            self._write_sidecar(metadata)
+        except OSError as exc:
+            raise BackupError(
+                f"Could not write the metadata of {metadata.id} after sealing it",
+                details=f"{exc}. Seal the existing backups again: it repairs this.",
+            ) from exc
+
     def require(self, backup_id: str) -> VolumeBackupMetadata:
         """
         Find a backup or say how to list them.

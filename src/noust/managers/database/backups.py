@@ -907,6 +907,24 @@ class DatabaseBackups:
         known = {(r.engine, r.file_name): r for r in self.records.dumps(canonical)}
         return [DumpView(info, known.get((info.engine, info.path.name))) for info in infos]
 
+    def record_resealed(self, view: DumpView, *, size: int, sha256: str) -> None:
+        """
+        Record a dump's stored size and digest after the file was sealed in place.
+
+        Without it the next check would say the file changed on disk since the dump was taken. A
+        dump nobody recorded (one imported by hand) has nothing to update.
+
+        Args:
+            view: The dump, as :meth:`list_dumps` returned it.
+            size: The stored file's size now.
+            sha256: Its SHA-256 now.
+        """
+        if view.record is None:
+            return
+        view.record.size = size
+        view.record.sha256 = sha256
+        self.records.save_dump(view.record)
+
     def _view(self, engine: str, file_name: str) -> DumpView:
         """
         Find one dump on disk.
