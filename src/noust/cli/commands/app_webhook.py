@@ -364,3 +364,54 @@ def deliveries_command(ctx: Context, domain: str, limit: int) -> None:
             for row in rows
         ],
     )
+
+
+@webhook.command("registry")
+@click.argument("domain")
+@click.option(
+    "--reveal",
+    is_flag=True,
+    help="Print the token of Docker Hub's address too (it is a credential, never shown otherwise).",
+)
+@global_flags
+@json_option("Print the addresses as JSON.")
+@pass_context
+def registry_command(ctx: Context, domain: str, reveal: bool) -> None:
+    """
+    Say what to give a container registry so a push of the image deploys the application.
+
+    For an application that runs an image from a registry. GitHub Container Registry sends a
+    registry_package event to the first address, signed with the application's webhook secret
+    (the one 'noust app webhook show --reveal' prints). Docker Hub signs nothing, so the second
+    address carries a token made from the secret. A push of the tag the application runs queues
+    its update, once for each new digest; another image or tag, or a digest that already runs, is
+    acknowledged and ignored.
+    """
+    from noust.integrations import registry_webhook
+
+    app = _application(domain)
+    found = registry_webhook.describe(app, reveal=reveal)
+    if ctx.json_output:
+        click.echo(json.dumps(found.to_dict()))
+        return
+    if not found.supported:
+        raise DeploymentError(
+            f"{app.domain} does not run an image from a registry", details=found.reason
+        )
+    ctx.logger.key_value("Application", app.domain)
+    ctx.logger.key_value("Image", found.image or "")
+    if found.pinned:
+        ctx.logger.warning("The image is pinned by digest: a push never changes what it runs")
+    if not found.enabled:
+        ctx.logger.info(f"No webhook secret yet: noust app webhook rotate {app.domain}")
+        return
+    if found.ghcr_url is None:
+        ctx.logger.info(
+            "There is no address to give yet: expose the console's hooks with "
+            "'noust web expose-hooks DOMAIN', or open the console and read them there"
+        )
+        return
+    ctx.logger.key_value("GitHub (registry_package)", found.ghcr_url)
+    ctx.logger.key_value("Docker Hub", found.dockerhub_url or "")
+    if not found.public:
+        ctx.logger.warning("These are not public addresses: no registry can reach them yet")

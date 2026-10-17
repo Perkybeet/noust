@@ -21,6 +21,7 @@ standard input and a build secret from a file.
 from __future__ import annotations
 
 import json
+import shlex
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -44,7 +45,14 @@ F = TypeVar("F", bound=Callable[..., Any])
 _MAX_SECRET = 64 * 1024
 
 #: What ``--clear`` may name, spelled as the other options are.
-CLEARABLE = ("dockerfile", "target", "container-port", "registry-server")
+CLEARABLE = (
+    "dockerfile",
+    "target",
+    "container-port",
+    "registry-server",
+    "command",
+    "entrypoint",
+)
 
 
 def _actor() -> str:
@@ -171,6 +179,13 @@ def container_options(command: F) -> F:
         click.option("--restart", "restart_policy", metavar="POLICY",
                      help="Docker's restart policy: no, always, unless-stopped (default) or "
                      "on-failure."),
+        click.option("--entrypoint", metavar="LINE",
+                     help="Run this program instead of the image's ENTRYPOINT: the line is split "
+                     "into words the way a shell would, and no shell runs it. An empty line "
+                     "clears the image's entrypoint."),
+        click.option("--command", "command_line", metavar="LINE",
+                     help="Give the entrypoint these arguments instead of the image's CMD "
+                     "(split into words, no shell). An empty line clears the image's CMD."),
         click.option("--registry-server", metavar="HOST",
                      help="The registry the account is for. Default: the image's own."),
         click.option("--registry-user", metavar="USER",
@@ -198,6 +213,8 @@ def changes_from_options(
     registry_server: str | None = None,
     registry_user: str | None = None,
     registry_password_stdin: bool = False,
+    entrypoint: str | None = None,
+    command_line: str | None = None,
     current: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
@@ -217,6 +234,8 @@ def changes_from_options(
         registry_server: ``--registry-server``.
         registry_user: ``--registry-user``.
         registry_password_stdin: ``--registry-password-stdin``.
+        entrypoint: ``--entrypoint``, a line.
+        command_line: ``--command``, a line.
         current: The settings now, when changing an application: build
             arguments and volumes given are added to these, not instead of them.
 
@@ -258,6 +277,11 @@ def changes_from_options(
         }
     if registry_password_stdin:
         changes["registry_password"] = _read_password()
+    # A line, which the settings split into words (and refuse when a quote is left open).
+    if entrypoint is not None:
+        changes["entrypoint"] = entrypoint
+    if command_line is not None:
+        changes["command"] = command_line
     return changes
 
 
@@ -289,6 +313,9 @@ def _print(ctx: Context, view: ContainerView) -> None:
         for secret_id in settings["build_secrets"]:
             ctx.logger.key_value("Build secret", f"{secret_id} (value kept in the secret store)")
     ctx.logger.key_value("Container port", str(settings["container_port"]))
+    for label, key in (("Entrypoint", "entrypoint"), ("Command", "command")):
+        if settings.get(key) is not None:
+            ctx.logger.key_value(label, shlex.join(settings[key]) or "(cleared)")
     ctx.logger.key_value("Restart", settings["restart_policy"])
     for volume in settings["volumes"]:
         ctx.logger.key_value("Volume", volume)
@@ -407,3 +434,32 @@ def set_command(
         f"{validated}: changed {', '.join(outcome.changed)}. It takes effect with: "
         f"noust update {validated}"
     )
+
+
+@container.command("check")
+@click.argument("domain")
+@json_option("Print the finding as JSON.")
+@pass_context
+def check_command(ctx: Context, domain: str) -> None:
+    """
+    Ask the registry whether the tag of an image application points at a new image.
+
+    The tag is pulled (one request when this server has it, the layers when it moved) and its
+    digest is compared with the one that runs. Nothing is deployed: 'noust update' does that,
+    and a schedule ('noust deploy schedule set DOMAIN --at hourly') runs this question before
+    every update, so the container is recreated only when there is something new.
+    """
+    from noust.managers.image_updates import check_image
+
+    found = check_image(validate_domain(domain), logger=ctx.logger)
+    if ctx.json_output:
+        click.echo(json.dumps(found.to_dict()))
+        return
+    ctx.logger.key_value("Application", found.domain)
+    ctx.logger.key_value("Image", found.reference)
+    ctx.logger.key_value("Running digest", found.deployed or "not recorded")
+    ctx.logger.key_value("Tag now", found.current or "not given")
+    if found.changed:
+        ctx.logger.success(f"New: {found.reason}. Deploy it with: noust update {found.domain}")
+    else:
+        ctx.logger.info(f"Nothing new: {found.reason}")

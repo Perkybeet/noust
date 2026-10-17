@@ -127,6 +127,8 @@ BUILD_COLUMNS: list[tuple[str, str, str]] = []
 # volumes: JSON list of container paths kept in named volumes.
 # registry_*: the account the image (or a private base image) is pulled with.
 # digest: the digest the last deployment of a registry image resolved.
+# entrypoint, command: JSON lists of words that replace the image's ENTRYPOINT and CMD; NULL
+#   leaves the image's own, an empty list clears it (added in 4.0, as columns).
 CONTAINER_SQL = """
 CREATE TABLE IF NOT EXISTS app_container (
     app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
@@ -149,7 +151,10 @@ CREATE TABLE IF NOT EXISTS app_container (
     updated_at TEXT NOT NULL
 );
 """
-CONTAINER_COLUMNS: list[tuple[str, str, str]] = []
+CONTAINER_COLUMNS: list[tuple[str, str, str]] = [
+    ("app_container", "entrypoint", "TEXT"),
+    ("app_container", "command", "TEXT"),
+]
 
 # Owned by the recipes lane: which recipe an application was installed from,
 # and at which version. One row per application, in a table of its own so a

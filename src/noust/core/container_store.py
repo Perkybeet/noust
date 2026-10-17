@@ -78,6 +78,10 @@ class ContainerSettings:
         registry_username: The account.
         registry_secret: The name of the secret holding its password.
         digest: The digest the last deployment of a registry image resolved.
+        entrypoint: The words that replace the image's ENTRYPOINT; None keeps the image's own,
+            an empty tuple clears it.
+        command: The words that replace the image's CMD (the arguments of the entrypoint); None
+            keeps the image's own, an empty tuple clears it.
     """
 
     method: str = rules.METHOD_DOCKERFILE
@@ -94,6 +98,8 @@ class ContainerSettings:
     registry_username: str | None = None
     registry_secret: str | None = None
     digest: str | None = None
+    entrypoint: tuple[str, ...] | None = None
+    command: tuple[str, ...] | None = None
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> ContainerSettings:
@@ -122,6 +128,9 @@ class ContainerSettings:
         for name in ("build_secrets", "volumes"):
             if name in values:
                 values[name] = tuple(values[name] or ())
+        for name in ("entrypoint", "command"):
+            if values.get(name) is not None:
+                values[name] = tuple(values[name])
         if "build_args" in values:
             values["build_args"] = dict(values["build_args"] or {})
         return cls(**values)
@@ -182,6 +191,10 @@ class ContainerSettings:
             rules.check_container_port(self.container_port)
         if self.digest is not None:
             rules.check_digest(self.digest)
+        for name in ("entrypoint", "command"):
+            given = getattr(self, name)
+            if given is not None:
+                rules.check_command(given, field=name)
         self._check_method_fields()
         self._check_account()
         return self
@@ -311,6 +324,8 @@ class ContainerSettings:
             "registry_username": self.registry_username,
             "registry_password_set": self.has_account,
             "digest": self.digest,
+            "entrypoint": list(self.entrypoint) if self.entrypoint is not None else None,
+            "command": list(self.command) if self.command is not None else None,
         }
 
 
@@ -421,6 +436,25 @@ def _decode_json(raw: Any, default: Any) -> Any:
     return value if isinstance(value, type(default)) else default
 
 
+def _decode_words(raw: Any) -> tuple[str, ...] | None:
+    """
+    Read a JSON column that holds a list of words, or nothing.
+
+    Args:
+        raw: The column's value.
+
+    Returns:
+        The words; None for a column that holds none (the image's own) or a damaged one.
+    """
+    if raw is None:
+        return None
+    try:
+        decoded = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    return tuple(str(word) for word in decoded) if isinstance(decoded, list) else None
+
+
 def _from_row(row: sqlite3.Row) -> ContainerSettings:
     """
     Build the settings a row holds.
@@ -447,6 +481,8 @@ def _from_row(row: sqlite3.Row) -> ContainerSettings:
         registry_username=row["registry_username"],
         registry_secret=row["registry_secret"],
         digest=row["digest"],
+        entrypoint=_decode_words(row["entrypoint"]),
+        command=_decode_words(row["command"]),
     )
 
 
@@ -508,8 +544,9 @@ class ContainerStore:
             cursor.execute(
                 "INSERT INTO app_container (app_id, method, image, dockerfile, context, target, "
                 "build_args, build_secrets, container_port, volumes, restart_policy, "
-                "registry_server, registry_username, registry_secret, digest, updated_by, "
-                "updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                "registry_server, registry_username, registry_secret, digest, entrypoint, "
+                "command, updated_by, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(app_id) DO UPDATE SET method = excluded.method, "
                 "image = excluded.image, dockerfile = excluded.dockerfile, "
                 "context = excluded.context, target = excluded.target, "
@@ -519,6 +556,7 @@ class ContainerStore:
                 "registry_server = excluded.registry_server, "
                 "registry_username = excluded.registry_username, "
                 "registry_secret = excluded.registry_secret, digest = excluded.digest, "
+                "entrypoint = excluded.entrypoint, command = excluded.command, "
                 "updated_by = excluded.updated_by, updated_at = excluded.updated_at",
                 (
                     found[0],
@@ -536,6 +574,8 @@ class ContainerStore:
                     settings.registry_username,
                     settings.registry_secret,
                     settings.digest,
+                    None if settings.entrypoint is None else json.dumps(list(settings.entrypoint)),
+                    None if settings.command is None else json.dumps(list(settings.command)),
                     actor,
                     _now(),
                 ),
@@ -763,6 +803,52 @@ class ContainerStore:
             ValidationError: Not a digest.
         """
         return self._set(domain, "digest", None if digest is None else rules.check_digest(digest))
+
+    def set_command(self, domain: str, words: list[str] | tuple[str, ...] | None) -> bool:
+        """
+        Store the words that replace the image's CMD.
+
+        Args:
+            domain: The application's domain.
+            words: The arguments of the entrypoint; an empty list clears the image's own;
+                None keeps the image's.
+
+        Returns:
+            True when the application has settings and they were written.
+
+        Raises:
+            ValidationError: Not a list of words a process can be given.
+        """
+        return self._set(
+            domain,
+            "command",
+            None
+            if words is None
+            else json.dumps(list(rules.check_command(words, field="command"))),
+        )
+
+    def set_entrypoint(self, domain: str, words: list[str] | tuple[str, ...] | None) -> bool:
+        """
+        Store the words that replace the image's ENTRYPOINT.
+
+        Args:
+            domain: The application's domain.
+            words: The program and its leading arguments; an empty list clears the image's
+                own; None keeps the image's.
+
+        Returns:
+            True when the application has settings and they were written.
+
+        Raises:
+            ValidationError: Not a list of words a process can be given.
+        """
+        return self._set(
+            domain,
+            "entrypoint",
+            None
+            if words is None
+            else json.dumps(list(rules.check_command(words, field="entrypoint"))),
+        )
 
     def set_registry(
         self, domain: str, server: str | None, username: str | None, secret: str | None

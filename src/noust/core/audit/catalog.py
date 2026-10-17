@@ -325,6 +325,7 @@ EVENTS: dict[str, EventSpec] = {
             "hooks.github": "A GitHub App delivery was handled.",
             "hooks.secret.mint": "An application's webhook secret was created or rotated.",
             "hooks.secret.reveal": "An application's webhook secret was shown.",
+            "hooks.registry.reveal": "The address a container registry is given, token included, was shown.",
             "hooks.secret.disable": "An application's webhook was disabled.",
             "services.create": "A service unit was created.",
             "services.update": "A service unit was changed.",

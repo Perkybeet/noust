@@ -726,6 +726,55 @@ class ImageBuilder:
                 the pulled image cannot be read.
         """
         reference = settings.image or ""
+        image_id, digest, ports = self._pull_and_describe(settings)
+        named = self.runner.run(["docker", "image", "tag", image_id, tag], timeout=QUERY_TIMEOUT)
+        if not named.success:
+            raise DockerError(
+                f"The pulled image could not be named {tag}",
+                details=(named.stderr or named.stdout).strip(),
+            )
+        self.logger.substep(f"Pulled {reference}" + (f" ({digest})" if digest else ""))
+        return PulledImage(
+            reference=reference, image_id=image_id, digest=digest, exposed_ports=ports
+        )
+
+    def latest_digest(self, settings: ContainerSettings) -> str | None:
+        """
+        Ask the registry which digest an image's tag is now.
+
+        By pulling it: a tag the host already has costs one request to the registry and no layer,
+        and one that moved is what the update that follows needs anyway, so nothing is downloaded
+        twice. The image is not named for a release: nothing is deployed by looking.
+
+        Args:
+            settings: The application's settings; ``image`` is what is asked.
+
+        Returns:
+            The digest of the repository the image is pulled from; None when the image has none.
+
+        Raises:
+            DeploymentError: The account's password is missing.
+            DockerError: The registry refused the account or the pull failed.
+        """
+        return self._pull_and_describe(settings)[1]
+
+    def _pull_and_describe(
+        self, settings: ContainerSettings
+    ) -> tuple[str, str | None, tuple[int, ...]]:
+        """
+        Pull an application's image and read what Docker knows of it.
+
+        Args:
+            settings: The application's settings.
+
+        Returns:
+            The image's id, its digest and the TCP ports it says it listens on.
+
+        Raises:
+            DeploymentError: The account's password is missing.
+            DockerError: The pull failed, or Docker cannot describe what it pulled.
+        """
+        reference = settings.image or ""
         with self.registry_session(settings) as login_env:
             result = self.runner.stream(
                 ["docker", "pull", reference],
@@ -749,17 +798,7 @@ class ImageBuilder:
                 f"{reference} was pulled but Docker cannot describe it",
                 details=(inspected.stderr or inspected.stdout).strip(),
             )
-        image_id, digest, ports = self._read_inspection(inspected, reference)
-        named = self.runner.run(["docker", "image", "tag", image_id, tag], timeout=QUERY_TIMEOUT)
-        if not named.success:
-            raise DockerError(
-                f"The pulled image could not be named {tag}",
-                details=(named.stderr or named.stdout).strip(),
-            )
-        self.logger.substep(f"Pulled {reference}" + (f" ({digest})" if digest else ""))
-        return PulledImage(
-            reference=reference, image_id=image_id, digest=digest, exposed_ports=ports
-        )
+        return self._read_inspection(inspected, reference)
 
     @staticmethod
     def _read_inspection(

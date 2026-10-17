@@ -96,6 +96,57 @@ store backend`, which Noust follows with the change to make: `{"features": {"con
 true}}` in `/etc/docker/daemon.json` and a restart of Docker. Images and containers made with the
 previous store are not carried over, which is why Noust does not do it for you.
 
+### Following a tag
+
+`noust update` pulls the tag again and recreates the container behind the health gate. To have it
+done when the registry has something new, and only then, there are two triggers, and they ask the
+same question: does the tag now point at a digest other than the one that runs?
+
+```bash
+noust app container check shop.example.com        # pulls the tag, compares digests, deploys nothing
+noust deploy schedule set shop.example.com --at hourly     # or '*:0/15' for every quarter of an hour
+noust app webhook rotate shop.example.com         # a secret for the registry's webhook
+noust app webhook registry shop.example.com       # what to give the registry
+```
+
+- **A schedule** is the application's update timer with `only_if_new` (on by default): for an image
+  it pulls the tag and runs the update only when the digest moved, so a timer is not an hourly
+  recreation of the same image. It is held by a pause or a freeze of deploys, takes the
+  pre-update backup and passes the health gate like any update.
+- **A registry's webhook** pushes instead of polling. GitHub Container Registry: add a webhook to
+  the repository (or the organisation) that sends **Packages** events (`registry_package`) to
+  `https://<your hooks address>/hooks/registry/<domain>` with the application's webhook secret
+  (the same one a push webhook uses). Docker Hub signs nothing and cannot send a header, so its
+  address carries a token made from that secret: `noust app webhook registry <domain> --reveal`
+  prints the whole address to paste into the repository's **Webhooks** on hub.docker.com (the
+  console shows it after sudo mode). A secret that is rotated retires the token.
+  A delivery is acknowledged and ignored when it names another image or another tag, when the
+  application is pinned by digest, or when the digest it announces already runs; otherwise the
+  update is queued behind the application's other operations, merged into one that waits, and the
+  job asks the registry again before it recreates anything (a CI that pushes the same image twice
+  deploys once). Every delivery is in `noust app webhook deliveries`.
+- An image **pinned by digest** (`name@sha256:...`) never changes, so it never follows anything.
+
+### The command and the entrypoint
+
+An image runs its own `ENTRYPOINT` and `CMD`. To run something else, whichever way the image
+came to exist:
+
+```bash
+noust app container set shop.example.com --entrypoint "/app/run" --command "serve --port 8080"
+noust app container set shop.example.com --command ""            # clear the image's CMD
+noust app container set shop.example.com --clear command        # the image's own again
+```
+
+`--entrypoint` replaces the program (Docker's `ENTRYPOINT`) and `--command` its arguments
+(Docker's `CMD`). Each is an **argument vector, never a shell line**: the line is split into
+words the way a shell would split it, and nothing runs it through one, so `&&`, `|` and `$HOME`
+are plain words. A program that needs a shell is started with one:
+`--command "sh -c 'migrate && serve'"`. A `$` is the process's, not Compose's (Noust writes `$$`
+into the compose file). Over the API the settings are `entrypoint` and `command`, lists of words;
+an empty list clears the image's own, `null` leaves it, and `clear` names what goes back to the
+image's. A change takes effect with the next `noust update`.
+
 ### In the console
 
 The new-application wizard starts a container application three ways: a repository with a
@@ -207,5 +258,4 @@ or stop being one: that is another application.
   given.
 - The data in its volumes is not part of `noust backup`: the application's directory is, the
   named volumes are on the server. Volume backups are a separate feature.
-- It does not update itself when the registry has a new digest. `noust update` pulls the tag
-  again, and every update recreates the container; scheduling it is up to you.
+- It does not update itself unless you ask it to: see [Following a tag](#following-a-tag).

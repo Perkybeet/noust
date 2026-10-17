@@ -536,6 +536,15 @@ two; `noust config set deploy.install_timeout N` and `deploy.build_timeout N` ch
 default for every application that does not say (60 to 86400, read again every few seconds). Every
 type that Noust builds takes `timeout`, including PHP and static sites.
 
+**Images the Docker daemon builds take it too.** A Docker Compose stack and a container application
+(a Dockerfile or Railpack) are not built by the build block, but the block may carry the two keys
+that apply to an image: `timeout` (how long `docker compose build` or `docker build` may take, and
+how long bringing the containers up may wait on one; the server's `deploy.build_timeout`, 2700
+seconds, when the application does not say) and `cache: false` (the same as `noust update
+--no-cache`, on every build). `noust app build set stack.example.com --timeout 7200`, or `build:
+{timeout: 7200}` in the repository's `noust.yaml`. Any other key is refused with the reason, not
+ignored. A monorepo is built by its own tools and takes no build block.
+
 A step that is stopped says whether it was the time (`did not finish within 2700s`) or the memory
 (`killed due to insufficient memory`), and for the time it names the two commands that give it
 more. More time does not help a build that is stuck rather than slow (a private registry that does

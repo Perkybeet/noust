@@ -61,6 +61,7 @@ DESCRIPTION_PREFIX = "Noust update timer for "
 
 #: What the schedule's ``calendar`` may be given as, besides a systemd expression.
 ALIASES = {
+    "hourly": "*-*-* *:00:00",
     "daily": "*-*-* 03:00:00",
     "weekly": "Sun *-*-* 03:00:00",
     "monthly": "*-*-01 03:00:00",
@@ -246,10 +247,20 @@ def _something_new(domain: str) -> tuple[bool, str]:
         remote cannot be asked the answer is yes: the update will say why it cannot.
     """
     from noust.deployers import lifecycle
+    from noust.deployers.container import pulls_image
+    from noust.managers import image_updates
 
     app = get_store().get_app(domain)
     if app is None:
         return False, "the application is gone"
+    if pulls_image(app):
+        # An image from a registry follows its tag: new only when the tag points at another
+        # digest than the one that runs (checklist A-14).
+        try:
+            looked = image_updates.check_image(domain)
+        except NoustError as exc:
+            return True, f"the registry could not be asked ({exc.message})"
+        return looked.changed, looked.reason
     if app.follow_tags:
         if not app.source or validate_source(app.source)[0] != "git":
             return True, "it follows tags but is not deployed from git"
