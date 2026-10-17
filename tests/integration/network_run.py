@@ -766,6 +766,19 @@ def scenario_fail2ban(env: Env) -> None:
     env.check(not is_banned(env, "sshd", env.client_ip), "unban did not lift the sshd ban")
 
     # -- the web jails: a site with a password
+    # The offender's last attempts can leave a connection half-open on the server's side (its
+    # login grace time is two minutes); "who is connected over SSH" would count it, and the web
+    # jails would never ban the one address this scenario wants banned.
+    wait_for(
+        lambda: (
+            env.client_ip
+            not in env.srv(
+                "ss -tn state established '( sport = :22 )'", label="who is connected over SSH now"
+            ).stdout
+        ),
+        "the offender's leftover SSH connections to close",
+        timeout=150,
+    )
     ensure_app(env, "jail.test")
     env.srv("printf 'good-pass' | noust app policy user add jail.test ana --password-stdin")
     env.srv("noust app policy set jail.test --password --realm Staff")
