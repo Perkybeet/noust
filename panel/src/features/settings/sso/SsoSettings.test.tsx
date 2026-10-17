@@ -276,6 +276,36 @@ describe("Settings > Single sign-on", () => {
     expect(screen.queryByRole("dialog", { name: "Add an identity provider" })).not.toBeInTheDocument();
   });
 
+  it("adds a GitHub provider with only the OAuth App's client id and secret", { timeout: 30_000 }, async () => {
+    const { backend, state, user } = await pageAt({ providers: [], identities: [], local: { enabled: true, exempt: [], providers: 0, survivors: ["ana"] } });
+    backend.on("PUT /api/auth/oidc/config/github", (call: RecordedCall) => {
+      const body = call.body as Record<string, unknown>;
+      state.providers = [{ ...PROVIDER, name: "github", label: body["label"], kind: "github", issuer: "https://github.com", client_id: body["client_id"] }];
+      return json(200, state.providers[0]);
+    });
+    await user.click(await screen.findByRole("button", { name: "Add a provider" }));
+    const drawer = await screen.findByRole("dialog", { name: "Add an identity provider" });
+    await user.click(within(drawer).getByRole("radio", { name: /^GitHub/ }));
+    // Nothing OpenID Connect about it: no issuer to type, and no scopes to choose.
+    expect(within(drawer).getByLabelText(/^GitHub Enterprise Server/)).toHaveValue("");
+    expect(within(drawer).queryByLabelText(/^Issuer/)).not.toBeInTheDocument();
+    expect(within(drawer).getByRole("button", { name: "Add provider" })).toBeDisabled();
+    await user.type(within(drawer).getByLabelText(/^Name/), "github");
+    await user.type(within(drawer).getByLabelText(/^Client ID/), "Iv1.abc123");
+    await user.type(within(drawer).getByLabelText(/^Client secret/), "s3cret-value");
+    await user.click(within(drawer).getByRole("button", { name: "Add provider" }));
+
+    await waitFor(() => {
+      expect(backend.callsTo("PUT /api/auth/oidc/config/github")).toHaveLength(1);
+    });
+    const body = backend.callsTo("PUT /api/auth/oidc/config/github")[0]?.body as Record<string, unknown>;
+    expect(body).toMatchObject({ kind: "github", client_id: "Iv1.abc123", client_secret: "s3cret-value" });
+    expect(body).not.toHaveProperty("issuer");
+    expect(body).not.toHaveProperty("scopes");
+    expect(await screen.findByText("https://github.com")).toBeInTheDocument();
+    expect(screen.getAllByText("GitHub").length).toBeGreaterThan(0);
+  });
+
   it("shows the server's own words beside the field it refused", { timeout: 30_000 }, async () => {
     const { backend, user } = await pageAt({}, {});
     backend.on("PUT /api/auth/oidc/config/corp", () =>
