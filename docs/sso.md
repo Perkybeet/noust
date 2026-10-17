@@ -326,7 +326,10 @@ What a provider can and cannot do:
   the person's first sign-in at an identity provider (OpenID Connect, SAML or a directory), whose
   verified e-mail is the account's, activates it. SCIM keeps the roster; single sign-on signs people in;
   the e-mail ties them. `--link-by-email` attaches the person to an account that already has that
-  e-mail, as a first sign-in would, with the same conditions.
+  e-mail, as a first sign-in would, with the same conditions. A person sent without an e-mail is
+  created as well (a minimal `POST` is valid SCIM) and nobody can sign in as them: the provider may
+  send the e-mail later, once, with the checks creating the person would have had, or an
+  administrator links them by hand. A source limited to some domains refuses a person with none.
 * **It switches an account off** when the person is deactivated or deleted at the provider, which ends
   their sessions and API tokens at once, and **back on only if it was the provider that switched it
   off**: an administrator's own decision is never overridden.
@@ -337,11 +340,37 @@ What a provider can and cannot do:
   `security`, `auditor` or a team `owner`.
 * Supported: `/Users` and `/Groups` with `GET` (the filter every provider uses, `userName eq "..."`,
   `externalId eq` or `id eq`, and `displayName eq` for groups; paging), `POST`, `PUT`, `PATCH` (the forms
-  Entra and Okta send) and `DELETE`; `/ServiceProviderConfig`, `/ResourceTypes` and `/Schemas`. Any other
-  filter is a `400 invalidFilter` rather than ignored.
+  Entra and Okta send) and `DELETE`; `POST .../.search` (the query in a body, also over users and groups
+  together at `/.search`); `attributes` and `excludedAttributes` on every answer; and
+  `/ServiceProviderConfig`, `/ResourceTypes` and `/Schemas` (list responses, and one by its id). Any other
+  filter is a `400 invalidFilter` rather than ignored, and a path or a method Noust does not have is
+  answered in the protocol's own error body.
+* **Kept and not kept.** What Noust models is the user name, the external id, the display name (the
+  `name.formatted`), the first e-mail, `active` and the groups. Phone numbers, addresses, title and the
+  other core attributes a provider sends are accepted and not kept: Noust has no use for them, and a
+  provider that sends them must not be refused. They are not read back.
 
 `noust auth scim show` lists the sources; `noust auth scim users NAME` lists who a source provisioned. A
-wrong token is a `401` counted against the address like a wrong password.
+wrong token is a `401` counted against the address like a wrong password; a right one is never counted,
+however many calls a synchronisation makes and however many of them are answered 404.
+
+## Checked against real software
+
+The unit tests drive each protocol with providers written for them. `tests/integration/identity.py`
+(not part of pytest: it drives Docker and the network) drives the same code with programs written by
+other people, in containers named `noust-test-*` that it removes:
+
+| Software | What is held to it |
+|---|---|
+| Keycloak (SAML) | Noust configured from Keycloak's own metadata and Keycloak registered from Noust's; sign-in with the assertion signed, the response signed and both; the same person is the same account; a replayed response, a response changed after signing and an encrypted assertion are refused; a group gives the role the mapping says. |
+| Keycloak (OpenID Connect) | The discovery document and keys, a real ID token with PKCE, groups giving a role, a replayed callback refused. |
+| OpenLDAP | Plain text on this machine, StartTLS and LDAPS verified against a private authority (and refused against another), a service account that may only read, group search, `entryUUID` as who someone is, a name written to widen the search, an empty password; and the same through the console's own route. |
+| `scim2-tester` (a SCIM 2.0 conformance client) | Discovery, create, read, replace, patch, delete, filters and projection for users and groups. What it reports that Noust does by design (attributes accepted and not kept, an e-mail that is not changed once set) is listed in the harness with its reason; anything else fails the run. |
+
+Running a real client found what the unit tests had not: a provider's own calls were counted against
+the sign-in lockout, so its first synchronisation locked its address out; the discovery documents were
+bare arrays and not list responses; `attributes`, `excludedAttributes` and `.search` were missing; and
+a user sent with only a name was refused.
 
 ## The second factor
 

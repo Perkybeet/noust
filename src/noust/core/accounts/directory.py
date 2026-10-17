@@ -45,6 +45,7 @@ from noust.core.accounts.federation import (
     settle,
 )
 from noust.core.accounts.ldap_client import (
+    RESULT_HINTS,
     SCOPE_BASE,
     TLS_LDAPS,
     TLS_MODES,
@@ -55,6 +56,7 @@ from noust.core.accounts.ldap_client import (
     encode_filter,
     escape_filter_value,
     rdn_value,
+    result_name,
 )
 from noust.core.accounts.manager import AccountManager
 from noust.core.accounts.model import Account
@@ -655,12 +657,15 @@ class DirectoryManager:
         """
         directory = self.require_directory(name)
         checks: list[Check] = []
+        step = "connection"
         try:
             with self._connection(directory) as client:
                 where = f"{directory.host}:{directory.port} ({directory.tls})"
                 checks.append(Check("connection", True, f"Reached {where}"))
+                step = "bind"
                 password = self._service_password(directory)
                 client.bind(directory.bind_dn, password)
+                step = "users"
                 checks.append(
                     Check(
                         "bind",
@@ -683,6 +688,7 @@ class DirectoryManager:
                     )
                 )
                 if directory.group_base:
+                    step = "groups"
                     seen = client.search(
                         directory.group_base, "(objectClass=*)", [], scope=SCOPE_BASE, size_limit=1
                     )
@@ -696,8 +702,7 @@ class DirectoryManager:
                         )
                     )
         except LdapError as exc:
-            name_ = "bind" if checks else "connection"
-            checks.append(Check(name_, False, _words(exc)))
+            checks.append(Check(step, False, _words(exc)))
         except SecretsLockedError as exc:
             checks.append(Check("bind", False, str(exc)))
         return checks
@@ -932,9 +937,11 @@ def _words(exc: LdapError) -> str:
         What an operator reads: the client's sentence, then how to fix it and the directory's own
         words when it said any.
     """
-    parts = [exc.message]
+    parts = [exc.message + (f" ({result_name(exc.code)}, {exc.code})" if exc.code else "") + "."]
     if exc.details:
         parts.append(exc.details)
+    elif exc.code in RESULT_HINTS:
+        parts.append(RESULT_HINTS[exc.code])
     if exc.diagnostic:
         parts.append(f"The directory said: {exc.diagnostic}")
     return " ".join(parts)

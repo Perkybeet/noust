@@ -145,6 +145,8 @@ scripts/reproducible_build.py   the wheel and the sdist of a commit, byte for by
                             (docs/reproducible-builds.md); CI and the release workflow build with it
 tests/integration/run.py    real deploys in a systemd container (Docker); not part of pytest
 tests/integration/install_matrix.py   the installer on one container per release; not part of pytest
+tests/integration/identity.py         SAML, OpenID Connect, LDAP and SCIM against Keycloak, OpenLDAP and a
+                            SCIM conformance client; not part of pytest
 packaging/install.sh        the one-line installer (POSIX sh, shellcheck-clean), published with a
                             signed SHA256SUMS; its platform table is generated, never edited
 ```

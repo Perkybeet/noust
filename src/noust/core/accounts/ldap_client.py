@@ -89,6 +89,56 @@ _SIMPLE_AUTH = 0x80
 _ATTRIBUTE = re.compile(r"[A-Za-z][A-Za-z0-9.;-]{0,63}|[0-9]+(?:\.[0-9]+)*")
 
 
+#: What the result codes a directory answers with mean, for the sentence an operator reads.
+RESULT_NAMES: dict[int, str] = {
+    1: "operations error",
+    2: "protocol error",
+    3: "time limit exceeded",
+    4: "size limit exceeded",
+    7: "authentication method not supported",
+    8: "strong authentication required",
+    10: "referral",
+    11: "administrative limit exceeded",
+    13: "confidentiality required",
+    16: "no such attribute",
+    17: "undefined attribute type",
+    19: "constraint violation",
+    32: "no such object",
+    34: "invalid DN syntax",
+    48: "inappropriate authentication",
+    49: "invalid credentials",
+    50: "insufficient access rights",
+    51: "busy",
+    52: "unavailable",
+    53: "unwilling to perform",
+    80: "other",
+}
+
+#: What an operator is told to look at, by result code, when the directory's own text is no help.
+RESULT_HINTS: dict[int, str] = {
+    32: "The search base does not exist, or the account that searches may not see it (many "
+    "directories answer 'no such object' to hide what an account may not read).",
+    34: "A distinguished name is not written the way the directory reads it.",
+    49: "The name or password is wrong.",
+    50: "The account that searches may not read what was asked: give it read access to the "
+    "people and group bases.",
+    53: "The directory will not do this over this connection; it may require TLS.",
+}
+
+
+def result_name(code: int | None) -> str:
+    """
+    Args:
+        code: An LDAP result code.
+
+    Returns:
+        Its name, or the number when this client has no word for it.
+    """
+    if code is None:
+        return ""
+    return RESULT_NAMES.get(code, f"result {code}")
+
+
 class LdapError(NoustError):
     """
     A directory could not be reached, spoke wrongly, or refused something.
