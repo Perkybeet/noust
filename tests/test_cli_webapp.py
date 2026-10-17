@@ -94,7 +94,7 @@ class ServiceSpy:
 
     Attributes:
         calls: Method name and service name, in call order.
-        exists: What :meth:`service_exists` reports.
+        exists: What :meth:`unit_exists` reports.
         status: What :meth:`get_status` reports.
         journal: What :meth:`logs` returns.
         verbose: Verbosity the command constructed it with.
@@ -109,7 +109,7 @@ class ServiceSpy:
         self.journal: str = "a log line"
         self.verbose: bool = False
 
-    def service_exists(self, name: str) -> bool:
+    def unit_exists(self, name: str) -> bool:
         """
         Args:
             name: Service name.
@@ -117,7 +117,7 @@ class ServiceSpy:
         Returns:
             The scripted answer.
         """
-        self.calls.append(("service_exists", name))
+        self.calls.append(("unit_exists", name))
         return self.exists
 
     def start(self, name: str) -> None:
@@ -1286,7 +1286,7 @@ def test_service_commands_drive_the_service_manager(
     output = shown(result, console)
 
     assert result.exit_code == 0, output
-    assert services.calls == [("service_exists", "example-com"), (name, "example-com")]
+    assert services.calls == [("unit_exists", "example-com"), (name, "example-com")]
     assert f"Application {expected}: example.com" in output
 
 
@@ -2217,7 +2217,7 @@ def test_the_argparse_handler_shares_the_click_implementation(
     args = Namespace(action="restart", domain="example.com", verbose=False)
 
     assert webapp.handle_webapp(args) == 0
-    assert services.calls == [("service_exists", "example-com"), ("restart", "example-com")]
+    assert services.calls == [("unit_exists", "example-com"), ("restart", "example-com")]
 
 
 def test_the_argparse_handler_still_reports_unknown_actions() -> None:

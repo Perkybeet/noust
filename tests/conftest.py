@@ -579,3 +579,22 @@ def sandbox(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     return tmp_path
+
+
+@pytest.fixture
+def real_config(sandbox: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[object]:
+    """
+    Provide the process-wide configuration, backed by a file of the test's own.
+
+    The compliance controls read the configuration on every call, so a test that wants
+    one on sets it here and finds it forgotten when the test ends.
+
+    Returns:
+        The configuration singleton.
+    """
+    from noust.core.config import Config
+
+    monkeypatch.setattr("noust.core.config.DEFAULT_CONFIG_PATH", sandbox / "etc" / "config.yaml")
+    Config.reset_instance()
+    yield Config()
+    Config.reset_instance()

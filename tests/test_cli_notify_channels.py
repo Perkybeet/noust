@@ -162,6 +162,41 @@ class TestChannelSet:
             "digest": False,
         }
 
+    def test_a_cap_and_a_summary(self, run) -> None:  # type: ignore[no-untyped-def]
+        result = run(
+            "notify",
+            "channel",
+            "set",
+            "oncall",
+            "--type",
+            "pushover",
+            "--flood",
+            "20/10",
+            "--summary-at",
+            "08:00",
+            "--summary-timezone",
+            "Europe/Madrid",
+            "--summary-days",
+            "mon, fri",
+        )
+
+        assert result.exit_code == 0, result.output
+        block = Config().get("notifications.channels.oncall")
+        assert block["flood"] == {"max": 20, "minutes": 10}
+        assert block["summary"] == {
+            "at": "08:00",
+            "timezone": "Europe/Madrid",
+            "days": ["mon", "fri"],
+        }
+
+        listed = {view["name"]: view for view in json.loads(run("notify", "list", "--json").output)}
+        assert listed["oncall"]["flood"] == {"max": 20, "minutes": 10}
+        assert listed["oncall"]["summary"]["timezone"] == "Europe/Madrid"
+
+        result = run("notify", "channel", "set", "oncall", "--clear-flood", "--clear-summary")
+        assert result.exit_code == 0, result.output
+        assert not {"flood", "summary"} & set(Config().get("notifications.channels.oncall"))
+
     def test_changing_one_thing_keeps_the_rest(self, run) -> None:  # type: ignore[no-untyped-def]
         run(
             "notify",
@@ -216,6 +251,10 @@ class TestChannelSet:
             (["--event", "deploy_failed=maybe"], "must be on or off"),
             (["--event", "no-equals"], "KEY=VALUE"),
             (["--quiet", "late"], "START-END"),
+            (["--flood", "lots"], "MAX/MINUTES"),
+            (["--flood", "0/10"], "flood.max"),
+            (["--summary-below", "warning"], "needs a time"),
+            (["--summary-at", "soon"], "summary.at"),
             (["--quiet", "22:00-22:00"], "quiet.start and quiet.end must differ"),
             (["--route-app", "bad name"], "route.apps"),
             (["--set", "colour=red"], "no setting 'colour'"),
@@ -435,6 +474,34 @@ class TestAlertCommands:
         assert "on" in run("alert", "enable", "cpu-high").output
         assert run("alert", "enable", "nope").exit_code == 1
 
+    def test_taking_an_alert_and_handing_it_back(
+        self, run, store: NoustStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:  # type: ignore[no-untyped-def]
+        sent: list[object] = []
+        monkeypatch.setattr("noust.core.notifier.notify_composed", sent.append)
+        run("alert", "set", "cpu-high", "--metric", "cpu", "--above", "90")
+        rules = AlertRules(store)
+        saved = rules.get("cpu-high")
+        assert saved is not None and saved.id is not None
+        assert run("alert", "ack", "cpu-high").exit_code == 1  # nothing is firing
+        rules.put_state(AlertState(saved.id, "", "firing", 1.0, 95.0, announced=True))
+
+        taken = run("alert", "ack", "cpu-high", "--by", "alice")
+
+        assert taken.exit_code == 0 and "taken by alice" in taken.output
+        status = json.loads(run("--json", "alert", "status").output)
+        assert [s["acknowledged_by"] for s in status] == ["alice"]
+        assert "alice" in run("alert", "status").output
+        assert len(sent) == 1
+        assert run("alert", "ack", "cpu-high", "--by", "bob").exit_code == 0
+        assert len(sent) == 1
+
+        back = run("alert", "unack", "cpu-high")
+
+        assert back.exit_code == 0 and "handed back" in back.output
+        assert json.loads(run("--json", "alert", "status").output)[0]["acknowledged_by"] is None
+        assert run("alert", "ack", "nope").exit_code == 1
+
     def test_the_metrics_are_listed_with_their_units(self, run) -> None:  # type: ignore[no-untyped-def]
         metrics = {m["id"]: m for m in json.loads(run("--json", "alert", "metrics").output)}
 
@@ -443,3 +510,23 @@ class TestAlertCommands:
 
     def test_nothing_firing_says_so(self, run) -> None:  # type: ignore[no-untyped-def]
         assert "Nothing is firing" in run("alert", "status").output
+
+
+def test_the_listing_says_what_narrows_a_channel_including_its_cap_and_summary() -> None:
+    from noust.cli.commands.notify import _describe
+    from noust.core.notification_channels import ChannelView
+
+    view = ChannelView(
+        name="oncall",
+        type="slack",
+        enabled=True,
+        configured=True,
+        default=False,
+        flood={"max": 20, "minutes": 10},
+        summary={"at": "08:00", "timezone": "UTC", "below": "warning"},
+    )
+
+    described = _describe(view)
+
+    assert "at most 20 per 10 min" in described
+    assert "below warning in a summary at 08:00 UTC" in described

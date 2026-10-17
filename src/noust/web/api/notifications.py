@@ -63,6 +63,11 @@ class ChannelModel(BaseModel):
         route: What it is limited to (applications, projects, environments,
             tags, a minimum severity).
         quiet: When it stays silent, or null for never.
+        flood: The most it says in a stretch of time (``max`` messages in
+            ``minutes``), or null for no cap; what passes it arrives later as
+            one message.
+        summary: What waits for a periodic summary (``at``, ``timezone``,
+            ``below``, ``days``), or null for none.
     """
 
     name: str
@@ -74,6 +79,8 @@ class ChannelModel(BaseModel):
     events: dict[str, bool] = Field(default_factory=dict)
     route: dict[str, Any] = Field(default_factory=dict)
     quiet: dict[str, Any] | None = None
+    flood: dict[str, Any] | None = None
+    summary: dict[str, Any] | None = None
 
 
 class ChannelFieldModel(BaseModel):
@@ -132,6 +139,8 @@ class ChannelBody(BaseModel):
         events: Replaces the channel's own event switches (empty clears them).
         route: Replaces its route (empty clears it).
         quiet: Replaces its quiet hours (empty clears them).
+        flood: Replaces its anti-flood cap (empty clears it).
+        summary: Replaces its periodic summary (empty clears it).
     """
 
     type: str | None = None
@@ -140,6 +149,8 @@ class ChannelBody(BaseModel):
     events: dict[str, bool] | None = None
     route: dict[str, Any] | None = None
     quiet: dict[str, Any] | None = None
+    flood: dict[str, Any] | None = None
+    summary: dict[str, Any] | None = None
 
 
 class EventModel(BaseModel):
@@ -187,6 +198,7 @@ class DeliveryModel(BaseModel):
         next_attempt_at: When it is tried (or released) next.
         last_error: The failure, in the destination's own words.
         can_retry: It can be sent again by hand.
+        held_for: Why a held one waits: ``quiet``, ``flood`` or ``summary``.
     """
 
     id: int
@@ -203,6 +215,7 @@ class DeliveryModel(BaseModel):
     next_attempt_at: float | None = None
     last_error: str | None = None
     can_retry: bool = False
+    held_for: str | None = None
 
 
 class DeliveryListResponse(BaseModel):
@@ -226,7 +239,7 @@ class SweepResponse(BaseModel):
         delivered: Deliveries that went out.
         retried: Deliveries that failed again and wait.
         failed: Deliveries given up on.
-        digests: Digest messages sent for what the quiet hours held.
+        digests: Digest messages sent for what the channels held.
     """
 
     delivered: int
@@ -327,12 +340,18 @@ def save_channel(name: str, body: ChannelBody, request: Request, session: Elevat
         events=body.events,
         route=body.route,
         quiet=body.quiet,
+        flood=body.flood,
+        summary=body.summary,
     )
     persist(admin.config)
     # What changed, never a value: the fields hold credentials.
     changed = sorted(
         {*body.settings, *(["events"] if body.events is not None else [])}
-        | {key for key in ("enabled", "route", "quiet") if getattr(body, key) is not None}
+        | {
+            key
+            for key in ("enabled", "route", "quiet", "flood", "summary")
+            if getattr(body, key) is not None
+        }
     )
     audit.record(
         "notify.channel.set",

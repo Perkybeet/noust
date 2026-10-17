@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
+import { COMPLIANCE } from "../../test/compliance";
 import { renderConsole } from "../../test/console";
 import { SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
@@ -52,6 +53,7 @@ function securityRoutes(twoFactor: { enabled: boolean }, extra: Record<string, R
     "GET /api/auth/passkeys": () =>
       json(200, { passkeys: [], availability: { supported: false, reason: "ip_address", detail: "Passkeys do not work on an address such as 127.0.0.1", hint: "Open the console by its name." }, allow_synced: true }),
     "GET /api/approvals/policy": () => json(200, { enabled: false, approvers: ["security"], request_hours: 24, execute_minutes: 30, reason_required: false, rules: [] }),
+    "GET /api/compliance": () => json(200, COMPLIANCE),
     "GET /api/ens/profile": () =>
       json(200, {
         profile: "standard",

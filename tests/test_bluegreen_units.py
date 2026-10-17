@@ -226,6 +226,52 @@ def test_the_applications_own_name_reaches_the_instance_that_serves(
     assert ("systemctl", "restart", f"{BASE}@green.service") in runner.calls
 
 
+def test_the_applications_own_name_is_a_unit_to_control_though_only_its_instance_runs(
+    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: NoustStore
+) -> None:
+    """
+    noust stop, start and restart ask this first; it said "service not found" for every
+    application that updates without a cut, whose serving instance has no file of its own.
+    """
+    root = tmp_path / "apps" / BASE
+    bg_app(store, root, color="green")
+    install_template(root)
+    manager = ServiceManager()
+
+    assert manager.unit_exists(BASE)
+    # The file of that very name stays absent: a switch to the mode looks for its own leftover.
+    assert not manager.service_exists(BASE)
+
+    manager.stop(BASE)
+    manager.start(BASE)
+
+    assert ("systemctl", "stop", f"{BASE}@green.service") in runner.calls
+    assert ("systemctl", "start", f"{BASE}@green.service") in runner.calls
+
+
+@pytest.mark.parametrize("verb", ["stop", "start", "restart"])
+def test_the_commands_reach_the_serving_instance_of_an_application_that_updates_without_a_cut(
+    verb: str, tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: NoustStore
+) -> None:
+    from noust.cli.app import cli as root_cli
+
+    root = tmp_path / "apps" / BASE
+    bg_app(store, root, color="blue")
+    install_template(root)
+
+    result = CliRunner().invoke(root_cli, [verb, DOMAIN])
+
+    assert result.exit_code == 0, result.output
+    assert "Service not found" not in result.output
+    assert ("systemctl", verb, f"{BASE}@blue.service") in runner.calls
+
+
+def test_an_application_without_a_unit_or_a_template_has_nothing_to_control(
+    runner: FakeRunner, unit_dir: Path, store: NoustStore
+) -> None:
+    assert not ServiceManager().unit_exists(BASE)
+
+
 def test_limits_on_an_instance_land_in_the_template_for_both(
     tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: NoustStore
 ) -> None:

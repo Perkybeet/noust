@@ -9,7 +9,8 @@ A thin front end over :class:`~noust.core.alerts.rules.AlertRules`, the class
 same words. A rule says "tell me when this metric has been above (or below)
 that for this long"; the monitor judges every rule once a minute against the
 recorded history and sends ``alert_firing`` and ``alert_resolved`` through the
-notification channels (``noust notify``).
+notification channels (``noust notify``). Whoever is on call takes a firing alert
+with ``noust alert ack``.
 """
 
 from __future__ import annotations
@@ -32,6 +33,7 @@ from noust.core.alerts import (
 )
 from noust.core.alerts.model import DEFAULT_COOLDOWN_S, DEFAULT_DURATION_S
 from noust.core.exceptions import NoustError
+from noust.monitor.alert_engine import acknowledge_alert
 
 
 @click.group("alert", cls=NoustGroup)
@@ -161,13 +163,14 @@ def status_command(ctx: Context) -> None:
         ctx.logger.success("Nothing is firing.")
         return
     ctx.logger.table(
-        ["Rule", "About", "Now", "Limit"],
+        ["Rule", "About", "Now", "Limit", "Taken by"],
         [
             [
                 by_id[s.rule_id].name,
                 s.subject or "the server",
                 format_value(by_id[s.rule_id].spec.unit, s.last_value or 0.0),
                 _limit(by_id[s.rule_id]),
+                s.acknowledged_by or "-",
             ]
             for s in firing
         ],
@@ -267,6 +270,64 @@ def set_command(
         f"Rule {saved.name}: {saved.metric} {_limit(saved)} for {format_duration_short(saved.duration_s)}"
         + ("" if saved.enabled else " (off)")
     )
+
+
+@cli.command("ack")
+@click.argument("name")
+@click.option(
+    "--app",
+    "subject",
+    default="",
+    metavar="DOMAIN",
+    help="The application the alert is about; leave out for the server's.",
+)
+@click.option(
+    "--by",
+    envvar="SUDO_USER",
+    default="cli",
+    show_default=True,
+    help="Who is taking it, as the channels will say.",
+)
+@pass_context
+def ack_command(ctx: Context, name: str, subject: str, by: str) -> None:
+    """
+    Take an alert that is firing: its reminders stop and the channels are told.
+
+    A pager channel acknowledges the incident too, which stops it escalating. The
+    alert still clears, and says so, when the metric is back inside its limit.
+
+    Examples:
+
+    \b
+      noust alert ack cpu-high
+      noust alert ack app-5xx --app shop.example.com --by alice
+    """
+    try:
+        state = acknowledge_alert(AlertRules(), name, subject, by=by)
+    except NoustError as exc:
+        raise _fail(ctx, exc) from exc
+    ctx.logger.success(
+        f"{name}{f' for {subject}' if subject else ''} is taken by {state.acknowledged_by}."
+    )
+
+
+@cli.command("unack")
+@click.argument("name")
+@click.option(
+    "--app",
+    "subject",
+    default="",
+    metavar="DOMAIN",
+    help="The application the alert is about; leave out for the server's.",
+)
+@pass_context
+def unack_command(ctx: Context, name: str, subject: str) -> None:
+    """Hand a firing alert back: its reminder speaks again."""
+    try:
+        AlertRules().unacknowledge(name, subject)
+    except NoustError as exc:
+        raise _fail(ctx, exc) from exc
+    ctx.logger.success(f"{name}{f' for {subject}' if subject else ''} is handed back.")
 
 
 @cli.command("remove")

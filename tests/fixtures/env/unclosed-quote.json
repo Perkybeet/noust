@@ -1,0 +1,6 @@
+{
+  "OK": "1",
+  "MISMATCHED": "\"hello'",
+  "LONE_SINGLE": "'",
+  "ONLY_OPENING": "\"starts but never ends"
+}

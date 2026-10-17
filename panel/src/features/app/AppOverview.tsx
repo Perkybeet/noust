@@ -40,6 +40,8 @@ import { appLimits, appReading, deployMoment, useLatestMetrics } from "../apps/d
 import { CertificateStatus } from "../domains/CertificateStatus";
 import { coverageOf, covers } from "../domains/certificates";
 import { CERT_WARNING_DAYS } from "../overview/attention";
+import { AdoptedOverview } from "./AdoptedOverview";
+import { isAdopted } from "./adopted";
 import { RECENT_APP_DEPLOYS } from "./AppBanner";
 import { findCertificate } from "./lookups";
 import { sourceLink } from "./SourceLink";
@@ -500,6 +502,8 @@ export function AppOverview({ domain }: { domain: string }) {
   // The layout owns the load failure and the not-found page; this shows the shape meanwhile.
   if (app.data === undefined) return app.isError ? null : <OverviewSkeleton t={t} />;
   const staticSite = appStatus(app.data.status).state === "static";
+  // A site Noust adopted has no deploys, no release and no push to show: its own overview.
+  if (isAdopted(app.data)) return <AdoptedOverview app={app.data} resources={staticSite ? null : <Resources app={app.data} t={t} />} />;
 
   return (
     <div className="flex flex-col gap-8">

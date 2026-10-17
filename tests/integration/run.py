@@ -67,10 +67,11 @@ DOCKERFILE = INTEGRATION_DIR / "Dockerfile.systemd"
 RESOURCE_LABEL = "noust.test=1"
 
 #: Names are overridable so that two people (or two work streams) who share one Docker do not
-#: retag each other's image or share one inner-Docker volume: NOUST_IT_IMAGE, NOUST_IT_VOLUME and
-#: NOUST_IT_PREFIX (the start of every container's name).
+#: retag each other's image or share one inner-Docker volume: NOUST_IT_IMAGE, NOUST_IT_DOCKER_VOLUME
+#: and NOUST_IT_PREFIX (what every container is named after: a machine that shares its Docker asks for
+#: ``noust-test-<who>`` so what a run made can be told from what it did not).
 IMAGE_TAG = os.environ.get("NOUST_IT_IMAGE", "noust-integration:latest")
-CONTAINER_PREFIX = os.environ.get("NOUST_IT_PREFIX", "noust-it")
+RESOURCE_PREFIX = os.environ.get("NOUST_IT_PREFIX", "noust-it")
 
 #: A memory limit for the harness container (``12g``), so that a heavy scenario (Proggest builds two
 #: Node images) that runs out is killed inside it and not among the other containers of a shared
@@ -83,7 +84,7 @@ CONTAINER_MEMORY = os.environ.get("NOUST_IT_MEMORY", "")
 #: lets overlay2 run at all; it also keeps the pulled base images between runs. Never the host's
 #: docker.sock and never a host container or volume: the host's Docker holds real data
 #: (proggest_*) that no scenario may see, name or touch.
-DOCKER_DATA_VOLUME = os.environ.get("NOUST_IT_VOLUME", "noust-integration-docker")
+DOCKER_DATA_VOLUME = os.environ.get("NOUST_IT_DOCKER_VOLUME", "noust-integration-docker")
 
 #: What the harness container's own Docker is cleared of when a run starts and ends: every
 #: container, volume and network (the images stay, they are the cache). It runs inside the
@@ -8390,7 +8391,7 @@ def wait_until_health(sc: Scenario, url: str) -> None:
 
 
 def random_container_name() -> str:
-    return f"{CONTAINER_PREFIX}-{secrets.token_hex(4)}"
+    return f"{RESOURCE_PREFIX}-{secrets.token_hex(4)}"
 
 
 # ---------------------------------------------------------------------------
@@ -8813,6 +8814,653 @@ def parse_args() -> argparse.Namespace:
         help="With --upgrade-from-3.0: which state 3.0 leaves the monitor in (default: both).",
     )
     return parser.parse_args()
+
+
+# ---------------------------------------------------------------------------
+# 3.4: sites that were already running, and the disk an application takes
+# ---------------------------------------------------------------------------
+
+NATIVE_ROOT = "/srv/native"
+NATIVE_PORT = 18711
+NATIVE_SITES = ("native-legacy.test", "native-blog.test", "native-docs.test")
+
+NATIVE_UNIT = """[Unit]
+Description=Legacy API, written by hand
+After=network.target
+
+[Service]
+WorkingDirectory=@ROOT@/legacy
+ExecStart=@NODE@ server.js
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+"""
+
+NATIVE_SERVER_JS = """const http = require('http');
+http.createServer((request, response) => { response.end('legacy v1\\n'); }).listen(@PORT@, '127.0.0.1', () => {
+  console.log('legacy api listening on @PORT@');
+});
+"""
+
+NATIVE_PROXY_SITE = """server {
+    listen 80;
+    server_name native-legacy.test;
+    location / { proxy_pass http://127.0.0.1:@PORT@; }
+}
+"""
+
+NATIVE_PHP_SITE = """server {
+    listen 80;
+    server_name native-blog.test;
+    root @ROOT@/blog;
+    index index.php;
+    location / { try_files $uri $uri/ /index.php?$args; }
+    location ~ \\.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:@SOCKET@;
+    }
+}
+"""
+
+NATIVE_STATIC_SITE = """server {
+    listen 80;
+    server_name native-docs.test;
+    root @ROOT@/docs;
+    location / { try_files $uri $uri/ =404; }
+}
+"""
+
+
+def native_state(sc: Scenario, label: str) -> str:
+    """Checksums of everything the operator wrote, and the unit's own start, to compare."""
+    return sc.run(
+        f"find {NATIVE_ROOT} /etc/nginx/sites-available/native-* "
+        "/etc/systemd/system/native-legacy.service -type f -exec sha256sum {} + | sort; "
+        "systemctl show native-legacy -p ActiveEnterTimestampMonotonic -p MainPID",
+        timeout=30,
+        label=label,
+    ).stdout
+
+
+@scenario("native_sites_adopted_without_touching_them")
+def scenario_native_adoption(sc: Scenario) -> None:
+    """
+    A unit written by hand behind nginx, a PHP site and a folder of files are adopted as they are.
+
+    The operator's own setup, none of it deployed by Noust: a Node server run by a unit they wrote
+    and proxied by an nginx site, a PHP site served through the real PHP-FPM socket with the
+    distribution's own `fastcgi-php.conf` include, and a static folder. `noust app discover` finds
+    the unit that listens by asking the real `ss` and the real control group of the process.
+    Adopting writes the store and nothing else: every file keeps its checksum and the unit keeps
+    running with the same process. Noust then restarts the unit and reads its journal, refuses to
+    build or write its environment, and deleting the application only forgets it.
+    """
+    require_cli(sc, "app adopt-site", what="adopting sites that already run")
+    socket = sc.run(
+        "ls /run/php/php*-fpm.sock | head -1", timeout=15, label="the PHP-FPM socket"
+    ).stdout.strip()
+    sc.check(socket.endswith(".sock"), f"no PHP-FPM socket: {socket!r}")
+    node = sc.run("command -v node", timeout=15, label="node").stdout.strip()
+    fill = {"@ROOT@": NATIVE_ROOT, "@PORT@": str(NATIVE_PORT), "@SOCKET@": socket, "@NODE@": node}
+
+    def render(text: str) -> str:
+        for key, value in fill.items():
+            text = text.replace(key, value)
+        return text
+
+    def write(path: str, text: str) -> None:
+        sc.run(f"cat > {path} <<'EOF'\n{render(text)}EOF", timeout=15, label=f"write {path}")
+
+    try:
+        sc.run(
+            f"mkdir -p {NATIVE_ROOT}/legacy {NATIVE_ROOT}/blog {NATIVE_ROOT}/docs && "
+            f"echo '<?php echo \"blog php ok\\n\";' > {NATIVE_ROOT}/blog/index.php && "
+            f"echo 'docs static ok' > {NATIVE_ROOT}/docs/index.html && "
+            f"chmod -R a+rX {NATIVE_ROOT}",
+            timeout=15,
+            label="the operator's folders",
+        )
+        write(f"{NATIVE_ROOT}/legacy/server.js", NATIVE_SERVER_JS)
+        write("/etc/systemd/system/native-legacy.service", NATIVE_UNIT)
+        write("/etc/nginx/sites-available/native-legacy.test", NATIVE_PROXY_SITE)
+        write("/etc/nginx/sites-available/native-blog.test", NATIVE_PHP_SITE)
+        write("/etc/nginx/sites-available/native-docs.test", NATIVE_STATIC_SITE)
+        sc.run(
+            "for site in native-legacy.test native-blog.test native-docs.test; do "
+            "ln -sf /etc/nginx/sites-available/$site /etc/nginx/sites-enabled/$site; done && "
+            "systemctl daemon-reload && systemctl start native-legacy && nginx -t && nginx -s reload",
+            timeout=60,
+            label="the operator starts the unit and enables the sites",
+        )
+        wait_served(sc, "native-legacy.test", "legacy v1")
+        wait_served(sc, "native-blog.test", "blog php ok")
+        wait_served(sc, "native-docs.test", "docs static ok")
+        before = native_state(sc, "everything the operator wrote, before")
+
+        found = json.loads(
+            sc.run("noust --json app discover", timeout=120, label="noust --json app discover")
+            .stdout.strip()
+            .splitlines()[-1]
+        )["sites"]
+        by_site = {site["site"]: site for site in found}
+        for name in NATIVE_SITES:
+            sc.check(name in by_site, f"discover did not list {name}: {sorted(by_site)}")
+        legacy, blog, docs = (by_site[name] for name in NATIVE_SITES)
+        sc.check(
+            (legacy["kind"], legacy["unit"], legacy["port"])
+            == ("proxy", "native-legacy", NATIVE_PORT),
+            f"the unit that listens was not found from the process: {legacy}",
+        )
+        sc.check(legacy["unit_active"] is True, f"the unit is running: {legacy}")
+        sc.check(blog["kind"] == "php" and blog["root"] == f"{NATIVE_ROOT}/blog", f"php: {blog}")
+        sc.check(
+            docs["kind"] == "static" and docs["root"] == f"{NATIVE_ROOT}/docs", f"static: {docs}"
+        )
+        sc.check(all(by_site[n]["adoptable"] for n in NATIVE_SITES), "a site was not adoptable")
+
+        for name in NATIVE_SITES:
+            sc.run(
+                f"noust app adopt-site {name} --yes",
+                timeout=120,
+                label=f"noust app adopt-site {name} --yes",
+            )
+        sc.check(
+            native_state(sc, "everything the operator wrote, after adopting") == before,
+            "adopting changed a file, or restarted the unit",
+        )
+        for name, expected in (
+            ("native-legacy.test", "legacy v1"),
+            ("native-blog.test", "blog php ok"),
+            ("native-docs.test", "docs static ok"),
+        ):
+            wait_served(sc, name, expected)
+        listing = sc.run("noust --json list", timeout=60, label="noust --json list").stdout
+        apps = {row["domain"]: row for row in json.loads(listing.strip().splitlines()[-1])["items"]}
+        sc.check(
+            all(apps[name]["type"] == "adopted" for name in NATIVE_SITES),
+            f"the applications are not listed as adopted: {sorted(apps)}",
+        )
+
+        pid_before = sc.run(
+            "systemctl show native-legacy -p MainPID --value",
+            timeout=15,
+            label="the unit's process",
+        ).stdout.strip()
+        sc.run(
+            "noust restart native-legacy.test",
+            timeout=120,
+            label="noust restart native-legacy.test",
+        )
+        pid_after = sc.run(
+            "systemctl show native-legacy -p MainPID --value",
+            timeout=15,
+            label="the unit's process now",
+        ).stdout.strip()
+        sc.check(pid_before != pid_after, "noust restart did not restart the operator's unit")
+        wait_served(sc, "native-legacy.test", "legacy v1")
+        logs = sc.run(
+            "noust logs native-legacy.test -n 20", timeout=60, label="noust logs native-legacy.test"
+        )
+        sc.check("legacy api listening on" in logs.stdout, f"the unit's journal: {logs.stdout!r}")
+        status = sc.run(
+            "noust status native-legacy.test", timeout=60, check=False, label="noust status"
+        )
+        sc.check(status.returncode == 0, f"noust status failed: {status.stdout}{status.stderr}")
+
+        for command, words in (
+            ("noust update native-legacy.test", "adopted site"),
+            ("noust env set native-legacy.test A=1", "adopted site"),
+            ("noust app hardening set native-legacy.test default", "your"),
+            ("noust app tuning set native-legacy.test --cpu-weight 50", "your"),
+        ):
+            refused = sc.run(command, timeout=120, check=False, label=f"{command} (refused)")
+            sc.check(refused.returncode != 0, f"{command} was not refused")
+            sc.check(
+                words in refused.stdout + refused.stderr,
+                f"{command} did not say why: {refused.stdout}{refused.stderr}",
+            )
+        unit_text = sc.run(
+            "cat /etc/systemd/system/native-legacy.service", timeout=15, label="the unit file"
+        ).stdout
+        sc.check("Generated by Noust" not in unit_text, "the operator's unit got Noust's marker")
+
+        sc.run(
+            "noust delete native-legacy.test --force",
+            timeout=120,
+            label="noust delete native-legacy.test",
+        )
+        sc.check(
+            sc.run(
+                "systemctl is-active native-legacy", timeout=15, label="is the unit still running?"
+            ).stdout.strip()
+            == "active",
+            "deleting the application stopped the operator's unit",
+        )
+        wait_served(sc, "native-legacy.test", "legacy v1")
+        sc.check(
+            sc.run(
+                f"test -f {NATIVE_ROOT}/legacy/server.js && test -f /etc/nginx/sites-available/native-legacy.test "
+                "&& test -f /etc/systemd/system/native-legacy.service && echo kept",
+                timeout=15,
+                label="are the files still there?",
+            ).stdout.strip()
+            == "kept",
+            "deleting the application removed something of the operator's",
+        )
+        gone = store_rows(
+            sc,
+            "SELECT * FROM apps WHERE domain = @domain",
+            domain="native-legacy.test",
+            label="the row",
+        )
+        sc.check(gone == [], f"the application is still registered: {gone}")
+        for name in NATIVE_SITES[1:]:
+            sc.run(f"noust delete {name} --force", timeout=120, label=f"noust delete {name}")
+        wait_served(sc, "native-blog.test", "blog php ok")
+        wait_served(sc, "native-docs.test", "docs static ok")
+    finally:
+        sc.run(
+            "systemctl stop native-legacy; rm -f /etc/systemd/system/native-legacy.service "
+            "/etc/nginx/sites-enabled/native-* /etc/nginx/sites-available/native-*; "
+            f"rm -rf {NATIVE_ROOT}; systemctl daemon-reload; nginx -s reload; "
+            "for name in native-legacy.test native-blog.test native-docs.test; do "
+            "noust delete $name --force >/dev/null 2>&1; done; true",
+            timeout=120,
+            check=False,
+            label="cleanup: the operator's setup",
+        )
+
+
+DISK_DOMAIN = "disk.test"
+DISK_ROOT = "/var/www/apps/disk-test"
+
+
+@scenario("app_disk_measured_and_held_to_a_limit")
+def scenario_app_disk(sc: Scenario) -> None:
+    """
+    What an application takes of the disk is measured by place, and a limit holds new releases.
+
+    A Node app on releases with two releases and 80 MB in shared/. The measurement is the real
+    `du`, `findmnt` reports the container's real filesystem, and a limit under what it takes makes
+    the next update refuse before building, with the figures, while going back to the earlier
+    release works. Raising the limit lets the update through.
+    """
+    require_cli(sc, "app disk", what="the disk of an application")
+    head = sc.run(
+        f"git -C {RELEASE_REPO} rev-parse HEAD", timeout=15, label="(fixture repo) where it is"
+    ).stdout.strip()
+    sc.run(
+        f"noust create -d {DISK_DOMAIN} -s {RELEASE_URL} -t nodejs --no-ssl --layout releases",
+        timeout=DEPLOY_TIMEOUT,
+        label=f"noust create -d {DISK_DOMAIN} (releases)",
+    )
+    try:
+        wait_served(sc, DISK_DOMAIN, "ok")
+        commit_fixture(sc, "echo disk-2 > VERSION", "disk scenario: second release")
+        sc.run(
+            f"noust update {DISK_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            label=f"noust update {DISK_DOMAIN}",
+        )
+        sc.run(
+            f"fallocate -l 80M {DISK_ROOT}/shared/blob.bin && chown www-data {DISK_ROOT}/shared/blob.bin",
+            timeout=30,
+            label="80 MB of uploads in shared/",
+        )
+        measured = json.loads(
+            sc.run(
+                f"noust --json app disk {DISK_DOMAIN} --measure",
+                timeout=300,
+                label=f"noust --json app disk {DISK_DOMAIN} --measure",
+            )
+            .stdout.strip()
+            .splitlines()[-1]
+        )
+        parts = {part["name"]: part for part in measured["usage"]["parts"]}
+        sc.check({"current", "releases", "shared", "repo"} <= set(parts), f"parts: {sorted(parts)}")
+        sc.check(parts["shared"]["bytes"] >= 80 * 1024 * 1024, f"shared/ is {parts['shared']}")
+        sc.check(
+            measured["usage"]["total_bytes"] == sum(part["bytes"] for part in parts.values()),
+            "the total is not the sum of the places",
+        )
+        sc.check(measured["usage"]["errors"] == [], f"errors: {measured['usage']['errors']}")
+        sc.check(
+            measured["filesystem"]["fstype"]
+            and measured["filesystem"]["project_quota"] in ("enabled", "available", "unsupported"),
+            f"the filesystem was not read: {measured['filesystem']}",
+        )
+
+        sc.run(
+            f"noust app disk {DISK_DOMAIN} --limit 64",
+            timeout=60,
+            label=f"noust app disk {DISK_DOMAIN} --limit 64",
+        )
+        commit_fixture(sc, "echo disk-3 > VERSION", "disk scenario: third release")
+        before = active_release_of(sc, DISK_DOMAIN)
+        refused = sc.run(
+            f"noust update {DISK_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            check=False,
+            label=f"noust update {DISK_DOMAIN} (over its limit)",
+        )
+        text = refused.stdout + refused.stderr
+        sc.check(refused.returncode != 0, "the update was not held")
+        sc.check(
+            "over its disk limit" in text and "noust app disk" in text, f"the refusal: {text!r}"
+        )
+        sc.check(active_release_of(sc, DISK_DOMAIN) == before, "the held update moved current")
+
+        sc.run(
+            f"noust releases rollback {DISK_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            label=f"noust releases rollback {DISK_DOMAIN} (never held up by the limit)",
+        )
+        sc.check(active_release_of(sc, DISK_DOMAIN) != before, "going back did not go back")
+
+        sc.run(
+            f"noust app disk {DISK_DOMAIN} --limit 4096",
+            timeout=60,
+            label="noust app disk --limit 4096",
+        )
+        sc.run(
+            f"noust update {DISK_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            label=f"noust update {DISK_DOMAIN} (under the limit)",
+        )
+        sc.run(
+            f"noust app disk {DISK_DOMAIN} --no-limit",
+            timeout=60,
+            label="noust app disk --no-limit",
+        )
+    finally:
+        sc.run(
+            f"noust delete {DISK_DOMAIN} --force; true",
+            timeout=120,
+            check=False,
+            label="cleanup: disk.test",
+        )
+        sc.run(
+            f"cd {RELEASE_REPO} && git reset -q --hard {head}; true",
+            timeout=30,
+            check=False,
+            label="(fixture repo) back to before this scenario",
+        )
+
+
+KERNEL_DOMAIN = "kq.test"
+KERNEL_ROOT = "/var/www/apps/kq-test"
+KERNEL_TREE = "/root/kq-tree"
+#: Detach the loop devices this scenario made, by the images that back them and nothing else.
+KERNEL_LET_GO = (
+    "for image in /root/kq-xfs.img /root/kq-ext4.img; do "
+    "for dev in $(losetup -j $image 2>/dev/null | cut -d: -f1); do losetup -d $dev; done; done"
+)
+
+
+def kernel_quota_disk(sc: Scenario) -> dict[str, Any]:
+    """What `noust --json app disk` says about the kernel's quota on the scenario's application."""
+    shown = json.loads(
+        sc.run(
+            f"noust --json app disk {KERNEL_DOMAIN}",
+            timeout=120,
+            label=f"noust --json app disk {KERNEL_DOMAIN}",
+        )
+        .stdout.strip()
+        .splitlines()[-1]
+    )
+    return dict(shown)
+
+
+def kernel_quota_write(sc: Scenario, who: str, megabytes: int) -> tuple[int, str, int]:
+    """
+    Write a file of that many megabytes into the application's tree, as an account.
+
+    Returns:
+        The exit code of the write, what it said, and the size of the file left behind.
+    """
+    target = f"{KERNEL_ROOT}/shared/fill/blob"
+    as_who = "" if who == "root" else f"setpriv --reuid={who} --regid={who} --clear-groups "
+    written = sc.run(
+        f"rm -f {target}; {as_who}dd if=/dev/zero of={target} bs=1M count={megabytes} conv=fsync",
+        timeout=180,
+        check=False,
+        label=f"write {megabytes} MB into the tree as {who}",
+    )
+    size = int(
+        sc.run(f"stat -c %s {target} 2>/dev/null || echo 0", timeout=15, label="size left")
+        .stdout.strip()
+        .splitlines()[-1]
+    )
+    return written.returncode, written.stdout + written.stderr, size
+
+
+def kernel_quota_move(sc: Scenario, fstype: str) -> None:
+    """
+    Put the application's tree on a fresh loop filesystem mounted with project quotas.
+
+    The loop filesystem is mounted over the apps directory, which is where Noust looks for an
+    application's tree, so the quota is set by the same code path a real XFS volume would take.
+    Nothing here is Noust's doing: mounting and tuning a filesystem is the operator's.
+    """
+    image = f"/root/kq-{fstype}.img"
+    sc.run(f"noust stop {KERNEL_DOMAIN}", timeout=120, label="stop the app while its tree moves")
+    sc.run(
+        f"rm -rf {KERNEL_TREE} && cp -a {KERNEL_ROOT} {KERNEL_TREE}",
+        timeout=120,
+        label="keep the tree aside",
+    )
+    sc.run(
+        f"if mountpoint -q /var/www/apps; then umount /var/www/apps; fi; {KERNEL_LET_GO}; true",
+        timeout=60,
+        label="let go of the filesystem before",
+    )
+    if fstype == "xfs":
+        prepare = f"mkfs.xfs -q -f {image}"
+    else:
+        prepare = f"mkfs.ext4 -q -F {image} && tune2fs -O project -Q prjquota {image}"
+    sc.run(
+        f"rm -f {image}; truncate -s 400M {image} && {prepare} && "
+        f"mount -o prjquota $(losetup -f --show {image}) /var/www/apps",
+        timeout=120,
+        label=f"{fstype} on a loop device, mounted over /var/www/apps with prjquota",
+    )
+    sc.run(
+        f"cp -a {KERNEL_TREE} {KERNEL_ROOT} && noust start {KERNEL_DOMAIN}",
+        timeout=120,
+        label="the tree back, on the new filesystem",
+    )
+
+
+@scenario("kernel_project_quota_stops_the_writes")
+def scenario_kernel_quota(sc: Scenario) -> None:
+    """
+    An application's limit given to the kernel stops the writes themselves, on XFS and on ext4.
+
+    A Node app on releases, deployed on the container's filesystem, where `--kernel` is refused
+    with the reason. Its tree then moves onto an XFS and onto an ext4 loop filesystem mounted
+    with prjquota (the operator's part), and on each: `--kernel` sets the project and the limit,
+    the kernel reports it, the app's own account is refused past the limit with the kernel's
+    refusal, a changed limit follows into the kernel, `--no-kernel` lets it write
+    again, and deleting the app takes the quota off. Noust never wrote /etc/projects.
+    """
+    require_cli(sc, "app disk", option="--kernel", what="the kernel quota of an application")
+    sc.run(
+        "command -v mkfs.xfs >/dev/null && command -v xfs_quota >/dev/null && "
+        "command -v setquota >/dev/null && command -v repquota >/dev/null || "
+        "(apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "
+        "xfsprogs quota >/dev/null)",
+        timeout=300,
+        check=False,
+        label="the filesystem and quota tools (the operator's)",
+    )
+    tools = sc.run(
+        "command -v mkfs.xfs && command -v xfs_quota && command -v setquota && "
+        "command -v repquota && command -v tune2fs && losetup -f",
+        timeout=30,
+        check=False,
+        label="the tools and a loop device are there",
+    )
+    if tools.returncode != 0:
+        raise ScenarioSkipped("no xfsprogs, quota tools or loop device in the harness container")
+    head = sc.run(
+        f"git -C {RELEASE_REPO} rev-parse HEAD", timeout=15, label="(fixture repo) where it is"
+    ).stdout.strip()
+    sc.run(
+        f"noust create -d {KERNEL_DOMAIN} -s {RELEASE_URL} -t nodejs --no-ssl --layout releases",
+        timeout=DEPLOY_TIMEOUT,
+        label=f"noust create -d {KERNEL_DOMAIN} (releases)",
+    )
+    try:
+        wait_served(sc, KERNEL_DOMAIN, "ok")
+        sc.run(
+            f"noust app disk {KERNEL_DOMAIN} --limit 128",
+            timeout=60,
+            label=f"noust app disk {KERNEL_DOMAIN} --limit 128",
+        )
+
+        refused = sc.run(
+            f"noust app disk {KERNEL_DOMAIN} --kernel",
+            timeout=120,
+            check=False,
+            label="noust app disk --kernel (on a filesystem without project quotas)",
+        )
+        said = refused.stdout + refused.stderr
+        sc.check(refused.returncode != 0, "a kernel quota was accepted on the container's overlay")
+        sc.check("not mounted with project quotas" in said, f"the refusal: {said!r}")
+        sc.check(not kernel_quota_disk(sc)["kernel"]["applied"], "the refused quota was recorded")
+
+        for fstype in ("xfs", "ext4"):
+            kernel_quota_move(sc, fstype)
+            sc.run(
+                f"mkdir -p {KERNEL_ROOT}/shared/fill && chown www-data:www-data {KERNEL_ROOT}/shared/fill",
+                timeout=30,
+                label="a place the app can write",
+            )
+            sc.run(
+                f"noust app disk {KERNEL_DOMAIN} --limit 128",
+                timeout=60,
+                label=f"noust app disk {KERNEL_DOMAIN} --limit 128 ({fstype})",
+            )
+            sc.run(
+                f"noust app disk {KERNEL_DOMAIN} --kernel",
+                timeout=300,
+                label=f"noust app disk {KERNEL_DOMAIN} --kernel ({fstype})",
+            )
+            kernel = kernel_quota_disk(sc)["kernel"]
+            sc.check(kernel["applied"] is True, f"{fstype}: not applied: {kernel}")
+            sc.check(kernel["hard_mb"] == 128, f"{fstype}: the kernel reports {kernel}")
+            sc.check(kernel["mount"] == "/var/www/apps", f"{fstype}: mount {kernel}")
+            sc.check(
+                kernel["project"] is not None and kernel["project"] >= 3_000_000_000,
+                f"{fstype}: project {kernel}",
+            )
+            sc.run(
+                "test ! -e /etc/projects && test ! -e /etc/projid",
+                timeout=15,
+                label="Noust wrote neither /etc/projects nor /etc/projid",
+            )
+            if fstype == "xfs":
+                report = sc.run(
+                    "xfs_quota -x -c 'report -p -N' /var/www/apps",
+                    timeout=30,
+                    label="what the kernel holds for the project",
+                ).stdout
+                sc.check(
+                    f"#{kernel['project']}" in report and "131072" in report,
+                    f"xfs_quota report: {report!r}",
+                )
+            else:
+                report = sc.run(
+                    "repquota -P -n -O csv /var/www/apps",
+                    timeout=30,
+                    label="what the kernel holds for the project",
+                ).stdout
+                sc.check(
+                    f"#{kernel['project']}" in report and "131072" in report,
+                    f"repquota: {report!r}",
+                )
+
+            code, said, size = kernel_quota_write(sc, "www-data", 300)
+            sc.check(code != 0, f"{fstype}: the app wrote 300 MB past a 128 MB limit")
+            # XFS answers a project over its limit with ENOSPC ("No space left on device"); ext4
+            # with EDQUOT ("Disk quota exceeded"). Either is the kernel refusing the write.
+            refused_words = ("quota exceeded", "no space left")
+            sc.check(
+                any(words in said.lower() for words in refused_words),
+                f"{fstype}: the write said {said!r}",
+            )
+            sc.check(16 * 1024 * 1024 <= size <= 128 * 1024 * 1024, f"{fstype}: left {size} bytes")
+            if fstype == "xfs":
+                code, said, size = kernel_quota_write(sc, "root", 300)
+                sc.check(
+                    code != 0 and size <= 128 * 1024 * 1024,
+                    f"{fstype}: root wrote {size} bytes past the limit: {said!r}",
+                )
+
+            sc.run(
+                f"noust app disk {KERNEL_DOMAIN} --limit 96",
+                timeout=120,
+                label="noust app disk --limit 96 (follows into the kernel)",
+            )
+            kernel = kernel_quota_disk(sc)["kernel"]
+            sc.check(kernel["hard_mb"] == 96, f"{fstype}: the kernel still holds {kernel}")
+            code, said, size = kernel_quota_write(sc, "www-data", 300)
+            sc.check(
+                code != 0 and size <= 96 * 1024 * 1024,
+                f"{fstype}: wrote {size} bytes past 96 MB: {said!r}",
+            )
+
+            sc.run(
+                f"noust app disk {KERNEL_DOMAIN} --no-kernel",
+                timeout=300,
+                label=f"noust app disk {KERNEL_DOMAIN} --no-kernel ({fstype})",
+            )
+            sc.check(not kernel_quota_disk(sc)["kernel"]["applied"], f"{fstype}: still applied")
+            code, said, size = kernel_quota_write(sc, "www-data", 160)
+            sc.check(
+                code == 0 and size == 160 * 1024 * 1024,
+                f"{fstype}: could not write once taken off: {said!r}",
+            )
+            sc.run(f"rm -f {KERNEL_ROOT}/shared/fill/blob", timeout=15, label="make room again")
+
+        sc.run(
+            f"noust app disk {KERNEL_DOMAIN} --limit 128 && noust app disk {KERNEL_DOMAIN} --kernel",
+            timeout=300,
+            label="the quota again, to see deleting the app take it off",
+        )
+        sc.run(
+            f"noust delete {KERNEL_DOMAIN} --force",
+            timeout=120,
+            label=f"noust delete {KERNEL_DOMAIN}",
+        )
+        left = sc.run(
+            "repquota -P -n -O csv /var/www/apps | grep -c '^#3' || true",
+            timeout=30,
+            label="projects with a limit left on the filesystem",
+        ).stdout.strip()
+        limits = sc.run(
+            "repquota -P -n -O csv /var/www/apps | awk -F, '$1 ~ /^#3/ && $6 != 0 {print}'",
+            timeout=30,
+            label="a limit still set",
+        ).stdout.strip()
+        sc.check(limits == "", f"the deleted app left a limit behind (projects {left}): {limits}")
+    finally:
+        sc.run(
+            f"noust delete {KERNEL_DOMAIN} --force >/dev/null 2>&1; "
+            "if mountpoint -q /var/www/apps; then umount /var/www/apps; fi; "
+            f"{KERNEL_LET_GO}; "
+            f"rm -f /root/kq-xfs.img /root/kq-ext4.img; rm -rf {KERNEL_TREE} {KERNEL_ROOT}; true",
+            timeout=180,
+            check=False,
+            label="cleanup: the loop filesystems and the application",
+        )
+        sc.run(
+            f"cd {RELEASE_REPO} && git reset -q --hard {head}; true",
+            timeout=30,
+            check=False,
+            label="(fixture repo) back to before this scenario",
+        )
 
 
 #: Scenarios that run only when a --scenario pattern holds their key, never in the default

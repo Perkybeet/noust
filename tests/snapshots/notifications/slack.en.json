@@ -4451,6 +4451,729 @@
       }
     ]
   },
+  "cleanup.completed": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Disk cleaned · /",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Disk cleaned · /",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "The server's cleanup policy ran and freed space."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Used*\n91% -&gt; 64%"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Freed*\n11.5 GB"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Actions*\njournal, pkg-cache, releases"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "cleanup.partial": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Disk cleanup partly failed · /",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Disk cleanup partly failed · /",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "The cleanup policy ran, but some of its actions failed."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Used*\n91% -&gt; 88%"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Freed*\n2.0 GB"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Actions*\njournal, pkg-cache, releases"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*See what ran:* `noust server cleanup-schedule runs`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_What releases reported_\n```rm: cannot remove '/var/www/apps/shop/releases/x': Permission denied```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "cleanup.failed": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Disk cleanup failed · /",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Disk cleanup failed · /",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "The cleanup policy ran and every one of its actions failed, so the disk is as it was."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Used*\n93% -&gt; 93%"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Actions*\njournal"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*See what ran:* `noust server cleanup-schedule runs`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_What journal reported_\n```Failed to vacuum: Read-only file system```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "cron.timer_stopped": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Scheduled task will not run · shop-sync",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Scheduled task will not run · shop-sync",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "The task is enabled but its timer is not running, so it will not start. Nothing failed: nothing runs."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Schedule*\n*​-*​-*​ 03:00:00"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Timer*\nfailed"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Start it again with:* `noust cron enable shop-sync`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/cron|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "cron.timer_running": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Scheduled task runs again · shop-sync",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Scheduled task runs again · shop-sync",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "The task's timer is running again."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Schedule*\n*​-*​-*​ 03:00:00"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/cron|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "probe.failed": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Address not answering · shop-site",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Address not answering · shop-site",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "The address stopped answering what the probe asks of it."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Address*\nhttps://shop.example.com/health"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Unreachable since*\n2026-10-16 08:14 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Probe it now with:* `noust probe run shop-site`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_What came back_\n```HTTP 503 Service Unavailable\nretry-after: 30```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/settings/probes|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "probe.recovered": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Address answering again · shop-site",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Address answering again · shop-site",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "The address answers what the probe asks of it again."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Address*\nhttps://shop.example.com/health"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Was unreachable for*\n7 min 42 s"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Answered in*\n184 ms"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/settings/probes|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "alert.acknowledged": {
+    "attachments": [
+      {
+        "color": "#9e9e9e",
+        "fallback": "○ Alert taken · cpu-high",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "○ Alert taken · cpu-high",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "alice is looking into it: CPU of the server is still beyond the 90% limit."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Rule*\ncpu-high"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Taken by*\nalice"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Firing for*\n21 min"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "digest.flood": {
+    "attachments": [
+      {
+        "color": "#9e9e9e",
+        "fallback": "○ Notifications held back",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "○ Notifications held back",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "3 notifications passed this channel's limit and were held back until now."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Notifications*\n3"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Between*\n2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Disk cleaned · /*"
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*When*\n2026-09-29 10:45 UTC"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Detail*\nThe server's cleanup policy ran and freed space."
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Scheduled task runs again · shop-sync*"
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*When*\n2026-09-29 10:48 UTC"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Detail*\nThe task's timer is running again."
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Address answering again · shop-site*"
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*When*\n2026-09-29 10:51 UTC"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Detail*\nThe address answers what the probe asks of it again."
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "digest.summary": {
+    "attachments": [
+      {
+        "color": "#9e9e9e",
+        "fallback": "○ Scheduled summary",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "○ Scheduled summary",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "3 notifications since the last summary."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Notifications*\n3"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Between*\n2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Disk cleaned · /*"
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*When*\n2026-09-29 10:45 UTC"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Detail*\nThe server's cleanup policy ran and freed space."
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Scheduled task runs again · shop-sync*"
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*When*\n2026-09-29 10:48 UTC"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Detail*\nThe task's timer is running again."
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Address answering again · shop-site*"
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*When*\n2026-09-29 10:51 UTC"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Detail*\nThe address answers what the probe asks of it again."
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "attachments": [
       {

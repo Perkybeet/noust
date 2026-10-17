@@ -32,6 +32,12 @@ export const auth: Catalog<typeof en> = {
     unknownHint:
       "Esta llave de acceso no está registrada en este servidor. Puede ser de otro servidor que abres en la misma dirección, como localhost.",
   },
+  directory: {
+    signInWith: "Iniciar sesión con",
+    thisServer: "Una cuenta de este servidor",
+    refusedTitle: "Este inicio de sesión no está permitido",
+    unavailableTitle: "No se puede consultar el directorio ahora mismo",
+  },
   sso: {
     signInWith: "Iniciar sesión con {provider}",
     finishing: "Terminando de iniciar sesión",

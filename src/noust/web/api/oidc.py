@@ -34,7 +34,6 @@ answer.
 from __future__ import annotations
 
 from typing import Any
-from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import RedirectResponse
@@ -45,22 +44,26 @@ from noust.core.accounts.local_login import load_policy as load_local_login
 from noust.core.accounts.local_login import survivors as local_login_survivors
 from noust.core.accounts.oidc import OidcManager
 from noust.core.accounts.oidc_model import OidcError, OidcProvider
-from noust.core.accounts.oidc_store import FLOW_SECONDS, digest
+from noust.core.accounts.oidc_store import digest
 from noust.core.config import Config
 from noust.core.exceptions import ConfigError, DependencyError
-from noust.web.api.auth import (
-    LoginResponse,
-    SecondFactorStep,
-    account_signed_in,
-    login_failure,
-    second_factor_methods,
-)
+from noust.web.api.auth import LoginResponse, external_sign_in, login_failure
+from noust.web.api.config import persist
 from noust.web.api.deps import NoustErrorRoute, require_elevated
+from noust.web.api.federation_models import CheckInfo, Mapping, TestResponse
+from noust.web.api.ldap import directory_manager
+from noust.web.api.saml import saml_manager
+from noust.web.api.sso_flow import (
+    BINDING_COOKIE,
+    NOT_COUNTED,
+    origin_of,
+    set_binding_cookie,
+    to_login,
+)
 from noust.web.auth import (
     actor_label,
     audit_event,
     get_client_ip,
-    is_secure_request,
     record_auth_failure,
     require_auth,
 )
@@ -69,19 +72,9 @@ from noust.web.server import get_token_manager
 
 router = APIRouter(route_class=NoustErrorRoute)
 
-#: The browser's tie to a sign-in: where it is sent, and what it is called.
-BINDING_COOKIE = "noust_oidc"
 START_PATH = "/api/auth/oidc/start"
 CALLBACK_PATH = "/api/auth/oidc/callback"
 COMPLETE_PATH = "/api/auth/oidc/complete"
-
-#: What the sign-in page is told when a sign-in does not finish: one word each,
-#: never the reason, which is for the audit log.
-SSO_ERRORS = ("unavailable", "expired", "denied", "failed", "refused", "locked")
-
-#: A provider's own failures are not guesses at a credential and are not counted
-#: against the address that happened to be signing in.
-_NOT_COUNTED = ("unavailable", "refused", "denied")
 
 
 def manager() -> OidcManager:
@@ -91,28 +84,6 @@ def manager() -> OidcManager:
     """
     accounts = get_token_manager().accounts
     return OidcManager(accounts.store, accounts=accounts)
-
-
-def origin_of(request: Request) -> str:
-    """
-    The address people reach this console at, as the provider is to call it back.
-
-    ``web.public_url`` when the operator set it (behind a proxy whose name
-    differs, or to be exact about it); else the host the request arrived on,
-    which the console's allowed-hosts check already vetted, over the scheme the
-    request really used (a trusted proxy's word counts).
-
-    Args:
-        request: The request.
-
-    Returns:
-        ``scheme://host[:port]``, without a trailing slash.
-    """
-    configured = str(Config().get("web.public_url") or "").strip().rstrip("/")
-    if configured:
-        return configured
-    host = request.headers.get("host") or request.url.netloc
-    return f"{'https' if is_secure_request(request) else 'http'}://{host}"
 
 
 def callback_url(request: Request, provider: OidcProvider) -> str:
@@ -127,24 +98,6 @@ def callback_url(request: Request, provider: OidcProvider) -> str:
     return provider.redirect_uri or origin_of(request) + CALLBACK_PATH
 
 
-def to_login(error: str | None = None, ticket: str | None = None) -> RedirectResponse:
-    """
-    Send the browser to the sign-in page, with what to do next.
-
-    Args:
-        error: One of :data:`SSO_ERRORS`, when the sign-in did not finish.
-        ticket: The single-use ticket of one that did.
-
-    Returns:
-        A ``303`` redirect, never cached.
-    """
-    query = f"sso={quote(ticket)}" if ticket else f"sso_error={quote(error or 'failed')}"
-    response = RedirectResponse(f"/login?{query}", status_code=303)
-    response.headers["Cache-Control"] = "no-store"
-    response.headers["Referrer-Policy"] = "no-referrer"
-    return response
-
-
 class ProviderChoice(BaseModel):
     """
     One way to sign in, as the sign-in page offers it.
@@ -152,10 +105,14 @@ class ProviderChoice(BaseModel):
     Attributes:
         name: The provider's short name, for ``/start?provider=``.
         label: What the button says after "Sign in with".
+        protocol: ``oidc`` or ``saml`` (a button that leaves for the provider, at
+            ``/api/auth/<protocol>/start``) or ``ldap`` (a directory the sign-in page asks for a
+            name and a password).
     """
 
     name: str
     label: str
+    protocol: str = "oidc"
 
 
 class ProviderChoices(BaseModel):
@@ -187,7 +144,17 @@ def list_choices(response: Response) -> ProviderChoices:
     """
     response.headers["Cache-Control"] = "no-store"
     return ProviderChoices(
-        providers=[ProviderChoice(**item) for item in manager().public_providers()],
+        providers=[
+            *(ProviderChoice(**item) for item in manager().public_providers()),
+            *(
+                ProviderChoice(**item, protocol="saml")
+                for item in saml_manager().public_providers()
+            ),
+            *(
+                ProviderChoice(**item, protocol="ldap")
+                for item in directory_manager().public_directories()
+            ),
+        ],
         local_login=load_local_login().enabled,
     )
 
@@ -239,19 +206,7 @@ def start(
         return to_login(exc.public)
     response = RedirectResponse(begun.url, status_code=302)
     response.headers["Cache-Control"] = "no-store"
-    # Lax, not Strict: the answer arrives as a navigation from another site,
-    # and a Strict cookie is not sent with one. Lax still withholds it from a
-    # cross-site POST or subresource, and the path keeps it off everything
-    # but the API.
-    response.set_cookie(
-        BINDING_COOKIE,
-        begun.binding,
-        max_age=FLOW_SECONDS,
-        httponly=True,
-        samesite="lax",
-        secure=is_secure_request(request),
-        path="/api",
-    )
+    set_binding_cookie(response, request, begun.binding)
     return response
 
 
@@ -309,7 +264,7 @@ def callback(
             target=f"identity:{exc.who}" if exc.who else "provider",
             detail=f"sign-in refused: {exc.reason}",
         )
-        if exc.public not in _NOT_COUNTED and not exc.reason.startswith("idp_"):
+        if exc.public not in NOT_COUNTED and not exc.reason.startswith("idp_"):
             record_auth_failure(client_ip, "/api/auth/oidc/callback", "oidc")
         response = to_login(exc.public)
     except DependencyError as exc:
@@ -383,7 +338,6 @@ def complete(request: Request, response: Response, body: CompleteRequest) -> Com
             the account can no longer sign in). 429 ``locked_out``.
     """
     client_ip = get_client_ip(request)
-    token_manager = get_token_manager()
     oidc = manager()
     try:
         ticket, account = oidc.collect(body.ticket, request.cookies.get(BINDING_COOKIE), client_ip)
@@ -401,57 +355,35 @@ def complete(request: Request, response: Response, body: CompleteRequest) -> Com
             "sign_in_expired", "This sign-in has expired. Start again with your provider."
         ) from exc
     response.delete_cookie(BINDING_COOKIE, path="/api")
-    provider = oidc.provider(ticket.provider)
-    label = provider.label if provider is not None else ticket.provider
+    via, label = _source_of(oidc, ticket.provider)
 
-    if account.has_mfa:
-        challenge, expires_in = token_manager.issue_login_challenge(
-            account.id, client_ip, via="oidc"
-        )
-        login = LoginResponse(
-            success=False,
-            expires_in=0,
-            csrf_token="",
-            second_factor=SecondFactorStep(
-                challenge=challenge,
-                expires_in=expires_in,
-                methods=second_factor_methods(account),
-            ),
-        )
-    else:
-        login = account_signed_in(
-            request,
-            response,
-            account,
-            bearer=body.bearer,
-            auth_method="oidc",
-            event="auth.oidc.login",
-            detail=ticket.detail,
-            lockout_key=client_ip,
-        )
+    login = external_sign_in(
+        request, response, account, via=via, detail=ticket.detail, bearer=body.bearer
+    )
     return CompleteResponse(
         login=login, next=ticket.next_path, provider=ticket.provider, label=label
     )
 
 
+def _source_of(oidc: OidcManager, name: str) -> tuple[str, str]:
+    """
+    Args:
+        oidc: The OpenID Connect manager.
+        name: The name a ticket was issued for.
+
+    Returns:
+        How the first step was proved (``oidc`` or ``saml``) and the button's label.
+    """
+    found = oidc.provider(name)
+    if found is not None:
+        return "oidc", found.label
+    saml = saml_manager().provider(name)
+    if saml is not None:
+        return "saml", saml.label
+    return "oidc", name
+
+
 # ---------------------------------------------------------------------- admin
-
-
-class Mapping(BaseModel):
-    """
-    One line of a provider's group mapping.
-
-    Attributes:
-        group: The group, as the provider's claim spells it.
-        role: The instance role it gives (``viewer``, ``operator`` or ``admin``).
-        team: The team it puts the person in.
-        team_role: Their role there.
-    """
-
-    group: str = Field(max_length=256)
-    role: str | None = None
-    team: str | None = None
-    team_role: str | None = None
 
 
 class ProviderInfo(BaseModel):
@@ -598,34 +530,6 @@ class ProviderSettings(BaseModel):
     redirect_uri: str | None = Field(default=None, max_length=512)
 
 
-class CheckInfo(BaseModel):
-    """
-    One thing looked at when a provider is tested.
-
-    Attributes:
-        name: What.
-        ok: Whether it is right.
-        detail: What was found, or what is wrong.
-    """
-
-    name: str
-    ok: bool
-    detail: str
-
-
-class TestResponse(BaseModel):
-    """
-    A provider looked at the way a sign-in would, without signing anybody in.
-
-    Attributes:
-        ok: Whether every check passed.
-        checks: Each thing looked at.
-    """
-
-    ok: bool
-    checks: list[CheckInfo]
-
-
 class IdentityInfo(BaseModel):
     """
     A person at a provider, linked to an account.
@@ -747,7 +651,10 @@ def _local_login_state() -> LocalLoginSettings:
         enabled=policy.enabled,
         exempt=sorted(policy.exempt),
         survivors=local_login_survivors(store, exempt=policy.exempt),
-        providers=sum(1 for found in manager().providers() if found.enabled),
+        # A directory is a way in as much as a provider is.
+        providers=sum(1 for found in manager().providers() if found.enabled)
+        + len(saml_manager().public_providers())
+        + len(directory_manager().public_directories()),
     )
 
 
@@ -799,6 +706,9 @@ def put_local_login(
         config.set(SETTING_ENABLED, body.enabled)
         changed.append("enabled" if body.enabled else "disabled")
     if changed:
+        # Written to the file, not only to this process: a restart used to bring the
+        # password sign-in back on without anyone having said so.
+        persist(config)
         audit_event(
             "auth.local_login.change",
             "success",
@@ -983,6 +893,33 @@ def list_identities(
     )
 
 
+#: The audit event of a link made by hand, by the protocol of the source it was made at.
+LINK_EVENTS = {"oidc": "auth.oidc.link", "saml": "auth.saml.link", "ldap": "auth.ldap.link"}
+
+
+def _link_by_hand(oidc: OidcManager, body: LinkRequest, actor: str) -> Any:
+    """
+    Link a person to an account at whichever source has the name: names are shared by every way
+    of signing in, so the name says which.
+
+    Args:
+        oidc: The OpenID Connect manager.
+        body: The source, the account and the source's id for the person.
+        actor: Who links it.
+
+    Returns:
+        The identity.
+    """
+    if oidc.provider(body.provider) is None:
+        saml = saml_manager()
+        if saml.provider(body.provider) is not None:
+            return saml.link(body.provider, body.username, body.subject, actor=actor)
+        directories = directory_manager()
+        if directories.directory(body.provider) is not None:
+            return directories.link(body.provider, body.username, body.subject, actor=actor)
+    return oidc.link(body.provider, body.username, body.subject, actor=actor)
+
+
 @router.post("/identities", response_model=IdentityInfo, status_code=201)
 def link_identity(
     request: Request, body: LinkRequest, session: dict[str, Any] = Depends(require_elevated)
@@ -1005,11 +942,11 @@ def link_identity(
     """
     oidc = manager()
     try:
-        identity = oidc.link(body.provider, body.username, body.subject, actor=actor_label(session))
+        identity = _link_by_hand(oidc, body, actor_label(session))
     except ConfigError as exc:
         raise _not_found(exc) from exc
     audit_event(
-        "auth.oidc.link",
+        LINK_EVENTS.get(identity.protocol, "auth.oidc.link"),
         "success",
         client_ip=get_client_ip(request),
         session=session,

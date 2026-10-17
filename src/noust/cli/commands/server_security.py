@@ -417,14 +417,18 @@ def revert_command(ctx: Context, change_id: str | None) -> None:
 @security.command("accept")
 @click.argument("check_id", type=click.Choice(sorted(CATALOG)), metavar="CHECK_ID")
 @click.option(
-    "--why", "why", required=True, help="Why the risk is acceptable (10 to 500 characters)."
+    "--why",
+    "why",
+    default=None,
+    help="Why the risk is acceptable (10 to 500 characters); required under the ENS profile "
+    "or with security.exception_reasons on.",
 )
 @click.option("--until", "until", default=None, metavar="DATE", help="Until when: 2026-12-31.")
 @click.option("--days", type=click.IntRange(1, 365), default=None, help="For this many days.")
 @json_option("Print the acceptance as JSON.")
 @pass_context
 def accept_command(
-    ctx: Context, check_id: str, why: str, until: str | None, days: int | None
+    ctx: Context, check_id: str, why: str | None, until: str | None, days: int | None
 ) -> None:
     """
     Accept a check's finding as a documented risk, until a date (a year at most).

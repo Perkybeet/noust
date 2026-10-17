@@ -2522,6 +2522,365 @@
       "parse": []
     }
   },
+  "cleanup.completed": {
+    "embeds": [
+      {
+        "title": "● Disk cleaned · /",
+        "description": "The server's cleanup policy ran and freed space.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Used",
+            "value": "91% -> 64%",
+            "inline": true
+          },
+          {
+            "name": "Freed",
+            "value": "11.5 GB",
+            "inline": true
+          },
+          {
+            "name": "Actions",
+            "value": "journal, pkg-cache, releases",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "cleanup.partial": {
+    "embeds": [
+      {
+        "title": "▲ Disk cleanup partly failed · /",
+        "description": "The cleanup policy ran, but some of its actions failed.\n\n**See what ran:** `noust server cleanup-schedule runs`\n\n*What releases reported*\n```\nrm: cannot remove '/var/www/apps/shop/releases/x': Permission denied\n```",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Used",
+            "value": "91% -> 88%",
+            "inline": true
+          },
+          {
+            "name": "Freed",
+            "value": "2.0 GB",
+            "inline": true
+          },
+          {
+            "name": "Actions",
+            "value": "journal, pkg-cache, releases",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "cleanup.failed": {
+    "embeds": [
+      {
+        "title": "✕ Disk cleanup failed · /",
+        "description": "The cleanup policy ran and every one of its actions failed, so the disk is as it was.\n\n**See what ran:** `noust server cleanup-schedule runs`\n\n*What journal reported*\n```\nFailed to vacuum: Read-only file system\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Used",
+            "value": "93% -> 93%",
+            "inline": true
+          },
+          {
+            "name": "Actions",
+            "value": "journal",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "cron.timer_stopped": {
+    "embeds": [
+      {
+        "title": "▲ Scheduled task will not run · shop-sync",
+        "description": "The task is enabled but its timer is not running, so it will not start. Nothing failed: nothing runs.\n\n**Start it again with:** `noust cron enable shop-sync`",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Schedule",
+            "value": "\\*-\\*-\\* 03:00:00",
+            "inline": true
+          },
+          {
+            "name": "Timer",
+            "value": "failed",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/cron"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "cron.timer_running": {
+    "embeds": [
+      {
+        "title": "● Scheduled task runs again · shop-sync",
+        "description": "The task's timer is running again.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Schedule",
+            "value": "\\*-\\*-\\* 03:00:00",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/cron"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "probe.failed": {
+    "embeds": [
+      {
+        "title": "✕ Address not answering · shop-site",
+        "description": "The address stopped answering what the probe asks of it.\n\n**Probe it now with:** `noust probe run shop-site`\n\n*What came back*\n```\nHTTP 503 Service Unavailable\nretry-after: 30\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Address",
+            "value": "https://shop.example.com/health",
+            "inline": true
+          },
+          {
+            "name": "Unreachable since",
+            "value": "2026-10-16 08:14 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/settings/probes"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "probe.recovered": {
+    "embeds": [
+      {
+        "title": "● Address answering again · shop-site",
+        "description": "The address answers what the probe asks of it again.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Address",
+            "value": "https://shop.example.com/health",
+            "inline": true
+          },
+          {
+            "name": "Was unreachable for",
+            "value": "7 min 42 s",
+            "inline": true
+          },
+          {
+            "name": "Answered in",
+            "value": "184 ms",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/settings/probes"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "alert.acknowledged": {
+    "embeds": [
+      {
+        "title": "○ Alert taken · cpu-high",
+        "description": "alice is looking into it: CPU of the server is still beyond the 90% limit.",
+        "color": 10395294,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Rule",
+            "value": "cpu-high",
+            "inline": true
+          },
+          {
+            "name": "Taken by",
+            "value": "alice",
+            "inline": true
+          },
+          {
+            "name": "Firing for",
+            "value": "21 min",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "digest.flood": {
+    "embeds": [
+      {
+        "title": "○ Notifications held back",
+        "description": "3 notifications passed this channel's limit and were held back until now.\n\n**Disk cleaned · /**\n**When:** 2026-09-29 10:45 UTC\n**Detail:** The server's cleanup policy ran and freed space.\n\n**Scheduled task runs again · shop-sync**\n**When:** 2026-09-29 10:48 UTC\n**Detail:** The task's timer is running again.\n\n**Address answering again · shop-site**\n**When:** 2026-09-29 10:51 UTC\n**Detail:** The address answers what the probe asks of it again.",
+        "color": 10395294,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Notifications",
+            "value": "3",
+            "inline": true
+          },
+          {
+            "name": "Between",
+            "value": "2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "digest.summary": {
+    "embeds": [
+      {
+        "title": "○ Scheduled summary",
+        "description": "3 notifications since the last summary.\n\n**Disk cleaned · /**\n**When:** 2026-09-29 10:45 UTC\n**Detail:** The server's cleanup policy ran and freed space.\n\n**Scheduled task runs again · shop-sync**\n**When:** 2026-09-29 10:48 UTC\n**Detail:** The task's timer is running again.\n\n**Address answering again · shop-site**\n**When:** 2026-09-29 10:51 UTC\n**Detail:** The address answers what the probe asks of it again.",
+        "color": 10395294,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Notifications",
+            "value": "3",
+            "inline": true
+          },
+          {
+            "name": "Between",
+            "value": "2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
   "hostile.deploy_failed": {
     "embeds": [
       {

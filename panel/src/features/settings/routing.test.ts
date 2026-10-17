@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { NotificationChannel } from "../../api/queries/notifications";
 import { bindT } from "../../i18n";
 import { EVENT_KINDS } from "./notifications";
-import { isClock, parseList, quietBlock, routeBlock, routeSummary, routingBody, routingDirty, routingFormFrom } from "./routing";
+import { floodBlock, isClock, isFloodValid, parseList, quietBlock, routeBlock, routeSummary, routingBody, routingDirty, routingFormFrom, summaryBlock } from "./routing";
 
 const en = bindT("en");
 
@@ -50,7 +50,7 @@ describe("a channel's routing", () => {
   it("writes only what is set, and clears what the form emptied", () => {
     const empty = routingBody(routingFormFrom(channel(), SERVER), channel());
     // An empty object is how the API clears events, a route and quiet hours.
-    expect(empty).toEqual({ events: {}, route: {}, quiet: {} });
+    expect(empty).toEqual({ events: {}, route: {}, quiet: {}, flood: {}, summary: {} });
 
     const form = routingFormFrom(channel(), SERVER);
     form.route = { apps: "shop.example.com, *.staging.example.com", projects: "", environments: "shop/staging", tags: "critical", minSeverity: "warning", serverEvents: true };
@@ -108,6 +108,52 @@ describe("a channel's routing", () => {
     expect(quietBlock({ on: false, start: "22:00", end: "07:00", timezone: "UTC", allow: "failed", digest: true })).toEqual({});
   });
 
+  it("reads a channel's cap and summary into a form, and writes them back as the server reads them", () => {
+    const capped = channel({
+      flood: { max: 20, minutes: 10 },
+      summary: { at: "08:00", timezone: "Europe/Madrid", below: "failed", days: ["fri", "mon", "someday"] },
+    });
+    const form = routingFormFrom(capped, SERVER);
+    expect(form.flood).toEqual({ on: true, max: "20", minutes: "10" });
+    expect(form.summary).toEqual({ on: true, at: "08:00", timezone: "Europe/Madrid", below: "failed", days: ["fri", "mon"] });
+    const body = routingBody(form, capped);
+    expect(body.flood).toEqual({ max: 20, minutes: 10 });
+    // The days are written Monday first, whatever order they were chosen in.
+    expect(body.summary).toEqual({ at: "08:00", timezone: "Europe/Madrid", below: "failed", days: ["mon", "fri"] });
+  });
+
+  it("clears a cap and a summary that are switched off, whatever their fields say", () => {
+    expect(floodBlock({ on: false, max: "5", minutes: "1" })).toEqual({});
+    expect(summaryBlock({ on: false, at: "08:00", timezone: "UTC", below: "warning", days: [] })).toEqual({});
+    // No day chosen is every day: nothing is written for it.
+    expect(summaryBlock({ on: true, at: "08:00", timezone: " ", below: "warning", days: [] })).toEqual({ at: "08:00", timezone: "UTC", below: "warning" });
+  });
+
+  it("offers a cap and a summary with the server's defaults when the channel has none", () => {
+    const form = routingFormFrom(channel(), SERVER);
+    expect(form.flood.on).toBe(false);
+    expect(form.summary.on).toBe(false);
+    expect(form.summary.below).toBe("warning");
+    expect(form.flood).toMatchObject({ max: "20", minutes: "10" });
+  });
+
+  it("accepts a cap only in the ranges the server accepts", () => {
+    expect(isFloodValid({ on: true, max: "20", minutes: "10" })).toBe(true);
+    expect(isFloodValid({ on: true, max: "1000", minutes: "1440" })).toBe(true);
+    for (const [max, minutes] of [["0", "10"], ["1001", "10"], ["20", "0"], ["20", "1441"], ["", "10"], ["2.5", "10"], ["-3", "10"], ["abc", "10"]]) {
+      expect(isFloodValid({ on: true, max: max ?? "", minutes: minutes ?? "" })).toBe(false);
+    }
+    // A cap that is off cannot be wrong.
+    expect(isFloodValid({ on: false, max: "nonsense", minutes: "" })).toBe(true);
+  });
+
+  it("is dirty when the cap or the summary changes, and only then", () => {
+    const initial = routingFormFrom(channel(), SERVER);
+    expect(routingDirty({ ...initial, flood: { ...initial.flood, on: true } }, initial, channel())).toBe(true);
+    expect(routingDirty({ ...initial, flood: { ...initial.flood, max: "99" } }, initial, channel())).toBe(false);
+    expect(routingDirty({ ...initial, summary: { ...initial.summary, on: true } }, initial, channel())).toBe(true);
+  });
+
   it("says what a channel is limited to, and nothing for one that hears everything", () => {
     expect(routeSummary(en, channel())).toEqual([]);
     expect(
@@ -120,5 +166,6 @@ describe("a channel's routing", () => {
         }),
       ),
     ).toEqual(["Applications: shop.example.com", "Tags: critical", "Failures only", "Quiet from 22:00 to 07:00", "Own switch for 1 event"]);
+    expect(routeSummary(en, channel({ flood: { max: 20, minutes: 10 }, summary: { at: "08:00" } }))).toEqual(["At most 20 per 10 min", "Daily summary at 08:00"]);
   });
 });

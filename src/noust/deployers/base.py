@@ -109,6 +109,7 @@ from noust.deployers.helpers.hooks import (
 from noust.deployers.helpers.layout import RELEASES, choose_layout, env_file_in
 from noust.deployers.helpers.nginx_config import NginxAdvancedConfig
 from noust.deployers.helpers.permissions import hand_over_file, hand_over_tree
+from noust.deployers.helpers.process_declaration import declare_for_release, procfile_honoured
 from noust.deployers.helpers.processes import RELEASE, WEB, ProcessSet, resolve_processes
 from noust.deployers.helpers.project_file import parse_build_document
 from noust.deployers.helpers.registration import StoreRegistrar
@@ -780,13 +781,8 @@ class BaseDeployer(AppDeployer):
             True for a new application, or one deployed from its Procfile.
         """
         if self._procfile_decision is None:
-            applied = (
-                app_build_store.get_applied(self.domain, store=self.store)
-                if self._app_row() is not None
-                else None
-            )
-            self._procfile_decision = self._app_row() is None or bool(
-                applied and applied.get("procfile")
+            self._procfile_decision = self._app_row() is None or procfile_honoured(
+                self.domain, self.store
             )
         return self._procfile_decision
 
@@ -2272,6 +2268,7 @@ class BaseDeployer(AppDeployer):
             issues += preflight.repository_unreachable(self.runner, self.source)
 
         issues += preflight.insufficient_disk_space(self.config.apps_directory)
+        issues += preflight.over_disk_limit(existing_app, self.runner)
 
         if self.port:
             issues += preflight.port_taken(
@@ -3724,45 +3721,17 @@ class BaseDeployer(AppDeployer):
         """
         if not self.domain or isinstance(self.fs, DryRunFileSystem) or not self.start_command():
             return None
-        found = self.processes()
-        if found.problem or (found.source == "Procfile" and not self._procfile_applies()):
-            # Not read, so not a reason to change what runs: the processes a previous
-            # deployment declared stay as they are.
-            return None
-        beside = [process.name for process in found if not process.started_by_noust]
-        if not self.uses_releases:
-            if beside:
-                self.logger.warning(
-                    f"{', '.join(beside)} declared by the repository "
-                    f"{'is' if len(beside) == 1 else 'are'} not started: processes run on the "
-                    f"releases layout and this application is deployed in place "
-                    f"(noust app migrate {self.domain})"
-                )
-            return None
         manager = ProcessManager(
             store=self.store, services=self.service_manager, runner=self.runner, log=self.logger
         )
-        try:
-            declaration = manager.declare(self.domain, found)
-        except NoustError as exc:
-            self.logger.warning(
-                "The processes the repository declares are not started: "
-                f"{exc.message}{'. ' + exc.details if exc.details else ''}"
-            )
-            return None
-        for name, reason in declaration.skipped:
-            self.logger.warning(
-                f"The {name} process the repository declares is not started: {reason}"
-            )
-        if declaration.changed:
-            self.logger.substep(
-                f"Processes beside the web one, from the repository: {', '.join(declaration.changed)}"
-            )
-        if declaration.removed:
-            self.logger.substep(
-                f"The repository no longer declares: {', '.join(declaration.removed)}"
-            )
-        return None if declaration.empty else declaration
+        return declare_for_release(
+            manager,
+            self.domain,
+            self.processes(),
+            procfile_applies=self._procfile_applies(),
+            releases_layout=self.uses_releases,
+            log=self.logger,
+        )
 
     def _zero_downtime_app(self) -> App | None:
         """

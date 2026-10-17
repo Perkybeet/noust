@@ -133,6 +133,16 @@ export const cron = {
     outputLabel: "Output of this run of {name}",
   },
 
+  ledger: {
+    title: "{missed} missed and {late} late in the last 7 days",
+    description: "A timer makes up one run for the time the server was off and says nothing about the others. These moments were due and did not run on time.",
+    listLabel: "Occurrences that did not run on time",
+    allRan: { one: "The one occurrence due in the last 7 days ran on time.", other: "All {count} occurrences due in the last 7 days ran on time." },
+    late: "ran late: made up afterwards",
+    serverOff: "did not run: the server was off",
+    missed: "did not run",
+  },
+
   toast: {
     theJob: "the job",
     created: "Created {name}",

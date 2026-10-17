@@ -47,6 +47,7 @@ function Delivery({ delivery }: { delivery: NotificationDelivery }) {
       reportActionError(t("notifyRouting.deliveries.retryFailed"), error);
     },
   });
+  const heldCause = delivery.held_for === "flood" || delivery.held_for === "summary" ? delivery.held_for : delivery.state === "held" ? "quiet" : undefined;
   const failing = delivery.last_error !== null && delivery.last_error !== undefined && delivery.last_error !== "";
   return (
     <li className="flex min-w-0 flex-col gap-2 px-4 py-2.5 sm:px-5">
@@ -54,6 +55,7 @@ function Delivery({ delivery }: { delivery: NotificationDelivery }) {
         <div className="flex min-w-0 flex-1 basis-64 flex-col gap-0.5">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             {state !== undefined ? <StatusPill state={state.status} label={t(`notifyRouting.deliveries.state.${state.key}`)} size="sm" /> : null}
+            {delivery.state === "held" && heldCause !== undefined ? <span className="text-12 text-fg-muted">{t(`notifyRouting.deliveries.heldFor.${heldCause}`)}</span> : null}
             <span className="min-w-0 text-13 font-medium text-fg">{kindLabel(t, delivery.kind)}</span>
             <span className="text-12 text-fg-muted">{t("notifyRouting.deliveries.to", { channel: delivery.channel })}</span>
           </div>

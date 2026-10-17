@@ -105,7 +105,7 @@ class TestTheSettings:
 
         assert settings.server_allowed is False
         what, how = settings.server_refusal() or ("", "")
-        assert "ENS" in what
+        assert "compliance controls" in what
         assert SERVER_FORCE_COMMAND in how
 
     def test_forcing_it_under_the_profile_allows_it(self):

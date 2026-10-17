@@ -155,7 +155,7 @@ class TestEveryAreaReadsTheOneModule:
         settings = load_settings(config)
 
         assert settings.retention_days == ENS_MEDIUM.audit_retention_days
-        assert any("ens-medium" in problem for problem in settings.problems)
+        assert any("ens-media" in problem for problem in settings.problems)
 
     def test_outside_the_profile_the_retention_is_the_operators(self) -> None:
         from noust.core.audit.settings import load_settings

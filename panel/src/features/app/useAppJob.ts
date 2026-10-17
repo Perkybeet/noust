@@ -48,7 +48,7 @@ const RUNNING = new Set(["pending", "running"]);
  * Jobs that are work done in an app and not something that happens to it: a one-off command
  * leaves the app as it was, so it never turns the header into "Working" or stops its verbs.
  */
-const NOT_A_STATE = new Set(["app_exec"]);
+const NOT_A_STATE = new Set(["app_exec", "disk"]);
 
 /** The newest line the job logged, which is what it is doing now. */
 export function jobStep(job: Job): string | null {

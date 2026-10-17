@@ -183,7 +183,7 @@ test("adopting a running stack previews first, with Compose's dry run verbatim",
     });
   });
   await signIn(page, consoleServer, "/apps/new");
-  await page.getByRole("radio", { name: "A running stack" }).click();
+  await page.getByRole("radio", { name: "Already running" }).click();
   await page.getByRole("textbox", { name: "Domain" }).fill("stack.example.org");
   await page.getByRole("textbox", { name: "Directory" }).fill("/srv/stack");
   await page.getByRole("button", { name: "Preview" }).click();
@@ -193,6 +193,68 @@ test("adopting a running stack previews first, with Compose's dry run verbatim",
   expect(bodies).toEqual([{ domain: "stack.example.org", path: "/srv/stack", preview: true, accept_recreate: false }]);
   await settle(page);
   await expectNoA11yViolations(page, "the adoption's preview");
+});
+
+test("adopting a site lists what the server has and previews what is kept as it is", async ({ page, consoleServer }) => {
+  const bodies: unknown[] = [];
+  await page.route("**/api/apps/native-sites", async (route) => {
+    await route.fulfill({
+      json: {
+        sites: [
+          {
+            site: "legacy.example.org",
+            webserver: "nginx",
+            config_path: "/etc/nginx/sites-available/legacy.example.org",
+            enabled: true,
+            domains: ["legacy.example.org"],
+            kind: "proxy",
+            root: null,
+            upstream: "127.0.0.1:8000",
+            port: 8000,
+            unit: "legacy-api",
+            unit_active: true,
+            ssl: false,
+            adoptable: true,
+            reason: null,
+          },
+        ],
+      },
+    });
+  });
+  await page.route("**/api/apps/adopt-site", async (route) => {
+    bodies.push(route.request().postDataJSON());
+    await route.fulfill({
+      json: {
+        domain: "legacy.example.org",
+        app_name: "legacy-example-org",
+        kind: "proxy",
+        site: "legacy.example.org",
+        site_name: null,
+        webserver: "nginx",
+        enabled: true,
+        ssl: false,
+        root: "/srv/legacy",
+        port: 8000,
+        upstream: "127.0.0.1:8000",
+        unit: "legacy-api",
+        unit_active: true,
+        warnings: [],
+        adopted: false,
+      },
+    });
+  });
+  await signIn(page, consoleServer, "/apps/new");
+  await page.getByRole("radio", { name: "Already running" }).click();
+  await page.getByRole("radio", { name: /A site on nginx or Apache/ }).click();
+  await page.getByRole("button", { name: "Choose legacy.example.org" }).click();
+  await expect(page.getByRole("textbox", { name: "Domain" })).toHaveValue("legacy.example.org");
+  await page.getByRole("button", { name: "Preview" }).click();
+  await expect(page.getByRole("heading", { name: "What Noust found" })).toBeVisible();
+  await expect(page.getByText("Started, stopped and restarted from here; its file is never rewritten.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Adopt" })).toBeVisible();
+  expect(bodies).toEqual([{ domain: "legacy.example.org", preview: true }]);
+  await settle(page);
+  await expectNoA11yViolations(page, "the site adoption's preview");
 });
 
 test("the sites list says who wrote each site and which application it serves", async ({ page, consoleServer }) => {

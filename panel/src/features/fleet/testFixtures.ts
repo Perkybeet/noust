@@ -167,6 +167,19 @@ function view(resource: string, items: unknown[]) {
   return { resource, generated_at: NOW, partial: true, nodes: OUTCOMES, items };
 }
 
+/** One metric of the servers that have a history: web-01 busy, web-2 calm; the others are gaps. */
+export const METRICS_VIEW = view("metrics", [
+  row("web-01", "/server", { metric: "cpu", unit: "percent", window: "24h", step: 60, resolution: "1m", points: [], latest: 72.5, average: 40.2, peak: 96 }),
+  row("web-2", "/server", { metric: "cpu", unit: "percent", window: "24h", step: 60, resolution: "1m", points: [], latest: 7.5, average: 5, peak: 31 }),
+]);
+
+/** A search over the logs of every server: two lines from web-01 and web-2, a note from old-1. */
+export const LOGS_VIEW = view("logs", [
+  row("web-2", "/apps/shop.example.com", { type: "line", ts: 1_790_000_100, app: "shop.example.com", source: "journal", unit: "shop.service", process: "node", level: "err", message: "connection refused: db:5432" }),
+  row("web-01", "/apps/blog.example.com", { type: "line", ts: 1_790_000_000, app: "blog.example.com", source: "container", unit: "web", process: "", level: null, message: "GET /health 200" }),
+  row("old-1", "/server", { type: "note", ts: null, message: "The search stopped at its scan limit; older matches may exist." }),
+]);
+
 export const SERVERS_VIEW = view("servers", ["web-01", "web-2", "db-1", "old-1"].map((node) => server(node)));
 
 export const APPS_VIEW = view("apps", [
@@ -301,6 +314,8 @@ export function fleetRoutes(session: SessionInfo = centralSession(), nodes: unkn
     "GET /api/fleet/backups": () => json(200, BACKUPS_VIEW),
     "GET /api/fleet/updates": () => json(200, UPDATES_VIEW),
     "GET /api/fleet/activity": () => json(200, ACTIVITY_VIEW),
+    "GET /api/fleet/metrics": () => json(200, METRICS_VIEW),
+    "GET /api/fleet/logs": () => json(200, LOGS_VIEW),
     "GET /api/fleet/actions": () => json(200, ACTIONS),
     "GET /api/fleet/jobs": () => json(200, { jobs: [{ ...JOB, nodes: null }] }),
     "GET /api/fleet/jobs/fj-1": () => json(200, JOB),

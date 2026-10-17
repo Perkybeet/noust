@@ -62,6 +62,14 @@ LimitNOFILE=65535
 {% for directive in resource_limits | default([]) %}
 {{ esc.line(directive) }}
 {% endfor %}
+{% if tuning | default([]) %}
+
+# Tuning: limits and options beyond memory, CPU and tasks. Change it with:
+# noust app tuning
+{% for directive in tuning %}
+{{ esc.line(directive) }}
+{% endfor %}
+{% endif %}
 
 [Install]
 WantedBy=multi-user.target

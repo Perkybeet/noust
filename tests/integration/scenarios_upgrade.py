@@ -304,7 +304,7 @@ def jar_login(sc: Scenario, master: str, label: str) -> set[str]:
     Returns:
         The names of the cookies the console set.
     """
-    body = '{"token": "%s"}' % master
+    body = run.json.dumps({"token": master})
     config = "\n".join(
         [
             f'url = "{run.PANEL_URL}/api/auth/login"',
@@ -603,7 +603,11 @@ def seed_legacy_server(sc: Scenario) -> Seeded:
     wasm_token = wasm_token.strip()
     sc.check(wasm_token.startswith("wasm_tok_"), "the seeded token has not the legacy prefix")
     code, session = run.api_secret(
-        sc, "GET", "/api/auth/session", f"{old} GET /api/auth/session (wasm_tok_)", bearer=wasm_token
+        sc,
+        "GET",
+        "/api/auth/session",
+        f"{old} GET /api/auth/session (wasm_tok_)",
+        bearer=wasm_token,
     )
     sc.check(
         code == 200 and isinstance(session, dict) and session.get("authenticated") is True,
@@ -611,7 +615,9 @@ def seed_legacy_server(sc: Scenario) -> Seeded:
     )
     # A signed-in browser: the session and CSRF cookies the console sets, kept in a jar.
     master = master_match.group(1) if master_match else ""
-    cookies = jar_login(sc, master, f"{old} POST /api/auth/login (the cookie jar of a signed-in browser)")
+    cookies = jar_login(
+        sc, master, f"{old} POST /api/auth/login (the cookie jar of a signed-in browser)"
+    )
     sc.check(
         "wasm_session" in cookies and "wasm_csrf" in cookies,
         f"3.3.1 did not set its session and CSRF cookies: {sorted(cookies)}",
@@ -747,7 +753,9 @@ def run_upgrade_rehearsal(sc: Scenario, wheel: Path) -> None:
         timeout=120,
         label=f"{new} systemctl restart noust-web (the new code answers)",
     )
-    code, session = jar_get(sc, "/api/auth/session", f"{new} GET /api/auth/session (the old cookies)")
+    code, session = jar_get(
+        sc, "/api/auth/session", f"{new} GET /api/auth/session (the old cookies)"
+    )
     sc.check(
         code == 200 and isinstance(session, dict) and session.get("authenticated") is True,
         f"the session of a browser signed in under 3.3.1 does not survive the upgrade: {code} {session!r}",

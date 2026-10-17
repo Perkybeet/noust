@@ -52,7 +52,13 @@ from noust.core.runner import (
     CommandResult,
     get_runner,
 )
-from noust.core.store import DeploymentTrigger, get_store, is_compose_backed, validate_tag_pattern
+from noust.core.store import (
+    DeploymentTrigger,
+    get_store,
+    is_adopted,
+    is_compose_backed,
+    validate_tag_pattern,
+)
 from noust.core.tags import newest_tag
 from noust.core.teams import Scope, ScopedStore, TeamStore
 from noust.core.utils import domain_to_app_name
@@ -73,6 +79,7 @@ from noust.deployers.lifecycle import (
     update_app,
 )
 from noust.deployers.monorepo import MonorepoDeployer
+from noust.deployers.native_adopt import adoption_of
 from noust.deployers.php_fpm import control_pool
 from noust.deployers.registry import available_types
 from noust.managers.apache_manager import ApacheManager
@@ -1237,7 +1244,7 @@ def _control_service(domain: str, action: str, logger: Logger) -> int:
 
     service_manager = ServiceManager(verbose=logger.verbose)
 
-    if not service_manager.service_exists(app_name):
+    if not service_manager.unit_exists(app_name):
         logger.warning(f"Service not found for: {domain}")
         logger.info("This may be a static application or the service was not created")
         return 1
@@ -1469,6 +1476,15 @@ def _delete_app(
         logger.warning(f"Application not found: {domain}")
         return 1
 
+    if app is not None and is_adopted(app.app_type):
+        return _forget_adopted(
+            domain,
+            logger=logger,
+            force=force,
+            dry_run=dry_run,
+            remove_adopted_directory=remove_adopted_directory,
+        )
+
     # Asked before the question and before a dry run, so either says what
     # would really happen; the deletion asks again.
     adopted_named = check_adopted_directory(
@@ -1527,6 +1543,69 @@ def _delete_app(
         return 1
     logger.success(f"Application deleted: {domain}")
 
+    return 0
+
+
+def _forget_adopted(
+    domain: str,
+    *,
+    logger: Logger,
+    force: bool,
+    dry_run: bool,
+    remove_adopted_directory: str | None,
+) -> int:
+    """
+    Stop managing a site Noust adopted, saying that nothing of it is removed.
+
+    Args:
+        domain: The adopted application.
+        logger: Logger of the current command.
+        force: Do not ask for confirmation.
+        dry_run: Only report what would be forgotten.
+        remove_adopted_directory: What the operator named for removal; refused.
+
+    Returns:
+        Exit code.
+
+    Raises:
+        ValidationError: The operator asked for the directory to be removed.
+    """
+    if remove_adopted_directory is not None:
+        raise ValidationError(
+            f"{domain} is an adopted site: Noust never removes its files",
+            details="Deleting it only forgets it. Remove the directory yourself if it should go.",
+        )
+    record = adoption_of(domain)
+    keeps = "its unit, its site, its certificate and its files stay where they are"
+    if dry_run:
+        logger.info(
+            f"Would forget {domain}: its record, its backup schedules and the names Noust "
+            f"holds for it; {keeps}."
+        )
+        return 0
+    if not force:
+        logger.warning(
+            f"This forgets {domain}: its record, its backup schedules and the names Noust holds "
+            f"for it. Nothing is removed: {keeps}."
+        )
+        if not click.confirm(f"Stop managing {domain}?", default=False):
+            logger.info("Aborted")
+            return 0
+    logger.header(f"Forgetting: {domain}")
+    outcome = delete_app(
+        domain,
+        remove_files=False,
+        remove_certificate=False,
+        on_phase=lambda index, total, message: logger.step(index, total, message),
+        logger=logger,
+    )
+    if outcome.warnings:
+        logger.warning("Forgotten, except for what is listed above")
+        return 1
+    logger.success(
+        f"{domain} is no longer managed"
+        + (f"; {record.unit}.service keeps running" if record is not None and record.unit else "")
+    )
     return 0
 
 
@@ -2507,7 +2586,8 @@ def delete(
     Removes the service, the site configuration, the certificate, the
     application directory and the database records. A directory outside
     Noust's apps directory, such as an adopted stack's, is kept unless
-    --remove-adopted-directory names it.
+    --remove-adopted-directory names it. A site adopted with 'noust app
+    adopt-site' is only forgotten: its unit, site, certificate and files stay.
     """
     _exit(
         _delete_app(

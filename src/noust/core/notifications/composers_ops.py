@@ -153,6 +153,52 @@ def compose_alert_resolved(
     )
 
 
+def compose_alert_acknowledged(
+    rule: str,
+    metric: str,
+    threshold: str,
+    who: str,
+    firing_for_s: float,
+    ctx: NotificationContext,
+    *,
+    subject: str | None = None,
+    domain: str | None = None,
+) -> Notification:
+    """
+    Compose the notification that says somebody took an alert that is firing.
+
+    Args:
+        rule: The rule's name.
+        metric: What it measures, in words.
+        threshold: The limit, with its unit.
+        who: Who took it.
+        firing_for_s: How long it had been firing.
+        ctx: The context.
+        subject: What it is about when it is not the rule.
+        domain: The application's domain, when the rule is about one.
+
+    Returns:
+        ``alert.acknowledged``, under the ``alert_acknowledged`` switch. A pager
+        hears it as the acknowledgement of the incident the firing opened.
+    """
+    code = "alert.acknowledged"
+    return build(
+        ctx,
+        kind="alert_acknowledged",
+        code=code,
+        state=State.INFO,
+        subject=subject or rule,
+        summary=message(f"summary.{code}", ctx.locale, who=who, metric=metric, threshold=threshold),
+        facts=[
+            _fact("rule", rule, ctx),
+            _fact("acknowledged_by", who, ctx),
+            _fact("firing_for", format_duration(firing_for_s), ctx),
+        ],
+        path=f"/apps/{domain}" if domain else "/server",
+        domain=domain,
+    )
+
+
 def compose_backup_missing(
     domain: str,
     days: int,
@@ -393,21 +439,26 @@ def compose_token_expiring(
     )
 
 
-def compose_digest(items: Sequence[Notification], ctx: NotificationContext) -> Notification:
+def compose_digest(
+    items: Sequence[Notification], ctx: NotificationContext, cause: str = "quiet"
+) -> Notification:
     """
-    Compose the one message that stands for what a channel's quiet hours held.
+    Compose the one message that stands for what a channel held: during its quiet
+    hours, past its limit, or for its summary.
 
     Args:
         items: The held notifications, oldest first.
         ctx: The context.
+        cause: Why they were held: ``quiet``, ``flood`` or ``summary``.
 
     Returns:
-        ``digest.held``: how many, between when and when, and one section per
+        ``digest.held`` (``digest.flood`` or ``digest.summary`` for the others):
+        how many, between when and when, and one section per
         notification (its headline, summary and time) up to
         :data:`MAX_DIGEST_ENTRIES`. A warning when any held one was, else
         information; it is not an event and has no switch.
     """
-    code = "digest.held"
+    code = {"flood": "digest.flood", "summary": "digest.summary"}.get(cause, "digest.held")
     shown = items[:MAX_DIGEST_ENTRIES]
     sections = tuple(
         Section(

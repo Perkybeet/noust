@@ -240,6 +240,17 @@ class TestReading:
         assert shown["can_retry"] is True
         assert shown["channel"] == "slack"
 
+    def test_a_held_delivery_says_why_it_waits(self, ledger: DeliveryLedger, clock: Clock) -> None:
+        quiet = ledger.hold(note(), "slack", "slack", clock.now + 1)
+        flood = ledger.hold(note(), "slack", "slack", clock.now + 1, "flood")
+        summary = ledger.hold(note(), "slack", "slack", clock.now + 1, cause="summary")
+        sent = ledger.record_sent(note(), "slack", "slack")
+
+        causes = {i: ledger.get(i).held_for for i in (quiet, flood, summary, sent)}  # type: ignore[union-attr]
+
+        assert causes == {quiet: "quiet", flood: "flood", summary: "summary", sent: None}
+        assert ledger.get(flood).to_dict()["held_for"] == "flood"  # type: ignore[union-attr]
+
     def test_how_many_went_out_lately(self, ledger: DeliveryLedger, clock: Clock) -> None:
         ledger.record_sent(note(), "slack", "slack")
         clock.now += 1800
@@ -248,6 +259,16 @@ class TestReading:
 
         assert ledger.sent_since("slack", clock.now - 3600) == 2
         assert ledger.sent_since("slack", clock.now - 60) == 1
+
+    def test_the_start_of_the_window_is_outside_it(
+        self, ledger: DeliveryLedger, clock: Clock
+    ) -> None:
+        ledger.record_sent(note(), "slack", "slack")
+        edge = clock.now
+        clock.now += 600
+
+        assert ledger.sent_since("slack", edge) == 0
+        assert ledger.sent_since("slack", edge - 1) == 1
 
 
 class TestPurge:

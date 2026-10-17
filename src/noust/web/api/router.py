@@ -24,11 +24,14 @@ from noust.web.api.app_compose import router as app_compose_router
 from noust.web.api.app_container import router as app_container_router
 from noust.web.api.app_deploy import batch_router as deploy_batch_router
 from noust.web.api.app_deploy import router as app_deploy_router
+from noust.web.api.app_disk import router as app_disk_router
 from noust.web.api.app_export import router as app_export_router
 from noust.web.api.app_hooks import router as app_hooks_router
+from noust.web.api.app_native_adopt import router as app_native_adopt_router
 from noust.web.api.app_packages import router as app_packages_router
 from noust.web.api.app_processes import router as app_processes_router
 from noust.web.api.app_promote import router as app_promote_router
+from noust.web.api.app_replication import router as app_replication_router
 from noust.web.api.app_rollout import router as app_rollout_router
 from noust.web.api.app_runtime import router as app_runtime_router
 from noust.web.api.app_schedule import router as app_schedule_router
@@ -52,6 +55,7 @@ from noust.web.api.cert_settings import router as cert_settings_router
 from noust.web.api.certs import router as certs_router
 from noust.web.api.client_certs import router as client_certs_router
 from noust.web.api.cloud import router as cloud_router
+from noust.web.api.compliance import router as compliance_router
 from noust.web.api.compose import router as compose_router
 from noust.web.api.config import router as config_router
 from noust.web.api.console_exposure import router as console_exposure_router
@@ -79,7 +83,9 @@ from noust.web.api.identity import router as identity_router
 from noust.web.api.import_remote import router as import_remote_router
 from noust.web.api.integrations import router as integrations_router
 from noust.web.api.jobs import router as jobs_router
+from noust.web.api.ldap import router as ldap_router
 from noust.web.api.log_drains import router as log_drains_router
+from noust.web.api.log_search import router as log_search_router
 from noust.web.api.manifest import router as manifest_router
 from noust.web.api.map import router as map_router
 from noust.web.api.mcp import router as mcp_router
@@ -97,13 +103,17 @@ from noust.web.api.passkeys import router as passkeys_router
 from noust.web.api.previews import router as previews_router
 from noust.web.api.private_access import networks_router as private_networks_router
 from noust.web.api.private_access import router as private_access_router
+from noust.web.api.probes import router as probes_router
 from noust.web.api.push import apps_router as app_push_router
 from noust.web.api.push import router as push_router
 from noust.web.api.recipes import router as recipes_router
 from noust.web.api.registries import apps_router as app_registry_logins_router
 from noust.web.api.registries import router as registries_router
 from noust.web.api.restore_drills import router as restore_drills_router
+from noust.web.api.saml import router as saml_router
 from noust.web.api.sandbox import router as sandbox_router
+from noust.web.api.scim import router as scim_router
+from noust.web.api.scim_admin import router as scim_admin_router
 from noust.web.api.scope import enforce_scope
 from noust.web.api.secret_providers import router as secret_providers_router
 from noust.web.api.self_backup import router as self_backup_router
@@ -183,10 +193,13 @@ router = APIRouter(
 router.include_router(auth_router, prefix="/auth", tags=["Authentication"])
 router.include_router(audit_router, prefix="/audit", tags=["Audit"])
 router.include_router(ens_router, prefix="/ens", tags=["Compliance"])
+router.include_router(compliance_router, prefix="/compliance", tags=["Compliance"])
 # Before apps_router: POST /apps/import must not reach a route that reads
 # "import" as a domain. It also owns GET "/{domain}/export", which apps.py
 # does not define.
 router.include_router(app_export_router, prefix="/apps", tags=["Applications"])
+# Also before it: GET /apps/native-sites must not reach a route that reads it as a domain.
+router.include_router(app_native_adopt_router, prefix="/apps", tags=["Applications"])
 router.include_router(apps_router, prefix="/apps", tags=["Applications"])
 router.include_router(services_router, prefix="/services", tags=["Services"])
 # The machine itself: updates, power, disks, swap, clock, journal. /services stays as it is.
@@ -204,6 +217,7 @@ router.include_router(system_router, prefix="/system", tags=["System"])
 router.include_router(monitor_router, prefix="/monitor", tags=["Monitor"])
 router.include_router(metrics_router, prefix="/metrics", tags=["Metrics"])
 # Rules on the recorded metrics (3.4), and the channels their messages leave by.
+router.include_router(probes_router, prefix="/probes", tags=["Probes"])
 router.include_router(alerts_router, prefix="/alerts", tags=["Alerts"])
 router.include_router(notifications_router, prefix="/notifications", tags=["Notifications"])
 router.include_router(overview_router, prefix="/overview", tags=["Overview"])
@@ -270,6 +284,7 @@ router.include_router(integrations_router, prefix="/integrations", tags=["Integr
 # gitlab.py owns "/integrations/gitlab/**".
 router.include_router(gitlab_router, prefix="/integrations", tags=["Integrations"])
 router.include_router(log_drains_router, prefix="/log-drains", tags=["Log drains"])
+router.include_router(log_search_router, prefix="/logs", tags=["Logs"])
 # Same composition as diagnose: each owns paths under "/{domain}/..." that
 # apps.py does not define ("/zero-downtime", "/previews").
 router.include_router(zero_downtime_router, prefix="/apps", tags=["Applications"])
@@ -332,6 +347,10 @@ router.include_router(app_compose_router, prefix="/apps", tags=["Applications"])
 router.include_router(app_processes_router, prefix="/apps", tags=["Applications"])
 # app_source.py owns only "/{domain}/source-options".
 router.include_router(app_source_router, prefix="/apps", tags=["Applications"])
+# app_replication.py owns only "/{domain}/replication".
+router.include_router(app_replication_router, prefix="/apps", tags=["Applications"])
+# app_disk.py owns only "/{domain}/disk" and "/{domain}/disk/measure".
+router.include_router(app_disk_router, prefix="/apps", tags=["Applications"])
 # app_rollout.py owns only "/{domain}/rollout".
 router.include_router(app_rollout_router, prefix="/apps", tags=["Applications"])
 # app_schedule.py owns only "/{domain}/update-schedule".
@@ -370,6 +389,10 @@ router.include_router(fleet_self_router, prefix="/auth/fleet", tags=["Fleet"])
 router.include_router(passkeys_router, prefix="/auth/passkeys", tags=["Passkeys"])
 # Single sign-in through an identity provider (3.4): the same place, for the same reason.
 router.include_router(oidc_router, prefix="/auth/oidc", tags=["Single sign-on"])
+router.include_router(ldap_router, prefix="/auth/ldap", tags=["Single sign-on"])
+router.include_router(saml_router, prefix="/auth/saml", tags=["Single sign-on"])
+router.include_router(scim_admin_router, prefix="/auth/scim", tags=["Single sign-on"])
+router.include_router(scim_router, prefix="/scim/v2", tags=["SCIM provisioning"])
 router.include_router(approvals_router, prefix="/approvals", tags=["Approvals"])
 router.include_router(fleet_router, prefix="/fleet", tags=["Fleet"])
 router.include_router(fleet_placements_router, prefix="/fleet/placements", tags=["Fleet"])

@@ -148,10 +148,12 @@ tests/integration/run.py    real deploys in a systemd container (Docker); not pa
                             `--upgrade-from-3.3` (scenarios_upgrade.py) upgrades a 3.3.1 server that
                             carries every legacy name. Everything it creates on the machine's Docker
                             carries the label `noust.test=1`; the rest runs in the harness container's
-                            own Docker (NOUST_IT_IMAGE, NOUST_IT_VOLUME and NOUST_IT_PREFIX name the
+                            own Docker (NOUST_IT_IMAGE, NOUST_IT_DOCKER_VOLUME and NOUST_IT_PREFIX name the
                             image, the volume and the containers when the Docker is shared)
 tests/integration/install_matrix.py   the installer on one container per release (run through
                             `run.py --install-matrix`, inside the harness container); not part of pytest
+tests/integration/identity.py         SAML, OpenID Connect, LDAP and SCIM against Keycloak, OpenLDAP and a
+                            SCIM conformance client; not part of pytest
 packaging/install.sh        the one-line installer (POSIX sh, shellcheck-clean), published with a
                             signed SHA256SUMS; its platform table is generated, never edited
 ```

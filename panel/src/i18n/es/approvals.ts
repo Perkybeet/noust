@@ -96,7 +96,7 @@ export const approvals: Catalog<typeof en> = {
     description: "Las llamadas que esperan a una segunda persona, y las ya decididas.",
     descriptionWho: "Las llamadas que esperan a una segunda persona. Quién decide: {approvers}. Nadie decide las suyas.",
     offTitle: "Las aprobaciones están desactivadas en este servidor",
-    off: "Aquí nada espera a una segunda persona. Se activan con el perfil ENS, o con approval.enabled en la configuración.",
+    off: "Aquí nada espera a una segunda persona. Se activan con approval.enabled en la configuración, o cuando un marco de cumplimiento como el ENS las pide.",
     filterLabel: "Filtrar solicitudes",
     viewLabel: "Mostrar",
     viewWaiting: "Pendientes",

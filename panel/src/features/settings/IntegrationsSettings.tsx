@@ -15,6 +15,7 @@ import { useT } from "../../i18n";
 import { DeployKeysSection } from "./DeployKeysSection";
 import { GitHubIntegration } from "./github/GitHubIntegration";
 import { GitLabIntegration } from "./gitlab/GitLabIntegration";
+import { MetricsExportSection } from "./MetricsExportSection";
 import { RegistriesSection } from "./registries/RegistriesSection";
 import { readServerIdentity } from "./GeneralSettings.model";
 
@@ -103,6 +104,7 @@ export function IntegrationsSettings() {
           <OtherHosts />
           <DeployKeysSection />
           <RegistriesSection />
+          <MetricsExportSection />
           <CommandHint command="noust github status" label={t("settings.integrations.fromTerminal")} />
         </>
       ) : null}

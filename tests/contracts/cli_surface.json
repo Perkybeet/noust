@@ -910,6 +910,17 @@
     ],
     "positionals": []
   },
+  "monitor export": {
+    "aliases": [],
+    "options": [
+      "--dry-run",
+      "--format",
+      "--no-color",
+      "--verbose",
+      "-v"
+    ],
+    "positionals": []
+  },
   "monitor install": {
     "aliases": [],
     "options": [

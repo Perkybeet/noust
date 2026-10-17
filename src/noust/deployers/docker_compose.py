@@ -58,7 +58,7 @@ from noust.core.store import (
     get_store,
 )
 from noust.core.utils import domain_to_app_name
-from noust.deployers.helpers import compose_preview, compose_retention
+from noust.deployers.helpers import compose_preview, compose_retention, compose_variables
 from noust.deployers.helpers.build_config import refuse_unsupported, resolve_build
 from noust.deployers.helpers.compose_ports import (
     is_headless_stack,
@@ -1152,6 +1152,7 @@ class DockerComposeDeployer(AppDeployer):
 
             self.logger.step(4, total_steps, "Configuring environment")
             self._configure_environment()
+            self._require_variables()
 
             self.logger.step(5, total_steps, "Building Docker images")
             self._build_images(no_cache=self.no_cache)
@@ -1536,6 +1537,37 @@ class DockerComposeDeployer(AppDeployer):
             return
         self._accepted_refusals = self._refusals_in(self._load_compose_document())
         self.compose_path = None
+
+    def _require_variables(self, document: Any = None) -> None:
+        """
+        Refuse to build while the compose file requires a value the stack does not have.
+
+        Compose refuses to run on ``${NAME:?message}`` with no value, minutes into a build; the
+        file is read here, before anything is built or touched, and a variable with neither a
+        default nor a value is said in the log. A preview has its own variables, derived from its
+        parent's, and is not judged here.
+
+        Args:
+            document: The compose file already parsed; read when None.
+
+        Raises:
+            DeploymentError: A required variable has no value (see
+                :func:`~noust.deployers.helpers.compose_variables.require`).
+        """
+        if self.preview_parent is not None:
+            return
+        parsed = document if document is not None else self._load_compose_document()
+        if parsed is None:
+            return
+        compose = self._compose_file_path()
+        values, env_file = compose_variables.read_values(compose, self.app_path)
+        report = compose_variables.judge(parsed, values, file=compose.name, env_file=env_file)
+        for variable in report.unset:
+            self.logger.warning(
+                f"{variable.name} is used by {compose.name} and nothing sets it: Compose will "
+                "use an empty string"
+            )
+        compose_variables.require(report, domain=self.domain)
 
     def _check_update_privileges(self, document: Any) -> None:
         """
@@ -2293,6 +2325,7 @@ class DockerComposeDeployer(AppDeployer):
             self._discover_compose_file()
         document = self._load_compose_document()
         self._check_update_privileges(document)
+        self._require_variables(document)
         # What the gate and the hooks need to know of the stack: whether it
         # is a web at all, and which service a hook without one runs in.
         self.services = parse_services(document)

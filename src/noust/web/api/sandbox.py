@@ -95,13 +95,23 @@ class SandboxEnableRequest(BaseModel):
 class SandboxDisableRequest(BaseModel):
     """Building as root, and why."""
 
-    reason: str = Field(min_length=1, max_length=500, description="Why, recorded and shown")
+    reason: str | None = Field(
+        default=None,
+        max_length=500,
+        description="Why, recorded and shown; required under the ENS profile or with "
+        "security.exception_reasons on",
+    )
 
 
 class ComposeExceptionRequest(BaseModel):
     """Allowing a compose stack what is root on the host, and why."""
 
-    reason: str = Field(min_length=1, max_length=500, description="Why, recorded and shown")
+    reason: str | None = Field(
+        default=None,
+        max_length=500,
+        description="Why, recorded and shown; required under the ENS profile or with "
+        "security.exception_reasons on",
+    )
 
 
 def _response(domain: str) -> SandboxResponse:

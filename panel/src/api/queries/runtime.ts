@@ -7,6 +7,9 @@ export type HealthDetails = ResponseOf<"/api/apps/{domain}/health", "get">;
 export type PendingChanges = ResponseOf<"/api/apps/{domain}/pending", "get">;
 export type PendingItem = NonNullable<PendingChanges["items"]>[number];
 export type Hardening = ResponseOf<"/api/apps/{domain}/hardening", "get">;
+export type UnitTuning = ResponseOf<"/api/apps/{domain}/tuning", "get">;
+export type ComposeVariables = ResponseOf<"/api/apps/{domain}/compose/variables", "get">;
+export type ComposeVariable = NonNullable<ComposeVariables["variables"]>[number];
 export type Replicas = ResponseOf<"/api/apps/{domain}/replicas", "get">;
 export type ReplicaCopy = Replicas["units"][number];
 export type Processes = ResponseOf<"/api/apps/{domain}/processes", "get">;
@@ -27,6 +30,8 @@ export const runtimeKeys = {
   health: (domain: string) => ["app", domain, "health-check"] as const,
   pending: (domain: string) => ["app", domain, "pending"] as const,
   hardening: (domain: string) => ["app", domain, "hardening"] as const,
+  tuning: (domain: string) => ["app", domain, "tuning"] as const,
+  composeVariables: (domain: string) => ["app", domain, "compose-variables"] as const,
   replicas: (domain: string) => ["app", domain, "replicas"] as const,
   processes: (domain: string) => ["app", domain, "processes"] as const,
   mounts: (domain: string) => ["app", domain, "mounts"] as const,
@@ -53,6 +58,20 @@ export const hardeningQuery = (domain: string) =>
   queryOptions({
     queryKey: runtimeKeys.hardening(domain),
     queryFn: ({ signal }) => request("get", "/api/apps/{domain}/hardening", { params: { domain }, signal }),
+  });
+
+/** How the application's unit is tuned beyond its hard limits, and what can be asked for. */
+export const tuningQuery = (domain: string) =>
+  queryOptions({
+    queryKey: runtimeKeys.tuning(domain),
+    queryFn: ({ signal }) => request("get", "/api/apps/{domain}/tuning", { params: { domain }, signal }),
+  });
+
+/** The variables a Compose stack's file asks for and which of them it has; never a value. */
+export const composeVariablesQuery = (domain: string) =>
+  queryOptions({
+    queryKey: runtimeKeys.composeVariables(domain),
+    queryFn: ({ signal }) => request("get", "/api/apps/{domain}/compose/variables", { params: { domain }, signal }),
   });
 
 /** The copies of the web process, and whether the application can run as more than one. */

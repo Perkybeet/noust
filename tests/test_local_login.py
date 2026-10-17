@@ -424,6 +424,27 @@ class TestTheApi:
 
         assert logged(sandbox, "auth.local_login.change")
 
+    def test_the_change_is_in_the_file_and_survives_a_restart(
+        self, app: Any, idp: FakeIdP, sandbox: Path
+    ) -> None:
+        make_account("root-admin", "admin")
+        client = self.sign_in_as_security(app)
+        self.elevate(client)
+
+        response = client.put(
+            "/api/auth/oidc/local-login",
+            json={"enabled": False, "exempt": ["root-admin"]},
+            headers={CSRF_HEADER_NAME: client.csrf},
+        )
+        assert response.status_code == 200, response.text
+
+        # A restart forgets the process and keeps only the file.
+        Config.reset_instance()
+        on_disk = (sandbox / "etc" / "config.yaml").read_text(encoding="utf-8")
+        assert "local_login" in on_disk
+        assert load_policy().enabled is False
+        assert load_policy().exempt == frozenset({"root-admin"})
+
     def test_an_operator_does_not_touch_it(self, app: Any, idp: FakeIdP) -> None:
         codes = make_account("olga", "operator")
         client = browser(app)

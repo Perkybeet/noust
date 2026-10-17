@@ -2,9 +2,13 @@
 Requests and server errors of a site, read from its web server's access log.
 
 A static site has no process, so the only useful thing to measure about it is
-its traffic. The site templates write ``<domain>.access.log`` in the combined
-format for nginx and for Apache; this module counts the requests and the 5xx
-responses that landed in it since the last look.
+its traffic; an application behind the proxy has one, but the proxy is where
+its requests, its errors and its visitors are seen. The site templates write
+``<domain>.access.log`` in the combined format for nginx and for Apache; this
+module counts the requests and the 5xx responses that landed in it since the
+last look, and hands the lines to :mod:`noust.monitor.traffic_digest`, which sums
+them by the hour (the paths asked for, the networks, the status codes) for the
+traffic page of the application.
 
 The work is bounded on purpose, because it runs inside the collector's tick:
 
@@ -29,12 +33,14 @@ from __future__ import annotations
 import logging
 import os
 import re
+import sqlite3
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
 from noust.monitor.plan import SamplingPlan
 from noust.monitor.timeseries import MetricsStore
+from noust.monitor.traffic_digest import Digest, analyse
 
 log = logging.getLogger(__name__)
 
@@ -82,6 +88,7 @@ class LogDelta:
             and the caller has no interval to turn the count into a rate.
         rotated: True when the file was replaced or truncated.
         skipped: Bytes skipped because the backlog was too large.
+        digest: What the lines said, by the hour; None when none were read.
     """
 
     requests: int
@@ -91,6 +98,7 @@ class LogDelta:
     first_read: bool = False
     rotated: bool = False
     skipped: int = 0
+    digest: Digest | None = None
 
 
 def count_lines(data: bytes) -> tuple[int, int]:
@@ -173,14 +181,15 @@ def read_log_delta(
         consumed = len(chunk) if len(chunk) >= max_bytes else 0
         return LogDelta(0, 0, inode, position + consumed, rotated=rotated, skipped=skipped)
 
-    requests, errors = count_lines(chunk[: end + 1])
+    digest = analyse(chunk[: end + 1])
     return LogDelta(
-        requests,
-        errors,
+        digest.requests,
+        digest.errors_5xx,
         inode,
         position + end + 1,
         rotated=rotated,
         skipped=skipped,
+        digest=digest,
     )
 
 
@@ -256,6 +265,8 @@ class TrafficSampler:
                 budget -= max(0, delta.position - started)
             self.store.write_log_cursor(key, delta.inode, delta.position)
 
+            if delta.digest is not None and delta.digest.hours:
+                self._keep(plan.domain, delta.digest)
             previous = self._last_read.get(key)
             self._last_read[key] = now
             if delta.first_read or previous is None or now <= previous:
@@ -267,3 +278,17 @@ class TrafficSampler:
 
         self.store.prune_log_cursors(str(path) for _plan, path in logged)
         return pairs
+
+    def _keep(self, domain: str, digest: Digest) -> None:
+        """
+        Write what a log said into the traffic tables.
+
+        Args:
+            domain: The application.
+            digest: What the lines said.
+        """
+        try:
+            self.store.add_traffic(domain, digest.hours)
+        except sqlite3.Error as exc:
+            # The counts of this tick are lost; the rates are not.
+            log.warning("the traffic of %s could not be written: %s", domain, exc)

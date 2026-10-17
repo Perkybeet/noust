@@ -276,9 +276,31 @@ def test_a_static_site_from_before_has_nothing_to_warn_about(
     assert build_sandbox.sandbox_warning(app) is None
 
 
-def test_building_as_root_needs_a_reason(root: Path, store: NoustStore) -> None:
+def test_building_as_root_needs_a_reason_where_the_server_asks_for_one(
+    root: Path, store: NoustStore, real_config: Any
+) -> None:
+    real_config.set("security.exception_reasons", True)
+
     with pytest.raises(ValidationError, match="reason"):
         build_sandbox.disable(DOMAIN, actor="alice", reason="  ")
+
+
+def test_by_default_building_as_root_is_recorded_without_a_reason_being_demanded(
+    tmp_path: Path,
+    root: Path,
+    store: NoustStore,
+    machine: SimpleNamespace,
+    as_root: Any,
+    real_config: Any,
+) -> None:
+    machine.git.publish(node_tree(tmp_path / "v1"))
+    deploy_new(root, machine)
+
+    state = build_sandbox.disable(DOMAIN, actor="alice", reason="  ", store=store)
+
+    assert state.mode == "off" and state.reason == "no reason given"
+    given = build_sandbox.disable(DOMAIN, actor="alice", reason="private registry", store=store)
+    assert given.reason == "private registry"
 
 
 # ---------------------------------------------------------------------------
@@ -311,9 +333,10 @@ def test_a_compose_stack_cannot_be_enabled(store: NoustStore) -> None:
     build_sandbox.refuse_unsupported(App(domain="m.example.com", app_type="monorepo"))
 
 
-def test_the_compose_exception_needs_a_reason_names_a_domain_and_can_be_revoked(
-    store: NoustStore,
+def test_the_compose_exception_names_a_domain_and_can_be_revoked(
+    store: NoustStore, real_config: Any
 ) -> None:
+    real_config.set("security.exception_reasons", True)
     with pytest.raises(ValidationError, match="reason"):
         build_sandbox.set_compose_exception("new.example.com", allowed=True, actor="alice")
 

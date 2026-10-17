@@ -124,6 +124,73 @@ describe("the cron jobs list", () => {
     expect(await within(drawer).findByText("Exit 0")).toBeInTheDocument();
   });
 
+  it("says which occurrences did not run, beside the run history", async () => {
+    const ledger = {
+      name: "nightly-backup",
+      schedule: "*-*-* 02:00:00",
+      enabled: true,
+      since: 1_790_000_000,
+      until: 1_790_600_000,
+      ran: 1,
+      late: 1,
+      missed: 1,
+      occurrences: [
+        { at: 1_790_100_000, status: "ran", ran_at: 1_790_100_005, reason: "" },
+        { at: 1_790_186_400, status: "late", ran_at: 1_790_200_000, reason: "" },
+        { at: 1_790_272_800, status: "missed", ran_at: null, reason: "server_off" },
+      ],
+    };
+    const { user, table } = await cronAt("/cron", {
+      "GET /api/cron/nightly-backup/runs": () => json(200, { name: "nightly-backup", runs: [] }),
+      "GET /api/cron/nightly-backup/ledger": () => json(200, ledger),
+    });
+    await user.click(await within(table).findByRole("button", { name: /^nightly-backup/ }));
+
+    const drawer = await screen.findByRole("dialog", { name: "Runs of nightly-backup" });
+    expect(await within(drawer).findByText("1 missed and 1 late in the last 7 days")).toBeInTheDocument();
+    const list = within(drawer).getByRole("list", { name: "Occurrences that did not run on time" });
+    expect(within(list).getByText("did not run: the server was off")).toBeInTheDocument();
+    expect(within(list).getByText("ran late: made up afterwards")).toBeInTheDocument();
+    expect(within(list).getAllByRole("listitem")).toHaveLength(2);
+    await expectNoAxeViolations(drawer);
+  });
+
+  it("says in a word that every occurrence ran, and nothing for a job with nothing due", async () => {
+    const ran = { at: 1_790_100_000, status: "ran", ran_at: 1_790_100_005, reason: "" };
+    const base = { name: "nightly-backup", schedule: "*-*-* 02:00:00", since: 1, until: 2, ran: 1, late: 0, missed: 0 };
+    const { user, table } = await cronAt("/cron", {
+      "GET /api/cron/nightly-backup/runs": () => json(200, { name: "nightly-backup", runs: [] }),
+      "GET /api/cron/nightly-backup/ledger": () => json(200, { ...base, enabled: true, occurrences: [ran] }),
+    });
+    await user.click(await within(table).findByRole("button", { name: /^nightly-backup/ }));
+
+    const drawer = await screen.findByRole("dialog", { name: "Runs of nightly-backup" });
+    expect(await within(drawer).findByText("The one occurrence due in the last 7 days ran on time.")).toBeInTheDocument();
+  });
+
+  it("speaks Spanish in the ledger", async () => {
+    const ledger = {
+      name: "nightly-backup",
+      schedule: "*-*-* 02:00:00",
+      enabled: true,
+      since: 1,
+      until: 2,
+      ran: 0,
+      late: 0,
+      missed: 1,
+      occurrences: [{ at: 1_790_272_800, status: "missed", ran_at: null, reason: "server_off" }],
+    };
+    const { user, table } = await cronAt("/cron", {
+      "GET /api/cron/nightly-backup/runs": () => json(200, { name: "nightly-backup", runs: [] }),
+      "GET /api/cron/nightly-backup/ledger": () => json(200, ledger),
+    });
+    await act(() => setLocale("es"));
+    await user.click(await within(table).findByRole("button", { name: /^nightly-backup/ }));
+
+    expect(await screen.findByText("1 sin ejecutarse y 0 tarde en los últimos 7 días")).toBeInTheDocument();
+    expect(screen.getByText("no se ejecutó: el servidor estaba apagado")).toBeInTheDocument();
+  });
+
   it("says what is missing when a job is saved without a name or command, instead of a disabled button", async () => {
     const { user, backend, table } = await cronAt();
     await within(table).findByText("nightly-backup");

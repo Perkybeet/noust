@@ -440,15 +440,18 @@ class TopologyProbe:
 
     # -- the topology --------------------------------------------------------
 
-    def topology(self, model: SiteStructure) -> Topology:
+    def topology(self, model: SiteStructure, *, certificates: bool = True) -> Topology:
         """
         Say what each address of a site is, and whether it answers.
 
         Args:
             model: The site's structure.
+            certificates: Also read the certificate each server presents, which asks certbot.
+                A caller that only needs the backends (listing the sites that could be adopted)
+                leaves it out.
 
         Returns:
-            The backends and certificates, live.
+            The backends and, when asked, certificates, live.
         """
         store = self._store if self._store is not None else get_store()
         apps = list(store.list_apps())
@@ -459,7 +462,8 @@ class TopologyProbe:
             if backend.local and backend.port is not None:
                 self._describe(backend, backend.port, apps, services, containers or {})
             topology.backends.append(backend)
-        topology.certificates = self._certificate_facts(model)
+        if certificates:
+            topology.certificates = self._certificate_facts(model)
         return topology
 
     def _describe(
