@@ -5,7 +5,7 @@
  */
 export const metricsExport = {
   title: "Metrics for a scraper",
-  description: "Prometheus, Grafana Agent, Netdata and an OpenTelemetry Collector read the newest value of every metric of this server, of each application and each container, from one address.",
+  description: "Prometheus, Grafana Alloy, Netdata and an OpenTelemetry Collector read the newest value of every metric of this server, of each application and each container, from one address.",
   addressLabel: "Address to scrape",
   copyAddress: "Copy the address to scrape",
   configLabel: "A Prometheus entry for it",

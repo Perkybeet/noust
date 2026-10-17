@@ -3,7 +3,7 @@ import type { Catalog } from "../types";
 
 export const metricsExport: Catalog<typeof en> = {
   title: "Métricas para un recolector",
-  description: "Prometheus, Grafana Agent, Netdata y un Collector de OpenTelemetry leen desde una sola dirección el valor más reciente de cada métrica de este servidor, de cada aplicación y de cada contenedor.",
+  description: "Prometheus, Grafana Alloy, Netdata y un Collector de OpenTelemetry leen desde una sola dirección el valor más reciente de cada métrica de este servidor, de cada aplicación y de cada contenedor.",
   addressLabel: "Dirección que consultar",
   copyAddress: "Copiar la dirección que consultar",
   configLabel: "Una entrada de Prometheus para ella",

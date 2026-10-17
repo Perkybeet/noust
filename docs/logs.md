@@ -12,8 +12,9 @@ noust log search 'redis OR memcached timeout' --since 30m --json
 noust fleet logs error --since 1h            # every server of a central at once
 ```
 
-In the console it is the log search of the application list and of the fleet; the API is
-`GET /api/logs/search` and `GET /api/fleet/logs` ([api.md](api.md)).
+In the console it is **Logs**, in the sidebar: the words, the application, the level and how far back
+are in the address, so a search can be sent to somebody, and on a central **Every server** searches all
+of them. The API is `GET /api/logs/search` and `GET /api/fleet/logs` ([api.md](api.md)).
 
 ## The query
 

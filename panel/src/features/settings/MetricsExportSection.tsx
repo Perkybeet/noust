@@ -26,7 +26,7 @@ export function scrapeConfig(host: string, scheme: string): string {
 }
 
 /**
- * The server's metrics for a scraper (Prometheus, Grafana Agent, an OpenTelemetry Collector): the
+ * The server's metrics for a scraper (Prometheus, Grafana Alloy, an OpenTelemetry Collector): the
  * address to ask, a configuration to paste, and what credential to give it. The credential is an
  * API token that can only read; there is no export secret of its own to leak.
  */

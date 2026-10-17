@@ -194,7 +194,7 @@ one too old to offer the history is `unsupported`. Nothing is stored on the cent
 
 ## Exporting the metrics
 
-The history answers the console. A Prometheus, a Grafana Agent, a Netdata or an OpenTelemetry
+The history answers the console. A Prometheus, a Grafana Alloy, a Netdata or an OpenTelemetry
 Collector asks "what is it now?" every few seconds, in a text format they all read, and
 `GET /api/metrics/prometheus` answers that: the newest value of every metric of the server, of each
 application and each container of a stack, and of each database, as gauges.

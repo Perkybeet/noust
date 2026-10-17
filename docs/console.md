@@ -244,7 +244,10 @@ way everywhere.
 A [central's](CENTRAL.md) own pages, hidden on a plain server. Tabs: **Summary** (the fleet's
 key figures and what needs attention on every server, worst first), **Servers** (reachability,
 version, load, memory, disk, labels), **Applications**, **Certificates**, **Backups**,
-**Updates** and **Activity**, each row with its server and a link to its page there. A server
+**Updates** and **Activity**, each row with its server and a link to its page there. The
+Summary ends with **Compare servers**: one measurement of every server (CPU, memory, swap, disk,
+load, network) over the same window, the busiest first, from each server's own history; a server
+that did not answer is a gap, said so. A server
 that did not answer, is too old for a view, or refused you is one row with its state and its
 own words; the rest of the page is unaffected.
 
@@ -397,7 +400,7 @@ down, with a link to **Diagnose**. Tabs:
 | Overview | Last deploy, uptime, certificate, domains, webhook, runtime facts, and resource use against its limits |
 | Deployments | The application's [queue](#the-deploy-queue-and-cancelling) when something builds or waits for it; deployment history, a deploy that was cancelled drawn as **Cancelled** and never as a failure; for an application with instant rollback, its releases with their status, and **Roll back to this** or **Activate** on each one on disk |
 | Logs | The unit's journal, live; for a Docker Compose stack or a container application, what the containers printed (all services or one, read again every few seconds), with the unit's journal as one choice |
-| Metrics | CPU and memory (requests and errors for a static site) over an hour, a day, a week or a month, against its limits, with deploys marked; or why there is nothing to show |
+| Metrics | CPU and memory (requests and errors for a static site) over an hour, a day, a week or a month, against its limits, with deploys marked; or why there is nothing to show. A Compose stack of two containers or more adds CPU, memory, disk and network **by container** (the busiest three of each), and a site whose access log is read adds **who asks for what**: requests and errors by the hour, data served, and the pages, networks, status codes and referrers that appear most |
 | Environment | The `.env`, redacted; revealing and editing need sudo mode. Changes are staged and reviewed before saving; a restart applies them. A value made of references (`{{project.NAME}}`, `{{secret:vault/...}}`) is shown as written, not as what it resolved to, and **Resolve references** reads them again without a deploy. **Given to** (build and runtime, build only, runtime only) is in each row's menu and in the add dialog, and saved with the values. **Given by Noust** lists `NOUST_URL`, `NOUST_BRANCH` and the rest, read-only. See [variables.md](variables.md) |
 | Database | The databases it uses, creating and linking one, and its connection string |
 | Domains | Primary, aliases and redirects, with a DNS check per name; add a name as an alias or a redirect (Docker Compose stacks that publish a port and monorepos included; see [domains.md](domains.md)) |
@@ -713,6 +716,14 @@ Every job and every audited action on this server in one timeline, newest first,
 by kind, result and actor. A job opens its log. What builds and what waits leads the page as the
 [deploy queue](#the-deploy-queue-and-cancelling).
 
+### Logs
+
+One search over the logs of every application at once (the journal's lines and the containers'
+output, credentials masked): the words as typed, the application, the level and how far back, all in
+the address so a search can be sent to somebody, with how many lines matched and how many were
+examined. On a central, **Every server** searches all of them, each line naming its server. See
+[logs.md](logs.md).
+
 ### Server
 
 Seven tabs, each with its URL:
@@ -765,9 +776,10 @@ selected server's, or this central's.
 | Section | Scope | What it has |
 |---|---|---|
 | General | Server | Applications directory, web server, certificate email, backups, the server's name, and the console address `--open` links use; and **Deploy freeze**, which holds every deploy on the server for a stretch ([delivery.md](delivery.md#freezing-deploys)) |
-| Notifications | Server | Whether notifications are on, at the top (amber when they are on but no channel is set up; see [Features that are on or off](#features-that-are-on-or-off)); channels (webhook, Slack, Discord, Telegram, email) in drawers, with a test each; which events notify, among them **Deployed with warnings** (`deploy_hook_failed`), **Application not answering** (`app_unreachable`) and **Application answering again** (`app_recovered`), all on by default; private destinations allowed |
-| Integrations | Server | The GitHub App, the address for webhooks, and the server's **deploy keys** (each with the repositories it reaches and the applications built from them) and the **host keys it pinned**, which can be forgotten after comparing the fingerprint |
-| Log shipping | Server | Where the logs of applications are sent besides the journal: Grafana Loki, Axiom, an HTTP endpoint, OpenTelemetry or a remote syslog; how each destination is doing and what it answered when it failed, verbatim; add, edit, turn off, test with one line, remove. See [runtime.md](runtime.md#log-shipping) |
+| Notifications | Server | Whether notifications are on, at the top (amber when they are on but no channel is set up; see [Features that are on or off](#features-that-are-on-or-off)); channels (webhook, Slack, Discord, Telegram, email, Pushover, ntfy, Gotify, Microsoft Teams, Mattermost, Matrix, Lark, PagerDuty) in drawers, with a test each; email by SMTP or through Resend, Postmark, Brevo or Amazon SES; per channel its own events, its route, quiet hours, a **cap on messages** and a **daily summary**; the record of deliveries with why one is held; which events notify, among them **Deployed with warnings** (`deploy_hook_failed`), **Application not answering** (`app_unreachable`) and **Application answering again** (`app_recovered`), all on by default; private destinations allowed |
+| Integrations | Server | The GitHub App, the address for webhooks, the address and an entry to paste for a metrics scraper (Prometheus, Grafana Alloy, an OpenTelemetry Collector), and the server's **deploy keys** (each with the repositories it reaches and the applications built from them) and the **host keys it pinned**, which can be forgotten after comparing the fingerprint |
+| Log shipping | Server | Where the logs of applications are sent besides the journal: Grafana Loki, Axiom, an HTTP endpoint, OpenTelemetry or a remote syslog; how each destination is doing and what it answered when it failed, verbatim; add, edit, turn off, test with one line, remove. See [runtime.md](runtime.md#log-shipping). Below it, **Keeping the logs**: how many days and how much disk the journal may take, whether it survives a reboot, and a way back to journald's defaults ([logs.md](logs.md)) |
+| Probes | Server | Addresses the monitor asks from outside the application: where each stands, what it last answered, its uptime over a day, a week, a month and a quarter, its incidents, and a button to ask it now; and the **public status page** made of the ones marked public, kept up to date, titled, and put on a name of its own through a job. See [probes.md](probes.md) |
 | Variables | Server | The server's shared variables, which every application can refer to as `{{server.NAME}}`; the team's, the project's and the environment's are on their own pages (below) |
 | Secret managers | Server | Vault, Doppler and Infisical, which a variable refers to with `{{secret:NAME/path}}`: the address, the settings of the kind, the team that may name it and a token that is written and never shown again; **Test connection** proves it answers. A secret's value is fetched at every deploy and never kept. See [variables.md](variables.md) |
 | About | Server | Version and updates, installation, CLI equivalents, links |

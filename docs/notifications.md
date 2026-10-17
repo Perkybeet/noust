@@ -47,7 +47,7 @@ noust notify channel remove oncall
 ```
 
 A name is lower-case letters, digits, `-` and `_`, starting with a letter. At most 32 channels
-may exist. Removing one of the nine empties it instead.
+may exist. Removing one of the thirteen defaults (one of each type) empties it instead.
 
 In the console, Settings > Notifications has an "Add a channel" button for these; the new
 channel opens its own drawer to ask for the destination.
@@ -128,6 +128,8 @@ heartbeat; `failed` also holds warnings) and sends it once a day at that time as
 warning or a failure still goes at once. `--summary-days mon,wed,fri` limits it to those days. A
 single item waiting for the hour is sent as it is, not dressed up as a summary. They show as
 `held (summary)` until then. `--clear-summary` removes it.
+
+In the console they are in the channel's Routing drawer, under Cap on messages and Summary.
 
 The quiet hours are judged first, then the summary, then the cap; whatever the summary or a cap
 releases during quiet hours waits for them to end. A paging channel (PagerDuty) ignores both: it
