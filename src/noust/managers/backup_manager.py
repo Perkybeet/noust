@@ -2304,7 +2304,7 @@ class BackupManager:
         )
 
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-        workspace = app_path.parent / f".wasm-restore-{app_path.name}-{stamp}"
+        workspace = app_path.parent / f".noust-restore-{app_path.name}-{stamp}"
         try:
             self.fs.make_dir(workspace, mode=SECRET_DIR_MODE)
         except OSError as exc:

@@ -72,6 +72,7 @@ from noust.core.store import (
     Service,
     get_store,
 )
+from noust.deployers.helpers import tree_names
 from noust.deployers.helpers.layout import RELEASES, app_root, supports_release_layout
 from noust.deployers.helpers.permissions import hand_over_file
 from noust.deployers.lifecycle import health_gate_for
@@ -123,8 +124,10 @@ BUILD_OUTPUTS = frozenset(
 #: only those of them that exist.
 COMMON_PERSISTENT: tuple[str, ...] = ("uploads", "public/uploads", "storage", "data")
 
-#: Noust's own inventory of the variables, written next to the ``.env``.
-ENV_INVENTORY = ".wasm"
+#: Noust's own inventory of the variables, written next to the ``.env``, and the name it had
+#: before 4.0 on an application nobody has deployed since.
+ENV_INVENTORY = tree_names.ENV_DIR
+ENV_INVENTORIES = (ENV_INVENTORY, tree_names.legacy_of(tree_names.ENV_DIR))
 
 #: The type of an application with one unit per workspace.
 MONOREPO = "monorepo"
@@ -135,7 +138,7 @@ WORKSPACE_ENV_FILE = ".env.production"
 #: What stays at the application root, beside ``releases/`` and ``current``:
 #: Noust reads a PHP application's settings there, whatever the layout. Moved
 #: into the first release, they would silently fall back to the defaults.
-KEPT_AT_ROOT = frozenset({PHP_SETTINGS_FILE})
+KEPT_AT_ROOT = frozenset({PHP_SETTINGS_FILE, tree_names.legacy_of(tree_names.PHP_SETTINGS)})
 
 #: Names a SQLite database is given. Only files named like this are opened to
 #: read their header, so planning does not read a large tree file by file.
@@ -355,7 +358,7 @@ def plan_migration(
 
     env_files = tuple(
         name
-        for name in (ENV_FILE, ENV_INVENTORY)
+        for name in (ENV_FILE, *ENV_INVENTORIES)
         if os.path.lexists(root / name) and not (root / name).is_symlink()
     )
     if (root / ENV_FILE).is_symlink():
@@ -743,7 +746,7 @@ def _detected(directories: Sequence[str], files: Sequence[str]) -> list[str]:
         parts = PurePosixPath(directory).parts
         if not parts or any(part in BUILD_OUTPUTS for part in parts):
             continue
-        if parts[0] == ENV_INVENTORY:
+        if parts[0] in ENV_INVENTORIES:
             continue
         chosen.append(directory)
     for file in files:
@@ -777,7 +780,7 @@ def _explicit(paths: Sequence[str]) -> list[str]:
                 f"{raw} does not need --persist",
                 details="Noust keeps it at the application root, beside releases/.",
             )
-        if path.parts[0] in (ENV_FILE, ENV_INVENTORY):
+        if path.parts[0] in (ENV_FILE, *ENV_INVENTORIES):
             raise ValidationError(
                 f"{raw} does not need --persist",
                 details="The .env always moves to shared/, and every release links it.",
@@ -1300,7 +1303,7 @@ def _move_into_release(
     Returns:
         The staging directory, empty by now, and the first release.
     """
-    staging = root / f".wasm-migrating-{secrets.token_hex(4)}"
+    staging = root / f".noust-migrating-{secrets.token_hex(4)}"
     entries = sorted(name for name in os.listdir(root) if name not in KEPT_AT_ROOT)
     journal.made_dir(staging)
     for name in entries:

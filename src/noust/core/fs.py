@@ -360,7 +360,7 @@ class RealFileSystem(FileSystem):
         # O_NOFOLLOW refuses a symlink, so neither a squatted regular file nor
         # a squatted link can redirect the write. A random suffix on top means
         # a loser of that race retries rather than failing.
-        temporary = path.with_name(f".{path.name}.{os.urandom(6).hex()}.wasm-tmp")
+        temporary = path.with_name(f".{path.name}.{os.urandom(6).hex()}.noust-tmp")
         flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
 
         # The mode is set at creation. A chmod afterwards leaves a window in

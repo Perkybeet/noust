@@ -28,6 +28,7 @@ from noust.core.exceptions import NoustError
 from noust.core.fs import FileSystem
 from noust.core.logger import Logger
 from noust.core.runner import CommandRunner
+from noust.deployers.helpers import tree_names
 from noust.deployers.helpers.health import failure_output
 from noust.deployers.helpers.package_manager import PackageManagerHelper
 from noust.deployers.releases import REPO_CACHE_DIR, Release, ReleaseManager
@@ -75,7 +76,7 @@ VERSION_TIMEOUT = 15
 #: carries its own runtime key wherever it is reused. Dot-prefixed so it is
 #: never mistaken for a package and, for a static site's node_modules-adjacent
 #: build output, never served: nothing serves dotfiles from a build directory.
-RUNTIME_STAMP_FILE = ".wasm-runtime.json"
+RUNTIME_STAMP_FILE = tree_names.RUNTIME_STAMP
 
 
 @dataclass(frozen=True)
@@ -280,8 +281,11 @@ def _read_runtime_stamp(directory: Path) -> dict[str, str] | None:
         not a flat mapping of strings. Every one of those reads exactly like a
         release built before this stamp existed: it must not be reused.
     """
+    stamp = tree_names.present(directory, RUNTIME_STAMP_FILE)
+    if stamp is None:
+        return None
     try:
-        data = json.loads((directory / RUNTIME_STAMP_FILE).read_text())
+        data = json.loads(stamp.read_text())
     except (OSError, ValueError):
         return None
     if not isinstance(data, dict) or not all(
@@ -324,7 +328,8 @@ def reuse_dependencies(
 
     Only when the lockfiles are byte-identical and the active release's
     dependencies were built under the runtime that is current right now -
-    read from the ``.wasm-runtime.json`` :func:`stamp_installed_dependencies`
+    read from the ``.noust-runtime.json`` (``.wasm-runtime.json`` before 4.0, still read)
+    :func:`stamp_installed_dependencies`
     leaves inside each dependency directory it installs. A release built
     before that stamp existed, or one whose stamp names a different Node or
     Python, is never reused: reusing it would hand the new release native
@@ -382,6 +387,9 @@ def reuse_dependencies(
             if os.path.lexists(target):
                 fs.remove_tree(target)
             return None
+        # The copy carries the stamp under the name it had; a release built from this one is
+        # stamped under the current name.
+        tree_names.adopt(target, RUNTIME_STAMP_FILE, fs=fs)
         copied.append(name)
 
     return active.id if copied else None

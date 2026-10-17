@@ -19,7 +19,7 @@ check; see :mod:`noust.deployers.helpers.php_fpm`.
 
 Settings a recipe gives (the web root, the paths nginx refuses, the upload
 size, the directories moved out of the release into ``shared/``) are kept in
-``<app>/.wasm-php.json``, so a later update, a domain change re-rendering the
+``<app>/.noust-php.json``, so a later update, a domain change re-rendering the
 site or a rollback use the same ones. The file is validated every time it is
 read: in place it lives in a tree the service user owns.
 
@@ -50,6 +50,7 @@ from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import App
 from noust.core.versions import parse_version
 from noust.deployers.base import BaseDeployer
+from noust.deployers.helpers import tree_names
 from noust.deployers.helpers.env_manager import EnvManager
 from noust.deployers.helpers.health import failure_output
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
@@ -81,7 +82,7 @@ from noust.deployers.releases import first_obstacle, persistent_path
 from noust.managers.runtimes import RuntimeManager
 
 #: Where an application's PHP settings are kept, in its directory.
-PHP_SETTINGS_FILE = ".wasm-php.json"
+PHP_SETTINGS_FILE = tree_names.PHP_SETTINGS
 
 #: Largest request body when nothing says otherwise.
 DEFAULT_MAX_UPLOAD = "64m"
@@ -238,8 +239,8 @@ def load_php_settings(app_path: Path) -> PhpSettings:
     Raises:
         ValidationError: When the file holds something unacceptable.
     """
-    path = app_path / PHP_SETTINGS_FILE
-    if path.is_symlink() or not path.is_file():
+    path = tree_names.present(app_path, PHP_SETTINGS_FILE)
+    if path is None or not path.is_file():
         return PhpSettings()
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -985,6 +986,7 @@ class PhpFpmDeployer(BaseDeployer):
     def _persist_settings(self) -> None:
         """Write the settings next to the application, for every later deploy."""
         path = self.app_path / PHP_SETTINGS_FILE
+        tree_names.adopt(self.app_path, PHP_SETTINGS_FILE, fs=self.fs)
         if path.is_symlink():
             raise DeploymentError(
                 f"Refusing to write {path}: it is a symlink",
