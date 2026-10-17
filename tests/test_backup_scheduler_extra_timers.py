@@ -115,7 +115,7 @@ class TestVolumeTimer:
 
         assert scheduler.remove_volume_timer("shop.example.com") is True
 
-        assert list(systemd_dir.iterdir()) == []
+        assert [p.name for p in systemd_dir.iterdir() if "sweep" not in p.name] == []
         assert runner.ran("systemctl", "disable", f"{UNIT}.timer")
 
     def test_a_timer_that_is_not_ours_is_left_alone_and_nothing_is_not_removed(
@@ -178,7 +178,7 @@ class TestSelfBackupTimer:
 
         assert scheduler.self_backup_timer_state()["installed"] is True
         assert scheduler.remove_self_backup_timer() is True
-        assert list(systemd_dir.iterdir()) == []
+        assert [p.name for p in systemd_dir.iterdir() if "sweep" not in p.name] == []
 
 
 class TestApplicationListing:

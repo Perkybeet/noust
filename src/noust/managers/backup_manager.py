@@ -3274,6 +3274,30 @@ class BackupManager:
                 except BackupError as exc:
                     self.logger.warning(f"Failed to rotate backup {backup.id}: {exc}")
 
+    @staticmethod
+    def _spared_ids(candidates: list[BackupMetadata] | None) -> set[str]:
+        """
+        Name the backups a rotation never deletes whatever its limits say.
+
+        The newest candidate, and the newest one that is not known to have failed its
+        verification: when the newest is a bad one, "keep the newest" would otherwise let the
+        copies a restore could use be rotated out one by one. An age limit used to take the
+        newest as well, which was harmless only while rotation ran right after a new backup.
+
+        Args:
+            candidates: What rotation may delete, newest first; None when it cannot say.
+
+        Returns:
+            The ids to spare.
+        """
+        if not candidates:
+            return set()
+        spared = {candidates[0].id}
+        newest_good = next((b for b in candidates if b.verified_ok is not False), None)
+        if newest_good is not None:
+            spared.add(newest_good.id)
+        return spared
+
     def rotate_by_policy(
         self,
         app_name: str,
@@ -3306,10 +3330,13 @@ class BackupManager:
         """
         self._prune_orphan_metadata(app_name)
         deleted = 0
+        spared = self._spared_ids(self._rotation_candidates(app_name, tag=tag, protect=protect))
 
         if max_age_days:
             cutoff = datetime.now() - timedelta(days=max_age_days)
             for backup in self._rotation_candidates(app_name, tag=tag, protect=protect) or []:
+                if backup.id in spared:
+                    continue
                 try:
                     if datetime.fromisoformat(backup.created_at) < cutoff:
                         self.delete(backup.id)
@@ -3321,6 +3348,8 @@ class BackupManager:
         if max_count:
             remaining = self._rotation_candidates(app_name, tag=tag, protect=protect) or []
             for backup in remaining[max_count:]:
+                if backup.id in spared:
+                    continue
                 try:
                     self.delete(backup.id)
                     deleted += 1
@@ -3338,7 +3367,7 @@ class BackupManager:
                 sizes={b.id: b.size_bytes for b in remaining},
             )
             for backup in remaining:
-                if backup.id not in expired:
+                if backup.id not in expired or backup.id in spared:
                     continue
                 try:
                     self.delete(backup.id)

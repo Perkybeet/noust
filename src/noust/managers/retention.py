@@ -144,3 +144,32 @@ def select_expired(
         if beyond_count or beyond_age or over_budget:
             expired.append(key)
     return expired
+
+
+def without_newest_good(
+    expired: Sequence[Key], entries: Sequence[tuple[Key, datetime, bool]]
+) -> list[Key]:
+    """
+    Spare, from what retention would delete, the newest copy that is not known to be bad.
+
+    Retention keeps the newest entry. When that one failed its check (a dump taken but corrupt,
+    kept as evidence) "the newest" is not a copy anybody can restore, and the rule that keeps
+    it would let the good copies behind it be pushed out one by one. The newest good copy is
+    spared as well.
+
+    Args:
+        expired: What :func:`select_expired` chose, newest first.
+        entries: ``(key, moment, good)`` for every entry retention considered.
+
+    Returns:
+        ``expired`` without the newest good entry; unchanged when there is none.
+    """
+
+    def aware(moment: datetime) -> datetime:
+        return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+
+    good = [(key, moment) for key, moment, ok in entries if ok]
+    if not good:
+        return list(expired)
+    newest_good = max(good, key=lambda entry: aware(entry[1]))[0]
+    return [key for key in expired if key != newest_good]

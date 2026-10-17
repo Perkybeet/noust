@@ -1690,6 +1690,7 @@ def _attach_volume_commands() -> None:
         backup_drill,
         backup_encryption,
         backup_priority,
+        backup_sweep,
         backup_volumes,
     )
 
@@ -1697,6 +1698,7 @@ def _attach_volume_commands() -> None:
     backup_drill.register(backup)
     backup_encryption.register(backup)
     backup_priority.register(backup)
+    backup_sweep.register(backup)
 
 
 _attach_volume_commands()

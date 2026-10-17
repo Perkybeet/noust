@@ -372,6 +372,9 @@ EVENTS: dict[str, EventSpec] = {
             "backups.restore": "A backup was restored.",
             "backups.verify": "A backup was verified.",
             "backups.push": "A backup was sent to a remote destination.",
+            "backups.sweep": (
+                "Backups beyond their policies' retention were deleted without waiting for a run."
+            ),
             "backup.schedule.create": "A backup schedule was created.",
             "backup.schedule.update": "A backup schedule was changed.",
             "backup.schedule.delete": "A backup schedule was deleted.",

@@ -22,6 +22,7 @@ change nothing.
 
 from __future__ import annotations
 
+import logging
 import re
 import sqlite3
 import time
@@ -116,12 +117,22 @@ _SELF_DESCRIPTION_PREFIX = "Noust self-backup timer for "
 #: base backups (``noust db pitr``).
 _PITR_DESCRIPTION_PREFIX = "Noust point-in-time recovery timer for "
 
+#: The timer of the retention sweep (:mod:`noust.managers.backup_sweep`), which every backup
+#: policy's timer brings along: it prunes what a run that failed or a timer that stopped did not.
+_SWEEP_DESCRIPTION_PREFIX = "Noust backup sweep timer for "
+
+#: When it runs: after the nightly backups, before the day.
+SWEEP_CALENDAR = "*-*-* 04:30:00"
+
 #: How often it runs: the log is sent as it is archived, a minute behind at the most per run.
 PITR_CALENDAR = "*-*-* *:0/5:00"
 
 #: The unit of Noust's own state backup. An application's units are named after
 #: its domain, which always has a dot and so a dash: this name has none.
 SELF_BACKUP_UNIT = f"{paths.BACKUP_UNIT_PREFIX}self"
+
+#: The unit of the retention sweep, named like Noust's own state's: no application has it.
+SWEEP_UNIT = f"{paths.BACKUP_UNIT_PREFIX}sweep"
 
 #: The ``OnCalendar`` expression inside systemd's ``TimersCalendar`` property,
 #: which prints as ``{ OnCalendar=*-*-* 02:00:00 ; next_elapse=... }``.
@@ -463,6 +474,7 @@ class BackupScheduler:
 
         self.logger.info(f"Created backup schedule: {checked.timer_name}")
         self.logger.info(f"  Schedule: {checked.on_calendar}")
+        self._ensure_sweep_timer()
         return True
 
     def remove_schedule(self, domain: str) -> bool:
@@ -586,6 +598,7 @@ class BackupScheduler:
                         _VOLUME_DESCRIPTION_PREFIX,
                         _SELF_DESCRIPTION_PREFIX,
                         _PITR_DESCRIPTION_PREFIX,
+                        _SWEEP_DESCRIPTION_PREFIX,
                     )
                 ):
                     # A database's, a volume policy's or Noust's own timer (see
@@ -723,6 +736,38 @@ class BackupScheduler:
             remote_only=record.remote_only,
             destinations=list(record.destinations),
         )
+
+    def _ensure_sweep_timer(self) -> None:
+        """
+        Make sure the retention sweep's timer exists, without ever failing the schedule that asked.
+
+        The sweep is the backstop for a policy whose runs fail or stop, so every policy brings it
+        along; a failure to install it is a warning, because the schedule itself was made.
+        """
+        timer_path = self._unit_path(f"{SWEEP_UNIT}.timer")
+        if timer_path.is_file() and self._is_ours(timer_path, _SWEEP_DESCRIPTION_PREFIX):
+            return
+        try:
+            self.install_unit_pair(
+                SWEEP_UNIT,
+                _SWEEP_DESCRIPTION_PREFIX,
+                "the retention sweep",
+                "backup-sweep-timer.j2",
+                "backup-sweep-service.j2",
+                SWEEP_CALENDAR,
+                target="every backup policy",
+            )
+        except BackupError as exc:
+            self.logger.warning(f"The retention sweep's timer could not be made: {exc}")
+
+    def sweep_timer_state(self) -> dict[str, Any]:
+        """
+        Ask systemd about the retention sweep's timer.
+
+        Returns:
+            ``installed``, ``next_run`` and ``last_run``.
+        """
+        return self.unit_state(SWEEP_UNIT)
 
     def apply_priority(self) -> list[str]:
         """
@@ -881,6 +926,7 @@ class BackupScheduler:
                 details=result.stderr.strip() or "Check 'systemctl status' for details.",
             )
         self.logger.info(f"Created database backup schedule: {unit} ({calendar})")
+        self._ensure_sweep_timer()
         return unit
 
     def remove_database_timer(self, engine: str, database: str) -> bool:
@@ -1110,6 +1156,7 @@ class BackupScheduler:
             target=domain,
             domain=domain,
         )
+        self._ensure_sweep_timer()
         return unit
 
     def remove_volume_timer(self, domain: str) -> bool:
@@ -1367,6 +1414,73 @@ def _create_when_free(
             time.sleep(_LOCK_RETRY_SECONDS)
 
 
+def _rotate_schedule(
+    backup_manager: BackupManager, domain: str, record: BackupScheduleRecord
+) -> int:
+    """
+    Apply a schedule's retention to the backups it made.
+
+    Args:
+        backup_manager: Manager the backups belong to.
+        domain: Application domain.
+        record: The schedule.
+
+    Returns:
+        How many backups were deleted; 0 when the schedule sets no limit.
+    """
+    if (
+        record.retention_count is None
+        and record.retention_days is None
+        and not record.retention_bytes
+    ):
+        return 0
+    return backup_manager.rotate_by_policy(
+        domain_to_app_name(domain),
+        max_count=record.retention_count or backup_manager.max_backups,
+        max_age_days=record.retention_days,
+        tag=SCHEDULED_TAG,
+        max_bytes=record.retention_bytes,
+    )
+
+
+def _prune_after_failure(
+    backup_manager: BackupManager, domain: str, record: BackupScheduleRecord
+) -> None:
+    """
+    Apply a schedule's retention after a run that could not take its backup.
+
+    Args:
+        backup_manager: Manager the backups belong to.
+        domain: Application domain.
+        record: The schedule.
+    """
+    try:
+        _rotate_schedule(backup_manager, domain, record)
+    except (NoustError, OSError, sqlite3.Error) as exc:
+        logging.getLogger(__name__).warning(
+            "Could not apply the retention of %s after a failed run: %s", domain, exc
+        )
+
+
+def sweep_application_retention(backup_manager: BackupManager | None = None) -> dict[str, int]:
+    """
+    Apply every application schedule's retention now, whether or not its last run went well.
+
+    Args:
+        backup_manager: The manager to rotate through; the real one by default.
+
+    Returns:
+        For each application that lost backups, how many.
+    """
+    manager = backup_manager or BackupManager()
+    deleted: dict[str, int] = {}
+    for record in get_store().list_backup_schedules():
+        count = _rotate_schedule(manager, record.app_domain, record)
+        if count:
+            deleted[record.app_domain] = count
+    return deleted
+
+
 def _moment(value: str | None) -> datetime | None:
     """
     Read a sidecar's timestamp as a naive local time, as backups write them.
@@ -1567,6 +1681,8 @@ def run_schedule(
     try:
         metadata = _create_when_free(backup_manager, domain, record)
     except NoustError as exc:
+        # No new backup, so the retention that frees room for the next one is what is left to do.
+        _prune_after_failure(backup_manager, domain, record)
         _notify_backup(config, compose_backup_failed(domain, str(exc), ctx))
         raise
 

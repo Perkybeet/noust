@@ -125,11 +125,14 @@ class TestScheduledRetentionScope:
     def test_age_limit_only_prunes_scheduled_backups(self, manager: BackupManager) -> None:
         manual = _write_backup(manager, 1, [])
         old_scheduled = _write_backup(manager, 2, [SCHEDULED_TAG, "auto"])
+        newest_scheduled = _write_backup(manager, 3, [SCHEDULED_TAG, "auto"])
 
         manager.rotate_by_policy(APP, max_count=10, max_age_days=1, tag=SCHEDULED_TAG)
 
         assert manual.id in _remaining(manager)
         assert old_scheduled.id not in _remaining(manager)
+        # Both are past the limit; the newest scheduled backup is the one a restore would use.
+        assert newest_scheduled.id in _remaining(manager)
 
     def test_run_schedule_scopes_retention_to_its_own_backups(
         self, monkeypatch: pytest.MonkeyPatch

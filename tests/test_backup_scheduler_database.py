@@ -164,7 +164,8 @@ class TestRemove:
 
         assert scheduler.remove_database_timer("postgresql", "shop") is True
 
-        assert list(systemd_dir.iterdir()) == []
+        # The retention sweep stays: it serves every policy, not only this one.
+        assert [p.name for p in systemd_dir.iterdir() if "sweep" not in p.name] == []
         assert runner.ran("systemctl", "disable", f"{UNIT}.timer")
 
     def test_a_timer_that_is_not_a_database_timer_is_left_alone(

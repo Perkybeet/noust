@@ -110,6 +110,7 @@ from noust.managers.retention import (
     gigabytes_to_bytes,
     select_expired,
     with_gigabytes,
+    without_newest_good,
 )
 from noust.managers.service_manager import ServiceManager
 from noust.managers.source_manager import extract_archive
@@ -1857,10 +1858,37 @@ class VolumeBackupManager:
                 max_bytes=retention_bytes,
                 sizes={e.id: e.size_bytes for e in entries},
             )
+            # The newest is kept; when it failed its verification, so is the newest that did not.
+            expired = without_newest_good(
+                expired,
+                [
+                    (e.id, datetime.fromisoformat(e.created_at), e.verified_ok is not False)
+                    for e in entries
+                ],
+            )
             for entry in entries:
                 if entry.id in expired:
                     self._remove(entry, reason="retention")
                     deleted.append(entry.id)
+        return deleted
+
+    def sweep_retention(self) -> dict[str, list[str]]:
+        """
+        Apply every policy's local retention now, whether or not its last run went well.
+
+        Returns:
+            For each application that lost archives, their ids.
+        """
+        deleted: dict[str, list[str]] = {}
+        for policy in self.records.policies():
+            removed = self.apply_retention(
+                policy.app_domain,
+                retention_count=policy.retention_count,
+                retention_days=policy.retention_days,
+                retention_bytes=policy.retention_bytes,
+            )
+            if removed:
+                deleted[policy.app_domain] = removed
         return deleted
 
     # --------------------------------------------------------------- restore
@@ -2369,7 +2397,14 @@ class VolumeBackupManager:
         }
         try:
             step(f"Backing up the data of {domain}")
-            taken = self._create_when_free(domain, policy)
+            try:
+                taken = self._create_when_free(domain, policy)
+            except NoustError:
+                # No archive was made (the disk is full, the application is gone): the retention
+                # of the archives there are is what frees room, so a failed run applies it.
+                if policy:
+                    self._prune_after_failure(domain, policy)
+                raise
             result["backups"] = [entry.id for entry in taken]
             for entry in taken:
                 days = verify_days(self.config)
@@ -2450,6 +2485,26 @@ class VolumeBackupManager:
                 )
             )
         return result
+
+    def _prune_after_failure(self, domain: str, policy: VolumePolicy) -> None:
+        """
+        Apply a policy's retention after a run that could not take its backup.
+
+        Args:
+            domain: The application.
+            policy: Its policy.
+        """
+        try:
+            self.apply_retention(
+                domain,
+                retention_count=policy.retention_count,
+                retention_days=policy.retention_days,
+                retention_bytes=policy.retention_bytes,
+            )
+        except (NoustError, OSError) as exc:
+            self.logger.warning(
+                f"Could not apply the retention of {domain} after a failed run: {exc}"
+            )
 
     def _create_when_free(
         self, domain: str, policy: VolumePolicy | None

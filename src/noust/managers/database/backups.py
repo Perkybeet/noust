@@ -95,6 +95,7 @@ from noust.managers.retention import (
     gigabytes_to_bytes,
     select_expired,
     with_gigabytes,
+    without_newest_good,
 )
 
 __all__ = ["DatabaseBackups", "DumpView", "PolicyView"]
@@ -134,6 +135,16 @@ def remote_folder(engine: str, database: str) -> str:
     """
     folder = REDIS_FOLDER if engine_of(engine) == "redis" else database
     return f"{REMOTE_ROOT}/{engine}/{folder}"
+
+
+class DumpFailedItsCheck(DatabaseBackupError):
+    """
+    A dump was taken and kept, and it did not pass its check (or its restore test).
+
+    Its own class because it changes what a failed run does afterwards: the corrupt dump is the
+    newest one and is kept as evidence, so nothing is pruned on its account - a good copy must not
+    be pushed out to make room for a bad one.
+    """
 
 
 @dataclass
@@ -964,7 +975,7 @@ class DatabaseBackups:
         if verify:
             view = self._check(view)
             if view.record and view.record.verify_status == STATUS_FAILED:
-                raise DatabaseBackupError(
+                raise DumpFailedItsCheck(
                     f"The dump {info.path.name} was taken but failed its check",
                     details=(
                         f"{view.record.verify_detail}\n\nThe file is kept at {info.path}. "
@@ -1830,7 +1841,7 @@ class DatabaseBackups:
                 view = self._restore_test(view)
                 result["dump"] = view.to_dict()
                 if view.record and view.record.restore_test_status == STATUS_FAILED:
-                    raise DatabaseBackupError(
+                    raise DumpFailedItsCheck(
                         f"The dump {view.name} did not restore into a temporary database",
                         details=view.record.restore_test_detail or "",
                     )
@@ -1838,6 +1849,10 @@ class DatabaseBackups:
         except NoustError as exc:
             finish(ok=False, error=str(exc), dump=result.get("dump"))
             announce(compose_database_backup_failed, str(exc))
+            if policy is not None and not isinstance(exc, DumpFailedItsCheck):
+                # A run that could not take a dump (the disk is full) is the one that most needs
+                # its old dumps pruned by the policy; a corrupt dump is kept as evidence instead.
+                self._prune_after_failure(policy, name)
             raise
 
         failures: list[tuple[str, str]] = []
@@ -1927,6 +1942,7 @@ class DatabaseBackups:
             return []
         by_name = {view.name: view for view in self.list_dumps(policy.engine)}
         candidates: list[tuple[str, datetime]] = []
+        good: dict[str, bool] = {}
         for record in self.records.dumps(policy.engine, database or policy.db_name):
             view = by_name.get(record.file_name)
             if view is None:
@@ -1934,6 +1950,10 @@ class DatabaseBackups:
                 self.records.delete_dump(policy.engine, record.file_name)
             elif record.origin == "scheduled":
                 candidates.append((record.file_name, view.info.created.astimezone(timezone.utc)))
+                good[record.file_name] = (
+                    record.verify_status != STATUS_FAILED
+                    and record.restore_test_status != STATUS_FAILED
+                )
         expired = select_expired(
             candidates,
             count=policy.retention_count,
@@ -1942,9 +1962,65 @@ class DatabaseBackups:
             max_bytes=policy.retention_bytes,
             sizes={name: by_name[name].info.size for name, _moment in candidates},
         )
+        # The newest dump is kept; when it is a bad one, so is the newest that is not.
+        expired = without_newest_good(
+            expired, [(name, moment, good[name]) for name, moment in candidates]
+        )
         for file_name in expired:
             self._remove_local(by_name[file_name], reason="retention")
         return expired
+
+    def _prune_after_failure(self, policy: BackupPolicy, database: str) -> None:
+        """
+        Apply a policy's retention after a run that failed, without hiding why it failed.
+
+        Args:
+            policy: The policy.
+            database: The database whose dumps are pruned.
+        """
+        try:
+            self._apply_local_retention(policy, database)
+        except (NoustError, OSError) as exc:
+            self.service.logger.warning(
+                f"Could not apply the retention of {policy.engine}/{database} after a failed "
+                f"run: {exc}"
+            )
+
+    def sweep_retention(self) -> dict[str, list[str]]:
+        """
+        Apply every policy's local retention now, whether or not its last run went well.
+
+        A policy used to prune only after a run that went well, so a dump that failed pruned
+        nothing and a timer that stopped pruned nothing either. This is the separate sweep: it
+        reads the policies and the dumps, never the engine, so it works with the engine down.
+        What a policy for all of an engine's databases covers is every database that has dumps
+        and neither a policy of its own nor a place in its exclusions.
+
+        Returns:
+            For each ``engine/database`` that lost dumps, their file names.
+        """
+        policies = self.records.policies()
+        own = {(p.engine, p.db_name) for p in policies if p.scope == SCOPE_DATABASE}
+        deleted: dict[str, list[str]] = {}
+        for policy in policies:
+            if policy.scope == SCOPE_DATABASE:
+                names = [policy.db_name]
+            else:
+                left_out = Exclusions.from_json(policy.exclusions).databases
+                names = sorted(
+                    {
+                        record.db_name
+                        for record in self.records.dumps(policy.engine)
+                        if record.db_name
+                        and (policy.engine, record.db_name) not in own
+                        and record.db_name not in left_out
+                    }
+                )
+            for name in names:
+                removed = self._apply_local_retention(policy, name)
+                if removed:
+                    deleted[f"{policy.engine}/{name}"] = removed
+        return deleted
 
 
 def _limit(value: Any, ceiling: int, field_name: str) -> int | None:
