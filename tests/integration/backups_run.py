@@ -31,6 +31,9 @@ What each scenario proves (the checklist row it answers):
   not exist and not created, refused with the provider's words and scrubbed for a wrong key, a
   name MinIO would refuse is stopped before the network, and the good one (plain and encrypted)
   carries a file there, lists it and deletes it, with rclone 1.60 of the harness image.
+* ``protocol_destinations`` (H-15): SFTP and WebDAV destinations against a real server of each
+  protocol (rclone's own, in the harness image): tried and kept, a wrong password refused with the
+  server's words and not kept, a file sent, listed, fetched back identical and deleted.
 * ``stack_dump_restore`` (D-18, H-31): the dump of PostgreSQL, MySQL and MariaDB databases that live
   in containers is taken with the commands an update runs, loaded into a throwaway container of the
   image the service ran, and counted; a truncated dump fails the test with the engine's own words;
@@ -567,6 +570,46 @@ def rclone_in_docker(network: str, mount: Path) -> object:
     return DockerRclone()
 
 
+def carry_a_file(lab: Lab, manager: object, files: object, name: str) -> None:
+    """
+    Prove a destination end to end with a real file: tested, sent, listed, fetched back, deleted.
+
+    Args:
+        lab: The scenario's lab.
+        manager: The ``BackupDestinationManager`` that holds the destination.
+        files: The ``DestinationFileManager`` over the same runner.
+        name: The destination.
+    """
+    import hashlib
+
+    folder = "databases/postgresql/shop"
+    entries = manager.test(name)  # type: ignore[attr-defined]
+    lab.check(entries["ok"] is True, f"{name} did not answer its test")
+    payload = lab.scratch / f"{name}.dump"
+    payload.write_bytes(b"PGDMP lab payload " * 1000)
+    digest = hashlib.sha256(payload.read_bytes()).hexdigest()
+    pushed = files.push_file(  # type: ignore[attr-defined]
+        payload, name, folder, sidecar={"version": 1, "sha256": digest, "scheduled": True}
+    )
+    listed = files.list_files(name, folder)  # type: ignore[attr-defined]
+    lab.evidence.append(
+        f"{name}: pushed {pushed['file']} verified by {pushed['verified_by']}; "
+        f"listed {[f.name for f in listed]}"
+    )
+    lab.check(any(f.name == payload.name for f in listed), f"{name}: not listed")
+    staging = lab.scratch / f"{name}-back"
+    fetched, _ = files.download_file(name, folder, payload.name, staging)  # type: ignore[attr-defined]
+    lab.check(
+        hashlib.sha256(fetched.read_bytes()).hexdigest() == digest,
+        f"{name}: what came back is not what went",
+    )
+    files.delete_file(name, folder, payload.name)  # type: ignore[attr-defined]
+    lab.check(
+        not any(f.name == payload.name for f in files.list_files(name, folder)),  # type: ignore[attr-defined]
+        f"{name}: not deleted",
+    )
+
+
 @scenario("s3_destination")
 def s3_destination(lab: Lab) -> None:
     """A MinIO bucket as a backup destination: tried before it is kept, the bucket looked at, a round trip."""
@@ -669,34 +712,96 @@ def s3_destination(lab: Lab) -> None:
             manager.add(
                 name, "s3", {**good, "path": f"noust-test-bucket/{name}"}, encrypted=encrypted
             )
-            entries = manager.test(name)
-            lab.check(entries["ok"] is True, f"{name} did not answer its test")
-            payload = lab.scratch / f"{name}.dump"
-            payload.write_bytes(b"PGDMP lab payload " * 1000)
-            import hashlib
-
-            digest = hashlib.sha256(payload.read_bytes()).hexdigest()
-            pushed = files.push_file(
-                payload, name, "databases/postgresql/shop",
-                sidecar={"version": 1, "sha256": digest, "scheduled": True},
-            )  # fmt: skip
-            listed = files.list_files(name, "databases/postgresql/shop")
-            lab.evidence.append(
-                f"{name}: pushed {pushed['file']} verified by {pushed['verified_by']}; "
-                f"listed {[f.name for f in listed]}"
-            )
-            lab.check(any(f.name == payload.name for f in listed), f"{name}: not listed")
-            files.delete_file(name, "databases/postgresql/shop", payload.name)
-            lab.check(
-                not any(
-                    f.name == payload.name
-                    for f in files.list_files(name, "databases/postgresql/shop")
-                ),
-                f"{name}: not deleted",
-            )
+            carry_a_file(lab, manager, files, name)
     finally:
         set_runner(None)
     lab.check(lab.leftovers() == [minio], f"left behind: {lab.leftovers()}")
+
+
+@scenario("protocol_destinations")
+def protocol_destinations(lab: Lab) -> None:
+    """SFTP and WebDAV destinations against a real server of each protocol (rclone's own)."""
+    import noust.core.config as config_module
+    from noust.core.exceptions import BackupError
+    from noust.core.runner import set_runner
+    from noust.managers.backup_destination_files import DestinationFileManager
+    from noust.managers.backup_destinations import BackupDestinationManager
+
+    lab.require_image("noust-integration:latest")
+    network = lab.name("net")
+    lab.networks.append(network)
+    lab.docker("network", "create", "--label", LABEL, network)
+    server = lab.name("proto")
+    password = secrets.token_urlsafe(18)
+    lab.containers.append(server)
+    serve = (
+        "mkdir -p /srv/data; "
+        'rclone serve sftp /srv/data --addr :2022 --user noustlab --pass "$LAB_PASS" & '
+        'rclone serve webdav /srv/data --addr :8080 --user noustlab --pass "$LAB_PASS" & '
+        "wait"
+    )
+    lab.docker(
+        "run", "-d", "--name", server, "--label", LABEL, "--network", network,
+        "-e", "LAB_PASS", "--entrypoint", "sh", "noust-integration:latest", "-c", serve,
+        env={"LAB_PASS": password},
+    )  # fmt: skip
+
+    config_module.DEFAULT_CONFIG_PATH = lab.scratch / "config.yaml"
+    config_module.Config().set("security.allow_private_hosts", [server])
+    config_module.Config().save()
+    runner = rclone_in_docker(network, lab.scratch)
+    set_runner(runner)  # type: ignore[arg-type]
+    try:
+        manager = BackupDestinationManager(runner=runner)  # type: ignore[arg-type]
+        files = DestinationFileManager(runner=runner)  # type: ignore[arg-type]
+        version = runner.run(["rclone", "version"], timeout=60)  # type: ignore[attr-defined]
+        lab.evidence.append("rclone: " + (version.stdout.splitlines() or ["?"])[0])
+        kinds = {
+            "sftp": {"host": server, "user": "noustlab", "port": "2022", "pass": password},
+            "webdav": {
+                "url": f"http://{server}:8080",
+                "vendor": "other",
+                "user": "noustlab",
+                "pass": password,
+            },
+        }
+        for kind, fields in kinds.items():
+            # The server takes a moment to listen: the first add that connects is the proof.
+            added = False
+            for _ in range(30):
+                try:
+                    manager.add(kind, kind, {**fields, "path": "backups"}, encrypted=False)
+                    added = True
+                    break
+                except BackupError as exc:
+                    lab.evidence.append(f"{kind}: not yet ({exc.message})")
+                    time.sleep(2)
+            lab.check(added, f"{kind}: the server never accepted a connection")
+
+            # A wrong password is refused with the server's words and not kept.
+            wrong = secrets.token_urlsafe(18)
+            try:
+                manager.add(
+                    f"{kind}-wrong",
+                    kind,
+                    {**fields, "pass": wrong, "path": "backups"},
+                    encrypted=False,
+                )
+            except BackupError as exc:
+                lab.evidence.append(
+                    f"{kind} wrong password: {exc.message} | {(exc.details or '')[:200]}"
+                )
+                lab.check(
+                    wrong not in str(exc), f"{kind}: the wrong password leaked into the error"
+                )
+            else:
+                raise AssertionError(f"{kind}: a destination with a wrong password was saved")
+            lab.check(manager.get(f"{kind}-wrong") is None, f"{kind}: the wrong one was kept")
+
+            carry_a_file(lab, manager, files, kind)
+    finally:
+        set_runner(None)
+    lab.check(lab.leftovers() == [server], f"left behind: {lab.leftovers()}")
 
 
 # ---------------------------------------------------------------------------

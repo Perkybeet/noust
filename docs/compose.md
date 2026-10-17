@@ -706,6 +706,14 @@ says.
 really has: `<project>_<key>` unless the volume names itself with `name:` (or is `external`),
 read from `docker compose config`. Before, it mounted the key, which is a new, empty volume.
 
+**Every night, and tried.** A recipe installed on Compose keeps its database in the stack, so the
+daily policy that protects the databases in Noust's store never reached it. The recipe's default
+backups now make the application's own schedule, which dumps each of those databases through its
+engine's client, and the [restore drill](disaster-recovery.md#does-a-backup-come-back) loads every dump
+into a throwaway container of the same image the service ran (the manifest records the image) and
+counts what it holds. The container has no network, a name and a label of its own, and is removed by
+name; a dump that does not load fails the drill with the engine's own words.
+
 ## Deploying by tag
 
 An application follows a branch, as always, or the tags that match a pattern. Following tags

@@ -53,6 +53,24 @@ The console uploads a file from the browser in chunks (`/api/databases/imports/u
 resumable at the offset the server reports, up to `databases.import_max_bytes` (10 GiB by
 default). Upload files are private to Noust (mode 0600) and swept after 24 hours.
 
+### The roles of a PostgreSQL server
+
+A dump names its owners and the roles it grants to and carries none of them, so one restored on a
+new server lost its owners or failed on the first `ALTER ... OWNER TO`. An application backup now
+also holds `pg_dumpall --globals-only` of each PostgreSQL server its dumps came from (once per
+server), and a restore creates the roles the server lacks before it loads a dump. Only what is
+missing is created: nothing that exists is altered, the superuser's password included, and the file
+is read statement by statement, so a psql meta-command or anything that is not a role statement is
+never run. What cannot be put back (a tablespace's directory, a setting for a database that is not
+there) is listed. Noust's own state carries the same file, so `noust restore-server` has the roles
+before the databases.
+
+```bash
+noust db globals dump [-o FILE]            # take them now (root-only file: it holds password hashes)
+noust db globals list                      # the files this server has dumped
+noust db globals restore FILE              # create the roles a file has and this server lacks
+```
+
 ### Dumps that are really dumps
 
 A dump that exits cleanly and wrote nothing (a client killed mid-pipeline, a connection to the wrong
@@ -69,6 +87,45 @@ ends the list (a window of time, not a pile of whatever is small); and the newes
 whatever its size, so a limit never leaves a database with no dump. Dumps taken by hand and the safety
 copy of a restore are never retention's. Application, data and Noust-state backups keep by number and
 age only.
+
+### When and how a backup runs
+
+Every schedule (a database's, an application's, an application's data, Noust's own state) takes the
+same options.
+
+```bash
+noust db backup-schedule set app_db -e postgresql --schedule daily --max-runtime 2h --timezone Europe/Madrid
+noust backup schedule update shop.example.com --max-runtime 90m
+noust backup priority show
+noust backup priority set --nice 15 --io-class idle --cpu-quota 50
+noust backup priority apply                # bring the units an earlier version wrote along
+noust backup sweep                         # apply every policy's retention now
+```
+
+- **A time limit** (`--max-runtime`, `max_runtime_seconds` in the API; one minute to seven days)
+  becomes `TimeoutStartSec=` in the service the schedule runs in: systemd stops what runs past it,
+  the unit fails and the monitor announces it. It is not `RuntimeMaxSec=`, which systemd ignores in a
+  `Type=oneshot` service and says so.
+- **A time zone** (`--timezone`, `timezone` in the API) becomes the suffix of `OnCalendar=`
+  (`*-*-* 02:00:00 Europe/Madrid`). It is checked against this server's own zone database. An update
+  that names neither keeps what the timer had, as it does retention.
+- **A priority.** A backup runs behind the applications: `Nice=10` and best-effort disk priority 7
+  by default (`backup.nice`, `backup.io_class` `best-effort` or `idle`, `backup.io_priority`,
+  `backup.cpu_quota` as a percentage of one CPU), written between two marker comments in the one
+  place units are written, so a second pass changes nothing and a unit that is not Noust's is never
+  touched.
+- **Retention that does not wait.** A policy used to prune only after a run that went well, so a run
+  that failed (a full disk, usually) pruned nothing. It now prunes after a run that could not take its
+  copy, and a daily `noust-backup-sweep` timer applies every database, data and application policy
+  without a run, reading the policies and the files and never the engines. The newest copy is kept,
+  and when it failed its check the newest good one is kept too. A manual backup and a restore's
+  safety copy are never a schedule's to delete. Destinations are pruned when a run sends to them.
+- **A failed backup says all it was told.** The notice carries the end of the failure, bounded to
+  what a chat message holds. The whole of what the tool said is kept (up to 512 KiB, scrubbed of the
+  credentials Noust knows, the newest 200 failures) and the notice names it:
+  `noust backup failures show 42` (`--raw` prints nothing but the output) and
+  `GET /api/backups/failures/42/output`, which the notice links to when the console has a public
+  address.
 
 ## Application data
 
@@ -113,8 +170,11 @@ A bundle is one file, sealed with a passphrase (scrypt, then AES-256-CBC and HMA
 through `openssl`, the same envelope as a central's sealed secrets). It holds the store
 (taken with SQLite's online backup, so it is consistent), the configuration, the secrets and
 keys (fleet, SSH, sealing), the certificates, and the unit files and drop-ins Noust generated.
-It does not hold the metrics and observation databases (they regenerate), application backups
-or the sites' web server files (they are rendered again from the store).
+It also holds the web server's configuration (`/etc/nginx` and Apache's directory, each file with
+its mode and its links, kept relative so Debian's `sites-enabled` links survive a different layout), so
+a site edited by hand or the site of an adopted application comes back after a disaster, and the roles
+of each PostgreSQL server. It does not hold the metrics and observation databases (they regenerate)
+or application backups.
 
 The passphrase is never an argument. Give it at the prompt, in a file only its owner can read
 (`--passphrase-file`), in `NOUST_SELF_BACKUP_PASSPHRASE` or as one line of standard input.
@@ -143,7 +203,12 @@ noust backup encryption show-key [ID]     # show a key again
 noust backup encryption rotate            # a new key for what is made from now on
 noust backup encryption import-key ID --passphrase-file FILE   # put back a key that was lost
 noust backup encryption disable           # stop sealing; every key is kept
+noust backup encryption seal-existing     # seal what was made before (below)
 ```
+
+The same operations are `/api/backups/encryption`: `GET` (status), `POST /enable`, `/rotate` and
+`/disable` (sudo mode), `GET /keys/{id}` (sudo mode and `secrets.reveal`; the value is shown, the
+read is recorded without it), `POST /keys` (import; never echoed) and `/seal-existing` (a job).
 
 From then on every backup this server makes is written as an encrypted, authenticated file
 (scrypt, AES-256-CBC through openssl, HMAC-SHA256 over the whole file: the construction of
@@ -175,13 +240,24 @@ readable: they hold ids, sizes and digests, never the data.
   against being read **without** the secret store: an exposed directory or share, a snapshot or an
   rsync of `/var/backups`, a drive taken out when the store is not on it. It does not defend them
   against root on a running server, and it does not replace encrypting the disk. Backups made
-  before it was turned on stay in clear until their retention removes them (`status` counts them).
+  before it was turned on stay in clear until their retention removes them, or until you run
+  `seal-existing` (`status` counts them).
+- **Sealing what is already there.** `noust backup encryption seal-existing` seals the application
+  archives, the data backups, the database dumps and the base backups of point-in-time recovery that
+  were made in clear, in place and under the same names, and writes each record again with the
+  stored file's size and digest (the sidecar and its MAC, the dump's record, the base's sidecar), so
+  every check, restore and send goes on working. A backup that does not match its record is left in
+  clear and said, never sealed into something that looks sound. A file that was sealed but whose record
+  was not written, because the run stopped, is repaired the next time. An application that is being
+  operated on is skipped and sealed by the next run. It needs room for one more copy of the largest
+  backup for a moment, and it counts what is still in clear afterwards.
 - **What it costs.** Sealing and opening copy the file (sealing needs about two extra copies of it
   for a moment; opening, one). The database dumps staged *inside* an application's archive are not
   sealed on their own: the archive that carries them is, whole.
 - **Not covered.** The write-ahead log archive of point-in-time recovery (the engine's own
-  directory, written by PostgreSQL itself), Noust's own state (already an envelope under its own
-  passphrase), and a dump handed to `noust db import`.
+  directory, written by PostgreSQL itself one segment at a time), Noust's own state (already an
+  envelope under its own passphrase), a dump handed to `noust db import`, files no record describes
+  (a restore's safety copy, a dump put in the directory by hand) and what a destination already holds.
 
 ## Bringing a whole server back
 
@@ -201,10 +277,23 @@ what came back, what failed (with the evidence) and what had no backup. It exits
 application is not back; fix what it says and run it again with `--skip-state` to retry only
 the applications.
 
-What it does not do: install the web server, Docker or the database engines (it says which are
-missing), and deploy an application that never had a backup (it says so; deploy it again from
-its source). A schema change that nothing can undo the database for needs
-`--accept-schema-changes`, as every other way back does.
+With `--install` it also installs what the machine lacks: the web server the restored configuration
+names, Docker when an application or a database instance needs it, and the database engines (apt and
+zypper from the distribution's own repositories; a distribution that does not carry Docker is told how,
+never given a third-party repository). Without it nothing is installed and the report names the
+command. Once an engine is there the flow creates the PostgreSQL roles the new server lacks, then loads
+each database no application owns from its newest dump, on this server or on a destination, and never
+over a database the server already has. The report lists the software, the roles and the databases, and a
+database with no dump anywhere makes it not ok.
+
+The console runs everything after the state is back: `GET /api/server/restore/plan` says what a
+restore would do now, and `POST /api/server/restore` (a job, sudo mode, `backups.manage`) does it.
+Restoring the state replaces the store the console runs on, so that step stays a command at a terminal
+and the job keeps the state that is here.
+
+What it does not do: deploy an application that never had a backup (it says so; deploy it again from
+its source). A schema change that nothing can undo the database for needs `--accept-schema-changes`,
+as every other way back does.
 
 ## Does a backup come back?
 
@@ -221,8 +310,14 @@ dropped. An application that keeps its data in a SQLite file gets a step per fil
 `quick_check` runs on the unpacked copy, so a file that came back damaged fails the drill with SQLite's
 words. Nothing of the application, its databases or its units is touched, and it is not started: the
 report is dated and says what it proved (the files unpack, the data loads) and what it did not (that a
-new server would serve them; a Redis snapshot, which replaces every key, and the dumps of a Compose
-stack's own containers are named as not tried). It exits 1 when something fails. A scheduled backup runs
+new server would serve them). The dump of a database that lives in a Compose stack is loaded into a
+throwaway container of **the image the service ran** (the dump's manifest records it): no network, no
+published port, a memory and process limit, a name `noust-drill-<random>` and the label `noust.drill=1`,
+a password made for the occasion that reaches Docker through its environment and never an argument, and
+removed by its exact name, with its volume, whatever happened; what it holds is counted. A Redis or Valkey
+snapshot, which replaces every key and so cannot be tried beside the real data, is loaded into a second
+server that listens on no port but a private socket and is stopped afterwards. It exits 1 when something
+fails. A scheduled backup runs
 one by itself when the last good one is older than `backup.drill_days` (30 by default, `0` turns it off),
 after the backup and its destinations, in the same run; a drill that fails is announced as a failed
 backup and does not fail the backup's own run. `POST /api/apps/{domain}/restore-drills` (a job) and
@@ -232,12 +327,16 @@ backup and does not fail the backup's own run. `POST /api/apps/{domain}/restore-
 ## Provider guides
 
 A destination is an rclone remote; the `--type` decides which. Object stores take the bucket (or
-container) as the first part of the **folder**: `--field path=my-bucket/noust-backups`. Every
-destination can be proved live with `noust backup destination test NAME`, which creates the folder (the first real write, so a key that can only read fails here)
-and lists it, so that is the matrix that matters: a provider is
-supported on your account when that command succeeds. Noust's own tests run offline against
-rclone's interface; they pin what is passed to rclone for each type below, not how a provider
-answers.
+container) as the first part of the **folder**: `--field path=my-bucket/noust-backups`. A destination
+is tried when it is saved: `noust backup destination add` and `update` (and `POST` and `PUT
+/api/backup-destinations`) create the folder, which is the first real write so a key that can only
+read fails here, and list it, exactly as `noust backup destination test NAME` does, and keep nothing
+that does not answer. `--skip-test` (`"verify": false` in the API) saves one that is down on purpose.
+For an object store the **bucket must already exist**: Noust looks at it first, read only, and says
+so, instead of creating a bucket in your account out of a mistyped name. So the matrix that matters
+is your own: a provider is supported on your account when `destination add` succeeds. Noust's offline
+tests pin what is passed to rclone for each type below, not how a provider answers; the next
+subsection says what has been run against a real server.
 
 | Where | `--type` | What to give |
 |---|---|---|
@@ -264,6 +363,32 @@ answers.
 A provider name outside the list of the S3 form is passed to rclone as written (`provider=Alibaba`):
 rclone knows more of them than the form offers. An address inside this machine's own networks (a NAS
 on the LAN, a local MinIO) is refused until it is named in `security.allow_private_hosts`.
+
+### What has been tried against the real service
+
+The table above says what Noust passes to rclone. This one says what has been run against a real
+server, when, and with which rclone. A row is added when its run is, with the date it was run:
+
+| Where | Last tried | rclone | What ran |
+|---|---|---|---|
+| MinIO (`s3`, `provider=Minio`) | 2026-10-17 | 1.60.1 | A bucket that does not exist is refused and not created; a wrong key is refused with the server's own words and nothing is kept; a name MinIO would refuse is stopped before the network; a file goes up, is listed, comes back identical and is deleted, in clear and encrypted |
+| An SSH server (`sftp`) | 2026-10-17 | 1.60.1 | Against rclone's own SFTP server: tried and kept, a wrong password refused and not kept, a file sent (verified by MD5), listed, fetched back identical and deleted |
+| A WebDAV server (`webdav`, `vendor=other`) | 2026-10-17 | 1.60.1 | Against rclone's own WebDAV server, the same steps, the upload verified by size |
+
+The rclone is the 1.60.1 package of the harness image (`v1.60.1-DEV`); a newer one is expected to
+behave the same and has not been tried. The SFTP and WebDAV rows prove Noust's side of the
+protocol (what it passes, what it keeps, what it refuses) against rclone's server for it, which is a
+different implementation from the client's side; they do not prove a particular vendor's quirks.
+
+**Not tried against the real service**, and so supported as far as rclone documents it and no
+further: Amazon S3, Cloudflare R2, Backblaze B2, Hetzner Object Storage, Wasabi, DigitalOcean
+Spaces, Scaleway, IDrive e2, Ceph, Supabase Storage and Vultr, Azure Blob Storage, Google Cloud
+Storage, an FTP server, SMB, Nextcloud and ownCloud, Google Drive, OneDrive, Dropbox, Box, pCloud.
+Prove yours with `noust backup destination add`; if it connects, the same steps ran.
+
+The runs are `python tests/integration/backups_run.py --scenario s3_destination` and `--scenario
+protocol_destinations` (Docker; they create `noust-test-w6b-*` containers with the label `noust.test=1`
+and remove them).
 
 **Amazon S3 with the least access.** Give the key only what a backup needs; this policy is the whole of
 it (replace the bucket):
