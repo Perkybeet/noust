@@ -109,9 +109,14 @@ noust app hardening set shop.example.com off
 - Changing it restarts the application behind the health gate. When it does not answer, the
   previous unit is put back and the application is restarted as it was. `--no-restart` writes the
   unit and leaves the running process in the sandbox it has.
-- **Who is hardened:** an application whose unit runs its own code (Node, Python and the like).
-  Not a Compose stack or a container (their processes are Docker's), a monorepo (one unit per
-  workspace) or a PHP site (its pool lives in the PHP-FPM every PHP site shares).
+- **Who is hardened:** an application whose unit runs its own code (Node, Python and the like) and
+  a monorepo: every workspace's unit gets the profile (a Node one, so `strict` leaves writable
+  executable memory alone), they are rewritten together and restarted together behind the gate
+  that probes each workspace, and a workspace that does not answer puts all the previous units
+  back. A monorepo created from 4.0 is hardened from its first deploy; one from before keeps its
+  units until `noust app hardening set`. Not a Compose stack or a container (their processes are
+  Docker's, and Docker confines them) or a PHP site (its pool lives in the PHP-FPM every PHP site
+  shares).
 - `status` shows how exposed the unit is as `systemd-analyze security` scores it (a read-only
   probe), and `set` shows the score before and after.
 

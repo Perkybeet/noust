@@ -22,8 +22,14 @@ from noust.core.config import Config
 from noust.core.exceptions import DeploymentError
 from noust.core.fs import SECRET_MODE, FileSystem, get_fs
 from noust.core.logger import Logger
-from noust.core.store import App, get_store, is_adopted
+from noust.core.store import App, AppType, get_store, is_adopted
 from noust.core.utils import domain_to_app_name
+from noust.core.variables.placement import (
+    app_builds,
+    require_buildable,
+    with_predefined,
+    without_predefined,
+)
 from noust.core.variables.resolver import Resolver
 from noust.core.variables.store import VariableStore
 from noust.deployers.helpers.env_manager import EnvManager
@@ -44,6 +50,7 @@ from noust.deployers.helpers.layout import (
     layout_on_disk,
 )
 from noust.deployers.helpers.permissions import hand_over_file
+from noust.deployers.helpers.workspace_env import propagate
 from noust.deployers.releases import ReleaseManager
 from noust.managers.app_identity import service_account
 from noust.validators.environment import (
@@ -166,11 +173,15 @@ def read_runtime_env(app: App, *, manager: EnvManager | None = None) -> dict[str
 
     Returns:
         Variable name to value; empty when the application has no ``.env``.
-        A build-only variable is not in the file and is not here.
+        A build-only variable is not in the file and is not here, and neither are the names
+        Noust itself writes there for a Compose stack or a container (``NOUST_URL``...): they
+        are Noust's, not the operator's to show, export or set.
     """
     if is_adopted(app.app_type):
         return {}
-    return (manager or EnvManager()).read_env_file(env_file_for(app))
+    return without_predefined(
+        app.app_type, (manager or EnvManager()).read_env_file(env_file_for(app))
+    )
 
 
 def read_comments_of(app: App, *, manager: EnvManager | None = None) -> dict[str, str]:
@@ -382,7 +393,8 @@ def commit_environment(
         The file written.
 
     Raises:
-        EnvironmentValidationError: PORT or NODE_ENV added or changed.
+        EnvironmentValidationError: PORT or NODE_ENV added or changed, or a variable only the
+            build is given on an application that builds nothing.
         SecurityError: If the destination is a symlink.
         OSError: If the file cannot be written.
     """
@@ -392,6 +404,7 @@ def commit_environment(
     writer = manager or EnvManager(fs=fs)
     current = writer.read_env_file(env_file)
     environment = plan.environment
+    require_buildable(app.domain, environment.build_only, builds=app_builds(app))
     runtime = environment.runtime
     _reject_managed_vars(runtime, current)
     kept: dict[str, str] | None = None
@@ -402,7 +415,9 @@ def commit_environment(
             for name, text in {**writer.read_env_comments(env_file), **asked}.items()
             if text
         }
-    writer.write_env_file(env_file, runtime, kept)
+    # What Noust wrote there for the containers of a stack is not the operator's to edit, and an
+    # edit must not take it away.
+    writer.write_env_file(env_file, with_predefined(app.app_type, runtime, current), kept)
 
     if app.id is not None:
         VariableStore().set_app_variables(app.id, rows_for(environment))
@@ -429,6 +444,17 @@ def commit_environment(
         fs=fs or get_fs(),
         logger=log,
     )
+
+    if app.app_type == AppType.MONOREPO.value:
+        # Its units load a file in each workspace, not this one: the change goes to them too.
+        propagate(
+            app,
+            changed={name: value for name, value in runtime.items() if current.get(name) != value},
+            removed=[name for name in current if name not in runtime],
+            manager=writer,
+            fs=fs,
+            logger=log,
+        )
 
     if link and app.layout == RELEASES:
         releases = ReleaseManager(app_root(app), fs=fs or get_fs(), logger=log)

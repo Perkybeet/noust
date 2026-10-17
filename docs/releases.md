@@ -304,11 +304,20 @@ ended (cancelled, too late, or finished first).
 
 What cannot be cancelled, and says so: a release that is **already being activated** (it
 finishes, or puts back what served by itself; roll back afterwards if it is not what you want),
-a migration, a restore or a deletion (they are halfway through changing the system), a build in
-place (it runs in the tree that serves: stopping it would leave the application broken) and a
-Docker Compose build (it runs inside the Docker daemon). A migration declared in a deploy hook
-is never interrupted either: a cancellation arriving while it runs takes effect before the next
-step.
+a migration, a restore or a deletion (they are halfway through changing the system) and a build in
+place (it runs in the tree that serves: stopping it would leave the application broken). A
+migration declared in a deploy hook is never interrupted either: a cancellation arriving while it
+runs takes effect before the next step.
+
+**A Docker Compose stack, a container application and a monorepo on releases can be stopped
+too.** The images of a stack or a container are built by the Docker daemon, which stops the build
+when the `docker` command that asked for it is killed; the containers that serve are replaced only
+once the build is done. What the update changed to get there goes back exactly as after a build
+that failed: the tree a stack pulled in place is checked out at the commit that serves, its
+`.env` is put back, and a container application keeps the compose file and the image that serve
+(no failed release is recorded, and the image it had begun is removed). A monorepo on releases
+builds in a release of its own, which is removed like any other. A monorepo that builds in place,
+in the tree its units run from, is the exception that remains.
 
 ## The deploy queue
 

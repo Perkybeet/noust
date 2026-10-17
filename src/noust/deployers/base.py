@@ -57,7 +57,6 @@ from noust.core.exceptions import (
 )
 from noust.core.fs import SECRET_MODE, DryRunFileSystem, FileSystem
 from noust.core.logger import Icons
-from noust.core.preview_store import preview_identity
 from noust.core.runner import SANDBOX_PATH, CommandResult, CommandRunner, SandboxSpec, get_runner
 from noust.core.store import (
     DEFAULT_KEEP_RELEASES,
@@ -90,7 +89,7 @@ from noust.deployers.helpers.build_config import (
     resolve_build,
     set_operator_build,
 )
-from noust.deployers.helpers.deployment_variables import DeploymentVariables
+from noust.deployers.helpers.deployment_variables import DeploymentVariables, describe_deployment
 from noust.deployers.helpers.health import failure_output, wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
 from noust.deployers.helpers.hooks import (
@@ -133,6 +132,7 @@ from noust.deployers.helpers.site import reduce_certificate as reduce_app_certif
 from noust.deployers.helpers.summary import print_deployment_summary
 from noust.deployers.helpers.target import claim_deploy_target, fetch_into_target
 from noust.deployers.helpers.unit_launch import (
+    attach_release_env,
     release_env_line,
     systemd_command,
     with_launch,
@@ -2037,23 +2037,17 @@ class BaseDeployer(AppDeployer):
             Where the application answers and what is being built.
         """
         commit, branch = self._git_info()
-        row = self._app_row()
         # A preview's row is linked to its application from the start, so a
         # first build already knows which pull request it is for.
-        pull_request, preview_of = (
-            preview_identity(self.store, self.domain)
-            if row is not None and row.preview_parent
-            else (None, None)
-        )
-        return Deployment(
-            domain=self.domain,
-            ssl=bool(row.ssl_enabled) if row is not None else self.ssl,
+        return describe_deployment(
+            self.store,
+            self.domain,
+            row=self._app_row(),
+            ssl=self.ssl,
             branch=self.branch or branch,
             commit=commit,
             release=self._staged.id if self._staged is not None else None,
             port=self.port,
-            pull_request=pull_request,
-            preview_of=preview_of,
         )
 
     def _variables_resolver(self) -> Resolver:
@@ -3116,15 +3110,11 @@ class BaseDeployer(AppDeployer):
                     return None
                 self.service_manager.restore_template(self.app_name, edited)
                 return lambda: self.service_manager.restore_template(self.app_name, template)
-            text = self.service_manager.read_unit(self.app_name)
-            if text is None:
-                return None
-            edited = with_release_env(
-                text, release_env_line(str(self.runtime_path), instance=False)
+            previous = attach_release_env(
+                self.service_manager, self.app_name, str(self.runtime_path)
             )
-            if edited == text:
+            if previous is None:
                 return None
-            previous = self.service_manager.update_config(self.app_name, edited)
         except (ServiceError, ValidationError) as exc:
             self.logger.warning(f"The unit is left as it is: {exc}")
             return None

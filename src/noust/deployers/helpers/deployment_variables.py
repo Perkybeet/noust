@@ -16,13 +16,10 @@ result goes; what the steps decide is here:
 - :class:`DeploymentVariables` resolves the references of a deployment, remembers what the
   variables given at creation are made of and for (even before the application has a row), and
   says what the install and the build are given beyond the ``.env``;
-- :class:`BuildEnvironment` is that answer: the variables to add and the names to take away;
-- :func:`require_buildable` refuses a variable only the build is given on an application that
-  builds nothing, instead of dropping it;
-- :func:`keeps_predefined_in_env` says which applications get ``NOUST_*`` in the ``.env`` itself
-  (a stack's containers read the project's own file, and nothing else reaches them), and
-  :func:`without_predefined` / :func:`with_predefined` are the two places that keep those names
-  out of what an operator edits and in what Compose reads.
+- :class:`BuildEnvironment` is that answer: the variables to add and the names to take away.
+
+Where each kind of variable goes for each type of application (and what is refused) is decided in
+:mod:`noust.core.variables.placement`.
 """
 
 from __future__ import annotations
@@ -34,9 +31,9 @@ from dataclasses import dataclass, field
 from noust.core.exceptions import NoustError
 from noust.core.fs import DryRunFileSystem, FileSystem
 from noust.core.logger import Logger
-from noust.core.store import App, AppType, NoustStore
+from noust.core.store import App, NoustStore
 from noust.core.variables import expressions
-from noust.core.variables.predefined import RESERVED, Deployment
+from noust.core.variables.predefined import Deployment
 from noust.core.variables.resolver import Resolver, context_for
 from noust.core.variables.store import VariableStore
 from noust.deployers.helpers.app_env import read_environment_of, refresh_app_env
@@ -46,73 +43,10 @@ from noust.deployers.helpers.env_variables import (
     EnvironmentPlan,
     record_given,
 )
-from noust.validators.environment import EnvironmentValidationError
 
 #: Failures while recording what the variables are made of: reported, never fatal. The ``.env``
 #: on disk is the truth; the row only lets the next deploy resolve a reference again.
 _RECORDING_ERRORS = (NoustError, sqlite3.Error)
-
-#: The types whose containers read the project's own ``.env``: Noust hands them what it says
-#: about a deployment there, because that file is the only thing that reaches every container
-#: and every ``docker compose`` command, the unit's included.
-ENV_FILE_TYPES: frozenset[str] = frozenset({AppType.DOCKER_COMPOSE.value, AppType.CONTAINER.value})
-
-
-def keeps_predefined_in_env(app_type: str | None) -> bool:
-    """
-    Tell whether an application gets ``NOUST_URL`` and the rest inside its ``.env``.
-
-    Args:
-        app_type: The application's type.
-
-    Returns:
-        True for a Compose stack and a container, whose containers load that file; the others
-        have a file of their own beside each release.
-    """
-    return app_type in ENV_FILE_TYPES
-
-
-def without_predefined(app_type: str | None, values: Mapping[str, str]) -> dict[str, str]:
-    """
-    Take out of a ``.env`` what Noust itself wrote there about the deployment.
-
-    What the reader of an application's variables hands to everything that shows, exports,
-    clones or edits them: the names are Noust's, not the operator's, and an import on another
-    server could not set them.
-
-    Args:
-        app_type: The application's type.
-        values: What the ``.env`` holds.
-
-    Returns:
-        The values, less the reserved names for a type that keeps them in the file.
-    """
-    if not keeps_predefined_in_env(app_type):
-        return dict(values)
-    return {name: value for name, value in values.items() if name not in RESERVED}
-
-
-def with_predefined(
-    app_type: str | None, values: Mapping[str, str], current: Mapping[str, str]
-) -> dict[str, str]:
-    """
-    Put back into a ``.env`` about to be written what Noust had written there.
-
-    The writer of an application's variables edits the operator's part of the file; the names
-    Noust owns are carried through so an edit does not take them away from the containers.
-
-    Args:
-        app_type: The application's type.
-        values: What is about to be written.
-        current: What the file holds now.
-
-    Returns:
-        The values plus the reserved names the file has, for a type that keeps them there.
-    """
-    if not keeps_predefined_in_env(app_type):
-        return dict(values)
-    kept = {name: value for name, value in current.items() if name in RESERVED}
-    return {**values, **kept}
 
 
 @dataclass(frozen=True)
@@ -156,28 +90,54 @@ def build_environment_of(environment: AppEnvironment, deployment: Deployment) ->
     )
 
 
-def require_buildable(domain: str, environment: AppEnvironment, *, builds: bool) -> None:
+def describe_deployment(
+    store: NoustStore,
+    domain: str,
+    *,
+    row: App | None,
+    ssl: bool,
+    branch: str | None,
+    commit: str | None,
+    release: str | None,
+    port: int | None,
+    preview: bool = False,
+) -> Deployment:
     """
-    Refuse a variable only the build is given on an application that builds nothing.
+    Describe a deployment for the references and the variables Noust sets.
 
-    Dropping it would look like it was accepted, and it would be given to nobody.
+    The one place the facts are put together, whichever deployer asks: what the application's
+    row says wins over what the deployer was configured with once the application exists.
 
     Args:
-        domain: The application, for the message.
-        environment: The variables as they will be.
-        builds: Whether a deployment of the application builds anything.
+        store: The store.
+        domain: The application's domain.
+        row: The application's row, when it has one.
+        ssl: Whether the deployer was asked for TLS.
+        branch: The branch being built.
+        commit: The commit being built or running.
+        release: The release id.
+        port: The port the process listens on.
+        preview: Whether the application is a preview of another.
 
-    Raises:
-        EnvironmentValidationError: There is such a variable and nothing to give it to.
+    Returns:
+        Where the application answers and what is being built.
     """
-    names = sorted(environment.build_only)
-    if builds or not names:
-        return
-    raise EnvironmentValidationError(
-        f"{', '.join(names)} would be given to the build of {domain}, and nothing is built",
-        details="It runs an image from a registry: the image is pulled as it is. Give the "
-        "variable to the running application (the default, or --runtime-only), or deploy it "
-        "from a Dockerfile if the image should be built here.",
+    from noust.core.preview_store import preview_identity
+
+    pull_request, preview_of = (
+        preview_identity(store, domain)
+        if preview or (row is not None and row.preview_parent)
+        else (None, None)
+    )
+    return Deployment(
+        domain=domain,
+        ssl=bool(row.ssl_enabled) if row is not None else ssl,
+        branch=branch,
+        commit=commit,
+        release=release,
+        port=port,
+        pull_request=pull_request,
+        preview_of=preview_of,
     )
 
 
