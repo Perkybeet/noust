@@ -392,7 +392,8 @@ from 3.1 on is not accepted where sudo mode is asked unless it was issued with
 `allow_elevated` (refused under the ENS profile, where tokens also expire within
 `auth.tokens.max_days`, 90). Tokens issued before accounts existed keep their 3.0 scope and
 behaviour and are adopted by the first `admin` account; fleet tokens belong to a central and are
-never adopted. Tokens start with `noust_tok_` (`wasm_tok_` before 3.0; those keep working), are
+never adopted. Tokens start with `noust_tok_` (those issued before 3.0 start with the old product's
+prefix and keep working; `noust health` names the ones still in use), are
 shown once, and only their salted hash is kept. `noust token list` shows every token ever
 issued, live and revoked, without the token itself, and where each is accepted from;
 `noust token revoke ID` takes effect on the next request.
@@ -413,7 +414,7 @@ cannot be read leaves the API on rather than lock scripts out over a typo.
 
 **Sessions.** Signing in creates a server-side session in `/etc/noust/web-sessions.db`.
 
-- Cookie `wasm_session`: `HttpOnly`, `SameSite=Strict`, `Secure` whenever the request arrived
+- Cookie `noust_session`: `HttpOnly`, `SameSite=Strict`, `Secure` whenever the request arrived
   over TLS (directly or through a declared proxy).
 - 30 minutes without activity end a session (`auth.session.idle_minutes`; 15 under the ENS
   profile), and no session lasts more than 12 hours from sign-in
@@ -427,7 +428,7 @@ cannot be read leaves the API on rather than lock scripts out over a typo.
   console's Settings manage them.
 
 **CSRF.** Every `POST`, `PUT`, `PATCH` and `DELETE` made with a session must carry the
-session's CSRF token in the `X-WASM-CSRF` header; the console reads it from the `wasm_csrf`
+session's CSRF token in the `X-Noust-CSRF` header; the console reads it from the `noust_csrf`
 cookie. That holds whichever channel carries the session: a client that signed in with
 `bearer: true` and presents the session token as `Authorization: Bearer` sends the CSRF token
 it received in the same answer. The master token and API tokens are not sessions and have no
