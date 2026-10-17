@@ -83,6 +83,8 @@ from noust.web.api.node_link import router as node_link_router
 from noust.web.api.nodes import router as nodes_router
 from noust.web.api.notifications import router as notifications_router
 from noust.web.api.oidc import router as oidc_router
+from noust.web.api.scim import router as scim_router
+from noust.web.api.scim_admin import router as scim_admin_router
 from noust.web.api.openapi import router as openapi_router
 from noust.web.api.overview import router as overview_router
 from noust.web.api.passkeys import router as passkeys_router
@@ -324,6 +326,8 @@ router.include_router(fleet_self_router, prefix="/auth/fleet", tags=["Fleet"])
 router.include_router(passkeys_router, prefix="/auth/passkeys", tags=["Passkeys"])
 # Single sign-in through an identity provider (3.4): the same place, for the same reason.
 router.include_router(oidc_router, prefix="/auth/oidc", tags=["Single sign-on"])
+router.include_router(scim_admin_router, prefix="/auth/scim", tags=["Single sign-on"])
+router.include_router(scim_router, prefix="/scim/v2", tags=["SCIM provisioning"])
 router.include_router(approvals_router, prefix="/approvals", tags=["Approvals"])
 router.include_router(fleet_router, prefix="/fleet", tags=["Fleet"])
 # Guided enrollment of a server: its host key, then the job that installs and joins it.

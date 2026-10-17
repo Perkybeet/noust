@@ -6704,6 +6704,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/scim/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Sources
+         * @description List the sources of provisioning, without their tokens.
+         *
+         *     Args:
+         *         request: The request, for the address to point providers at.
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         The sources and the SCIM endpoint.
+         */
+        get: operations["list_sources_api_auth_scim_sources_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/scim/sources/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Source
+         * @description Add a source or change one, in sudo mode: it decides who may have an account.
+         *
+         *     Args:
+         *         name: The source's name.
+         *         request: The request.
+         *         body: The settings to set.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         The source as it is now and, when one was issued, its token (the only time).
+         *
+         *     Raises:
+         *         ValidationError: When a setting is refused or names something that does not exist;
+         *             nothing is written then.
+         */
+        put: operations["put_source_api_auth_scim_sources__name__put"];
+        post?: never;
+        /**
+         * Delete Source
+         * @description Remove a source and its roster, in sudo mode. The accounts it made stay as they are.
+         *
+         *     Args:
+         *         name: The source's name.
+         *         request: The request.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         A confirmation.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such source.
+         */
+        delete: operations["delete_source_api_auth_scim_sources__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/scim/sources/{name}/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Users
+         * @description List the people a source provisioned, with their account's state.
+         *
+         *     Args:
+         *         name: The source's name.
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         The roster, the first 500.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such source.
+         */
+        get: operations["list_users_api_auth_scim_sources__name__users_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/session": {
         parameters: {
             query?: never;
@@ -16641,6 +16746,278 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/Groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Groups
+         * @description Args:
+         *         request: The request.
+         *         source: The authenticated source.
+         *         filter: ``attribute eq "value"``.
+         *         startIndex: The 1-based index of the first result.
+         *         count: How many, at most 200.
+         *
+         *     Returns:
+         *         A ListResponse.
+         */
+        get: operations["list_groups_api_scim_v2_Groups_get"];
+        put?: never;
+        /**
+         * Create Group
+         * @description Args:
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: The group document.
+         *
+         *     Returns:
+         *         201 with the group and its ``Location``.
+         */
+        post: operations["create_group_api_scim_v2_Groups_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/Groups/{group_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Group
+         * @description Args:
+         *         group_id: The id the provider uses.
+         *         request: The request.
+         *         source: The authenticated source.
+         *
+         *     Returns:
+         *         The group.
+         */
+        get: operations["get_group_api_scim_v2_Groups__group_id__get"];
+        /**
+         * Replace Group
+         * @description Args:
+         *         group_id: The id the provider uses.
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: The whole group document.
+         *
+         *     Returns:
+         *         The group after.
+         */
+        put: operations["replace_group_api_scim_v2_Groups__group_id__put"];
+        post?: never;
+        /**
+         * Delete Group
+         * @description Args:
+         *         group_id: The id the provider uses.
+         *         request: The request.
+         *         source: The authenticated source.
+         *
+         *     Returns:
+         *         204.
+         */
+        delete: operations["delete_group_api_scim_v2_Groups__group_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Patch Group
+         * @description Args:
+         *         group_id: The id the provider uses.
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: A PatchOp.
+         *
+         *     Returns:
+         *         The group after.
+         */
+        patch: operations["patch_group_api_scim_v2_Groups__group_id__patch"];
+        trace?: never;
+    };
+    "/api/scim/v2/ResourceTypes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resource Types
+         * @description Args:
+         *         _source: The authenticated source.
+         *
+         *     Returns:
+         *         The two resource types: User and Group.
+         */
+        get: operations["resource_types_api_scim_v2_ResourceTypes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/Schemas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Schemas
+         * @description Args:
+         *         _source: The authenticated source.
+         *
+         *     Returns:
+         *         The attributes this server models.
+         */
+        get: operations["schemas_api_scim_v2_Schemas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/ServiceProviderConfig": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Service Provider Config
+         * @description Say what this server supports, as providers ask before they provision.
+         *
+         *     Args:
+         *         _source: The authenticated source.
+         *
+         *     Returns:
+         *         The configuration: PATCH, filtering by equality, no bulk, no sorting, no passwords.
+         */
+        get: operations["service_provider_config_api_scim_v2_ServiceProviderConfig_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/Users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Users
+         * @description List the users this source provisioned, or find one by ``userName`` or ``externalId``.
+         *
+         *     Args:
+         *         request: The request.
+         *         source: The authenticated source.
+         *         filter: ``attribute eq "value"``.
+         *         startIndex: The 1-based index of the first result.
+         *         count: How many, at most 200.
+         *
+         *     Returns:
+         *         A ListResponse.
+         */
+        get: operations["list_users_api_scim_v2_Users_get"];
+        put?: never;
+        /**
+         * Create User
+         * @description Provision a person.
+         *
+         *     Args:
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: The user document.
+         *
+         *     Returns:
+         *         201 with the user and its ``Location``.
+         */
+        post: operations["create_user_api_scim_v2_Users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/scim/v2/Users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get User
+         * @description Args:
+         *         user_id: The id the provider uses.
+         *         request: The request.
+         *         source: The authenticated source.
+         *
+         *     Returns:
+         *         The user.
+         */
+        get: operations["get_user_api_scim_v2_Users__user_id__get"];
+        /**
+         * Replace User
+         * @description Args:
+         *         user_id: The id the provider uses.
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: The whole user document.
+         *
+         *     Returns:
+         *         The user after.
+         */
+        put: operations["replace_user_api_scim_v2_Users__user_id__put"];
+        post?: never;
+        /**
+         * Delete User
+         * @description Switch the person's account off and forget the entry.
+         *
+         *     Args:
+         *         user_id: The id the provider uses.
+         *         request: The request.
+         *         source: The authenticated source.
+         *
+         *     Returns:
+         *         204.
+         */
+        delete: operations["delete_user_api_scim_v2_Users__user_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Patch User
+         * @description Args:
+         *         user_id: The id the provider uses.
+         *         request: The request.
+         *         source: The authenticated source.
+         *         body: A PatchOp.
+         *
+         *     Returns:
+         *         The user after.
+         */
+        patch: operations["patch_user_api_scim_v2_Users__user_id__patch"];
         trace?: never;
     };
     "/api/secret-providers": {
@@ -40750,6 +41127,193 @@ export interface components {
             schemas: components["schemas"]["SchemaResponse"][];
         };
         /**
+         * ScimRemoved
+         * @description A confirmation that a source was removed.
+         *
+         *     Attributes:
+         *         success: Always true.
+         *         removed: Its name.
+         */
+        ScimRemoved: {
+            /** Removed */
+            removed: string;
+            /** Success */
+            success: boolean;
+        };
+        /**
+         * ScimSourceInfo
+         * @description A source of provisioning, without its token.
+         *
+         *     Attributes:
+         *         name: Its short name.
+         *         label: What a person reads about it.
+         *         enabled: Whether its token is accepted.
+         *         token_hint: The last characters of its token, to tell tokens apart.
+         *         token_created_at: When the token was issued.
+         *         last_used_at: When it last authenticated a request.
+         *         last_used_ip: From where.
+         *         default_role: The role of an account it creates.
+         *         default_team: The team a new account joins.
+         *         default_team_role: Its role there.
+         *         link_by_email: Attach a user to the account that already has their e-mail.
+         *         allowed_domains: Only these e-mail domains; any when empty.
+         *         group_sync: Whether its groups decide roles, memberships and scoped roles.
+         *         group_mappings: What each group means.
+         *         users: How many people it has provisioned.
+         *         created_at: When it was configured.
+         *         created_by: Who configured it.
+         */
+        ScimSourceInfo: {
+            /** Allowed Domains */
+            allowed_domains: string[];
+            /** Created At */
+            created_at: number;
+            /** Created By */
+            created_by?: string | null;
+            /** Default Role */
+            default_role: string;
+            /** Default Team */
+            default_team?: string | null;
+            /** Default Team Role */
+            default_team_role?: string | null;
+            /** Enabled */
+            enabled: boolean;
+            /** Group Mappings */
+            group_mappings: components["schemas"]["Mapping"][];
+            /** Group Sync */
+            group_sync: boolean;
+            /** Label */
+            label: string;
+            /** Last Used At */
+            last_used_at?: number | null;
+            /** Last Used Ip */
+            last_used_ip?: string | null;
+            /** Link By Email */
+            link_by_email: boolean;
+            /** Name */
+            name: string;
+            /** Token Created At */
+            token_created_at: number;
+            /** Token Hint */
+            token_hint: string;
+            /** Users */
+            users: number;
+        };
+        /**
+         * ScimSourceSaved
+         * @description A source after it was set, and its token when one was issued.
+         *
+         *     Attributes:
+         *         source: The source as it is now.
+         *         token: The bearer token, in clear, exactly once; None when the source kept its own.
+         *         base_url: The SCIM endpoint to give the identity provider.
+         */
+        ScimSourceSaved: {
+            /** Base Url */
+            base_url: string;
+            source: components["schemas"]["ScimSourceInfo"];
+            /** Token */
+            token?: string | null;
+        };
+        /**
+         * ScimSourceSettings
+         * @description The settings of a source to set; omitted ones are left as they are.
+         *
+         *     Attributes:
+         *         label: What a person reads about it.
+         *         enabled: Whether its token is accepted.
+         *         default_role: ``viewer``, ``operator`` or ``admin``.
+         *         default_team: The team a created account joins.
+         *         default_team_role: Its role there.
+         *         link_by_email: Attach a user to the account of the same e-mail.
+         *         allowed_domains: Only these e-mail domains.
+         *         group_sync: Let its groups decide roles, memberships and scoped roles.
+         *         group_mappings: What each group means.
+         *         rotate_token: Issue a new token (the old one stops working at once).
+         */
+        ScimSourceSettings: {
+            /** Allowed Domains */
+            allowed_domains?: string[] | null;
+            /** Default Role */
+            default_role?: string | null;
+            /** Default Team */
+            default_team?: string | null;
+            /** Default Team Role */
+            default_team_role?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Group Mappings */
+            group_mappings?: components["schemas"]["Mapping"][] | null;
+            /** Group Sync */
+            group_sync?: boolean | null;
+            /** Label */
+            label?: string | null;
+            /** Link By Email */
+            link_by_email?: boolean | null;
+            /**
+             * Rotate Token
+             * @default false
+             */
+            rotate_token: boolean;
+        };
+        /**
+         * ScimSourcesResponse
+         * @description The sources, and where they are to be pointed.
+         *
+         *     Attributes:
+         *         base_url: The address to give each identity provider as the SCIM endpoint.
+         *         sources: Every configured source.
+         */
+        ScimSourcesResponse: {
+            /** Base Url */
+            base_url: string;
+            /** Sources */
+            sources: components["schemas"]["ScimSourceInfo"][];
+        };
+        /**
+         * ScimUserInfo
+         * @description A person a source provisioned.
+         *
+         *     Attributes:
+         *         id: The id the provider uses.
+         *         user_name: Its ``userName``.
+         *         account: The account's name.
+         *         status: The account's status.
+         *         role: The account's role.
+         *         disabled_by_scim: Whether the provider switched it off.
+         *         groups: The groups it pushed them into.
+         */
+        ScimUserInfo: {
+            /** Account */
+            account: string;
+            /** Disabled By Scim */
+            disabled_by_scim: boolean;
+            /** Groups */
+            groups: string[];
+            /** Id */
+            id: string;
+            /** Role */
+            role: string;
+            /** Status */
+            status: string;
+            /** User Name */
+            user_name: string;
+        };
+        /**
+         * ScimUsersResponse
+         * @description The roster of a source.
+         *
+         *     Attributes:
+         *         total: How many people it provisioned.
+         *         users: The first 500.
+         */
+        ScimUsersResponse: {
+            /** Total */
+            total: number;
+            /** Users */
+            users: components["schemas"]["ScimUserInfo"][];
+        };
+        /**
          * ScriptBody
          * @description Body of ``PUT /api/fleet/cloud/scripts/{name}``.
          *
@@ -55273,6 +55837,123 @@ export interface operations {
             };
         };
     };
+    list_sources_api_auth_scim_sources_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScimSourcesResponse"];
+                };
+            };
+        };
+    };
+    put_source_api_auth_scim_sources__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScimSourceSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScimSourceSaved"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_source_api_auth_scim_sources__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScimRemoved"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_users_api_auth_scim_sources__name__users_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScimUsersResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_session_info_api_auth_session_get: {
         parameters: {
             query?: never;
@@ -66078,6 +66759,474 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RegistryLoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_groups_api_scim_v2_Groups_get: {
+        parameters: {
+            query?: {
+                filter?: string | null;
+                startIndex?: number | null;
+                count?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_group_api_scim_v2_Groups_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_group_api_scim_v2_Groups__group_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replace_group_api_scim_v2_Groups__group_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_group_api_scim_v2_Groups__group_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_group_api_scim_v2_Groups__group_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resource_types_api_scim_v2_ResourceTypes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    schemas_api_scim_v2_Schemas_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    service_provider_config_api_scim_v2_ServiceProviderConfig_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    list_users_api_scim_v2_Users_get: {
+        parameters: {
+            query?: {
+                filter?: string | null;
+                startIndex?: number | null;
+                count?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_user_api_scim_v2_Users_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_user_api_scim_v2_Users__user_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replace_user_api_scim_v2_Users__user_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_user_api_scim_v2_Users__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_user_api_scim_v2_Users__user_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

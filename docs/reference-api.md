@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-796 operations.
+815 operations.
 
 ## Access
 
@@ -767,6 +767,26 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | DELETE | `/api/registries/{name}` | Remove Registry Login | `apps.manage` | yes |  |
 | POST | `/api/registries/{name}/test` | Test Registry Login | `apps.manage` | yes |  |
 
+## SCIM provisioning
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/scim/v2/Groups` | List Groups | `public` |  |  |
+| POST | `/api/scim/v2/Groups` | Create Group | `public` |  |  |
+| GET | `/api/scim/v2/Groups/{group_id}` | Get Group | `public` |  |  |
+| PUT | `/api/scim/v2/Groups/{group_id}` | Replace Group | `public` |  |  |
+| PATCH | `/api/scim/v2/Groups/{group_id}` | Patch Group | `public` |  |  |
+| DELETE | `/api/scim/v2/Groups/{group_id}` | Delete Group | `public` |  |  |
+| GET | `/api/scim/v2/ResourceTypes` | Resource Types | `public` |  |  |
+| GET | `/api/scim/v2/Schemas` | Schemas | `public` |  |  |
+| GET | `/api/scim/v2/ServiceProviderConfig` | Service Provider Config | `public` |  |  |
+| GET | `/api/scim/v2/Users` | List Users | `public` |  |  |
+| POST | `/api/scim/v2/Users` | Create User | `public` |  |  |
+| GET | `/api/scim/v2/Users/{user_id}` | Get User | `public` |  |  |
+| PUT | `/api/scim/v2/Users/{user_id}` | Replace User | `public` |  |  |
+| PATCH | `/api/scim/v2/Users/{user_id}` | Patch User | `public` |  |  |
+| DELETE | `/api/scim/v2/Users/{user_id}` | Delete User | `public` |  |  |
+
 ## Self Backup
 
 | Method | Path | What it does | Permission | Sudo | Approval |
@@ -887,6 +907,10 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | PUT | `/api/auth/oidc/local-login` | Put Local Login | `accounts.manage` | yes |  |
 | GET | `/api/auth/oidc/providers` | List Choices | `public` |  |  |
 | GET | `/api/auth/oidc/start` | Start | `public` |  |  |
+| GET | `/api/auth/scim/sources` | List Sources | `accounts.read` |  |  |
+| PUT | `/api/auth/scim/sources/{name}` | Put Source | `accounts.manage` | yes |  |
+| DELETE | `/api/auth/scim/sources/{name}` | Delete Source | `accounts.manage` | yes |  |
+| GET | `/api/auth/scim/sources/{name}/users` | List Users | `accounts.read` |  |  |
 
 ## Sites
 

@@ -35030,6 +35030,396 @@
         "title": "SchemasResponse",
         "type": "object"
       },
+      "ScimRemoved": {
+        "description": "A confirmation that a source was removed.\n\nAttributes:\n    success: Always true.\n    removed: Its name.",
+        "properties": {
+          "removed": {
+            "title": "Removed",
+            "type": "string"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success",
+          "removed"
+        ],
+        "title": "ScimRemoved",
+        "type": "object"
+      },
+      "ScimSourceInfo": {
+        "description": "A source of provisioning, without its token.\n\nAttributes:\n    name: Its short name.\n    label: What a person reads about it.\n    enabled: Whether its token is accepted.\n    token_hint: The last characters of its token, to tell tokens apart.\n    token_created_at: When the token was issued.\n    last_used_at: When it last authenticated a request.\n    last_used_ip: From where.\n    default_role: The role of an account it creates.\n    default_team: The team a new account joins.\n    default_team_role: Its role there.\n    link_by_email: Attach a user to the account that already has their e-mail.\n    allowed_domains: Only these e-mail domains; any when empty.\n    group_sync: Whether its groups decide roles, memberships and scoped roles.\n    group_mappings: What each group means.\n    users: How many people it has provisioned.\n    created_at: When it was configured.\n    created_by: Who configured it.",
+        "properties": {
+          "allowed_domains": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Domains",
+            "type": "array"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "default_role": {
+            "title": "Default Role",
+            "type": "string"
+          },
+          "default_team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team"
+          },
+          "default_team_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team Role"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "group_mappings": {
+            "items": {
+              "$ref": "#/components/schemas/Mapping"
+            },
+            "title": "Group Mappings",
+            "type": "array"
+          },
+          "group_sync": {
+            "title": "Group Sync",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "last_used_ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used Ip"
+          },
+          "link_by_email": {
+            "title": "Link By Email",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "token_created_at": {
+            "title": "Token Created At",
+            "type": "number"
+          },
+          "token_hint": {
+            "title": "Token Hint",
+            "type": "string"
+          },
+          "users": {
+            "title": "Users",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "enabled",
+          "token_hint",
+          "token_created_at",
+          "default_role",
+          "link_by_email",
+          "allowed_domains",
+          "group_sync",
+          "group_mappings",
+          "users",
+          "created_at"
+        ],
+        "title": "ScimSourceInfo",
+        "type": "object"
+      },
+      "ScimSourceSaved": {
+        "description": "A source after it was set, and its token when one was issued.\n\nAttributes:\n    source: The source as it is now.\n    token: The bearer token, in clear, exactly once; None when the source kept its own.\n    base_url: The SCIM endpoint to give the identity provider.",
+        "properties": {
+          "base_url": {
+            "title": "Base Url",
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ScimSourceInfo"
+          },
+          "token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token"
+          }
+        },
+        "required": [
+          "source",
+          "base_url"
+        ],
+        "title": "ScimSourceSaved",
+        "type": "object"
+      },
+      "ScimSourceSettings": {
+        "description": "The settings of a source to set; omitted ones are left as they are.\n\nAttributes:\n    label: What a person reads about it.\n    enabled: Whether its token is accepted.\n    default_role: ``viewer``, ``operator`` or ``admin``.\n    default_team: The team a created account joins.\n    default_team_role: Its role there.\n    link_by_email: Attach a user to the account of the same e-mail.\n    allowed_domains: Only these e-mail domains.\n    group_sync: Let its groups decide roles, memberships and scoped roles.\n    group_mappings: What each group means.\n    rotate_token: Issue a new token (the old one stops working at once).",
+        "properties": {
+          "allowed_domains": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Domains"
+          },
+          "default_role": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Role"
+          },
+          "default_team": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team"
+          },
+          "default_team_role": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team Role"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "group_mappings": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Mapping"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Mappings"
+          },
+          "group_sync": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Sync"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "link_by_email": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link By Email"
+          },
+          "rotate_token": {
+            "default": false,
+            "title": "Rotate Token",
+            "type": "boolean"
+          }
+        },
+        "title": "ScimSourceSettings",
+        "type": "object"
+      },
+      "ScimSourcesResponse": {
+        "description": "The sources, and where they are to be pointed.\n\nAttributes:\n    base_url: The address to give each identity provider as the SCIM endpoint.\n    sources: Every configured source.",
+        "properties": {
+          "base_url": {
+            "title": "Base Url",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/ScimSourceInfo"
+            },
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "base_url",
+          "sources"
+        ],
+        "title": "ScimSourcesResponse",
+        "type": "object"
+      },
+      "ScimUserInfo": {
+        "description": "A person a source provisioned.\n\nAttributes:\n    id: The id the provider uses.\n    user_name: Its ``userName``.\n    account: The account's name.\n    status: The account's status.\n    role: The account's role.\n    disabled_by_scim: Whether the provider switched it off.\n    groups: The groups it pushed them into.",
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "disabled_by_scim": {
+            "title": "Disabled By Scim",
+            "type": "boolean"
+          },
+          "groups": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "user_name": {
+            "title": "User Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "user_name",
+          "account",
+          "status",
+          "role",
+          "disabled_by_scim",
+          "groups"
+        ],
+        "title": "ScimUserInfo",
+        "type": "object"
+      },
+      "ScimUsersResponse": {
+        "description": "The roster of a source.\n\nAttributes:\n    total: How many people it provisioned.\n    users: The first 500.",
+        "properties": {
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "users": {
+            "items": {
+              "$ref": "#/components/schemas/ScimUserInfo"
+            },
+            "title": "Users",
+            "type": "array"
+          }
+        },
+        "required": [
+          "total",
+          "users"
+        ],
+        "title": "ScimUsersResponse",
+        "type": "object"
+      },
       "ScriptBody": {
         "description": "Body of ``PUT /api/fleet/cloud/scripts/{name}``.\n\nAttributes:\n    kind: ``cloud-config`` or ``script``.\n    content: The document or script.\n    description: What it does, in a line.",
         "properties": {
@@ -60256,6 +60646,171 @@
         "x-noust-permission": "self"
       }
     },
+    "/api/auth/scim/sources": {
+      "get": {
+        "description": "List the sources of provisioning, without their tokens.\n\nArgs:\n    request: The request, for the address to point providers at.\n    _session: The authenticated payload.\n\nReturns:\n    The sources and the SCIM endpoint.",
+        "operationId": "list_sources_api_auth_scim_sources_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScimSourcesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Sources",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.read"
+      }
+    },
+    "/api/auth/scim/sources/{name}": {
+      "delete": {
+        "description": "Remove a source and its roster, in sudo mode. The accounts it made stay as they are.\n\nArgs:\n    name: The source's name.\n    request: The request.\n    session: The authenticated payload, in sudo mode.\n\nReturns:\n    A confirmation.\n\nRaises:\n    HTTPException: 404 when there is no such source.",
+        "operationId": "delete_source_api_auth_scim_sources__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScimRemoved"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Source",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      },
+      "put": {
+        "description": "Add a source or change one, in sudo mode: it decides who may have an account.\n\nArgs:\n    name: The source's name.\n    request: The request.\n    body: The settings to set.\n    session: The authenticated payload, in sudo mode.\n\nReturns:\n    The source as it is now and, when one was issued, its token (the only time).\n\nRaises:\n    ValidationError: When a setting is refused or names something that does not exist;\n        nothing is written then.",
+        "operationId": "put_source_api_auth_scim_sources__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScimSourceSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScimSourceSaved"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Source",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/auth/scim/sources/{name}/users": {
+      "get": {
+        "description": "List the people a source provisioned, with their account's state.\n\nArgs:\n    name: The source's name.\n    _session: The authenticated payload.\n\nReturns:\n    The roster, the first 500.\n\nRaises:\n    HTTPException: 404 when there is no such source.",
+        "operationId": "list_users_api_auth_scim_sources__name__users_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScimUsersResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Users",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.read"
+      }
+    },
     "/api/auth/session": {
       "get": {
         "description": "Report whether the caller is signed in, without demanding that they are.\n\nEvery other endpoint under ``/api`` requires ``require_auth`` and answers\n401 to an anonymous caller; this one exists so the console has something\nto call before it knows which of those two things it is. A caller that\npresents nothing is not guessing anything and is not counted. A caller\nthat presents a credential is checked exactly as ``require_auth`` checks\none, through :func:`~noust.web.auth.verify_credential`, and a wrong one is\ncounted towards the lockout: the answer here says whether the value was\nthe master token, so without counting this was a guessing oracle with no\nlimit. A session cookie this server signed but that has since expired is\nnot a guess and is not counted.\n\nArgs:\n    request: The incoming request.\n\nReturns:\n    The session's bootstrap information; for no credential, or an expired\n    or revoked one, ``authenticated=False`` and the sign-in label only.",
@@ -76841,6 +77396,695 @@
         ],
         "x-noust-permission": "apps.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/scim/v2/Groups": {
+      "get": {
+        "description": "Args:\n    request: The request.\n    source: The authenticated source.\n    filter: ``attribute eq \"value\"``.\n    startIndex: The 1-based index of the first result.\n    count: How many, at most 200.\n\nReturns:\n    A ListResponse.",
+        "operationId": "list_groups_api_scim_v2_Groups_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "filter",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Filter"
+            }
+          },
+          {
+            "in": "query",
+            "name": "startIndex",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 1000000,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Startindex"
+            }
+          },
+          {
+            "in": "query",
+            "name": "count",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 10000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Count"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Groups",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      },
+      "post": {
+        "description": "Args:\n    request: The request.\n    source: The authenticated source.\n    body: The group document.\n\nReturns:\n    201 with the group and its ``Location``.",
+        "operationId": "create_group_api_scim_v2_Groups_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Group",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/scim/v2/Groups/{group_id}": {
+      "delete": {
+        "description": "Args:\n    group_id: The id the provider uses.\n    request: The request.\n    source: The authenticated source.\n\nReturns:\n    204.",
+        "operationId": "delete_group_api_scim_v2_Groups__group_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Group",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      },
+      "get": {
+        "description": "Args:\n    group_id: The id the provider uses.\n    request: The request.\n    source: The authenticated source.\n\nReturns:\n    The group.",
+        "operationId": "get_group_api_scim_v2_Groups__group_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Group",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      },
+      "patch": {
+        "description": "Args:\n    group_id: The id the provider uses.\n    request: The request.\n    source: The authenticated source.\n    body: A PatchOp.\n\nReturns:\n    The group after.",
+        "operationId": "patch_group_api_scim_v2_Groups__group_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Group",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      },
+      "put": {
+        "description": "Args:\n    group_id: The id the provider uses.\n    request: The request.\n    source: The authenticated source.\n    body: The whole group document.\n\nReturns:\n    The group after.",
+        "operationId": "replace_group_api_scim_v2_Groups__group_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replace Group",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/scim/v2/ResourceTypes": {
+      "get": {
+        "description": "Args:\n    _source: The authenticated source.\n\nReturns:\n    The two resource types: User and Group.",
+        "operationId": "resource_types_api_scim_v2_ResourceTypes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Resource Types",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/scim/v2/Schemas": {
+      "get": {
+        "description": "Args:\n    _source: The authenticated source.\n\nReturns:\n    The attributes this server models.",
+        "operationId": "schemas_api_scim_v2_Schemas_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Schemas",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/scim/v2/ServiceProviderConfig": {
+      "get": {
+        "description": "Say what this server supports, as providers ask before they provision.\n\nArgs:\n    _source: The authenticated source.\n\nReturns:\n    The configuration: PATCH, filtering by equality, no bulk, no sorting, no passwords.",
+        "operationId": "service_provider_config_api_scim_v2_ServiceProviderConfig_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Service Provider Config",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/scim/v2/Users": {
+      "get": {
+        "description": "List the users this source provisioned, or find one by ``userName`` or ``externalId``.\n\nArgs:\n    request: The request.\n    source: The authenticated source.\n    filter: ``attribute eq \"value\"``.\n    startIndex: The 1-based index of the first result.\n    count: How many, at most 200.\n\nReturns:\n    A ListResponse.",
+        "operationId": "list_users_api_scim_v2_Users_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "filter",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Filter"
+            }
+          },
+          {
+            "in": "query",
+            "name": "startIndex",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 1000000,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Startindex"
+            }
+          },
+          {
+            "in": "query",
+            "name": "count",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 10000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Count"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Users",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      },
+      "post": {
+        "description": "Provision a person.\n\nArgs:\n    request: The request.\n    source: The authenticated source.\n    body: The user document.\n\nReturns:\n    201 with the user and its ``Location``.",
+        "operationId": "create_user_api_scim_v2_Users_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create User",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/scim/v2/Users/{user_id}": {
+      "delete": {
+        "description": "Switch the person's account off and forget the entry.\n\nArgs:\n    user_id: The id the provider uses.\n    request: The request.\n    source: The authenticated source.\n\nReturns:\n    204.",
+        "operationId": "delete_user_api_scim_v2_Users__user_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete User",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      },
+      "get": {
+        "description": "Args:\n    user_id: The id the provider uses.\n    request: The request.\n    source: The authenticated source.\n\nReturns:\n    The user.",
+        "operationId": "get_user_api_scim_v2_Users__user_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get User",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      },
+      "patch": {
+        "description": "Args:\n    user_id: The id the provider uses.\n    request: The request.\n    source: The authenticated source.\n    body: A PatchOp.\n\nReturns:\n    The user after.",
+        "operationId": "patch_user_api_scim_v2_Users__user_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch User",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
+      },
+      "put": {
+        "description": "Args:\n    user_id: The id the provider uses.\n    request: The request.\n    source: The authenticated source.\n    body: The whole user document.\n\nReturns:\n    The user after.",
+        "operationId": "replace_user_api_scim_v2_Users__user_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replace User",
+        "tags": [
+          "SCIM provisioning"
+        ],
+        "x-noust-permission": "public"
       }
     },
     "/api/secret-providers": {

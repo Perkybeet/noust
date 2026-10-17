@@ -2855,6 +2855,112 @@ Cut a link ('noust auth oidc identities' lists them with their ids).
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
+.SS noust auth scim
+Identity providers that provision accounts (SCIM 2.0): who may have one, and who left.
+
+.SS noust auth scim remove
+Remove a source and its roster. Its token stops working; its accounts stay as they are.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-f, \-\-force
+Do not ask for confirmation.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust auth scim set
+Add an identity provider that provisions accounts, or change one.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-label
+What a person reads about it.
+.TP
+.B \-\-enable
+Accept its token.
+.TP
+.B \-\-disable
+Refuse its token (its accounts stay as they are).
+.TP
+.B \-\-rotate\-token
+Issue a new token; the old one stops working at once.
+.TP
+.B \-\-default\-role
+The role of an account it creates (never security or auditor).
+.TP
+.B \-\-default\-team
+The team a created account joins ('' for the default).
+.TP
+.B \-\-default\-team\-role
+Its role there.
+.TP
+.B \-\-link\-by\-email
+Attach a provisioned person to the account that already has their e\-mail.
+.TP
+.B \-\-no\-link\-by\-email
+Never attach by e\-mail.
+.TP
+.B \-\-allowed\-domain
+Only provision e\-mail addresses of this domain (repeat for several).
+.TP
+.B \-\-clear\-domains
+Provision every domain again.
+.TP
+.B \-\-group\-sync
+Let groups decide roles and teams.
+.TP
+.B \-\-no\-group\-sync
+Stop letting groups decide.
+.TP
+.B \-\-map\-role
+GROUP=ROLE: members get this role (repeat).
+.TP
+.B \-\-map\-team
+GROUP=TEAM:ROLE: members join this team (repeat).
+.TP
+.B \-\-map\-binding
+GROUP=ROLE@TEAM[/PROJECT[/ENVIRONMENT]]: members hold this role there, a built\-in one on a project or a custom one anywhere (repeat).
+.TP
+.B \-\-clear\-mappings
+Forget every group mapping.
+.TP
+.B \-\-json
+Print the source as JSON, with its token when one was issued.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust auth scim show
+Show the sources, or one in full. Tokens are never shown.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-json
+Print the sources as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust auth scim users
+List the people a source provisioned, with the state of their account.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-json
+Print the roster as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust backup
 Create, inspect and restore application backups.
 

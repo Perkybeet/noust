@@ -282,7 +282,6 @@ class GroupMapping:
             body["team_role"] = self.team_role or TEAM_ROLE_VIEWER
         return body
 
-
     def to_line(self) -> str:
         """
         Returns:

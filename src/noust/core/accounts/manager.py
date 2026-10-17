@@ -881,6 +881,55 @@ class AccountManager:
             membership=team,
         )
 
+    def provision_external(
+        self,
+        username: str,
+        role: str,
+        *,
+        display_name: str | None = None,
+        person_ref: str | None = None,
+        created_by: str | None = None,
+        team: tuple[int, str] | None = None,
+    ) -> Account:
+        """
+        Create an account for a person a directory told us about, waiting for their first sign-in.
+
+        It is ``invited`` and has no credential and no invitation code: the only way it
+        becomes active is that its person signs in at an identity provider whose
+        provisioning is ``invite`` or ``auto`` and whose verified e-mail is this account's
+        :attr:`~noust.core.accounts.model.Account.person_ref`
+        (:meth:`activate_external`). Whoever calls this has already decided that this
+        person may have an account (:mod:`noust.core.accounts.scim`).
+
+        Args:
+            username: Sign-in name, validated here.
+            role: One of :data:`noust.core.accounts.model.ROLES`.
+            display_name: How the console greets them.
+            person_ref: Who the account belongs to: the e-mail that ties it to their sign-in.
+            created_by: Who or what creates it, for the record.
+            team: A team id and team role: the account joins that team only,
+                instead of the default one.
+
+        Returns:
+            The account.
+
+        Raises:
+            ValidationError: When a field is refused.
+            AccountError: When the name is taken or the role is incompatible
+                with another account of the same person.
+        """
+        return self._insert(
+            validate_username(username),
+            validate_role(role),
+            status=STATUS_INVITED,
+            password_hash=None,
+            display_name=clean_display_name(display_name),
+            person_ref=clean_person_ref(person_ref),
+            created_by=created_by,
+            join_default_team=team is None,
+            membership=team,
+        )
+
     def activate_external(self, account_id: int) -> Account:
         """
         Make an invited account active because its person signed in at their provider.

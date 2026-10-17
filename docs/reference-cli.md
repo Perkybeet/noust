@@ -2445,7 +2445,7 @@ How people sign in to the console besides a password.
 noust auth [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`local-login`](#noust-auth-local-login), [`oidc`](#noust-auth-oidc)
+Subcommands: [`local-login`](#noust-auth-local-login), [`oidc`](#noust-auth-oidc), [`scim`](#noust-auth-scim)
 
 ### noust auth local-login
 
@@ -2674,6 +2674,93 @@ Arguments: `identity_id`
 
 | Option | What it does | Default |
 |---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust auth scim
+
+Identity providers that provision accounts (SCIM 2.0): who may have one, and who left.
+
+```
+noust auth scim [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`remove`](#noust-auth-scim-remove), [`set`](#noust-auth-scim-set), [`show`](#noust-auth-scim-show), [`users`](#noust-auth-scim-users)
+
+### noust auth scim remove
+
+Remove a source and its roster. Its token stops working; its accounts stay as they are.
+
+```
+noust auth scim remove [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-f`, `--force` | Do not ask for confirmation. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust auth scim set
+
+Add an identity provider that provisions accounts, or change one.
+
+```
+noust auth scim set [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--label` | What a person reads about it. |  |
+| `--enable` | Accept its token. |  |
+| `--disable` | Refuse its token (its accounts stay as they are). |  |
+| `--rotate-token` | Issue a new token; the old one stops working at once. |  |
+| `--default-role` | The role of an account it creates (never security or auditor). |  |
+| `--default-team` | The team a created account joins ('' for the default). |  |
+| `--default-team-role` | Its role there. |  |
+| `--link-by-email` | Attach a provisioned person to the account that already has their e-mail. |  |
+| `--no-link-by-email` | Never attach by e-mail. |  |
+| `--allowed-domain` | Only provision e-mail addresses of this domain (repeat for several). |  |
+| `--clear-domains` | Provision every domain again. |  |
+| `--group-sync` | Let groups decide roles and teams. |  |
+| `--no-group-sync` | Stop letting groups decide. |  |
+| `--map-role` | GROUP=ROLE: members get this role (repeat). |  |
+| `--map-team` | GROUP=TEAM:ROLE: members join this team (repeat). |  |
+| `--map-binding` | GROUP=ROLE@TEAM[/PROJECT[/ENVIRONMENT]]: members hold this role there, a built-in one on a project or a custom one anywhere (repeat). |  |
+| `--clear-mappings` | Forget every group mapping. |  |
+| `--json` | Print the source as JSON, with its token when one was issued. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust auth scim show
+
+Show the sources, or one in full. Tokens are never shown.
+
+```
+noust auth scim show [OPTIONS] [NAME]
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the sources as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust auth scim users
+
+List the people a source provisioned, with the state of their account.
+
+```
+noust auth scim users [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the roster as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust backup

@@ -1303,6 +1303,78 @@ CREATE TABLE IF NOT EXISTS preview_origins (
 ENVIRONMENTS_COLUMNS: list[tuple[str, str, str]] = []
 
 
+# Owned by the federation lane (noust.core.accounts.scim_store and its siblings for SAML
+# and LDAP): the identity sources that are not OpenID Connect.
+#
+# scim_sources: one row per identity provider that pushes users and groups to this server
+#   (SCIM 2.0, RFC 7644). The bearer token is never a column: only its SHA-256 and the last
+#   characters (``token_hint``, to tell tokens apart in a list). A source can create accounts
+#   as ``viewer``, ``operator`` or ``admin`` at most, and never reaches an account it did not
+#   provision. ``group_mappings`` is the same JSON list the OIDC providers keep.
+# scim_users: the roster. ``id`` is the id the provider knows the user by; ``account_id`` is
+#   the account it provisioned (invited, with no credential, until the person's first
+#   single sign-in activates it). ``disabled_by_scim`` says the provider turned the account
+#   off, so that only the provider turns it on again and an administrator's own decision is
+#   never overridden. ``mapped_role`` is the instance role a group mapping last gave. A SCIM
+#   user is deliberately not a row of account_identities: it is not a way to sign in.
+# scim_groups, scim_group_members: the groups the provider pushed and who is in them, so that
+#   leaving a group takes effect when the provider says so, not at the next sign-in.
+FEDERATION_SQL = """
+CREATE TABLE IF NOT EXISTS scim_sources (
+    name TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    token_hash TEXT NOT NULL,
+    token_hint TEXT NOT NULL,
+    token_created_at REAL NOT NULL,
+    last_used_at REAL,
+    last_used_ip TEXT,
+    default_role TEXT NOT NULL DEFAULT 'viewer'
+        CHECK (default_role IN ('viewer', 'operator', 'admin')),
+    default_team TEXT,
+    default_team_role TEXT,
+    link_by_email INTEGER NOT NULL DEFAULT 0,
+    allowed_domains TEXT NOT NULL DEFAULT '[]',
+    group_sync INTEGER NOT NULL DEFAULT 0,
+    group_mappings TEXT NOT NULL DEFAULT '[]',
+    created_at REAL NOT NULL,
+    created_by TEXT,
+    updated_at REAL NOT NULL,
+    updated_by TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_scim_sources_token ON scim_sources(token_hash);
+CREATE TABLE IF NOT EXISTS scim_users (
+    id TEXT PRIMARY KEY,
+    source TEXT NOT NULL REFERENCES scim_sources(name) ON DELETE CASCADE,
+    account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    external_id TEXT,
+    user_name TEXT NOT NULL,
+    disabled_by_scim INTEGER NOT NULL DEFAULT 0,
+    mapped_role TEXT,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL,
+    UNIQUE (source, user_name),
+    UNIQUE (source, account_id)
+);
+CREATE INDEX IF NOT EXISTS idx_scim_users_external ON scim_users(source, external_id);
+CREATE TABLE IF NOT EXISTS scim_groups (
+    id TEXT PRIMARY KEY,
+    source TEXT NOT NULL REFERENCES scim_sources(name) ON DELETE CASCADE,
+    display_name TEXT NOT NULL,
+    external_id TEXT,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL,
+    UNIQUE (source, display_name)
+);
+CREATE TABLE IF NOT EXISTS scim_group_members (
+    group_id TEXT NOT NULL REFERENCES scim_groups(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES scim_users(id) ON DELETE CASCADE,
+    PRIMARY KEY (group_id, user_id)
+);
+"""
+FEDERATION_COLUMNS: list[tuple[str, str, str]] = []
+
+
 def _fragments() -> list[str]:
     return [
         TEAMS_SQL,
@@ -1322,6 +1394,7 @@ def _fragments() -> list[str]:
         RUNTIME_SQL,
         RBAC_SQL,
         ENVIRONMENTS_SQL,
+        FEDERATION_SQL,
     ]
 
 
@@ -1344,6 +1417,7 @@ def _columns() -> list[tuple[str, str, str]]:
         *RUNTIME_COLUMNS,
         *RBAC_COLUMNS,
         *ENVIRONMENTS_COLUMNS,
+        *FEDERATION_COLUMNS,
     ]
 
 

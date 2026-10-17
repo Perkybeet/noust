@@ -422,7 +422,9 @@ class Admission:
                 raise OidcRefused("account_missing", "The linked account no longer exists")
             account = found
         self.require_usable(account)
-        mapped = self.sync_groups(source, set(person.groups), account, identity, actor, notes)
+        mapped = self.sync_groups(
+            source, set(person.groups), account, identity.mapped_role, actor, notes
+        )
         self.data.touch_identity(
             identity.id, email=person.email, client_ip=client_ip, mapped_role=mapped
         )
@@ -603,7 +605,9 @@ class Admission:
         )
         return identity
 
-    def create(self, source: Source, person: IdentityClaims, actor: Actor) -> Account:
+    def create(
+        self, source: Source, person: IdentityClaims, actor: Actor, *, invited: bool = False
+    ) -> Account:
         """
         Make the account a first sign-in becomes.
 
@@ -611,6 +615,8 @@ class Admission:
             source: The source, whose default role and team it follows.
             person: Who the source vouched for.
             actor: Who is acting.
+            invited: Make it ``invited`` instead of active: a directory told us about the
+                person, and their first sign-in at an identity provider activates it.
 
         Returns:
             The new account.
@@ -633,8 +639,9 @@ class Admission:
                     details="Create it, or change the source's default team.",
                 ) from exc
             team = (found.id, source.default_team_role or "viewer")
+        make = self.accounts.provision_external if invited else self.accounts.create_external
         try:
-            return self.accounts.create_external(
+            return make(
                 self.username_for(person),
                 role,
                 display_name=person.name,
@@ -683,7 +690,7 @@ class Admission:
         source: Source,
         groups: set[str],
         account: Account,
-        identity: Identity,
+        mapped_role: str | None,
         actor: Actor,
         notes: list[str],
     ) -> str | bool | None:
@@ -699,13 +706,15 @@ class Admission:
             source: The source.
             groups: The person's groups.
             account: The account.
-            identity: Their identity, which remembers the role a mapping gave.
+            mapped_role: The role a mapping gave last time, which the person's
+                identity (or SCIM record) remembers so that taking the group away
+                can take the role back without touching one set by hand.
             actor: Who is acting.
             notes: Filled with what changed.
 
         Returns:
-            The role a mapping now gives (for the identity to remember), None
-            when none does, or False when the sync is off and nothing changes.
+            The role a mapping now gives (to be remembered), None when none
+            does, or False when the sync is off and nothing changes.
 
         Raises:
             OidcRefused: ``role_conflict`` when separation of duties refuses the
@@ -714,7 +723,7 @@ class Admission:
         if not source.group_sync:
             return False
         current = account
-        mapped: str | None = identity.mapped_role
+        mapped: str | None = mapped_role
         if account.role not in INSTANCE_ONLY_ROLES:
             wanted = next(
                 (m.role for m in source.group_mappings if m.role and m.group in groups), None
