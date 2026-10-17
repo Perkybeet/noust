@@ -591,6 +591,33 @@ receives it. The next forced update or cache sync rewrites the checkout's `origi
 it, and every error, log line and piece of git output Noust relays has URL credentials
 replaced by `***`. This needs git 2.31 or later, which every supported distribution ships.
 
+### Acting as another person
+
+Noust has no "sign in as" or "impersonate" button, and that is a decision, not a gap (checklist I-15).
+Every action in the audit trail is attributed to one person who proved who they are with their own
+second factor. A session in which an administrator acts as somebody else breaks that twice: the log
+says that person did something they did not, and their second factor, which sudo mode and the
+four-eyes approvals rely on, would be vouched for by someone else's. A product that offers it must also
+promise that it never happens silently, and that is a promise about every code path that reads a
+principal; Noust keeps its principals simple instead.
+
+What a support question usually needs is one of these, and each leaves the trail honest:
+
+* **What does she hold, and where?** `noust access list --user maria` (her bindings), `noust team
+  members TEAM` and `noust user list`; in the console, Settings > Roles and access and
+  Settings > Accounts. A resource of another team reads as absent (`404`) to her by design, and so
+  does a project she holds no role in.
+* **What does she see?** As root on the server, issue a read-only, short-lived token that acts for her
+  and nothing more: `noust token create look-at-maria --scope read --owner maria --expires-hours 1`,
+  optionally bound with `--team`, `--project` and `--env`. It holds at most what she holds, can never
+  write or confirm sudo mode, shows up in `noust token list`, and every request it makes is attributed
+  to `token:look-at-maria`, with the issue on the trail naming who issued it. `noust token revoke`
+  ends it.
+* **Reproduce it as her.** Make a second account with the same role and bindings and sign in as that.
+
+An administrator who must act for a person who cannot (a leaver's last deploy) does it as themselves:
+the audit trail then says who did it and why (`--reason`).
+
 ## Sudo mode
 
 Destructive and credential-changing actions ask a console session to prove it is still its
