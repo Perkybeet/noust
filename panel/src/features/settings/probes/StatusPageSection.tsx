@@ -213,7 +213,22 @@ function PageCard({ page }: { page: StatusPage }) {
         <p className="text-12 text-pretty text-fg-muted">
           {t.rich("probes.page.files", { directory: <Mono key="dir">{page.directory}</Mono>, count: page.components })}
         </p>
-        <Field label={t("probes.page.titleLabel")} description={t("probes.page.titleDescription")}>
+        <Field
+          label={t("probes.page.titleLabel")}
+          description={t("probes.page.titleDescription")}
+          // Beside the field, not inside its frame: a disabled button in the frame would dim the text.
+          action={
+            <Button
+              variant={dirty ? "primary" : "secondary"}
+              disabled={!dirty || change.isPending}
+              onClick={() => {
+                change.mutate({ title: shownTitle.trim() });
+              }}
+            >
+              {t("probes.page.saveTitle")}
+            </Button>
+          }
+        >
           <Input
             maxLength={80}
             autoComplete="off"
@@ -222,18 +237,6 @@ function PageCard({ page }: { page: StatusPage }) {
             onValueChange={(next: string) => {
               setTitle(next);
             }}
-            suffix={
-              <Button
-                size="sm"
-                variant={dirty ? "primary" : "ghost"}
-                disabled={!dirty || change.isPending}
-                onClick={() => {
-                  change.mutate({ title: shownTitle.trim() });
-                }}
-              >
-                {t("probes.page.saveTitle")}
-              </Button>
-            }
           />
         </Field>
         <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">

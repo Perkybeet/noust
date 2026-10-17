@@ -444,6 +444,14 @@ def redirect_system_paths(sandbox: Sandbox) -> None:
         return path if sandbox.contains(path) else sandbox.root / path.relative_to(path.anchor)
 
     backup_module._deployed_at = sandboxed_deployed_at
+    # How long the journal keeps the logs is a drop-in under /etc; the sandbox's own, so the page
+    # that sets it writes into the temporary machine and never into the developer's journald.
+    import noust.managers.log_retention as retention_module
+
+    retention_defaults = retention_module.LogRetention.__init__.__kwdefaults__
+    if retention_defaults is not None:
+        retention_defaults["dropin"] = etc / "systemd" / "journald.conf.d" / "50-noust-retention.conf"
+        retention_defaults["journal_dir"] = var / "log" / "journal"
     timeseries_module.SYSTEM_DB_PATH = var / "lib" / "noust" / "metrics.db"
     observations_module.SYSTEM_DB_PATH = var / "lib" / "noust" / "observations.db"
     diagnose_module.NGINX_ERROR_LOG = var / "log" / "nginx" / "error.log"
@@ -2388,6 +2396,10 @@ def make_runner(
             if name == _PG_CLUSTER_UNIT:
                 # The cluster's own unit is the machine's `postgresql`: one state for both.
                 name = "postgresql"
+            if verb == "restart" and name == "systemd-journald":
+                # The journal's daemon is always there; the page that sets how long it keeps the
+                # logs restarts it to read the drop-in it wrote.
+                return ok(args)
             unit = units.get(name)
             template = template_of(name)
             if unit is None and template is not None and verb in ("start", "restart"):
@@ -6266,9 +6278,11 @@ def model_telegram_bot_api() -> None:
     api = notifier_module._TELEGRAM_API + "/bot"
     guard = notifier_module._require_public_destination
 
-    def require_public_destination(url: str, config: Any) -> None:
+    def require_public_destination(url: str, config: Any, *purpose: Any) -> None:
+        # The guard also takes what the address is for (a probe's, a code host's): passed on, so
+        # a caller that names it is judged by the real guard and not refused by this stand-in.
         if not url.startswith(api):
-            guard(url, config)
+            guard(url, config, *purpose)
 
     def refuse(url: str, code: int, reason: str, description: str) -> HTTPError:
         body = json.dumps({"ok": False, "error_code": code, "description": description})

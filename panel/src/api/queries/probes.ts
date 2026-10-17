@@ -21,7 +21,8 @@ export type ProbeCheck = ResponseOf<"/api/probes/{name}/check", "post">;
 
 export const probeKeys = {
   all: ["probes"] as const,
-  history: (name: string) => ["probes", "history", name] as const,
+  /** Not under `all`: a probe that was removed would otherwise be asked for its history again. */
+  history: (name: string) => ["probe-history", name] as const,
 };
 
 /** The probes and the status page. Read again every half minute while the page is open. */

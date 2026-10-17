@@ -226,6 +226,7 @@ function ProbeRow({ probe }: { probe: Probe }) {
         destructive
         onConfirm={async () => {
           await removeProbe(probe.name);
+          queryClient.removeQueries({ queryKey: probeKeys.history(probe.name) });
           await refresh();
         }}
       />

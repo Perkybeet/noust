@@ -6,7 +6,6 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
 import { ScrollText } from "lucide-react";
 import { useMemo } from "react";
 
@@ -24,6 +23,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { LogViewer } from "../../components/ui/LogViewer";
 import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
+import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { useHasFleet } from "../../nodes/servers";
@@ -93,9 +93,7 @@ export function LogSearchPage({ search, onSearchChange }: LogSearchPageProps) {
         title: t("logSearch.title"),
         description: t("logSearch.description"),
         secondaryActions: (
-          <Link to="/settings/log-shipping" className="text-13 text-accent hover:underline">
-            {t("logSearch.retentionLink")}
-          </Link>
+          <TextLink to="/settings/log-shipping">{t("logSearch.retentionLink")}</TextLink>
         ),
       }}
       filters={
