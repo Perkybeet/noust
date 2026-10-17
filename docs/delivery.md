@@ -23,11 +23,13 @@ Two things hold deploys and they are held for different reasons.
 | Covers | one application | one application, or the whole server |
 | Ends | when somebody resumes | at its end time, or when somebody lifts it |
 
-Three things are never held by either:
+Two things are never held by either:
 
 - **A rollback.** Going back is how an incident ends.
 - **A preview.** It is a throwaway copy of the application, not production.
-- **A manual update after a pause.** A pause is about what happens without anyone asking.
+
+A pause is about what happens without anyone asking, so an update a person starts runs through it;
+only a freeze stops that.
 
 The same answer is given everywhere a deploy can start (`lifecycle.update_app`, and the queues in
 front of it), so the console, the command line, the webhooks and the schedules cannot disagree.
