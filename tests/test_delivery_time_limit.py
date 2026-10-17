@@ -139,8 +139,10 @@ def test_a_build_that_outlives_the_limit_is_stopped_and_fails_with_the_limit_as_
     assert "1 minute" in job.error
     assert "deploy.max_minutes" in job.error
     assert any("maximum deployment time" in entry.message for entry in job.logs)
-    record = store.get_job(job.id)
-    assert record is not None and record.status == "failed"
+    # The record is written just after the job object changes state: wait for it, do not race it.
+    assert wait_until(
+        lambda: (record := store.get_job(job.id)) is not None and record.status == "failed"
+    )
 
 
 def test_the_queue_moves_on_when_a_build_is_stopped_by_the_limit(manager: JobManager) -> None:
