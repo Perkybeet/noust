@@ -7,7 +7,7 @@ import type { AppExportDocument } from "../../api/queries/appImport";
 import type { Recipe, RecipeList, RecipeSummary, RecipeVariableInfo } from "../../api/queries/recipes";
 
 export const EXPORT: AppExportDocument = {
-  format: "wasm-app",
+  format: "noust-app",
   version: 1,
   exported_at: "2026-09-28T10:00:00+00:00",
   wasm_version: "2.3.0",

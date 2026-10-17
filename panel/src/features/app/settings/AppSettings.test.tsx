@@ -243,7 +243,7 @@ describe("Resources", () => {
 });
 
 describe("Export", () => {
-  const DOCUMENT = { format: "wasm-app", version: 1, secrets_included: false, app: { domain: DOMAIN, app_type: "nextjs" }, env: {} };
+  const DOCUMENT = { format: "noust-app", version: 1, secrets_included: false, app: { domain: DOMAIN, app_type: "nextjs" }, env: {} };
 
   it("downloads the export without secrets by default, and with them when asked", async () => {
     Object.assign(URL, { createObjectURL: vi.fn(() => "blob:export"), revokeObjectURL: vi.fn() });
@@ -253,7 +253,7 @@ describe("Export", () => {
     });
     await user.click(screen.getByRole("button", { name: "Export application" }));
     await waitFor(() => {
-      expect(downloadText).toHaveBeenCalledWith(`${DOMAIN}.wasm-app.json`, JSON.stringify(DOCUMENT, null, 2), "application/json");
+      expect(downloadText).toHaveBeenCalledWith(`${DOMAIN}.noust-app.json`, JSON.stringify(DOCUMENT, null, 2), "application/json");
     });
     expect(backend.callsTo(`GET /api/apps/${DOMAIN}/export`)[0]?.search.get("with_secrets")).toBeNull();
 

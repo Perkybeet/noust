@@ -22,7 +22,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from noust.core import legacy_archive
+from noust.core import legacy_names
 from noust.core.store import get_store
 from noust.core.teams import scoped_store
 from noust.deployers.app_export import (
@@ -171,9 +171,9 @@ class AppExportDocument(BaseModel):
     version: int = Field(description="Shape of the document; this release writes 1")
     exported_at: str | None = None
     noust_version: str | None = None
-    legacy_version: str | None = Field(
+    legacy_version: str | None = Field(  # type: ignore[literal-required]  # the name is spelled once
         default=None,
-        alias=legacy_archive.EXPORT_VERSION_KEY,
+        alias=legacy_names.EXPORT_VERSION_KEY,
         description="Which release made an export of before 4.0 (this release writes "
         "noust_version); read, never written",
     )

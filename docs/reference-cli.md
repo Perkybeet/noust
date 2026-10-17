@@ -13532,7 +13532,7 @@ noust setup [OPTIONS] COMMAND [ARGS]...
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
 
-Subcommands: [`completions`](#noust-setup-completions), [`doctor`](#noust-setup-doctor), [`init`](#noust-setup-init), [`permissions`](#noust-setup-permissions), [`railpack`](#noust-setup-railpack), [`ssh`](#noust-setup-ssh)
+Subcommands: [`completions`](#noust-setup-completions), [`doctor`](#noust-setup-doctor), [`init`](#noust-setup-init), [`permissions`](#noust-setup-permissions), [`railpack`](#noust-setup-railpack), [`rename`](#noust-setup-rename), [`ssh`](#noust-setup-ssh)
 
 ### noust setup completions
 
@@ -13609,6 +13609,21 @@ noust setup railpack [OPTIONS]
 | Option | What it does | Default |
 |---|---|---|
 | `--force` | Install the pinned release again even when this version is already installed. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust setup rename
+
+Finish the renaming that 4.0 begins, without restarting anything.
+
+```
+noust setup rename [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
