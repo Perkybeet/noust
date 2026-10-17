@@ -6097,6 +6097,80 @@
         "title": "BuildCacheResponse",
         "type": "object"
       },
+      "BuilderIn": {
+        "description": "Choose the server that builds an application.",
+        "properties": {
+          "node": {
+            "description": "A server of this central",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Node",
+            "type": "string"
+          }
+        },
+        "required": [
+          "node"
+        ],
+        "title": "BuilderIn",
+        "type": "object"
+      },
+      "BuilderListOut": {
+        "description": "Every application that is built on a server of its own.",
+        "properties": {
+          "builders": {
+            "items": {
+              "$ref": "#/components/schemas/BuilderOut"
+            },
+            "title": "Builders",
+            "type": "array"
+          }
+        },
+        "required": [
+          "builders"
+        ],
+        "title": "BuilderListOut",
+        "type": "object"
+      },
+      "BuilderOut": {
+        "description": "The server that builds one application.",
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "node": {
+            "title": "Node",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "node",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "BuilderOut",
+        "type": "object"
+      },
       "BulkVariablesRequest": {
         "description": "A set of variables to create or change; nothing else is touched.",
         "properties": {
@@ -6109,6 +6183,138 @@
           }
         },
         "title": "BulkVariablesRequest",
+        "type": "object"
+      },
+      "BundleListOut": {
+        "description": "The bundles waiting for an application.",
+        "properties": {
+          "bundles": {
+            "items": {
+              "$ref": "#/components/schemas/BundleOut"
+            },
+            "title": "Bundles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "bundles"
+        ],
+        "title": "BundleListOut",
+        "type": "object"
+      },
+      "BundleOut": {
+        "description": "A built release waiting to be fetched.",
+        "properties": {
+          "app_type": {
+            "title": "App Type",
+            "type": "string"
+          },
+          "builder": {
+            "title": "Builder",
+            "type": "string"
+          },
+          "built_at": {
+            "title": "Built At",
+            "type": "string"
+          },
+          "chunk_size": {
+            "description": "The most one range request should ask for",
+            "title": "Chunk Size",
+            "type": "integer"
+          },
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "files": {
+            "title": "Files",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "noust_version": {
+            "title": "Noust Version",
+            "type": "string"
+          },
+          "release_id": {
+            "title": "Release Id",
+            "type": "string"
+          },
+          "sha256": {
+            "description": "Its digest: the receiving side checks it before reading",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "domain",
+          "release_id",
+          "commit",
+          "sha256",
+          "size",
+          "files",
+          "built_at",
+          "builder",
+          "noust_version",
+          "app_type",
+          "chunk_size"
+        ],
+        "title": "BundleOut",
+        "type": "object"
+      },
+      "BundleRequest": {
+        "description": "What to build and pack.",
+        "properties": {
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Build this commit (full or abbreviated) instead of the branch",
+            "title": "Commit"
+          },
+          "keep": {
+            "default": false,
+            "description": "Keep the release this builds in releases/",
+            "title": "Keep",
+            "type": "boolean"
+          },
+          "release_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pack this release, already built here, instead of building one",
+            "title": "Release Id"
+          }
+        },
+        "title": "BundleRequest",
         "type": "object"
       },
       "BundleResponse": {
@@ -6184,6 +6390,85 @@
           "size"
         ],
         "title": "BundleResponse",
+        "type": "object"
+      },
+      "BundleUploadOut": {
+        "description": "A bundle on its way in.",
+        "properties": {
+          "chunk_size": {
+            "description": "The most one chunk request may carry",
+            "title": "Chunk Size",
+            "type": "integer"
+          },
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "received": {
+            "description": "Bytes held, which is where to resume",
+            "title": "Received",
+            "type": "integer"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "size",
+          "received",
+          "sha256",
+          "complete",
+          "chunk_size"
+        ],
+        "title": "BundleUploadOut",
+        "type": "object"
+      },
+      "BundleUploadStart": {
+        "description": "Start the arrival of a bundle.",
+        "properties": {
+          "file_name": {
+            "default": "bundle.noust-release.tar.gz",
+            "description": "Its name",
+            "maxLength": 255,
+            "title": "File Name",
+            "type": "string"
+          },
+          "sha256": {
+            "description": "Its digest, as 64 hex digits",
+            "maxLength": 64,
+            "minLength": 64,
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "description": "Its size in bytes",
+            "exclusiveMinimum": 0.0,
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "size",
+          "sha256"
+        ],
+        "title": "BundleUploadStart",
         "type": "object"
       },
       "CancelOut": {
@@ -32676,6 +32961,33 @@
         "title": "RebootSummary",
         "type": "object"
       },
+      "ReceiveRequest": {
+        "description": "What activating a bundle that arrived confirms.",
+        "properties": {
+          "frozen_ok": {
+            "default": false,
+            "description": "Switch although deploys are frozen for the application: a person's decision, recorded in the audit trail",
+            "title": "Frozen Ok",
+            "type": "boolean"
+          },
+          "schema_changed_ok": {
+            "default": false,
+            "description": "Take a release older than a deployment that changed the schema",
+            "title": "Schema Changed Ok",
+            "type": "boolean"
+          },
+          "upload_id": {
+            "description": "The finished upload that holds the bundle",
+            "title": "Upload Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "upload_id"
+        ],
+        "title": "ReceiveRequest",
+        "type": "object"
+      },
       "RecipeBuildOut": {
         "description": "A native recipe's install, build and start commands.",
         "properties": {
@@ -39510,6 +39822,121 @@
           }
         },
         "title": "SetVolumePolicyRequest",
+        "type": "object"
+      },
+      "ShipIn": {
+        "description": "Build the application on one server and run that build on the placement's servers.\n\nAttributes:\n    builder: The server that builds; the one recorded for the application when absent.\n    to: The servers that receive the release; every member of the placement when absent.\n    commit: Build exactly this commit (7 to 40 hex characters) instead of the branch head.\n    keep: Keep the release the build made on the builder.\n    schema_changed_ok: Confirm taking a release older than a deployment that changed the\n        database's schema, on the servers that would refuse it.\n    frozen_ok: Confirm switching although deploys are frozen.\n    force: Send it even to a server already on its commit.\n    rollback_on_failure: Put the servers already moved back if it stops; the placement's own\n        setting when absent.\n    serial: Servers at a time; the placement's own when absent.\n    max_failures: Failures that stop it; the placement's own when absent.\n    canary: The server that goes first; the placement's own when absent.\n    plan: Only say what would happen.",
+        "properties": {
+          "builder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Builder"
+          },
+          "canary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canary"
+          },
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit"
+          },
+          "force": {
+            "default": false,
+            "title": "Force",
+            "type": "boolean"
+          },
+          "frozen_ok": {
+            "default": false,
+            "title": "Frozen Ok",
+            "type": "boolean"
+          },
+          "keep": {
+            "default": false,
+            "title": "Keep",
+            "type": "boolean"
+          },
+          "max_failures": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Failures"
+          },
+          "plan": {
+            "default": false,
+            "title": "Plan",
+            "type": "boolean"
+          },
+          "rollback_on_failure": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rollback On Failure"
+          },
+          "schema_changed_ok": {
+            "default": false,
+            "title": "Schema Changed Ok",
+            "type": "boolean"
+          },
+          "serial": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serial"
+          },
+          "to": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To"
+          }
+        },
+        "title": "ShipIn",
         "type": "object"
       },
       "ShowKeyResponse": {
@@ -62127,6 +62554,332 @@
         "x-noust-permission": "apps.read"
       }
     },
+    "/api/apps/{domain}/releases/bundle": {
+      "post": {
+        "description": "Queue building a release without activating it and packing it for another server.\n\nNothing that serves is touched: ``current`` stays, no hook runs, nothing restarts, and the\nrelease is removed once packed unless ``keep`` asks for it.\n\nArgs:\n    domain: The application.\n    body: What to build.\n    session: The authenticated session.\n\nReturns:\n    The queued job; its result names the bundle.\n\nRaises:\n    HTTPException: 400 for a release id that is not one, 404 when the application is unknown.",
+        "operationId": "build_bundle_api_apps__domain__releases_bundle_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BundleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Build Bundle",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.deploy"
+      }
+    },
+    "/api/apps/{domain}/releases/bundles": {
+      "get": {
+        "description": "List the bundles waiting to be fetched for an application.\n\nArgs:\n    domain: The application.\n\nReturns:\n    Its bundles, newest first.",
+        "operationId": "list_bundles_api_apps__domain__releases_bundles_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BundleListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Bundles",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.deploy"
+      }
+    },
+    "/api/apps/{domain}/releases/bundles/{bundle_id}": {
+      "delete": {
+        "description": "Let go of a bundle: the central has it, or does not want it.\n\nArgs:\n    domain: The application.\n    bundle_id: The bundle.",
+        "operationId": "discard_bundle_api_apps__domain__releases_bundles__bundle_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "bundle_id",
+            "required": true,
+            "schema": {
+              "title": "Bundle Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Discard Bundle",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.deploy"
+      },
+      "get": {
+        "description": "Describe one bundle.\n\nArgs:\n    domain: The application.\n    bundle_id: The bundle.\n\nReturns:\n    It.",
+        "operationId": "bundle_info_api_apps__domain__releases_bundles__bundle_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "bundle_id",
+            "required": true,
+            "schema": {
+              "title": "Bundle Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BundleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bundle Info",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.deploy"
+      }
+    },
+    "/api/apps/{domain}/releases/bundles/{bundle_id}/data": {
+      "get": {
+        "description": "Read a range of a bundle.\n\nArgs:\n    domain: The application.\n    bundle_id: The bundle.\n    offset: Where to start.\n    length: How many bytes at most.\n\nReturns:\n    The raw bytes; fewer at the end of the file, none past it.",
+        "operationId": "bundle_data_api_apps__domain__releases_bundles__bundle_id__data_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "bundle_id",
+            "required": true,
+            "schema": {
+              "title": "Bundle Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Where to start in the bundle",
+            "in": "query",
+            "name": "offset",
+            "required": true,
+            "schema": {
+              "description": "Where to start in the bundle",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "How many bytes at most",
+            "in": "query",
+            "name": "length",
+            "required": false,
+            "schema": {
+              "default": 524288,
+              "description": "How many bytes at most",
+              "maximum": 8388608,
+              "minimum": 1,
+              "title": "Length",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bundle Data",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.deploy"
+      }
+    },
+    "/api/apps/{domain}/releases/receive": {
+      "post": {
+        "description": "Queue activating a release that another server built and that has arrived.\n\nThe file is checked against the digest it was declared with, extracted with every check an\narchive gets, given this application's directory, and activated after the application's own\nhooks and behind the health gate: a release that does not answer is put back and removed.\nHeld by a freeze of deploys like an update.\n\nArgs:\n    domain: The application.\n    body: The upload and what the operator confirms.\n    session: The authenticated session; only the one that started the upload.\n\nReturns:\n    The queued job.\n\nRaises:\n    DeploysFrozenError: 409 while a freeze holds it and ``frozen_ok`` was not given.\n    ValidationError: 400 when the upload is unknown, another's or not finished.",
+        "operationId": "receive_bundle_api_apps__domain__releases_receive_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReceiveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Receive Bundle",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.deploy"
+      }
+    },
     "/api/apps/{domain}/releases/retention": {
       "patch": {
         "description": "Set how many releases an application keeps, and prune to it now.\n\nPruning deletes release directories, so it needs sudo mode. The number\nis validated where it is stored.\n\nArgs:\n    domain: Domain of the application.\n    body: The retention.\n    session: The authenticated, elevated session.\n\nReturns:\n    The retention it has now and what was removed.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: The number is out of range (400).\n    DeploymentError: It is deployed in place, with no releases.",
@@ -62230,6 +62983,273 @@
           }
         },
         "summary": "Stage Release",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.deploy"
+      }
+    },
+    "/api/apps/{domain}/releases/uploads": {
+      "post": {
+        "description": "Start the arrival of a bundle. Nothing is sent yet.\n\nArgs:\n    domain: The application that will run it.\n    body: The bundle's size and digest.\n    session: The authenticated session, which owns the upload.\n\nReturns:\n    The upload, with the offset to start at and the most a chunk may carry.\n\nRaises:\n    ValidationError: 400 for a size past the limit or the disk, or a digest that is not one.",
+        "operationId": "start_bundle_upload_api_apps__domain__releases_uploads_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BundleUploadStart"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BundleUploadOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Bundle Upload",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.deploy"
+      }
+    },
+    "/api/apps/{domain}/releases/uploads/{upload_id}": {
+      "delete": {
+        "description": "Throw an upload away.\n\nArgs:\n    domain: The application.\n    upload_id: The upload.\n    session: The authenticated session; only the one that started it.",
+        "operationId": "discard_bundle_upload_api_apps__domain__releases_uploads__upload_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Discard Bundle Upload",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.deploy"
+      },
+      "get": {
+        "description": "Say how much of a bundle the server holds, which is where to resume.\n\nArgs:\n    domain: The application.\n    upload_id: The upload.\n    session: The authenticated session; only the one that started it.\n\nReturns:\n    The upload.\n\nRaises:\n    ValidationError: 400 when there is no such upload, or it is another's.",
+        "operationId": "bundle_upload_status_api_apps__domain__releases_uploads__upload_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BundleUploadOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bundle Upload Status",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.deploy"
+      },
+      "put": {
+        "description": "Add the next chunk of a bundle.\n\nA chunk at an offset other than the one the server holds is refused with 409 and the offset\nto resume from.\n\nArgs:\n    domain: The application.\n    upload_id: The upload.\n    request: The request, whose body is the chunk.\n    offset: Where the chunk starts.\n    session: The authenticated session; only the one that started it.\n\nReturns:\n    The upload, with the new offset.\n\nRaises:\n    ValidationError: 400 for an unknown or finished upload, or a chunk past the size.",
+        "operationId": "send_bundle_chunk_api_apps__domain__releases_uploads__upload_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Where this chunk starts in the file",
+            "in": "query",
+            "name": "offset",
+            "required": true,
+            "schema": {
+              "description": "Where this chunk starts in the file",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BundleUploadOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Send Bundle Chunk",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.deploy"
+      }
+    },
+    "/api/apps/{domain}/releases/uploads/{upload_id}/complete": {
+      "post": {
+        "description": "Close an upload: every byte is in and the digest matches.\n\nArgs:\n    domain: The application.\n    upload_id: The upload.\n    session: The authenticated session; only the one that started it.\n\nReturns:\n    The finished upload.\n\nRaises:\n    ValidationError: 400 when the digest does not match (the data is discarded) or the upload\n        is unknown.",
+        "operationId": "complete_bundle_upload_api_apps__domain__releases_uploads__upload_id__complete_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BundleUploadOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Complete Bundle Upload",
         "tags": [
           "Applications"
         ],
@@ -78037,6 +79057,167 @@
         "x-noust-permission": "fleet.read"
       }
     },
+    "/api/fleet/builders": {
+      "get": {
+        "description": "List the applications that are built on a server other than the ones that run them.\n\nAsks no server: it is the central's own record.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Every builder, by application.",
+        "operationId": "list_builders_api_fleet_builders_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuilderListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Builders",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.read"
+      }
+    },
+    "/api/fleet/builders/{domain}": {
+      "delete": {
+        "description": "Go back to building an application where it runs. Nothing is touched on any server.\n\nArgs:\n    domain: The application.\n    session: The authenticated session.\n\nReturns:\n    The builder that was forgotten.\n\nRaises:\n    HTTPException: 404 when no builder was recorded.",
+        "operationId": "clear_builder_api_fleet_builders__domain__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuilderOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clear Builder",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage"
+      },
+      "get": {
+        "description": "Read which server builds an application.\n\nArgs:\n    domain: The application.\n    session: The authenticated session.\n\nReturns:\n    The builder.\n\nRaises:\n    HTTPException: 404 when the application is built where it runs.",
+        "operationId": "get_builder_api_fleet_builders__domain__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuilderOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Builder",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.read"
+      },
+      "put": {
+        "description": "Choose the server that builds an application. Touches no server.\n\nArgs:\n    domain: The application.\n    body: The server.\n    session: The authenticated session.\n\nReturns:\n    The builder as it is now.\n\nRaises:\n    ValidationError: The domain or the name is not one.\n    NodeError: The server is not registered on this central.",
+        "operationId": "set_builder_api_fleet_builders__domain__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BuilderIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuilderOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Builder",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage"
+      }
+    },
     "/api/fleet/certificates": {
       "get": {
         "description": "Every certificate of every server, the soonest to expire first.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n\nReturns:\n    One row per certificate.",
@@ -79612,6 +80793,60 @@
           }
         },
         "summary": "Rollout",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage"
+      }
+    },
+    "/api/fleet/placements/{domain}/ship": {
+      "post": {
+        "description": "Build the application on one server and run that build on the placement's servers.\n\nThe builder builds the release once, in its sandbox, without activating it; the central carries\nthe bundle through the tunnels, in chunks, to each server, which checks it against the digest\nthe builder gave and activates it behind the health check, after the application's own hooks.\nThe first server goes alone; the ones already moved are put back if it stops. Planned and\nqueued like a bulk action: a job to follow, a record per server.\n\nArgs:\n    domain: The application.\n    request: The request.\n    body: Who builds, who receives, and how; the placement's own strategy where absent.\n    session: The authenticated session.\n\nReturns:\n    The plan and, unless ``plan``, the job.\n\nRaises:\n    HTTPException: 404 when the application is not placed.\n    ValidationError: There is no builder, a server is not ready for it, or a value is invalid.",
+        "operationId": "ship_api_fleet_placements__domain__ship_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShipIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__fleet__ActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ship",
         "tags": [
           "Fleet"
         ],

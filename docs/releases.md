@@ -688,10 +688,19 @@ noust releases receive shop.example.com shop.noust-release.tar.gz --sha256 4b1c.
   Prisma's automatic migration belongs to an update: for a bundled application declare the
   migration as a `pre_deploy` hook of the receiver.
 
-What is not here yet: the central driving both ends over the fleet's tunnel, a per-application
-choice of builder that `noust update` follows by itself, and the same operation in the API and the
-console. The file is the whole interface until then, so anything that moves a file (scp, a CI
-artifact store) already does the carrying.
+A central can drive both ends: it picks the builder, asks it for the bundle and carries it to the
+servers that run the application over the fleet's own tunnels, in chunks, with the same checksum and
+the same health gate. That is [building on one server and running on others](CENTRAL.md#building-on-one-server-and-running-on-others)
+(`noust fleet placement ship`, `/api/fleet/placements/{domain}/ship` and Fleet > On several servers).
+The file is still the whole interface when no central is involved, so anything that moves a file
+(scp, a CI artifact store) carries it as well.
+
+On a server, the same operations are in the API for whoever carries the file: `POST
+/api/apps/{domain}/releases/bundle` queues the build and leaves the bundle in a spool (owner-only, swept
+after a day), `GET .../releases/bundles/{id}/data` reads it by ranges and `DELETE` lets go of it, and
+`POST .../releases/uploads` (chunks at offsets, the digest checked when it completes) and `POST
+.../releases/receive` activate one that arrived. All of them are `apps.deploy`, and a freeze of deploys
+holds the receiving. The largest bundle a server takes is `releases.bundle_max_bytes` (8 GiB).
 
 ## Moving an in-place application onto releases
 

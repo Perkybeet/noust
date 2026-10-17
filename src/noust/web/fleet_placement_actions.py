@@ -312,6 +312,15 @@ def _rollout_prepare(
             field="targets",
         )
     notes: list[str] = []
+    from noust.fleet.builders import Builders
+
+    recorded = Builders(manager.store).get(domain)
+    if recorded is not None:
+        notes.append(
+            f"{recorded.node} is recorded as the build server of {domain}, and this rollout builds "
+            f"on each server. To build once there and send the release to the others: "
+            f"noust fleet placement ship {domain}"
+        )
     explicit = options.get("commit") or options.get("tag") or options.get("image_tag")
     if options.get("image_tag"):
         notes.append(

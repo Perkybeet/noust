@@ -474,6 +474,7 @@ class NodeSource:
         params: Mapping[str, Any] | None = None,
         json_body: Any = None,
         timeout: float | None = None,
+        content: bytes | None = None,
     ) -> httpx.Response:
         """
         Send one request to the node, as the asker.
@@ -484,6 +485,7 @@ class NodeSource:
             params: Query parameters.
             json_body: Body, sent as JSON.
             timeout: Seconds, instead of the source's.
+            content: Body, sent as raw bytes.
 
         Returns:
             The node's answer, whatever its status except 401 and 403.
@@ -499,6 +501,7 @@ class NodeSource:
                 path,
                 params=dict(params) if params else None,
                 json=json_body,
+                content=content,
                 **self.asker.headers(),
             )
         except NodeRefusedError as exc:

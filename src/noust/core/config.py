@@ -530,6 +530,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # dump from by its path (noust.managers.database.imports).
         "import_directories": [],
     },
+    # The release bundles a build server sends (noust.deployers.bundle_spool).
+    "releases": {
+        # The largest bundle this server takes from another one, in bytes: 8 GiB. It is the
+        # built tree of one release, with its dependencies.
+        "bundle_max_bytes": 8 * 1024**3,
+    },
     # The code people upload as an archive (noust.managers.source_uploads).
     "uploads": {
         # The largest archive a browser may upload as the code of an application, in
@@ -1801,6 +1807,9 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "databases.import_directories": _validate_import_directories,
     "uploads.source_max_bytes": _int_range_validator(
         "uploads.source_max_bytes", 1024 * 1024, 1024**4
+    ),
+    "releases.bundle_max_bytes": _int_range_validator(
+        "releases.bundle_max_bytes", 1024 * 1024, 1024**4
     ),
     "auth.sudo.idle_minutes": _int_range_validator("auth.sudo.idle_minutes", *SUDO_IDLE_RANGE),
     "auth.sudo.max_minutes": _int_range_validator("auth.sudo.max_minutes", *SUDO_MAX_RANGE),

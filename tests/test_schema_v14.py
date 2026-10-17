@@ -28,6 +28,7 @@ AREAS = (
     "RBAC",
     "ENVIRONMENTS",
     "ROLLOUT",
+    "SHIPPING",
 )
 
 

@@ -188,6 +188,41 @@ class CopyIn(BaseModel):
     plan: bool = False
 
 
+class ShipIn(BaseModel):
+    """
+    Build the application on one server and run that build on the placement's servers.
+
+    Attributes:
+        builder: The server that builds; the one recorded for the application when absent.
+        to: The servers that receive the release; every member of the placement when absent.
+        commit: Build exactly this commit (7 to 40 hex characters) instead of the branch head.
+        keep: Keep the release the build made on the builder.
+        schema_changed_ok: Confirm taking a release older than a deployment that changed the
+            database's schema, on the servers that would refuse it.
+        frozen_ok: Confirm switching although deploys are frozen.
+        force: Send it even to a server already on its commit.
+        rollback_on_failure: Put the servers already moved back if it stops; the placement's own
+            setting when absent.
+        serial: Servers at a time; the placement's own when absent.
+        max_failures: Failures that stop it; the placement's own when absent.
+        canary: The server that goes first; the placement's own when absent.
+        plan: Only say what would happen.
+    """
+
+    builder: str | None = None
+    to: list[str] | None = None
+    commit: str | None = None
+    keep: bool = False
+    schema_changed_ok: bool = False
+    frozen_ok: bool = False
+    force: bool = False
+    rollback_on_failure: bool | None = None
+    serial: int | str | None = None
+    max_failures: int | None = None
+    canary: str | None = None
+    plan: bool = False
+
+
 def _describe(placement: Any, members: list[str]) -> PlacementOut:
     """
     Describe a placement for the API.
@@ -470,6 +505,56 @@ async def rollout(
         serial=body.serial,
         max_failures=body.max_failures,
         canary=body.canary,
+    )
+    return await _plan_and_start(request, session, fleet_request, body.plan)
+
+
+@router.post("/{domain}/ship", response_model=ActionOut)
+async def ship(domain: str, request: Request, body: ShipIn, session: Session) -> dict[str, Any]:
+    """
+    Build the application on one server and run that build on the placement's servers.
+
+    The builder builds the release once, in its sandbox, without activating it; the central carries
+    the bundle through the tunnels, in chunks, to each server, which checks it against the digest
+    the builder gave and activates it behind the health check, after the application's own hooks.
+    The first server goes alone; the ones already moved are put back if it stops. Planned and
+    queued like a bulk action: a job to follow, a record per server.
+
+    Args:
+        domain: The application.
+        request: The request.
+        body: Who builds, who receives, and how; the placement's own strategy where absent.
+        session: The authenticated session.
+
+    Returns:
+        The plan and, unless ``plan``, the job.
+
+    Raises:
+        HTTPException: 404 when the application is not placed.
+        ValidationError: There is no builder, a server is not ready for it, or a value is invalid.
+    """
+    from noust.web.fleet_ship_actions import ship_request
+
+    placement, manager = _known(domain)
+    members = body.to if body.to is not None else _members(placement, manager)
+    chosen = body.canary or (placement.canary if placement.canary in members else None)
+    fleet_request = ship_request(
+        placement.domain,
+        list(members),
+        builder=body.builder,
+        commit=body.commit,
+        keep=body.keep,
+        schema_changed_ok=body.schema_changed_ok,
+        frozen_ok=body.frozen_ok,
+        force=body.force,
+        rollback_on_failure=(
+            placement.rollback_on_failure
+            if body.rollback_on_failure is None
+            else body.rollback_on_failure
+        ),
+        serial=body.serial if body.serial is not None else placement.serial,
+        max_failures=body.max_failures if body.max_failures is not None else placement.max_failures,
+        canary=chosen,
     )
     return await _plan_and_start(request, session, fleet_request, body.plan)
 

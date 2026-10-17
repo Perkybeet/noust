@@ -302,6 +302,7 @@ class NodeClient:
         path: str,
         *,
         json: Any = None,
+        content: bytes | None = None,
         params: dict[str, Any] | None = None,
         actor: str | None = None,
         actor_scope: str | None = None,
@@ -315,6 +316,7 @@ class NodeClient:
             method: HTTP method.
             path: Absolute path on the node, such as ``/api/apps``.
             json: Body, sent as JSON.
+            content: Body, sent as raw bytes (one chunk of a bundle on its way to a node).
             params: Query parameters.
             actor: Who on the central acts.
             actor_scope: That operator's scope on the central.
@@ -349,7 +351,7 @@ class NodeClient:
                 follow_redirects=False,
             ) as client:
                 response: httpx.Response = client.request(
-                    method, url, json=json, params=params, headers=headers
+                    method, url, json=json, content=content, params=params, headers=headers
                 )
         except http.TransportError as exc:
             tunnel = self.tunnels.status(self.node).get("last_error") or ""

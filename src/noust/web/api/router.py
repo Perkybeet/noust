@@ -29,6 +29,7 @@ from noust.web.api.app_hooks import router as app_hooks_router
 from noust.web.api.app_packages import router as app_packages_router
 from noust.web.api.app_processes import router as app_processes_router
 from noust.web.api.app_promote import router as app_promote_router
+from noust.web.api.app_release_bundles import router as app_release_bundles_router
 from noust.web.api.app_rollout import router as app_rollout_router
 from noust.web.api.app_runtime import router as app_runtime_router
 from noust.web.api.app_schedule import router as app_schedule_router
@@ -71,6 +72,7 @@ from noust.web.api.domains import dns_router
 from noust.web.api.domains import router as domains_router
 from noust.web.api.ens import router as ens_router
 from noust.web.api.fleet import router as fleet_router
+from noust.web.api.fleet_builders import router as fleet_builders_router
 from noust.web.api.fleet_placements import router as fleet_placements_router
 from noust.web.api.fleet_self import router as fleet_self_router
 from noust.web.api.git_credentials import router as git_credentials_router
@@ -338,6 +340,8 @@ router.include_router(app_rollout_router, prefix="/apps", tags=["Applications"])
 router.include_router(app_schedule_router, prefix="/apps", tags=["Applications"])
 # app_staged.py owns only "/{domain}/releases/stage" and "/{domain}/releases/{release_id}/promote".
 router.include_router(app_staged_router, prefix="/apps", tags=["Applications"])
+# app_release_bundles.py owns only "/{domain}/releases/bundle(s)", "/uploads" and "/receive".
+router.include_router(app_release_bundles_router, prefix="/apps", tags=["Applications"])
 # deploy_freezes.py owns the whole of "/deploy-freezes".
 router.include_router(deploy_freezes_router, prefix="/deploy-freezes", tags=["Jobs"])
 # app_adopt.py owns only "/adopt", which no "/{domain}" route of apps.py takes.
@@ -373,6 +377,7 @@ router.include_router(oidc_router, prefix="/auth/oidc", tags=["Single sign-on"])
 router.include_router(approvals_router, prefix="/approvals", tags=["Approvals"])
 router.include_router(fleet_router, prefix="/fleet", tags=["Fleet"])
 router.include_router(fleet_placements_router, prefix="/fleet/placements", tags=["Fleet"])
+router.include_router(fleet_builders_router, prefix="/fleet/builders", tags=["Fleet"])
 # Guided enrollment of a server: its host key, then the job that installs and joins it.
 router.include_router(node_enroll_router, prefix="/fleet/enroll", tags=["Fleet"])
 # Servers created at a cloud provider: accounts, the cloud-init library and the machines.

@@ -584,6 +584,59 @@ In the console it is **Fleet > On several servers** (`/api/fleet/placements`, se
   (a `read` server is skipped with the reason), sudo mode and approvals are asked as they are for a call
   made there by hand, and a server older than the action needs is skipped as it is for any bulk action.
 
+## Building on one server and running on others
+
+A small VPS is a poor place to compile an application: a Next.js build wants more memory than the
+application ever will. The central can have **one server build it and the others run that build**:
+
+```bash
+noust fleet builder set shop.example.com build-1      # which server builds it (the central's note)
+noust fleet placement ship shop.example.com --plan    # the plan: who goes first, what is skipped
+noust fleet placement ship shop.example.com           # build once on build-1, run it on every member
+noust fleet placement ship shop.example.com --commit 3f9c2ab --to web-2 --serial 2
+noust fleet builder list
+noust fleet builder clear shop.example.com            # back to building where it runs
+```
+
+In the console it is the **Build on one server, run on the others** and **Choose the build server**
+items of an application in Fleet > On several servers; in the API, `POST
+/api/fleet/placements/{domain}/ship` and `/api/fleet/builders` (see [api.md](api.md)).
+
+- **The builder builds once, and nothing else.** It fetches, installs and builds the release in its build
+  sandbox exactly as `noust update` would, but runs no hook, no migration, does not switch and records no
+  deployment; the release is removed once packed (`--keep` keeps it). The application has to be on the
+  builder (its source, variables and build settings) on the release layout, as the same type as on the
+  servers that run it: the plan checks that for every server before it builds anything, and says which
+  command puts the application on one that lacks it (`noust fleet placement copy`).
+- **The central carries the bundle, never holds it.** It is read from the builder by ranges and written
+  to each server as an upload that resumes from where it stopped, through the two tunnels, a chunk at a
+  time: a request through a tunnel is cut after a few minutes and a bundle is hundreds of megabytes. Nothing
+  of it is written on the central. The SHA-256 the builder reports is declared when the upload starts and
+  checked when it completes; the server extracts nothing that does not match.
+- **The first server goes alone**, like a rollout's: the build is made for it, and the others are sent
+  exactly that file, so a push that lands halfway reaches none of them. The bundle is pinned with the job:
+  a retry of the failed servers sends it again and does not build again (the builder keeps it until every
+  server has it, or for a day).
+- **Each server activates it behind its own health gate**, after the application's own `pre_deploy` hooks,
+  with its own `.env`, database and persistent paths. A release that does not answer is put back and
+  removed, and the job says so with the server's words. When the job stops, the servers already moved are
+  put back by their previous release, unless `--no-rollback`; going back past a deployment that changed
+  the schema needs `--schema-changed-ok` on the server that would refuse it, because Noust puts code
+  back, never a database.
+- **The builder is not one of the servers it ships to.** A server that builds and runs the application
+  updates the ordinary way; ship to the others. A rollout of a placement whose application has a recorded
+  builder says so in its plan, and builds on each server as it always did.
+- **Every step is the server's own API call, as the same operator**, so each server's ceiling and
+  permissions apply (`apps.deploy`; a `read` server is skipped with the reason), a server older than this
+  is skipped as `unsupported`, and the builder is judged by the same rule before anything is built.
+
+This is run for real, not only rehearsed, by the integration harness
+(`python tests/integration/ship_run.py`): a central and two servers in containers, each a systemd machine
+enrolled over the real SSH tunnels and the restricted key; the central ships a build, the release the
+target serves says which machine built it while the target's own repository cache never fetched the
+commit, an update whose application does not start is refused behind the target's health gate with what
+served still serving, and the target goes back to its previous release with one command.
+
 ## A fleet on different versions
 
 A 3.1 central drives 3.0 servers, and a 3.0 central drives 3.1 servers. A 3.0 server shows as
