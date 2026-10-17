@@ -14,6 +14,45 @@ describe("api", () => {
     expect(call?.headers.get("Accept")).toBe("application/json");
   });
 
+  it("tells a caller that asks the final answer's status and headers, for a success and for a refusal", async () => {
+    fakeBackend({
+      "POST /api/things": () => json(201, { id: 1 }, { "X-Noust-API-Version": "1" }),
+      "POST /api/refused": () => problem(403, "forbidden", "No."),
+    });
+    const seen: { status: number; version: string | null }[] = [];
+    const onResponse = (answer: { status: number; headers: Headers }) => {
+      seen.push({ status: answer.status, version: answer.headers.get("X-Noust-API-Version") });
+    };
+
+    await api("POST", "/api/things", {}, { onResponse });
+    await expect(api("POST", "/api/refused", {}, { onResponse })).rejects.toBeInstanceOf(ApiError);
+
+    expect(seen).toEqual([
+      { status: 201, version: "1" },
+      { status: 403, version: null },
+    ]);
+  });
+
+  it("reports only the answer a retry after \"Confirm it's you\" ended with", async () => {
+    configureApi({ elevate: () => Promise.resolve() });
+    let attempts = 0;
+    fakeBackend({
+      "DELETE /api/things/1": () => {
+        attempts += 1;
+        return attempts === 1 ? problem(403, "elevation_required", "Confirm it's you to continue") : json(200, { ok: true });
+      },
+    });
+    const statuses: number[] = [];
+
+    await api("DELETE", "/api/things/1", undefined, {
+      onResponse: (answer) => {
+        statuses.push(answer.status);
+      },
+    });
+
+    expect(statuses).toEqual([200]);
+  });
+
   it("sends a file's bytes as they are, not as JSON", async () => {
     const backend = fakeBackend({ "PUT /api/things": () => json(200, { ok: true }) });
     const chunk = new Blob([new Uint8Array([1, 2, 3])]);
