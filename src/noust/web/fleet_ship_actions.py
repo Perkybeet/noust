@@ -32,16 +32,16 @@ nothing it was not told the digest of.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from dataclasses import replace
 from typing import Any
 from urllib.parse import quote
 
-from noust.core.exceptions import NoustError, ValidationError
-from noust.fleet.aggregate import Asker, Failure, NodeSource, decode_answer
+from noust.core.exceptions import ValidationError
+from noust.fleet.aggregate import Asker, Failure, NodeSource
 from noust.fleet.builders import Builders
 from noust.fleet.nodes import NodeManager
 from noust.fleet.placements import checked_domain
+from noust.web.fleet_carry import Carriage, carry
 from noust.web.fleet_jobs import (
     ACTIONS,
     REQUEST_TIMEOUT,
@@ -70,19 +70,6 @@ from noust.web.fleet_placement_actions import (
 )
 
 __all__ = ["BUILDER_OPERATIONS", "ship_request"]
-
-#: Bytes read from the builder at a time; the node refuses more than 8 MiB.
-DOWNLOAD_CHUNK = 4 * 1024 * 1024
-
-#: Bytes sent to a target at a time, when the node does not say (it says: 512 KiB).
-UPLOAD_CHUNK = 512 * 1024
-
-#: Consecutive transfer failures before the server is given up on; each one resumes from the
-#: offset the target says it holds.
-TRANSFER_RETRIES = 5
-
-#: Seconds waited between two attempts of a chunk.
-RETRY_PAUSE = 2.0
 
 #: What the builder must offer. The targets' own operations are the action's ``operations``.
 BUILDER_OPERATIONS: tuple[tuple[str, str], ...] = (
@@ -367,19 +354,6 @@ def _built_bundle(run: NodeRun) -> dict[str, Any]:
     return dict(bundle)
 
 
-def _chunks(data: bytes, size: int) -> Iterator[bytes]:
-    """
-    Args:
-        data: Bytes.
-        size: The most one piece holds.
-
-    Yields:
-        The pieces, in order.
-    """
-    for start in range(0, len(data), size):
-        yield data[start : start + size]
-
-
 def _carry(run: NodeRun, builder: NodeSource, bundle: dict[str, Any]) -> str:
     """
     Send the bundle to the server, chunk by chunk, resuming after a failure.
@@ -398,60 +372,19 @@ def _carry(run: NodeRun, builder: NodeSource, bundle: dict[str, Any]) -> str:
     """
     domain = run.options["domain"]
     base = f"/api/apps/{quote(domain, safe='')}/releases"
-    size = int(bundle["size"])
-    started = run.call("POST", f"{base}/uploads", body={"size": size, "sha256": bundle["sha256"]})
-    upload_id = str(started["id"])
-    piece = int(started.get("chunk_size") or UPLOAD_CHUNK)
-    received = int(started.get("received") or 0)
-    failures = 0
-    try:
-        while received < size:
-            run.step(f"Sending the release to {run.name}: {received * 100 // size}%")
-            data = run.send(
-                "GET",
-                f"{_bundle_path(domain, bundle['id'])}/data",
-                params={"offset": received, "length": min(DOWNLOAD_CHUNK, size - received)},
-                on=builder,
-            )
-            if data.status_code != 200 or not data.content:
-                raise ActionFailed(
-                    f"{builder.name}'s copy of the build ended at {received} of {size} bytes",
-                    details="It may have been swept; ship again to build it afresh.",
-                    output=data.text[:2000] if data.status_code != 200 else None,
-                )
-            try:
-                for chunk in _chunks(data.content, piece):
-                    answer = run.send(
-                        "PUT",
-                        f"{base}/uploads/{upload_id}",
-                        params={"offset": received},
-                        content=chunk,
-                    )
-                    decoded = decode_answer(run.name, "PUT", f"{base}/uploads/{{id}}", answer)
-                    received = int(decoded["received"])
-                failures = 0
-            except Failure as exc:
-                failures += 1
-                if failures > TRANSFER_RETRIES:
-                    raise ActionFailed(
-                        f"Sending the release to {run.name} failed {failures} times in a row: "
-                        f"{exc.message}",
-                        output=exc.output,
-                    ) from exc
-                run.log(f"Chunk at {received} failed ({exc.message}); resuming")
-                run.sleep(RETRY_PAUSE)
-                # Where the target stands is where the next range is read from.
-                standing = run.call("GET", f"{base}/uploads/{upload_id}")
-                received = int(standing["received"])
-        run.call("POST", f"{base}/uploads/{upload_id}/complete")
-    except (Failure, NoustError):
-        # Not left on the target's disk: the release's whole tree.
-        try:
-            run.send("DELETE", f"{base}/uploads/{upload_id}")
-        except Failure:
-            run.log(f"The upload {upload_id} could not be removed from {run.name}")
-        raise
-    return upload_id
+    return carry(
+        run,
+        Carriage(
+            source=builder,
+            read_path=f"{_bundle_path(domain, bundle['id'])}/data",
+            size=int(bundle["size"]),
+            start_path=f"{base}/uploads",
+            start_body={"size": int(bundle["size"]), "sha256": bundle["sha256"]},
+            upload_path=f"{base}/uploads/{{id}}",
+            noun="the release",
+            gone_hint="It may have been swept; ship again to build it afresh.",
+        ),
+    )
 
 
 def _placement_ship(run: NodeRun) -> None:
