@@ -262,11 +262,14 @@ def _set_policy(
         _let_go_of_quic_socket(app, verbose=verbose)
     if before.waf and not after.waf:
         _let_go_of_waf_rules(app, verbose=verbose)
+    changed = _changed_fields(before, after)
     audit.record(
         "sites.policy",
         target=f"app:{app.domain}",
-        details={"changed": sorted(_changed_fields(before, after)), "policy": after.to_dict()},
+        details={"changed": sorted(changed), "policy": after.to_dict()},
     )
+    if changed & {"real_ip", "trusted_proxies"}:
+        _keep_brute_force_jails_true(operator_addresses)
     return describe(app.domain, verbose=verbose)
 
 
@@ -302,6 +305,8 @@ def reset_policy(app_domain: str, *, verbose: bool = False) -> AccessView:
         if before.waf:
             _let_go_of_waf_rules(app, verbose=verbose)
         audit.record("sites.policy", target=f"app:{app.domain}", details={"changed": ["reset"]})
+        if before.real_ip != "off":
+            _keep_brute_force_jails_true(())
         return describe(app.domain, verbose=verbose)
 
 
@@ -454,7 +459,24 @@ def refresh_trusted_ranges(*, verbose: bool = False) -> dict[str, Any]:
             result["applied"].append(name)
         except _APPLY_ERRORS as exc:
             result["failed"][name] = str(exc)
+    _keep_brute_force_jails_true(())
     return result
+
+
+def _keep_brute_force_jails_true(operator_addresses: Sequence[str]) -> None:
+    """
+    Tell fail2ban's nginx jails who stands in front of the sites now.
+
+    The jails never ban Cloudflare's ranges nor a proxy a site declares; the list is written once,
+    so a change to the proxies has to rewrite it, or the new proxy is banned at its first wrong
+    password and every site behind it goes with it.
+
+    Args:
+        operator_addresses: The addresses the operator is making the change from.
+    """
+    from noust.managers.server.security_fail2ban import keep_web_jails_true
+
+    keep_web_jails_true(operator_addresses)
 
 
 def audit_actor() -> str | None:

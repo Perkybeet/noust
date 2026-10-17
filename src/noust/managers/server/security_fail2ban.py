@@ -22,14 +22,16 @@ explicit yes (:class:`~noust.managers.server.errors.ConfirmationRequiredError`).
 from __future__ import annotations
 
 import ipaddress
+import logging
 import re
-from collections.abc import Callable
+import time
+from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from noust.core import paths
 from noust.core.exceptions import SecurityError, ValidationError
-from noust.core.runner import CommandResult
+from noust.core.runner import CommandResult, CommandRunner, get_runner
 from noust.managers.server.errors import ConfirmationRequiredError, UnsupportedHostError
 from noust.managers.server.host import PROBE_TIMEOUT, PackageFamily, detect_platform
 from noust.managers.server.security_pending import FAIL2BAN_JAIL, FAIL2BAN_WEB_JAIL, audit
@@ -41,6 +43,16 @@ ENV = {"LC_ALL": "C", "TERM": "dumb", "DEBIAN_FRONTEND": "noninteractive"}
 
 #: How long installing packages may take.
 INSTALL_TIMEOUT = 600
+
+#: How many times, half a second apart, a fail2ban that was just started is asked whether it
+#: answers. Its unit is ``Type=simple``: systemctl returns when the process started, which is
+#: before the socket every ``fail2ban-client`` command talks to exists.
+READY_ATTEMPTS = 60
+
+#: What ``fail2ban-client get <jail> actions`` prints for a jail that has none, and what Noust says.
+FAIL2BAN_NO_ACTIONS = "No actions"
+NO_ACTION = "has no ban action"
+READY_PAUSE = 0.5
 
 #: Brute-force protections that stand in for fail2ban.
 SUBSTITUTES = ("crowdsec", "sshguard")
@@ -62,6 +74,8 @@ WEB_FILTERS = tuple(f"/etc/fail2ban/filter.d/{name}.conf" for name in WEB_JAILS)
 
 #: The logs of the sites Noust writes: one pair per site, named after its domain.
 WEB_LOG_DIR = "/var/log/nginx"
+
+_log = logging.getLogger(__name__)
 
 #: A jail name as fail2ban accepts it.
 _JAIL = re.compile(r"[A-Za-z0-9_.-]{1,64}")
@@ -276,13 +290,19 @@ class Fail2ban:
     Args:
         probe: This pass's look at the machine.
         on_output: Receives every command and its output, verbatim.
+        sleep: Waits between looks at a fail2ban that is starting; replaced in tests.
     """
 
     def __init__(
-        self, probe: SecurityProbe, *, on_output: Callable[[str], None] | None = None
+        self,
+        probe: SecurityProbe,
+        *,
+        on_output: Callable[[str], None] | None = None,
+        sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         self.probe = probe
         self.on_output = on_output
+        self._sleep = sleep
 
     def _run(self, argv: list[str], timeout: int = PROBE_TIMEOUT) -> CommandResult:
         return self.probe.runner.run(argv, timeout=timeout, env=ENV)
@@ -339,6 +359,55 @@ class Fail2ban:
                 )
             return [["dnf", "install", "-y", "fail2ban"]], False, ""
         return [], False, platform.why_updates_unsupported() or "No supported package manager."
+
+    def _wait_until_answering(self) -> CommandResult:
+        """
+        Wait for a fail2ban that was just started to open the socket its client talks to.
+
+        Returns:
+            The last ``ping``: a success once it answers, the failure after
+            :data:`READY_ATTEMPTS` looks when it never does.
+        """
+        result = self._run(["fail2ban-client", "ping"])
+        for _ in range(READY_ATTEMPTS):
+            if result.success and "pong" in result.stdout:
+                return result
+            self._sleep(READY_PAUSE)
+            result = self._run(["fail2ban-client", "ping"])
+        return result
+
+    def _ensure_ban_actions(self, jails: Sequence[str]) -> CommandResult | None:
+        """
+        Make sure every jail has an action that refuses the addresses it bans.
+
+        After a reload that changes ``banaction`` (Debian's own is ``nftables``, Noust picks the
+        action by the firewall in use) fail2ban 1.1 leaves a jail it already ran with no action
+        at all: it counts failures and "bans", and nothing is ever refused. Restarting the jail
+        adds the action; its bans come back from fail2ban's database.
+
+        Args:
+            jails: The jails that must refuse what they ban.
+
+        Returns:
+            None when every jail has an action; otherwise a failed result naming the first that
+            has none even after a restart.
+        """
+        for jail in jails:
+            asked = ["fail2ban-client", "get", jail, "actions"]
+            answer = self._run(asked, timeout=60)
+            if FAIL2BAN_NO_ACTIONS not in answer.stdout:
+                continue
+            restart = ["fail2ban-client", "restart", jail]
+            self._say(restart, self._run(restart, timeout=60))
+            answer = self._run(asked, timeout=60)
+            if FAIL2BAN_NO_ACTIONS in answer.stdout:
+                return CommandResult(
+                    argv=tuple(asked),
+                    exit_code=1,
+                    stderr=f"The {jail} jail {NO_ACTION}, so it would record failures and "
+                    "refuse nobody.",
+                )
+        return None
 
     def state(self) -> Fail2banState:
         """
@@ -517,6 +586,13 @@ class Fail2ban:
         for argv in steps:
             result = self._run(argv, timeout=60)
             self._say(argv, result)
+            never_started = False
+            if result.success and argv[:2] == ["systemctl", "enable"]:
+                result = self._wait_until_answering()
+                never_started = not result.success
+            if result.success and argv == ["fail2ban-client", "reload"]:
+                unenforced = self._ensure_ban_actions(["sshd"])
+                result = result if unenforced is None else unenforced
             if not result.success:
                 if previous is None:
                     self.probe.fs.remove(target, missing_ok=True)
@@ -530,9 +606,17 @@ class Fail2ban:
                     action="install",
                     reason=(result.stderr or result.stdout).strip(),
                 )
+                if never_started:
+                    what = "fail2ban never answered after it was started"
+                elif NO_ACTION in result.stderr:
+                    what = "fail2ban left the sshd jail with no ban action"
+                else:
+                    what = f"fail2ban did not accept the sshd jail ({' '.join(argv)})"
                 raise SecurityError(
-                    f"fail2ban did not accept the sshd jail ({' '.join(argv)}), so "
-                    f"{FAIL2BAN_JAIL} was put back",
+                    f"{what}, so {FAIL2BAN_JAIL} was put back",
+                    details="See why it did not start: journalctl -u fail2ban"
+                    if never_started
+                    else "",
                     output=(result.stderr or result.stdout).strip() or None,
                 )
         audit("server.fail2ban", FAIL2BAN_JAIL, action="install", ignored=addresses, ports=ports)
@@ -575,7 +659,7 @@ class Fail2ban:
                 "This fail2ban has no filter for nginx",
                 details="Missing: " + ", ".join(missing) + ". Update fail2ban.",
             )
-        addresses = list(dict.fromkeys([*self._never_banned(ignore), *self._proxy_ranges()]))
+        addresses = self._web_addresses(ignore)
         target = self.probe.host.at(FAIL2BAN_WEB_JAIL)
         previous = read_no_follow(target)
         self.probe.fs.write_text(target, render_web_jails(addresses), mode=0o644)
@@ -584,6 +668,85 @@ class Fail2ban:
         )
         audit("server.fail2ban", FAIL2BAN_WEB_JAIL, action="web", ignored=addresses)
         return {"jail_file": FAIL2BAN_WEB_JAIL, "jails": list(WEB_JAILS), "ignored": addresses}
+
+    def _web_addresses(self, ignore: list[str] | None) -> list[str]:
+        """
+        Returns:
+            Who the nginx jails never ban: who is connected over SSH now, the addresses given
+            (the console's client), and every CDN or proxy a site declares.
+        """
+        return list(dict.fromkeys([*self._never_banned(ignore), *self._proxy_ranges()]))
+
+    def sync_web(self, *, ignore: list[str] | None = None) -> bool:
+        """
+        Bring the nginx jails' ignore list up to date with the proxies the sites declare.
+
+        The list is written when the jails are turned on, so a proxy declared afterwards (the usual
+        order: a CDN is put in front of a site that already exists) was banned at its first wrong
+        password until somebody turned the jails on again. Whatever changes a site's trusted
+        proxies calls this.
+
+        Args:
+            ignore: More addresses never to ban (the console's client).
+
+        Returns:
+            True when the file changed; False when the jails are not turned on or the list is
+            what it was.
+
+        Raises:
+            SecurityError: fail2ban refused the new file (the old one was put back).
+        """
+        target = self.probe.host.at(FAIL2BAN_WEB_JAIL)
+        previous = read_no_follow(target)
+        if previous is None:
+            return False
+        text = render_web_jails(self._web_addresses(ignore))
+        if text == previous:
+            return False
+        self.probe.fs.write_text(target, text, mode=0o644)
+        ping = self._run(["fail2ban-client", "ping"])
+        if ping.success and "pong" in ping.stdout:
+            # When it is stopped the file is all there is to update: it is what it reads next.
+            self._reload_or_restore(
+                target, previous, "sync", ["fail2ban-client", "status", WEB_JAILS[-1]]
+            )
+        audit("server.fail2ban", FAIL2BAN_WEB_JAIL, action="web sync")
+        return True
+
+    def rescan_web(self) -> bool:
+        """
+        Make the nginx jails read the logs of the sites created since they started.
+
+        fail2ban expands the wildcard of a ``logpath`` when a jail starts and never again, so a
+        site created later was never read, and a scanner or a wrong password on it counted for
+        nothing. Reloading is what reads the directory again; bans survive it.
+
+        Returns:
+            True when a log was not being read and fail2ban was asked to read it; False when the
+            jails are not turned on, fail2ban does not answer, or every log is already read.
+
+        Raises:
+            SecurityError: fail2ban refused the reload.
+        """
+        if read_no_follow(self.probe.host.at(FAIL2BAN_WEB_JAIL)) is None:
+            return False
+        status = self._run(["fail2ban-client", "status", WEB_JAILS[0]])
+        if not status.success:
+            return False
+        watched = set(parse_jail(WEB_JAILS[0], status.stdout).reads.split())
+        directory = self.probe.host.at(WEB_LOG_DIR)
+        present = {f"{WEB_LOG_DIR}/{path.name}" for path in directory.glob("*.error.log")}
+        if present <= watched:
+            return False
+        argv = ["fail2ban-client", "reload"]
+        result = self._run(argv, timeout=60)
+        self._say(argv, result)
+        if not result.success:
+            raise SecurityError(
+                "fail2ban did not read the logs of the new sites",
+                output=(result.stderr or result.stdout).strip() or None,
+            )
+        return True
 
     def disable_web(self) -> dict[str, Any]:
         """
@@ -638,6 +801,10 @@ class Fail2ban:
         for argv in steps:
             result = self._run(argv, timeout=60)
             self._say(argv, result)
+            if result.success and argv == last:
+                unenforced = self._ensure_ban_actions(WEB_JAILS)
+                if unenforced is not None:
+                    result, argv = unenforced, ["fail2ban-client", "get", "<jail>", "actions"]
             if result.success:
                 continue
             if previous is None:
@@ -652,8 +819,45 @@ class Fail2ban:
                 action=action,
                 reason=(result.stderr or result.stdout).strip(),
             )
+            what = (
+                "fail2ban left an nginx jail with no ban action"
+                if NO_ACTION in result.stderr
+                else f"fail2ban did not accept the nginx jails ({' '.join(argv)})"
+            )
             raise SecurityError(
-                f"fail2ban did not accept the nginx jails ({' '.join(argv)}), so "
-                f"{FAIL2BAN_WEB_JAIL} was put back",
+                f"{what}, so {FAIL2BAN_WEB_JAIL} was put back",
                 output=(result.stderr or result.stdout).strip() or None,
             )
+
+
+def keep_web_jails_true(ignore: Sequence[str] = (), *, runner: CommandRunner | None = None) -> None:
+    """
+    Update the nginx jails' ignore list after a change to the proxies the sites declare.
+
+    The change that called this has already been made, so a fail2ban that refuses the new file
+    is a warning (the old file is back), never an error of that change.
+
+    Args:
+        ignore: More addresses never to ban (the address the operator is changing it from).
+        runner: Runs the commands; the process-wide one by default.
+    """
+    try:
+        Fail2ban(SecurityProbe(runner=runner or get_runner())).sync_web(ignore=list(ignore))
+    except SecurityError as exc:
+        _log.warning("fail2ban's nginx jails were not brought up to date: %s", exc.message)
+
+
+def watch_new_web_logs(runner: CommandRunner | None = None) -> None:
+    """
+    Make the nginx jails read the logs of a site the web server has just loaded.
+
+    Called after every successful reload of nginx; it asks fail2ban nothing unless the jails are
+    turned on.
+
+    Args:
+        runner: Runs the commands; the process-wide one by default.
+    """
+    try:
+        Fail2ban(SecurityProbe(runner=runner or get_runner())).rescan_web()
+    except SecurityError as exc:
+        _log.warning("fail2ban did not read the logs of the new site: %s", exc.message)

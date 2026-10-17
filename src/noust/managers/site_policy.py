@@ -1156,9 +1156,13 @@ class SitePolicyManager:
                 details="Add an account first, or nobody can sign in.",
                 field="basic_auth",
             )
+        group = worker_group(conf_root, kind)
         fs.make_dir(path.parent, mode=0o750, parents=True)
+        # The workers open the file at request time, as the group: a directory only root can
+        # enter makes every request to the site a 500 (open() failed, 13: Permission denied).
+        fs.set_owner(path.parent, user="root", group=group, mode=0o750)
         fs.write_text(path, account_file_text(users), mode=0o640)
-        fs.set_owner(path, user="root", group=worker_group(conf_root, kind), mode=0o640)
+        fs.set_owner(path, user="root", group=group, mode=0o640)
         return path
 
     def remove_auth_file(self, domain: str, conf_root: Path) -> None:
