@@ -90,7 +90,12 @@ from noust.managers.database.scope import (
     Exclusions,
 )
 from noust.managers.database.service import DatabaseService
-from noust.managers.retention import select_expired
+from noust.managers.retention import (
+    check_gigabytes,
+    gigabytes_to_bytes,
+    select_expired,
+    with_gigabytes,
+)
 
 __all__ = ["DatabaseBackups", "DumpView", "PolicyView"]
 
@@ -220,8 +225,7 @@ class PolicyView:
             stored = self.policy.to_dict()
             stored.pop("db_name", None)
             stored.pop("id", None)
-            kept = stored.pop("retention_bytes", None)
-            stored["retention_gb"] = None if kept is None else round(kept / 1024**3, 3)
+            with_gigabytes(stored)
             stored["destinations"] = [
                 {
                     **entry,
@@ -689,7 +693,7 @@ class DatabaseBackups:
                     "retention_days": _limit(
                         entry.get("retention_days"), MAX_RETENTION_DAYS, "retention_days"
                     ),
-                    "retention_gb": _gigabytes(entry.get("retention_gb"), "retention_gb"),
+                    "retention_gb": check_gigabytes(entry.get("retention_gb"), "retention_gb"),
                 }
             )
         return checked
@@ -708,6 +712,7 @@ class DatabaseBackups:
         enabled: bool = True,
         exclusions: Exclusions | None = None,
         retention_gb: float | None = None,
+        remote_only: bool = False,
     ) -> PolicyView:
         """
         Create or replace a database's backup policy, and its timer.
@@ -741,6 +746,9 @@ class DatabaseBackups:
             retention_gb: The most the scheduled dumps kept here may weigh
                 together, in gigabytes (the newest always stays); None for no
                 limit by size.
+            remote_only: Delete each scheduled dump from this server once every
+                destination holds it, for a server whose disk is small. Needs a
+                destination; a dump that could not be sent everywhere stays.
 
         Returns:
             The policy as stored, with its timer's state.
@@ -772,7 +780,7 @@ class DatabaseBackups:
         calendar = validate_calendar(schedule)
         count = _limit(retention_count, MAX_RETENTION_COUNT, "retention_count")
         days = _limit(retention_days, MAX_RETENTION_DAYS, "retention_days")
-        budget = _gigabytes(retention_gb, "retention_gb")
+        budget = check_gigabytes(retention_gb, "retention_gb")
         if dump_format is not None and (
             manager.engine_type != "postgresql" or dump_format not in _POLICY_FORMATS
         ):
@@ -789,6 +797,13 @@ class DatabaseBackups:
                 field="verify_restore",
             )
         checked = self._validated_destinations(destinations or [])
+        if remote_only and not checked:
+            raise ValidationError(
+                "A policy that keeps nothing on this server needs a destination",
+                details="Name at least one destination to send the dumps to (--to NAME), or "
+                "keep the dumps here.",
+                field="remote_only",
+            )
 
         if enabled:
             self.scheduler.install_database_timer(engine_name, name, calendar)
@@ -801,7 +816,8 @@ class DatabaseBackups:
                 schedule=calendar,
                 retention_count=count,
                 retention_days=days,
-                retention_bytes=_to_bytes(budget),
+                retention_bytes=gigabytes_to_bytes(budget),
+                remote_only=remote_only,
                 destinations=checked,
                 dump_format=dump_format,
                 verify_restore=verify_restore,
@@ -817,6 +833,7 @@ class DatabaseBackups:
             retention_count=count,
             retention_days=days,
             retention_gb=budget,
+            remote_only=remote_only,
             destinations=[entry["name"] for entry in checked],
             verify_restore=verify_restore,
             enabled=enabled,
@@ -1177,7 +1194,7 @@ class DatabaseBackups:
                 },
                 retention_count=retention_count,
                 retention_days=retention_days,
-                retention_bytes=_to_bytes(_gigabytes(retention_gb, "retention_gb")),
+                retention_bytes=gigabytes_to_bytes(check_gigabytes(retention_gb, "retention_gb")),
             )
         except NoustError:
             self._audit(
@@ -1843,8 +1860,16 @@ class DatabaseBackups:
                     result["destinations"][target] = {"ok": False, "error": str(exc)}
                     failures.append((target, str(exc)))
                     announce(compose_database_backup_upload_failed, target, str(exc))
-            step("Applying local retention")
-            result["local_deleted"] = self._apply_local_retention(policy, name)
+            if policy.remote_only and policy.destinations and not failures:
+                # Every destination holds it and verified it on arrival: the local copy is the
+                # one the small disk cannot afford. A dump that did not go everywhere stays.
+                step(f"Removing {view.name} from this server: every destination holds it")
+                self._remove_local(view, reason="remote_only")
+                result["local_deleted"] = [view.name]
+                result["kept_locally"] = False
+            else:
+                step("Applying local retention")
+                result["local_deleted"] = self._apply_local_retention(policy, name)
 
         if failures:
             error = BackupError(
@@ -1920,54 +1945,6 @@ class DatabaseBackups:
         for file_name in expired:
             self._remove_local(by_name[file_name], reason="retention")
         return expired
-
-
-#: The largest retention by size a policy accepts: a petabyte.
-MAX_RETENTION_GB = 1_000_000
-
-
-def _gigabytes(value: Any, field_name: str) -> float | None:
-    """
-    Check a retention by size.
-
-    Args:
-        value: What the caller gave, in gigabytes.
-        field_name: The field, for the error.
-
-    Returns:
-        The value as a number, or None when the caller gave none.
-
-    Raises:
-        ValidationError: When it is not a number above zero and at most
-            :data:`MAX_RETENTION_GB`.
-    """
-    if value is None:
-        return None
-    if (
-        isinstance(value, bool)
-        or not isinstance(value, (int, float))
-        or not 0 < value <= MAX_RETENTION_GB
-    ):
-        raise ValidationError(
-            f"{field_name} must be a number of gigabytes above 0 and at most {MAX_RETENTION_GB}",
-            details="Leave it empty for no limit by size. The newest dump always stays, "
-            "whatever its size.",
-            field=field_name,
-        )
-    return float(value)
-
-
-def _to_bytes(gigabytes: float | None) -> int | None:
-    """
-    Turn a retention in gigabytes into bytes.
-
-    Args:
-        gigabytes: The value :func:`_gigabytes` returned.
-
-    Returns:
-        Bytes (a gigabyte is 2**30), or None for no limit.
-    """
-    return None if gigabytes is None else max(1, int(gigabytes * 1024**3))
 
 
 def _limit(value: Any, ceiling: int, field_name: str) -> int | None:

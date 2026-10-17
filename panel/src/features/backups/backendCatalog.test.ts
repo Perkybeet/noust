@@ -9,6 +9,17 @@ describe("backendCatalog", () => {
     expect(backendLabel("sftp")).toBe("SFTP server");
   });
 
+  it("names the object stores, the FTP server and Box in both languages", async () => {
+    expect(backendLabel("azureblob")).toBe("Azure Blob Storage");
+    expect(backendLabel("gcs")).toBe("Google Cloud Storage");
+    expect(backendLabel("ftp")).toBe("FTP / FTPS server");
+    expect(backendLabel("box")).toBe("Box");
+    expect(backendDescription("gcs")).toMatch(/JSON key/);
+    await loadCatalog("es");
+    expect(backendLabel("ftp", "es")).toBe("Servidor FTP / FTPS");
+    expect(backendDescription("azureblob", "es")).toMatch(/clave de cuenta/);
+  });
+
   it("falls back to the raw name for a backend the console does not know yet", () => {
     expect(backendLabel("some-new-backend")).toBe("some-new-backend");
     expect(backendDescription("some-new-backend")).toBeUndefined();
@@ -19,6 +30,10 @@ describe("backendCatalog", () => {
     expect(OAUTH_BACKENDS.has("onedrive")).toBe(true);
     expect(OAUTH_BACKENDS.has("dropbox")).toBe(true);
     expect(OAUTH_BACKENDS.has("pcloud")).toBe(true);
+    expect(OAUTH_BACKENDS.has("box")).toBe(true);
+    expect(OAUTH_BACKENDS.has("azureblob")).toBe(false);
+    expect(OAUTH_BACKENDS.has("gcs")).toBe(false);
+    expect(OAUTH_BACKENDS.has("ftp")).toBe(false);
     expect(OAUTH_BACKENDS.has("s3")).toBe(false);
     expect(OAUTH_BACKENDS.has("sftp")).toBe(false);
   });

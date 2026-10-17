@@ -41,7 +41,7 @@ def registry(
 ) -> None:
     """A registry that serves exactly what the catalog pins, but for what a test changes."""
     pinned = {
-        f"{spec.repository}:{pin.version}": pin.digest
+        f"{spec.repository}:{pin.tag or pin.version}": pin.digest
         for spec in SPECS.values()
         for pin in spec.pins
     } | {

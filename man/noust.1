@@ -3119,7 +3119,7 @@ Create a backup destination.
 \fIname\fR
 .TP
 .B \-\-type
-Backend: sftp, smb, webdav, s3, b2, drive, onedrive, dropbox, pcloud, local.
+Backend: sftp, smb, ftp, webdav, s3, b2, azureblob, gcs, drive, onedrive, dropbox, box, pcloud, local.
 .TP
 .B \-\-field
 A non\-secret field, repeatable (host, user, port, path...).
@@ -3144,6 +3144,12 @@ List the configured backup destinations.
 .TP
 .B \-\-json
 Print the destinations as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust backup destination protect
+Encrypt the credentials of the destinations made before they were.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -3383,6 +3389,9 @@ Keep at most this many of the backups this schedule makes (default: 7). 'default
 .B \-\-retention\-days
 Delete this schedule's own backups older than this many days (default: 30). 'none' sets no age limit.
 .TP
+.B \-\-retention\-gb
+The most the scheduled backups kept here may weigh together, in gigabytes, or 'none'. The newest always stays, whatever its size. Default: none.
+.TP
 .B \-\-destination
 Push each backup to this remote destination, with its own retention. Repeatable.
 .TP
@@ -3429,6 +3438,9 @@ Keep at most this many of the backups this schedule makes. Kept as it is when no
 .TP
 .B \-\-retention\-days
 Delete this schedule's own backups older than this many days. Kept as it is when not given; 'none' sets no age limit.
+.TP
+.B \-\-retention\-gb
+The most the scheduled backups kept here may weigh together, in gigabytes, or 'none'. The newest always stays, whatever its size. Kept as it is when not given.
 .TP
 .B \-\-destination
 Push each backup to this remote destination, with its own retention. Repeatable.
@@ -3623,8 +3635,11 @@ Scheduled backups to keep per target, or 'none'. Default: 7.
 .B \-\-keep\-days
 Days to keep one, or 'none'. Default: 30.
 .TP
+.B \-\-keep\-gb
+The most the scheduled backups kept here may weigh together, in gigabytes, or 'none'. The newest always stays, whatever its size. Default: none.
+.TP
 .B \-\-to
-Send each backup to this destination, keeping COUNT and DAYS there. Repeatable.
+Send each backup to this destination, keeping COUNT, DAYS and GB there. Repeatable.
 .TP
 .B \-\-consistency
 live, pause (freeze the application for the copy) or stop. Default: live.
@@ -4673,7 +4688,7 @@ Scheduled dumps to keep here, or 'none'. Dumps taken by hand are never deleted. 
 Days to keep a scheduled dump here, or 'none'. Default: 30.
 .TP
 .B \-\-keep\-gb
-The most the scheduled dumps kept here may weigh together, in gigabytes, or 'none'. The newest dump always stays, whatever its size. Default: none.
+The most the scheduled backups kept here may weigh together, in gigabytes, or 'none'. The newest always stays, whatever its size. Default: none.
 .TP
 .B \-\-to
 Send each dump to this backup destination, keeping COUNT, DAYS and GB there. Repeatable.
@@ -4683,6 +4698,9 @@ PostgreSQL's dump format. custom (pg_dump \-Fc) by default.
 .TP
 .B \-\-verify\-restore
 Load each dump into a temporary database, and drop it, as proof it restores.
+.TP
+.B \-\-remote\-only
+Keep no copy on this server: a scheduled dump is deleted once every \-\-to destination holds it (for a small disk). A dump that could not be sent everywhere stays.
 .TP
 .B \-\-disable
 Keep the settings but install no timer.
@@ -5685,6 +5703,37 @@ Print the keys as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust db limits
+Show the limits of an engine on this host, or set them.
+.TP
+.B Arguments
+.br
+\fIengine\fR
+.TP
+.B \-\-memory
+Memory the engine may use: 4096, 512m or 4g. The kernel kills it above.
+.TP
+.B \-\-cpus
+Processors it may use: 0.5, 2 or 3.5.
+.TP
+.B \-\-swap
+Swap it may use besides its memory, in megabytes; 0 gives it none.
+.TP
+.B \-\-tasks
+Processes and threads it may have (256 or more).
+.TP
+.B \-\-remove
+Take a limit away; repeat it for several.
+.TP
+.B \-\-yes, \-y
+Accept a memory limit below what the engine uses now.
+.TP
+.B \-\-json
+Print the limits or the outcome as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust db link
 Give an application a database's connection string, and restart it.
 .TP
@@ -6266,6 +6315,88 @@ No description. Default: 20.
 .TP
 .B \-\-json
 Print them as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust db sqlite
+The SQLite databases an application keeps: list, check and copy them.
+
+.SS noust db sqlite check
+Ask SQLite whether a database is sound. Changes nothing.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIpath\fR
+.TP
+.B \-\-full
+Run integrity_check, which also checks every index against its table; slower.
+.TP
+.B \-\-budget
+Seconds after which a check stops where it is and says so. Default: 30.0.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the result as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust db sqlite copy
+Copy a database, consistently, while the application runs.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIpath\fR
+.TP
+.B \-\-output, \-o
+The file to write. It must not exist; it is created private (0600).
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the copy as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust db sqlite list
+List the SQLite databases applications keep, in their data directories.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the databases as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -10458,8 +10589,11 @@ Scheduled bundles to keep here, or 'none'. Default: 7.
 .B \-\-keep\-days
 Days to keep one here, or 'none'. Default: 30.
 .TP
+.B \-\-keep\-gb
+The most the scheduled backups kept here may weigh together, in gigabytes, or 'none'. The newest always stays, whatever its size. Default: none.
+.TP
 .B \-\-to
-Send each bundle to this destination, keeping COUNT and DAYS there. Repeatable.
+Send each bundle to this destination, keeping COUNT, DAYS and GB there. Repeatable.
 .TP
 .B \-\-keep\-passphrase
 Keep the passphrase already stored instead of asking for one.

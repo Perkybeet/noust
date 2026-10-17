@@ -2903,7 +2903,7 @@ Manage remote backup destinations (rclone).
 noust backup destination [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`add`](#noust-backup-destination-add), [`list`](#noust-backup-destination-list), [`remove`](#noust-backup-destination-remove), [`show-key`](#noust-backup-destination-show-key), [`test`](#noust-backup-destination-test), [`update`](#noust-backup-destination-update)
+Subcommands: [`add`](#noust-backup-destination-add), [`list`](#noust-backup-destination-list), [`protect`](#noust-backup-destination-protect), [`remove`](#noust-backup-destination-remove), [`show-key`](#noust-backup-destination-show-key), [`test`](#noust-backup-destination-test), [`update`](#noust-backup-destination-update)
 
 ### noust backup destination add
 
@@ -2917,7 +2917,7 @@ Arguments: `name`
 
 | Option | What it does | Default |
 |---|---|---|
-| `--type` | Backend: sftp, smb, webdav, s3, b2, drive, onedrive, dropbox, pcloud, local. |  |
+| `--type` | Backend: sftp, smb, ftp, webdav, s3, b2, azureblob, gcs, drive, onedrive, dropbox, box, pcloud, local. |  |
 | `--field` | A non-secret field, repeatable (host, user, port, path...). |  |
 | `--stdin` | Read the backend's secret field (password, key or token) from standard input. |  |
 | `--prompt` | Prompt for the backend's secret field without echoing it, twice. |  |
@@ -2936,6 +2936,18 @@ noust backup destination list [OPTIONS]
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print the destinations as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust backup destination protect
+
+Encrypt the credentials of the destinations made before they were.
+
+```
+noust backup destination protect [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust backup destination remove
@@ -3159,6 +3171,7 @@ Arguments: `domain`
 | `--schedule` | hourly, daily, weekly, monthly, or a systemd OnCalendar expression. | `daily` |
 | `--retention-count` | Keep at most this many of the backups this schedule makes (default: 7). 'default' leaves backup.max_per_app in charge, over every backup, as 2.1 did. |  |
 | `--retention-days` | Delete this schedule's own backups older than this many days (default: 30). 'none' sets no age limit. |  |
+| `--retention-gb` | The most the scheduled backups kept here may weigh together, in gigabytes, or 'none'. The newest always stays, whatever its size. | `none` |
 | `--destination` | Push each backup to this remote destination, with its own retention. Repeatable. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
@@ -3206,6 +3219,7 @@ Arguments: `domain`
 | `--schedule` | hourly, daily, weekly, monthly, or a systemd OnCalendar expression. | `daily` |
 | `--retention-count` | Keep at most this many of the backups this schedule makes. Kept as it is when not given; 'default' leaves backup.max_per_app in charge. |  |
 | `--retention-days` | Delete this schedule's own backups older than this many days. Kept as it is when not given; 'none' sets no age limit. |  |
+| `--retention-gb` | The most the scheduled backups kept here may weigh together, in gigabytes, or 'none'. The newest always stays, whatever its size. Kept as it is when not given. |  |
 | `--destination` | Push each backup to this remote destination, with its own retention. Repeatable. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
@@ -3405,7 +3419,8 @@ Arguments: `domain`
 | `--path` | Also back up this data directory. Repeatable. |  |
 | `--keep` | Scheduled backups to keep per target, or 'none'. | `7` |
 | `--keep-days` | Days to keep one, or 'none'. | `30` |
-| `--to` | Send each backup to this destination, keeping COUNT and DAYS there. Repeatable. |  |
+| `--keep-gb` | The most the scheduled backups kept here may weigh together, in gigabytes, or 'none'. The newest always stays, whatever its size. | `none` |
+| `--to` | Send each backup to this destination, keeping COUNT, DAYS and GB there. Repeatable. |  |
 | `--consistency` | live, pause (freeze the application for the copy) or stop. | `live` |
 | `--disable` | Keep the settings but install no timer. |  |
 | `--json` | Print the policy as JSON. |  |
@@ -4242,7 +4257,7 @@ Install engines, and manage databases, users, backups and application links.
 noust db [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`access`](#noust-db-access), [`adopt`](#noust-db-adopt), [`backup`](#noust-db-backup), [`backup-delete`](#noust-db-backup-delete), [`backup-push`](#noust-db-backup-push), [`backup-remote`](#noust-db-backup-remote), [`backup-run`](#noust-db-backup-run), [`backup-schedule`](#noust-db-backup-schedule), [`backup-verify`](#noust-db-backup-verify), [`backups`](#noust-db-backups), [`catalog`](#noust-db-catalog), [`choices`](#noust-db-choices), [`config`](#noust-db-config), [`connect`](#noust-db-connect), [`connect-info`](#noust-db-connect-info), [`connection-string`](#noust-db-connection-string), [`create`](#noust-db-create), [`describe`](#noust-db-describe), [`drop`](#noust-db-drop), [`engines`](#noust-db-engines), [`explain`](#noust-db-explain), [`export`](#noust-db-export), [`exposure`](#noust-db-exposure), [`extension`](#noust-db-extension), [`fix-owner`](#noust-db-fix-owner), [`forget`](#noust-db-forget), [`grant`](#noust-db-grant), [`history`](#noust-db-history), [`import`](#noust-db-import), [`info`](#noust-db-info), [`install`](#noust-db-install), [`instance`](#noust-db-instance), [`key`](#noust-db-key), [`keys`](#noust-db-keys), [`link`](#noust-db-link), [`links`](#noust-db-links), [`list`](#noust-db-list), [`metrics`](#noust-db-metrics), [`move`](#noust-db-move), [`provision`](#noust-db-provision), [`public`](#noust-db-public), [`query`](#noust-db-query), [`restart`](#noust-db-restart), [`restore`](#noust-db-restore), [`restore-remote`](#noust-db-restore-remote), [`revoke`](#noust-db-revoke), [`row`](#noust-db-row), [`rows`](#noust-db-rows), [`saved`](#noust-db-saved), [`settings`](#noust-db-settings), [`slow-queries`](#noust-db-slow-queries), [`start`](#noust-db-start), [`status`](#noust-db-status), [`stop`](#noust-db-stop), [`tables`](#noust-db-tables), [`uninstall`](#noust-db-uninstall), [`unlink`](#noust-db-unlink), [`user-create`](#noust-db-user-create), [`user-delete`](#noust-db-user-delete), [`user-list`](#noust-db-user-list), [`user-password`](#noust-db-user-password)
+Subcommands: [`access`](#noust-db-access), [`adopt`](#noust-db-adopt), [`backup`](#noust-db-backup), [`backup-delete`](#noust-db-backup-delete), [`backup-push`](#noust-db-backup-push), [`backup-remote`](#noust-db-backup-remote), [`backup-run`](#noust-db-backup-run), [`backup-schedule`](#noust-db-backup-schedule), [`backup-verify`](#noust-db-backup-verify), [`backups`](#noust-db-backups), [`catalog`](#noust-db-catalog), [`choices`](#noust-db-choices), [`config`](#noust-db-config), [`connect`](#noust-db-connect), [`connect-info`](#noust-db-connect-info), [`connection-string`](#noust-db-connection-string), [`create`](#noust-db-create), [`describe`](#noust-db-describe), [`drop`](#noust-db-drop), [`engines`](#noust-db-engines), [`explain`](#noust-db-explain), [`export`](#noust-db-export), [`exposure`](#noust-db-exposure), [`extension`](#noust-db-extension), [`fix-owner`](#noust-db-fix-owner), [`forget`](#noust-db-forget), [`grant`](#noust-db-grant), [`history`](#noust-db-history), [`import`](#noust-db-import), [`info`](#noust-db-info), [`install`](#noust-db-install), [`instance`](#noust-db-instance), [`key`](#noust-db-key), [`keys`](#noust-db-keys), [`limits`](#noust-db-limits), [`link`](#noust-db-link), [`links`](#noust-db-links), [`list`](#noust-db-list), [`metrics`](#noust-db-metrics), [`move`](#noust-db-move), [`provision`](#noust-db-provision), [`public`](#noust-db-public), [`query`](#noust-db-query), [`restart`](#noust-db-restart), [`restore`](#noust-db-restore), [`restore-remote`](#noust-db-restore-remote), [`revoke`](#noust-db-revoke), [`row`](#noust-db-row), [`rows`](#noust-db-rows), [`saved`](#noust-db-saved), [`settings`](#noust-db-settings), [`slow-queries`](#noust-db-slow-queries), [`sqlite`](#noust-db-sqlite), [`start`](#noust-db-start), [`status`](#noust-db-status), [`stop`](#noust-db-stop), [`tables`](#noust-db-tables), [`uninstall`](#noust-db-uninstall), [`unlink`](#noust-db-unlink), [`user-create`](#noust-db-user-create), [`user-delete`](#noust-db-user-delete), [`user-list`](#noust-db-user-list), [`user-password`](#noust-db-user-password)
 
 ### noust db access
 
@@ -4408,10 +4423,11 @@ Arguments: `database`
 | `--schedule` | hourly, daily, weekly, monthly or a systemd OnCalendar expression. | `daily` |
 | `--keep` | Scheduled dumps to keep here, or 'none'. Dumps taken by hand are never deleted. | `7` |
 | `--keep-days` | Days to keep a scheduled dump here, or 'none'. | `30` |
-| `--keep-gb` | The most the scheduled dumps kept here may weigh together, in gigabytes, or 'none'. The newest dump always stays, whatever its size. | `none` |
+| `--keep-gb` | The most the scheduled backups kept here may weigh together, in gigabytes, or 'none'. The newest always stays, whatever its size. | `none` |
 | `--to` | Send each dump to this backup destination, keeping COUNT, DAYS and GB there. Repeatable. |  |
 | `--format` | PostgreSQL's dump format. custom (pg_dump -Fc) by default. |  |
 | `--verify-restore` | Load each dump into a temporary database, and drop it, as proof it restores. |  |
+| `--remote-only` | Keep no copy on this server: a scheduled dump is deleted once every --to destination holds it (for a small disk). A dump that could not be sent everywhere stays. |  |
 | `--disable` | Keep the settings but install no timer. |  |
 | `--json` | Print the policy as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
@@ -5220,6 +5236,27 @@ Arguments: `slot`
 | `--json` | Print the keys as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust db limits
+
+Show the limits of an engine on this host, or set them.
+
+```
+noust db limits [OPTIONS] ENGINE
+```
+
+Arguments: `engine`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--memory` | Memory the engine may use: 4096, 512m or 4g. The kernel kills it above. |  |
+| `--cpus` | Processors it may use: 0.5, 2 or 3.5. |  |
+| `--swap` | Swap it may use besides its memory, in megabytes; 0 gives it none. |  |
+| `--tasks` | Processes and threads it may have (256 or more). |  |
+| `--remove` | Take a limit away; repeat it for several. |  |
+| `--yes`, `-y` | Accept a memory limit below what the engine uses now. |  |
+| `--json` | Print the limits or the outcome as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust db link
 
 Give an application a database's connection string, and restart it.
@@ -5686,6 +5723,73 @@ Arguments: `database`
 | `--engine`, `-e` | Engine the database is on. |  |
 | `--limit` |  | `20` |
 | `--json` | Print them as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust db sqlite
+
+The SQLite databases an application keeps: list, check and copy them.
+
+```
+noust db sqlite [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`check`](#noust-db-sqlite-check), [`copy`](#noust-db-sqlite-copy), [`list`](#noust-db-sqlite-list)
+
+### noust db sqlite check
+
+Ask SQLite whether a database is sound. Changes nothing.
+
+```
+noust db sqlite check [OPTIONS] DOMAIN PATH
+```
+
+Arguments: `domain`, `path`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--full` | Run integrity_check, which also checks every index against its table; slower. |  |
+| `--budget` | Seconds after which a check stops where it is and says so. | `30.0` |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the result as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust db sqlite copy
+
+Copy a database, consistently, while the application runs.
+
+```
+noust db sqlite copy [OPTIONS] DOMAIN PATH
+```
+
+Arguments: `domain`, `path`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--output`, `-o` | The file to write. It must not exist; it is created private (0600). |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the copy as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust db sqlite list
+
+List the SQLite databases applications keep, in their data directories.
+
+```
+noust db sqlite list [OPTIONS] [DOMAIN]
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the databases as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust db start
@@ -9942,7 +10046,8 @@ noust self-backup schedule set [OPTIONS]
 | `--schedule` | hourly, daily, weekly, monthly or a systemd OnCalendar expression. | `daily` |
 | `--keep` | Scheduled bundles to keep here, or 'none'. | `7` |
 | `--keep-days` | Days to keep one here, or 'none'. | `30` |
-| `--to` | Send each bundle to this destination, keeping COUNT and DAYS there. Repeatable. |  |
+| `--keep-gb` | The most the scheduled backups kept here may weigh together, in gigabytes, or 'none'. The newest always stays, whatever its size. | `none` |
+| `--to` | Send each bundle to this destination, keeping COUNT, DAYS and GB there. Repeatable. |  |
 | `--keep-passphrase` | Keep the passphrase already stored instead of asking for one. |  |
 | `--disable` | Keep the settings but install no timer. |  |
 | `--passphrase-file` | Read the passphrase from this file (mode 600), not from a prompt. |  |

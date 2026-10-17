@@ -574,7 +574,7 @@ class TestRedisInAContainer:
         (call,) = fleet.calls
         assert call[3:5] == ("-e", "REDISCLI_AUTH")
         assert fleet.envs[0] == {"REDISCLI_AUTH": REDIS_PASSWORD}
-        assert "redis-cli,valkey-cli" in call
+        assert "redis-cli,valkey-cli,keydb-cli" in call
         no_secret_in_any_argv(fleet)
 
     def test_a_snapshot_restore_says_how_instead(self, instances, tmp_path: Path) -> None:

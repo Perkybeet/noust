@@ -349,6 +349,62 @@ SPECS: dict[str, EngineSpec] = {
             ),
             data_path=_fixed("/data"),
         ),
+        # KeyDB speaks Redis's protocol and keeps its files (it is a fork of Redis 6.2), so
+        # the Redis manager drives it as it drives Valkey. It is container-only: no
+        # distribution packages it, so it has no row in the host's install table, and the
+        # label names it. Its project has published nothing since 6.3.4 (October 2023):
+        # the image is the one the project itself publishes for both processors, under the
+        # tag ``latest``, which is why the pin names that tag and no other.
+        EngineSpec(
+            flavour="keydb",
+            engine="redis",
+            repository="eqalpha/keydb",
+            container_port=6379,
+            min_memory_mb=64,
+            default_memory_mb=256,
+            pins=(
+                ImagePin(
+                    "6.3",
+                    "sha256:6537505c42355ca1f571276bddf83f5b750f760f07b2a185a676481791e388ac",
+                    default=True,
+                    tag="latest",
+                ),
+            ),
+            data_path=_fixed("/data"),
+            label="KeyDB",
+        ),
+        # ClickHouse is container-only too: its project publishes packages, but Noust runs it
+        # from the image so that its version, its memory and its backups are the instance's,
+        # like every other engine's beside the host's. The versions are the long-term ones
+        # (March and August releases). Applications reach it by its HTTP interface, so that
+        # is the port the instance publishes; the client inside the container uses the
+        # native one.
+        EngineSpec(
+            flavour="clickhouse",
+            engine="clickhouse",
+            repository="clickhouse/clickhouse-server",
+            container_port=8123,
+            min_memory_mb=1024,
+            default_memory_mb=2048,
+            pins=(
+                ImagePin(
+                    "25.8",
+                    "sha256:0152dd511befe6a2c2ef53e930726179669b08116da78500b37c51c96ff5ee77",
+                ),
+                ImagePin(
+                    "26.3",
+                    "sha256:5637f7b3024c95ee94b8e4c1255c90c8151618088c5549cc77b886786a86beb0",
+                ),
+                ImagePin(
+                    "26.8",
+                    "sha256:6ded2b2c2f2c46f12784bd8000c75f8aa7363372ed64afccaa932456b8cb41e4",
+                    default=True,
+                ),
+            ),
+            data_path=_fixed("/var/lib/clickhouse"),
+            extra_volumes=("/var/log/clickhouse-server",),
+            label="ClickHouse",
+        ),
         EngineSpec(
             flavour="mongodb",
             engine="mongodb",

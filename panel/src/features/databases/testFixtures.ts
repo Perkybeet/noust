@@ -11,6 +11,7 @@ import type {
   DatabaseOverview,
   Engine,
   EngineCatalog,
+  EngineLimits,
   EngineSettings,
   PolicyList,
 } from "../../api/queries/databases";
@@ -84,6 +85,7 @@ export const POLICY: BackupPolicy = {
   schedule_alias: "daily",
   retention_count: 7,
   retention_days: 30,
+  remote_only: false,
   destinations: [{ name: "offsite-sftp", retention_count: 30, retention_days: 90, exists: true, encrypted: false }],
   dump_format: null,
   verify_restore: true,
@@ -242,6 +244,22 @@ export const CATALOG: EngineCatalog = {
   ],
 };
 
+/** PostgreSQL's limits on a 2 GiB, 2-processor server: none set, the kernel agreeing. */
+export const LIMITS: EngineLimits = {
+  engine: "postgresql",
+  display_name: "PostgreSQL",
+  unit: "postgresql@16-main",
+  file: "/etc/systemd/system/postgresql@16-main.service.d/90-noust-limits.conf",
+  configured: { memory_mb: null, cpus: null, swap_mb: null, tasks: null },
+  effective: { memory_mb: null, cpus: null, swap_mb: null, tasks: null },
+  enforced: { memory_mb: true, cpus: true, swap_mb: true, tasks: true },
+  memory_in_use_mb: 310,
+  server_memory_mb: 2048,
+  cpus: 2,
+  minimum_memory_mb: 256,
+  elsewhere: [],
+};
+
 /** PostgreSQL's settings on a 2 GiB, 2-processor server. */
 export const SETTINGS: EngineSettings = {
   engine: "postgresql",
@@ -365,6 +383,7 @@ export function databaseRoutes(extra: Record<string, RouteHandler> = {}): Record
     "GET /api/databases/exposure": () => json(200, { exposed: [], firewalled: [] }),
     "GET /api/databases/engines/catalog": () => json(200, CATALOG),
     "GET /api/databases/engines/postgresql/settings": () => json(200, SETTINGS),
+    "GET /api/databases/engines/postgresql/limits": () => json(200, LIMITS),
     "GET /api/jobs/active": () => json(200, { jobs: [], total: 0 }),
     [`GET ${base}/overview`]: () => json(200, OVERVIEW),
     [`GET ${base}/extensions`]: () => json(200, EXTENSIONS),

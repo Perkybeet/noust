@@ -1356,7 +1356,13 @@ def test_each_engine_keeps_its_own_name_limits_and_suffixes() -> None:
 
 def test_registry_still_resolves_every_engine() -> None:
     """The registry contract the CLI and the API depend on is unchanged."""
-    assert set(DatabaseRegistry.list_engines()) == {"mysql", "postgresql", "redis", "mongodb"}
+    assert set(DatabaseRegistry.list_engines()) == {
+        "mysql",
+        "postgresql",
+        "redis",
+        "mongodb",
+        "clickhouse",
+    }
     assert isinstance(get_db_manager("pg"), PostgresManager)
     assert isinstance(get_db_manager("mariadb"), MySQLManager)
     assert isinstance(get_db_manager("mongo"), MongoDBManager)

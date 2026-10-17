@@ -23,6 +23,7 @@ import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { formatBytes } from "../../lib/format";
 import { useNode } from "../../nodes/useNode";
+import { EngineLimits } from "./EngineLimits";
 import { engineName, engineState } from "./engines";
 
 /** The value that clears a setting from Noust's file, so the engine's own value applies. */
@@ -332,6 +333,7 @@ export function EngineSettingsPage({ engine }: { engine: string }) {
         <div className="flex min-w-0 flex-col gap-6">
           {!data.running ? <Notice title={t("databases.engineSettings.notRunningTitle", { engine: display })}>{t("databases.engineSettings.notRunning")}</Notice> : null}
           <SettingsForm engine={engine} data={data} />
+          <EngineLimits engine={engine} display={display} />
         </div>
       )}
     </DetailPage>

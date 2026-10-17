@@ -112,6 +112,7 @@ from noust.deployers.releases import (
 )
 from noust.managers.app_identity import service_account_for
 from noust.managers.docker_volumes import docker_archive_argv
+from noust.managers.retention import select_expired
 from noust.managers.service_manager import ServiceManager
 from noust.managers.source_manager import SourceError, extract_archive, git_tree_owner
 from noust.managers.sqlite_snapshot import companions_of, is_sqlite
@@ -202,6 +203,21 @@ SNAPSHOT_DEPLOYMENTS_KEPT = 10
 #: The tag every backup a schedule takes carries, and the only backups a
 #: schedule's own retention may delete.
 SCHEDULED_TAG = "scheduled"
+
+
+def _created(backup: BackupMetadata) -> datetime:
+    """
+    Args:
+        backup: A backup.
+
+    Returns:
+        When it was taken, as its sidecar wrote it; a sidecar that does not parse is
+        the oldest there is, so size retention never keeps it in place of a newer one.
+    """
+    try:
+        return datetime.fromisoformat(backup.created_at)
+    except ValueError:
+        return datetime.min
 
 
 def server_id() -> str:
@@ -1402,6 +1418,7 @@ class BackupManager:
         retention_tag: str | None = None,
         protect: Collection[str] = (),
         include_stack_databases: bool = False,
+        retention_bytes: int | None = None,
     ) -> BackupMetadata:
         """
         Create a self-contained backup of an application.
@@ -1425,6 +1442,8 @@ class BackupManager:
             redis_method: Redis backup method ("rdb" or "aof").
             retention_count: Max backups to keep (overrides the default).
             retention_days: Max age in days for backups.
+            retention_bytes: The most the backups the rotation may delete weigh
+                together; the newest always stays.
             tags: Optional tags for the backup.
             pre_backup_hook: Optional command to run before the backup.
             retention_tag: Apply ``retention_count``/``retention_days`` only
@@ -1476,6 +1495,7 @@ class BackupManager:
                 retention_tag=retention_tag,
                 protect=protect,
                 include_stack_databases=include_stack_databases,
+                retention_bytes=retention_bytes,
             )
 
     def _create_locked(
@@ -1497,6 +1517,7 @@ class BackupManager:
         retention_tag: str | None,
         protect: Collection[str],
         include_stack_databases: bool = False,
+        retention_bytes: int | None = None,
     ) -> BackupMetadata:
         """
         Do what :meth:`create` promises, with the application's lock held.
@@ -1518,6 +1539,7 @@ class BackupManager:
             retention_tag: See :meth:`create`.
             protect: See :meth:`create`.
             include_stack_databases: See :meth:`create`.
+            retention_bytes: See :meth:`create`.
 
         Returns:
             See :meth:`create`.
@@ -1704,11 +1726,12 @@ class BackupManager:
                 details=str(exc),
             ) from exc
 
-        if retention_count is not None or retention_days is not None:
+        if retention_count is not None or retention_days is not None or retention_bytes:
             self.rotate_by_policy(
                 app_name,
                 max_count=retention_count or self.max_backups,
                 max_age_days=retention_days,
+                max_bytes=retention_bytes,
                 tag=retention_tag,
                 protect=protect,
             )
@@ -3230,9 +3253,10 @@ class BackupManager:
         *,
         tag: str | None = None,
         protect: Collection[str] = (),
+        max_bytes: int | None = None,
     ) -> int:
         """
-        Rotate backups by count and/or age.
+        Rotate backups by count, age and/or size.
 
         A deployment's snapshot and every id in ``protect`` are never deleted
         and do not count toward ``max_count``.
@@ -3245,6 +3269,8 @@ class BackupManager:
                 :data:`SCHEDULED_TAG` - and leave every other backup alone.
                 None rotates every backup of the application.
             protect: Backup ids that must never be deleted.
+            max_bytes: The most the backups left may weigh together, counting from
+                the newest back; the newest always stays.
 
         Returns:
             Number of backups deleted.
@@ -3270,6 +3296,25 @@ class BackupManager:
                     self.delete(backup.id)
                     deleted += 1
                     self.logger.debug(f"Rotated old backup (count): {backup.id}")
+                except BackupError as exc:
+                    self.logger.warning(f"Failed to rotate backup {backup.id}: {exc}")
+
+        if max_bytes:
+            remaining = self._rotation_candidates(app_name, tag=tag, protect=protect) or []
+            expired = select_expired(
+                [(b.id, _created(b)) for b in remaining],
+                count=None,
+                days=None,
+                max_bytes=max_bytes,
+                sizes={b.id: b.size_bytes for b in remaining},
+            )
+            for backup in remaining:
+                if backup.id not in expired:
+                    continue
+                try:
+                    self.delete(backup.id)
+                    deleted += 1
+                    self.logger.debug(f"Rotated old backup (size): {backup.id}")
                 except BackupError as exc:
                     self.logger.warning(f"Failed to rotate backup {backup.id}: {exc}")
 

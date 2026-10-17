@@ -39,7 +39,11 @@ from noust.core.db_instance_store import READY, UPGRADING, InstanceRecord
 from noust.core.exceptions import ValidationError
 from noust.managers.database import instance_layout as layout
 from noust.managers.database.instance_catalog import spec_for
-from noust.managers.database.instance_compose import MONGO_ADMIN, PASSWORD_VARIABLES
+from noust.managers.database.instance_compose import (
+    CLICKHOUSE_ADMIN,
+    MONGO_ADMIN,
+    PASSWORD_VARIABLES,
+)
 from noust.managers.database.instances import (
     DatabaseInstance,
     PublishedPort,
@@ -105,7 +109,10 @@ def stub_instance(record: InstanceRecord, *, state: str = "exited") -> DatabaseI
             details="The instance's row names an image that is not one the catalog offers.",
             field="image",
         )
-    settings = {"MONGO_INITDB_ROOT_USERNAME": MONGO_ADMIN} if record.flavour == "mongodb" else {}
+    settings = {
+        "mongodb": {"MONGO_INITDB_ROOT_USERNAME": MONGO_ADMIN},
+        "clickhouse": {"CLICKHOUSE_USER": CLICKHOUSE_ADMIN},
+    }.get(record.flavour, {})
     return DatabaseInstance(
         key=key_of(record),
         engine=spec.engine,

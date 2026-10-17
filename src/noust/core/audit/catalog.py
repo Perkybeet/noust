@@ -339,6 +339,10 @@ EVENTS: dict[str, EventSpec] = {
             "backup.destination.create": "A remote backup destination was added.",
             "backup.destination.update": "A remote backup destination was changed.",
             "backup.destination.delete": "A remote backup destination was removed.",
+            "backup.destination.protect": (
+                "The credentials of the remote backup destinations were encrypted on this "
+                "server's disk."
+            ),
             "volume_backup.create": "A backup of an application's data directories or volumes was taken.",
             "volume_backup.verify": "A backup of an application's data was verified.",
             "volume_backup.restore": "An application's data was restored from a volume backup.",
@@ -385,6 +389,7 @@ EVENTS: dict[str, EventSpec] = {
             "db.install": "A database engine was installed.",
             "db.uninstall": "A database engine was removed.",
             "db.settings.change": "A database engine's settings were changed.",
+            "db.limits.change": "The resource limits of a database engine on the host were changed.",
             "integration.github.manifest": "Creating a GitHub App was started.",
             "integration.github.create": "A GitHub App was created.",
             "integration.github.install": "A GitHub App installation was added.",

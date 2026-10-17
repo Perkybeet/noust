@@ -81,6 +81,7 @@ describe("the Volumes tab", () => {
       extra_paths: ["media/images"],
       retention_count: 7,
       retention_days: 30,
+      retention_gb: null,
       destinations: [{ name: "nas", retention_count: null, retention_days: null }],
       consistency: "pause",
       enabled: true,

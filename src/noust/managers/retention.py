@@ -16,9 +16,73 @@ from __future__ import annotations
 
 from collections.abc import Hashable, Mapping, Sequence
 from datetime import datetime, timedelta, timezone
-from typing import TypeVar
+from typing import Any, TypeVar
+
+from noust.core.exceptions import ValidationError
 
 Key = TypeVar("Key", bound=Hashable)
+
+#: The largest retention by size a policy accepts: a petabyte.
+MAX_RETENTION_GB = 1_000_000
+
+
+def check_gigabytes(value: Any, field_name: str) -> float | None:
+    """
+    Check a retention by size, as an operator gives it.
+
+    Args:
+        value: What the caller gave, in gigabytes.
+        field_name: The field, for the error.
+
+    Returns:
+        The value as a number, or None when the caller gave none.
+
+    Raises:
+        ValidationError: When it is not a number above zero and at most
+            :data:`MAX_RETENTION_GB`.
+    """
+    if value is None:
+        return None
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not 0 < value <= MAX_RETENTION_GB
+    ):
+        raise ValidationError(
+            f"{field_name} must be a number of gigabytes above 0 and at most {MAX_RETENTION_GB}",
+            details="Leave it empty for no limit by size. The newest backup always stays, "
+            "whatever its size.",
+            field=field_name,
+        )
+    return float(value)
+
+
+def gigabytes_to_bytes(gigabytes: float | None) -> int | None:
+    """
+    Turn a retention in gigabytes into the bytes a row stores.
+
+    Args:
+        gigabytes: The value :func:`check_gigabytes` returned.
+
+    Returns:
+        Bytes (a gigabyte is 2**30), or None for no limit.
+    """
+    return None if gigabytes is None else max(1, int(gigabytes * 1024**3))
+
+
+def with_gigabytes(stored: dict[str, Any]) -> dict[str, Any]:
+    """
+    Show a stored retention by size in gigabytes, as the API and the CLI speak it.
+
+    Args:
+        stored: A policy as its row holds it (``retention_bytes``).
+
+    Returns:
+        The same with ``retention_gb`` in place of ``retention_bytes``.
+    """
+    kept = stored.pop("retention_bytes", None)
+    stored["retention_gb"] = None if kept is None else round(kept / 1024**3, 3)
+    return stored
 
 
 def select_expired(

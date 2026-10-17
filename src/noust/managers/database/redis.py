@@ -162,7 +162,7 @@ class RedisManager(BaseDatabaseManager):
             instance: The container.
         """
         valkey = instance.flavour == "valkey"
-        self.DISPLAY_NAME = "Valkey" if valkey else "Redis"
+        self.DISPLAY_NAME = {"valkey": "Valkey", "keydb": "KeyDB"}.get(instance.flavour, "Redis")
         self.EOL_FAMILY = "valkey" if valkey else ""
 
     def _is_valkey(self) -> bool:

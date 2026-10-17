@@ -37,18 +37,25 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import secrets as _secrets_module
 import shutil
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
 from noust.core import outbound
 from noust.core.dependencies import RCLONE_DEPENDENCY, dependency_install_hint
-from noust.core.exceptions import BackupError, DependencyError, ValidationError
+from noust.core.exceptions import (
+    BackupError,
+    ConfigError,
+    DependencyError,
+    NoustError,
+    ValidationError,
+)
 from noust.core.fs import SECRET_DIR_MODE, FileSystem, get_fs
 from noust.core.logger import Logger
 from noust.core.redact import Scrubber
@@ -64,17 +71,22 @@ from noust.managers.backup_manager import (
     backup_id_of_archive,
     server_id,
 )
+from noust.managers.retention import check_gigabytes, gigabytes_to_bytes, select_expired
 from noust.validators.names import validate_app_name
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "BACKEND_FIELDS",
     "DEFAULT_REMOTE_PATH",
+    "RCLONE_TYPES",
     "BackendField",
     "BackupDestinationManager",
     "backend_fields",
     "decode_sidecars",
     "encrypt_new_destinations",
     "parse_crypt_key",
+    "protect_credentials_at_start",
     "resolve_encryption",
     "validate_destination_name",
 ]
@@ -141,6 +153,9 @@ class BackendField:
         help: One line of guidance, shown under the field.
         choices: Fixed set of values, when the field is a choice rather than
             free text; empty for free text.
+        strict: The choices are the only values rclone accepts (a boolean), so
+            another one is refused here instead of failing at the first backup.
+            A provider or a vendor is a suggestion and stays free text.
     """
 
     key: str
@@ -151,6 +166,7 @@ class BackendField:
     placeholder: str = ""
     help: str = ""
     choices: tuple[str, ...] = ()
+    strict: bool = False
 
 
 #: One field every backend shares: where under the remote backups are written.
@@ -219,6 +235,9 @@ BACKEND_FIELDS: dict[str, list[BackendField]] = {
                 "Minio",
                 "Hetzner",
                 "Scaleway",
+                "DigitalOcean",
+                "IDrive",
+                "Ceph",
                 "Other",
             ),
         ),
@@ -269,8 +288,73 @@ BACKEND_FIELDS: dict[str, list[BackendField]] = {
             help='Run "rclone authorize pcloud" on your own machine and paste the JSON it prints.',
         ),
     ],
+    "azureblob": [
+        BackendField(
+            "account",
+            "Storage account",
+            required=True,
+            help="The storage account's name, as the Azure portal shows it.",
+        ),
+        BackendField(
+            "key",
+            "Account key",
+            secret=True,
+            required=True,
+            help="One of the storage account's access keys. The folder below starts with the "
+            "container: container/noust-backups.",
+        ),
+    ],
+    "gcs": [
+        BackendField(
+            "service_account_credentials",
+            "Service account key (JSON)",
+            secret=True,
+            required=True,
+            help="The JSON key of a service account that can write to the bucket "
+            "(Storage Object Admin on it). The folder below starts with the bucket: "
+            "bucket/noust-backups.",
+        ),
+        BackendField(
+            "bucket_policy_only",
+            "Uniform bucket-level access",
+            required=False,
+            choices=("true", "false"),
+            strict=True,
+            placeholder="true",
+            help="true when the bucket uses uniform bucket-level access, the default for new ones.",
+        ),
+    ],
+    "ftp": [
+        BackendField("host", "Host", required=True, help="FTP server address."),
+        BackendField("user", "User", required=True),
+        BackendField("port", "Port", required=False, placeholder="21"),
+        BackendField("pass", "Password", secret=True, obscure=True, required=True),
+        BackendField(
+            "explicit_tls",
+            "Explicit FTPS",
+            required=True,
+            choices=("true", "false"),
+            strict=True,
+            placeholder="true",
+            help="Plain FTP sends the password and the backups unencrypted: choose true unless "
+            "the server cannot do FTPS.",
+        ),
+    ],
+    "box": [
+        BackendField(
+            "token",
+            "Token",
+            secret=True,
+            required=True,
+            help='Run "rclone authorize box" on your own machine and paste the JSON it prints.',
+        ),
+    ],
     "local": [],
 }
+
+#: The name rclone knows a backend by, where it is not the name Noust uses: Google Cloud
+#: Storage is ``google cloud storage`` there, a name with spaces nobody types in a command.
+RCLONE_TYPES: dict[str, str] = {"gcs": "google cloud storage"}
 
 
 def backend_fields(backend: str) -> list[BackendField]:
@@ -344,9 +428,9 @@ def resolve_encryption(
 
 
 #: The setting of each network backend that names the host rclone connects to.
-#: The backends of a provider (B2, Drive, OneDrive, Dropbox, pCloud) have none:
+#: The backends of a provider (B2, Azure, Google Cloud, Box, Drive, OneDrive, Dropbox, pCloud) have none:
 #: the provider is the address, and a local destination makes no connection.
-_HOST_SETTING = {"sftp": "host", "smb": "host", "webdav": "url", "s3": "endpoint"}
+_HOST_SETTING = {"sftp": "host", "smb": "host", "ftp": "host", "webdav": "url", "s3": "endpoint"}
 
 
 def destination_host(backend: str, settings: dict[str, str]) -> str | None:
@@ -660,6 +744,27 @@ def _require_rclone(runner: CommandRunner) -> None:
     )
 
 
+def protect_credentials_at_start() -> int:
+    """
+    Encrypt the credentials of the destinations made before they were, when the console starts.
+
+    The one-time data migration of keeping them encrypted at rest. A failure is
+    logged and the console starts anyway: each destination is then encrypted the
+    first time a backup uses it.
+
+    Returns:
+        How many destinations it encrypted; 0 when it could not run.
+    """
+    try:
+        protected = BackupDestinationManager().protect_credentials()
+    except (NoustError, OSError) as exc:
+        logger.error("Could not encrypt the credentials of the backup destinations: %s", exc)
+        return 0
+    if protected:
+        logger.info("Encrypted the credentials of %d backup destination(s)", len(protected))
+    return len(protected)
+
+
 class BackupDestinationManager:
     """
     Create, use and remove remote backup destinations.
@@ -743,9 +848,67 @@ class BackupDestinationManager:
             stored value, sorted.
         """
         destination = self._require(name)
-        secret_values = self.secrets.read_json(_secret_namespace(name))
+        secret_values = self.secrets.read_protected_json(_secret_namespace(name))
         secret_keys = {spec.key for spec in backend_fields(destination.backend) if spec.secret}
         return sorted(key for key in secret_keys if secret_values.get(key))
+
+    def credentials_protected(self, name: str) -> bool | None:
+        """
+        Tell whether a destination's credentials are encrypted on this server's disk.
+
+        Args:
+            name: Destination name.
+
+        Returns:
+            True when they are, False when they are stored in clear (the
+            destination is from before they were encrypted), None when it
+            has none stored.
+
+        Raises:
+            BackupError: When there is no such destination.
+        """
+        self._require(name)
+        return self.secrets.is_protected(_secret_namespace(name))
+
+    def protect_credentials(self) -> list[str]:
+        """
+        Encrypt the credentials of every destination that still keeps them in clear.
+
+        What makes a destination's credentials, and the key its backups are
+        encrypted with, unreadable to whoever copies the secrets directory:
+        they are encrypted under this server's own key
+        (:meth:`~noust.core.secrets.SecretStore.write_protected_json`). A new or
+        changed destination is protected from the start; this is for the ones
+        made before, and runs by itself when the console starts and the first
+        time a destination is used. Idempotent.
+
+        Returns:
+            The names whose credentials it encrypted.
+
+        Raises:
+            ConfigError: The key cannot be made, or a credentials file is damaged.
+        """
+        protected: list[str] = []
+        for destination in self.store.list_backup_destinations():
+            if self.secrets.protect(_secret_namespace(destination.name)):
+                protected.append(destination.name)
+        return protected
+
+    def _protect_in_passing(self, name: str) -> None:
+        """
+        Encrypt one destination's credentials the first time they are used.
+
+        A destination used by a timer is protected without anyone asking. Not
+        being able to (a read-only disk, a rehearsal) never stops the upload
+        it was about to serve: the credentials are read as they are.
+
+        Args:
+            name: Destination name.
+        """
+        try:
+            self.secrets.protect(_secret_namespace(name))
+        except (OSError, ConfigError) as exc:
+            logger.warning(f"Could not encrypt the credentials of backup destination {name}: {exc}")
 
     def has_encryption_key(self, name: str) -> bool:
         """
@@ -761,7 +924,7 @@ class BackupDestinationManager:
         destination = self._require(name)
         if not destination.encrypted:
             return True
-        secret_values = self.secrets.read_json(_secret_namespace(name))
+        secret_values = self.secrets.read_protected_json(_secret_namespace(name))
         return bool(secret_values.get("crypt_password") and secret_values.get("crypt_password2"))
 
     def _require(self, name: str) -> BackupDestinationRecord:
@@ -894,7 +1057,8 @@ class BackupDestinationManager:
 
         Raises:
             BackupError: When a field name is not one the backend declares,
-                or a required field is missing on a non-partial call.
+                a required field is missing on a non-partial call, or a field
+                whose choices are strict holds another value.
         """
         specs = {spec.key: spec for spec in backend_fields(backend)}
         unknown = set(fields) - set(specs)
@@ -915,6 +1079,11 @@ class BackupDestinationManager:
                         details=spec.help or f"{spec.label} is required.",
                     )
                 continue
+            if spec.strict and raw not in spec.choices:
+                raise BackupError(
+                    f"{spec.label} must be {' or '.join(spec.choices)}, not {raw!r}",
+                    details=spec.help or f"Choose one of: {', '.join(spec.choices)}.",
+                )
             if spec.secret:
                 secret_values[key] = raw
             else:
@@ -935,7 +1104,9 @@ class BackupDestinationManager:
             The values, in no particular order.
         """
         return [
-            value for value in self.secrets.read_json(_secret_namespace(name)).values() if value
+            value
+            for value in self.secrets.read_protected_json(_secret_namespace(name)).values()
+            if value
         ]
 
     def _obscure(self, raw: str) -> str:
@@ -972,12 +1143,12 @@ class BackupDestinationManager:
                 destination. None generates whichever passphrase is missing.
         """
         namespace = _secret_namespace(name)
-        secret_values = self.secrets.read_json(namespace)
+        secret_values = self.secrets.read_protected_json(namespace)
         if crypt_key is not None:
             checked = _checked_crypt_key(crypt_key.get("password"), crypt_key.get("password2"))
             secret_values["crypt_password"] = checked["password"]
             secret_values["crypt_password2"] = checked["password2"]
-            self.secrets.write_json(namespace, secret_values)
+            self.secrets.write_protected_json(namespace, secret_values)
             return
         changed = False
         for key in ("crypt_password", "crypt_password2"):
@@ -985,7 +1156,7 @@ class BackupDestinationManager:
                 secret_values[key] = _secrets_module.token_urlsafe(32)
                 changed = True
         if changed:
-            self.secrets.write_json(namespace, secret_values)
+            self.secrets.write_protected_json(namespace, secret_values)
 
     # -- CRUD -------------------------------------------------------------
 
@@ -1038,7 +1209,7 @@ class BackupDestinationManager:
         # Before anything is written: a refused host leaves no secret behind.
         self._require_public_host(backend, settings, configuring=True)
 
-        self.secrets.write_json(_secret_namespace(validated_name), secret_values)
+        self.secrets.write_protected_json(_secret_namespace(validated_name), secret_values)
         if encrypted:
             self._ensure_crypt_secrets(validated_name, crypt_key)
 
@@ -1081,9 +1252,9 @@ class BackupDestinationManager:
 
         if secret_values:
             namespace = _secret_namespace(name)
-            current_secrets = self.secrets.read_json(namespace)
+            current_secrets = self.secrets.read_protected_json(namespace)
             current_secrets.update(secret_values)
-            self.secrets.write_json(namespace, current_secrets)
+            self.secrets.write_protected_json(namespace, current_secrets)
 
         new_encrypted = existing.encrypted if encrypted is None else encrypted
         if new_encrypted and not existing.encrypted:
@@ -1195,7 +1366,7 @@ class BackupDestinationManager:
                 f"Backup destination {name!r} is not encrypted",
                 details="There is no encryption key to show.",
             )
-        secret_values = self.secrets.read_json(_secret_namespace(name))
+        secret_values = self.secrets.read_protected_json(_secret_namespace(name))
         password = secret_values.get("crypt_password")
         password2 = secret_values.get("crypt_password2")
         if not password or not password2:
@@ -1228,10 +1399,13 @@ class BackupDestinationManager:
         # builds its environment here (rule 4).
         self._require_public_host(destination.backend, destination.settings, configuring=False)
         prefix = _env_prefix(name)
-        secret_values = self.secrets.read_json(_secret_namespace(name))
+        self._protect_in_passing(name)
+        secret_values = self.secrets.read_protected_json(_secret_namespace(name))
 
         env: dict[str, str] = {
-            f"RCLONE_CONFIG_{prefix}_TYPE": destination.backend,
+            f"RCLONE_CONFIG_{prefix}_TYPE": RCLONE_TYPES.get(
+                destination.backend, destination.backend
+            ),
             # rclone's defaults retry an unreachable server for about a minute
             # and a half; a destination that is down should say so in seconds.
             # Flags as environment, so every command gets them.
@@ -1576,6 +1750,8 @@ class BackupDestinationManager:
         retention_count: int | None,
         retention_days: int | None,
         secrets_literal: list[str],
+        *,
+        retention_bytes: int | None = None,
     ) -> list[str]:
         """
         Delete this server's own old backups of one application on a destination.
@@ -1594,6 +1770,8 @@ class BackupDestinationManager:
             retention_count: Backups to keep, newest first; None for no limit.
             retention_days: Maximum age in days; None for no limit.
             secrets_literal: Values to scrub from any error text.
+            retention_bytes: The most those backups may weigh together; None for no
+                limit.
 
         Returns:
             The backup identifiers removed.
@@ -1602,7 +1780,7 @@ class BackupDestinationManager:
             BackupError: When rclone cannot read the sidecars or delete a
                 file for a reason other than it already being gone.
         """
-        if not retention_count and not retention_days:
+        if not retention_count and not retention_days and not retention_bytes:
             return []
 
         origins = self._remote_origins(env, target_dir, secrets_literal)
@@ -1613,17 +1791,20 @@ class BackupDestinationManager:
             if backup_id and origins.get(backup_id) == own:
                 by_id[backup_id] = entry
 
-        ordered = sorted(by_id.items(), key=lambda item: _mod_time_or_min(item[1]), reverse=True)
-        cutoff = (
-            datetime.now(timezone.utc) - timedelta(days=retention_days) if retention_days else None
+        # The one rule (:func:`~noust.managers.retention.select_expired`): count, age and
+        # size, and the newest of this server's backups always stays.
+        to_delete = select_expired(
+            [(backup_id, _mod_time_or_min(entry)) for backup_id, entry in by_id.items()],
+            count=retention_count,
+            days=retention_days,
+            now=datetime.now(timezone.utc),
+            max_bytes=retention_bytes,
+            sizes={
+                backup_id: int(entry["Size"])
+                for backup_id, entry in by_id.items()
+                if isinstance(entry.get("Size"), int)
+            },
         )
-
-        to_delete: list[str] = []
-        for index, (backup_id, entry) in enumerate(ordered):
-            beyond_count = retention_count is not None and index >= retention_count
-            beyond_age = cutoff is not None and _mod_time_or_min(entry) < cutoff
-            if beyond_count or beyond_age:
-                to_delete.append(backup_id)
 
         for backup_id in to_delete:
             for suffix in (ARCHIVE_SUFFIX, ".json"):
@@ -1649,6 +1830,7 @@ class BackupDestinationManager:
         retention_count: int | None = None,
         retention_days: int | None = None,
         backup_manager: BackupManager | None = None,
+        retention_gb: float | None = None,
     ) -> dict[str, Any]:
         """
         Copy a local backup to a destination, verify it, and apply retention.
@@ -1662,6 +1844,8 @@ class BackupDestinationManager:
                 backups of this application; None applies none.
             backup_manager: Manager the local archive is read through;
                 defaults to a fresh one.
+            retention_gb: The most this server's remote backups of this application
+                may weigh together, in gigabytes; None applies none. The newest stays.
 
         Returns:
             A summary: the files uploaded, what the archive was verified by
@@ -1724,7 +1908,13 @@ class BackupDestinationManager:
 
         try:
             deleted = self._apply_remote_retention(
-                env, target_dir, entries, retention_count, retention_days, secrets_literal
+                env,
+                target_dir,
+                entries,
+                retention_count,
+                retention_days,
+                secrets_literal,
+                retention_bytes=gigabytes_to_bytes(check_gigabytes(retention_gb, "retention_gb")),
             )
         except BackupError as exc:
             raise BackupError(

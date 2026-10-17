@@ -23,9 +23,10 @@ const DISPLAY_NAMES: Readonly<Record<string, string>> = {
   mysql: "MySQL/MariaDB",
   redis: "Redis",
   mongodb: "MongoDB",
+  clickhouse: "ClickHouse",
 };
 
-export const ENGINE_ORDER: readonly string[] = ["postgresql", "mysql", "redis", "mongodb"];
+export const ENGINE_ORDER: readonly string[] = ["postgresql", "mysql", "redis", "mongodb", "clickhouse"];
 
 /** An engine's name for people: the engine's own display name when it is known. */
 export function engineName(engine: string, engines?: readonly Engine[]): string {
