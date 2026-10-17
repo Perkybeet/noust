@@ -137,7 +137,12 @@ test("shows every unit of the system, one Noust did not create read only", async
   // that does not exist at all (see useServiceRecord).
   problems.expect(/status of 404 .*\/api\/services\/postgresql$/);
   await signIn(page, consoleServer, "/server/services");
-  await expect(page.getByRole("link", { name: "postgresql" })).toHaveCount(0);
+  // Absence means something only once the list is on screen, and only for the unit's own name: the
+  // seeded backup timer of a PostgreSQL database has "postgresql" inside its name, and a count of
+  // zero taken before the rows arrive passes for the wrong reason (and fails once a page loads
+  // faster, as the second test of a worker does).
+  await expect(page.getByRole("link", { name: "noust-web", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "postgresql", exact: true })).toHaveCount(0);
 
   await page.getByRole("radio", { name: "Whole system" }).click();
   await expect(page).toHaveURL(/[?&]all=true/);
