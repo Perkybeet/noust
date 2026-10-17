@@ -782,6 +782,17 @@ class ServiceManager(BaseManager):
 
         return given
 
+    def _records_adoptions(self) -> bool:
+        """
+        Tell whether the store this manager reads can hold the record of an adopted site.
+
+        Returns:
+            False for a store of another shape (a test's spy), which records none; asked of what
+            the store can do and not of what class it is, so a stand-in for the class does not
+            matter.
+        """
+        return callable(getattr(self.store, "_transaction", None))
+
     def _adopted_units(self) -> dict[str, str]:
         """
         Name the units adopted sites run as.
@@ -792,8 +803,7 @@ class ServiceManager(BaseManager):
         """
         from noust.core.native_adoption_store import adopted_units
 
-        if not isinstance(self.store, NoustStore):
-            # A store of another shape (a test's spy) records no adoption.
+        if not self._records_adoptions():
             return {}
         try:
             return adopted_units(self.store)
@@ -1190,7 +1200,7 @@ class ServiceManager(BaseManager):
         """
         from noust.core.native_adoption_store import get_record
 
-        if not isinstance(self.store, NoustStore):
+        if not self._records_adoptions():
             return None
         try:
             record = get_record(domain, store=self.store)
