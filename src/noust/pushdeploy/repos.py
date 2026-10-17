@@ -659,7 +659,7 @@ class PushRepos:
         if self.keys.remove(domain, which) == 0:
             raise ValidationError(
                 f"{domain} has no key {which}",
-                details=f"'noust push keys {domain}' lists them.",
+                details=f"'noust push key list {domain}' lists them.",
                 field="label",
             )
         audit.record(
