@@ -49,6 +49,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import traceback
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -7132,16 +7133,24 @@ def proggest_site(text: str, *, relay: bool) -> str:
     if removed < 5:
         raise HarnessError(f"Proggest's site has {removed} ssl_ lines, expected its TLS block")
     text = _replace_once(text, "proggest.es", PROGGEST_DOMAIN, "site")
-    if relay:
-        for upstream, port, service in (
-            ("nextjs_upstream", 3001, "frontend"),
-            ("nestjs_upstream", 3000, "backend"),
-        ):
+    for upstream, port, service in (
+        ("nextjs_upstream", 3001, "frontend"),
+        ("nestjs_upstream", 3000, "backend"),
+    ):
+        pinned = f"server 127.0.0.1:{port};"
+        own = f"include /etc/nginx/noust-upstreams/{PROGGEST_APP}/{service}.servers;"
+        # Proggest's site includes Noust's servers file since it was deployed with the relay
+        # (2026-10-03); before, it named the port. The harness needs both: the one with the port is
+        # the operator's site before the relay (the relay refuses it and gives the line to add),
+        # the one with the include is what they then install.
+        committed = f"include /etc/nginx/noust-upstreams/proggest-es/{service}.servers;"
+        if committed in text:
+            text = _replace_once(text, committed, own if relay else pinned, "site")
+        else:
             text = _replace_once(
                 text,
-                f"upstream {upstream} {{\n    server 127.0.0.1:{port};",
-                f"upstream {upstream} {{\n    include "
-                f"/etc/nginx/noust-upstreams/{PROGGEST_APP}/{service}.servers;",
+                f"upstream {upstream} {{\n    {pinned}",
+                f"upstream {upstream} {{\n    {own if relay else pinned}",
                 "site",
             )
     header = (
@@ -7630,21 +7639,45 @@ def _proggest_by_hand(sc: Scenario, ledger: Ledger, plain_site: str) -> None:
             timeout=300,
             label=f"{PROGGEST_COMPOSE} up -d --wait postgres redis",
         )
-    # Proggest's history does not replay on an empty database: 20260407125531_fix_schema drops
-    # an index only production ever had. A new database is baselined the way Prisma documents
-    # it (the schema pushed, every migration marked applied), then deploy.sh's own step runs.
+    # Proggest's history does not replay cleanly on an empty database, and its schema cannot be
+    # pushed either: a column the migrations make as a generated one is a `dbgenerated` default in
+    # schema.prisma that names another column, which PostgreSQL refuses in a DEFAULT. So the
+    # committed SQL is replayed statement by statement with the errors counted, not stopped on
+    # (one migration drops an index only production ever had, another checks counts of rows that
+    # only production holds), and every migration is then marked applied the way Prisma
+    # documents a baseline, so deploy.sh's own step runs on a database that is up to date.
+    postgres_exec = (
+        f"docker compose -p {PROGGEST_PROJECT} -f {PROGGEST_DIR}/{PROGGEST_COMPOSE_FILE} "
+        "exec -T postgres sh -c "
+        '\'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -q -v ON_ERROR_STOP=0\''
+    )
+    replay = (
+        f"cd {PROGGEST_DIR}/packages/database/prisma/migrations && errors=0 && "
+        "for m in $(ls | grep '^[0-9]'); do "
+        f"n=$({postgres_exec} < $m/migration.sql 2>&1 >/dev/null | grep -c ERROR || true); "
+        '[ "$n" = 0 ] || { echo "$m: $n error(s)"; errors=$((errors+n)); }; '
+        'done; echo "migrations replayed, $errors statement(s) refused"'
+    )
+    with ledger.lap("replay the committed migrations on the empty database"):
+        logged(
+            sc,
+            replay,
+            log="/root/pg-replay.log",
+            label="replay every committed migration's SQL on the empty database, counting the "
+            "statements PostgreSQL refuses",
+            timeout=900,
+        )
     baseline = (
-        f"B={PROGGEST_PRISMA} && $B db push && for m in $(ls prisma/migrations | grep ^[0-9]); "
+        f"B={PROGGEST_PRISMA} && for m in $(ls prisma/migrations | grep ^[0-9]); "
         "do $B migrate resolve --applied $m >/dev/null || exit 1; done"
     )
-    with ledger.lap("baseline the empty database (db push + migrate resolve --applied x99)"):
+    with ledger.lap("mark every migration applied (migrate resolve --applied)"):
         logged(
             sc,
             f"cd {PROGGEST_DIR} && {PROGGEST_COMPOSE} run --rm --no-deps --entrypoint sh "
             f"backend -c 'cd /app && {baseline}'",
             log="/root/pg-baseline.log",
-            label="baseline the empty database: prisma db push, then migrate resolve --applied "
-            "for every committed migration",
+            label="mark every committed migration applied: prisma migrate resolve --applied",
             timeout=900,
         )
     with ledger.lap("migrations, as deploy.sh runs them"):
@@ -8692,6 +8725,20 @@ def scenario_container_railpack(sc: Scenario) -> None:
     )
     output = created.stdout + created.stderr
     try:
+        if created.returncode != 0 and "containerd image store" in output:
+            # Railpack's frontend merges layers, which only Docker's containerd image store allows;
+            # this harness runs the classic overlay2 store on a volume (the containerd one would
+            # be overlay on overlay, on the container's own root). What can be checked is that
+            # the failure says what to change.
+            sc.check(
+                "containerd-snapshotter" in output and "/etc/docker/daemon.json" in output,
+                f"a build refused for the image store does not say how to turn it on: "
+                f"{output[-600:]!r}",
+            )
+            raise ScenarioSkipped(
+                "this harness's Docker keeps the classic image store, which Railpack builds "
+                "refuse (the error names the containerd one and how to turn it on: checked)"
+            )
         if created.returncode != 0 and any(
             hint in output for hint in ("railpack-frontend", "ghcr.io", "mise", "no such host")
         ):
@@ -8725,6 +8772,17 @@ def parse_args() -> argparse.Namespace:
         default=None,
         metavar="NAME",
         help="Run only scenarios whose name contains this substring. May repeat.",
+    )
+    parser.add_argument(
+        "--reuse",
+        metavar="CONTAINER",
+        default=None,
+        help=(
+            "Run the scenarios in a harness container a previous --keep run left, instead of "
+            "starting one: this tree's wheel is installed over what it runs and the fixtures are "
+            "copied over its own, so a failing scenario is run again in seconds. The container is "
+            "left running. Only a container this harness named (NOUST_IT_PREFIX) is accepted."
+        ),
     )
     parser.add_argument(
         "--skip-wheel-build",
@@ -9548,6 +9606,41 @@ def run_install_matrix(images: list[str] | None, platform: str | None) -> int:
         remove_container(name)
 
 
+def reuse_container(name: str, wheel: Path) -> None:
+    """Make a container a previous ``--keep`` run left ready for this tree's scenarios.
+
+    The wheel goes over the installed one and the fixtures over the container's own (the
+    repositories the scenarios made under /root/fixtures stay); the inner Docker is cleared as at
+    the start of a run.
+
+    Args:
+        name: The container, one this harness named.
+        wheel: This tree's wheel, on the host.
+
+    Raises:
+        HarnessError: The name is not one of the harness's, or the container does not run.
+    """
+    if not name.startswith(f"{RESOURCE_PREFIX}-"):
+        raise HarnessError(
+            f"--reuse takes a container this harness named ({RESOURCE_PREFIX}-...), not {name!r}"
+        )
+    state = sh(["docker", "inspect", "-f", "{{.State.Running}}", name], check=False)
+    if state.stdout.strip() != "true":
+        raise HarnessError(f"{name} is not a running container")
+    print(f"[setup] reusing container {name}")
+    prepare_inner_docker(name)
+    sh(["docker", "cp", str(wheel), f"{name}:/tmp/{wheel.name}"], timeout=60)
+    docker_exec(
+        name,
+        f"/opt/noust/bin/pip install --quiet '/tmp/{wheel.name}[all]' && "
+        f"/opt/noust/bin/pip install --quiet --force-reinstall --no-deps '/tmp/{wheel.name}'",
+        timeout=PIP_INSTALL_TIMEOUT,
+    )
+    sh(["docker", "cp", f"{FIXTURES_DIR}/.", f"{name}:/root/fixtures/"], timeout=60)
+    docker_exec(name, "chown -R root:root /root/fixtures", timeout=30)
+    print(f"[setup] {docker_exec(name, 'noust --version', timeout=30).stdout.strip()} in {name}")
+
+
 def main() -> int:
     global IGNORE_REQUIREMENTS
     args = parse_args()
@@ -9592,7 +9685,7 @@ def main() -> int:
         transitional_wheel = build_transitional_wheel(workdir)
         return run_upgrade_mode(wheel, transitional_wheel, keep=args.keep)
 
-    name = random_container_name()
+    name = args.reuse or random_container_name()
     failures = 0
     attempted = 0
     skipped: list[tuple[str, str]] = []
@@ -9600,11 +9693,14 @@ def main() -> int:
 
     try:
         try:
-            start_container(name)
-            wait_for_systemd(name)
-            prepare_inner_docker(name)
-            install_noust(name, wheel)
-            install_fixtures(name)
+            if args.reuse:
+                reuse_container(name, wheel)
+            else:
+                start_container(name)
+                wait_for_systemd(name)
+                prepare_inner_docker(name)
+                install_noust(name, wheel)
+                install_fixtures(name)
             to_run = selected_scenarios(args.scenario)
         except HarnessError as exc:
             setup_error = str(exc)
@@ -9626,6 +9722,12 @@ def main() -> int:
                 except HarnessError as exc:
                     failures += 1
                     print(f"FAIL: {sc_name} (command error): {exc}")
+                except Exception:
+                    # The harness's error boundary: one scenario's own bug (a missing key, a bad
+                    # parse) is a FAIL with its traceback, and the scenarios after it still run.
+                    failures += 1
+                    print(f"FAIL: {sc_name} (the scenario itself raised)")
+                    traceback.print_exc(file=sys.stdout)
                 else:
                     print(f"PASS: {sc_name}")
                 finally:
@@ -9633,8 +9735,10 @@ def main() -> int:
                         print("--- evidence ---")
                         print("\n\n".join(sc.evidence))
     finally:
-        if args.keep:
-            print(f"\n[teardown] --keep given, leaving container {name} running")
+        if args.keep or args.reuse:
+            print(
+                f"\n[teardown] leaving container {name} running ({'--reuse' if args.reuse else '--keep'})"
+            )
         else:
             print(f"\n[teardown] removing container {name}")
             remove_container(name)
