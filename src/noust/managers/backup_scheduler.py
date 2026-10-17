@@ -58,6 +58,7 @@ from noust.core.store import BackupScheduleRecord, get_store
 from noust.core.utils import domain_to_app_name, find_noust_executable
 from noust.managers.backup_destinations import BackupDestinationManager
 from noust.managers.backup_manager import SCHEDULED_TAG, BackupManager, BackupMetadata
+from noust.managers.backup_priority import current_priority, with_priority
 from noust.managers.database.scope import ALL_DATABASES, timer_label
 from noust.validators.domain import validate_domain
 from noust.validators.names import resolve_within, validate_app_name, validate_service_name
@@ -349,9 +350,27 @@ class BackupScheduler:
         """
         return resolve_within(self.SYSTEMD_DIR, unit_name)
 
+    @staticmethod
+    def _is_backup_service(path: Path) -> bool:
+        """
+        Args:
+            path: A unit file.
+
+        Returns:
+            Whether it is the service a backup runs in (an application's schedule, a database's,
+            a volume's, the self-backup's or the point-in-time upkeep), which runs behind the
+            applications.
+        """
+        return path.suffix == ".service" and path.name.startswith(
+            (paths.BACKUP_UNIT_PREFIX, paths.LEGACY_BACKUP_UNIT_PREFIX)
+        )
+
     def _write_unit(self, path: Path, content: str) -> None:
         """
         Write a unit file as root.
+
+        The service a backup runs in is written at the priority the configuration asks for
+        (:mod:`noust.managers.backup_priority`); this is the one place, so no unit is missed.
 
         Args:
             path: Destination unit file.
@@ -360,6 +379,8 @@ class BackupScheduler:
         Raises:
             BackupError: If the file cannot be written.
         """
+        if self._is_backup_service(path):
+            content = with_priority(content, current_priority())
         try:
             self.fs.write_text(path, content, mode=_UNIT_MODE)
         except OSError as exc:
@@ -702,6 +723,44 @@ class BackupScheduler:
             remote_only=record.remote_only,
             destinations=list(record.destinations),
         )
+
+    def apply_priority(self) -> list[str]:
+        """
+        Give every backup service already on this server the priority the configuration asks for.
+
+        Units written before the priority existed, or before the operator changed it, are
+        rewritten in place; a unit that already has the block, one that is not Noust's and a
+        link are left alone. systemd is told once, when something changed.
+
+        Returns:
+            The file names of the units that were rewritten.
+
+        Raises:
+            ValidationError: A priority setting is not valid; nothing was rewritten.
+        """
+        priority = current_priority()
+        changed: list[str] = []
+        directory = self.SYSTEMD_DIR
+        if not directory.is_dir():
+            return changed
+        for prefix in (paths.BACKUP_UNIT_PREFIX, paths.LEGACY_BACKUP_UNIT_PREFIX):
+            for path in sorted(directory.glob(f"{prefix}*.service")):
+                if path.is_symlink() or not path.is_file():
+                    continue
+                try:
+                    text = path.read_text(encoding="utf-8")
+                except (OSError, UnicodeDecodeError):
+                    continue
+                if not paths.carries_unit_marker(text):
+                    continue
+                rewritten = with_priority(text, priority)
+                if rewritten == text:
+                    continue
+                self._write_unit(path, rewritten)
+                changed.append(path.name)
+        if changed:
+            self._systemctl("daemon-reload")
+        return changed
 
     # -- database policies ---------------------------------------------------
 
