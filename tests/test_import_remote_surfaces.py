@@ -363,3 +363,43 @@ class TestTheApi:
             json={"platform": "coolify", "url": "http://coolify.example.com", "token": TOKEN},
         )
         assert response.status_code == 400 and "plain http" in response.text
+
+
+class TestThereIsOneImplementation:
+    """Rule 3: the API and the command read another platform's server through the same code."""
+
+    SURFACES = ("src/noust/web/api/import_remote.py", "src/noust/cli/commands/importer.py")
+    REPOSITORY = Path(__file__).resolve().parent.parent
+
+    @pytest.mark.parametrize("surface", SURFACES)
+    def test_a_surface_opens_no_connection_of_its_own(self, surface: str) -> None:
+        source = (self.REPOSITORY / surface).read_text(encoding="utf-8")
+        for module in ("urllib", "http.client", "requests", "httpx", "socket"):
+            assert f"import {module}" not in source and f"from {module}" not in source, (
+                surface,
+                module,
+            )
+
+    @pytest.mark.parametrize("surface", SURFACES)
+    def test_a_surface_reaches_a_platform_only_through_the_one_registry(self, surface: str) -> None:
+        source = (self.REPOSITORY / surface).read_text(encoding="utf-8")
+        assert "REMOTE_PLATFORMS" in source and ".connect(" in source, surface
+        # Neither names a platform's module: adding one is a line in the registry, not in a surface.
+        assert "importers.coolify" not in source and "importers.dokploy" not in source, surface
+
+    def test_the_client_and_each_platform_are_defined_once(self) -> None:
+        importers = self.REPOSITORY / "src/noust/deployers/importers"
+        clients = [
+            path.name
+            for path in importers.glob("*.py")
+            if "class RemoteClient" in path.read_text(encoding="utf-8")
+        ]
+        assert clients == ["remote.py"]
+        for platform in ("coolify", "dokploy"):
+            listings = [
+                path.relative_to(self.REPOSITORY).as_posix()
+                for path in (self.REPOSITORY / "src/noust").rglob("*.py")
+                if "def list_applications" in path.read_text(encoding="utf-8")
+                and path.stem == platform
+            ]
+            assert listings == [f"src/noust/deployers/importers/{platform}.py"]
