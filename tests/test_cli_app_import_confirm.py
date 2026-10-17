@@ -218,7 +218,7 @@ def test_the_import_job_deploys_with_the_health_check_and_audits_cron_jobs(
             App(domain=kwargs["domain"], app_type="nodejs", port=3100, app_path=str(tmp_path))
         )
 
-    monkeypatch.setattr(api_module, "deploy_app_job", deploy_app_job)
+    monkeypatch.setattr("noust.web.jobs.deploy_app_job", deploy_app_job)
     with caplog.at_level(logging.INFO, logger="noust.audit"):
         api_module.import_app_job(plan, actor="token:ops")
 

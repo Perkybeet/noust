@@ -322,3 +322,86 @@ def test_create_hands_an_imports_marks_and_limits_to_the_deployer(
     assert imported["env_vars"] == {"APP_NAME": "Shop"}
     assert imported["env_secret_marks"] == {"APP_NAME": False}
     assert imported["memory_max_mb"] == 512 and imported["resource_limits_given"] is True
+
+
+def test_import_hands_the_files_and_the_container_to_the_deploy(
+    store: NoustStore, tmp_path: Path, created: list[dict[str, Any]], log: list[str]
+) -> None:
+    """The terminal's import asks `noust create` for the same things the console's job is asked."""
+    document = {
+        "format": "wasm-app",
+        "version": 1,
+        "app": {"domain": DOMAIN, "app_type": "nodejs", "source": "https://github.com/acme/s.git"},
+        "mounts": [
+            {
+                "kind": "file",
+                "target": "config/production.json",
+                "mode": "640",
+                "content": '{"a": 1}\n',
+            }
+        ],
+    }
+    path = tmp_path / "doc.json"
+    path.write_text(json.dumps(document))
+
+    result = invoke(["app", "import", str(path), "--domain", "copy.example.com", "-y"])
+
+    assert result.exit_code == 0, result.output
+    [call] = created
+    assert call["seed_files"] == {"config/production.json": '{"a": 1}\n'}
+    assert call["seed_modes"] == {"config/production.json": 0o640}
+    assert call["container"] is None
+
+
+def test_import_creates_a_container_with_the_settings_of_the_export(
+    store: NoustStore, tmp_path: Path, created: list[dict[str, Any]], log: list[str]
+) -> None:
+    document = {
+        "format": "wasm-app",
+        "version": 1,
+        "app": {"domain": DOMAIN, "app_type": "container", "source": "nginx:1.27"},
+        "container": {"method": "image", "image": "nginx:1.27", "command": ["nginx", "-q"]},
+    }
+    path = tmp_path / "doc.json"
+    path.write_text(json.dumps(document))
+
+    result = invoke(["app", "import", str(path), "--domain", "copy.example.com", "-y"])
+
+    assert result.exit_code == 0, result.output
+    [call] = created
+    assert call["container"]["image"] == "nginx:1.27"
+    assert call["container"]["command"] == ["nginx", "-q"]
+
+
+def test_create_hands_the_seeded_files_to_the_deployer(
+    store: NoustStore, monkeypatch: pytest.MonkeyPatch, log: list[str]
+) -> None:
+    from noust.cli.commands import webapp
+
+    configured: list[dict[str, Any]] = []
+
+    class Spy:
+        def configure(self, **kwargs: Any) -> None:
+            configured.append(kwargs)
+
+        def deploy(self) -> bool:
+            return True
+
+    monkeypatch.setattr(webapp, "get_deployer", lambda app_type, verbose=False: Spy())
+    monkeypatch.setattr(webapp, "check_deployment_ready", lambda **_: (True, [], []))
+    common = {"logger": Logger(), "source": "https://github.com/acme/shop.git", "port": 3100}
+
+    assert webapp._create_app(domain="plain.example.com", **common) == 0
+    assert (
+        webapp._create_app(
+            domain="seeded.example.com",
+            seed_files={"a.conf": "x"},
+            seed_modes={"a.conf": 0o600},
+            **common,
+        )
+        == 0
+    )
+
+    plain, seeded = configured
+    assert "seed_files" not in plain
+    assert seeded["seed_files"] == {"a.conf": "x"} and seeded["seed_modes"] == {"a.conf": 0o600}

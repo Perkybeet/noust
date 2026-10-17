@@ -244,6 +244,8 @@ def _create_app(
     database_instance: str | None = None,
     no_cache: bool = False,
     registry_logins: tuple[str, ...] = (),
+    seed_files: dict[str, str] | None = None,
+    seed_modes: dict[str, int] | None = None,
 ) -> int:
     """
     Deploy an application.
@@ -301,6 +303,9 @@ def _create_app(
         registry_logins: Registry accounts (``noust registry add``) to log in
             for the first deployment of a Docker Compose or container
             application, and to attach to it once it exists (``--registry``).
+        seed_files: Text of files that must be in place before the first start, by path
+            relative to the application (an import's mounted files); written once.
+        seed_modes: Their permissions.
 
     Returns:
         Exit code.
@@ -417,6 +422,9 @@ def _create_app(
         options["no_cache"] = True
     if registry_logins:
         options["registry_logins"] = list(registry_logins)
+    if seed_files:
+        options["seed_files"] = dict(seed_files)
+        options["seed_modes"] = dict(seed_modes or {})
     databases = DatabaseService(logger=logger) if database is not None else None
     new_database = None
     if databases is not None and database is not None:

@@ -342,6 +342,41 @@ Over the API: `GET`, `PUT` and `DELETE /api/apps/{domain}/mounts`, and `GET .../
 which needs the permission that reveals secrets (`secrets.reveal`) because a mounted file may be
 one. In the console it is **Mounts** in the application's settings.
 
+### Mounts in an export, a clone and a copy to another server
+
+The mounts travel with the application. `noust app export` writes them in a `mounts` section,
+`noust app import` and `noust app clone` make them again, and `noust fleet placement copy` (and the
+console's copy to another server) carries the same document, so a copy has the files its original
+has. What each part of the document says:
+
+- **A file** is its target, its mode and its text. The text may hold a token, so it is treated like
+  a secret variable: it is in the document only with `--with-secrets` (in sudo mode over the API),
+  and `null` with `"secret": true` otherwise. Reading it for the document is audited like any read
+  of a mounted file. A file that is not on the disk, is not text, or would take the document past
+  its size (about 600 KB of text in all) is named with a `note` that says why and the command to
+  copy it by hand, never cut.
+- **A path of the server** is its source, its target and whether it is read-only. The other server
+  must have the path: one it does not have, or one that is the server's own state, is skipped and
+  said so. A document that binds paths asks for a yes before it is imported, because a container
+  that writes there changes the server.
+- **When it exists.** A file is written before the application's first start, in `shared/` (or in
+  the tree in place), so an application that cannot start without its configuration still passes
+  its first health check; the import then records it as a mount. A container is bound to its
+  mounts when its compose file is written and a monorepo has no `shared/` to seed, so for those
+  two the mounts are made after the first start and the import says to run `noust update APP`
+  (container) or `noust service restart APP` (monorepo) to use them.
+- **What is not in it.** An export without `--with-secrets` lists each file as skipped with
+  `noust app mount file APP TARGET --from FILE --mode MODE` to give it afterwards. A type that
+  takes no mounts (a static site, a Compose stack) skips them with the reason.
+
+A container application's **settings** (image or Dockerfile, command and entrypoint, port, volumes,
+restart policy, build arguments) are in the same document, in a `container` section, so an imported
+container is created the way its original was. Its registry password and the values of its build
+secrets are Noust's own credentials and never go in: the registry account and the ids of the secrets
+are named, and the import lists each as skipped with the `noust app container set` command that
+gives it back. A clone takes the files of the original. A container is not cloned (it is on the
+in-place layout, which a clone refuses), so a clone never binds the paths of the original.
+
 ## Files
 
 The files of an application, from the console or the command line, as the application's own

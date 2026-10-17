@@ -2088,6 +2088,8 @@ def deploy_app_job(
     container: dict[str, Any] | None = None,
     build_document: str | None = None,
     env_audience: dict[str, str] | None = None,
+    seed_files: dict[str, str] | None = None,
+    seed_modes: dict[str, int] | None = None,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
     """
@@ -2164,6 +2166,9 @@ def deploy_app_job(
         env_audience: Name to ``build`` or ``runtime`` for the variables that
             are not for both the build and the running application; a
             ``build`` one is written to no file the unit loads.
+        seed_files: Text of files that must be in place before the first start, by path
+            relative to the application (an import's mounted files); written once.
+        seed_modes: Their permissions.
         job_context: Injected by the job manager.
 
     Returns:
@@ -2266,6 +2271,9 @@ def deploy_app_job(
         extra_options["build_document"] = build_document
     if env_audience:
         extra_options["env_audience"] = env_audience
+    if seed_files:
+        extra_options["seed_files"] = seed_files
+        extra_options["seed_modes"] = dict(seed_modes or {})
     deployer.configure(
         domain=domain,
         port=port,
