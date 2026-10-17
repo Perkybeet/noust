@@ -1161,7 +1161,7 @@ class BaseDeployer(AppDeployer):
             if effective in (BuildPhase.INSTALL, BuildPhase.BUILD)
             else contextlib.nullcontext()
         )
-        with interrupt:
+        with interrupt, self._env_file_for_build(effective, sandboxed=sandbox is not None):
             if stream:
                 result = self.runner.stream(
                     command,
@@ -1181,6 +1181,53 @@ class BaseDeployer(AppDeployer):
                 )
                 self.logger.command_output(result.stdout, result.stderr)
         return result
+
+    @contextlib.contextmanager
+    def _env_file_for_build(self, phase: BuildPhase, *, sandboxed: bool) -> Iterator[None]:
+        """
+        Show an install or a build the ``.env`` as a file, not as the link a release keeps.
+
+        A release's ``.env`` is a relative link into ``shared/``. A tool that copies the tree
+        keeps the link's text and so leaves it pointing at nothing: Next.js 15.5 writes its
+        standalone server that way and then copies the ``.env`` onto its own dangling copy,
+        which fails with ``ENOENT`` (found deploying Umami from its recipe). So for the length of
+        the command the link is a plain file, and the link comes back, whatever the command did.
+
+        The file holds what a loader of the ``.env`` can read: nothing in the sandbox, which
+        hands the variables over through the environment and masks the file (its content is
+        the application's secrets, which the build account cannot open), and the file's own
+        content in a build as root. A project in a subdirectory keeps its own ``.env``, and its
+        build reads that one.
+
+        Args:
+            phase: The command's phase.
+            sandboxed: Whether the command runs in the build sandbox.
+
+        Yields:
+            Nothing.
+        """
+        link = self.build_path / ".env"
+        if (
+            not self.uses_releases
+            or phase not in (BuildPhase.INSTALL, BuildPhase.BUILD)
+            or not link.is_symlink()
+        ):
+            yield
+            return
+        target = Path(os.readlink(link))
+        content = ""
+        if not sandboxed:
+            try:
+                content = link.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                content = ""
+        self.fs.remove(link)
+        self.fs.write_text(link, content, mode=0o644 if sandboxed else SECRET_MODE)
+        try:
+            yield
+        finally:
+            self.fs.remove(link)
+            self.fs.symlink(target, link)
 
     @contextlib.contextmanager
     def _in_phase(self, phase: BuildPhase) -> Iterator[None]:
