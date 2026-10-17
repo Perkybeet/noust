@@ -140,11 +140,11 @@ class CreateDestinationRequest(BaseModel):
         "one: how backups already on the destination are read from a new server. Requires "
         "encrypted.",
     )
-    verify: bool = Field(
-        default=True,
+    verify: bool | None = Field(
+        default=None,
         description="Try the connection before keeping the destination: one that does not "
-        "connect is not saved (400 destination_unreachable, with rclone's words). False keeps "
-        "one that is down on purpose, to be tried later.",
+        "connect is not saved (400 destination_unreachable, with rclone's words). Omitted or "
+        "true tries it; false keeps one that is down on purpose, to be tried later.",
     )
 
 
@@ -153,10 +153,11 @@ class UpdateDestinationRequest(BaseModel):
 
     fields: dict[str, str] = Field(default_factory=dict)
     encrypted: bool | None = None
-    verify: bool = Field(
-        default=True,
-        description="Try the connection with the new fields before keeping them; a change that "
-        "does not connect leaves the destination as it was.",
+    verify: bool | None = Field(
+        default=None,
+        description="Try the connection with the new fields before keeping them (omitted or "
+        "true); a change that does not connect leaves the destination as it was. False keeps "
+        "the change without trying it.",
     )
 
 
@@ -331,7 +332,7 @@ def create_destination(
                 data.encrypted, backend=data.backend, key_given=crypt_key is not None
             ),
             crypt_key=crypt_key,
-            verify=data.verify,
+            verify=data.verify is not False,
         )
     except BackupError as exc:
         if "could not be reached" in exc.message:
@@ -394,7 +395,7 @@ def update_destination(
     manager = BackupDestinationManager()
     try:
         destination = manager.update(
-            name, data.fields, encrypted=data.encrypted, verify=data.verify
+            name, data.fields, encrypted=data.encrypted, verify=data.verify is not False
         )
     except BackupError as exc:
         if "could not be reached" in exc.message:

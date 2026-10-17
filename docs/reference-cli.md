@@ -3689,7 +3689,7 @@ Create, inspect and restore application backups.
 noust backup [OPTIONS] [COMMAND] [ARGS]...
 ```
 
-Subcommands: [`create`](#noust-backup-create), [`delete`](#noust-backup-delete), [`destination`](#noust-backup-destination), [`drill`](#noust-backup-drill), [`drills`](#noust-backup-drills), [`encryption`](#noust-backup-encryption), [`import`](#noust-backup-import), [`info`](#noust-backup-info), [`list`](#noust-backup-list), [`push`](#noust-backup-push), [`remote-list`](#noust-backup-remote-list), [`restore`](#noust-backup-restore), [`schedule`](#noust-backup-schedule), [`storage`](#noust-backup-storage), [`verify`](#noust-backup-verify), [`volumes`](#noust-backup-volumes)
+Subcommands: [`create`](#noust-backup-create), [`delete`](#noust-backup-delete), [`destination`](#noust-backup-destination), [`drill`](#noust-backup-drill), [`drills`](#noust-backup-drills), [`encryption`](#noust-backup-encryption), [`failures`](#noust-backup-failures), [`import`](#noust-backup-import), [`info`](#noust-backup-info), [`list`](#noust-backup-list), [`priority`](#noust-backup-priority), [`push`](#noust-backup-push), [`remote-list`](#noust-backup-remote-list), [`restore`](#noust-backup-restore), [`schedule`](#noust-backup-schedule), [`storage`](#noust-backup-storage), [`sweep`](#noust-backup-sweep), [`verify`](#noust-backup-verify), [`volumes`](#noust-backup-volumes)
 
 ### noust backup create
 
@@ -3759,6 +3759,7 @@ Arguments: `name`
 | `--prompt` | Prompt for the backend's secret field without echoing it, twice. |  |
 | `--encrypt`, `--no-encrypt` | Wrap the remote in an rclone crypt backend; run 'show-key' once to keep a copy. On unless the backend is 'local' or backup.encrypt_new_destinations is false: a backup holds the .env and the database dumps, so it leaves this server encrypted unless you say --no-encrypt. |  |
 | `--key-stdin` | Encrypt with an existing key read from standard input, as 'show-key' printed it (its text, its --json, or the two passphrases on two lines). Implies --encrypt. |  |
+| `--skip-test` | Keep the destination without trying the connection first. By default one that does not connect is not saved, and an object store's bucket must exist. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust backup destination list
@@ -3846,6 +3847,7 @@ Arguments: `name`
 | `--stdin` | Read the backend's secret field from standard input. |  |
 | `--prompt` | Prompt for the backend's secret field. |  |
 | `--encrypt`, `--no-encrypt` | Turn encryption on or off. |  |
+| `--skip-test` | Keep the change without trying the connection first. By default a change that does not connect leaves the destination as it was. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust backup drill
@@ -3888,7 +3890,7 @@ Seal the backups kept on this server's disk, so a copy of the disk does not open
 noust backup encryption [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`disable`](#noust-backup-encryption-disable), [`enable`](#noust-backup-encryption-enable), [`import-key`](#noust-backup-encryption-import-key), [`rotate`](#noust-backup-encryption-rotate), [`show-key`](#noust-backup-encryption-show-key), [`status`](#noust-backup-encryption-status)
+Subcommands: [`disable`](#noust-backup-encryption-disable), [`enable`](#noust-backup-encryption-enable), [`import-key`](#noust-backup-encryption-import-key), [`rotate`](#noust-backup-encryption-rotate), [`seal-existing`](#noust-backup-encryption-seal-existing), [`show-key`](#noust-backup-encryption-show-key), [`status`](#noust-backup-encryption-status)
 
 ### noust backup encryption disable
 
@@ -3944,6 +3946,20 @@ noust backup encryption rotate [OPTIONS]
 | `--yes`, `-y` | Do not ask. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
+### noust backup encryption seal-existing
+
+Seal the backups already on this disk that were made in clear.
+
+```
+noust backup encryption seal-existing [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--yes`, `-y` | Do not ask. |  |
+| `--json` | Print the report as JSON (needs --yes: nothing is asked). |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
 ### noust backup encryption show-key
 
 Show a key (the current one by default), to keep it somewhere else.
@@ -3969,6 +3985,47 @@ noust backup encryption status [OPTIONS]
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print the status as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust backup failures
+
+Read the whole output of the backups that failed.
+
+```
+noust backup failures [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`list`](#noust-backup-failures-list), [`show`](#noust-backup-failures-show)
+
+### noust backup failures list
+
+List the backups that failed, newest first, without their output.
+
+```
+noust backup failures list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--subject` | Only the failures about this (a domain, Noust, engine/database). |  |
+| `--limit` | How many to list, newest first. | `20` |
+| `--json` | Print the list as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust backup failures show
+
+Print all that a failed backup said, the record a notice names.
+
+```
+noust backup failures show [OPTIONS] FAILURE_ID
+```
+
+Arguments: `failure_id`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--raw` | Print only the output, exactly as it was recorded. |  |
+| `--json` | Print the record, output included, as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust backup import
@@ -4019,6 +4076,59 @@ Arguments: `domain`
 | `-n`, `--limit` | Show at most this many backups. |  |
 | `--open` | Print the panel URL for the backup list, opening it if a display is available. |  |
 | `--json` | Print the backup list as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust backup priority
+
+How hard the backups lean on the server while they run: nice, disk class, CPU ceiling.
+
+```
+noust backup priority [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`apply`](#noust-backup-priority-apply), [`set`](#noust-backup-priority-set), [`show`](#noust-backup-priority-show)
+
+### noust backup priority apply
+
+Bring the backup services on this server to the configured settings.
+
+```
+noust backup priority apply [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the units that changed as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust backup priority set
+
+Change the settings and bring the backup services already on this server along.
+
+```
+noust backup priority set [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--nice` | Nice value, 0 to 19. |  |
+| `--io-class` | Disk scheduling class: best-effort, or idle (only when nothing else wants the disk). |  |
+| `--io-priority` | Priority inside best-effort: 0 first, 7 last. |  |
+| `--cpu-quota` | Ceiling in percent of one CPU (50 is half a core, 200 two), or 'none' for no ceiling. |  |
+| `--json` | Print the result as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust backup priority show
+
+Show the settings every backup service is written with.
+
+```
+noust backup priority show [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the settings as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust backup push
@@ -4101,6 +4211,8 @@ Arguments: `domain`
 | `--retention-gb` | The most the scheduled backups kept here may weigh together, in gigabytes, or 'none'. The newest always stays, whatever its size. | `none` |
 | `--destination` | Push each backup to this remote destination, with its own retention. Repeatable. |  |
 | `--remote-only` | Keep nothing on this server: delete each backup here once every destination holds it and its upload was checked. For a small disk; needs a --destination. |  |
+| `--max-runtime` | Stop a run that takes longer than this: 90m, 2h, 1d or a number of seconds (1 minute to 7 days). No limit by default. |  |
+| `--timezone` | Read the schedule in this time zone, such as Europe/Madrid (timedatectl list-timezones lists them). The server's clock by default. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust backup schedule delete
@@ -4150,6 +4262,8 @@ Arguments: `domain`
 | `--retention-gb` | The most the scheduled backups kept here may weigh together, in gigabytes, or 'none'. The newest always stays, whatever its size. Kept as it is when not given. |  |
 | `--destination` | Push each backup to this remote destination, with its own retention. Repeatable. |  |
 | `--remote-only`, `--keep-local` | Keep nothing on this server (delete each backup here once every destination holds it), or keep the local copies. Kept as it is when not given. |  |
+| `--max-runtime` | Stop a run that takes longer than this: 90m, 2h, 1d or a number of seconds (1 minute to 7 days). No limit by default. |  |
+| `--timezone` | Read the schedule in this time zone, such as Europe/Madrid (timedatectl list-timezones lists them). The server's clock by default. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust backup storage
@@ -4163,6 +4277,19 @@ noust backup storage [OPTIONS]
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print the storage usage as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust backup sweep
+
+Delete the backups beyond every policy's retention, without waiting for a run.
+
+```
+noust backup sweep [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the report as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust backup verify
@@ -4353,6 +4480,8 @@ Arguments: `domain`
 | `--remote-only` | Keep nothing on this server: delete each backup here once every destination holds it and its upload was checked. For a small disk; needs a --to. |  |
 | `--consistency` | live, pause (freeze the application for the copy) or stop. | `live` |
 | `--disable` | Keep the settings but install no timer. |  |
+| `--max-runtime` | Stop a run that takes longer than this: 90m, 2h, 1d or a number of seconds (1 minute to 7 days). No limit by default. |  |
+| `--timezone` | Read the schedule in this time zone, such as Europe/Madrid (timedatectl list-timezones lists them). The server's clock by default. |  |
 | `--json` | Print the policy as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
@@ -5470,7 +5599,7 @@ Install engines, and manage databases, users, backups and application links.
 noust db [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`access`](#noust-db-access), [`adopt`](#noust-db-adopt), [`backup`](#noust-db-backup), [`backup-delete`](#noust-db-backup-delete), [`backup-push`](#noust-db-backup-push), [`backup-remote`](#noust-db-backup-remote), [`backup-run`](#noust-db-backup-run), [`backup-schedule`](#noust-db-backup-schedule), [`backup-verify`](#noust-db-backup-verify), [`backups`](#noust-db-backups), [`catalog`](#noust-db-catalog), [`choices`](#noust-db-choices), [`config`](#noust-db-config), [`connect`](#noust-db-connect), [`connect-info`](#noust-db-connect-info), [`connection-string`](#noust-db-connection-string), [`create`](#noust-db-create), [`describe`](#noust-db-describe), [`drop`](#noust-db-drop), [`engines`](#noust-db-engines), [`explain`](#noust-db-explain), [`export`](#noust-db-export), [`exposure`](#noust-db-exposure), [`extension`](#noust-db-extension), [`fix-owner`](#noust-db-fix-owner), [`forget`](#noust-db-forget), [`grant`](#noust-db-grant), [`history`](#noust-db-history), [`import`](#noust-db-import), [`info`](#noust-db-info), [`install`](#noust-db-install), [`instance`](#noust-db-instance), [`key`](#noust-db-key), [`keys`](#noust-db-keys), [`limits`](#noust-db-limits), [`link`](#noust-db-link), [`links`](#noust-db-links), [`list`](#noust-db-list), [`metrics`](#noust-db-metrics), [`move`](#noust-db-move), [`pitr`](#noust-db-pitr), [`provision`](#noust-db-provision), [`public`](#noust-db-public), [`query`](#noust-db-query), [`replica`](#noust-db-replica), [`restart`](#noust-db-restart), [`restore`](#noust-db-restore), [`restore-remote`](#noust-db-restore-remote), [`revoke`](#noust-db-revoke), [`row`](#noust-db-row), [`rows`](#noust-db-rows), [`saved`](#noust-db-saved), [`settings`](#noust-db-settings), [`slow-queries`](#noust-db-slow-queries), [`sqlite`](#noust-db-sqlite), [`start`](#noust-db-start), [`status`](#noust-db-status), [`stop`](#noust-db-stop), [`tables`](#noust-db-tables), [`tls`](#noust-db-tls), [`uninstall`](#noust-db-uninstall), [`unlink`](#noust-db-unlink), [`user-create`](#noust-db-user-create), [`user-delete`](#noust-db-user-delete), [`user-list`](#noust-db-user-list), [`user-password`](#noust-db-user-password)
+Subcommands: [`access`](#noust-db-access), [`adopt`](#noust-db-adopt), [`backup`](#noust-db-backup), [`backup-delete`](#noust-db-backup-delete), [`backup-push`](#noust-db-backup-push), [`backup-remote`](#noust-db-backup-remote), [`backup-run`](#noust-db-backup-run), [`backup-schedule`](#noust-db-backup-schedule), [`backup-verify`](#noust-db-backup-verify), [`backups`](#noust-db-backups), [`catalog`](#noust-db-catalog), [`choices`](#noust-db-choices), [`config`](#noust-db-config), [`connect`](#noust-db-connect), [`connect-info`](#noust-db-connect-info), [`connection-string`](#noust-db-connection-string), [`create`](#noust-db-create), [`describe`](#noust-db-describe), [`drop`](#noust-db-drop), [`engines`](#noust-db-engines), [`explain`](#noust-db-explain), [`export`](#noust-db-export), [`exposure`](#noust-db-exposure), [`extension`](#noust-db-extension), [`fix-owner`](#noust-db-fix-owner), [`forget`](#noust-db-forget), [`globals`](#noust-db-globals), [`grant`](#noust-db-grant), [`history`](#noust-db-history), [`import`](#noust-db-import), [`info`](#noust-db-info), [`install`](#noust-db-install), [`instance`](#noust-db-instance), [`key`](#noust-db-key), [`keys`](#noust-db-keys), [`limits`](#noust-db-limits), [`link`](#noust-db-link), [`links`](#noust-db-links), [`list`](#noust-db-list), [`metrics`](#noust-db-metrics), [`move`](#noust-db-move), [`pitr`](#noust-db-pitr), [`provision`](#noust-db-provision), [`public`](#noust-db-public), [`query`](#noust-db-query), [`replica`](#noust-db-replica), [`restart`](#noust-db-restart), [`restore`](#noust-db-restore), [`restore-remote`](#noust-db-restore-remote), [`revoke`](#noust-db-revoke), [`row`](#noust-db-row), [`rows`](#noust-db-rows), [`saved`](#noust-db-saved), [`settings`](#noust-db-settings), [`slow-queries`](#noust-db-slow-queries), [`sqlite`](#noust-db-sqlite), [`start`](#noust-db-start), [`status`](#noust-db-status), [`stop`](#noust-db-stop), [`tables`](#noust-db-tables), [`tls`](#noust-db-tls), [`uninstall`](#noust-db-uninstall), [`unlink`](#noust-db-unlink), [`user-create`](#noust-db-user-create), [`user-delete`](#noust-db-user-delete), [`user-list`](#noust-db-user-list), [`user-password`](#noust-db-user-password)
 
 ### noust db access
 
@@ -5642,6 +5771,8 @@ Arguments: `database`
 | `--verify-restore` | Load each dump into a temporary database, and drop it, as proof it restores. |  |
 | `--remote-only` | Keep no copy on this server: a scheduled dump is deleted once every --to destination holds it (for a small disk). A dump that could not be sent everywhere stays. |  |
 | `--disable` | Keep the settings but install no timer. |  |
+| `--max-runtime` | Stop a run that takes longer than this: 90m, 2h, 1d or a number of seconds (1 minute to 7 days). No limit by default. |  |
+| `--timezone` | Read the schedule in this time zone, such as Europe/Madrid (timedatectl list-timezones lists them). The server's clock by default. |  |
 | `--json` | Print the policy as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
@@ -6004,6 +6135,59 @@ Arguments: `name`
 | Option | What it does | Default |
 |---|---|---|
 | `--engine`, `-e` | Engine the database was on. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust db globals
+
+The roles of a PostgreSQL server, which no database dump carries.
+
+```
+noust db globals [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`dump`](#noust-db-globals-dump), [`list`](#noust-db-globals-list), [`restore`](#noust-db-globals-restore)
+
+### noust db globals dump
+
+Dump the roles of the server with pg_dumpall --globals-only.
+
+```
+noust db globals dump [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--output`, `-o` | Write the file here instead of the backup directory. |  |
+| `--json` | Print the result as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust db globals list
+
+List the files of roles this server has dumped, newest first.
+
+```
+noust db globals list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the files as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust db globals restore
+
+Create the roles of a file that this server does not have.
+
+```
+noust db globals restore [OPTIONS] SOURCE
+```
+
+Arguments: `source`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--yes`, `-y` | Do not ask for confirmation. |  |
+| `--json` | Print the result as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust db grant
@@ -11892,6 +12076,8 @@ noust restore-server [OPTIONS]
 | `--skip` | Leave this application out. Repeatable. |  |
 | `--skip-state` | Noust's state is already back (a run that stopped): only bring the applications up. |  |
 | `--force` | Restore over a server that already holds state. |  |
+| `--install` | Install what this machine lacks: the web server, Docker (when an application or an instance needs it) and the database engines. Without it nothing is installed. |  |
+| `--no-databases` | Do not bring back the databases no application owns. |  |
 | `--accept-schema-changes` | Restore an application's files even past a schema change nothing restores the database for. |  |
 | `--plan` | Say what the bundle would bring back, and stop. Changes nothing. |  |
 | `--yes`, `-y` | Do not ask for confirmation. |  |
@@ -12223,6 +12409,8 @@ noust self-backup schedule set [OPTIONS]
 | `--remote-only` | Keep nothing on this server: delete each bundle here once every destination holds it and its upload was checked. For a small disk; needs a --to. |  |
 | `--keep-passphrase` | Keep the passphrase already stored instead of asking for one. |  |
 | `--disable` | Keep the settings but install no timer. |  |
+| `--max-runtime` | Stop a run that takes longer than this: 90m, 2h, 1d or a number of seconds (1 minute to 7 days). No limit by default. |  |
+| `--timezone` | Read the schedule in this time zone, such as Europe/Madrid (timedatectl list-timezones lists them). The server's clock by default. |  |
 | `--passphrase-file` | Read the passphrase from this file (mode 600), not from a prompt. |  |
 | `--json` | Print the schedule as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |

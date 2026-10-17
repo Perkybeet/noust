@@ -9661,6 +9661,297 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/backups/encryption": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Status
+         * @description Say whether new backups are sealed, with which key, and how many are on the disk each way.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The status; never a key's value.
+         */
+        get: operations["status_api_backups_encryption_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backups/encryption/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disable
+         * @description Stop sealing new backups. Every key is kept, so what was sealed still opens.
+         *
+         *     Args:
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         Whether anything was being sealed.
+         */
+        post: operations["disable_api_backups_encryption_disable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backups/encryption/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enable
+         * @description Seal every backup this server makes from now on.
+         *
+         *     Args:
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The current key's id, and whether it was made now. Backups made before stay in clear
+         *         until ``POST /seal-existing``.
+         */
+        post: operations["enable_api_backups_encryption_enable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backups/encryption/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Key
+         * @description Put back a key this server lost, from the copy kept elsewhere.
+         *
+         *     Args:
+         *         request: The id and the value.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The id; the value is never echoed.
+         *
+         *     Raises:
+         *         ValidationError: When it is not a key's id, the value is too short to be one, or the key
+         *             is already here with another value.
+         */
+        post: operations["import_key_api_backups_encryption_keys_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backups/encryption/keys/{key_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Show Key
+         * @description Show a key so it can be kept somewhere that is not this server.
+         *
+         *     Args:
+         *         key_id: The key's id, or ``current``.
+         *         response: The response, to keep the value out of every cache.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The key's id and value. The read is recorded, without the value.
+         *
+         *     Raises:
+         *         HTTPException: 404 when no key is current or this server holds no such key.
+         */
+        get: operations["show_key_api_backups_encryption_keys__key_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backups/encryption/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate
+         * @description Make a new key for the backups made from now on; the old one still opens what it sealed.
+         *
+         *     Args:
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The new key's id.
+         *
+         *     Raises:
+         *         ValidationError: When sealing is off.
+         */
+        post: operations["rotate_api_backups_encryption_rotate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backups/encryption/seal-existing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Seal Plan
+         * @description Count the backups already on the disk that sealing them would touch. Changes nothing.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         How many of each kind are in clear.
+         */
+        get: operations["seal_plan_api_backups_encryption_seal_existing_get"];
+        put?: never;
+        /**
+         * Seal Existing
+         * @description Queue sealing the backups that were already on the disk when sealing was turned on.
+         *
+         *     Args:
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job; its result is the report.
+         *
+         *     Raises:
+         *         ValidationError: When sealing is off.
+         */
+        post: operations["seal_existing_api_backups_encryption_seal_existing_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backups/failures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Failures
+         * @description List the backups that failed, newest first, without their output.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         subject: Only the failures about this.
+         *         limit: How many at most.
+         *
+         *     Returns:
+         *         The records.
+         */
+        get: operations["list_failures_api_backups_failures_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backups/failures/{failure_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Failure Detail
+         * @description Say one failed backup with all that its tool said.
+         *
+         *     Args:
+         *         failure_id: The record the notice names.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The record.
+         */
+        get: operations["failure_detail_api_backups_failures__failure_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backups/failures/{failure_id}/output": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Failure Output
+         * @description Answer all that a failed backup said, as plain text.
+         *
+         *     Args:
+         *         failure_id: The record the notice names.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The output, ``text/plain`` and never sniffed into anything else.
+         */
+        get: operations["failure_output_api_backups_failures__failure_id__output_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/backups/storage": {
         parameters: {
             query?: never;
@@ -22066,6 +22357,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/server/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore
+         * @description Queue bringing the applications and databases back, with sudo mode.
+         *
+         *     Args:
+         *         request: What to install, restore and leave out.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job; its result is the report.
+         */
+        post: operations["restore_api_server_restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/restore/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Plan Restore
+         * @description Say what restoring would do now. Changes nothing.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         from_destination: The destination a move was prepared on.
+         *
+         *     Returns:
+         *         What is missing on this machine, the roles and databases that wait, and each
+         *         application's newest backup.
+         */
+        get: operations["plan_restore_api_server_restore_plan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/server/security": {
         parameters: {
             query?: never;
@@ -29817,6 +30163,77 @@ export interface components {
             verified_by?: string | null;
         };
         /**
+         * BackupFailureDetail
+         * @description One failed backup with all that the tool said.
+         *
+         *     Attributes:
+         *         output: What the tool said, whole up to the bound (512 KiB), scrubbed of the credentials
+         *             Noust knows.
+         */
+        BackupFailureDetail: {
+            /** Command */
+            command: string;
+            /** Created At */
+            created_at: string;
+            /** Destination */
+            destination?: string | null;
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /** Output */
+            output: string;
+            /** Size */
+            size: number;
+            /** Subject */
+            subject: string;
+            /** Truncated */
+            truncated: boolean;
+        };
+        /**
+         * BackupFailureSummary
+         * @description One failed backup, without what the tool said.
+         *
+         *     Attributes:
+         *         id: The record's number, the one a notice names.
+         *         created_at: When it was recorded, UTC.
+         *         kind: ``backup`` when no backup was taken, ``upload`` when a destination refused one.
+         *         subject: What it was about: a domain, ``Noust``, ``engine/database``.
+         *         destination: The destination that refused it, for an ``upload``.
+         *         size: The output's size in bytes.
+         *         truncated: Whether the front of a very long output was cut.
+         *         command: The command that prints it.
+         */
+        BackupFailureSummary: {
+            /** Command */
+            command: string;
+            /** Created At */
+            created_at: string;
+            /** Destination */
+            destination?: string | null;
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /** Size */
+            size: number;
+            /** Subject */
+            subject: string;
+            /** Truncated */
+            truncated: boolean;
+        };
+        /**
+         * BackupFailuresResponse
+         * @description The failed backups, newest first.
+         *
+         *     Attributes:
+         *         failures: The records, without their output.
+         */
+        BackupFailuresResponse: {
+            /** Failures */
+            failures?: components["schemas"]["BackupFailureSummary"][];
+        };
+        /**
          * BackupInfo
          * @description One backup as the manager records it.
          *
@@ -30148,6 +30565,8 @@ export interface components {
          *         remote_only: Whether the server keeps nothing: each backup is deleted here once every
          *             destination holds it and its upload was checked.
          *         destinations: Remote destinations this schedule pushes to.
+         *         max_runtime_seconds: The longest a run may take; None for no limit.
+         *         timezone: The time zone the schedule is read in; None for the server's clock.
          */
         BackupScheduleInfo: {
             /** App Name */
@@ -30163,6 +30582,8 @@ export interface components {
             include_databases: boolean;
             /** Last Run */
             last_run: string;
+            /** Max Runtime Seconds */
+            max_runtime_seconds?: number | null;
             /** Next Run */
             next_run: string;
             /** On Calendar */
@@ -30182,6 +30603,8 @@ export interface components {
             schedule: string;
             /** Timer */
             timer: string;
+            /** Timezone */
+            timezone?: string | null;
         };
         /**
          * BackupSettingsResponse
@@ -33595,6 +34018,11 @@ export interface components {
              * @description Destination name; also its rclone remote name
              */
             name: string;
+            /**
+             * Verify
+             * @description Try the connection before keeping the destination: one that does not connect is not saved (400 destination_unreachable, with rclone's words). Omitted or true tries it; false keeps one that is down on purpose, to be tried later.
+             */
+            verify?: boolean | null;
         };
         /**
          * CreateEnvironmentRequest
@@ -33699,6 +34127,11 @@ export interface components {
              */
             include_databases: boolean;
             /**
+             * Max Runtime Seconds
+             * @description Stop a run that takes longer than this many seconds (1 minute to 7 days); null for no limit.
+             */
+            max_runtime_seconds?: number | null;
+            /**
              * Remote Only
              * @description Keep nothing on this server: delete each backup here once every destination holds it and its upload was checked (for a small disk). Needs a destination; a backup that could not be sent everywhere stays.
              * @default false
@@ -33727,6 +34160,11 @@ export interface components {
              * @default daily
              */
             schedule: string;
+            /**
+             * Timezone
+             * @description Read the schedule in this time zone of the server's database, such as Europe/Madrid; null for the server's clock.
+             */
+            timezone?: string | null;
         };
         /**
          * CreateServiceRequest
@@ -35361,6 +35799,20 @@ export interface components {
             username_attribute?: string | null;
         };
         /**
+         * DisableResult
+         * @description The outcome of stopping.
+         *
+         *     Attributes:
+         *         enabled: Always False.
+         *         was_enabled: Whether anything was being sealed.
+         */
+        DisableResult: {
+            /** Enabled */
+            enabled: boolean;
+            /** Was Enabled */
+            was_enabled: boolean;
+        };
+        /**
          * DiskEntry
          * @description Capacity of one filesystem.
          *
@@ -36173,6 +36625,24 @@ export interface components {
             secret_access_key_set: boolean;
         };
         /**
+         * EnableResult
+         * @description The outcome of turning sealing on.
+         *
+         *     Attributes:
+         *         enabled: Always True.
+         *         key_id: The current key; its value is shown by ``GET /keys/{key_id}``, once the operator
+         *             asks for it with sudo mode.
+         *         created: False when sealing was already on and nothing changed.
+         */
+        EnableResult: {
+            /** Created */
+            created: boolean;
+            /** Enabled */
+            enabled: boolean;
+            /** Key Id */
+            key_id: string;
+        };
+        /**
          * EncryptionKey
          * @description An encrypted destination's two passphrases, as show-key returns them.
          */
@@ -36181,6 +36651,35 @@ export interface components {
             password: string;
             /** Password2 */
             password2: string;
+        };
+        /**
+         * EncryptionStatus
+         * @description Whether backups are sealed on this server.
+         *
+         *     Attributes:
+         *         enabled: Whether new backups are sealed.
+         *         current_key: The key they are sealed with.
+         *         keys: Every key held.
+         *         sealed: Backups on the disk that are sealed.
+         *         clear: Backups on the disk that are in clear.
+         */
+        EncryptionStatus: {
+            /**
+             * Clear
+             * @default 0
+             */
+            clear: number;
+            /** Current Key */
+            current_key?: string | null;
+            /** Enabled */
+            enabled: boolean;
+            /** Keys */
+            keys?: components["schemas"]["KeyInfo"][];
+            /**
+             * Sealed
+             * @default 0
+             */
+            sealed: number;
         };
         /**
          * EngineCatalogResponse
@@ -39289,6 +39788,20 @@ export interface components {
             source?: string | null;
         };
         /**
+         * ImportKeyRequest
+         * @description A key to put back, from the copy kept elsewhere.
+         *
+         *     Attributes:
+         *         key_id: The id a backup that does not open names.
+         *         key: Its value.
+         */
+        ImportKeyRequest: {
+            /** Key */
+            key: string;
+            /** Key Id */
+            key_id: string;
+        };
+        /**
          * ImportRequest
          * @description Request to import a dump.
          *
@@ -40494,6 +41007,31 @@ export interface components {
             problems: string[];
         };
         /**
+         * KeyId
+         * @description Which key was put back.
+         *
+         *     Attributes:
+         *         key_id: Its id.
+         */
+        KeyId: {
+            /** Key Id */
+            key_id: string;
+        };
+        /**
+         * KeyInfo
+         * @description A key this server holds, without its value.
+         *
+         *     Attributes:
+         *         id: Its identifier, written in the label of every backup it sealed.
+         *         current: Whether new backups are sealed with it.
+         */
+        KeyInfo: {
+            /** Current */
+            current: boolean;
+            /** Id */
+            id: string;
+        };
+        /**
          * KeyOut
          * @description One key: its kind (``operator``, ``central``, ``restricted``, ``cloud_disabled``) and use.
          */
@@ -40549,6 +41087,20 @@ export interface components {
             ttl?: number | null;
             /** Type */
             type: string;
+        };
+        /**
+         * KeyValue
+         * @description A key's value, shown once per request.
+         *
+         *     Attributes:
+         *         key_id: Its id.
+         *         key: Its value. Keep it somewhere that is not this server.
+         */
+        KeyValue: {
+            /** Key */
+            key: string;
+            /** Key Id */
+            key_id: string;
         };
         /**
          * KeyValueResponse
@@ -48198,6 +48750,77 @@ export interface components {
             target_domain?: string | null;
         };
         /**
+         * RestorePlanResponse
+         * @description What restoring would do now. Nothing was changed.
+         *
+         *     Attributes:
+         *         requirements: The web server and Docker: ``name``, ``state`` (``present``, ``missing``
+         *             or ``failed``), ``detail`` and the ``command`` that installs it by hand.
+         *         engines_missing: The database engines the databases live on that are not installed,
+         *             each with its command.
+         *         roles: The PostgreSQL servers whose roles wait for their engine.
+         *         databases: The databases no application owns, with the dump each would be loaded from.
+         *         apps: Every application with its newest backup (``source`` is ``local`` or a
+         *             destination).
+         */
+        RestorePlanResponse: {
+            /** Apps */
+            apps?: {
+                [key: string]: unknown;
+            }[];
+            /** Databases */
+            databases?: {
+                [key: string]: unknown;
+            }[];
+            /** Engines Missing */
+            engines_missing?: {
+                [key: string]: string;
+            }[];
+            /** Requirements */
+            requirements?: {
+                [key: string]: unknown;
+            }[];
+            /** Roles */
+            roles?: string[];
+        };
+        /**
+         * RestoreRequest
+         * @description A restore to run.
+         *
+         *     Attributes:
+         *         install: Install the web server, Docker (when an application or an instance needs it)
+         *             and the database engines that are missing.
+         *         databases: Also bring back the databases no application owns.
+         *         from_destination: The destination a move was prepared on.
+         *         apps: Restore only these applications (every one when empty).
+         *         skip: Leave these applications out.
+         *         accept_schema_changes: Restore an application's files even past a schema change
+         *             nothing restores the database for.
+         */
+        RestoreRequest: {
+            /**
+             * Accept Schema Changes
+             * @default false
+             */
+            accept_schema_changes: boolean;
+            /** Apps */
+            apps?: string[];
+            /**
+             * Databases
+             * @default true
+             */
+            databases: boolean;
+            /** From Destination */
+            from_destination?: string | null;
+            /**
+             * Install
+             * @default false
+             */
+            install: boolean;
+            /** Skip */
+            skip?: string[];
+        };
+        /**
          * RestoreVolumeBackupRequest
          * @description Request to put an application's data back as a backup held it.
          *
@@ -48599,6 +49222,17 @@ export interface components {
              * @default true
              */
             propagate: boolean;
+        };
+        /**
+         * RotateResult
+         * @description The outcome of a rotation.
+         *
+         *     Attributes:
+         *         key_id: The new current key.
+         */
+        RotateResult: {
+            /** Key Id */
+            key_id: string;
         };
         /**
          * RouteFields
@@ -50119,6 +50753,32 @@ export interface components {
             updated_at?: string | null;
         };
         /**
+         * SealPlan
+         * @description What sealing the backups already there would touch.
+         *
+         *     Attributes:
+         *         applications: Application archives in clear.
+         *         data: Data backups in clear.
+         *         databases: Database dumps in clear.
+         *         pitr: Base backups of point-in-time recovery in clear.
+         *         total: The sum.
+         *         sealing: Whether new backups are sealed; a run needs it.
+         */
+        SealPlan: {
+            /** Applications */
+            applications: number;
+            /** Data */
+            data: number;
+            /** Databases */
+            databases: number;
+            /** Pitr */
+            pitr: number;
+            /** Sealing */
+            sealing: boolean;
+            /** Total */
+            total: number;
+        };
+        /**
          * SecondFactorRequest
          * @description The second step of an account's sign-in.
          *
@@ -50625,6 +51285,10 @@ export interface components {
          *         verify_restore: Load each dump into a temporary database and drop it
          *             as proof it restores. Not available for Redis.
          *         enabled: Whether the timer runs; a disabled policy keeps its settings.
+         *         max_runtime_seconds: The longest a run may take; systemd stops one past it. Null for
+         *             no limit.
+         *         timezone: The time zone the schedule is read in (``Europe/Madrid``); null for the
+         *             server's clock.
          *         exclude_databases: Databases an all-databases policy (stored under
          *             ``*``) skips.
          *         exclude_schemas: PostgreSQL schemas left out of every dump.
@@ -50648,6 +51312,11 @@ export interface components {
             /** Exclude Tables */
             exclude_tables?: string[];
             /**
+             * Max Runtime Seconds
+             * @description Stop a run that takes longer than this many seconds (1 minute to 7 days); null for no limit.
+             */
+            max_runtime_seconds?: number | null;
+            /**
              * Remote Only
              * @default false
              */
@@ -50670,6 +51339,11 @@ export interface components {
              * @default daily
              */
             schedule: string;
+            /**
+             * Timezone
+             * @description Read the schedule in this time zone of the server's database, such as Europe/Madrid; null for the server's clock.
+             */
+            timezone?: string | null;
             /**
              * Verify Restore
              * @default false
@@ -50724,6 +51398,10 @@ export interface components {
          *         passphrase: What bundles are sealed under; kept in the secret store
          *             for the timer. Required while none is stored, optional after.
          *         enabled: Whether the timer runs.
+         *         max_runtime_seconds: The longest a run may take; systemd stops one past it. Null for
+         *             no limit.
+         *         timezone: The time zone the schedule is read in (``Europe/Madrid``); null for the
+         *             server's clock.
          */
         SetScheduleRequest: {
             /** Destinations */
@@ -50733,6 +51411,11 @@ export interface components {
              * @default true
              */
             enabled: boolean;
+            /**
+             * Max Runtime Seconds
+             * @description Stop a run that takes longer than this many seconds (1 minute to 7 days); null for no limit.
+             */
+            max_runtime_seconds?: number | null;
             /** Passphrase */
             passphrase?: string | null;
             /**
@@ -50757,6 +51440,11 @@ export interface components {
              * @default daily
              */
             schedule: string;
+            /**
+             * Timezone
+             * @description Read the schedule in this time zone of the server's database, such as Europe/Madrid; null for the server's clock.
+             */
+            timezone?: string | null;
         };
         /**
          * SetTagsRequest
@@ -50784,6 +51472,10 @@ export interface components {
          *         destinations: Remote copies, each with its own retention.
          *         consistency: ``live``, ``pause`` (freeze it for the copy) or ``stop``.
          *         enabled: Whether the timer runs; a disabled policy keeps its settings.
+         *         max_runtime_seconds: The longest a run may take; systemd stops one past it. Null for
+         *             no limit.
+         *         timezone: The time zone the schedule is read in (``Europe/Madrid``); null for the
+         *             server's clock.
          */
         SetVolumePolicyRequest: {
             /**
@@ -50800,6 +51492,11 @@ export interface components {
             enabled: boolean;
             /** Extra Paths */
             extra_paths?: string[];
+            /**
+             * Max Runtime Seconds
+             * @description Stop a run that takes longer than this many seconds (1 minute to 7 days); null for no limit.
+             */
+            max_runtime_seconds?: number | null;
             /**
              * Remote Only
              * @default false
@@ -50824,6 +51521,11 @@ export interface components {
             schedule: string;
             /** Targets */
             targets?: string[];
+            /**
+             * Timezone
+             * @description Read the schedule in this time zone of the server's database, such as Europe/Madrid; null for the server's clock.
+             */
+            timezone?: string | null;
         };
         /**
          * ShipIn
@@ -54886,6 +55588,11 @@ export interface components {
             fields?: {
                 [key: string]: string;
             };
+            /**
+             * Verify
+             * @description Try the connection with the new fields before keeping them (omitted or true); a change that does not connect leaves the destination as it was. False keeps the change without trying it.
+             */
+            verify?: boolean | null;
         };
         /**
          * UpdateDnsAccountRequest
@@ -69324,6 +70031,284 @@ export interface operations {
             };
         };
     };
+    status_api_backups_encryption_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EncryptionStatus"];
+                };
+            };
+        };
+    };
+    disable_api_backups_encryption_disable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DisableResult"];
+                };
+            };
+        };
+    };
+    enable_api_backups_encryption_enable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnableResult"];
+                };
+            };
+        };
+    };
+    import_key_api_backups_encryption_keys_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeyId"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    show_key_api_backups_encryption_keys__key_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeyValue"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rotate_api_backups_encryption_rotate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RotateResult"];
+                };
+            };
+        };
+    };
+    seal_plan_api_backups_encryption_seal_existing_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SealPlan"];
+                };
+            };
+        };
+    };
+    seal_existing_api_backups_encryption_seal_existing_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+        };
+    };
+    list_failures_api_backups_failures_get: {
+        parameters: {
+            query?: {
+                subject?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupFailuresResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    failure_detail_api_backups_failures__failure_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                failure_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupFailureDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    failure_output_api_backups_failures__failure_id__output_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                failure_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_storage_info_api_backups_storage_get: {
         parameters: {
             query?: never;
@@ -82981,6 +83966,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProcessesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_api_server_restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_restore_api_server_restore_plan_get: {
+        parameters: {
+            query?: {
+                from_destination?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestorePlanResponse"];
                 };
             };
             /** @description Validation Error */

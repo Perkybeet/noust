@@ -872,6 +872,33 @@ BackupCopy = TypedDict("BackupCopy", {
     "verified_by": NotRequired[Union[str, None]],
 })
 
+BackupFailureDetail = TypedDict("BackupFailureDetail", {
+    "command": Required[str],
+    "created_at": Required[str],
+    "destination": NotRequired[Union[str, None]],
+    "id": Required[int],
+    "kind": Required[str],
+    "output": Required[str],
+    "size": Required[int],
+    "subject": Required[str],
+    "truncated": Required[bool],
+})
+
+BackupFailureSummary = TypedDict("BackupFailureSummary", {
+    "command": Required[str],
+    "created_at": Required[str],
+    "destination": NotRequired[Union[str, None]],
+    "id": Required[int],
+    "kind": Required[str],
+    "size": Required[int],
+    "subject": Required[str],
+    "truncated": Required[bool],
+})
+
+BackupFailuresResponse = TypedDict("BackupFailuresResponse", {
+    "failures": NotRequired[list["BackupFailureSummary"]],
+})
+
 BackupInfo = TypedDict("BackupInfo", {
     "age": Required[str],
     "app_type": NotRequired[Union[str, None]],
@@ -971,6 +998,7 @@ BackupScheduleInfo = TypedDict("BackupScheduleInfo", {
     "domain": Required[str],
     "include_databases": NotRequired[bool],
     "last_run": Required[str],
+    "max_runtime_seconds": NotRequired[Union[int, None]],
     "next_run": Required[str],
     "on_calendar": Required[str],
     "remote_only": NotRequired[bool],
@@ -979,6 +1007,7 @@ BackupScheduleInfo = TypedDict("BackupScheduleInfo", {
     "retention_gb": NotRequired[Union[float, None]],
     "schedule": Required[str],
     "timer": Required[str],
+    "timezone": NotRequired[Union[str, None]],
 })
 
 BackupSettingsResponse = TypedDict("BackupSettingsResponse", {
@@ -2049,6 +2078,7 @@ CreateDestinationRequest = TypedDict("CreateDestinationRequest", {
     "encryption_key": NotRequired[Union["EncryptionKey", None]],
     "fields": NotRequired[dict[str, str]],
     "name": Required[str],
+    "verify": NotRequired[Union[bool, None]],
 })
 
 CreateEnvironmentRequest = TypedDict("CreateEnvironmentRequest", {
@@ -2079,11 +2109,13 @@ CreateScheduleRequest = TypedDict("CreateScheduleRequest", {
     "destinations": NotRequired[list["NoustWebApiBackupSchedulesScheduleDestination"]],
     "domain": Required[str],
     "include_databases": NotRequired[bool],
+    "max_runtime_seconds": NotRequired[Union[int, None]],
     "remote_only": NotRequired[bool],
     "retention_count": NotRequired[Union[int, None]],
     "retention_days": NotRequired[Union[int, None]],
     "retention_gb": NotRequired[Union[float, None]],
     "schedule": NotRequired[str],
+    "timezone": NotRequired[Union[str, None]],
 })
 
 CreateServiceRequest = TypedDict("CreateServiceRequest", {
@@ -2601,6 +2633,11 @@ DirectorySettings = TypedDict("DirectorySettings", {
     "username_attribute": NotRequired[Union[str, None]],
 })
 
+DisableResult = TypedDict("DisableResult", {
+    "enabled": Required[bool],
+    "was_enabled": Required[bool],
+})
+
 DiskEntry = TypedDict("DiskEntry", {
     "device": Required[str],
     "free_bytes": Required[int],
@@ -2880,9 +2917,23 @@ EmailApiSettingsResponse = TypedDict("EmailApiSettingsResponse", {
     "secret_access_key_set": Required[bool],
 })
 
+EnableResult = TypedDict("EnableResult", {
+    "created": Required[bool],
+    "enabled": Required[bool],
+    "key_id": Required[str],
+})
+
 EncryptionKey = TypedDict("EncryptionKey", {
     "password": Required[str],
     "password2": Required[str],
+})
+
+EncryptionStatus = TypedDict("EncryptionStatus", {
+    "clear": NotRequired[int],
+    "current_key": NotRequired[Union[str, None]],
+    "enabled": Required[bool],
+    "keys": NotRequired[list["KeyInfo"]],
+    "sealed": NotRequired[int],
 })
 
 EngineCatalogResponse = TypedDict("EngineCatalogResponse", {
@@ -3923,6 +3974,11 @@ ImportAppRequest = TypedDict("ImportAppRequest", {
     "source": NotRequired[Union[str, None]],
 })
 
+ImportKeyRequest = TypedDict("ImportKeyRequest", {
+    "key": Required[str],
+    "key_id": Required[str],
+})
+
 ImportRequest = TypedDict("ImportRequest", {
     "database": Required[str],
     "engine": Required[str],
@@ -4338,6 +4394,15 @@ KeyFileOut = TypedDict("KeyFileOut", {
     "problems": NotRequired[list[str]],
 })
 
+KeyId = TypedDict("KeyId", {
+    "key_id": Required[str],
+})
+
+KeyInfo = TypedDict("KeyInfo", {
+    "current": Required[bool],
+    "id": Required[str],
+})
+
 KeyOut = TypedDict("KeyOut", {
     "bits": NotRequired[Union[int, None]],
     "comment": Required[str],
@@ -4357,6 +4422,11 @@ KeyResponse = TypedDict("KeyResponse", {
     "memory": NotRequired[Union[int, None]],
     "ttl": NotRequired[Union[int, None]],
     "type": Required[str],
+})
+
+KeyValue = TypedDict("KeyValue", {
+    "key": Required[str],
+    "key_id": Required[str],
 })
 
 KeyValueResponse = TypedDict("KeyValueResponse", {
@@ -6860,6 +6930,23 @@ RestoreFromDestinationRequest = TypedDict("RestoreFromDestinationRequest", {
     "target_domain": NotRequired[Union[str, None]],
 })
 
+RestorePlanResponse = TypedDict("RestorePlanResponse", {
+    "apps": NotRequired[list[dict[str, Any]]],
+    "databases": NotRequired[list[dict[str, Any]]],
+    "engines_missing": NotRequired[list[dict[str, str]]],
+    "requirements": NotRequired[list[dict[str, Any]]],
+    "roles": NotRequired[list[str]],
+})
+
+RestoreRequest = TypedDict("RestoreRequest", {
+    "accept_schema_changes": NotRequired[bool],
+    "apps": NotRequired[list[str]],
+    "databases": NotRequired[bool],
+    "from_destination": NotRequired[Union[str, None]],
+    "install": NotRequired[bool],
+    "skip": NotRequired[list[str]],
+})
+
 RestoreVolumeBackupRequest = TypedDict("RestoreVolumeBackupRequest", {
     "safety_backup": NotRequired[bool],
 })
@@ -6984,6 +7071,10 @@ RotatePasswordRequest = TypedDict("RotatePasswordRequest", {
     "first_password": NotRequired[bool],
     "host": NotRequired[str],
     "propagate": NotRequired[bool],
+})
+
+RotateResult = TypedDict("RotateResult", {
+    "key_id": Required[str],
 })
 
 RouteFields = TypedDict("RouteFields", {
@@ -7466,6 +7557,15 @@ ScriptSummary = TypedDict("ScriptSummary", {
     "updated_at": NotRequired[Union[str, None]],
 })
 
+SealPlan = TypedDict("SealPlan", {
+    "applications": Required[int],
+    "data": Required[int],
+    "databases": Required[int],
+    "pitr": Required[int],
+    "sealing": Required[bool],
+    "total": Required[int],
+})
+
 SecondFactorRequest = TypedDict("SecondFactorRequest", {
     "bearer": NotRequired[bool],
     "challenge": Required[str],
@@ -7623,11 +7723,13 @@ SetPolicyRequest = TypedDict("SetPolicyRequest", {
     "exclude_databases": NotRequired[list[str]],
     "exclude_schemas": NotRequired[list[str]],
     "exclude_tables": NotRequired[list[str]],
+    "max_runtime_seconds": NotRequired[Union[int, None]],
     "remote_only": NotRequired[bool],
     "retention_count": NotRequired[Union[int, None]],
     "retention_days": NotRequired[Union[int, None]],
     "retention_gb": NotRequired[Union[float, None]],
     "schedule": NotRequired[str],
+    "timezone": NotRequired[Union[str, None]],
     "verify_restore": NotRequired[bool],
 })
 
@@ -7643,12 +7745,14 @@ SetRoleRequest = TypedDict("SetRoleRequest", {
 SetScheduleRequest = TypedDict("SetScheduleRequest", {
     "destinations": NotRequired[list["NoustWebApiSelfBackupScheduleDestination"]],
     "enabled": NotRequired[bool],
+    "max_runtime_seconds": NotRequired[Union[int, None]],
     "passphrase": NotRequired[Union[str, None]],
     "remote_only": NotRequired[bool],
     "retention_count": NotRequired[Union[int, None]],
     "retention_days": NotRequired[Union[int, None]],
     "retention_gb": NotRequired[Union[float, None]],
     "schedule": NotRequired[str],
+    "timezone": NotRequired[Union[str, None]],
 })
 
 SetTagsRequest = TypedDict("SetTagsRequest", {
@@ -7660,12 +7764,14 @@ SetVolumePolicyRequest = TypedDict("SetVolumePolicyRequest", {
     "destinations": NotRequired[list["NoustWebApiVolumeBackupsPolicyDestination"]],
     "enabled": NotRequired[bool],
     "extra_paths": NotRequired[list[str]],
+    "max_runtime_seconds": NotRequired[Union[int, None]],
     "remote_only": NotRequired[bool],
     "retention_count": NotRequired[Union[int, None]],
     "retention_days": NotRequired[Union[int, None]],
     "retention_gb": NotRequired[Union[float, None]],
     "schedule": NotRequired[str],
     "targets": NotRequired[list[str]],
+    "timezone": NotRequired[Union[str, None]],
 })
 
 ShipIn = TypedDict("ShipIn", {
@@ -9040,6 +9146,7 @@ UpdateBranchRequest = TypedDict("UpdateBranchRequest", {
 UpdateDestinationRequest = TypedDict("UpdateDestinationRequest", {
     "encrypted": NotRequired[Union[bool, None]],
     "fields": NotRequired[dict[str, str]],
+    "verify": NotRequired[Union[bool, None]],
 })
 
 UpdateDnsAccountRequest = TypedDict("UpdateDnsAccountRequest", {

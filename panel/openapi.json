@@ -5184,6 +5184,135 @@
         "title": "BackupCopy",
         "type": "object"
       },
+      "BackupFailureDetail": {
+        "description": "One failed backup with all that the tool said.\n\nAttributes:\n    output: What the tool said, whole up to the bound (512 KiB), scrubbed of the credentials\n        Noust knows.",
+        "properties": {
+          "command": {
+            "title": "Command",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "destination": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Destination"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "output": {
+            "title": "Output",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "created_at",
+          "kind",
+          "subject",
+          "size",
+          "truncated",
+          "command",
+          "output"
+        ],
+        "title": "BackupFailureDetail",
+        "type": "object"
+      },
+      "BackupFailureSummary": {
+        "description": "One failed backup, without what the tool said.\n\nAttributes:\n    id: The record's number, the one a notice names.\n    created_at: When it was recorded, UTC.\n    kind: ``backup`` when no backup was taken, ``upload`` when a destination refused one.\n    subject: What it was about: a domain, ``Noust``, ``engine/database``.\n    destination: The destination that refused it, for an ``upload``.\n    size: The output's size in bytes.\n    truncated: Whether the front of a very long output was cut.\n    command: The command that prints it.",
+        "properties": {
+          "command": {
+            "title": "Command",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "destination": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Destination"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "created_at",
+          "kind",
+          "subject",
+          "size",
+          "truncated",
+          "command"
+        ],
+        "title": "BackupFailureSummary",
+        "type": "object"
+      },
+      "BackupFailuresResponse": {
+        "description": "The failed backups, newest first.\n\nAttributes:\n    failures: The records, without their output.",
+        "properties": {
+          "failures": {
+            "items": {
+              "$ref": "#/components/schemas/BackupFailureSummary"
+            },
+            "title": "Failures",
+            "type": "array"
+          }
+        },
+        "title": "BackupFailuresResponse",
+        "type": "object"
+      },
       "BackupInfo": {
         "description": "One backup as the manager records it.\n\nAttributes:\n    last_verified_at: When ``POST /{backup_id}/verify`` last checked this\n        archive. None when nothing ever has.\n    verified_ok: That check's own verdict. None until the first check;\n        reflects the most recent one after that, whichever way it went.",
         "properties": {
@@ -5791,7 +5920,7 @@
         "type": "object"
       },
       "BackupScheduleInfo": {
-        "description": "One backup schedule, merging what systemd reports with the store row.\n\nAttributes:\n    domain: Domain the schedule backs up.\n    app_name: Application name the unit names are built from.\n    timer: Timer unit name, without its ``.timer`` suffix.\n    schedule: The schedule in words: an alias such as ``daily`` when the\n        expression matches one, ``custom`` otherwise.\n    on_calendar: The systemd ``OnCalendar`` expression, verbatim.\n    next_run: When the timer fires next, as systemd prints it, or\n        ``pending`` when it cannot say.\n    last_run: When the timer last fired, or ``never``.\n    retention_count: The schedule's own local backups to keep, from the\n        store row; None when ``backup.max_per_app`` is in charge.\n    retention_days: Maximum age in days of the schedule's own local\n        backups, from the store row; None for no limit.\n    retention_gb: The most the schedule's own local backups may weigh\n        together, in gigabytes; None for no limit.\n    include_databases: Whether each backup dumps the databases too.\n    remote_only: Whether the server keeps nothing: each backup is deleted here once every\n        destination holds it and its upload was checked.\n    destinations: Remote destinations this schedule pushes to.",
+        "description": "One backup schedule, merging what systemd reports with the store row.\n\nAttributes:\n    domain: Domain the schedule backs up.\n    app_name: Application name the unit names are built from.\n    timer: Timer unit name, without its ``.timer`` suffix.\n    schedule: The schedule in words: an alias such as ``daily`` when the\n        expression matches one, ``custom`` otherwise.\n    on_calendar: The systemd ``OnCalendar`` expression, verbatim.\n    next_run: When the timer fires next, as systemd prints it, or\n        ``pending`` when it cannot say.\n    last_run: When the timer last fired, or ``never``.\n    retention_count: The schedule's own local backups to keep, from the\n        store row; None when ``backup.max_per_app`` is in charge.\n    retention_days: Maximum age in days of the schedule's own local\n        backups, from the store row; None for no limit.\n    retention_gb: The most the schedule's own local backups may weigh\n        together, in gigabytes; None for no limit.\n    include_databases: Whether each backup dumps the databases too.\n    remote_only: Whether the server keeps nothing: each backup is deleted here once every\n        destination holds it and its upload was checked.\n    destinations: Remote destinations this schedule pushes to.\n    max_runtime_seconds: The longest a run may take; None for no limit.\n    timezone: The time zone the schedule is read in; None for the server's clock.",
         "properties": {
           "app_name": {
             "title": "App Name",
@@ -5816,6 +5945,17 @@
           "last_run": {
             "title": "Last Run",
             "type": "string"
+          },
+          "max_runtime_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Runtime Seconds"
           },
           "next_run": {
             "title": "Next Run",
@@ -5870,6 +6010,17 @@
           "timer": {
             "title": "Timer",
             "type": "string"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone"
           }
         },
         "required": [
@@ -12117,6 +12268,18 @@
             "description": "Destination name; also its rclone remote name",
             "title": "Name",
             "type": "string"
+          },
+          "verify": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Try the connection before keeping the destination: one that does not connect is not saved (400 destination_unreachable, with rclone's words). Omitted or true tries it; false keeps one that is down on purpose, to be tried later.",
+            "title": "Verify"
           }
         },
         "required": [
@@ -12295,6 +12458,20 @@
             "title": "Include Databases",
             "type": "boolean"
           },
+          "max_runtime_seconds": {
+            "anyOf": [
+              {
+                "maximum": 604800.0,
+                "minimum": 60.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Stop a run that takes longer than this many seconds (1 minute to 7 days); null for no limit.",
+            "title": "Max Runtime Seconds"
+          },
           "remote_only": {
             "default": false,
             "description": "Keep nothing on this server: delete each backup here once every destination holds it and its upload was checked (for a small disk). Needs a destination; a backup that could not be sent everywhere stays.",
@@ -12350,6 +12527,19 @@
             "description": "hourly, daily, weekly, monthly or a systemd OnCalendar expression",
             "title": "Schedule",
             "type": "string"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Read the schedule in this time zone of the server's database, such as Europe/Madrid; null for the server's clock.",
+            "title": "Timezone"
           }
         },
         "required": [
@@ -15484,6 +15674,25 @@
         "title": "DirectorySettings",
         "type": "object"
       },
+      "DisableResult": {
+        "description": "The outcome of stopping.\n\nAttributes:\n    enabled: Always False.\n    was_enabled: Whether anything was being sealed.",
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "was_enabled": {
+            "title": "Was Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled",
+          "was_enabled"
+        ],
+        "title": "DisableResult",
+        "type": "object"
+      },
       "DiskEntry": {
         "description": "Capacity of one filesystem.\n\nAttributes:\n    mountpoint: Where it is mounted.\n    device: Backing device.\n    fstype: Filesystem type.\n    total_bytes: Size.\n    used_bytes: Bytes in use.\n    free_bytes: Bytes available.\n    percent: Percentage used.",
         "properties": {
@@ -17006,6 +17215,30 @@
         "title": "EmailApiSettingsResponse",
         "type": "object"
       },
+      "EnableResult": {
+        "description": "The outcome of turning sealing on.\n\nAttributes:\n    enabled: Always True.\n    key_id: The current key; its value is shown by ``GET /keys/{key_id}``, once the operator\n        asks for it with sudo mode.\n    created: False when sealing was already on and nothing changed.",
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "key_id": {
+            "title": "Key Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "key_id",
+          "created"
+        ],
+        "title": "EnableResult",
+        "type": "object"
+      },
       "EncryptionKey": {
         "description": "An encrypted destination's two passphrases, as show-key returns them.",
         "properties": {
@@ -17023,6 +17256,48 @@
           "password2"
         ],
         "title": "EncryptionKey",
+        "type": "object"
+      },
+      "EncryptionStatus": {
+        "description": "Whether backups are sealed on this server.\n\nAttributes:\n    enabled: Whether new backups are sealed.\n    current_key: The key they are sealed with.\n    keys: Every key held.\n    sealed: Backups on the disk that are sealed.\n    clear: Backups on the disk that are in clear.",
+        "properties": {
+          "clear": {
+            "default": 0,
+            "title": "Clear",
+            "type": "integer"
+          },
+          "current_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Key"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "keys": {
+            "items": {
+              "$ref": "#/components/schemas/KeyInfo"
+            },
+            "title": "Keys",
+            "type": "array"
+          },
+          "sealed": {
+            "default": 0,
+            "title": "Sealed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "EncryptionStatus",
         "type": "object"
       },
       "EngineCatalogResponse": {
@@ -22900,6 +23175,27 @@
         "title": "ImportAppRequest",
         "type": "object"
       },
+      "ImportKeyRequest": {
+        "description": "A key to put back, from the copy kept elsewhere.\n\nAttributes:\n    key_id: The id a backup that does not open names.\n    key: Its value.",
+        "properties": {
+          "key": {
+            "maxLength": 512,
+            "title": "Key",
+            "type": "string"
+          },
+          "key_id": {
+            "maxLength": 64,
+            "title": "Key Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key_id",
+          "key"
+        ],
+        "title": "ImportKeyRequest",
+        "type": "object"
+      },
       "ImportRequest": {
         "description": "Request to import a dump.\n\nAttributes:\n    engine: The engine.\n    database: The database to load into; created when it does not exist.\n    replace: Drop and recreate it first. A safety copy is taken before and\n        put back when the load fails.\n    keep_owners: PostgreSQL: keep the owners and privileges the dump names\n        instead of giving everything to the database's owner.\n    safety_backup: Dump the database first when it is loaded over rather\n        than replaced.",
         "properties": {
@@ -25177,6 +25473,39 @@
         "title": "KeyFileOut",
         "type": "object"
       },
+      "KeyId": {
+        "description": "Which key was put back.\n\nAttributes:\n    key_id: Its id.",
+        "properties": {
+          "key_id": {
+            "title": "Key Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key_id"
+        ],
+        "title": "KeyId",
+        "type": "object"
+      },
+      "KeyInfo": {
+        "description": "A key this server holds, without its value.\n\nAttributes:\n    id: Its identifier, written in the label of every backup it sealed.\n    current: Whether new backups are sealed with it.",
+        "properties": {
+          "current": {
+            "title": "Current",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "current"
+        ],
+        "title": "KeyInfo",
+        "type": "object"
+      },
       "KeyOut": {
         "description": "One key: its kind (``operator``, ``central``, ``restricted``, ``cloud_disabled``) and use.",
         "properties": {
@@ -25307,6 +25636,25 @@
           "type"
         ],
         "title": "KeyResponse",
+        "type": "object"
+      },
+      "KeyValue": {
+        "description": "A key's value, shown once per request.\n\nAttributes:\n    key_id: Its id.\n    key: Its value. Keep it somewhere that is not this server.",
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "key_id": {
+            "title": "Key Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key_id",
+          "key"
+        ],
+        "title": "KeyValue",
         "type": "object"
       },
       "KeyValueResponse": {
@@ -39698,6 +40046,104 @@
         "title": "RestoreFromDestinationRequest",
         "type": "object"
       },
+      "RestorePlanResponse": {
+        "description": "What restoring would do now. Nothing was changed.\n\nAttributes:\n    requirements: The web server and Docker: ``name``, ``state`` (``present``, ``missing``\n        or ``failed``), ``detail`` and the ``command`` that installs it by hand.\n    engines_missing: The database engines the databases live on that are not installed,\n        each with its command.\n    roles: The PostgreSQL servers whose roles wait for their engine.\n    databases: The databases no application owns, with the dump each would be loaded from.\n    apps: Every application with its newest backup (``source`` is ``local`` or a\n        destination).",
+        "properties": {
+          "apps": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "databases": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Databases",
+            "type": "array"
+          },
+          "engines_missing": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Engines Missing",
+            "type": "array"
+          },
+          "requirements": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Requirements",
+            "type": "array"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "title": "RestorePlanResponse",
+        "type": "object"
+      },
+      "RestoreRequest": {
+        "description": "A restore to run.\n\nAttributes:\n    install: Install the web server, Docker (when an application or an instance needs it)\n        and the database engines that are missing.\n    databases: Also bring back the databases no application owns.\n    from_destination: The destination a move was prepared on.\n    apps: Restore only these applications (every one when empty).\n    skip: Leave these applications out.\n    accept_schema_changes: Restore an application's files even past a schema change\n        nothing restores the database for.",
+        "properties": {
+          "accept_schema_changes": {
+            "default": false,
+            "title": "Accept Schema Changes",
+            "type": "boolean"
+          },
+          "apps": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 500,
+            "title": "Apps",
+            "type": "array"
+          },
+          "databases": {
+            "default": true,
+            "title": "Databases",
+            "type": "boolean"
+          },
+          "from_destination": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Destination"
+          },
+          "install": {
+            "default": false,
+            "title": "Install",
+            "type": "boolean"
+          },
+          "skip": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 500,
+            "title": "Skip",
+            "type": "array"
+          }
+        },
+        "title": "RestoreRequest",
+        "type": "object"
+      },
       "RestoreVolumeBackupRequest": {
         "description": "Request to put an application's data back as a backup held it.\n\nAttributes:\n    safety_backup: Archive what is there first. Turning it off leaves\n        nothing to go back to when the restore fails.",
         "properties": {
@@ -40456,6 +40902,20 @@
           }
         },
         "title": "RotatePasswordRequest",
+        "type": "object"
+      },
+      "RotateResult": {
+        "description": "The outcome of a rotation.\n\nAttributes:\n    key_id: The new current key.",
+        "properties": {
+          "key_id": {
+            "title": "Key Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key_id"
+        ],
+        "title": "RotateResult",
         "type": "object"
       },
       "RouteFields": {
@@ -43328,6 +43788,45 @@
         "title": "ScriptSummary",
         "type": "object"
       },
+      "SealPlan": {
+        "description": "What sealing the backups already there would touch.\n\nAttributes:\n    applications: Application archives in clear.\n    data: Data backups in clear.\n    databases: Database dumps in clear.\n    pitr: Base backups of point-in-time recovery in clear.\n    total: The sum.\n    sealing: Whether new backups are sealed; a run needs it.",
+        "properties": {
+          "applications": {
+            "title": "Applications",
+            "type": "integer"
+          },
+          "data": {
+            "title": "Data",
+            "type": "integer"
+          },
+          "databases": {
+            "title": "Databases",
+            "type": "integer"
+          },
+          "pitr": {
+            "title": "Pitr",
+            "type": "integer"
+          },
+          "sealing": {
+            "title": "Sealing",
+            "type": "boolean"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "applications",
+          "data",
+          "databases",
+          "pitr",
+          "total",
+          "sealing"
+        ],
+        "title": "SealPlan",
+        "type": "object"
+      },
       "SecondFactorRequest": {
         "description": "The second step of an account's sign-in.\n\nAttributes:\n    challenge: ``second_factor.challenge`` from the password step.\n    code: A six-digit authenticator code or a backup code.\n    bearer: Also return the session token in the body, for clients\n        without a cookie jar.",
         "properties": {
@@ -44254,7 +44753,7 @@
         "type": "object"
       },
       "SetPolicyRequest": {
-        "description": "Request to create or replace a database's backup policy.\n\nAttributes:\n    schedule: ``hourly``, ``daily``, ``weekly``, ``monthly`` or a systemd\n        ``OnCalendar`` expression.\n    retention_count: Scheduled dumps to keep locally. Dumps taken by hand\n        and the safety copies of restores are never deleted by retention.\n    retention_days: Days to keep a scheduled dump locally.\n    retention_gb: The most the scheduled dumps kept locally may weigh\n        together, in gigabytes; the newest always stays.\n    remote_only: Delete each scheduled dump from this server once every\n        destination holds it (a small disk). Needs a destination.\n    destinations: Remote copies, each with its own retention.\n    dump_format: PostgreSQL's ``custom`` (default), ``plain`` or ``tar``.\n    verify_restore: Load each dump into a temporary database and drop it\n        as proof it restores. Not available for Redis.\n    enabled: Whether the timer runs; a disabled policy keeps its settings.\n    exclude_databases: Databases an all-databases policy (stored under\n        ``*``) skips.\n    exclude_schemas: PostgreSQL schemas left out of every dump.\n    exclude_tables: Tables (PostgreSQL, MySQL, MariaDB) or collections\n        (MongoDB) left out of every dump.",
+        "description": "Request to create or replace a database's backup policy.\n\nAttributes:\n    schedule: ``hourly``, ``daily``, ``weekly``, ``monthly`` or a systemd\n        ``OnCalendar`` expression.\n    retention_count: Scheduled dumps to keep locally. Dumps taken by hand\n        and the safety copies of restores are never deleted by retention.\n    retention_days: Days to keep a scheduled dump locally.\n    retention_gb: The most the scheduled dumps kept locally may weigh\n        together, in gigabytes; the newest always stays.\n    remote_only: Delete each scheduled dump from this server once every\n        destination holds it (a small disk). Needs a destination.\n    destinations: Remote copies, each with its own retention.\n    dump_format: PostgreSQL's ``custom`` (default), ``plain`` or ``tar``.\n    verify_restore: Load each dump into a temporary database and drop it\n        as proof it restores. Not available for Redis.\n    enabled: Whether the timer runs; a disabled policy keeps its settings.\n    max_runtime_seconds: The longest a run may take; systemd stops one past it. Null for\n        no limit.\n    timezone: The time zone the schedule is read in (``Europe/Madrid``); null for the\n        server's clock.\n    exclude_databases: Databases an all-databases policy (stored under\n        ``*``) skips.\n    exclude_schemas: PostgreSQL schemas left out of every dump.\n    exclude_tables: Tables (PostgreSQL, MySQL, MariaDB) or collections\n        (MongoDB) left out of every dump.",
         "properties": {
           "destinations": {
             "items": {
@@ -44299,6 +44798,20 @@
             },
             "title": "Exclude Tables",
             "type": "array"
+          },
+          "max_runtime_seconds": {
+            "anyOf": [
+              {
+                "maximum": 604800.0,
+                "minimum": 60.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Stop a run that takes longer than this many seconds (1 minute to 7 days); null for no limit.",
+            "title": "Max Runtime Seconds"
           },
           "remote_only": {
             "default": false,
@@ -44352,6 +44865,19 @@
             "title": "Schedule",
             "type": "string"
           },
+          "timezone": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Read the schedule in this time zone of the server's database, such as Europe/Madrid; null for the server's clock.",
+            "title": "Timezone"
+          },
           "verify_restore": {
             "default": false,
             "title": "Verify Restore",
@@ -44398,7 +44924,7 @@
         "type": "object"
       },
       "SetScheduleRequest": {
-        "description": "Request to create or replace the schedule.\n\nAttributes:\n    schedule: ``hourly``, ``daily``, ``weekly``, ``monthly`` or a systemd\n        ``OnCalendar`` expression.\n    retention_count: Scheduled bundles to keep locally.\n    retention_days: Days to keep a scheduled bundle locally.\n    retention_gb: The most the scheduled bundles kept locally may weigh together,\n        in gigabytes; the newest always stays.\n    remote_only: Delete each scheduled bundle from this server once every destination\n        holds it and its upload was checked (a small disk). Needs a destination.\n    destinations: Remote copies, each with its own retention.\n    passphrase: What bundles are sealed under; kept in the secret store\n        for the timer. Required while none is stored, optional after.\n    enabled: Whether the timer runs.",
+        "description": "Request to create or replace the schedule.\n\nAttributes:\n    schedule: ``hourly``, ``daily``, ``weekly``, ``monthly`` or a systemd\n        ``OnCalendar`` expression.\n    retention_count: Scheduled bundles to keep locally.\n    retention_days: Days to keep a scheduled bundle locally.\n    retention_gb: The most the scheduled bundles kept locally may weigh together,\n        in gigabytes; the newest always stays.\n    remote_only: Delete each scheduled bundle from this server once every destination\n        holds it and its upload was checked (a small disk). Needs a destination.\n    destinations: Remote copies, each with its own retention.\n    passphrase: What bundles are sealed under; kept in the secret store\n        for the timer. Required while none is stored, optional after.\n    enabled: Whether the timer runs.\n    max_runtime_seconds: The longest a run may take; systemd stops one past it. Null for\n        no limit.\n    timezone: The time zone the schedule is read in (``Europe/Madrid``); null for the\n        server's clock.",
         "properties": {
           "destinations": {
             "items": {
@@ -44411,6 +44937,20 @@
             "default": true,
             "title": "Enabled",
             "type": "boolean"
+          },
+          "max_runtime_seconds": {
+            "anyOf": [
+              {
+                "maximum": 604800.0,
+                "minimum": 60.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Stop a run that takes longer than this many seconds (1 minute to 7 days); null for no limit.",
+            "title": "Max Runtime Seconds"
           },
           "passphrase": {
             "anyOf": [
@@ -44475,6 +45015,19 @@
             "default": "daily",
             "title": "Schedule",
             "type": "string"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Read the schedule in this time zone of the server's database, such as Europe/Madrid; null for the server's clock.",
+            "title": "Timezone"
           }
         },
         "title": "SetScheduleRequest",
@@ -44495,7 +45048,7 @@
         "type": "object"
       },
       "SetVolumePolicyRequest": {
-        "description": "Request to create or replace an application's data backup policy.\n\nAttributes:\n    schedule: ``hourly``, ``daily``, ``weekly``, ``monthly`` or a systemd\n        ``OnCalendar`` expression.\n    targets: Keys to back up; empty is every target the application declares.\n    extra_paths: Data directories to add, relative to where its data lives.\n    retention_count: Scheduled backups to keep locally per target.\n    retention_days: Days to keep a scheduled backup locally.\n    retention_gb: The most the scheduled backups kept locally per target may\n        weigh together, in gigabytes; the newest always stays.\n    remote_only: Delete each scheduled backup from this server once every destination\n        holds it and its upload was checked (a small disk). Needs a destination.\n    destinations: Remote copies, each with its own retention.\n    consistency: ``live``, ``pause`` (freeze it for the copy) or ``stop``.\n    enabled: Whether the timer runs; a disabled policy keeps its settings.",
+        "description": "Request to create or replace an application's data backup policy.\n\nAttributes:\n    schedule: ``hourly``, ``daily``, ``weekly``, ``monthly`` or a systemd\n        ``OnCalendar`` expression.\n    targets: Keys to back up; empty is every target the application declares.\n    extra_paths: Data directories to add, relative to where its data lives.\n    retention_count: Scheduled backups to keep locally per target.\n    retention_days: Days to keep a scheduled backup locally.\n    retention_gb: The most the scheduled backups kept locally per target may\n        weigh together, in gigabytes; the newest always stays.\n    remote_only: Delete each scheduled backup from this server once every destination\n        holds it and its upload was checked (a small disk). Needs a destination.\n    destinations: Remote copies, each with its own retention.\n    consistency: ``live``, ``pause`` (freeze it for the copy) or ``stop``.\n    enabled: Whether the timer runs; a disabled policy keeps its settings.\n    max_runtime_seconds: The longest a run may take; systemd stops one past it. Null for\n        no limit.\n    timezone: The time zone the schedule is read in (``Europe/Madrid``); null for the\n        server's clock.",
         "properties": {
           "consistency": {
             "default": "live",
@@ -44520,6 +45073,20 @@
             },
             "title": "Extra Paths",
             "type": "array"
+          },
+          "max_runtime_seconds": {
+            "anyOf": [
+              {
+                "maximum": 604800.0,
+                "minimum": 60.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Stop a run that takes longer than this many seconds (1 minute to 7 days); null for no limit.",
+            "title": "Max Runtime Seconds"
           },
           "remote_only": {
             "default": false,
@@ -44578,6 +45145,19 @@
             },
             "title": "Targets",
             "type": "array"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Read the schedule in this time zone of the server's database, such as Europe/Madrid; null for the server's clock.",
+            "title": "Timezone"
           }
         },
         "title": "SetVolumePolicyRequest",
@@ -52375,6 +52955,18 @@
             },
             "title": "Fields",
             "type": "object"
+          },
+          "verify": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Try the connection with the new fields before keeping them (omitted or true); a change that does not connect leaves the destination as it was. False keeps the change without trying it.",
+            "title": "Verify"
           }
         },
         "title": "UpdateDestinationRequest",
@@ -75889,6 +76481,387 @@
         "x-noust-permission": "backups.run"
       }
     },
+    "/api/backups/encryption": {
+      "get": {
+        "description": "Say whether new backups are sealed, with which key, and how many are on the disk each way.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The status; never a key's value.",
+        "operationId": "status_api_backups_encryption_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EncryptionStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Status",
+        "tags": [
+          "Backups"
+        ],
+        "x-noust-permission": "backups.read"
+      }
+    },
+    "/api/backups/encryption/disable": {
+      "post": {
+        "description": "Stop sealing new backups. Every key is kept, so what was sealed still opens.\n\nArgs:\n    session: The authenticated, elevated session.\n\nReturns:\n    Whether anything was being sealed.",
+        "operationId": "disable_api_backups_encryption_disable_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DisableResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Disable",
+        "tags": [
+          "Backups"
+        ],
+        "x-noust-permission": "backups.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/backups/encryption/enable": {
+      "post": {
+        "description": "Seal every backup this server makes from now on.\n\nArgs:\n    session: The authenticated, elevated session.\n\nReturns:\n    The current key's id, and whether it was made now. Backups made before stay in clear\n    until ``POST /seal-existing``.",
+        "operationId": "enable_api_backups_encryption_enable_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnableResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Enable",
+        "tags": [
+          "Backups"
+        ],
+        "x-noust-permission": "backups.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/backups/encryption/keys": {
+      "post": {
+        "description": "Put back a key this server lost, from the copy kept elsewhere.\n\nArgs:\n    request: The id and the value.\n    session: The authenticated, elevated session.\n\nReturns:\n    The id; the value is never echoed.\n\nRaises:\n    ValidationError: When it is not a key's id, the value is too short to be one, or the key\n        is already here with another value.",
+        "operationId": "import_key_api_backups_encryption_keys_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportKeyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeyId"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Key",
+        "tags": [
+          "Backups"
+        ],
+        "x-noust-permission": "backups.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/backups/encryption/keys/{key_id}": {
+      "get": {
+        "description": "Show a key so it can be kept somewhere that is not this server.\n\nArgs:\n    key_id: The key's id, or ``current``.\n    response: The response, to keep the value out of every cache.\n    session: The authenticated, elevated session.\n\nReturns:\n    The key's id and value. The read is recorded, without the value.\n\nRaises:\n    HTTPException: 404 when no key is current or this server holds no such key.",
+        "operationId": "show_key_api_backups_encryption_keys__key_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key_id",
+            "required": true,
+            "schema": {
+              "title": "Key Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeyValue"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Show Key",
+        "tags": [
+          "Backups"
+        ],
+        "x-noust-permission": "secrets.reveal",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/backups/encryption/rotate": {
+      "post": {
+        "description": "Make a new key for the backups made from now on; the old one still opens what it sealed.\n\nArgs:\n    session: The authenticated, elevated session.\n\nReturns:\n    The new key's id.\n\nRaises:\n    ValidationError: When sealing is off.",
+        "operationId": "rotate_api_backups_encryption_rotate_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RotateResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Rotate",
+        "tags": [
+          "Backups"
+        ],
+        "x-noust-permission": "backups.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/backups/encryption/seal-existing": {
+      "get": {
+        "description": "Count the backups already on the disk that sealing them would touch. Changes nothing.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    How many of each kind are in clear.",
+        "operationId": "seal_plan_api_backups_encryption_seal_existing_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SealPlan"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Seal Plan",
+        "tags": [
+          "Backups"
+        ],
+        "x-noust-permission": "backups.read"
+      },
+      "post": {
+        "description": "Queue sealing the backups that were already on the disk when sealing was turned on.\n\nArgs:\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job; its result is the report.\n\nRaises:\n    ValidationError: When sealing is off.",
+        "operationId": "seal_existing_api_backups_encryption_seal_existing_post",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Seal Existing",
+        "tags": [
+          "Backups"
+        ],
+        "x-noust-permission": "backups.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/backups/failures": {
+      "get": {
+        "description": "List the backups that failed, newest first, without their output.\n\nArgs:\n    session: The authenticated session.\n    subject: Only the failures about this.\n    limit: How many at most.\n\nReturns:\n    The records.",
+        "operationId": "list_failures_api_backups_failures_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "subject",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 253,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Subject"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupFailuresResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Failures",
+        "tags": [
+          "Backups"
+        ],
+        "x-noust-permission": "backups.read"
+      }
+    },
+    "/api/backups/failures/{failure_id}": {
+      "get": {
+        "description": "Say one failed backup with all that its tool said.\n\nArgs:\n    failure_id: The record the notice names.\n    session: The authenticated session.\n\nReturns:\n    The record.",
+        "operationId": "failure_detail_api_backups_failures__failure_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "failure_id",
+            "required": true,
+            "schema": {
+              "title": "Failure Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupFailureDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Failure Detail",
+        "tags": [
+          "Backups"
+        ],
+        "x-noust-permission": "backups.read"
+      }
+    },
+    "/api/backups/failures/{failure_id}/output": {
+      "get": {
+        "description": "Answer all that a failed backup said, as plain text.\n\nArgs:\n    failure_id: The record the notice names.\n    session: The authenticated session.\n\nReturns:\n    The output, ``text/plain`` and never sniffed into anything else.",
+        "operationId": "failure_output_api_backups_failures__failure_id__output_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "failure_id",
+            "required": true,
+            "schema": {
+              "title": "Failure Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Failure Output",
+        "tags": [
+          "Backups"
+        ],
+        "x-noust-permission": "backups.read"
+      }
+    },
     "/api/backups/storage": {
       "get": {
         "description": "Report how much disk the backups take.\n\nDeclared before ``/{backup_id}`` so the literal path wins.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Totals, the applications that own them, and the filesystem they are on.",
@@ -97173,6 +98146,102 @@
           }
         },
         "summary": "Get Processes",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
+    "/api/server/restore": {
+      "post": {
+        "description": "Queue bringing the applications and databases back, with sudo mode.\n\nArgs:\n    request: What to install, restore and leave out.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job; its result is the report.",
+        "operationId": "restore_api_server_restore_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "backups.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/server/restore/plan": {
+      "get": {
+        "description": "Say what restoring would do now. Changes nothing.\n\nArgs:\n    session: The authenticated session.\n    from_destination: The destination a move was prepared on.\n\nReturns:\n    What is missing on this machine, the roles and databases that wait, and each\n    application's newest backup.",
+        "operationId": "plan_restore_api_server_restore_plan_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from_destination",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From Destination"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestorePlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan Restore",
         "tags": [
           "Server"
         ],
