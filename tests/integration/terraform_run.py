@@ -91,6 +91,7 @@ class Live:
             "NOUST_TOKEN": self.tokens["provider"],
             "NOUST_TOKEN_NOSUDO": self.tokens["nosudo"],
             "NOUST_TOKEN_READ": self.tokens["read"],
+            "NOUST_ACCOUNT": self.tokens["account"],
         }
 
 

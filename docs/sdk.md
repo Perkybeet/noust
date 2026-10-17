@@ -67,5 +67,5 @@ python scripts/generate_sdk.py        # sdk/python/noust_sdk/_models.py, _operat
 
 The console's TypeScript types (`panel/src/api/schema.gen.ts`) are generated from the same schema with
 `openapi-typescript`, and any generator that reads OpenAPI 3.1 can read `panel/openapi.json` (served to an
-authenticated caller at `GET /api/openapi.json`). A Terraform and OpenTofu provider is derived from the schema
-and a map kept in the repository: see [terraform.md](terraform.md).
+authenticated caller at `GET /api/openapi.json`). The Terraform and OpenTofu provider (`terraform-provider-noust/`) is written
+against the same schema, and a test holds its operations to it: see [terraform.md](terraform.md).

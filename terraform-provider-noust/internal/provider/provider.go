@@ -188,6 +188,7 @@ func (p *noustProvider) Resources(context.Context) []func() resource.Resource {
 		NewDatabaseResource,
 		NewBackupScheduleResource,
 		NewTeamResource,
+		NewTeamMemberResource,
 		NewProjectResource,
 		NewEnvironmentResource,
 		NewDeployKeyResource,

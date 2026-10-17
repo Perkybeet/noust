@@ -78,6 +78,7 @@ x_noust:
       - database
       - backup_schedule
       - team
+      - team_member
       - project
       - environment
       - deploy_key

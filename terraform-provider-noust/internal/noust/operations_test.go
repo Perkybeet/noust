@@ -153,6 +153,8 @@ var bodies = []struct {
 	{CreateTeam, nameRequest{}, Team{}},
 	{GetTeam, nil, TeamDetail{}},
 	{RenameTeam, renameRequest{}, Team{}},
+	{AddTeamMember, addMemberRequest{}, Member{}},
+	{SetTeamMemberRole, setRoleRequest{}, Member{}},
 	{CreateProject, nameRequest{}, Project{}},
 	{RenameProject, renameRequest{}, Project{}},
 	{CreateEnvironment, nameRequest{}, Environment{}},

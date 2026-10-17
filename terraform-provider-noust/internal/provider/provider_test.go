@@ -44,7 +44,7 @@ func TestEverySchemaIsValidAndTheProviderOffersWhatTheDocsPromise(t *testing.T) 
 	sort.Strings(dataSources)
 	wantResources := []string{
 		"noust_application", "noust_backup_schedule", "noust_database", "noust_deploy_key", "noust_domain",
-		"noust_environment", "noust_project", "noust_registry_login", "noust_team",
+		"noust_environment", "noust_project", "noust_registry_login", "noust_team", "noust_team_member",
 	}
 	wantDataSources := []string{"noust_application", "noust_applications", "noust_servers", "noust_team"}
 	if strings.Join(resources, ",") != strings.Join(wantResources, ",") {

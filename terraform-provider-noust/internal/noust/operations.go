@@ -76,6 +76,10 @@ var (
 	GetTeam           = Op{"GetTeam", "GET", "/api/teams/{team}", "teams.read", false}
 	RenameTeam        = Op{"RenameTeam", "PATCH", "/api/teams/{team}", "teams.manage", false}
 	DeleteTeam        = Op{"DeleteTeam", "DELETE", "/api/teams/{team}", "teams.manage", true}
+	AddTeamMember     = Op{"AddTeamMember", "POST", "/api/teams/{team}/members", "teams.manage", true}
+	ListTeamMembers   = Op{"ListTeamMembers", "GET", "/api/teams/{team}/members", "teams.read", false}
+	SetTeamMemberRole = Op{"SetTeamMemberRole", "PATCH", "/api/teams/{team}/members/{username}", "teams.manage", true}
+	RemoveTeamMember  = Op{"RemoveTeamMember", "DELETE", "/api/teams/{team}/members/{username}", "teams.manage", true}
 	CreateProject     = Op{"CreateProject", "POST", "/api/teams/{team}/projects", "teams.manage", false}
 	ListProjects      = Op{"ListProjects", "GET", "/api/teams/{team}/projects", "teams.read", false}
 	RenameProject     = Op{"RenameProject", "PATCH", "/api/teams/{team}/projects/{project}", "teams.manage", false}
@@ -107,7 +111,8 @@ var AllOperations = []Op{
 	ListDomains, AddDomain, DeleteDomain, SetDomainPort,
 	CreateDatabase, GetDatabase, DropDatabase,
 	ListBackupSchedules, CreateBackupSchedule, UpdateBackupSchedule, DeleteBackupSchedule,
-	CreateTeam, GetTeam, RenameTeam, DeleteTeam, CreateProject, ListProjects, RenameProject,
+	CreateTeam, GetTeam, RenameTeam, DeleteTeam, AddTeamMember, ListTeamMembers, SetTeamMemberRole,
+	RemoveTeamMember, CreateProject, ListProjects, RenameProject,
 	DeleteProject, CreateEnvironment, ListEnvironments, RenameEnvironment, DeleteEnvironment,
 	CreateDeployKey, GetDeployKey, ImportDeployKey, DeleteDeployKey,
 	CreateRegistryLogin, GetRegistryLogin, ChangeRegistryLogin, DeleteRegistryLogin,

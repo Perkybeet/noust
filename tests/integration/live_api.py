@@ -154,7 +154,8 @@ def mint_tokens(url: str, master_token: str, permissions: Sequence[str]) -> dict
         permissions: What the ``provider`` profile holds (``permissions.json``'s ``all``).
 
     Returns:
-        Profile name to token.
+        Profile name to token, and ``account`` to the name of the account that issued them: an account
+        that exists, which a test can make a member of a team.
 
     Raises:
         ApiError: The server refused a step.
@@ -191,6 +192,7 @@ def mint_tokens(url: str, master_token: str, permissions: Sequence[str]) -> dict
             },
         )
         tokens[profile] = issued["token"]
+    tokens["account"] = username
     return tokens
 
 

@@ -50,6 +50,13 @@ func testAccPreCheckProfiles(t *testing.T) {
 	}
 }
 
+func requireAccount(t *testing.T) {
+	t.Helper()
+	if os.Getenv("NOUST_ACCOUNT") == "" {
+		t.Fatal("NOUST_ACCOUNT must name an account of the server for the membership tests: see tests/integration/terraform_run.py")
+	}
+}
+
 // accClient is a client of the same server, with the provider's own token, for what a test checks or
 // changes behind Terraform's back.
 func accClient(t *testing.T) *noust.Client {

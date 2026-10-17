@@ -6,6 +6,7 @@ package provider_test
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -150,6 +151,64 @@ func TestAccTeamRefusesToBeDeletedWhileItHoldsSomething(t *testing.T) {
 					}
 				},
 				Config: config,
+			},
+		},
+	})
+}
+
+func TestAccTeamMember(t *testing.T) {
+	id := suffix()
+	slug := "crew-" + id
+	// The account the tokens belong to exists on the server, and a team can have it as a member.
+	account := os.Getenv("NOUST_ACCOUNT")
+	config := func(role string) string {
+		return providerBlock + fmt.Sprintf(`
+resource "noust_team" "crew" {
+  name = "Crew"
+  slug = %q
+}
+
+resource "noust_team_member" "member" {
+  team     = noust_team.crew.slug
+  username = %q
+  role     = %q
+}
+`, slug, account, role)
+	}
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t); requireAccount(t) },
+		ProtoV6ProviderFactories: protoV6Provider,
+		CheckDestroy: destroyed(t, "noust_team_member", func(ctx context.Context, client *noust.Client, rs *terraform.ResourceState) (bool, error) {
+			member, err := client.GetTeamMember(ctx, rs.Primary.Attributes["team"], rs.Primary.Attributes["username"])
+			return member == nil, ignoreNotFound(err)
+		}),
+		Steps: []resource.TestStep{
+			{
+				Config: config("viewer"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("noust_team_member.member", "id", slug+"/"+account),
+					resource.TestCheckResourceAttr("noust_team_member.member", "role", "viewer"),
+				),
+			},
+			{
+				// A role is changed in place.
+				Config: config("operator"),
+				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{
+					plancheck.ExpectResourceAction("noust_team_member.member", plancheck.ResourceActionUpdate),
+				}},
+				Check: resource.TestCheckResourceAttr("noust_team_member.member", "role", "operator"),
+			},
+			{ResourceName: "noust_team_member.member", ImportState: true, ImportStateVerify: true},
+			{
+				// Changed by hand, it is a difference.
+				PreConfig: func() {
+					if _, err := accClient(t).SetTeamMemberRole(context.Background(), slug, account, "admin"); err != nil {
+						t.Fatal(err)
+					}
+				},
+				Config:             config("operator"),
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: true,
 			},
 		},
 	})

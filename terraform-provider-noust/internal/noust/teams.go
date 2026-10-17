@@ -159,3 +159,60 @@ func (c *Client) RenameEnvironment(ctx context.Context, team, project, slug, nam
 func (c *Client) DeleteEnvironment(ctx context.Context, team, project, slug string) error {
 	return c.Do(ctx, DeleteEnvironment, Call{Args: []string{team, project, slug}})
 }
+
+// Member is an account's membership of a team.
+type Member struct {
+	Username     string `json:"username"`
+	Role         string `json:"role"`
+	InstanceRole string `json:"instance_role"`
+}
+
+type addMemberRequest struct {
+	Username string `json:"username"`
+	Role     string `json:"role"`
+}
+
+type setRoleRequest struct {
+	Role string `json:"role"`
+}
+
+// AddTeamMember adds an existing account to a team with a role, or changes its role there.
+func (c *Client) AddTeamMember(ctx context.Context, team, username, role string) (*Member, error) {
+	var out Member
+	if err := c.Do(ctx, AddTeamMember, Call{Args: []string{team}, Body: addMemberRequest{username, role}, Out: &out}); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// GetTeamMember returns an account's membership of a team, or nil when it is not a member. The API lists a
+// team's members and has no read of one, so the list is filtered here; the error satisfies IsNotFound when
+// the team itself is unknown.
+func (c *Client) GetTeamMember(ctx context.Context, team, username string) (*Member, error) {
+	var out struct {
+		Members []Member `json:"members"`
+	}
+	if err := c.Do(ctx, ListTeamMembers, Call{Args: []string{team}, Out: &out}); err != nil {
+		return nil, err
+	}
+	for i := range out.Members {
+		if out.Members[i].Username == username {
+			return &out.Members[i], nil
+		}
+	}
+	return nil, nil
+}
+
+// SetTeamMemberRole changes a member's role in a team.
+func (c *Client) SetTeamMemberRole(ctx context.Context, team, username, role string) (*Member, error) {
+	var out Member
+	if err := c.Do(ctx, SetTeamMemberRole, Call{Args: []string{team, username}, Body: setRoleRequest{role}, Out: &out}); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// RemoveTeamMember takes an account out of a team. The server refuses to remove the team's last owner.
+func (c *Client) RemoveTeamMember(ctx context.Context, team, username string) error {
+	return c.Do(ctx, RemoveTeamMember, Call{Args: []string{team, username}})
+}

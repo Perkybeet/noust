@@ -106,6 +106,13 @@
       ],
       "sudo": true
     },
+    "noust_team_member": {
+      "permissions": [
+        "teams.manage",
+        "teams.read"
+      ],
+      "sudo": true
+    },
     "provider": {
       "permissions": [
         "self"

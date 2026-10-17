@@ -15,6 +15,7 @@ var ResourceOperations = map[string][]Op{
 	"noust_database":        {CreateDatabase, GetDatabase, DropDatabase, GetJob},
 	"noust_backup_schedule": {ListBackupSchedules, CreateBackupSchedule, UpdateBackupSchedule, DeleteBackupSchedule},
 	"noust_team":            {CreateTeam, GetTeam, RenameTeam, DeleteTeam},
+	"noust_team_member":     {AddTeamMember, ListTeamMembers, SetTeamMemberRole, RemoveTeamMember},
 	"noust_project":         {CreateProject, ListProjects, RenameProject, DeleteProject},
 	"noust_environment":     {CreateEnvironment, ListEnvironments, RenameEnvironment, DeleteEnvironment},
 	"noust_deploy_key":      {CreateDeployKey, ImportDeployKey, GetDeployKey, DeleteDeployKey},

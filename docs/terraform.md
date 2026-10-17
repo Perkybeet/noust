@@ -97,6 +97,7 @@ that each variable is there instead.
 | `noust_database` | `apps.read`, `databases.manage`, `databases.read`, `databases.write` | yes |
 | `noust_backup_schedule` | `backups.manage`, `backups.read`, `root_equivalent` | yes |
 | `noust_team` | `teams.manage`, `teams.read` | yes |
+| `noust_team_member` | `teams.manage`, `teams.read` | yes |
 | `noust_project` | `teams.manage`, `teams.read` | yes |
 | `noust_environment` | `teams.manage`, `teams.read` | yes |
 | `noust_deploy_key` | `apps.manage`, `apps.read` | yes |
@@ -118,6 +119,7 @@ operations the code calls.)
 | `noust_database` | A database on one of the server's engines, with an owner account of its own | `engine/name` |
 | `noust_backup_schedule` | An application's scheduled backups, their retention and remote destinations | the application's domain |
 | `noust_team`, `noust_project`, `noust_environment` | Who owns what | `team`, `team/project`, `team/project/environment` |
+| `noust_team_member` | An existing account's role in a team | `team/username` |
 | `noust_deploy_key` | The SSH key an application's repository is reached with | the application's domain |
 | `noust_registry_login` | An account on a container registry | its name |
 
@@ -180,7 +182,7 @@ Terraform's (`lifecycle { prevent_destroy = true }`).
 [`sdk/terraform/generator_config.yml`](../sdk/terraform/generator_config.yml) is the map from the API to
 resources, in the format of HashiCorp's `terraform-plugin-codegen-openapi`, and `x_noust.provided` says which
 of its entries the provider offers. The rest is the plan, each as the API already has it: `noust_account`,
-`noust_role`, `noust_team_member`, `noust_access_binding` and `noust_api_token` (the secret is in the answer to
+`noust_role`, `noust_access_binding` and `noust_api_token` (the secret is in the answer to
 the create and in no read: kept in state, sensitive), `noust_cron_job`, `noust_team_variable` and
 `noust_server_variable` (the value is sensitive), `noust_notification_channel` (only changed and removed: the
 channels exist), `noust_secret_provider` and `noust_dns_provider` (their tokens and credentials are

@@ -42,6 +42,7 @@ probes and the journal word for word.
 | `noust_database` | A database on one of the server's engines, with an owner of its own |
 | `noust_backup_schedule` | An application's scheduled backups, retention and remote destinations |
 | `noust_team`, `noust_project`, `noust_environment` | Who owns what |
+| `noust_team_member` | An existing account's role in a team |
 | `noust_deploy_key` | The SSH key an application's repository is reached with |
 | `noust_registry_login` | An account on a container registry |
 
