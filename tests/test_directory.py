@@ -292,6 +292,37 @@ class TestConfiguration:
             directories.configure("corp", settings(server, redirect_uri="x"))
 
 
+class TestWhatTheOperatorReadsWhenTheDirectoryRefuses:
+    def test_a_refusal_names_its_result_and_says_what_to_look_at(self) -> None:
+        from noust.core.accounts.directory import _words
+        from noust.core.accounts.ldap_client import LdapError, result_name
+
+        words = _words(LdapError("The directory refused the search", code=32, diagnostic=""))
+
+        assert result_name(32) == "no such object" and result_name(999) == "result 999"
+        assert "refused the search (no such object, 32)." in words
+        assert "may not see it" in words
+
+    def test_the_directorys_own_words_follow(self) -> None:
+        from noust.core.accounts.directory import _words
+        from noust.core.accounts.ldap_client import LdapError
+
+        words = _words(LdapError("The directory refused the bind", code=49, diagnostic="bad dn"))
+
+        assert words.endswith("The directory said: bad dn")
+        assert "(invalid credentials, 49)" in words
+
+    def test_a_failing_search_is_named_for_the_step_it_was(
+        self, directories: DirectoryManager, server: FakeDirectory
+    ) -> None:
+        add(directories, server, user_base="ou=nowhere,dc=acme,dc=test")
+
+        checks = directories.test("corp")
+
+        assert [c.name for c in checks][:2] == ["connection", "bind"]
+        assert checks[-1].name == "users" and not checks[-1].ok
+
+
 class TestSigningIn:
     @pytest.fixture(autouse=True)
     def ready(self, directories: DirectoryManager, server: FakeDirectory, admin: Any) -> None:
