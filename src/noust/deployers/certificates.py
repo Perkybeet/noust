@@ -39,7 +39,7 @@ from noust.core.certificate_store import (
     CertificateStore,
 )
 from noust.core.dns_store import DnsStore
-from noust.core.exceptions import NoustError, ValidationError
+from noust.core.exceptions import CertificateError, NoustError, ValidationError
 from noust.core.store import App, get_store
 from noust.deployers import domains
 from noust.deployers.helpers.site import certificate_names
@@ -349,6 +349,44 @@ def use_uploaded(app_domain: str, name: str, *, verbose: bool = False) -> Certif
             details={"source": SOURCE_CUSTOM, "name": name, "fingerprint": record.fingerprint},
         )
         return CertificateChange(describe(app.domain, verbose=verbose))
+
+
+def refresh_sites_serving(name: str) -> list[str]:
+    """
+    Reload the site of every application that serves an uploaded certificate whose files were
+    just replaced (a renewal), so the web server serves the new one and not the one in memory.
+
+    Every site is tried: one that cannot be rendered now (the web server refuses it, another
+    operation holds the application) does not leave the others on the old certificate.
+
+    Args:
+        name: The uploaded certificate.
+
+    Returns:
+        The applications whose site was reloaded.
+
+    Raises:
+        CertificateError: A site could not be reloaded. The certificate is already replaced on
+            disk, so the message says which sites still serve the old one.
+    """
+    refreshed: list[str] = []
+    failed: dict[str, str] = {}
+    for domain in CertificateStore().domains_using(SOURCE_CUSTOM, name):
+        try:
+            app = domains.application(domain)
+            domains.site_deployer(app).refresh_site(with_ssl=True)
+        except _APPLY_ERRORS as exc:
+            failed[domain] = str(exc).splitlines()[0][:200] if str(exc) else type(exc).__name__
+        else:
+            refreshed.append(domain)
+    if failed:
+        raise CertificateError(
+            f"{name} was renewed but {', '.join(failed)} could not be reloaded with it",
+            details="; ".join(f"{domain}: {why}" for domain, why in failed.items())
+            + f". They keep serving the old certificate until: noust cert use {next(iter(failed))} "
+            f"--upload {name}",
+        )
+    return refreshed
 
 
 def _serves_tls(app: App, manager: CertManager) -> bool:

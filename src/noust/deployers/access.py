@@ -39,6 +39,7 @@ from noust.deployers import domains
 from noust.managers import trusted_proxies
 from noust.managers.client_certs import ClientCertificates, IssuedClientCertificate
 from noust.managers.http3 import Http3, Http3Support
+from noust.managers.nginx_manager import NginxManager
 from noust.managers.site_forward_auth import check_service
 from noust.managers.site_policy import (
     MAX_USERS,
@@ -81,6 +82,8 @@ class AccessView:
         headers: The response headers the site sends, as worked out.
         real_ip_networks: The networks the client address is believed from.
         real_ip_source: ``fetched``, ``built-in`` or empty.
+        serves_tls: The site is served over HTTPS, so a policy that needs a certificate (HTTP/3,
+            client certificates) has something to act on.
     """
 
     app: str
@@ -92,6 +95,7 @@ class AccessView:
     headers: tuple[tuple[str, str], ...] = ()
     real_ip_networks: tuple[str, ...] = ()
     real_ip_source: str = ""
+    serves_tls: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -110,6 +114,7 @@ class AccessView:
             "headers": [{"name": name, "value": value} for name, value in self.headers],
             "real_ip_networks": list(self.real_ip_networks),
             "real_ip_source": self.real_ip_source,
+            "serves_tls": self.serves_tls,
         }
 
 
@@ -157,6 +162,7 @@ def describe(app_domain: str, *, verbose: bool = False) -> AccessView:
         headers=tuple(response_headers(policy, ssl=ssl)),
         real_ip_networks=ranges.networks if ranges else tuple(policy.trusted_proxies),
         real_ip_source=ranges.source if ranges else "",
+        serves_tls=ssl,
     )
 
 
@@ -262,11 +268,14 @@ def _set_policy(
         _let_go_of_quic_socket(app, verbose=verbose)
     if before.waf and not after.waf:
         _let_go_of_waf_rules(app, verbose=verbose)
+    changed = _changed_fields(before, after)
     audit.record(
         "sites.policy",
         target=f"app:{app.domain}",
-        details={"changed": sorted(_changed_fields(before, after)), "policy": after.to_dict()},
+        details={"changed": sorted(changed), "policy": after.to_dict()},
     )
+    if changed & {"real_ip", "trusted_proxies"}:
+        _keep_brute_force_jails_true(operator_addresses)
     return describe(app.domain, verbose=verbose)
 
 
@@ -302,6 +311,8 @@ def reset_policy(app_domain: str, *, verbose: bool = False) -> AccessView:
         if before.waf:
             _let_go_of_waf_rules(app, verbose=verbose)
         audit.record("sites.policy", target=f"app:{app.domain}", details={"changed": ["reset"]})
+        if before.real_ip != "off":
+            _keep_brute_force_jails_true(())
         return describe(app.domain, verbose=verbose)
 
 
@@ -454,7 +465,24 @@ def refresh_trusted_ranges(*, verbose: bool = False) -> dict[str, Any]:
             result["applied"].append(name)
         except _APPLY_ERRORS as exc:
             result["failed"][name] = str(exc)
+    _keep_brute_force_jails_true(())
     return result
+
+
+def _keep_brute_force_jails_true(operator_addresses: Sequence[str]) -> None:
+    """
+    Tell fail2ban's nginx jails who stands in front of the sites now.
+
+    The jails never ban Cloudflare's ranges nor a proxy a site declares; the list is written once,
+    so a change to the proxies has to rewrite it, or the new proxy is banned at its first wrong
+    password and every site behind it goes with it.
+
+    Args:
+        operator_addresses: The addresses the operator is making the change from.
+    """
+    from noust.managers.server.security_fail2ban import keep_web_jails_true
+
+    keep_web_jails_true(operator_addresses)
 
 
 def audit_actor() -> str | None:
@@ -473,8 +501,19 @@ def forget(app_domain: str) -> None:
     Args:
         app_domain: The application's primary domain.
     """
-    SitePolicyManager().forget(app_domain)
+    manager = SitePolicyManager()
+    leaving = manager.get(app_domain)
+    manager.forget(app_domain)
     ClientCertificates().forget(app_domain)
+    # The socket's site and the firewall's rules are shared; the last site to use them takes
+    # them away, and a deletion is as much a way of leaving as a policy change.
+    if leaving.http3 or leaving.waf:
+        app = get_store().get_app(app_domain)
+        web = _web_server(app, verbose=False) if app is not None else NginxManager()
+        if leaving.http3 and not _any_site_uses("http3"):
+            Http3(web).release_anchor()
+        if leaving.waf and not _any_site_uses("waf"):
+            Waf(web).release_anchor()
 
 
 # -- Internals --------------------------------------------------------------------
@@ -571,6 +610,23 @@ def _web_server(app: App, *, verbose: bool) -> Any:
     return domains.site_deployer(app, verbose=verbose).webserver_manager()
 
 
+def _any_site_uses(field: str, *, besides: str | None = None) -> bool:
+    """
+    Args:
+        field: A boolean part of the policy: ``http3`` or ``waf``.
+        besides: An application to leave out of the question.
+
+    Returns:
+        Whether the policy of any other application has it on.
+    """
+    manager = SitePolicyManager()
+    return any(
+        getattr(manager.get(name), field)
+        for name in manager.records.domains_with_policy()
+        if name != besides
+    )
+
+
 def _other_sites_use_http3(app: App) -> bool:
     """
     Args:
@@ -579,12 +635,7 @@ def _other_sites_use_http3(app: App) -> bool:
     Returns:
         Whether another application's site is served over HTTP/3.
     """
-    manager = SitePolicyManager()
-    return any(
-        manager.get(name).http3
-        for name in manager.records.domains_with_policy()
-        if name != app.domain
-    )
+    return _any_site_uses("http3", besides=app.domain)
 
 
 def _other_sites_use_waf(app: App) -> bool:
@@ -595,12 +646,7 @@ def _other_sites_use_waf(app: App) -> bool:
     Returns:
         Whether another application's site has the web application firewall on.
     """
-    manager = SitePolicyManager()
-    return any(
-        manager.get(name).waf
-        for name in manager.records.domains_with_policy()
-        if name != app.domain
-    )
+    return _any_site_uses("waf", besides=app.domain)
 
 
 def _hold_waf_rules(app: App, before: SitePolicy, after: SitePolicy, *, verbose: bool) -> bool:

@@ -382,10 +382,7 @@ def renew_tailnet_certificates(*, now: datetime | None = None) -> list[str]:
             continue
         hostname = record.name.removeprefix(TAILNET_PREFIX)
         _issue_and_keep(record.name, hostname)
-        for domain in CustomCertificates().records.domains_using("custom", record.name):
-            app = domains.application(domain)
-            deployer = domains.site_deployer(app)
-            deployer.refresh_site(with_ssl=True)
+        certificates.refresh_sites_serving(record.name)
         renewed.append(record.name)
     return renewed
 

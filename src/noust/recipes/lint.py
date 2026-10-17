@@ -25,6 +25,7 @@ from typing import Any
 
 import yaml
 
+from noust.core.compose_yaml import load_compose
 from noust.recipes.assets import set_asset_root
 from noust.recipes.catalog import catalogue_files
 from noust.recipes.composefile import parse_image
@@ -82,7 +83,7 @@ def lint_images(name: str, data: dict[str, Any]) -> list[Finding]:
         return []
     verified = data.get("digest_verified", True) is not False
     try:
-        document = yaml.safe_load(str(data.get("compose") or ""))
+        document = load_compose(str(data.get("compose") or ""))
     except yaml.YAMLError as exc:
         return [Finding(name, "schema", ERROR, f"the Compose document is not YAML: {exc}")]
     services = document.get("services") if isinstance(document, dict) else None

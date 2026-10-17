@@ -758,6 +758,44 @@ class EnvManager:
         self.fs.write_text(path, "\n".join(lines) + "\n", mode=SECRET_MODE)
         self.logger.debug(f"Wrote env file: {path}")
 
+    def add_if_missing(self, path: Path, name: str, value: str) -> bool:
+        """
+        Add one variable to an environment file that does not set it, touching nothing else.
+
+        The file is appended to rather than rewritten, so an operator's comments, their order
+        and values they chose are kept (:meth:`write_env_files` writes the whole file, sorted).
+
+        Args:
+            path: The ``.env``; created (readable by its owner only) when it does not exist.
+            name: The variable.
+            value: Its value, for a name that is not set.
+
+        Returns:
+            True when the line was added; False when the file already sets the name.
+
+        Raises:
+            SecurityError: If the destination is a symlink.
+            OSError: If the file cannot be read or written.
+        """
+        if path.is_symlink():
+            raise SecurityError(
+                f"Refusing to write secrets through the symlink {path}",
+                details=(
+                    "Something replaced the file with a symbolic link, which would "
+                    "redirect the write. Inspect the directory, remove the link and "
+                    "retry."
+                ),
+            )
+        text = path.read_text(encoding="utf-8") if path.is_file() else ""
+        if name in self.parse_env_text(text):
+            return False
+        separator = "" if not text or text.endswith("\n") else "\n"
+        self.fs.write_text(
+            path, f"{text}{separator}{name}={self._quote_if_needed(value)}\n", mode=SECRET_MODE
+        )
+        self.logger.debug(f"Added {name} to {path}")
+        return True
+
     @staticmethod
     def _comment_lines(comment: str) -> list[str]:
         """

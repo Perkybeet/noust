@@ -431,6 +431,37 @@ describe("where an application's certificate comes from", () => {
     expect(backend.callsTo(`PUT /api/apps/${APP}/certificate`)[0]?.body).toEqual({ source: "custom", name: "origin", challenge: "http-01", order: true });
   });
 
+  it("offers the server's own authority only when it has one, and has it sign the application's names", async () => {
+    const authority = { subject: "CN = Noust internal CA", fingerprint: "AA", not_before: "", not_after: "2036-01-01T00:00:00+00:00", days_left: 3000, permitted_dns: ["lan"], permitted_networks: [], issued: 0, warnings: [] };
+    const { user, backend } = tab({
+      "GET /api/certs/ca": () => json(200, { authority, issued: [], root_pem: "PEM", trusted_here: false, system_store: null, default_dns: [], default_networks: [] }),
+      [`PUT /api/apps/${APP}/certificate`]: () => json(200, { ...APP_CERTIFICATE, source: "custom", name: "internal-shop-example-com", job_id: null }),
+    });
+
+    await user.click(await screen.findByRole("button", { name: "Change" }));
+    const dialog = await screen.findByRole("dialog", { name: `Where the certificate of ${APP} comes from` });
+    await user.click(await within(dialog).findByRole("radio", { name: /This server's authority/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Apply" }));
+
+    await waitFor(() => {
+      expect(backend.callsTo(`PUT /api/apps/${APP}/certificate`)).toHaveLength(1);
+    });
+    expect(backend.callsTo(`PUT /api/apps/${APP}/certificate`)[0]?.body).toEqual({ source: "internal", challenge: "http-01", order: true });
+    expect(await screen.findByText("Signed by this server's private authority (internal-shop-example-com)")).toBeInTheDocument();
+  });
+
+  it("does not offer the server's own authority while it has none", async () => {
+    const { user } = tab({
+      "GET /api/certs/ca": () => json(200, { authority: null, issued: [], root_pem: null, trusted_here: false, system_store: null, default_dns: [], default_networks: [] }),
+    });
+
+    await user.click(await screen.findByRole("button", { name: "Change" }));
+    const dialog = await screen.findByRole("dialog", { name: `Where the certificate of ${APP} comes from` });
+    await within(dialog).findByRole("radio", { name: /Ordered over DNS/ });
+
+    expect(within(dialog).queryByRole("radio", { name: /This server's authority/ })).not.toBeInTheDocument();
+  });
+
   it("fills the name field with a temporary address made of the server's public one", async () => {
     const { user } = tab({
       "GET /api/domains/temporary": () => json(200, { address: "203.0.113.10", domain: "203-0-113-10.sslip.io", service: "sslip.io", declared: false }),

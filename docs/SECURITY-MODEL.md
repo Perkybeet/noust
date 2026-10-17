@@ -359,8 +359,8 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **967** API operations. **929** need a permission (`x-noust-permission`) and **38** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **315** operations need sudo mode and **38** can need a second person.
+- **976** API operations. **938** need a permission (`x-noust-permission`) and **38** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **319** operations need sudo mode and **38** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
@@ -368,9 +368,9 @@ only what recovering an account takes.
 | `accounts.manage` | 30 |
 | `accounts.read` | 12 |
 | `apps.deploy` | 35 |
-| `apps.manage` | 137 |
+| `apps.manage` | 139 |
 | `apps.operate` | 32 |
-| `apps.read` | 133 |
+| `apps.read` | 136 |
 | `apps.terminal` | 12 |
 | `audit.manage` | 1 |
 | `audit.read` | 9 |
@@ -392,7 +392,7 @@ only what recovering an account takes.
 | `server.manage` | 55 |
 | `server.read` | 75 |
 | `server.terminal` | 1 |
-| `settings.manage` | 26 |
+| `settings.manage` | 30 |
 | `settings.read` | 22 |
 | `teams.manage` | 14 |
 | `teams.read` | 10 |
@@ -485,14 +485,14 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **474** events.
+The catalogue holds **475** events.
 
 | Category | Events |
 |---|---|
 | access | 46 |
 | account | 36 |
 | config | 29 |
-| change | 303 |
+| change | 304 |
 | read | 20 |
 | denial | 16 |
 | system | 21 |

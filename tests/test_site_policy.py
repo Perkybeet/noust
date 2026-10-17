@@ -371,6 +371,27 @@ def test_the_accounts_file_is_derived_from_the_store_and_readable_only_by_the_we
     assert "auth_basic" not in machine.config()
 
 
+def test_the_directory_of_the_accounts_file_is_open_to_the_web_servers_group_too(
+    machine: Machine, store: NoustStore, web: NginxManager, ownership_changes: list[Any]
+) -> None:
+    """
+    A file the group can read is useless inside a directory only root can enter: nginx's workers
+    answered every request to a protected site with a 500 ("open() failed (13: Permission
+    denied)") until the directory belonged to the group as well. Only a real nginx noticed.
+    """
+    machine.deploy(app_type="nodejs")
+    policies = SitePolicyManager()
+    _store_users(policies, "example.com", "ana")
+    policies.save("example.com", SitePolicy(basic_auth=True), actor="test")
+
+    domains.refresh_site(store.get_app("example.com"))
+
+    directory = web.sites_available.parent / "noust-auth"
+    changes = [c for c in ownership_changes if c.path == directory]
+    assert [(c.user, c.mode) for c in changes] == [("root", 0o750)]
+    assert changes[0].group == site_policy.worker_group(web.sites_available.parent, "nginx")
+
+
 def test_a_site_that_asks_for_a_password_and_has_no_accounts_is_not_written(
     machine: Machine, store: NoustStore
 ) -> None:
@@ -495,6 +516,81 @@ def test_setting_a_policy_renders_the_site_and_is_audited(
     assert "limit_req zone=example_com_site" in machine.config()
     assert machine.reloaded()
     assert SitePolicyManager().get("example.com").noindex is True
+
+
+@pytest.fixture
+def jails(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, ...]]:
+    """What the brute-force jails were asked: one entry per call, with the addresses to spare."""
+    asked: list[tuple[str, ...]] = []
+    monkeypatch.setattr(
+        "noust.managers.server.security_fail2ban.keep_web_jails_true",
+        lambda ignore=(), *, runner=None: asked.append(tuple(ignore)),
+    )
+    return asked
+
+
+def test_a_proxy_declared_for_a_site_reaches_the_brute_force_jails(
+    machine: Machine, served: NoustStore, jails: list[tuple[str, ...]]
+) -> None:
+    """A CDN put in front of a site that exists must not be banned for one wrong password."""
+    access.set_policy(
+        "example.com",
+        {
+            "real_ip": "custom",
+            "real_ip_header": "X-Forwarded-For",
+            "trusted_proxies": ["192.0.2.7"],
+        },
+        operator_addresses=["198.51.100.4"],
+    )
+
+    assert jails == [("198.51.100.4",)]
+
+
+def test_a_change_that_leaves_the_proxies_alone_does_not_touch_the_jails(
+    machine: Machine, served: NoustStore, jails: list[tuple[str, ...]]
+) -> None:
+    access.set_policy("example.com", {"rate_limit": "10r/s"})
+
+    assert jails == []
+
+
+def test_taking_the_policy_back_to_the_default_refreshes_the_jails_when_it_had_proxies(
+    machine: Machine, served: NoustStore, jails: list[tuple[str, ...]]
+) -> None:
+    access.set_policy(
+        "example.com",
+        {
+            "real_ip": "custom",
+            "real_ip_header": "X-Forwarded-For",
+            "trusted_proxies": ["192.0.2.7"],
+        },
+    )
+    jails.clear()
+
+    access.reset_policy("example.com")
+
+    assert jails == [()]
+
+
+def test_new_ranges_from_cloudflare_reach_the_jails_too(
+    machine: Machine,
+    served: NoustStore,
+    jails: list[tuple[str, ...]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from types import SimpleNamespace
+
+    ranges = SimpleNamespace(networks=("173.245.48.0/20",), source="built-in")
+    monkeypatch.setattr(access.trusted_proxies, "current_ranges", lambda: ranges)
+    monkeypatch.setattr(
+        access.trusted_proxies,
+        "refresh",
+        lambda: SimpleNamespace(networks=("173.245.48.0/20", "198.51.100.0/24"), source="fetched"),
+    )
+
+    access.refresh_trusted_ranges()
+
+    assert jails == [()]
 
 
 def test_the_web_server_refusing_the_site_puts_the_policy_back(

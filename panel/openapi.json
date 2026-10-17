@@ -804,7 +804,7 @@
         "properties": {
           "authorities": {
             "items": {
-              "$ref": "#/components/schemas/AuthorityModel"
+              "$ref": "#/components/schemas/noust__web__api__cert_settings__AuthorityModel"
             },
             "title": "Authorities",
             "type": "array"
@@ -4541,35 +4541,6 @@
           "status"
         ],
         "title": "AuditStatusResponse",
-        "type": "object"
-      },
-      "AuthorityModel": {
-        "description": "A certificate authority Noust knows by name.\n\nAttributes:\n    name: The value of ``ssl.ca``.\n    label: How to call it.\n    needs_eab: It asks for an external account first.\n    trusted: Browsers trust what it issues.",
-        "properties": {
-          "label": {
-            "title": "Label",
-            "type": "string"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "needs_eab": {
-            "title": "Needs Eab",
-            "type": "boolean"
-          },
-          "trusted": {
-            "title": "Trusted",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "name",
-          "label",
-          "needs_eab",
-          "trusted"
-        ],
-        "title": "AuthorityModel",
         "type": "object"
       },
       "AutoUpdateChange": {
@@ -8968,12 +8939,25 @@
         "type": "object"
       },
       "ChooseCertificateRequest": {
-        "description": "Where the application's certificate comes from.\n\nAttributes:\n    source: ``acme`` to have it ordered, ``custom`` to serve an upload.\n    name: The upload, for ``custom``.\n    challenge: ``http-01`` or ``dns-01``, for ``acme``.\n    dns_provider: The DNS account, for ``dns-01``.\n    order: Order the certificate now when the choice changes it.",
+        "description": "Where the application's certificate comes from.\n\nAttributes:\n    source: ``acme`` to have it ordered, ``custom`` to serve an upload, ``internal`` to have\n        the server's own authority sign one (for a name that only resolves inside a\n        private network).\n    name: The upload, for ``custom``.\n    challenge: ``http-01`` or ``dns-01``, for ``acme``.\n    dns_provider: The DNS account, for ``dns-01``.\n    order: Order the certificate now when the choice changes it.\n    days: How long the certificate is valid, for ``internal`` (90 by default).",
         "properties": {
           "challenge": {
             "default": "http-01",
             "title": "Challenge",
             "type": "string"
+          },
+          "days": {
+            "anyOf": [
+              {
+                "maximum": 397.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days"
           },
           "dns_provider": {
             "anyOf": [
@@ -21689,6 +21673,43 @@
         "title": "GroupOut",
         "type": "object"
       },
+      "GuideModel": {
+        "description": "How to trust the authority on one kind of device.\n\nAttributes:\n    id: ``debian``, ``macos``, ``windows``...\n    title: What the person calls it.\n    file: The form of the root it wants: ``pem`` (``ca.crt``) or ``der`` (``ca.cer``).\n    steps: What to do, in order; a step that is a command starts with ``$ ``.\n    note: What is worth knowing.",
+        "properties": {
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "file",
+          "steps"
+        ],
+        "title": "GuideModel",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -22989,6 +23010,58 @@
           "name"
         ],
         "title": "IndexResponse",
+        "type": "object"
+      },
+      "InitRequest": {
+        "description": "The authority to make.\n\nAttributes:\n    permit_dns: More suffixes to sign for, besides the private defaults.\n    permit_networks: More private address ranges.\n    only: Sign for exactly these and not for the defaults.\n    days: How long the root is valid.\n    name: What it is called on a device.\n    trust_here: Also trust it on this server.",
+        "properties": {
+          "days": {
+            "default": 3650,
+            "maximum": 7300.0,
+            "minimum": 30.0,
+            "title": "Days",
+            "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "only": {
+            "default": false,
+            "title": "Only",
+            "type": "boolean"
+          },
+          "permit_dns": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Permit Dns",
+            "type": "array"
+          },
+          "permit_networks": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Permit Networks",
+            "type": "array"
+          },
+          "trust_here": {
+            "default": false,
+            "title": "Trust Here",
+            "type": "boolean"
+          }
+        },
+        "title": "InitRequest",
         "type": "object"
       },
       "InitScript": {
@@ -24376,6 +24449,38 @@
         "title": "IssueClientCertificateRequest",
         "type": "object"
       },
+      "IssueRequest": {
+        "description": "A certificate to sign.\n\nAttributes:\n    name: What it is for (``wiki``); kept as ``internal-wiki``.\n    names: DNS names (a wildcard is one label) and addresses, at least one DNS name.\n    days: How long it is valid.",
+        "properties": {
+          "days": {
+            "default": 90,
+            "maximum": 397.0,
+            "minimum": 1.0,
+            "title": "Days",
+            "type": "integer"
+          },
+          "name": {
+            "maxLength": 64,
+            "title": "Name",
+            "type": "string"
+          },
+          "names": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Names",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "names"
+        ],
+        "title": "IssueRequest",
+        "type": "object"
+      },
       "IssuedClientCertificateOut": {
         "description": "A certificate just made, with what its holder needs. Shown once; Noust keeps none of the\nprivate parts.\n\nAttributes:\n    certificate: The record.\n    bundle: The PKCS#12 file a browser or a keychain imports, base64.\n    password: What opens the bundle.\n    certificate_pem: The certificate, PEM.\n    key_pem: The private key, PEM.\n    ca_pem: The authority's certificate, PEM.",
         "properties": {
@@ -24412,6 +24517,55 @@
           "ca_pem"
         ],
         "title": "IssuedClientCertificateOut",
+        "type": "object"
+      },
+      "IssuedModel": {
+        "description": "A certificate the authority signed. Never its key.\n\nAttributes:\n    name: What it is kept under (``internal-wiki``), also its upload's name.\n    names: The DNS names on it.\n    not_after: When it stops being valid, ISO 8601 UTC.\n    days_left: Whole days until then.\n    fingerprint: Its SHA-256.\n    apps: The applications that serve it.\n    expiring: It is within its renewal window, and the network maintenance will sign it\n        again.",
+        "properties": {
+          "apps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "days_left": {
+            "title": "Days Left",
+            "type": "integer"
+          },
+          "expiring": {
+            "default": false,
+            "title": "Expiring",
+            "type": "boolean"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Names",
+            "type": "array"
+          },
+          "not_after": {
+            "title": "Not After",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "names",
+          "not_after",
+          "days_left",
+          "fingerprint"
+        ],
+        "title": "IssuedModel",
         "type": "object"
       },
       "JailOut": {
@@ -29852,6 +30006,75 @@
           "eol"
         ],
         "title": "OsOut",
+        "type": "object"
+      },
+      "OverviewModel": {
+        "description": "The authority, what it signed, and whether this server trusts it.\n\nAttributes:\n    authority: The authority, or None while this server has none.\n    issued: The certificates it signed that are kept, soonest to expire first.\n    root_pem: The root certificate (public: what a device installs), or None while there is\n        no authority. The console offers it as a download in both forms.\n    trusted_here: This server's own store holds the root.\n    system_store: Which system's store that is (``Debian, Ubuntu and Alpine``), or None when\n        Noust does not know how to update this system's.\n    default_dns: The suffixes a new authority signs for unless told otherwise.\n    default_networks: The address ranges, the same.",
+        "properties": {
+          "authority": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/noust__web__api__internal_ca__AuthorityModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "default_dns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Default Dns",
+            "type": "array"
+          },
+          "default_networks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Default Networks",
+            "type": "array"
+          },
+          "issued": {
+            "items": {
+              "$ref": "#/components/schemas/IssuedModel"
+            },
+            "title": "Issued",
+            "type": "array"
+          },
+          "root_pem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Pem"
+          },
+          "system_store": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "System Store"
+          },
+          "trusted_here": {
+            "default": false,
+            "title": "Trusted Here",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "default_dns",
+          "default_networks"
+        ],
+        "title": "OverviewModel",
         "type": "object"
       },
       "OverviewOut": {
@@ -50442,6 +50665,28 @@
         "title": "TrafficPointModel",
         "type": "object"
       },
+      "TrustModel": {
+        "description": "The root's fingerprint and the guides.\n\nAttributes:\n    fingerprint: What the device compares before it trusts the file.\n    guides: One per kind of device.",
+        "properties": {
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "guides": {
+            "items": {
+              "$ref": "#/components/schemas/GuideModel"
+            },
+            "title": "Guides",
+            "type": "array"
+          }
+        },
+        "required": [
+          "fingerprint",
+          "guides"
+        ],
+        "title": "TrustModel",
+        "type": "object"
+      },
       "TuningHealth": {
         "description": "What Docker says of the container now.\n\nAttributes:\n    status: ``healthy``, ``starting``, ``unhealthy`` or ``absent`` (no container).\n    failing_streak: Failed probes in a row.\n    last: The last probe, with the output the engine's own command printed.",
         "properties": {
@@ -56288,6 +56533,35 @@
         "title": "RestoreBackupRequest",
         "type": "object"
       },
+      "noust__web__api__cert_settings__AuthorityModel": {
+        "description": "A certificate authority Noust knows by name.\n\nAttributes:\n    name: The value of ``ssl.ca``.\n    label: How to call it.\n    needs_eab: It asks for an external account first.\n    trusted: Browsers trust what it issues.",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "needs_eab": {
+            "title": "Needs Eab",
+            "type": "boolean"
+          },
+          "trusted": {
+            "title": "Trusted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "needs_eab",
+          "trusted"
+        ],
+        "title": "AuthorityModel",
+        "type": "object"
+      },
       "noust__web__api__cloud__MachineOut": {
         "description": "A machine this central created.\n\nAttributes:\n    node: The server's name on this central.\n    account: The cloud account.\n    provider: The provider's key.\n    provider_id: The provider's id.\n    address: Where it answers.\n    location: Where it is.\n    plan: Its size.\n    image: What it started from.\n    state: ``creating``, ``booting``, ``enrolling``, ``ready``, ``failed`` or ``deleted``.\n    error: Why it failed.\n    job_id: The job that created it.\n    created_at: When the provider answered.\n    created_by: Who asked.\n    updated_at: When the row last changed.\n    remote: The provider's live report, when asked for.\n    remote_error: Why the provider could not be asked.",
         "properties": {
@@ -57623,6 +57897,68 @@
           "removed"
         ],
         "title": "RemovalOut",
+        "type": "object"
+      },
+      "noust__web__api__internal_ca__AuthorityModel": {
+        "description": "The authority. Never its key.\n\nAttributes:\n    subject: What it is called on a device.\n    fingerprint: The root's SHA-256, which a device compares before it trusts it.\n    not_before: When it begins to be valid, ISO 8601 UTC.\n    not_after: When it expires.\n    days_left: Whole days until then.\n    permitted_dns: The suffixes it can sign for.\n    permitted_networks: The address ranges it can sign for.\n    issued: How many certificates it signed that are kept.\n    warnings: Sentences about its state (it expires within six months).",
+        "properties": {
+          "days_left": {
+            "title": "Days Left",
+            "type": "integer"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "issued": {
+            "default": 0,
+            "title": "Issued",
+            "type": "integer"
+          },
+          "not_after": {
+            "title": "Not After",
+            "type": "string"
+          },
+          "not_before": {
+            "title": "Not Before",
+            "type": "string"
+          },
+          "permitted_dns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Permitted Dns",
+            "type": "array"
+          },
+          "permitted_networks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Permitted Networks",
+            "type": "array"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "subject",
+          "fingerprint",
+          "not_before",
+          "not_after",
+          "days_left",
+          "permitted_dns",
+          "permitted_networks"
+        ],
+        "title": "AuthorityModel",
         "type": "object"
       },
       "noust__web__api__jobs__RollbackRequest": {
@@ -60966,7 +61302,7 @@
         "x-noust-permission": "apps.read"
       },
       "put": {
-        "description": "Choose where the application's certificate comes from.\n\n``custom`` serves an upload at once (nothing is ordered). ``acme`` is queued as a job\nwhen the choice changes how a certificate is proven: certbot never runs on the request\npath. ``job_id`` is that job; the certificate that served keeps serving until it is done.\n\nArgs:\n    domain: The application's primary domain.\n    data: The choice.\n    session: Authenticated session, injected.\n\nReturns:\n    The description, with the job when one was queued.\n\nRaises:\n    ValidationError: The choice is not acceptable (400, naming the field).",
+        "description": "Choose where the application's certificate comes from.\n\n``custom`` serves an upload at once (nothing is ordered). ``internal`` signs a certificate\nwith the server's own authority for every name the application answers on and serves it at\nonce. ``acme`` is queued as a job\nwhen the choice changes how a certificate is proven: certbot never runs on the request\npath. ``job_id`` is that job; the certificate that served keeps serving until it is done.\n\nArgs:\n    domain: The application's primary domain.\n    data: The choice.\n    session: Authenticated session, injected.\n\nReturns:\n    The description, with the job when one was queued.\n\nRaises:\n    ValidationError: The choice is not acceptable (400, naming the field).",
         "operationId": "put_app_certificate_api_apps__domain__certificate_put",
         "parameters": [
           {
@@ -75523,6 +75859,319 @@
           "Certificates"
         ],
         "x-noust-permission": "settings.manage"
+      }
+    },
+    "/api/certs/ca": {
+      "delete": {
+        "description": "Delete the authority and its key. Needs sudo mode.\n\nArgs:\n    session: Authenticated and elevated session, injected.\n    force: Go on although certificates it signed are still kept.\n\nRaises:\n    ValidationError: Certificates it signed are kept and ``force`` is false (400).",
+        "operationId": "remove_authority_api_certs_ca_delete",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "force",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Force",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Authority",
+        "tags": [
+          "Certificates"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
+      },
+      "get": {
+        "description": "Show the authority, the certificates it signed, and whether this server trusts it.\n\nArgs:\n    session: Authenticated session, injected.\n\nReturns:\n    The overview; ``authority`` is null while there is none.",
+        "operationId": "get_overview_api_certs_ca_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverviewModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Overview",
+        "tags": [
+          "Certificates"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "post": {
+        "description": "Make this server's authority. Needs sudo mode.\n\nIt can only ever sign for the suffixes and private ranges it is made with (a critical\nextension of its certificate that every device enforces). It is made once and never again by\nitself: a new root has to be trusted again on every device.\n\nArgs:\n    data: What it may sign for, how long it is valid, and its name.\n    session: Authenticated and elevated session, injected.\n\nReturns:\n    The authority.\n\nRaises:\n    ValidationError: A suffix or range is not acceptable (400, naming the field).\n    CertificateError: There is one already.",
+        "operationId": "make_authority_api_certs_ca_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__internal_ca__AuthorityModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Make Authority",
+        "tags": [
+          "Certificates"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/certs/ca/issued": {
+      "post": {
+        "description": "Sign a certificate and keep it as an uploaded one named ``internal-<name>``.\n\nArgs:\n    data: What it is for, the names on it, and how long it is valid.\n    session: Authenticated session, injected.\n\nReturns:\n    The certificate. Never its key.\n\nRaises:\n    ValidationError: A name is outside what the authority signs for (400).\n    CertificateError: There is no authority, or it has expired.",
+        "operationId": "issue_certificate_api_certs_ca_issued_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssuedModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Issue Certificate",
+        "tags": [
+          "Certificates"
+        ],
+        "x-noust-permission": "apps.manage"
+      }
+    },
+    "/api/certs/ca/issued/{name}/renew": {
+      "post": {
+        "description": "Sign a certificate again, for the same names and as long, and reload the sites that serve it.\n\nArgs:\n    name: The certificate (``internal-wiki``).\n    session: Authenticated session, injected.\n\nReturns:\n    The certificate afterwards.\n\nRaises:\n    CertificateError: There is no authority, or the certificate was not signed by it.",
+        "operationId": "renew_certificate_api_certs_ca_issued__name__renew_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssuedModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Renew Certificate",
+        "tags": [
+          "Certificates"
+        ],
+        "x-noust-permission": "apps.manage"
+      }
+    },
+    "/api/certs/ca/root": {
+      "get": {
+        "description": "Download the authority's certificate: public, what a device installs.\n\nArgs:\n    session: Authenticated session, injected.\n    format: ``pem`` (``ca.crt``) or ``der`` (``ca.cer``: Windows, Android, Java).\n\nReturns:\n    The file. The key is not one.\n\nRaises:\n    NoAuthorityError: This server has no authority (404).",
+        "operationId": "get_root_api_certs_ca_root_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "pem",
+              "enum": [
+                "pem",
+                "der"
+              ],
+              "title": "Format",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/x-pem-file": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "application/x-x509-ca-cert": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The authority's certificate, public: PEM (ca.crt) or DER (ca.cer)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Root",
+        "tags": [
+          "Certificates"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/certs/ca/trust": {
+      "get": {
+        "description": "Say how to trust the authority on each kind of device, with the fingerprint to compare.\n\nNothing is changed on any device: the steps are text to follow on it.\n\nArgs:\n    session: Authenticated session, injected.\n\nReturns:\n    The fingerprint and a guide per kind of device.\n\nRaises:\n    NoAuthorityError: This server has no authority (404).",
+        "operationId": "get_trust_api_certs_ca_trust_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Trust",
+        "tags": [
+          "Certificates"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/certs/ca/trust-here": {
+      "delete": {
+        "description": "Stop trusting the authority on this server. Needs sudo mode.\n\nArgs:\n    session: Authenticated and elevated session, injected.\n\nReturns:\n    The overview afterwards.",
+        "operationId": "untrust_here_api_certs_ca_trust_here_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverviewModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Untrust Here",
+        "tags": [
+          "Certificates"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
+      },
+      "post": {
+        "description": "Trust the authority on this server: the programs that run here reach each other by the names\nit signs. Needs sudo mode.\n\nArgs:\n    session: Authenticated and elevated session, injected.\n\nReturns:\n    The overview afterwards.\n\nRaises:\n    CertificateError: There is no authority, or this system has no store Noust can update.",
+        "operationId": "trust_here_api_certs_ca_trust_here_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverviewModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Trust Here",
+        "tags": [
+          "Certificates"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/certs/renew-all": {

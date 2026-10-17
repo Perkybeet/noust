@@ -152,7 +152,7 @@ AccountsResponse = TypedDict("AccountsResponse", {
 })
 
 AcmeModel = TypedDict("AcmeModel", {
-    "authorities": Required[list["AuthorityModel"]],
+    "authorities": Required[list["NoustWebApiCertSettingsAuthorityModel"]],
     "ca": Required[str],
     "eab_configured": Required[bool],
     "eab_kid": Required[str],
@@ -753,13 +753,6 @@ AuditStatusResponse = TypedDict("AuditStatusResponse", {
     "sinks": NotRequired[list["SinkOut"]],
     "status": Required[str],
     "total_bytes": NotRequired[int],
-})
-
-AuthorityModel = TypedDict("AuthorityModel", {
-    "label": Required[str],
-    "name": Required[str],
-    "needs_eab": Required[bool],
-    "trusted": Required[bool],
 })
 
 AutoUpdateChange = TypedDict("AutoUpdateChange", {
@@ -1553,6 +1546,7 @@ ChoiceVersionResponse = TypedDict("ChoiceVersionResponse", {
 
 ChooseCertificateRequest = TypedDict("ChooseCertificateRequest", {
     "challenge": NotRequired[str],
+    "days": NotRequired[Union[int, None]],
     "dns_provider": NotRequired[Union[str, None]],
     "name": NotRequired[Union[str, None]],
     "order": NotRequired[bool],
@@ -3717,6 +3711,14 @@ GroupOut = TypedDict("GroupOut", {
     "name": NotRequired[Union[str, None]],
 })
 
+GuideModel = TypedDict("GuideModel", {
+    "file": Required[str],
+    "id": Required[str],
+    "note": NotRequired[str],
+    "steps": Required[list[str]],
+    "title": Required[str],
+})
+
 HTTPValidationError = TypedDict("HTTPValidationError", {
     "detail": NotRequired[list["ValidationError"]],
 })
@@ -3940,6 +3942,15 @@ IndexResponse = TypedDict("IndexResponse", {
     "name": Required[str],
     "primary": NotRequired[bool],
     "unique": NotRequired[bool],
+})
+
+InitRequest = TypedDict("InitRequest", {
+    "days": NotRequired[int],
+    "name": NotRequired[Union[str, None]],
+    "only": NotRequired[bool],
+    "permit_dns": NotRequired[list[str]],
+    "permit_networks": NotRequired[list[str]],
+    "trust_here": NotRequired[bool],
 })
 
 InitScript = TypedDict("InitScript", {
@@ -4189,6 +4200,12 @@ IssueClientCertificateRequest = TypedDict("IssueClientCertificateRequest", {
     "name": Required[str],
 })
 
+IssueRequest = TypedDict("IssueRequest", {
+    "days": NotRequired[int],
+    "name": Required[str],
+    "names": Required[list[str]],
+})
+
 IssuedClientCertificateOut = TypedDict("IssuedClientCertificateOut", {
     "bundle": Required[str],
     "ca_pem": Required[str],
@@ -4196,6 +4213,16 @@ IssuedClientCertificateOut = TypedDict("IssuedClientCertificateOut", {
     "certificate_pem": Required[str],
     "key_pem": Required[str],
     "password": Required[str],
+})
+
+IssuedModel = TypedDict("IssuedModel", {
+    "apps": NotRequired[list[str]],
+    "days_left": Required[int],
+    "expiring": NotRequired[bool],
+    "fingerprint": Required[str],
+    "name": Required[str],
+    "names": Required[list[str]],
+    "not_after": Required[str],
 })
 
 JailOut = TypedDict("JailOut", {
@@ -5179,6 +5206,16 @@ OsOut = TypedDict("OsOut", {
     "id": Required[str],
     "name": Required[str],
     "version": Required[str],
+})
+
+OverviewModel = TypedDict("OverviewModel", {
+    "authority": NotRequired[Union["NoustWebApiInternalCaAuthorityModel", None]],
+    "default_dns": Required[list[str]],
+    "default_networks": Required[list[str]],
+    "issued": NotRequired[list["IssuedModel"]],
+    "root_pem": NotRequired[Union[str, None]],
+    "system_store": NotRequired[Union[str, None]],
+    "trusted_here": NotRequired[bool],
 })
 
 OverviewOut = TypedDict("OverviewOut", {
@@ -8698,6 +8735,11 @@ TrafficPointModel = TypedDict("TrafficPointModel", {
     "ts": Required[int],
 })
 
+TrustModel = TypedDict("TrustModel", {
+    "fingerprint": Required[str],
+    "guides": Required[list["GuideModel"]],
+})
+
 TuningHealth = TypedDict("TuningHealth", {
     "failing_streak": NotRequired[int],
     "last": NotRequired[Union["ProbeResult", None]],
@@ -9707,6 +9749,13 @@ NoustWebApiBackupsRestoreBackupRequest = TypedDict("NoustWebApiBackupsRestoreBac
     "verify": NotRequired[bool],
 })
 
+NoustWebApiCertSettingsAuthorityModel = TypedDict("NoustWebApiCertSettingsAuthorityModel", {
+    "label": Required[str],
+    "name": Required[str],
+    "needs_eab": Required[bool],
+    "trusted": Required[bool],
+})
+
 NoustWebApiCloudMachineOut = TypedDict("NoustWebApiCloudMachineOut", {
     "account": Required[str],
     "address": NotRequired[Union[str, None]],
@@ -9947,6 +9996,18 @@ NoustWebApiIntegrationsBranchOut = TypedDict("NoustWebApiIntegrationsBranchOut",
 NoustWebApiIntegrationsRemovalOut = TypedDict("NoustWebApiIntegrationsRemovalOut", {
     "removed": Required[bool],
     "settings_url": NotRequired[Union[str, None]],
+})
+
+NoustWebApiInternalCaAuthorityModel = TypedDict("NoustWebApiInternalCaAuthorityModel", {
+    "days_left": Required[int],
+    "fingerprint": Required[str],
+    "issued": NotRequired[int],
+    "not_after": Required[str],
+    "not_before": Required[str],
+    "permitted_dns": Required[list[str]],
+    "permitted_networks": Required[list[str]],
+    "subject": Required[str],
+    "warnings": NotRequired[list[str]],
 })
 
 NoustWebApiJobsRollbackRequest = TypedDict("NoustWebApiJobsRollbackRequest", {

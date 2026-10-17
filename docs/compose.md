@@ -817,6 +817,13 @@ protocols (`53:53/udp`, which is not a web port), the long form with `target`, `
 `host_ip`, and values Compose already resolved. Before, three readers each had their own, and
 the one choosing the site's port failed on `127.0.0.1:3000:3000` and fell back to 3000.
 
+The file is read the way Docker Compose reads it, not as YAML 1.1 does: `- 2222:22` is the string it
+is, where PyYAML takes it for a number in base 60 (133342) that no port could be, and `restart: no`
+is `no`, not `false`. The Compose documentation tells people to quote ports whose container side is
+under 60 for this reason; a document that does not is still read right (`noust.core.compose_yaml`).
+A port that reads a variable (`127.0.0.1:${PORT:-80}:80`) is read at its default, and a stack that
+is deployed gets `PORT=<the port its site proxies to>` in its `.env` when it publishes on `${PORT}`.
+
 ## Routing with noust.nginx.yaml
 
 A `noust.nginx.yaml` (or the `wasm.nginx.yaml` a repository wrote for WASM) at the root of the

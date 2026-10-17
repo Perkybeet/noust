@@ -44,6 +44,7 @@ export { fleetCompare } from "./fleetCompare";
 export { githubHost } from "./githubHost";
 export { gitlab } from "./gitlab";
 export { gitPush } from "./gitPush";
+export { internalCa } from "./internalCa";
 export { language } from "./language";
 export { logSearch } from "./logSearch";
 export { manifestPreview } from "./manifestPreview";

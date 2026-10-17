@@ -84,6 +84,7 @@ from noust.web.api.gitlab import router as gitlab_router
 from noust.web.api.identity import router as identity_router
 from noust.web.api.import_remote import router as import_remote_router
 from noust.web.api.integrations import router as integrations_router
+from noust.web.api.internal_ca import router as internal_ca_router
 from noust.web.api.jobs import router as jobs_router
 from noust.web.api.ldap import router as ldap_router
 from noust.web.api.log_drains import router as log_drains_router
@@ -214,6 +215,8 @@ router.include_router(site_history_router, prefix="/sites", tags=["Sites"])
 # cert_settings.py owns "/acme" and "/uploaded": before the certificates router, or
 # they would be read as a certificate named "acme".
 router.include_router(cert_settings_router, prefix="/certs", tags=["Certificates"])
+# The server's own authority: "/certs/ca" would otherwise be read as a certificate named "ca".
+router.include_router(internal_ca_router, prefix="/certs/ca", tags=["Certificates"])
 router.include_router(certs_router, prefix="/certs", tags=["Certificates"])
 router.include_router(system_router, prefix="/system", tags=["System"])
 router.include_router(monitor_router, prefix="/monitor", tags=["Monitor"])

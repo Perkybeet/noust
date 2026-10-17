@@ -22,7 +22,7 @@ import pytest
 from click.testing import CliRunner
 
 from noust.cli.app import cli as root_cli
-from noust.core.store import NoustStore
+from noust.core.store import App, NoustStore
 from tests.teams_support import World, build_world
 
 TEMPLATE = """\
@@ -201,6 +201,92 @@ def test_a_template_the_guard_refuses_exits_1_and_says_why(tmp_path: Path) -> No
 
     assert result.exit_code == 1
     assert "Docker socket" in result.output
+
+
+def test_the_stack_is_published_on_a_free_port_not_on_the_containers_own(
+    template: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    The container's own port is the web server's when it is 80 or 443 and as likely to be another
+    application's when it is 3000 or 8080: "address already in use" when the stack started. What
+    ``noust create`` gives the next application is what the document is converted with.
+    """
+    monkeypatch.setattr("noust.cli.commands.compose.default_host_port", lambda: 3017)
+    out = tmp_path / "wiki"
+
+    result = invoke(str(template), "--domain", "wiki.example.com", "--out", str(out))
+
+    assert result.exit_code == 0, result.output
+    assert "127.0.0.1:${PORT:-3017}:3000" in (out / "docker-compose.yml").read_text()
+
+
+def test_a_port_the_operator_names_is_the_one_used(
+    template: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("noust.cli.commands.compose.default_host_port", lambda: 3017)
+    out = tmp_path / "wiki"
+
+    invoke(str(template), "--port", "18080", "--out", str(out))
+
+    assert "${PORT:-18080}" in (out / "docker-compose.yml").read_text()
+
+
+def test_the_api_converts_with_a_free_port_too(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("noust.web.api.compose.default_host_port", lambda: 3017)
+
+    body = world.client.post(
+        "/api/compose/import", json={"document": TEMPLATE}, headers=world.as_("admin")
+    ).json()
+
+    assert "127.0.0.1:${PORT:-3017}:3000" in body["document"]
+
+
+def test_the_default_port_is_the_next_one_an_application_would_be_given(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from noust.recipes import coolify
+
+    monkeypatch.setattr(
+        "noust.validators.port.is_port_available", lambda port, *a, **k: port != 3000
+    )
+    assert coolify.default_host_port() == 3001
+
+    world.store.create_app(App(domain="taken.example.com", app_path="/srv/taken", port=3001))
+    assert coolify.default_host_port() == 3002
+
+
+REQUIRING = TEMPLATE.replace(
+    "      - DB_PASSWORD=$SERVICE_PASSWORD_DB\n",
+    "      - DB_PASSWORD=$SERVICE_PASSWORD_DB\n"
+    "      - MAIL_DRIVER=${MAIL_DRIVER:?smtp or log}\n"
+    "      - SMTP_HOST=${SMTP_HOST:-}\n",
+)
+
+
+def test_a_variable_the_template_requires_is_said_before_the_deploy_fails_on_it(
+    tmp_path: Path,
+) -> None:
+    """
+    Compose refuses to start a stack whose ``${NAME:?}`` has no value, with a message a long way
+    from the import. Found by deploying Docmost's template, which requires ``MAIL_DRIVER``.
+    """
+    source = tmp_path / "requiring.yaml"
+    source.write_text(REQUIRING)
+
+    text = invoke(str(source), "--out", str(tmp_path / "stack"))
+    as_json = invoke(str(source), "--json")
+
+    assert text.exit_code == 0, text.output
+    assert "MAIL_DRIVER has no default (smtp or log)" in text.output
+    assert "SMTP_HOST" not in text.output  # it has a default
+    needed = json.loads(as_json.output)["required"]
+    assert needed == [{"name": "MAIL_DRIVER", "message": "smtp or log"}]
+
+
+def test_a_template_that_requires_nothing_says_nothing_of_the_kind(template: Path) -> None:
+    assert json.loads(invoke(str(template), "--json").output)["required"] == []
 
 
 def test_a_rehearsal_writes_nothing(template: Path, tmp_path: Path) -> None:

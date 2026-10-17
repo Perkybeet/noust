@@ -293,6 +293,15 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("certificates", "get_acme"): ("GET", "/api/certs/acme", "apps.read", False),
     ("certificates", "put_acme"): ("PUT", "/api/certs/acme", "settings.manage", False),
     ("certificates", "register_acme_account"): ("POST", "/api/certs/acme/register", "settings.manage", False),
+    ("certificates", "get_overview"): ("GET", "/api/certs/ca", "apps.read", False),
+    ("certificates", "make_authority"): ("POST", "/api/certs/ca", "settings.manage", True),
+    ("certificates", "remove_authority"): ("DELETE", "/api/certs/ca", "settings.manage", True),
+    ("certificates", "issue_certificate"): ("POST", "/api/certs/ca/issued", "apps.manage", False),
+    ("certificates", "renew_certificate"): ("POST", "/api/certs/ca/issued/{name}/renew", "apps.manage", False),
+    ("certificates", "get_root"): ("GET", "/api/certs/ca/root", "apps.read", False),
+    ("certificates", "get_trust"): ("GET", "/api/certs/ca/trust", "apps.read", False),
+    ("certificates", "trust_here"): ("POST", "/api/certs/ca/trust-here", "settings.manage", True),
+    ("certificates", "untrust_here"): ("DELETE", "/api/certs/ca/trust-here", "settings.manage", True),
     ("certificates", "renew_all_certificates"): ("POST", "/api/certs/renew-all", "apps.operate", False),
     ("certificates", "list_uploaded"): ("GET", "/api/certs/uploaded", "apps.read", False),
     ("certificates", "upload_certificate"): ("POST", "/api/certs/uploaded", "apps.manage", True),
@@ -300,7 +309,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("certificates", "get_certificate"): ("GET", "/api/certs/{domain}", "apps.read", False),
     ("certificates", "create_certificate"): ("POST", "/api/certs/{domain}", "apps.manage", False),
     ("certificates", "delete_certificate"): ("DELETE", "/api/certs/{domain}", "apps.manage", True),
-    ("certificates", "renew_certificate"): ("POST", "/api/certs/{domain}/renew", "apps.operate", False),
+    ("certificates", "renew_certificate_post"): ("POST", "/api/certs/{domain}/renew", "apps.operate", False),
     ("certificates", "revoke_certificate"): ("POST", "/api/certs/{domain}/revoke", "apps.manage", True),
     ("compliance", "get_compliance"): ("GET", "/api/compliance", "settings.read", False),
     ("compliance", "change_compliance"): ("PUT", "/api/compliance", "security.manage", False),
@@ -3122,7 +3131,7 @@ class Central:
 
 
 class Certificates:
-    """Certificates: 15 operations."""
+    """Certificates: 24 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -3174,6 +3183,78 @@ class Certificates:
 
         Needs: permission `settings.manage`."""
         return self._call("POST", "/api/certs/acme/register", query=None, body=None)
+
+    def get_overview(self) -> "OverviewModel":
+        """GET /api/certs/ca
+
+        Get Overview
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/certs/ca", query=None, body=None)
+
+    def make_authority(self, body: "InitRequest") -> "NoustWebApiInternalCaAuthorityModel":
+        """POST /api/certs/ca
+
+        Make Authority
+
+        Needs: permission `settings.manage`, sudo mode."""
+        return self._call("POST", "/api/certs/ca", query=None, body=body)
+
+    def remove_authority(self, *, force: Union[bool, None] = None) -> Any:
+        """DELETE /api/certs/ca
+
+        Remove Authority
+
+        Needs: permission `settings.manage`, sudo mode."""
+        return self._call("DELETE", "/api/certs/ca", query={"force": force}, body=None)
+
+    def issue_certificate(self, body: "IssueRequest") -> "IssuedModel":
+        """POST /api/certs/ca/issued
+
+        Issue Certificate
+
+        Needs: permission `apps.manage`."""
+        return self._call("POST", "/api/certs/ca/issued", query=None, body=body)
+
+    def renew_certificate(self, name: str) -> "IssuedModel":
+        """POST /api/certs/ca/issued/{name}/renew
+
+        Renew Certificate
+
+        Needs: permission `apps.manage`."""
+        return self._call("POST", f"/api/certs/ca/issued/{quote(str(name), safe='')}/renew", query=None, body=None)
+
+    def get_root(self, *, format: Union[Literal["pem", "der"], None] = None) -> bytes:
+        """GET /api/certs/ca/root
+
+        Get Root
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/certs/ca/root", query={"format": format}, body=None, binary=True)
+
+    def get_trust(self) -> "TrustModel":
+        """GET /api/certs/ca/trust
+
+        Get Trust
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/certs/ca/trust", query=None, body=None)
+
+    def trust_here(self) -> "OverviewModel":
+        """POST /api/certs/ca/trust-here
+
+        Trust Here
+
+        Needs: permission `settings.manage`, sudo mode."""
+        return self._call("POST", "/api/certs/ca/trust-here", query=None, body=None)
+
+    def untrust_here(self) -> "OverviewModel":
+        """DELETE /api/certs/ca/trust-here
+
+        Untrust Here
+
+        Needs: permission `settings.manage`, sudo mode."""
+        return self._call("DELETE", "/api/certs/ca/trust-here", query=None, body=None)
 
     def renew_all_certificates(self, *, body: Union["RenewCertRequest", None] = None) -> "JobAcceptedResponse":
         """POST /api/certs/renew-all
@@ -3231,7 +3312,7 @@ class Certificates:
         Needs: permission `apps.manage`, sudo mode."""
         return self._call("DELETE", f"/api/certs/{quote(str(domain), safe='')}", query=None, body=None)
 
-    def renew_certificate(self, domain: str, *, body: Union["RenewCertRequest", None] = None) -> "JobAcceptedResponse":
+    def renew_certificate_post(self, domain: str, *, body: Union["RenewCertRequest", None] = None) -> "JobAcceptedResponse":
         """POST /api/certs/{domain}/renew
 
         Renew Certificate

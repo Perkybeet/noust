@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-967 operations.
+976 operations.
 
 ## Access
 
@@ -321,6 +321,15 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/certs/acme` | Get Acme | `apps.read` |  |  |
 | PUT | `/api/certs/acme` | Put Acme | `settings.manage` |  |  |
 | POST | `/api/certs/acme/register` | Register Acme Account | `settings.manage` |  |  |
+| GET | `/api/certs/ca` | Get Overview | `apps.read` |  |  |
+| POST | `/api/certs/ca` | Make Authority | `settings.manage` | yes |  |
+| DELETE | `/api/certs/ca` | Remove Authority | `settings.manage` | yes |  |
+| POST | `/api/certs/ca/issued` | Issue Certificate | `apps.manage` |  |  |
+| POST | `/api/certs/ca/issued/{name}/renew` | Renew Certificate | `apps.manage` |  |  |
+| GET | `/api/certs/ca/root` | Get Root | `apps.read` |  |  |
+| GET | `/api/certs/ca/trust` | Get Trust | `apps.read` |  |  |
+| POST | `/api/certs/ca/trust-here` | Trust Here | `settings.manage` | yes |  |
+| DELETE | `/api/certs/ca/trust-here` | Untrust Here | `settings.manage` | yes |  |
 | POST | `/api/certs/renew-all` | Renew All Certificates | `apps.operate` |  |  |
 | GET | `/api/certs/uploaded` | List Uploaded | `apps.read` |  |  |
 | POST | `/api/certs/uploaded` | Upload Certificate | `apps.manage` | yes |  |

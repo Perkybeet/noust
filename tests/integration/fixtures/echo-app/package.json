@@ -1,0 +1,10 @@
+{
+  "name": "noust-it-echo-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Fixture app for the network scenarios: answers with the request it received.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

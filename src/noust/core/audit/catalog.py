@@ -341,6 +341,7 @@ EVENTS: dict[str, EventSpec] = {
             "sites.unknown_hosts": "What answers a name no site serves was set or taken away.",
             "sites.http3": "The site that holds the shared HTTP/3 socket was written or removed.",
             "certs.client": "A client certificate authority was made, or a client certificate was issued or revoked.",
+            "certs.ca": "The internal certificate authority was made or removed, or it signed a certificate.",
             "sites.waf": "The web application firewall's packages were installed or its shared rules written or removed.",
             "sites.policy.user": "An account of a site's basic authentication was added, changed or removed.",
             "sites.port": "The port a name of an application is proxied to was changed.",

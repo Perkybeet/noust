@@ -822,6 +822,9 @@ def _route_context(
             "pattern": route.path.replace(".", "[.]"),
             "port": route.port,
             "strip": route.strip,
+            # Lifts the authentication service's check there too: the sign-in it redirects
+            # to is behind it otherwise.
+            "open": route.auth == "open",
         }
         for route in proxies
     ]
@@ -840,9 +843,28 @@ def _route_context(
         return
 
     auth_routes = [route for route in routes if route.auth != "inherit"]
-    if auth_routes:
+    # An open prefix of a site that asks for no password has nothing to lift: no decision to make.
+    if auth_routes and "auth" in block:
         variable = f"noust_auth_{prefix}"
         block["auth"]["variable"] = variable
+        # A map is evaluated once per request: after try_files sent the request to a fallback page
+        # (a single-page site) it still says what it said for the path asked for. So the password
+        # is asked when that decision asks for it, or when the path being served would: set and
+        # if run again at every internal redirect. Shortest prefix first, so a longer one
+        # overrides it, the opposite of the map's first-match order.
+        default = f'"{policy.realm}"' if policy.basic_auth else "off"
+        block["auth"]["judge"] = {
+            "now": f"noust_now_{prefix}",
+            "realm": f"noust_realm_{prefix}",
+            "default": default,
+            "entries": [
+                {
+                    "regex": regex_of(route.path),
+                    "value": "off" if route.auth == "open" else f'"{policy.realm}"',
+                }
+                for route in reversed(auth_routes)
+            ],
+        }
         maps.append(
             {
                 "variable": variable,
@@ -1156,9 +1178,13 @@ class SitePolicyManager:
                 details="Add an account first, or nobody can sign in.",
                 field="basic_auth",
             )
+        group = worker_group(conf_root, kind)
         fs.make_dir(path.parent, mode=0o750, parents=True)
+        # The workers open the file at request time, as the group: a directory only root can
+        # enter makes every request to the site a 500 (open() failed, 13: Permission denied).
+        fs.set_owner(path.parent, user="root", group=group, mode=0o750)
         fs.write_text(path, account_file_text(users), mode=0o640)
-        fs.set_owner(path, user="root", group=worker_group(conf_root, kind), mode=0o640)
+        fs.set_owner(path, user="root", group=group, mode=0o640)
         return path
 
     def remove_auth_file(self, domain: str, conf_root: Path) -> None:

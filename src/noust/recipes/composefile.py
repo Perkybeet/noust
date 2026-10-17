@@ -38,6 +38,7 @@ from typing import Any
 
 import yaml
 
+from noust.core.compose_yaml import load_compose
 from noust.recipes.model import (
     FLOATING_TAGS,
     PublicPort,
@@ -224,7 +225,7 @@ def validate_compose(
     if len(text.encode()) > MAX_COMPOSE_BYTES:
         raise recipe_error(name, f"compose is larger than {MAX_COMPOSE_BYTES // 1024} KiB")
     try:
-        document = yaml.safe_load(text)
+        document = load_compose(text)
     except yaml.YAMLError as exc:
         raise recipe_error(name, f"compose is not valid YAML: {exc}", field="compose") from exc
     if not isinstance(document, dict):

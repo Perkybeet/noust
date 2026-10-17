@@ -46,6 +46,7 @@ from typing import Any, ClassVar
 from noust.central import require_server_role
 from noust.core import paths
 from noust.core.applock import app_lock
+from noust.core.compose_yaml import load_compose
 from noust.core.config import Config
 from noust.core.exceptions import (
     BuildError,
@@ -1237,7 +1238,7 @@ class MonorepoDeployer(AppDeployer):
                 import yaml
 
                 with open(compose_file) as f:
-                    compose = yaml.safe_load(f)
+                    compose = load_compose(f)
 
                 services = compose.get("services", {})
                 for svc_config in services.values():

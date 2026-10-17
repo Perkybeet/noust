@@ -33,6 +33,7 @@ from pathlib import Path
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.cli.commands.cert_ca import ca as ca_group
 from noust.cli.commands.cert_sources import (
     acme_command,
     remove_upload_command,
@@ -614,6 +615,8 @@ cli.add_command(uploads_command)
 cli.add_command(remove_upload_command)
 cli.add_command(use_command)
 cli.add_command(source_command)
+# The server's own authority, for names that only resolve inside a private network.
+cli.add_command(ca_group)
 
 
 def handle_cert(args: Namespace) -> int:

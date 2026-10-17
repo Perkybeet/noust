@@ -1181,7 +1181,9 @@ export interface paths {
          * Put App Certificate
          * @description Choose where the application's certificate comes from.
          *
-         *     ``custom`` serves an upload at once (nothing is ordered). ``acme`` is queued as a job
+         *     ``custom`` serves an upload at once (nothing is ordered). ``internal`` signs a certificate
+         *     with the server's own authority for every name the application answers on and serves it at
+         *     once. ``acme`` is queued as a job
          *     when the choice changes how a certificate is proven: certbot never runs on the request
          *     path. ``job_id`` is that job; the certificate that served keeps serving until it is done.
          *
@@ -9961,6 +9963,224 @@ export interface paths {
          */
         post: operations["register_acme_account_api_certs_acme_register_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/certs/ca": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Overview
+         * @description Show the authority, the certificates it signed, and whether this server trusts it.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The overview; ``authority`` is null while there is none.
+         */
+        get: operations["get_overview_api_certs_ca_get"];
+        put?: never;
+        /**
+         * Make Authority
+         * @description Make this server's authority. Needs sudo mode.
+         *
+         *     It can only ever sign for the suffixes and private ranges it is made with (a critical
+         *     extension of its certificate that every device enforces). It is made once and never again by
+         *     itself: a new root has to be trusted again on every device.
+         *
+         *     Args:
+         *         data: What it may sign for, how long it is valid, and its name.
+         *         session: Authenticated and elevated session, injected.
+         *
+         *     Returns:
+         *         The authority.
+         *
+         *     Raises:
+         *         ValidationError: A suffix or range is not acceptable (400, naming the field).
+         *         CertificateError: There is one already.
+         */
+        post: operations["make_authority_api_certs_ca_post"];
+        /**
+         * Remove Authority
+         * @description Delete the authority and its key. Needs sudo mode.
+         *
+         *     Args:
+         *         session: Authenticated and elevated session, injected.
+         *         force: Go on although certificates it signed are still kept.
+         *
+         *     Raises:
+         *         ValidationError: Certificates it signed are kept and ``force`` is false (400).
+         */
+        delete: operations["remove_authority_api_certs_ca_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/certs/ca/issued": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Issue Certificate
+         * @description Sign a certificate and keep it as an uploaded one named ``internal-<name>``.
+         *
+         *     Args:
+         *         data: What it is for, the names on it, and how long it is valid.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The certificate. Never its key.
+         *
+         *     Raises:
+         *         ValidationError: A name is outside what the authority signs for (400).
+         *         CertificateError: There is no authority, or it has expired.
+         */
+        post: operations["issue_certificate_api_certs_ca_issued_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/certs/ca/issued/{name}/renew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Renew Certificate
+         * @description Sign a certificate again, for the same names and as long, and reload the sites that serve it.
+         *
+         *     Args:
+         *         name: The certificate (``internal-wiki``).
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The certificate afterwards.
+         *
+         *     Raises:
+         *         CertificateError: There is no authority, or the certificate was not signed by it.
+         */
+        post: operations["renew_certificate_api_certs_ca_issued__name__renew_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/certs/ca/root": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Root
+         * @description Download the authority's certificate: public, what a device installs.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *         format: ``pem`` (``ca.crt``) or ``der`` (``ca.cer``: Windows, Android, Java).
+         *
+         *     Returns:
+         *         The file. The key is not one.
+         *
+         *     Raises:
+         *         NoAuthorityError: This server has no authority (404).
+         */
+        get: operations["get_root_api_certs_ca_root_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/certs/ca/trust": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Trust
+         * @description Say how to trust the authority on each kind of device, with the fingerprint to compare.
+         *
+         *     Nothing is changed on any device: the steps are text to follow on it.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The fingerprint and a guide per kind of device.
+         *
+         *     Raises:
+         *         NoAuthorityError: This server has no authority (404).
+         */
+        get: operations["get_trust_api_certs_ca_trust_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/certs/ca/trust-here": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trust Here
+         * @description Trust the authority on this server: the programs that run here reach each other by the names
+         *     it signs. Needs sudo mode.
+         *
+         *     Args:
+         *         session: Authenticated and elevated session, injected.
+         *
+         *     Returns:
+         *         The overview afterwards.
+         *
+         *     Raises:
+         *         CertificateError: There is no authority, or this system has no store Noust can update.
+         */
+        post: operations["trust_here_api_certs_ca_trust_here_post"];
+        /**
+         * Untrust Here
+         * @description Stop trusting the authority on this server. Needs sudo mode.
+         *
+         *     Args:
+         *         session: Authenticated and elevated session, injected.
+         *
+         *     Returns:
+         *         The overview afterwards.
+         */
+        delete: operations["untrust_here_api_certs_ca_trust_here_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -27112,7 +27332,7 @@ export interface components {
          */
         AcmeModel: {
             /** Authorities */
-            authorities: components["schemas"]["AuthorityModel"][];
+            authorities: components["schemas"]["noust__web__api__cert_settings__AuthorityModel"][];
             /** Ca */
             ca: string;
             /** Eab Configured */
@@ -29026,26 +29246,6 @@ export interface components {
              * @default 0
              */
             total_bytes: number;
-        };
-        /**
-         * AuthorityModel
-         * @description A certificate authority Noust knows by name.
-         *
-         *     Attributes:
-         *         name: The value of ``ssl.ca``.
-         *         label: How to call it.
-         *         needs_eab: It asks for an external account first.
-         *         trusted: Browsers trust what it issues.
-         */
-        AuthorityModel: {
-            /** Label */
-            label: string;
-            /** Name */
-            name: string;
-            /** Needs Eab */
-            needs_eab: boolean;
-            /** Trusted */
-            trusted: boolean;
         };
         /**
          * AutoUpdateChange
@@ -31462,11 +31662,14 @@ export interface components {
          * @description Where the application's certificate comes from.
          *
          *     Attributes:
-         *         source: ``acme`` to have it ordered, ``custom`` to serve an upload.
+         *         source: ``acme`` to have it ordered, ``custom`` to serve an upload, ``internal`` to have
+         *             the server's own authority sign one (for a name that only resolves inside a
+         *             private network).
          *         name: The upload, for ``custom``.
          *         challenge: ``http-01`` or ``dns-01``, for ``acme``.
          *         dns_provider: The DNS account, for ``dns-01``.
          *         order: Order the certificate now when the choice changes it.
+         *         days: How long the certificate is valid, for ``internal`` (90 by default).
          */
         ChooseCertificateRequest: {
             /**
@@ -31474,6 +31677,8 @@ export interface components {
              * @default http-01
              */
             challenge: string;
+            /** Days */
+            days?: number | null;
             /** Dns Provider */
             dns_provider?: string | null;
             /** Name */
@@ -38182,6 +38387,32 @@ export interface components {
             /** Name */
             name?: string | null;
         };
+        /**
+         * GuideModel
+         * @description How to trust the authority on one kind of device.
+         *
+         *     Attributes:
+         *         id: ``debian``, ``macos``, ``windows``...
+         *         title: What the person calls it.
+         *         file: The form of the root it wants: ``pem`` (``ca.crt``) or ``der`` (``ca.cer``).
+         *         steps: What to do, in order; a step that is a command starts with ``$ ``.
+         *         note: What is worth knowing.
+         */
+        GuideModel: {
+            /** File */
+            file: string;
+            /** Id */
+            id: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /** Steps */
+            steps: string[];
+            /** Title */
+            title: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -38867,6 +39098,41 @@ export interface components {
              * @default false
              */
             unique: boolean;
+        };
+        /**
+         * InitRequest
+         * @description The authority to make.
+         *
+         *     Attributes:
+         *         permit_dns: More suffixes to sign for, besides the private defaults.
+         *         permit_networks: More private address ranges.
+         *         only: Sign for exactly these and not for the defaults.
+         *         days: How long the root is valid.
+         *         name: What it is called on a device.
+         *         trust_here: Also trust it on this server.
+         */
+        InitRequest: {
+            /**
+             * Days
+             * @default 3650
+             */
+            days: number;
+            /** Name */
+            name?: string | null;
+            /**
+             * Only
+             * @default false
+             */
+            only: boolean;
+            /** Permit Dns */
+            permit_dns?: string[];
+            /** Permit Networks */
+            permit_networks?: string[];
+            /**
+             * Trust Here
+             * @default false
+             */
+            trust_here: boolean;
         };
         /**
          * InitScript
@@ -39601,6 +39867,26 @@ export interface components {
             name: string;
         };
         /**
+         * IssueRequest
+         * @description A certificate to sign.
+         *
+         *     Attributes:
+         *         name: What it is for (``wiki``); kept as ``internal-wiki``.
+         *         names: DNS names (a wildcard is one label) and addresses, at least one DNS name.
+         *         days: How long it is valid.
+         */
+        IssueRequest: {
+            /**
+             * Days
+             * @default 90
+             */
+            days: number;
+            /** Name */
+            name: string;
+            /** Names */
+            names: string[];
+        };
+        /**
          * IssuedClientCertificateOut
          * @description A certificate just made, with what its holder needs. Shown once; Noust keeps none of the
          *     private parts.
@@ -39625,6 +39911,39 @@ export interface components {
             key_pem: string;
             /** Password */
             password: string;
+        };
+        /**
+         * IssuedModel
+         * @description A certificate the authority signed. Never its key.
+         *
+         *     Attributes:
+         *         name: What it is kept under (``internal-wiki``), also its upload's name.
+         *         names: The DNS names on it.
+         *         not_after: When it stops being valid, ISO 8601 UTC.
+         *         days_left: Whole days until then.
+         *         fingerprint: Its SHA-256.
+         *         apps: The applications that serve it.
+         *         expiring: It is within its renewal window, and the network maintenance will sign it
+         *             again.
+         */
+        IssuedModel: {
+            /** Apps */
+            apps?: string[];
+            /** Days Left */
+            days_left: number;
+            /**
+             * Expiring
+             * @default false
+             */
+            expiring: boolean;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Name */
+            name: string;
+            /** Names */
+            names: string[];
+            /** Not After */
+            not_after: string;
         };
         /**
          * JailOut
@@ -42444,6 +42763,39 @@ export interface components {
             name: string;
             /** Version */
             version: string;
+        };
+        /**
+         * OverviewModel
+         * @description The authority, what it signed, and whether this server trusts it.
+         *
+         *     Attributes:
+         *         authority: The authority, or None while this server has none.
+         *         issued: The certificates it signed that are kept, soonest to expire first.
+         *         root_pem: The root certificate (public: what a device installs), or None while there is
+         *             no authority. The console offers it as a download in both forms.
+         *         trusted_here: This server's own store holds the root.
+         *         system_store: Which system's store that is (``Debian, Ubuntu and Alpine``), or None when
+         *             Noust does not know how to update this system's.
+         *         default_dns: The suffixes a new authority signs for unless told otherwise.
+         *         default_networks: The address ranges, the same.
+         */
+        OverviewModel: {
+            authority?: components["schemas"]["noust__web__api__internal_ca__AuthorityModel"] | null;
+            /** Default Dns */
+            default_dns: string[];
+            /** Default Networks */
+            default_networks: string[];
+            /** Issued */
+            issued?: components["schemas"]["IssuedModel"][];
+            /** Root Pem */
+            root_pem?: string | null;
+            /** System Store */
+            system_store?: string | null;
+            /**
+             * Trusted Here
+             * @default false
+             */
+            trusted_here: boolean;
         };
         /**
          * OverviewOut
@@ -53302,6 +53654,20 @@ export interface components {
             ts: number;
         };
         /**
+         * TrustModel
+         * @description The root's fingerprint and the guides.
+         *
+         *     Attributes:
+         *         fingerprint: What the device compares before it trusts the file.
+         *         guides: One per kind of device.
+         */
+        TrustModel: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Guides */
+            guides: components["schemas"]["GuideModel"][];
+        };
+        /**
          * TuningHealth
          * @description What Docker says of the container now.
          *
@@ -56380,6 +56746,26 @@ export interface components {
             verify: boolean;
         };
         /**
+         * AuthorityModel
+         * @description A certificate authority Noust knows by name.
+         *
+         *     Attributes:
+         *         name: The value of ``ssl.ca``.
+         *         label: How to call it.
+         *         needs_eab: It asks for an external account first.
+         *         trusted: Browsers trust what it issues.
+         */
+        noust__web__api__cert_settings__AuthorityModel: {
+            /** Label */
+            label: string;
+            /** Name */
+            name: string;
+            /** Needs Eab */
+            needs_eab: boolean;
+            /** Trusted */
+            trusted: boolean;
+        };
+        /**
          * MachineOut
          * @description A machine this central created.
          *
@@ -57119,6 +57505,44 @@ export interface components {
             removed: boolean;
             /** Settings Url */
             settings_url?: string | null;
+        };
+        /**
+         * AuthorityModel
+         * @description The authority. Never its key.
+         *
+         *     Attributes:
+         *         subject: What it is called on a device.
+         *         fingerprint: The root's SHA-256, which a device compares before it trusts it.
+         *         not_before: When it begins to be valid, ISO 8601 UTC.
+         *         not_after: When it expires.
+         *         days_left: Whole days until then.
+         *         permitted_dns: The suffixes it can sign for.
+         *         permitted_networks: The address ranges it can sign for.
+         *         issued: How many certificates it signed that are kept.
+         *         warnings: Sentences about its state (it expires within six months).
+         */
+        noust__web__api__internal_ca__AuthorityModel: {
+            /** Days Left */
+            days_left: number;
+            /** Fingerprint */
+            fingerprint: string;
+            /**
+             * Issued
+             * @default 0
+             */
+            issued: number;
+            /** Not After */
+            not_after: string;
+            /** Not Before */
+            not_before: string;
+            /** Permitted Dns */
+            permitted_dns: string[];
+            /** Permitted Networks */
+            permitted_networks: string[];
+            /** Subject */
+            subject: string;
+            /** Warnings */
+            warnings?: string[];
         };
         /**
          * RollbackRequest
@@ -68690,6 +69114,244 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+        };
+    };
+    get_overview_api_certs_ca_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverviewModel"];
+                };
+            };
+        };
+    };
+    make_authority_api_certs_ca_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InitRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__internal_ca__AuthorityModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_authority_api_certs_ca_delete: {
+        parameters: {
+            query?: {
+                force?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    issue_certificate_api_certs_ca_issued_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IssueRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssuedModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    renew_certificate_api_certs_ca_issued__name__renew_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssuedModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_root_api_certs_ca_root_get: {
+        parameters: {
+            query?: {
+                format?: "pem" | "der";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The authority's certificate, public: PEM (ca.crt) or DER (ca.cer). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/x-pem-file": string;
+                    "application/x-x509-ca-cert": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_trust_api_certs_ca_trust_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrustModel"];
+                };
+            };
+        };
+    };
+    trust_here_api_certs_ca_trust_here_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverviewModel"];
+                };
+            };
+        };
+    };
+    untrust_here_api_certs_ca_trust_here_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverviewModel"];
                 };
             };
         };

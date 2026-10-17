@@ -80,6 +80,8 @@ src/noust/
                     through openssl, never a new dependency
     store_secrets.py  which columns of the store hold a secret value and are emptied in a copy
                     (an incident's snapshot, `store export`); a test fails on a column nobody ruled on
+    compose_yaml.py  a Compose document read the way Compose reads it (PyYAML takes `2222:22` for a
+                    base 60 number and `no` for false); every reader of a Compose file uses it
   validators/       names, environments, sources, ports, domains
   managers/         adapters: web server, systemd, certs, backups, databases, source, cron
     diagnose.py     why an app is down: read-only probes, most likely cause first
@@ -93,6 +95,9 @@ src/noust/
                     made, an instance is one more key (`postgresql@pg16`) to every database manager
     app_identity.py the one answer to "which account does this app run as"
     site_topology.py, timeline.py   what a site reaches, live; one timeline over a stretch
+    internal_ca.py, ca_trust.py  the server's own authority for names that only resolve inside a
+                    private network (`noust cert ca`): name-constrained, one machinery with the
+                    database engines' (`TlsAuthority`), its leaves kept as uploads, trust told per device
     console_exposure.py  the console on a public name over TLS (`noust console expose`): nginx
                     site, certificate, trusted proxy, and a record of exactly what it made so
                     `unexpose` removes that and no more
@@ -153,6 +158,10 @@ tests/integration/terraform_run.py    the provider and the Python SDK against th
                             scripts/console_server.py, Go and Terraform in containers; not part of pytest
 tests/integration/identity.py         SAML, OpenID Connect, LDAP and SCIM against Keycloak, OpenLDAP and a
                             SCIM conformance client; not part of pytest
+tests/integration/network_run.py      fail2ban, HTTP/3, forward-auth, prefix routes, a site's history,
+                            Coolify templates and the private certificate authority against the real
+                            programs and real clients (Debian server, Alpine client, AlmaLinux device);
+                            not part of pytest
 packaging/install.sh        the one-line installer (POSIX sh, shellcheck-clean), published with a
                             signed SHA256SUMS; its platform table is generated, never edited
 ```

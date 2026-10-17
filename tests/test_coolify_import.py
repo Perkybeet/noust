@@ -430,6 +430,178 @@ services:
     assert result.routed == ("app", 8080)
 
 
+NAMED_VOLUMES = """\
+services:
+  app:
+    image: example/app:1
+    environment:
+      - SERVICE_URL_APP_80
+    volumes:
+      - app-data:/data
+      - app-cache:/cache:ro
+      - type: volume
+        source: app-long
+        target: /long
+      - type: bind
+        source: ./config
+        target: /config
+      - ./relative:/relative
+      - /srv/absolute:/absolute
+      - ${APP_PATH}:/from-variable
+      - /anonymous
+  db:
+    image: example/db:1
+    volumes:
+      - db-data:/var/lib/db
+      - shared:/shared
+volumes:
+  shared:
+    external: true
+"""
+
+
+def test_the_named_volumes_a_template_never_declares_are_declared_for_it() -> None:
+    """
+    Coolify declares the named volumes a service mentions; Compose refuses a project that
+    refers to one nobody declared ("service refers to undefined volume"). 340 of the 345
+    templates of the catalogue that use a named volume leave the declaration out, so a document
+    converted without it failed to deploy in nearly every case. Found by deploying one.
+    """
+    result = converted(NAMED_VOLUMES)
+
+    declared = document(result)["volumes"]
+    assert set(declared) == {"app-data", "app-cache", "app-long", "db-data", "shared"}
+    assert declared["shared"] == {"external": True}  # what the template did declare is left alone
+    assert declared["app-data"] in ({}, None)
+    assert any("declared 4 named volume" in note for note in result.adjustments)
+
+
+def test_a_service_with_no_restart_policy_gets_the_one_coolify_gives_every_service() -> None:
+    """
+    Coolify's parser gives every service without a ``restart`` key ``unless-stopped``, and the
+    templates lean on it: listmonk's application starts beside the one-off service that sets its
+    database up, finds nothing, and exits; with no restart policy it stayed dead behind a 502.
+    Found by deploying it.
+    """
+    text = """\
+services:
+  app:
+    image: example/app:1
+    environment:
+      - SERVICE_URL_APP_80
+  setup:
+    image: example/app:1
+    restart: "no"
+  worker:
+    image: example/worker:1
+    restart: always
+"""
+    result = converted(text)
+
+    services = document(result)["services"]
+    assert services["app"]["restart"] == "unless-stopped"
+    assert services["setup"]["restart"] == "no"  # what the template says is what it means
+    assert services["worker"]["restart"] == "always"
+    assert any(
+        "restart: unless-stopped" in note and "1 service" in note for note in result.adjustments
+    )
+
+
+def test_a_template_whose_services_all_say_how_they_restart_is_not_told_so() -> None:
+    text = (
+        "services:\n  app:\n    image: example/app:1\n    restart: always\n"
+        "    environment:\n      - SERVICE_URL_APP_80\n"
+    )
+
+    assert not any("restart" in note for note in converted(text).adjustments)
+
+
+def test_what_is_not_a_named_volume_is_not_declared() -> None:
+    result = converted(NAMED_VOLUMES)
+
+    declared = set(document(result)["volumes"])
+    for not_a_volume in ("config", "relative", "absolute", "anonymous", "APP_PATH", "${APP_PATH}"):
+        assert not any(not_a_volume in name for name in declared)
+
+
+def test_a_template_that_declares_all_it_uses_is_left_as_it_is() -> None:
+    result = converted()  # BLOG declares blog-content and blog-mysql itself
+
+    assert not any("named volume" in note for note in result.adjustments)
+    assert set(document(result)["volumes"]) == {"blog-content", "blog-mysql"}
+
+
+def test_a_template_without_any_volume_gets_no_volumes_section() -> None:
+    text = "services:\n  app:\n    image: example/app:1\n    environment:\n      - SERVICE_URL_APP_80\n"
+
+    assert "volumes" not in document(converted(text))
+
+
+SHARED_DEFAULT = """\
+services:
+  stats:
+    image: example/stats:3
+    environment:
+      - SERVICE_URL_STATS_3000
+      - DATABASE_URL=postgres://$SERVICE_USER_PG:$SERVICE_PASSWORD_PG@db:5432/$STATS_DB
+      - MODE=${STATS_MODE:-production}
+      - MODE_AGAIN=${STATS_MODE}
+      - GREETING=${GREETING:-hello world}
+      - GREETING_AGAIN=${GREETING}
+      - ONLY_DEFAULTED=${ONLY_DEFAULTED:-kept-where-it-is}
+      - ONLY_PLAIN=${ONLY_PLAIN}
+    depends_on:
+      db:
+        condition: service_healthy
+  db:
+    image: postgres:16
+    environment:
+      - POSTGRES_USER=$SERVICE_USER_PG
+      - POSTGRES_PASSWORD=$SERVICE_PASSWORD_PG
+      - POSTGRES_DB=${STATS_DB:-stats}
+"""
+
+
+def test_a_default_one_service_declares_is_the_value_another_service_reads_plainly() -> None:
+    """
+    Umami's template builds its ``DATABASE_URL`` with ``$POSTGRES_DB`` and gives the database
+    service ``${POSTGRES_DB:-umami}``. Coolify turns the default into the variable's value; read
+    as plain Compose the application connected to a database named after its user and died,
+    found by deploying it.
+    """
+    result = converted(SHARED_DEFAULT)
+
+    assert result.values["STATS_DB"] == "stats"
+    assert result.values["STATS_MODE"] == "production"
+    made = {v.name: v for v in result.variables if v.origin == "template"}
+    assert set(made) == {"STATS_DB", "STATS_MODE"}
+    assert not made["STATS_DB"].secret and "stats" in made["STATS_DB"].note
+
+
+def test_a_default_that_cannot_be_written_to_an_env_file_is_left_to_the_operator() -> None:
+    result = converted(SHARED_DEFAULT)
+
+    assert "GREETING" not in result.values  # "hello world" has a space
+    asked = {v.name for v in result.variables if v.origin == "ask"}
+    assert "GREETING" in asked
+    assert any("GREETING" in warning for warning in result.warnings)
+
+
+def test_a_variable_only_read_with_its_default_or_only_plainly_is_not_given_a_value() -> None:
+    result = converted(SHARED_DEFAULT)
+
+    assert "ONLY_DEFAULTED" not in result.values and "ONLY_PLAIN" not in result.values
+
+
+def test_the_values_file_carries_the_defaults_it_made() -> None:
+    result = converted(SHARED_DEFAULT)
+    written = dict(
+        line.split("=", 1) for line in values_file(result.values).splitlines() if "=" in line
+    )
+
+    assert written["STATS_DB"] == "stats" and "GREETING" not in written
+
+
 def test_a_file_mounted_from_inline_content_is_a_warning_not_a_guess() -> None:
     text = """\
 services:

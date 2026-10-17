@@ -200,6 +200,9 @@ RULES: tuple[Rule, ...] = (
     # picks one for its application through /api/apps/{domain}/certificate.
     _rule("/api/certs/acme/**", INSTANCE),
     _rule("/api/certs/uploaded/**", INSTANCE),
+    # The server's own authority and what it signs: a root of trust for the server's devices.
+    _rule("/api/certs/ca", INSTANCE),
+    _rule("/api/certs/ca/**", INSTANCE),
     _rule("/api/certs/{domain}/**", RESOURCE, _DOMAIN),
     # --- databases ------------------------------------------------------------
     _rule("/api/databases/databases", SCOPED),

@@ -14,6 +14,7 @@ argument, and a refusal becoming exit code 1 with the operation's own words.
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -117,6 +118,37 @@ def test_only_the_flags_given_become_changes(calls: list[Any], log: list[str]) -
     )
     assert kwargs["accept_lockout"] is False
     assert kwargs["operator_addresses"] == []
+
+
+def test_the_policy_says_whether_http3_is_on_and_whether_the_site_can_serve_it(
+    calls: list[Any], log: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    The text of ``app policy`` named every other part of the policy and not HTTP/3: after
+    ``--http3`` on a site without a certificate it said the site was rendered with the policy and
+    nothing was served over QUIC, which only a real client noticed.
+    """
+    served = access.AccessView(
+        app=APP,
+        policy=validated(SitePolicy(), {"http3": True}),
+        users=(),
+        webserver="nginx",
+        serves_tls=True,
+    )
+    monkeypatch.setattr(access, "describe", lambda *a, **k: served)
+    invoke(["app", "policy", "show", APP])
+    assert any("HTTP/3" in line and "QUIC" in line for line in log)
+    assert not any("once this site has a certificate" in line for line in log)
+
+    log.clear()
+    monkeypatch.setattr(access, "describe", lambda *a, **k: replace(served, serves_tls=False))
+    invoke(["app", "policy", "show", APP])
+    assert any("HTTP/3" in line and "once this site has a certificate" in line for line in log)
+
+    log.clear()
+    monkeypatch.setattr(access, "describe", lambda *a, **k: view())
+    invoke(["app", "policy", "show", APP])
+    assert not any("HTTP/3" in line for line in log)
 
 
 def test_naming_nothing_to_change_is_a_usage_error(calls: list[Any]) -> None:

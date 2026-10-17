@@ -64,7 +64,17 @@ PRESETS: dict[str, dict[str, Any]] = {
         "sign_in": "/oauth2/start?rd=",
         "headers": ["X-Auth-Request-User", "X-Auth-Request-Email", "X-Auth-Request-Groups"],
         "note": "Run oauth2-proxy with --set-xauthrequest, and reach its /oauth2/ paths on the "
-        "same site (a route handed to its port) or give the full address of its sign-in.",
+        "same site with a route handed to its port and left open (app policy route add SITE "
+        "/oauth2 --proxy-port 4180 --open), or give the full address of its sign-in.",
+    },
+    "authelia": {
+        "url": "http://127.0.0.1:9091/api/authz/auth-request",
+        "sign_in": "",
+        "headers": ["Remote-User", "Remote-Groups", "Remote-Email", "Remote-Name"],
+        "note": "Authelia's portal is a site of its own (its authelia_url): give the address of "
+        "its sign-in followed by ?rd= (--forward-auth-sign-in https://auth.example.com/?rd=), "
+        "or the answer stays 401. Its configuration needs server.endpoints.authz.auth-request "
+        "with implementation AuthRequest, and a session cookie domain that covers this site.",
     },
     "authentik": {
         "url": "http://127.0.0.1:9000/outpost.goauthentik.io/auth/nginx",
@@ -77,7 +87,8 @@ PRESETS: dict[str, dict[str, Any]] = {
             "X-authentik-uid",
         ],
         "note": "The outpost's /outpost.goauthentik.io/ paths must be reachable on the same site "
-        "(a route handed to authentik's port) for the sign-in redirect to land.",
+        "(a route handed to authentik's port and left open: app policy route add SITE "
+        "/outpost.goauthentik.io --proxy-port 9000 --open) for the sign-in redirect to land.",
     },
 }
 

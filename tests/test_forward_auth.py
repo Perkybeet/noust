@@ -309,6 +309,48 @@ def test_a_proxied_prefix_hands_the_identity_on_too(served: Machine) -> None:
     assert "proxy_set_header X-Auth-Request-User $noust_fa_1;" in api
 
 
+def test_a_proxied_prefix_marked_open_is_not_asked_about(served: Machine) -> None:
+    """
+    The sign-in page is the authentication service's own: reached through the site (the
+    preset's way), it was behind the check it serves, so a visitor who was not signed in was
+    sent to /oauth2/start, which asked the service about itself, which sent him to
+    /oauth2/start... Found with a real oauth2-proxy. ``--open`` on a prefix handed to a port
+    now lifts the check there as it lifts the password.
+    """
+    access.set_policy(
+        "example.com",
+        {
+            "forward_auth": OAUTH,
+            "routes": [
+                {"path": "/oauth2", "kind": "proxy", "port": 4180, "auth": "open"},
+                {"path": "/api", "kind": "proxy", "port": 4000},
+            ],
+        },
+    )
+
+    config = served.config()
+    prefix = config.split("location ^~ /oauth2/ {")[1].split("\n    }")[0]
+    exact = config.split("location = /oauth2 {")[1].split("\n    }")[0]
+    api = config.split("location ^~ /api/ {")[1].split("\n    }")[0]
+    assert "auth_request off;" in prefix and "auth_request off;" in exact
+    assert "auth_request off;" not in api  # a prefix that is not open is asked about
+    # The identity headers are still set from nothing here, never taken from the client.
+    assert "proxy_set_header X-Auth-Request-User $noust_fa_1;" in prefix
+
+
+def test_an_open_prefix_of_a_site_without_forward_auth_says_nothing_about_it(
+    machine: Machine,
+) -> None:
+    machine.deploy(app_type="nodejs", tls=True)
+
+    access.set_policy(
+        "example.com",
+        {"routes": [{"path": "/oauth2", "kind": "proxy", "port": 4180, "auth": "open"}]},
+    )
+
+    assert "auth_request" not in machine.config()
+
+
 def test_a_site_without_it_renders_nothing_of_it(served: Machine) -> None:
     access.set_policy("example.com", {"noindex": True})
 

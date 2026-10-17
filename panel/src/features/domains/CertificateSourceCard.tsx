@@ -3,7 +3,7 @@ import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
 import { request } from "../../api/client";
-import { acmeQuery, appCertificateQuery, dnsAccountsQuery, networkKeys, uploadedQuery } from "../../api/queries/network";
+import { acmeQuery, appCertificateQuery, dnsAccountsQuery, internalCaQuery, networkKeys, uploadedQuery } from "../../api/queries/network";
 import type { AppCertificate } from "../../api/queries/network";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
@@ -18,17 +18,21 @@ import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 
-type Source = "http" | "dns" | "upload";
+type Source = "http" | "dns" | "upload" | "internal";
 
-/** Which of the three ways a certificate comes to be an application's choice is. */
-export function sourceOf(certificate: Pick<AppCertificate, "source" | "challenge">): Source {
-  if (certificate.source === "custom") return "upload";
+/** What the server calls an upload that its own authority signed. */
+const INTERNAL_PREFIX = "internal-";
+
+/** Which of the four ways a certificate comes to be an application's choice is. */
+export function sourceOf(certificate: Pick<AppCertificate, "source" | "challenge" | "name">): Source {
+  if (certificate.source === "custom") return certificate.name?.startsWith(INTERNAL_PREFIX) ? "internal" : "upload";
   return certificate.challenge === "dns-01" ? "dns" : "http";
 }
 
 /** The choice in a sentence: "Ordered from Let's Encrypt over HTTP". */
 export function sourceWords(t: T, certificate: AppCertificate): string {
   const source = sourceOf(certificate);
+  if (source === "internal") return t("internalCa.source.words", { name: certificate.name ?? "" });
   if (source === "upload") return t("network.certSource.uploaded", { name: certificate.name ?? "" });
   if (certificate.source === "lineage") return t("network.certSource.lineage", { name: certificate.name ?? "" });
   if (source === "dns") return t("network.certSource.orderedDns", { authority: certificate.authority, account: certificate.dns_provider ?? "" });
@@ -52,6 +56,7 @@ function ChooseDialog({
   const formId = useId();
   const accounts = useQuery({ ...dnsAccountsQuery(), enabled: open });
   const uploads = useQuery({ ...uploadedQuery(), enabled: open });
+  const authority = useQuery({ ...internalCaQuery(), enabled: open });
   const [source, setSource] = useState<Source>(sourceOf(certificate));
   const [account, setAccount] = useState(certificate.dns_provider ?? "");
   const [upload, setUpload] = useState(certificate.name ?? "");
@@ -67,7 +72,9 @@ function ChooseDialog({
         body:
           source === "upload"
             ? { source: "custom", name: upload, challenge: "http-01", order: true }
-            : { source: "acme", challenge: source === "dns" ? "dns-01" : "http-01", dns_provider: source === "dns" ? account : null, order: true },
+            : source === "internal"
+              ? { source: "internal", challenge: "http-01", order: true }
+              : { source: "acme", challenge: source === "dns" ? "dns-01" : "http-01", dns_provider: source === "dns" ? account : null, order: true },
       }),
     onSuccess: (next) => {
       onChosen(next);
@@ -122,6 +129,9 @@ function ChooseDialog({
             { value: "http", label: t("network.certSource.http"), description: t("network.certSource.httpHelp") },
             { value: "dns", label: t("network.certSource.dns"), description: t("network.certSource.dnsHelp") },
             ...(uploaded.length > 0 ? [{ value: "upload" as const, label: t("network.certSource.upload"), description: t("network.certSource.uploadHelp") }] : []),
+            ...(authority.data?.authority != null || source === "internal"
+              ? [{ value: "internal" as const, label: t("internalCa.source.option"), description: t("internalCa.source.optionHelp") }]
+              : []),
           ]}
           value={source}
           onValueChange={setSource}

@@ -35,6 +35,7 @@ import yaml
 from noust.central import require_server_role
 from noust.core import app_compose_store, audit, compose_release_store
 from noust.core.applock import app_lock
+from noust.core.compose_yaml import load_compose
 from noust.core.config import Config
 from noust.core.exceptions import (
     DatabaseQueryError,
@@ -61,6 +62,7 @@ from noust.core.utils import domain_to_app_name
 from noust.deployers.helpers import compose_preview, compose_retention, compose_variables
 from noust.deployers.helpers.build_config import refuse_unsupported, resolve_build
 from noust.deployers.helpers.compose_ports import (
+    host_port_variables,
     is_headless_stack,
     published_port,
     web_root_service,
@@ -178,7 +180,7 @@ def _names_its_own_project(compose_path: Path) -> bool:
         checked. A file that is not there names nothing.
     """
     try:
-        document = yaml.safe_load(compose_path.read_text(encoding="utf-8"))
+        document = load_compose(compose_path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return False
     except (OSError, UnicodeDecodeError, yaml.YAMLError):
@@ -1397,7 +1399,7 @@ class DockerComposeDeployer(AppDeployer):
             DeploymentError: The file is not YAML.
         """
         try:
-            return yaml.safe_load(path.read_text(encoding="utf-8"))
+            return load_compose(path.read_text(encoding="utf-8"))
         except yaml.YAMLError as exc:
             raise DeploymentError(f"Invalid compose file: {exc}") from exc
 
@@ -1410,7 +1412,7 @@ class DockerComposeDeployer(AppDeployer):
                 once it knows whether the stack runs as the file says.
         """
         try:
-            data = yaml.safe_load(self._compose_file_path().read_text(encoding="utf-8"))
+            data = load_compose(self._compose_file_path().read_text(encoding="utf-8"))
         except yaml.YAMLError as e:
             raise DeploymentError(f"Invalid compose file: {e}") from e
 
@@ -1434,7 +1436,7 @@ class DockerComposeDeployer(AppDeployer):
             The parsed document, or None when it cannot be read.
         """
         try:
-            return yaml.safe_load(self._compose_file_path().read_text(encoding="utf-8"))
+            return load_compose(self._compose_file_path().read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
             self.logger.debug(f"Compose file not inspected: {exc}")
             return None
@@ -1576,7 +1578,7 @@ class DockerComposeDeployer(AppDeployer):
             )
             if served is not None:
                 try:
-                    accepted = self._refusals_in(yaml.safe_load(served))
+                    accepted = self._refusals_in(load_compose(served))
                 except yaml.YAMLError as exc:
                     self.logger.debug(f"The compose file that served is not valid YAML: {exc}")
         else:
@@ -1611,6 +1613,29 @@ class DockerComposeDeployer(AppDeployer):
             self.logger.substep(f"Wrote {len(self.env_vars)} environment variables")
         else:
             self.logger.substep("No environment configuration needed")
+        self._own_the_port_variable(manager)
+
+    def _own_the_port_variable(self, manager: Any) -> None:
+        """
+        Give ``PORT`` the port the site proxies to, when the document publishes on it.
+
+        The site goes to the port the application was given, and a document that publishes its
+        web service on ``127.0.0.1:${PORT:-80}:80`` (every template converted from Coolify's
+        catalogue does) published on its default instead: 80, which nginx holds, so the stack
+        failed to start, or whatever number the site did not know about, behind a 502. ``PORT``
+        is the one value Noust owns in a stack's ``.env``; a recipe writes it the same way, and
+        a value the operator already set is theirs.
+
+        Args:
+            manager: The environment manager that writes the file.
+        """
+        if not self.port or "PORT" in self.env_vars:
+            return
+        published = [entry for service in self.services for entry in service.ports]
+        if "PORT" not in host_port_variables(published):
+            return
+        if manager.add_if_missing(self.app_path / ".env", "PORT", str(self.port)):
+            self.logger.substep(f"PORT={self.port}: where the site proxies to")
 
     def _build_images(self, no_cache: bool = False) -> None:
         """
@@ -3116,7 +3141,7 @@ class DockerComposeDeployer(AppDeployer):
             self._discover_compose_file()
         compose_path = self._compose_file_path()
         try:
-            document = yaml.safe_load(compose_path.read_text(encoding="utf-8"))
+            document = load_compose(compose_path.read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
             raise DeploymentError(
                 f"Cannot read {compose_path} to name the images kept for going back",

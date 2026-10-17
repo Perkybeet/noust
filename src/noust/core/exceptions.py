@@ -345,6 +345,10 @@ class CertificateError(NoustError):
     pass
 
 
+class CertificateConflictError(CertificateError):
+    """A certificate or authority is already there; the API answers 409."""
+
+
 class CommandError(NoustError):
     """Raised when a shell command execution fails."""
 
