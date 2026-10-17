@@ -28,6 +28,7 @@ from noust.managers.database.backup_notifications import (
     database_job_notification,
     database_subject,
 )
+from tests.notifications_support import failure_id_of
 
 CTX = NotificationContext("en", "web-1", "https://console.example.com")
 ERROR = "The dump was taken but failed its check\n  Details: pg_restore: error: unexpected EOF"
@@ -135,6 +136,98 @@ class TestComposers:
 
     def test_the_subject_of_a_database(self) -> None:
         assert database_subject("mysql", "blog") == "mysql/blog"
+
+
+class TestTheWholeOutput:
+    """A database's failure names the record that keeps all of it (checklist H-10)."""
+
+    def test_the_databases_page_stays_the_console_link_and_the_output_is_a_second_one(
+        self,
+    ) -> None:
+        notification = compose_database_backup_failed(
+            "postgresql", "shop", ERROR, CTX, failure_id=9
+        )
+
+        links = {link.rel: link.url for link in notification.links}
+        assert links["console"] == "https://console.example.com/databases/postgresql/shop"
+        assert links["output"] == "https://console.example.com/api/backups/failures/9/output"
+        assert notification.command is not None
+        assert notification.command.value == "noust backup failures show 9"
+
+    def test_an_upload_failure_carries_it_too(self) -> None:
+        notification = compose_database_backup_upload_failed(
+            "postgresql", "shop", "nas", ERROR, CTX, failure_id=3
+        )
+
+        assert notification.command is not None
+        assert notification.command.value == "noust backup failures show 3"
+        assert notification.state is State.WARNING
+
+    def test_without_a_record_the_notice_is_what_it_was(self) -> None:
+        notification = compose_database_backup_failed("postgresql", "shop", ERROR, CTX)
+
+        assert notification.command is None
+        assert [link.rel for link in notification.links] == ["console"]
+
+    def test_a_failed_job_is_kept_whole_and_the_notice_names_it(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        from noust.core.store import NoustStore
+        from noust.managers.backup_failures import BackupFailureLog
+        from noust.web import server
+
+        NoustStore.reset_instance()
+        store = NoustStore(tmp_path / "noust.db")
+        NoustStore._instance = store
+        try:
+            monkeypatch.setattr(server, "fresh_config", lambda: {})
+            monkeypatch.setattr(
+                server.NotificationContext, "from_config", classmethod(lambda cls, config: CTX)
+            )
+
+            notification = server.deployment_notification(job("backup", "failed"))
+
+            assert notification is not None
+            failure_id = failure_id_of(notification)
+            stored = BackupFailureLog(store).get(failure_id)
+            assert stored is not None
+            assert (stored.kind, stored.subject) == ("backup", "postgresql/shop")
+            assert stored.output == ERROR
+        finally:
+            store.close()
+            NoustStore.reset_instance()
+
+    def test_an_applications_failed_job_is_kept_under_its_domain(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        from noust.core.store import NoustStore
+        from noust.managers.backup_failures import BackupFailureLog
+        from noust.web import server
+
+        NoustStore.reset_instance()
+        store = NoustStore(tmp_path / "noust.db")
+        NoustStore._instance = store
+        try:
+            monkeypatch.setattr(server, "fresh_config", lambda: {})
+            monkeypatch.setattr(
+                server.NotificationContext, "from_config", classmethod(lambda cls, config: CTX)
+            )
+            application = SimpleNamespace(
+                type="backup",
+                status=SimpleNamespace(value="failed"),
+                metadata={"domain": "shop.example.com"},
+                error=ERROR,
+            )
+
+            notification = server.deployment_notification(application)
+
+            assert notification is not None
+            failure_id = failure_id_of(notification)
+            stored = BackupFailureLog(store).get(failure_id)
+            assert stored is not None and stored.subject == "shop.example.com"
+        finally:
+            store.close()
+            NoustStore.reset_instance()
 
 
 class TestJobs:

@@ -58,6 +58,7 @@ from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import BackupScheduleRecord, get_store
 from noust.core.utils import domain_to_app_name, find_noust_executable
 from noust.managers.backup_destinations import BackupDestinationManager
+from noust.managers.backup_failures import record_failure
 from noust.managers.backup_manager import SCHEDULED_TAG, BackupManager, BackupMetadata
 from noust.managers.backup_priority import current_priority, with_priority
 from noust.managers.backup_timer_options import TimerOptions, TimerOptionsStore, with_options
@@ -1749,7 +1750,8 @@ def run_schedule(
     except NoustError as exc:
         # No new backup, so the retention that frees room for the next one is what is left to do.
         _prune_after_failure(backup_manager, domain, record)
-        _notify_backup(config, compose_backup_failed(domain, str(exc), ctx))
+        failure_id = record_failure("backup", domain, str(exc))
+        _notify_backup(config, compose_backup_failed(domain, str(exc), ctx, failure_id=failure_id))
         raise
 
     result: dict[str, Any] = {
@@ -1765,7 +1767,8 @@ def run_schedule(
         # make room for it by deleting a good copy.
         problem = "; ".join(verification.get("errors") or []) or "it did not verify"
         message = f"backup {metadata.id} failed its verification: {problem}"
-        _notify_backup(config, compose_backup_failed(domain, message, ctx))
+        failure_id = record_failure("backup", domain, message)
+        _notify_backup(config, compose_backup_failed(domain, message, ctx, failure_id=failure_id))
         raise BackupError(
             f"The scheduled backup of {domain} failed its verification and was not sent",
             details=f"{problem}. Run 'noust backup verify {metadata.id}' for the whole report.",
@@ -1791,7 +1794,11 @@ def run_schedule(
             # stderr, already scrubbed of the destination's secrets.
             result["destinations"][name] = {"ok": False, "error": str(exc)}
             failures.append((name, str(exc)))
-            _notify_backup(config, compose_backup_upload_failed(domain, name, str(exc), ctx))
+            failure_id = record_failure("upload", domain, str(exc), destination=name)
+            _notify_backup(
+                config,
+                compose_backup_upload_failed(domain, name, str(exc), ctx, failure_id=failure_id),
+            )
 
     if failures:
         # Each destination's own error, rclone's words included: a timer run

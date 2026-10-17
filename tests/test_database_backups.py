@@ -62,6 +62,7 @@ from tests.database_backup_support import (
     make_engine,
     make_service,
 )
+from tests.notifications_support import failure_id_of
 
 
 @pytest.fixture(autouse=True)
@@ -1026,6 +1027,60 @@ class TestRunPolicy:
         assert notification.console_link.url.endswith("/databases/postgresql/shop")
         assert notification.excerpt is not None
         assert "bad header" in "\n".join(notification.excerpt.lines)
+
+    def test_the_failure_links_to_all_that_the_tool_said(
+        self, backups: DatabaseBackups, monkeypatch: pytest.MonkeyPatch, runner: RcloneRunner
+    ) -> None:
+        from noust.managers.backup_failures import BackupFailureLog
+
+        sent: list[Any] = []
+        monkeypatch.setattr("noust.managers.database.backups.deliver", sent.append)
+        said = (
+            "\n".join(f"pg_restore: warning {n}" for n in range(60))
+            + "\npg_restore: error: bad header"
+        )
+        runner.script(("pg_restore", "--list"), stderr=said, exit_code=1)
+
+        with pytest.raises(DatabaseBackupError):
+            backups.run_policy("postgresql", "shop", notify=True)
+
+        (build,) = sent
+        notification = build(NotificationContext("en", "web-1", "https://console.example.com"))
+        failure_id = failure_id_of(notification)
+        stored = BackupFailureLog().get(failure_id)
+        assert stored is not None
+        assert (stored.kind, stored.subject) == ("backup", "postgresql/shop")
+        assert "pg_restore: warning 0" in stored.output and "bad header" in stored.output
+        links = {link.rel: link.url for link in notification.links}
+        assert links["console"].endswith("/databases/postgresql/shop")
+        assert links["output"].endswith(f"/api/backups/failures/{failure_id}/output")
+
+    def test_a_refused_upload_links_to_what_the_destination_said(
+        self, backups: DatabaseBackups, monkeypatch: pytest.MonkeyPatch, runner: RcloneRunner
+    ) -> None:
+        from noust.managers.backup_failures import BackupFailureLog
+
+        sent: list[Any] = []
+        monkeypatch.setattr("noust.managers.database.backups.deliver", sent.append)
+        DestinationFileManager(runner=runner).add(
+            "nas", "sftp", {"host": "nas.example.com", "user": "noust", "pass": "s3cr3t"}
+        )
+        runner.refusing["nas"] = "connection refused " * 50
+        backups.set_policy("postgresql", "shop", destinations=[{"name": "nas"}])
+
+        with pytest.raises(BackupError):
+            backups.run_policy("postgresql", "shop", notify=True)
+
+        uploads = [
+            note
+            for note in (build(NotificationContext("en", "web-1", "")) for build in sent)
+            if note.code == "database.backup.upload_failed"
+        ]
+        (notice,) = uploads
+        failure_id = failure_id_of(notice)
+        stored = BackupFailureLog().get(failure_id)
+        assert stored is not None and (stored.kind, stored.destination) == ("upload", "nas")
+        assert stored.output.count("connection refused") == 50
 
 
 # ================================================================ restores

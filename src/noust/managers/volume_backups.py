@@ -92,6 +92,7 @@ from noust.core.utils import domain_to_app_name
 from noust.deployers.helpers.layout import RELEASES, app_root
 from noust.deployers.releases import SHARED_DIR, persistent_path
 from noust.managers.backup_destination_files import DestinationFileManager, file_sha256
+from noust.managers.backup_failures import record_failure
 from noust.managers.backup_manager import (
     SCHEDULED_TAG,
     BackupManager,
@@ -2427,7 +2428,8 @@ class VolumeBackupManager:
         except NoustError as exc:
             text = str(exc)
             self.records.record_run(domain, ok=False, error=text, backup=None)
-            announce(lambda: compose_backup_failed(domain, text, context))
+            failure_id = record_failure("backup", domain, text)
+            announce(lambda: compose_backup_failed(domain, text, context, failure_id=failure_id))
             raise
 
         failures: list[tuple[str, str]] = []
@@ -2453,7 +2455,12 @@ class VolumeBackupManager:
                     failures.append((name, str(exc)))
                     announce(
                         functools.partial(
-                            compose_backup_upload_failed, domain, name, str(exc), context
+                            compose_backup_upload_failed,
+                            domain,
+                            name,
+                            str(exc),
+                            context,
+                            failure_id=record_failure("upload", domain, str(exc), destination=name),
                         )
                     )
         if policy:

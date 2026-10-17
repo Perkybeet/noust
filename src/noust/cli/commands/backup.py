@@ -1721,6 +1721,7 @@ def _attach_volume_commands() -> None:
     from noust.cli.commands import (
         backup_drill,
         backup_encryption,
+        backup_failures,
         backup_priority,
         backup_sweep,
         backup_volumes,
@@ -1729,6 +1730,7 @@ def _attach_volume_commands() -> None:
     backup_volumes.register(backup)
     backup_drill.register(backup)
     backup_encryption.register(backup)
+    backup_failures.register(backup)
     backup_priority.register(backup)
     backup_sweep.register(backup)
 

@@ -595,6 +595,16 @@ CREATE TABLE IF NOT EXISTS backup_timer_options (
     timezone TEXT,
     updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS backup_failures (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    destination TEXT,
+    output TEXT NOT NULL,
+    truncated INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_backup_failures_subject ON backup_failures(subject, id DESC);
 CREATE TABLE IF NOT EXISTS db_pitr (
     engine TEXT PRIMARY KEY,
     system_id TEXT NOT NULL,

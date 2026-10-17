@@ -45,9 +45,11 @@ from noust.core.secrets import SecretStore
 from noust.core.store import App, NoustStore, get_store
 from noust.managers import self_restore
 from noust.managers.backup_destination_files import DestinationFileManager
+from noust.managers.backup_failures import BackupFailureLog
 from noust.managers.self_backup import LABEL, SECRET_NAME, SelfBackupManager
 from noust.managers.self_restore import SelfRestore
 from tests.database_backup_support import RcloneRunner, age
+from tests.notifications_support import failure_id_of
 
 PASSPHRASE = "correct horse battery"
 pytestmark = pytest.mark.allow_subprocess
@@ -1064,6 +1066,54 @@ class TestSchedule:
             manager.run_schedule(notify=True)
 
         assert len(sent) == 1 and sent[0].kind == "backup_failed"
+
+    def test_the_notices_of_a_failed_run_link_to_all_that_was_said(
+        self,
+        manager: SelfBackupManager,
+        runner: Runner,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        self.add_destination(runner, "nas")
+        runner.refusing["nas"] = "connection refused " * 100
+        manager.set_schedule(passphrase=PASSPHRASE, destinations=[{"name": "nas"}])
+        sent: list[Any] = []
+        monkeypatch.setattr(
+            "noust.core.notifier.Notifier.notify",
+            lambda self, notification: sent.append(notification),
+        )
+
+        with pytest.raises(BackupError):
+            manager.run_schedule(notify=True)
+
+        (notice,) = [n for n in sent if n.code == "backup.upload_failed"]
+        failure_id = failure_id_of(notice)
+        stored = BackupFailureLog().get(failure_id)
+        assert stored is not None and (stored.kind, stored.destination) == ("upload", "nas")
+        assert stored.subject == "Noust"
+        assert stored.output.count("connection refused") == 100
+
+    def test_a_run_that_could_not_take_the_bundle_links_to_its_report(
+        self, manager: SelfBackupManager, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        manager.set_schedule(passphrase=PASSPHRASE)
+        sent: list[Any] = []
+        monkeypatch.setattr(
+            "noust.core.notifier.Notifier.notify",
+            lambda self, notification: sent.append(notification),
+        )
+
+        def broken(*args: Any, **kwargs: Any) -> Any:
+            raise BackupError("disk full", details="no room for the bundle")
+
+        monkeypatch.setattr(manager, "create", broken)
+
+        with pytest.raises(BackupError):
+            manager.run_schedule(notify=True)
+
+        (notice,) = [n for n in sent if n.code == "backup.failed"]
+        failure_id = failure_id_of(notice)
+        stored = BackupFailureLog().get(failure_id)
+        assert stored is not None and "no room for the bundle" in stored.output
 
     def test_what_is_on_a_destination_is_listed_and_fetched_back_checked(
         self, manager: SelfBackupManager, runner: Runner, tmp_path: Path

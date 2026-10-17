@@ -85,6 +85,7 @@ from noust.core.runner import CommandRunner, get_runner
 from noust.core.secrets import SecretStore
 from noust.core.store import SCHEMA_VERSION, NoustStore, get_store
 from noust.managers.backup_destination_files import DestinationFileManager, file_sha256
+from noust.managers.backup_failures import record_failure
 from noust.managers.backup_manager import server_id, sidecar_mac_state, sign_sidecar
 from noust.managers.backup_scheduler import BackupScheduler, validate_calendar
 from noust.managers.backup_timer_options import validate_options
@@ -1671,7 +1672,8 @@ class SelfBackupManager:
             text = str(exc)
             if self.records.get():
                 self.records.record_run(ok=False, error=text, file=result["file"])
-            announce(lambda: compose_backup_failed(None, text, context))
+            failure_id = record_failure("backup", "Noust", text)
+            announce(lambda: compose_backup_failed(None, text, context, failure_id=failure_id))
             raise
 
         failures: list[tuple[str, str]] = []
@@ -1692,7 +1694,12 @@ class SelfBackupManager:
                 failures.append((name, str(exc)))
                 announce(
                     functools.partial(
-                        compose_backup_upload_failed, "Noust", name, str(exc), context
+                        compose_backup_upload_failed,
+                        "Noust",
+                        name,
+                        str(exc),
+                        context,
+                        failure_id=record_failure("upload", "Noust", str(exc), destination=name),
                     )
                 )
         step("Applying local retention")

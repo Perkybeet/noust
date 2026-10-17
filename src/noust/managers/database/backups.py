@@ -57,6 +57,7 @@ from noust.core.notifications.context import NotificationContext
 from noust.core.notifications.model import Notification
 from noust.core.store import NoustStore
 from noust.managers.backup_destination_files import DestinationFileManager, file_sha256
+from noust.managers.backup_failures import record_failure
 from noust.managers.backup_scheduler import BackupScheduler, validate_calendar
 from noust.managers.backup_timer_options import validate_options
 from noust.managers.database.backup_notifications import (
@@ -64,6 +65,7 @@ from noust.managers.database.backup_notifications import (
     compose_database_backup_failed,
     compose_database_backup_upload_failed,
     compose_database_restore,
+    database_subject,
     deliver,
 )
 from noust.managers.database.backup_records import (
@@ -1822,9 +1824,11 @@ class DatabaseBackups:
             if on_step:
                 on_step(text)
 
-        def announce(build: Callable[..., Any], *args: Any) -> None:
+        subject = database_subject(engine_name, name)
+
+        def announce(build: Callable[..., Any], *args: Any, **kwargs: Any) -> None:
             if notify:
-                deliver(lambda ctx: build(engine_name, name, *args, ctx))
+                deliver(lambda ctx: build(engine_name, name, *args, ctx, **kwargs))
 
         def finish(*, ok: bool, error: str | None, dump: Any) -> None:
             if record:
@@ -1860,7 +1864,11 @@ class DatabaseBackups:
                 result["restore_test"] = view.record.restore_test_status if view.record else None
         except NoustError as exc:
             finish(ok=False, error=str(exc), dump=result.get("dump"))
-            announce(compose_database_backup_failed, str(exc))
+            announce(
+                compose_database_backup_failed,
+                str(exc),
+                failure_id=record_failure("backup", subject, str(exc)),
+            )
             if policy is not None and not isinstance(exc, DumpFailedItsCheck):
                 # A run that could not take a dump (the disk is full) is the one that most needs
                 # its old dumps pruned by the policy; a corrupt dump is kept as evidence instead.
@@ -1886,7 +1894,12 @@ class DatabaseBackups:
                 except NoustError as exc:
                     result["destinations"][target] = {"ok": False, "error": str(exc)}
                     failures.append((target, str(exc)))
-                    announce(compose_database_backup_upload_failed, target, str(exc))
+                    announce(
+                        compose_database_backup_upload_failed,
+                        target,
+                        str(exc),
+                        failure_id=record_failure("upload", subject, str(exc), destination=target),
+                    )
             if policy.remote_only and policy.destinations and not failures:
                 # Every destination holds it and verified it on arrival: the local copy is the
                 # one the small disk cannot afford. A dump that did not go everywhere stays.

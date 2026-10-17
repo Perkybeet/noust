@@ -12,6 +12,9 @@ from noust.web.permissions import Permission
 ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/backups"): Permission.BACKUPS_READ,
     ("GET", "/api/backups/storage"): Permission.BACKUPS_READ,
+    ("GET", "/api/backups/failures"): Permission.BACKUPS_READ,
+    ("GET", "/api/backups/failures/{failure_id}"): Permission.BACKUPS_READ,
+    ("GET", "/api/backups/failures/{failure_id}/output"): Permission.BACKUPS_READ,
     ("POST", "/api/backups"): Permission.BACKUPS_RUN,
     ("GET", "/api/backups/{backup_id}"): Permission.BACKUPS_READ,
     ("POST", "/api/backups/{backup_id}/verify"): Permission.BACKUPS_RUN,

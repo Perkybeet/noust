@@ -72,9 +72,11 @@ def _about(
 
     Returns:
         The notification with the database as its subject, code, title and
-        sentence, the database's page as its link and no application domain.
+        sentence, the database's page as its console link and no application
+        domain. Any other link (the whole output of a failure) stays.
     """
     link = ctx.link(f"/databases/{engine}/{database}")
+    others = tuple(item for item in notification.links if item.rel != "console")
     return replace(
         notification,
         code=code,
@@ -82,12 +84,17 @@ def _about(
         subject=database_subject(engine, database),
         summary=message(f"summary.{code}", ctx.locale),
         domain=None,
-        links=(link,) if link else (),
+        links=(*((link,) if link else ()), *others),
     )
 
 
 def compose_database_backup_failed(
-    engine: str, database: str, error: str | None, ctx: NotificationContext
+    engine: str,
+    database: str,
+    error: str | None,
+    ctx: NotificationContext,
+    *,
+    failure_id: int | None = None,
 ) -> Notification:
     """
     Compose the notification for a dump that was not taken or did not verify.
@@ -97,12 +104,13 @@ def compose_database_backup_failed(
         database: The database.
         error: The failure's text, ``message\\n  Details: ...``, verbatim.
         ctx: The context.
+        failure_id: The record that keeps the whole output, when one was kept.
 
     Returns:
         The notification, under ``backup_failed``.
     """
     return _about(
-        compose_backup_failed(None, error, ctx),
+        compose_backup_failed(None, error, ctx, failure_id=failure_id),
         engine,
         database,
         ctx,
@@ -111,7 +119,13 @@ def compose_database_backup_failed(
 
 
 def compose_database_backup_upload_failed(
-    engine: str, database: str, destination: str, error: str | None, ctx: NotificationContext
+    engine: str,
+    database: str,
+    destination: str,
+    error: str | None,
+    ctx: NotificationContext,
+    *,
+    failure_id: int | None = None,
 ) -> Notification:
     """
     Compose the notification for a dump kept locally that a destination refused.
@@ -122,13 +136,14 @@ def compose_database_backup_upload_failed(
         destination: The destination's name.
         error: The failure's text; ``Details`` is rclone's own words.
         ctx: The context.
+        failure_id: The record that keeps the whole output, when one was kept.
 
     Returns:
         The notification, a warning under ``backup_failed``.
     """
     subject = database_subject(engine, database)
     return _about(
-        compose_backup_upload_failed(subject, destination, error, ctx),
+        compose_backup_upload_failed(subject, destination, error, ctx, failure_id=failure_id),
         engine,
         database,
         ctx,
@@ -213,7 +228,9 @@ def _status(value: Any) -> str:
     return str(getattr(value, "value", value))
 
 
-def database_job_notification(job: Any, ctx: NotificationContext) -> Notification | None:
+def database_job_notification(
+    job: Any, ctx: NotificationContext, *, failure_id: int | None = None
+) -> Notification | None:
     """
     Translate a finished database job into the notification it deserves.
 
@@ -221,6 +238,7 @@ def database_job_notification(job: Any, ctx: NotificationContext) -> Notificatio
         job: A job whose metadata says it is about a database
             (``kind == "database"``, ``engine``, ``database``).
         ctx: The context.
+        failure_id: The record that keeps the whole output of a failed dump, when one was kept.
 
     Returns:
         A failed dump or policy run as ``backup_failed``, a finished restore
@@ -234,7 +252,9 @@ def database_job_notification(job: Any, ctx: NotificationContext) -> Notificatio
     if not engine or not database:
         return None
     if job_type == "backup" and status == "failed":
-        return compose_database_backup_failed(engine, database, job.error, ctx)
+        return compose_database_backup_failed(
+            engine, database, job.error, ctx, failure_id=failure_id
+        )
     if job_type == "restore" and status in ("completed", "failed"):
         source = job.metadata.get("backup_id")
         return compose_database_restore(
