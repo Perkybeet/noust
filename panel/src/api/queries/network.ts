@@ -58,6 +58,18 @@ export type AcmeSettings = ResponseOf<"/api/certs/acme", "get">;
 export type UploadedList = ResponseOf<"/api/certs/uploaded", "get">;
 export type UploadedCertificate = UploadedList["certificates"][number];
 export type AppCertificate = ResponseOf<"/api/apps/{domain}/certificate", "get">;
+/** The server's own certificate authority, what it signed, and whether this server trusts it. */
+type InternalCaResponse = ResponseOf<"/api/certs/ca", "get">;
+/** The generated types mark every field the server defaults as optional; the server always sends them. */
+export type InternalCaAuthority = Required<NonNullable<InternalCaResponse["authority"]>>;
+export type InternalCaIssued = Required<NonNullable<InternalCaResponse["issued"]>[number]>;
+export type InternalCa = Omit<Required<InternalCaResponse>, "authority" | "issued"> & {
+  authority: InternalCaAuthority | null;
+  issued: InternalCaIssued[];
+};
+const internalCaOf = (answer: InternalCaResponse): InternalCa => answer as InternalCa;
+/** How to trust the authority on each kind of device. */
+export type InternalCaTrust = ResponseOf<"/api/certs/ca/trust", "get">;
 
 export type StreamList = ResponseOf<"/api/streams", "get">;
 export type StreamExposure = StreamList["exposures"][number];
@@ -80,6 +92,8 @@ export const networkKeys = {
   appDns: (app: string) => ["app", app, "dns"] as const,
   acme: ["network", "acme"] as const,
   uploaded: ["network", "uploaded"] as const,
+  internalCa: ["network", "internal-ca"] as const,
+  internalCaTrust: ["network", "internal-ca", "trust"] as const,
   appCertificate: (app: string) => ["app", app, "certificate"] as const,
   appHttp3: (app: string) => ["app", app, "http3"] as const,
   appPrivate: (app: string) => ["app", app, "private"] as const,
@@ -142,6 +156,20 @@ export const uploadedQuery = () =>
   queryOptions({
     queryKey: networkKeys.uploaded,
     queryFn: ({ signal }) => request("get", "/api/certs/uploaded", { signal }),
+  });
+
+/** The server's own certificate authority: made or not, what it signed, trusted here or not. */
+export const internalCaQuery = () =>
+  queryOptions({
+    queryKey: networkKeys.internalCa,
+    queryFn: async ({ signal }) => internalCaOf(await request("get", "/api/certs/ca", { signal })),
+  });
+
+/** The steps to trust the authority on each kind of device, with the fingerprint to compare. */
+export const internalCaTrustQuery = () =>
+  queryOptions({
+    queryKey: networkKeys.internalCaTrust,
+    queryFn: ({ signal }) => request("get", "/api/certs/ca/trust", { signal }),
   });
 
 /** How an application's certificate comes to be, and what it is. */

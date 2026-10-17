@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw, ShieldX, Upload } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Suspense, lazy, useMemo, useState } from "react";
 
 import { request } from "../../api/client";
 import { certKeys, certsQuery } from "../../api/queries/certs";
@@ -45,6 +45,9 @@ import { UploadCertificateDialog } from "./UploadCertificateDialog";
 import { useCertificateRefresh } from "./useCertificateJobs";
 
 const ALL = "all";
+
+/** The private authority is a dialog few open, so it is its own chunk instead of part of the page. */
+const InternalAuthorityDialog = lazy(() => import("./InternalAuthorityDialog").then((module) => ({ default: module.InternalAuthorityDialog })));
 
 type SearchPatch = { [K in keyof CertificatesSearch]?: CertificatesSearch[K] | undefined };
 
@@ -162,6 +165,7 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
   const [deleting, setDeleting] = useState<CertEntry | null>(null);
   const [uploading, setUploading] = useState(false);
   const [choosingAuthority, setChoosingAuthority] = useState(false);
+  const [privateAuthority, setPrivateAuthority] = useState(false);
   const [deletingUpload, setDeletingUpload] = useState<CertEntry | null>(null);
 
   const all = useMemo(() => [...(certs.data?.certificates ?? [])].sort(byUrgency), [certs.data]);
@@ -364,6 +368,9 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
           <MenuItem icon={<ICONS.verified />} onClick={() => setChoosingAuthority(true)}>
             {t("network.authority.menu")}
           </MenuItem>
+          <MenuItem icon={<ICONS.verified />} onClick={() => setPrivateAuthority(true)}>
+            {t("internalCa.menu")}
+          </MenuItem>
         </>
       }
       primaryAction={issueButton("primary")}
@@ -429,6 +436,11 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
           })
         }
       />
+      {privateAuthority ? (
+        <Suspense fallback={null}>
+          <InternalAuthorityDialog open={privateAuthority} onClose={() => setPrivateAuthority(false)} />
+        </Suspense>
+      ) : null}
       <ConfirmDialog
         open={deletingUpload !== null}
         onOpenChange={(open) => {

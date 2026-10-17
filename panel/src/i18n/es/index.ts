@@ -41,6 +41,7 @@ export { fleet } from "./fleet";
 export { githubHost } from "./githubHost";
 export { gitlab } from "./gitlab";
 export { gitPush } from "./gitPush";
+export { internalCa } from "./internalCa";
 export { language } from "./language";
 export { manifestPreview } from "./manifestPreview";
 export { map } from "./map";
