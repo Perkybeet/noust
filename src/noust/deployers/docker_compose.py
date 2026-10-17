@@ -106,6 +106,7 @@ from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.service_manager import ServiceManager
 from noust.managers.source_manager import SourceManager
+from noust.managers.upstream_names import rename as rename_upstreams
 from noust.validators.names import resolve_within
 
 if TYPE_CHECKING:
@@ -2399,6 +2400,7 @@ class DockerComposeDeployer(AppDeployer):
 
         self.store.update_app_status(self.domain, AppStatus.RUNNING.value)
         self._retain_release()
+        self._finish_upstream_names()
         if hooks.post_deploy:
             report("Running post_deploy hooks")
         self._run_post_deploy()
@@ -2414,6 +2416,37 @@ class DockerComposeDeployer(AppDeployer):
             schema_changed=self._hooks.schema_changed,
             warnings=tuple(self._hooks.warnings),
         )
+
+    def _finish_upstream_names(self) -> None:
+        """
+        Give the upstream of the relay its current name, now that the update has served.
+
+        A stack's site was written before 4.0 with the old spelling of the upstream; nothing
+        renders it again on an update, so this is where it changes, together with every other
+        file of Noust's that carries the old spelling and that nobody else names. A site the
+        operator wrote that names it keeps it. Nothing here can fail an update that already
+        serves: a refusal is reported with what nginx said, and the old names stay.
+        """
+        from noust.deployers.compose_relay import relay_enabled
+
+        if self._rehearsing() or not relay_enabled(self):
+            return
+        try:
+            outcomes = rename_upstreams(self.webserver_manager())
+        except (NoustError, OSError) as exc:
+            self.logger.warning(f"The upstream names were left as they are: {exc}")
+            return
+        for outcome in outcomes:
+            if outcome.status == "failed":
+                self.logger.warning(
+                    f"The upstream {outcome.name} was not renamed: {outcome.detail}"
+                )
+            elif outcome.status == "kept":
+                where = ", ".join(f"{ref.path}:{ref.line}" for ref in outcome.references[:3])
+                self.logger.substep(
+                    f"The upstream {outcome.name} keeps its name: {where} names it. "
+                    f"Change that line to {outcome.new_name}, then run: noust setup rename"
+                )
 
     def _rehearsing(self) -> bool:
         """

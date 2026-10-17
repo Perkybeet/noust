@@ -346,7 +346,7 @@ def test_the_site_of_an_app_in_the_mode_proxies_to_its_upstream(
     site = nginx.get_site_config(DOMAIN) or ""
     upstream = nginx.upstream_path(DOMAIN)
     assert f"include {upstream};" in site
-    assert "proxy_pass http://wasm_bg_bg_example_com;" in site
+    assert "proxy_pass http://noust_bg_bg_example_com;" in site
     assert f"127.0.0.1:{PORT}" not in site
     assert upstream.read_text().count("server 127.0.0.1:") == 1
     assert nginx.upstream_port(DOMAIN) == PORT + 1

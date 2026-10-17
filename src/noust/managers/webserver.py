@@ -89,6 +89,12 @@ from noust.managers.siteconf import parse as parse_site
 from noust.managers.siteconf.apache import quote as quote_apache
 from noust.managers.siteconf.nginx import quote as quote_nginx
 from noust.managers.siteconf.tree import Block, Comment, Statement, Tree, node_offsets
+from noust.managers.upstream_names import (
+    NEW_PREFIX,
+    defined_names,
+    name_for,
+    renamed_text,
+)
 from noust.validators.domain import is_valid_domain, is_valid_server_name, should_include_www
 from noust.validators.names import resolve_within, validate_app_name, validate_filename
 
@@ -139,9 +145,11 @@ _CONFIG_MODE = 0o644
 #: ``wasm-upstreams`` on a server whose sites the migration has not rewritten.
 NGINX_UPSTREAMS_DIR = paths.nginx_upstreams_dir()
 
-#: Prefix of the upstream name, so it cannot collide with the upstreams an
-#: advanced or monorepo site names after its routes and workspaces.
-UPSTREAM_PREFIX = "wasm_bg_"
+#: Prefix of the upstream name (``noust_bg_`` from 4.0), so it cannot collide with the
+#: upstreams an advanced or monorepo site names after its routes and workspaces. An
+#: application whose upstream an operator's site names keeps the prefix it had (see
+#: :mod:`noust.managers.upstream_names`).
+UPSTREAM_PREFIX = NEW_PREFIX
 
 #: Suffix of the file that names the servers of one service of an application,
 #: inside the application's own directory of :data:`NGINX_UPSTREAMS_DIR`.
@@ -150,6 +158,35 @@ SERVERS_SUFFIX = ".servers"
 #: How much of a site file is read to look for Noust's marker. The marker is
 #: the first comment of everything Noust renders, so the head is enough.
 _MARKER_WINDOW = 2000
+
+
+class UpstreamBackup(str):
+    """
+    The text of an upstream file before it was rewritten.
+
+    It is the string :meth:`WebServerManager.write_upstream` has always returned, and
+    :meth:`WebServerManager.restore_upstream` takes back. When the write also renamed the upstream
+    in the application's own site, it carries the site's earlier text as well, so that putting the
+    upstream back puts the site back with it.
+
+    Attributes:
+        site: The site's text before the rename, or None when it was not changed.
+    """
+
+    site: str | None
+
+    def __new__(cls, text: str, site: str | None = None) -> UpstreamBackup:
+        """
+        Args:
+            text: The upstream file's earlier text.
+            site: The site's earlier text, when the write renamed the upstream in it.
+
+        Returns:
+            The backup.
+        """
+        instance = super().__new__(cls, text)
+        instance.site = site
+        return instance
 
 
 def site_name_for(domain: str, *, store: NoustStore | None = None) -> str:
@@ -1400,7 +1437,7 @@ class WebServerManager(BaseManager):
         if app is None or not (runs_as_instances(app) or self._scaled_out(domain)):
             return {}
         return {
-            "upstream_name": self.upstream_name(domain),
+            "upstream_name": self._upstream_name_in_force(domain),
             "upstream_file": str(self.upstream_path(domain)),
         }
 
@@ -1444,17 +1481,36 @@ class WebServerManager(BaseManager):
 
     def upstream_name(self, domain: str) -> str:
         """
-        Name the upstream block of an application's instances.
+        Name the upstream block an application's instances are written under.
 
         Args:
             domain: The application's domain.
 
         Returns:
-            ``wasm_bg_`` and the application name with underscores, a valid
-            nginx identifier that no other site uses.
+            ``noust_bg_`` and the application name with underscores, a valid
+            nginx identifier that no other site uses; the name from before 4.0 while a
+            site somebody else wrote still names it (see :mod:`noust.managers.upstream_names`).
         """
         self.config_path(domain)
-        return UPSTREAM_PREFIX + domain_to_app_name(domain.strip().lower()).replace("-", "_")
+        return name_for(self, domain_to_app_name(domain.strip().lower()).replace("-", "_"))
+
+    def _upstream_name_in_force(self, domain: str) -> str:
+        """
+        Name the upstream the application's files define right now.
+
+        A site that is rendered again has to say what the upstream file on disk says, whichever
+        name that is, or nginx would be given a name nothing defines. The file is rewritten, and
+        the name with it, the next time the instance that serves changes
+        (:meth:`write_upstream`).
+
+        Args:
+            domain: The application's domain.
+
+        Returns:
+            The name the upstream file defines, else the one a new file would get.
+        """
+        defined = defined_names(self.read_upstream(domain) or "")
+        return defined[0] if len(defined) == 1 else self.upstream_name(domain)
 
     def upstream_path(self, domain: str) -> Path:
         """
@@ -1571,14 +1627,67 @@ class WebServerManager(BaseManager):
                 details=f"Remove the link; Noust writes the upstream of {domain} itself.",
             )
         previous = self.read_upstream(domain)
+        # The application's own site names the upstream too: both change in this write, and
+        # the caller tests the configuration and puts both back if nginx refuses.
+        site_before = self._rename_site_upstream(domain, previous)
         try:
             self.fs.make_dir(path.parent)
             self.fs.write_text(path, self.render_upstream(domain, port), mode=_CONFIG_MODE)
         except OSError as exc:
+            if site_before is not None:
+                self._write_site_text(domain, site_before)
             raise self.backend.error(
                 f"Failed to write the upstream of {domain}: {path}", details=str(exc)
             ) from exc
-        return previous
+        if previous is None:
+            return None
+        return UpstreamBackup(previous, site_before)
+
+    def _rename_site_upstream(self, domain: str, previous: str | None) -> str | None:
+        """
+        Rename the upstream in the application's own site when the file is about to change it.
+
+        Args:
+            domain: The application's domain.
+            previous: The upstream file as it is.
+
+        Returns:
+            The site's text before the rename, or None when nothing was renamed (the name
+            stays, there is no site of Noust's, or it does not carry the old name).
+        """
+        defined = defined_names(previous or "")
+        if len(defined) != 1:
+            return None
+        current, target = defined[0], self.upstream_name(domain)
+        if current == target:
+            return None
+        text = self.get_site_config(domain)
+        if text is None or not paths.carries_unit_marker(text[:_MARKER_WINDOW]):
+            return None
+        renamed = renamed_text(text, current, target)
+        if renamed == text:
+            return None
+        self._write_site_text(domain, text=renamed)
+        return text
+
+    def _write_site_text(self, domain: str, text: str) -> None:
+        """
+        Write the text of the application's site, wherever it lives.
+
+        Args:
+            domain: The application's domain.
+            text: The new text.
+
+        Raises:
+            SiteError: The site could not be written.
+        """
+        path = self.config_path(domain)
+        try:
+            self.fs.write_text(path, text, mode=_CONFIG_MODE)
+        except OSError as exc:
+            raise self.backend.error(
+                f"Failed to write the site of {domain}: {path}", details=str(exc)
+            ) from exc
 
     def restore_upstream(self, domain: str, previous: str | None) -> None:
         """
@@ -1597,11 +1706,14 @@ class WebServerManager(BaseManager):
             if previous is None:
                 self.fs.remove(path, missing_ok=True)
             else:
-                self.fs.write_text(path, previous, mode=_CONFIG_MODE)
+                self.fs.write_text(path, str(previous), mode=_CONFIG_MODE)
         except OSError as exc:
             raise self.backend.error(
                 f"Failed to restore the upstream of {domain}: {path}", details=str(exc)
             ) from exc
+        site_before = getattr(previous, "site", None)
+        if site_before is not None:
+            self._write_site_text(domain, site_before)
 
     def _remove_servers_files(self, domain: str) -> None:
         """

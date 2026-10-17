@@ -16,7 +16,7 @@ check that what answered on it is who should, and the drain.
 nginx reaches each relayed service through a servers file of Noust's,
 ``/etc/nginx/noust-upstreams/<app>/<service>.servers``, which holds only
 ``server 127.0.0.1:<port>;`` lines and which the site includes inside an
-``upstream`` block: Noust's own site as ``upstream wasm_bg_<app>_<service> {
+``upstream`` block: Noust's own site as ``upstream noust_bg_<app>_<service> {
 include ...; keepalive 64; }``, an operator's site inside a block of its own
 names. For each web service, in ``depends_on`` order (a backend before the
 front that calls it, so a new front never talks to an old backend):
@@ -68,6 +68,7 @@ from noust.deployers.helpers.health import wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate, Probe
 from noust.deployers.helpers.site import is_operator_site
 from noust.managers.service_manager import ServiceManager
+from noust.managers.upstream_names import name_for
 from noust.managers.webserver import (
     UPSTREAM_PREFIX,
     read_servers,
@@ -241,19 +242,27 @@ def relay_container_name(project: str, service: str) -> str:
     return f"{project}-{service}{RELAY_SUFFIX}"
 
 
-def relay_upstream_name(app_name: str, service: str) -> str:
+def relay_upstream_name(
+    app_name: str, service: str, *, manager: WebServerManager | None = None
+) -> str:
     """
     Name the upstream Noust's own site gives one service.
 
     Args:
         app_name: The application's name.
         service: The service.
+        manager: The web server manager, to find out whether a site somebody else wrote still
+            names the upstream by the spelling it had before 4.0, which then stays.
 
     Returns:
-        ``wasm_bg_<app>_<service>``, with every character nginx would not take
-        in a name as an underscore.
+        ``noust_bg_<app>_<service>``, with every character nginx would not take
+        in a name as an underscore; ``wasm_bg_`` for the old spelling while a site
+        somebody else wrote names it.
     """
-    return UPSTREAM_PREFIX + _UPSTREAM_INVALID.sub("_", f"{app_name}_{service}")
+    suffix = _UPSTREAM_INVALID.sub("_", f"{app_name}_{service}")
+    if manager is not None:
+        return name_for(manager, suffix)
+    return UPSTREAM_PREFIX + suffix
 
 
 def include_line(app_name: str, service: str) -> str:
@@ -384,7 +393,9 @@ def _upstream_entry(deployer: DockerComposeDeployer, target: RelayTarget) -> dic
         Its name, its servers file and the service, for the templates.
     """
     return {
-        "name": relay_upstream_name(deployer.app_name, target.service),
+        "name": relay_upstream_name(
+            deployer.app_name, target.service, manager=deployer.webserver_manager()
+        ),
         "file": str(servers_file(deployer.app_name, target.service)),
         "service": target.service,
     }
