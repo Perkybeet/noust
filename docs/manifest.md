@@ -113,10 +113,33 @@ own folder). They are resolved **where the manifest is applied from**, never on 
 ## From the console
 
 Settings > Manifest takes a pasted manifest and shows what applying it would change on this server, in
-order, with what needs sudo mode and what could not be checked. It is a preview only: applying is the
-command line's, from the repository the manifest lives in, so the truth is kept in one place and every
-apply is a token's. The same preview is `POST /api/manifest/plan` (`{"manifest": "<yaml or json>"}`,
-`apps.read`); it reads the server as the caller, so a team sees only what it can see.
+order, with what needs sudo mode and what could not be checked. **Apply these changes** then queues the
+apply as a job and follows it where you are: it waits for the deployments it queues, because what comes
+after an application's creation (its domains, its databases, its backups) needs the application to exist.
+
+* **It is you who applies.** The job calls this server's own API with the credentials you used to click:
+  every change is a request to the route a person would have used, checked against your role, your team,
+  sudo mode and the approvals, and audited as you (`manifest.apply` says who asked and how many changes,
+  never a value). A change you may not make is refused where it happens and the run stops there, with
+  the server's own words; the plan then holds only what is left.
+* **It applies what you read.** The preview's digest travels with the apply: if the server or the
+  manifest changed in between, nothing is applied and you are asked to preview again
+  (`409 plan_changed`).
+* **Sudo mode first**, because a manifest is several root-equivalent changes in one. A token applies
+  from the console's API only when it is allowed to confirm sudo mode; from a pipeline, the command
+  line (below) is the way and is a token's own.
+* **Values are written in the manifest.** A variable read from the environment or from a file
+  (`from_env`, `from_file`) is read where the manifest is applied from, and a server does not read its
+  own for a document it was sent: a manifest that has them is refused here and applied from the machine
+  that has them.
+* One manifest is applied at a time (`409 apply_running`), and a job in the middle cannot be cancelled:
+  every change before the failure stays, every change after it is left. Apply again.
+
+The same thing over the API: `POST /api/manifest/plan` (`{"manifest": "<yaml or json>"}`, `apps.read`)
+previews as the caller, and `POST /api/manifest/apply` (`{"manifest", "expect": "<digest>", "restart"}`,
+`apps.manage` and sudo mode) answers `202` with the job to follow (`GET /api/jobs/{id}`), or `200` with
+`queued: false` when the server already matches. The preview reads the server as the caller, so a team
+sees only what it can see.
 
 ## In a pipeline
 

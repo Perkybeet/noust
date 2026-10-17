@@ -27,6 +27,9 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/databases/engines/catalog"): Permission.DATABASES_READ,
     ("GET", "/api/databases/engines/{engine}/settings"): Permission.DATABASES_READ,
     ("PUT", "/api/databases/engines/{engine}/settings"): Permission.DATABASES_MANAGE,
+    # 3.4 (checklist C-30): what an engine on the host may use, as a systemd drop-in.
+    ("GET", "/api/databases/engines/{engine}/limits"): Permission.DATABASES_READ,
+    ("PUT", "/api/databases/engines/{engine}/limits"): Permission.DATABASES_MANAGE,
     ("POST", "/api/databases/engines/{engine}/install"): Permission.DATABASES_MANAGE,
     ("POST", "/api/databases/engines/{engine}/uninstall"): Permission.DATABASES_MANAGE,
     ("PUT", "/api/databases/engines/{engine}/credentials"): Permission.DATABASES_MANAGE,

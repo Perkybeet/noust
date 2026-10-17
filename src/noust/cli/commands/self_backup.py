@@ -29,6 +29,7 @@ from typing import Any
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.cli.commands.retention_options import KEEP_GB_HELP, add_size, gigabytes
 from noust.core import paths
 from noust.core.exceptions import NoustError, ValidationError
 from noust.managers.database.base import format_size
@@ -411,24 +412,28 @@ def _limit(value: str, option: str) -> int | None:
 
 def _destination(text: str) -> dict[str, Any]:
     """
-    Read ``NAME[:COUNT[:DAYS]]``.
+    Read ``NAME[:COUNT[:DAYS[:GB]]]``.
 
     Args:
         text: What was typed.
 
     Returns:
-        ``{"name", "retention_count", "retention_days"}``.
+        ``{"name", "retention_count", "retention_days", "retention_gb"}``.
 
     Raises:
         ValidationError: When the numbers are not numbers.
     """
     name, _, rest = text.partition(":")
-    count, _, days = rest.partition(":")
-    return {
-        "name": name,
-        "retention_count": _limit(count, "the count of --to") if count else None,
-        "retention_days": _limit(days, "the days of --to") if days else None,
-    }
+    count, _, rest = rest.partition(":")
+    days, _, size = rest.partition(":")
+    return add_size(
+        {
+            "name": name,
+            "retention_count": _limit(count, "the count of --to") if count else None,
+            "retention_days": _limit(days, "the days of --to") if days else None,
+        },
+        size,
+    )
 
 
 @schedule.command("set")
@@ -445,12 +450,13 @@ def _destination(text: str) -> dict[str, Any]:
 @click.option(
     "--keep-days", default="30", show_default=True, help="Days to keep one here, or 'none'."
 )
+@click.option("--keep-gb", default="none", show_default=True, help=KEEP_GB_HELP)
 @click.option(
     "--to",
     "destinations",
     multiple=True,
-    metavar="NAME[:COUNT[:DAYS]]",
-    help="Send each bundle to this destination, keeping COUNT and DAYS there. Repeatable.",
+    metavar="NAME[:COUNT[:DAYS[:GB]]]",
+    help="Send each bundle to this destination, keeping COUNT, DAYS and GB there. Repeatable.",
 )
 @click.option(
     "--keep-passphrase",
@@ -466,6 +472,7 @@ def set_command(
     calendar: str,
     keep: str,
     keep_days: str,
+    keep_gb: str,
     destinations: tuple[str, ...],
     keep_passphrase: bool,
     disable: bool,
@@ -489,6 +496,7 @@ def set_command(
             schedule=calendar,
             retention_count=_limit(keep, "--keep"),
             retention_days=_limit(keep_days, "--keep-days"),
+            retention_gb=gigabytes(keep_gb, "--keep-gb"),
             destinations=[_destination(text) for text in destinations],
             passphrase=passphrase,
             enabled=not disable,
@@ -518,6 +526,8 @@ def _print_schedule(data: dict[str, Any]) -> None:
         keep.append(f"last {data['retention_count']}")
     if data["retention_days"]:
         keep.append(f"{data['retention_days']} days")
+    if data.get("retention_gb"):
+        keep.append(f"{data['retention_gb']:g} GB")
     click.echo(f"  Schedule:     {data['schedule']}{'' if data['enabled'] else '  (disabled)'}")
     click.echo(f"  Keeps here:   {', '.join(keep) if keep else 'everything'}")
     names = [entry["name"] for entry in data["destinations"]]

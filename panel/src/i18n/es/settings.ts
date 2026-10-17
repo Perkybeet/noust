@@ -56,6 +56,13 @@ export const settings: Catalog<typeof en> = {
       backupDirectoryDescription: "Vacía, se usa /var/backups/noust.",
       backupCountLabel: "Copias por aplicación",
       backupCountDescription: "De 1 a 100. Las más antiguas se van primero.",
+      deliveryLegend: "Despliegues",
+      maxBuildsLabel: "Compilaciones a la vez",
+      maxBuildsDescription: "De 1 a 16. Las demás esperan su turno.",
+      queueLimitLabel: "Despliegues que pueden esperar",
+      queueLimitDescription: "De 1 a 1000. El siguiente se rechaza hasta que se libere un sitio.",
+      maxMinutesLabel: "Lo máximo que puede durar un despliegue",
+      maxMinutesDescription: "En minutos, de 0 a 1440. Una compilación que lo pasa se detiene y falla diciendo por qué; 0 es sin límite.",
     },
     hub: {
       title: "Esta central no ejecuta aplicaciones",

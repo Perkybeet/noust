@@ -339,7 +339,7 @@ def test_init_turns_a_broken_database_into_an_exit_code(
 def test_export_writes_an_owner_only_file(
     fake_store: _FakeStore, tmp_path: Path, logged: io.StringIO
 ) -> None:
-    """A dump carries the environment a service runs with, credentials included."""
+    """A dump is for a person to keep: owner-only, and with no secret in it unless asked."""
     fake_store.apps = [_Record(domain="example.com", app_type="nextjs")]
     fake_store.services = [_Record(name="example-com", environment={"DB_PASSWORD": "hunter2"})]
     target = tmp_path / "dump.json"
@@ -350,6 +350,80 @@ def test_export_writes_an_owner_only_file(
     data = json.loads(target.read_text(encoding="utf-8"))
     assert data["apps"][0]["domain"] == "example.com"
     assert data["statistics"] == STATISTICS
+
+
+def test_export_leaves_out_the_secrets_a_service_runs_with(
+    fake_store: _FakeStore, tmp_path: Path, logged: io.StringIO
+) -> None:
+    """The dump goes to tickets, chats and backups: a credential in it travels with it."""
+    fake_store.apps = [
+        _Record(
+            domain="example.com",
+            source="https://deploy:ghp_abcdefghijklmnopqrstuvwxyz0123456789@github.com/acme/shop.git",
+            env_vars=json.dumps({"API_TOKEN": "tok-9f8e7d6c5b4a", "NODE_ENV": "production"}),
+            env_secret_marks=json.dumps({"CUSTOM_VALUE": True}),
+        )
+    ]
+    fake_store.services = [
+        _Record(
+            name="example-com",
+            environment={"DB_PASSWORD": "hunter2-hunter2", "PORT": "3000", "CUSTOM_VALUE": "abc"},
+        ),
+        _Record(
+            name="json-com",
+            environment=json.dumps({"SECRET_KEY": "s3cr3t-s3cr3t", "LOG_LEVEL": "info"}),
+        ),
+    ]
+    target = tmp_path / "dump.json"
+
+    assert store_module._store_export(str(target), verbose=False) == 0
+
+    text = target.read_text(encoding="utf-8")
+    for leaked in ("tok-9f8e7d6c5b4a", "hunter2-hunter2", "s3cr3t-s3cr3t", "ghp_abcdefghij"):
+        assert leaked not in text
+    data = json.loads(text)
+    # What is not secret stays: the dump is still an inventory.
+    assert json.loads(data["apps"][0]["env_vars"]) == {"API_TOKEN": "***", "NODE_ENV": "production"}
+    assert data["services"][0]["environment"] == {
+        "DB_PASSWORD": "***",
+        "PORT": "3000",
+        "CUSTOM_VALUE": "abc",
+    }
+    assert json.loads(data["services"][1]["environment"]) == {
+        "SECRET_KEY": "***",
+        "LOG_LEVEL": "info",
+    }
+    assert data["apps"][0]["source"] == "https://***@github.com/acme/shop.git"
+
+
+def test_export_with_secrets_keeps_them_for_a_migration(
+    fake_store: _FakeStore, tmp_path: Path, logged: io.StringIO
+) -> None:
+    fake_store.services = [_Record(name="example-com", environment={"DB_PASSWORD": "hunter2"})]
+    target = tmp_path / "dump.json"
+
+    assert store_module._store_export(str(target), verbose=False, with_secrets=True) == 0
+
+    data = json.loads(target.read_text(encoding="utf-8"))
+    assert data["services"][0]["environment"] == {"DB_PASSWORD": "hunter2"}
+    assert stat.S_IMODE(target.stat().st_mode) == 0o600
+
+
+def test_export_with_secrets_to_a_terminal_warns_and_is_audited(
+    cli_runner: CliRunner, fake_store: _FakeStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_store.services = [_Record(name="example-com", environment={"DB_PASSWORD": "hunter2"})]
+    events: list[tuple[str, dict[str, Any]]] = []
+    monkeypatch.setattr(
+        store_module, "audit_record", lambda event, **fields: events.append((event, fields))
+    )
+
+    result = cli_runner.invoke(app_module.cli, ["store", "export", "--with-secrets"])
+
+    assert result.exit_code == 0, result.output
+    assert "hunter2" in result.output
+    assert "carries secret values in clear" in result.output
+    assert [event for event, _ in events] == ["store.export.secrets"]
 
 
 def test_export_without_a_destination_goes_to_stdout(

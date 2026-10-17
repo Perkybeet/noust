@@ -174,6 +174,41 @@ class CloudServers:
             )
         return found
 
+    def holder_of(self, account: str, provider_id: str) -> CloudServer | None:
+        """
+        Find the server a machine is already on record for.
+
+        Args:
+            account: The cloud account.
+            provider_id: The provider's id for the machine.
+
+        Returns:
+            The record that holds it, unless that machine was deleted; None otherwise.
+        """
+        row = (
+            self.store._get_connection()
+            .execute(
+                "SELECT * FROM cloud_servers WHERE account = ? AND provider_id = ? AND state != ?",
+                (account, provider_id, DELETED),
+            )
+            .fetchone()
+        )
+        return _server(row) if row is not None else None
+
+    def forget(self, node: str) -> bool:
+        """
+        Forget the record of a machine. Nothing is touched at the provider.
+
+        Args:
+            node: The server's name on this central.
+
+        Returns:
+            True when there was a record.
+        """
+        with self.store._transaction() as cursor:
+            cursor.execute("DELETE FROM cloud_servers WHERE node = ?", (node,))
+            return cursor.rowcount > 0
+
     def record(
         self,
         *,

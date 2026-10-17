@@ -7,7 +7,7 @@
 import type { Bundle, SelfSchedule, SelfScheduleBody } from "../../../api/queries/selfBackup";
 import { scheduleExpression, scheduleForm } from "../../databases/backups/schedule";
 import type { ScheduleForm } from "../../databases/backups/schedule";
-import { destinationBody, limitText, limitValue } from "../policy/limits";
+import { destinationBody, gbValue, limitText, limitValue } from "../policy/limits";
 import type { DestinationDraft } from "../policy/limits";
 import { isTrue, numberOf, textOf } from "../policy/record";
 
@@ -61,6 +61,8 @@ export interface SelfForm {
   schedule: ScheduleForm;
   count: string;
   days: string;
+  /** The most the scheduled bundles kept here may weigh together, in gigabytes; empty for no limit. */
+  gb: string;
   sends: DestinationDraft[];
   passphrase: string;
   repeat: string;
@@ -70,16 +72,18 @@ export interface SelfForm {
 /** The form's starting values: the stored schedule's, or what a new one keeps unless changed. */
 export function formOf(schedule: SelfSchedule | undefined): SelfForm {
   if (!schedule?.configured) {
-    return { schedule: scheduleForm(null), count: "7", days: "30", sends: [], passphrase: "", repeat: "", enabled: true };
+    return { schedule: scheduleForm(null), count: "7", days: "30", gb: "", sends: [], passphrase: "", repeat: "", enabled: true };
   }
   return {
     schedule: scheduleForm(schedule.schedule),
     count: limitText(schedule.retention_count),
     days: limitText(schedule.retention_days),
+    gb: limitText(schedule.retention_gb),
     sends: (schedule.destinations ?? []).map((item) => ({
       name: textOf(item, "name"),
       count: limitText(numberOf(item, "retention_count")),
       days: limitText(numberOf(item, "retention_days")),
+      gb: limitText(numberOf(item, "retention_gb")),
     })),
     passphrase: "",
     repeat: "",
@@ -96,6 +100,7 @@ export function bodyOf(form: SelfForm): SelfScheduleBody {
     schedule: scheduleExpression(form.schedule),
     retention_count: limitValue(form.count),
     retention_days: limitValue(form.days),
+    retention_gb: gbValue(form.gb),
     destinations: destinationBody(form.sends),
     passphrase: form.passphrase === "" ? null : form.passphrase,
     enabled: form.enabled,

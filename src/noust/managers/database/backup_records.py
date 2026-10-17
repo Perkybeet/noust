@@ -121,6 +121,9 @@ class BackupPolicy:
             limit by age.
         retention_bytes: The most the scheduled dumps kept locally may weigh
             together; None for no limit by size.
+        remote_only: Keep no durable local copy: a scheduled dump is deleted from
+            this server once every destination of the policy holds it. A dump that
+            could not be sent everywhere stays.
         destinations: Remote copies: ``{"name", "retention_count",
             "retention_days", "retention_gb"}`` per destination, the shape an
             application's schedule stores.
@@ -149,6 +152,7 @@ class BackupPolicy:
     retention_count: int | None = None
     retention_days: int | None = None
     retention_bytes: int | None = None
+    remote_only: bool = False
     destinations: list[dict[str, Any]] = field(default_factory=list)
     dump_format: str | None = None
     verify_restore: bool = False
@@ -178,6 +182,7 @@ class BackupPolicy:
         data = dict(row)
         data["destinations"] = _decode_list(data.get("destinations"))
         data["verify_restore"] = bool(data.get("verify_restore"))
+        data["remote_only"] = bool(data.get("remote_only"))
         data["enabled"] = bool(data.get("enabled"))
         data["exclusions"] = _decode_object(data.get("exclusions"))
         return cls(**data)
@@ -345,8 +350,8 @@ class BackupRecords:
             cursor.execute(
                 "INSERT INTO database_backup_policies (engine, db_name, schedule, "
                 "retention_count, retention_days, destinations, dump_format, verify_restore, "
-                "scope, exclusions, enabled, retention_bytes, created_at, updated_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                "scope, exclusions, enabled, retention_bytes, remote_only, created_at, "
+                "updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(engine, db_name) DO UPDATE SET schedule = excluded.schedule, "
                 "retention_count = excluded.retention_count, "
                 "retention_days = excluded.retention_days, "
@@ -354,7 +359,7 @@ class BackupRecords:
                 "verify_restore = excluded.verify_restore, scope = excluded.scope, "
                 "exclusions = excluded.exclusions, enabled = excluded.enabled, "
                 "retention_bytes = excluded.retention_bytes, "
-                "updated_at = excluded.updated_at",
+                "remote_only = excluded.remote_only, updated_at = excluded.updated_at",
                 (
                     policy.engine,
                     policy.db_name,
@@ -368,6 +373,7 @@ class BackupRecords:
                     json.dumps(policy.exclusions, sort_keys=True),
                     int(policy.enabled),
                     policy.retention_bytes,
+                    int(policy.remote_only),
                     stamp,
                     stamp,
                 ),

@@ -61,6 +61,9 @@ sections:
       - source: docs/releases.md
         slug: releases
         summary: The release layout, the health gate, instant rollback, migrating an application to releases.
+      - source: docs/delivery.md
+        slug: delivery
+        summary: Pausing what deploys by itself, freezing deploys, history and stop policy, scheduled updates, building now and serving later.
       - source: docs/containers.md
         slug: containers
         summary: Container applications from a Dockerfile, a registry image or Railpack, with releases that are images.
@@ -121,6 +124,12 @@ sections:
       - source: docs/remote.md
         slug: remote
         summary: "Driving a server from a laptop or a pipeline with a context and a token."
+      - source: docs/sdk.md
+        slug: sdk
+        summary: "A typed Python client of the API, generated from its schema: authentication, errors, jobs."
+      - source: docs/terraform.md
+        slug: terraform
+        summary: "What a Terraform and OpenTofu provider is built from, which resources it has, and what is left to write."
       - source: docs/MONITOR.md
         slug: monitor
         summary: The resource monitor and the metrics history.
@@ -139,6 +148,9 @@ sections:
       - source: docs/SECURITY-MODEL.md
         slug: security-model
         summary: The promises Noust makes about itself, how each can be checked, and the failure each one prevents.
+      - source: docs/reproducible-builds.md
+        slug: reproducible-builds
+        summary: Rebuild the wheel and the source distribution of a release from its tag and compare them byte for byte.
       - source: docs/ENS.md
         slug: ens
         summary: Spain's Esquema Nacional de Seguridad, category medium (in Spanish, with an English summary).

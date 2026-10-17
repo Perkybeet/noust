@@ -244,6 +244,12 @@ class Exclusions:
                 details="Leave tables or collections out with exclude_tables instead.",
                 field="exclude_schemas",
             )
+        if (self.tables or self.schemas) and engine_type == "clickhouse":
+            raise ValidationError(
+                "A ClickHouse backup cannot leave tables out yet",
+                details="It is the whole database, taken by ClickHouse itself.",
+                field="exclude_tables",
+            )
         if (self.tables or self.schemas) and engine_type == "redis":
             raise ValidationError(
                 "A Redis snapshot cannot leave anything out",

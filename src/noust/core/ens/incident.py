@@ -48,6 +48,7 @@ from noust.core.exceptions import NoustError
 from noust.core.exceptions import PermissionError as NoustPermissionError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.store_secrets import scrub_database
 
 if TYPE_CHECKING:
     from noust.core.store import NoustStore
@@ -376,6 +377,9 @@ def _collect_store(package: _Package, store: NoustStore) -> None:
         finally:
             writer.close()
             reader.close()
+        # Whoever investigates receives the inventory, not the keys: the columns that hold a
+        # secret value are emptied in the copy (never in the store).
+        package.json("store/scrubbed.json", {"rows_changed": scrub_database(target)})
         package.fs.chmod(target, SECRET_MODE)
     except (sqlite3.Error, OSError) as exc:
         package.problems.append(f"Could not snapshot the store {store.db_path}: {exc}")

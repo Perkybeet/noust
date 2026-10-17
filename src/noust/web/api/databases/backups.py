@@ -121,6 +121,7 @@ class BackupPolicyResponse(BaseModel):
         retention_days: Days a scheduled dump is kept locally; null for none.
         retention_gb: The most the scheduled dumps kept locally may weigh
             together, in gigabytes; null for no limit.
+        remote_only: The server keeps no copy once every destination holds the dump.
         destinations: Where each dump is sent.
         dump_format: PostgreSQL's format; null for the engine's default.
         verify_restore: Each dump is loaded into a temporary database.
@@ -146,6 +147,7 @@ class BackupPolicyResponse(BaseModel):
     retention_count: int | None = None
     retention_days: int | None = None
     retention_gb: float | None = None
+    remote_only: bool = False
     destinations: list[PolicyDestinationState] = Field(default_factory=list)
     dump_format: str | None = None
     verify_restore: bool = False
@@ -200,6 +202,8 @@ class SetPolicyRequest(BaseModel):
         retention_days: Days to keep a scheduled dump locally.
         retention_gb: The most the scheduled dumps kept locally may weigh
             together, in gigabytes; the newest always stays.
+        remote_only: Delete each scheduled dump from this server once every
+            destination holds it (a small disk). Needs a destination.
         destinations: Remote copies, each with its own retention.
         dump_format: PostgreSQL's ``custom`` (default), ``plain`` or ``tar``.
         verify_restore: Load each dump into a temporary database and drop it
@@ -219,6 +223,7 @@ class SetPolicyRequest(BaseModel):
     retention_count: int | None = Field(default=7, ge=1, le=365)
     retention_days: int | None = Field(default=30, ge=1, le=3650)
     retention_gb: float | None = Field(default=None, gt=0, le=1_000_000)
+    remote_only: bool = False
     destinations: list[PolicyDestination] = Field(default_factory=list)
     dump_format: str | None = None
     verify_restore: bool = False
@@ -470,6 +475,7 @@ def set_policy(
         retention_count=request.retention_count,
         retention_days=request.retention_days,
         retention_gb=request.retention_gb,
+        remote_only=request.remote_only,
         destinations=[dump_model(entry) for entry in request.destinations],
         dump_format=request.dump_format,
         verify_restore=request.verify_restore,

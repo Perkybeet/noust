@@ -251,7 +251,7 @@ class TestTheApi:
                 queued.append(kwargs)
                 return type("J", (), {"id": f"job-{len(queued)}"})()
 
-        monkeypatch.setattr("noust.web.jobs.get_job_manager", Manager)
+        monkeypatch.setattr("noust.web.api.jobs.get_job_manager", Manager)
 
         response = world.client.post(
             "/api/tags/prod/deploy", json={"force": True}, headers=world.as_("alice")

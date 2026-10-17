@@ -159,6 +159,9 @@ class JobType(str, Enum):
     SELF_UPDATE = "self_update"
     # A command run once in an application, as its own account (noust.terminal.execution).
     APP_EXEC = "app_exec"
+    # A manifest applied from the console: the API calls of its author, one after the other
+    # (noust.web.manifest_jobs). It queues other jobs and waits for them, so it is not in the line.
+    MANIFEST = "manifest"
     CUSTOM = "custom"
 
 
@@ -167,6 +170,12 @@ class JobType(str, Enum):
 #: the CLI reads too; they may overlap up to ``deploy.max_concurrent_builds``
 #: (and never two on one application), and every other job runs alone.
 BUILD_JOB_TYPES = frozenset(JobType(kind) for kind in delivery_queue.BUILD_JOB_TYPES)
+
+#: The jobs that only queue others and wait for them: they neither take a slot nor wait for one
+#: (:data:`noust.core.delivery_queue.ORCHESTRATION_JOB_TYPES`).
+ORCHESTRATION_JOB_TYPES = frozenset(
+    JobType(kind) for kind in delivery_queue.ORCHESTRATION_JOB_TYPES
+)
 
 
 def visible_state(status: JobStatus | str) -> str:
@@ -245,6 +254,7 @@ class QueueSnapshot:
         max_concurrent_builds: How many may.
         queue_limit: How many builds may wait before the next is refused.
         builds_queued: How many of the waiting jobs build an application.
+        max_minutes: The longest a build may take; 0 is no limit.
     """
 
     running: tuple[Job, ...]
@@ -253,6 +263,7 @@ class QueueSnapshot:
     max_concurrent_builds: int
     queue_limit: int
     builds_queued: int
+    max_minutes: int = delivery.DEFAULT_MAX_MINUTES
 
 
 @dataclass
@@ -577,6 +588,9 @@ class JobManager:
         self._global_subscribers: list[Callable[[Job], None]] = []
         self._worker_thread: threading.Thread | None = None
         self._shutdown = False
+        # Builds the time limit already looked at, with the limit each passed, so
+        # it speaks once per job and the failure names the limit that applied.
+        self._over_time: dict[str, int] = {}
         self._log_handles: dict[str, TextIO] = {}
         self._log_paths: dict[str, str] = {}
         # How many of a job's lines are in its file already: a notification that carries no
@@ -725,6 +739,7 @@ class JobManager:
         """Start each job when its turn comes, until shutdown."""
         while not self._shutdown:
             self._sync_external_cancellations()
+            self._enforce_time_limit()
             with self._cond:
                 entry = self._pick_runnable()
                 if entry is None:
@@ -773,14 +788,27 @@ class JobManager:
             The entry to start, or None.
         """
         now = time.monotonic()
-        running = [entry for entry in self._entries if entry.state == "running"]
+        # What only queues other jobs starts at once and is not counted below: waiting for the
+        # line it feeds would never end.
+        for entry in self._entries:
+            if (
+                entry.state == "queued"
+                and self._is_orchestration(entry)
+                and entry.not_before <= now
+            ):
+                return entry
+        running = [
+            entry
+            for entry in self._entries
+            if entry.state == "running" and not self._is_orchestration(entry)
+        ]
         if any(not self._is_build(entry) for entry in running):
             return None
         busy = {domain for entry in running if (domain := self._domain_of(entry)) is not None}
         limit = delivery.current().max_concurrent_builds
         held: set[str] = set()
         for entry in self._entries:
-            if entry.state != "queued":
+            if entry.state != "queued" or self._is_orchestration(entry):
                 continue
             domain = self._domain_of(entry)
             builds = self._is_build(entry)
@@ -811,6 +839,19 @@ class JobManager:
         job = self._jobs.get(entry.job_id)
         return job is not None and job.type in BUILD_JOB_TYPES
 
+    def _is_orchestration(self, entry: _Entry) -> bool:
+        """
+        Tell whether a job only queues others and waits for them.
+
+        Args:
+            entry: The job's entry.
+
+        Returns:
+            True for a manifest being applied.
+        """
+        job = self._jobs.get(entry.job_id)
+        return job is not None and job.type in ORCHESTRATION_JOB_TYPES
+
     def _domain_of(self, entry: _Entry) -> str | None:
         """
         Name the application a job works on.
@@ -836,6 +877,7 @@ class JobManager:
         try:
             finished = self._execute_job(entry.job_id, entry.func, entry.args, entry.kwargs)
         finally:
+            self._over_time.pop(entry.job_id, None)
             with self._cond:
                 if finished:
                     if entry in self._entries:
@@ -849,6 +891,66 @@ class JobManager:
                 self._cond.notify_all()
             for job in changed:
                 self._notify_subscribers(job)
+
+    def _enforce_time_limit(self) -> None:
+        """
+        Stop the builds that have been building longer than the server allows.
+
+        ``deploy.max_minutes`` is counted from the start of the build, not from
+        the queueing, and is looked at here, on the build that runs: a limit read
+        only when a job is queued is the one Coolify ignored (its issues 5747 and
+        6708), and a hung build would hold a build slot for ever. The build is
+        stopped through the cancellation an operator's request uses, so it is
+        killed at the same safe points and the release it was making is removed;
+        one that cannot be interrupted (Compose builds inside Docker, an in-place
+        build) or has started to activate is said so in its log, once, and left to
+        finish.
+        """
+        settings = delivery.current()
+        limit = settings.max_seconds
+        if limit is None:
+            return
+        now = datetime.now()
+        with self._cond:
+            running = [
+                (job, job.started_at)
+                for entry in self._entries
+                if entry.state == "running"
+                and (job := self._jobs.get(entry.job_id)) is not None
+                and job.type in BUILD_JOB_TYPES
+                and job.started_at is not None
+                and job.id not in self._over_time
+            ]
+        for job, started_at in running:
+            if (now - started_at).total_seconds() <= limit:
+                continue
+            self._over_time[job.id] = settings.max_minutes
+            self._stop_overdue(job, settings.max_minutes)
+
+    def _stop_overdue(self, job: Job, minutes: int) -> None:
+        """
+        Ask one build that is over the limit to stop, or say why it cannot.
+
+        Args:
+            job: The build.
+            minutes: The limit it passed.
+        """
+        domain = _lock_domain(job, {})
+        passed = f"The {job.type.value} has passed the maximum deployment time ({delivery.minutes_words(minutes)})"
+        if domain is None:
+            return
+        try:
+            cancellation.request_cancel(
+                domain, by=delivery.TIME_LIMIT_ACTOR, app_type=_app_type_of(job)
+            )
+        except CancelRefused as refused:
+            job.add_log(
+                f"{passed} but cannot be stopped: {refused.message}. {refused.details}".strip(),
+                "warning",
+            )
+        else:
+            job.add_log(f"{passed}: stopping it", "warning")
+        self._notify_subscribers(job)
 
     def _sync_external_cancellations(self) -> None:
         """
@@ -883,7 +985,11 @@ class JobManager:
             The jobs whose answer changed, to be notified once the lock is
             released.
         """
-        running = [entry for entry in self._entries if entry.state == "running"]
+        running = [
+            entry
+            for entry in self._entries
+            if entry.state == "running" and not self._is_orchestration(entry)
+        ]
         limit = delivery.current().max_concurrent_builds
         changed: list[Job] = []
         position = 0
@@ -920,6 +1026,8 @@ class JobManager:
         job = self._jobs.get(entry.job_id)
         if job is not None and job.holder is not None:
             return job.holder
+        if self._is_orchestration(entry):
+            return None
         domain = self._domain_of(entry)
         for other in running:
             if domain is not None and self._domain_of(other) == domain:
@@ -1075,6 +1183,11 @@ class JobManager:
             job.progress = job.total_steps
             job.add_log("Job completed successfully", "success")
         except DeploymentCancelled as cancelled:
+            if cancellation.cancelled_by(cancelled) == delivery.TIME_LIMIT_ACTOR:
+                # Nobody decided this: the server's own limit did, which is a
+                # failure the operator should see as one, with how to raise it.
+                self._time_limit_failure(job)
+                return
             # An operator's decision, not a failure: nothing that served was
             # touched, and the history row says it was cancelled.
             job.status = JobStatus.CANCELLED
@@ -1100,6 +1213,24 @@ class JobManager:
         finally:
             job.completed_at = datetime.now()
             self._notify_subscribers(job)
+
+    def _time_limit_failure(self, job: Job) -> None:
+        """
+        End a build the time limit stopped as the failure it is.
+
+        Args:
+            job: The job whose build was stopped.
+        """
+        minutes = self._over_time.get(job.id, delivery.current().max_minutes)
+        domain = job.metadata.get("domain")
+        job.status = JobStatus.FAILED
+        job.error = (
+            f"The {job.type.value} of {domain} was stopped: it ran longer than this server's "
+            f"maximum deployment time ({delivery.minutes_words(minutes)}). Nothing that was serving was "
+            "touched. Raise the limit with 'noust config set deploy.max_minutes <minutes>' "
+            "(0 is no limit)."
+        )
+        job.add_log(f"Job failed: {job.error}", "error")
 
     @staticmethod
     def _log_failure(job: Job, exc: Exception) -> None:
@@ -1438,6 +1569,7 @@ class JobManager:
             max_concurrent_builds=settings.max_concurrent_builds,
             queue_limit=settings.queue_limit,
             builds_queued=sum(1 for job in queued if job.type in BUILD_JOB_TYPES),
+            max_minutes=settings.max_minutes,
         )
 
     def get_job(self, job_id: str) -> Job | None:
@@ -2014,7 +2146,8 @@ def deploy_app_job(
         health_expect: Statuses the first health gate accepts.
         health_timeout: Seconds the first health gate waits.
         database: A database to create before the first build: ``engine``,
-            ``name``, ``env_var`` and ``extra_vars``, as
+            ``name``, ``env_var`` and ``extra_vars``, and optionally ``seed`` (the ``engine``
+            and ``database`` of one to start from a copy of), as
             :meth:`~noust.managers.database.service.DatabaseService.prepare_for_new_app`
             takes them. Its variables are written, marked secret, with
             ``env_vars``; it is linked once the application exists, and kept
@@ -2099,6 +2232,24 @@ def deploy_app_job(
         )
         context.add_secret_env(new_database.values)
         database_options = new_database.configure_options(env_secret_marks)
+        seed = database.get("seed")
+        if seed:
+            # Before the first build, so the branch's migrations run over a copy of real data.
+            from noust.managers.database.seeding import copy_database
+
+            context.update("Copying the data", 9)
+            try:
+                copy_database(
+                    databases,
+                    source_engine=seed["engine"],
+                    source_database=seed["database"],
+                    target_engine=new_database.engine,
+                    target_database=new_database.database,
+                    on_step=context.log,
+                )
+            except NoustError as exc:
+                databases.keep_after_failed_deploy(new_database, exc)
+                raise
 
     deployer = get_deployer(app_type, verbose=False)
     # Passed only when given, so every other type is configured as it always was.
@@ -2236,6 +2387,7 @@ def update_app_job(
     job_context: JobContext | None = None,
     tag: str | None = None,
     no_cache: bool = False,
+    frozen_ok: bool = False,
 ) -> dict[str, Any]:
     """
     Update a deployed application.
@@ -2247,6 +2399,7 @@ def update_app_job(
         job_context: Injected by the job manager.
         tag: Deploy the commit this tag points at.
         no_cache: Build from scratch: the console's "Rebuild without cache".
+        frozen_ok: The operator confirmed deploying during a freeze of deploys.
 
     Returns:
         Summary of the update.
@@ -2261,6 +2414,7 @@ def update_app_job(
         commit=commit,
         tag=tag,
         no_cache=no_cache,
+        frozen_ok=frozen_ok,
     )
 
 
@@ -2272,6 +2426,7 @@ def run_update(
     commit: str | None = None,
     tag: str | None = None,
     no_cache: bool = False,
+    frozen_ok: bool = False,
 ) -> dict[str, Any]:
     """
     Run the shared update sequence as a job, reporting its phases as progress.
@@ -2290,6 +2445,7 @@ def run_update(
         tag: Deploy the commit this tag points at: what a webhook announcing a
             release or a tag push asks for.
         no_cache: Build from scratch.
+        frozen_ok: The operator confirmed deploying during a freeze of deploys.
 
     Returns:
         Summary of the update.
@@ -2317,6 +2473,7 @@ def run_update(
         on_step=context.log,
         job_id=context.job_id,
         no_cache=no_cache,
+        frozen_ok=frozen_ok,
     )
 
     if outcome.restarted and not outcome.active:

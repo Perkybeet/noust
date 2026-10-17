@@ -335,7 +335,16 @@ class TestUsingIt:
         body = made.get("/api/databases/instances/catalog").json()
 
         flavours = {entry["flavour"] for entry in body["engines"]}
-        assert flavours == {"postgresql", "mysql", "mariadb", "redis", "valkey", "mongodb"}
+        assert flavours == {
+            "postgresql",
+            "mysql",
+            "mariadb",
+            "redis",
+            "valkey",
+            "keydb",
+            "mongodb",
+            "clickhouse",
+        }
         postgres = next(entry for entry in body["engines"] if entry["flavour"] == "postgresql")
         assert all(item["digest"].startswith("sha256:") for item in postgres["versions"])
         assert [variant["name"] for variant in postgres["variants"]] == ["pgvector", "postgis"]

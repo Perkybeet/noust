@@ -57,6 +57,13 @@ export const settings = {
       backupDirectoryDescription: "Empty uses /var/backups/noust.",
       backupCountLabel: "Backups kept per app",
       backupCountDescription: "From 1 to 100. The oldest go first.",
+      deliveryLegend: "Deployments",
+      maxBuildsLabel: "Builds at the same time",
+      maxBuildsDescription: "From 1 to 16. The others wait their turn.",
+      queueLimitLabel: "Deployments that may wait",
+      queueLimitDescription: "From 1 to 1000. The next one is refused until a place frees up.",
+      maxMinutesLabel: "Longest a deployment may take",
+      maxMinutesDescription: "In minutes, from 0 to 1440. A build past it is stopped and fails saying why; 0 is no limit.",
     },
     hub: {
       title: "This central runs no applications",

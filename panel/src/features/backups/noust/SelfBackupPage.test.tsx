@@ -207,6 +207,7 @@ describe("the Noust tab", () => {
       schedule: "*-*-* 02:00:00",
       retention_count: 7,
       retention_days: 30,
+      retention_gb: null,
       destinations: [{ name: "nas", retention_count: null, retention_days: null }],
       passphrase: PASSPHRASE,
       enabled: true,

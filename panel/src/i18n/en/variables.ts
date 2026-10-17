@@ -52,7 +52,7 @@ export const variables = {
   },
   dialog: {
     audienceDescription: "Which part of a deploy the variable is for.",
-    referenceHelp: "A value can refer to a shared variable ({scopes}), to this deployment ({deployment}) or to a secret manager ({secret}).",
+    referenceHelp: "A value can refer to a shared variable ({scopes}), to this deployment ({deployment}), to another app's address ({peer}, which in a preview is that app's preview of the same pull request) or to a secret manager ({secret}).",
   },
   review: {
     audienceTitle: "Who gets them",

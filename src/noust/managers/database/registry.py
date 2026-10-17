@@ -126,7 +126,9 @@ class DatabaseRegistry:
         # get() is typed as optional because it also resolves user input; here
         # the names come from the registry itself, so nothing can be missing.
         managers = (cls.get(engine, verbose) for engine in cls.list_engines())
-        return [manager for manager in managers if manager is not None]
+        return [
+            manager for manager in managers if manager is not None and not manager.CONTAINER_ONLY
+        ]
 
     @classmethod
     def get_installed(cls, verbose: bool = False) -> list[BaseDatabaseManager]:

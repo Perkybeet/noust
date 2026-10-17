@@ -872,6 +872,10 @@ async def lifespan(app: FastAPI):
     from noust.core.accounts.manager import seal_totp_secrets_at_start
 
     await asyncio.to_thread(seal_totp_secrets_at_start)
+    # H-14: the credentials of backup destinations made before they were encrypted.
+    from noust.managers.backup_destinations import protect_credentials_at_start
+
+    await asyncio.to_thread(protect_credentials_at_start)
     # What a console killed mid-inspection could not remove itself.
     remove_stale_checkouts()
     jobs = get_job_manager()

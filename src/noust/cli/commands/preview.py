@@ -19,8 +19,9 @@ import sys
 import click
 
 from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
+from noust.core.audit.actor import cli_actor
 from noust.core.exceptions import ValidationError
-from noust.core.preview_store import DATA_MODES, INHERIT_MODES, PreviewStore
+from noust.core.preview_store import DATA_MODES, FORK_POLICIES, INHERIT_MODES, PreviewStore
 from noust.core.store import get_store
 from noust.core.variables.model import AUDIENCES, BOTH, PREVIEW
 from noust.core.variables.store import VariableStore
@@ -104,9 +105,34 @@ def cli() -> None:
     "data_mode",
     type=click.Choice(DATA_MODES),
     default=None,
-    help="'empty' gives each preview a database of its own, 'shared' lets it use the "
+    help="'empty' gives each preview a database of its own, 'clone' a database of its own "
+    "that starts as a copy of the application's, 'shared' lets it use the "
     "application's (a pull request can then write into production's). Default for "
     "previews turned on now: empty, when the application has a database.",
+)
+@click.option(
+    "--domain-template",
+    "domain_template",
+    metavar="TEMPLATE",
+    default=None,
+    help="How a preview is named, such as '{{pr_id}}-{{name}}.{{base}}' ({{pr_id}}, {{random}}, "
+    "{{domain}}, {{name}}, {{base}}); '' goes back to pr-<n>-<name>.BASE. Applies to the "
+    "previews made from now on.",
+)
+@click.option(
+    "--noindex/--index",
+    "noindex",
+    default=None,
+    help="Tell search engines to leave previews alone (X-Robots-Tag). [default: noindex]",
+)
+@click.option(
+    "--forks",
+    "fork_policy",
+    type=click.Choice(FORK_POLICIES),
+    default=None,
+    help="'refuse' (a pull request from a fork, or from someone not trusted with the "
+    "repository, gets no preview) or 'approve' (it waits for an operator to approve each "
+    "commit: noust preview approve). [default: refuse]",
 )
 @global_flags
 @json_option("Print the settings as JSON.")
@@ -124,6 +150,9 @@ def enable(
     allow_env: tuple[str, ...],
     clear_allow_env: bool,
     data_mode: str | None,
+    domain_template: str | None,
+    noindex: bool | None,
+    fork_policy: str | None,
 ) -> None:
     """
     Turn previews on for an application, or change their settings.
@@ -138,7 +167,8 @@ def enable(
     previews ('noust preview vars'), and a database of their own; with '--env-mode
     all' they are given every variable of the application, production secrets
     included, as before 3.4. Only people trusted with the repository get a preview:
-    pull requests from forks never do, on GitHub the author must be an owner, member
+    pull requests from forks do not unless --forks approve makes them wait for an
+    operator to approve each commit, on GitHub the author must be an owner, member
     or collaborator, and bots only with --allow-bots.
     """
     if exclude_env and clear_exclude_env:
@@ -165,6 +195,9 @@ def enable(
         inherit_env=inherit_env,
         allow_env=allowed,
         data_mode=data_mode,
+        domain_template=domain_template,
+        noindex=noindex,
+        fork_policy=fork_policy,
     )
     options = PreviewStore().options(stored.app_domain)
     if ctx.json_output:
@@ -175,13 +208,16 @@ def enable(
                     "inherit_env": options.inherit_env,
                     "allow_env": list(options.allow_env),
                     "data_mode": options.data_mode,
+                    "domain_template": options.domain_template,
+                    "noindex": options.noindex,
+                    "fork_policy": options.fork_policy,
                 }
             )
         )
         return
     logger = ctx.logger
     logger.success(f"Previews on for {stored.app_domain}")
-    logger.key_value("Answer at", f"pr-<n>-...{stored.base_domain}")
+    logger.key_value("Answer at", options.domain_template or f"pr-<n>-...{stored.base_domain}")
     logger.key_value("At most", str(stored.max_previews))
     logger.key_value("Time-to-live", f"{stored.ttl_hours} hours without a push")
     logger.key_value("Bots", "allowed" if stored.allow_bots else "refused")
@@ -194,6 +230,10 @@ def enable(
             "Copied from the app", ", ".join(options.allow_env) if options.allow_env else "(none)"
         )
     logger.key_value("Data", options.data_mode)
+    logger.key_value("Search engines", "told to stay out" if options.noindex else "may index them")
+    logger.key_value(
+        "Forks", "wait for approval" if options.fork_policy == "approve" else "get no preview"
+    )
     logger.blank()
     risks = []
     if options.inherit_env == "all":
@@ -290,6 +330,11 @@ def list_command(ctx: Context, domain: str | None) -> None:
                     ", ".join(options.allow_env) if options.allow_env else "(none)",
                 )
             logger.key_value("Data", options.data_mode)
+            if options.domain_template:
+                logger.key_value("Named", options.domain_template)
+            logger.key_value(
+                "Forks", "wait for approval" if options.fork_policy == "approve" else "get none"
+            )
     if not records:
         logger.info("No previews")
         return
@@ -357,6 +402,54 @@ def _from(record: previews.PreviewRecord, kind: str) -> str:
     if kind == "pr":
         return f"PR #{record.number}"
     return f"{kind} {record.branch}"
+
+
+@cli.command("approve")
+@click.argument("preview_domain")
+@click.option(
+    "--no-wait", "no_wait", is_flag=True, help="Record it and return; a console build follows."
+)
+@global_flags
+@json_option("Print the preview as JSON.")
+@pass_context
+def approve_command(ctx: Context, preview_domain: str, no_wait: bool) -> None:
+    """
+    Approve the commit of a pull request that waits, and build it.
+
+    A pull request from a fork, or from someone not trusted with the repository, waits
+    for this when its application's previews ask for approvals (--forks approve). The
+    approval is of the commit shown by 'noust preview list'; a push of another commit
+    waits again. The build runs here, in this process, and the command returns when it
+    ends.
+    """
+    created = previews.approve_preview(preview_domain, actor=cli_actor().label, queue=False)
+    record = created.record
+    if not no_wait:
+        if not ctx.json_output:
+            ctx.logger.info(f"Building {record.domain} from {(record.head_sha or '')[:12]}")
+        previews.build_in_process(record.parent_domain, record.number, ctx.logger)
+        record = get_store().get_preview(record.parent_domain, record.number) or record
+    if ctx.json_output:
+        click.echo(
+            json.dumps(
+                dataclasses.asdict(record)
+                | {"url": previews.preview_url(record.domain), "kind": created.kind}
+            )
+        )
+        return
+    ctx.logger.success(f"{record.domain} is {record.status}")
+    ctx.logger.key_value("URL", previews.preview_url(record.domain))
+
+
+@cli.command("reject")
+@click.argument("preview_domain")
+@global_flags
+@pass_context
+def reject_command(ctx: Context, preview_domain: str) -> None:
+    """Turn down the commit of a pull request that waits; the pull request is told."""
+    previews.reject_preview(preview_domain, actor=cli_actor().label)
+    previews.refresh_sweep_timer(ctx.logger)
+    ctx.logger.success(f"Turned down {preview_domain}")
 
 
 @cli.command("pulls", read_only=True)

@@ -475,7 +475,7 @@ class TestCryptKey:
                 "nas", "sftp", _sftp_fields(), encrypted=True, crypt_key={"password": "a"}
             )
         assert destinations.get("nas") is None
-        assert SecretStore().read_json("backup-destinations/nas") == {}
+        assert SecretStore().read_protected_json("backup-destinations/nas") == {}
 
     def test_removing_an_encrypted_destination_needs_the_key_saved(
         self, destinations: BackupDestinationManager

@@ -130,6 +130,8 @@ export const selfBackup: Catalog<typeof en> = {
     countHelp: "Vacío guarda todos.",
     days: "Días que guardar",
     daysHelp: "Vacío los guarda por viejos que sean.",
+    gb: "Guardar como máximo",
+    gbHelp: "Lo máximo que pueden pesar juntos los paquetes programados que se guardan aquí; el más reciente se guarda siempre. Vacío: sin límite por tamaño.",
     note: "Solo se borran los paquetes programados: los hechos a mano y la copia que una restauración hace antes se quedan hasta que los borres.",
     sendTo: "Enviar a",
     noDestinations: "Todavía no hay destinos",
@@ -140,6 +142,7 @@ export const selfBackup: Catalog<typeof en> = {
     daysSuffix: "días",
     destinationCount: "Paquetes que guardar en {destination}",
     destinationDays: "Días que guardar en {destination}",
+    destinationGb: "Gigabytes que guardar en {destination}",
     passphraseTitle: "Frase de paso",
     passphraseNew:
       "Una copia programada corre sola, así que la frase de paso se guarda en el almacén de secretos de este servidor para su temporizador. Guarda una copia fuera de este servidor: es lo único que un paquete no lleva.",

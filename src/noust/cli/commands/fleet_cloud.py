@@ -569,6 +569,46 @@ def server_show(ctx: Context, name: str, live: bool) -> None:
             click.echo(f"{key}: {value}")
 
 
+@server_cli.command("link")
+@click.argument("name")
+@click.option("--account", required=True, help="The cloud account the machine belongs to.")
+@click.option("--id", "provider_id", required=True, help="The provider's id for the machine.")
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Link even when the machine is not at the address the server is reached on.",
+)
+@json_option("Print the machine as JSON.")
+@pass_context
+def server_link(ctx: Context, name: str, account: str, provider_id: str, force: bool) -> None:
+    """
+    Link the server NAME, already in the fleet, to its machine at a provider.
+
+    The provider is asked whether the machine exists and is where the server is; nothing is
+    changed there. Then 'noust fleet cloud server show NAME --live' says whether it is on, and
+    'power-on' starts it.
+    """
+    if ctx.dry_run:
+        ctx.logger.info(f"would link {name} to machine {provider_id} of {account}")
+        return
+    machine = _provisioner().link(name, account, provider_id, force=force, actor=_operator())
+    if _dump(ctx, machine):
+        return
+    ctx.logger.success(f"{name} is linked to {machine['provider']} machine {provider_id}")
+
+
+@server_cli.command("unlink")
+@click.argument("name")
+@pass_context
+def server_unlink(ctx: Context, name: str) -> None:
+    """Forget which machine NAME runs on. The machine and the server are not touched."""
+    if ctx.dry_run:
+        ctx.logger.info(f"would forget which machine {name} runs on")
+        return
+    _provisioner().detach(name, actor=_operator())
+    ctx.logger.success(f"{name} is no longer linked to a machine")
+
+
 @server_cli.command("power-on")
 @click.argument("name")
 @pass_context

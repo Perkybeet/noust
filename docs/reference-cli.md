@@ -405,7 +405,7 @@ Change how a deployed application is laid out and what it may use.
 noust app [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`adopt`](#noust-app-adopt), [`apply`](#noust-app-apply), [`backup-before-update`](#noust-app-backup-before-update), [`backup-required`](#noust-app-backup-required), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`cache`](#noust-app-cache), [`clone`](#noust-app-clone), [`compose`](#noust-app-compose), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`deploy-log`](#noust-app-deploy-log), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`files`](#noust-app-files), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`hardening`](#noust-app-hardening), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`mount`](#noust-app-mount), [`move`](#noust-app-move), [`pending`](#noust-app-pending), [`policy`](#noust-app-policy), [`process`](#noust-app-process), [`process-types`](#noust-app-process-types), [`promote`](#noust-app-promote), [`promotion`](#noust-app-promotion), [`reclaim`](#noust-app-reclaim), [`replicas`](#noust-app-replicas), [`sandbox`](#noust-app-sandbox), [`source`](#noust-app-source), [`tag`](#noust-app-tag), [`traffic`](#noust-app-traffic), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
+Subcommands: [`adopt`](#noust-app-adopt), [`apply`](#noust-app-apply), [`backup-before-update`](#noust-app-backup-before-update), [`backup-required`](#noust-app-backup-required), [`branch`](#noust-app-branch), [`build`](#noust-app-build), [`cache`](#noust-app-cache), [`clone`](#noust-app-clone), [`compose`](#noust-app-compose), [`container`](#noust-app-container), [`deploy-key`](#noust-app-deploy-key), [`deploy-log`](#noust-app-deploy-log), [`exec`](#noust-app-exec), [`export`](#noust-app-export), [`files`](#noust-app-files), [`follow-tags`](#noust-app-follow-tags), [`git-credential`](#noust-app-git-credential), [`hardening`](#noust-app-hardening), [`headless`](#noust-app-headless), [`health`](#noust-app-health), [`hooks`](#noust-app-hooks), [`identity`](#noust-app-identity), [`import`](#noust-app-import), [`limits`](#noust-app-limits), [`migrate`](#noust-app-migrate), [`mount`](#noust-app-mount), [`move`](#noust-app-move), [`pending`](#noust-app-pending), [`policy`](#noust-app-policy), [`process`](#noust-app-process), [`process-types`](#noust-app-process-types), [`promote`](#noust-app-promote), [`promotion`](#noust-app-promotion), [`reclaim`](#noust-app-reclaim), [`replicas`](#noust-app-replicas), [`sandbox`](#noust-app-sandbox), [`source`](#noust-app-source), [`stop-grace`](#noust-app-stop-grace), [`tag`](#noust-app-tag), [`traffic`](#noust-app-traffic), [`webhook`](#noust-app-webhook), [`zero-downtime`](#noust-app-zero-downtime)
 
 ### noust app adopt
 
@@ -2034,6 +2034,24 @@ Arguments: `domain`
 | `--json` | Print the source options as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust app stop-grace
+
+Show or set how long an application's unit has to stop, and with which signal.
+
+```
+noust app stop-grace [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--seconds` | How long the unit may take to stop before systemd kills it (1 to 3600). |  |
+| `--signal` | The signal that asks it to stop (default SIGTERM). |  |
+| `--reset` | Go back to systemd's own: 90 seconds and SIGTERM. |  |
+| `--json` | Print the stop policy now in force as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust app tag
 
 Tags on applications: find them, and deploy the ones that share a tag.
@@ -2781,7 +2799,7 @@ Manage remote backup destinations (rclone).
 noust backup destination [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`add`](#noust-backup-destination-add), [`list`](#noust-backup-destination-list), [`remove`](#noust-backup-destination-remove), [`show-key`](#noust-backup-destination-show-key), [`test`](#noust-backup-destination-test), [`update`](#noust-backup-destination-update)
+Subcommands: [`add`](#noust-backup-destination-add), [`list`](#noust-backup-destination-list), [`protect`](#noust-backup-destination-protect), [`remove`](#noust-backup-destination-remove), [`show-key`](#noust-backup-destination-show-key), [`test`](#noust-backup-destination-test), [`update`](#noust-backup-destination-update)
 
 ### noust backup destination add
 
@@ -2795,7 +2813,7 @@ Arguments: `name`
 
 | Option | What it does | Default |
 |---|---|---|
-| `--type` | Backend: sftp, smb, webdav, s3, b2, drive, onedrive, dropbox, pcloud, local. |  |
+| `--type` | Backend: sftp, smb, ftp, webdav, s3, b2, azureblob, gcs, drive, onedrive, dropbox, box, pcloud, local. |  |
 | `--field` | A non-secret field, repeatable (host, user, port, path...). |  |
 | `--stdin` | Read the backend's secret field (password, key or token) from standard input. |  |
 | `--prompt` | Prompt for the backend's secret field without echoing it, twice. |  |
@@ -2814,6 +2832,18 @@ noust backup destination list [OPTIONS]
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print the destinations as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust backup destination protect
+
+Encrypt the credentials of the destinations made before they were.
+
+```
+noust backup destination protect [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust backup destination remove
@@ -3037,6 +3067,7 @@ Arguments: `domain`
 | `--schedule` | hourly, daily, weekly, monthly, or a systemd OnCalendar expression. | `daily` |
 | `--retention-count` | Keep at most this many of the backups this schedule makes (default: 7). 'default' leaves backup.max_per_app in charge, over every backup, as 2.1 did. |  |
 | `--retention-days` | Delete this schedule's own backups older than this many days (default: 30). 'none' sets no age limit. |  |
+| `--retention-gb` | The most the scheduled backups kept here may weigh together, in gigabytes, or 'none'. The newest always stays, whatever its size. | `none` |
 | `--destination` | Push each backup to this remote destination, with its own retention. Repeatable. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
@@ -3084,6 +3115,7 @@ Arguments: `domain`
 | `--schedule` | hourly, daily, weekly, monthly, or a systemd OnCalendar expression. | `daily` |
 | `--retention-count` | Keep at most this many of the backups this schedule makes. Kept as it is when not given; 'default' leaves backup.max_per_app in charge. |  |
 | `--retention-days` | Delete this schedule's own backups older than this many days. Kept as it is when not given; 'none' sets no age limit. |  |
+| `--retention-gb` | The most the scheduled backups kept here may weigh together, in gigabytes, or 'none'. The newest always stays, whatever its size. Kept as it is when not given. |  |
 | `--destination` | Push each backup to this remote destination, with its own retention. Repeatable. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
@@ -3283,7 +3315,8 @@ Arguments: `domain`
 | `--path` | Also back up this data directory. Repeatable. |  |
 | `--keep` | Scheduled backups to keep per target, or 'none'. | `7` |
 | `--keep-days` | Days to keep one, or 'none'. | `30` |
-| `--to` | Send each backup to this destination, keeping COUNT and DAYS there. Repeatable. |  |
+| `--keep-gb` | The most the scheduled backups kept here may weigh together, in gigabytes, or 'none'. The newest always stays, whatever its size. | `none` |
+| `--to` | Send each backup to this destination, keeping COUNT, DAYS and GB there. Repeatable. |  |
 | `--consistency` | live, pause (freeze the application for the copy) or stop. | `live` |
 | `--disable` | Keep the settings but install no timer. |  |
 | `--json` | Print the policy as JSON. |  |
@@ -4104,7 +4137,7 @@ Install engines, and manage databases, users, backups and application links.
 noust db [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`access`](#noust-db-access), [`adopt`](#noust-db-adopt), [`backup`](#noust-db-backup), [`backup-delete`](#noust-db-backup-delete), [`backup-push`](#noust-db-backup-push), [`backup-remote`](#noust-db-backup-remote), [`backup-run`](#noust-db-backup-run), [`backup-schedule`](#noust-db-backup-schedule), [`backup-verify`](#noust-db-backup-verify), [`backups`](#noust-db-backups), [`catalog`](#noust-db-catalog), [`choices`](#noust-db-choices), [`config`](#noust-db-config), [`connect`](#noust-db-connect), [`connect-info`](#noust-db-connect-info), [`connection-string`](#noust-db-connection-string), [`create`](#noust-db-create), [`describe`](#noust-db-describe), [`drop`](#noust-db-drop), [`engines`](#noust-db-engines), [`explain`](#noust-db-explain), [`export`](#noust-db-export), [`exposure`](#noust-db-exposure), [`extension`](#noust-db-extension), [`fix-owner`](#noust-db-fix-owner), [`forget`](#noust-db-forget), [`grant`](#noust-db-grant), [`history`](#noust-db-history), [`import`](#noust-db-import), [`info`](#noust-db-info), [`install`](#noust-db-install), [`instance`](#noust-db-instance), [`key`](#noust-db-key), [`keys`](#noust-db-keys), [`link`](#noust-db-link), [`links`](#noust-db-links), [`list`](#noust-db-list), [`metrics`](#noust-db-metrics), [`move`](#noust-db-move), [`provision`](#noust-db-provision), [`public`](#noust-db-public), [`query`](#noust-db-query), [`restart`](#noust-db-restart), [`restore`](#noust-db-restore), [`restore-remote`](#noust-db-restore-remote), [`revoke`](#noust-db-revoke), [`row`](#noust-db-row), [`rows`](#noust-db-rows), [`saved`](#noust-db-saved), [`settings`](#noust-db-settings), [`slow-queries`](#noust-db-slow-queries), [`start`](#noust-db-start), [`status`](#noust-db-status), [`stop`](#noust-db-stop), [`tables`](#noust-db-tables), [`uninstall`](#noust-db-uninstall), [`unlink`](#noust-db-unlink), [`user-create`](#noust-db-user-create), [`user-delete`](#noust-db-user-delete), [`user-list`](#noust-db-user-list), [`user-password`](#noust-db-user-password)
+Subcommands: [`access`](#noust-db-access), [`adopt`](#noust-db-adopt), [`backup`](#noust-db-backup), [`backup-delete`](#noust-db-backup-delete), [`backup-push`](#noust-db-backup-push), [`backup-remote`](#noust-db-backup-remote), [`backup-run`](#noust-db-backup-run), [`backup-schedule`](#noust-db-backup-schedule), [`backup-verify`](#noust-db-backup-verify), [`backups`](#noust-db-backups), [`catalog`](#noust-db-catalog), [`choices`](#noust-db-choices), [`config`](#noust-db-config), [`connect`](#noust-db-connect), [`connect-info`](#noust-db-connect-info), [`connection-string`](#noust-db-connection-string), [`create`](#noust-db-create), [`describe`](#noust-db-describe), [`drop`](#noust-db-drop), [`engines`](#noust-db-engines), [`explain`](#noust-db-explain), [`export`](#noust-db-export), [`exposure`](#noust-db-exposure), [`extension`](#noust-db-extension), [`fix-owner`](#noust-db-fix-owner), [`forget`](#noust-db-forget), [`grant`](#noust-db-grant), [`history`](#noust-db-history), [`import`](#noust-db-import), [`info`](#noust-db-info), [`install`](#noust-db-install), [`instance`](#noust-db-instance), [`key`](#noust-db-key), [`keys`](#noust-db-keys), [`limits`](#noust-db-limits), [`link`](#noust-db-link), [`links`](#noust-db-links), [`list`](#noust-db-list), [`metrics`](#noust-db-metrics), [`move`](#noust-db-move), [`provision`](#noust-db-provision), [`public`](#noust-db-public), [`query`](#noust-db-query), [`restart`](#noust-db-restart), [`restore`](#noust-db-restore), [`restore-remote`](#noust-db-restore-remote), [`revoke`](#noust-db-revoke), [`row`](#noust-db-row), [`rows`](#noust-db-rows), [`saved`](#noust-db-saved), [`settings`](#noust-db-settings), [`slow-queries`](#noust-db-slow-queries), [`sqlite`](#noust-db-sqlite), [`start`](#noust-db-start), [`status`](#noust-db-status), [`stop`](#noust-db-stop), [`tables`](#noust-db-tables), [`uninstall`](#noust-db-uninstall), [`unlink`](#noust-db-unlink), [`user-create`](#noust-db-user-create), [`user-delete`](#noust-db-user-delete), [`user-list`](#noust-db-user-list), [`user-password`](#noust-db-user-password)
 
 ### noust db access
 
@@ -4270,10 +4303,11 @@ Arguments: `database`
 | `--schedule` | hourly, daily, weekly, monthly or a systemd OnCalendar expression. | `daily` |
 | `--keep` | Scheduled dumps to keep here, or 'none'. Dumps taken by hand are never deleted. | `7` |
 | `--keep-days` | Days to keep a scheduled dump here, or 'none'. | `30` |
-| `--keep-gb` | The most the scheduled dumps kept here may weigh together, in gigabytes, or 'none'. The newest dump always stays, whatever its size. | `none` |
+| `--keep-gb` | The most the scheduled backups kept here may weigh together, in gigabytes, or 'none'. The newest always stays, whatever its size. | `none` |
 | `--to` | Send each dump to this backup destination, keeping COUNT, DAYS and GB there. Repeatable. |  |
 | `--format` | PostgreSQL's dump format. custom (pg_dump -Fc) by default. |  |
 | `--verify-restore` | Load each dump into a temporary database, and drop it, as proof it restores. |  |
+| `--remote-only` | Keep no copy on this server: a scheduled dump is deleted once every --to destination holds it (for a small disk). A dump that could not be sent everywhere stays. |  |
 | `--disable` | Keep the settings but install no timer. |  |
 | `--json` | Print the policy as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
@@ -5082,6 +5116,27 @@ Arguments: `slot`
 | `--json` | Print the keys as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust db limits
+
+Show the limits of an engine on this host, or set them.
+
+```
+noust db limits [OPTIONS] ENGINE
+```
+
+Arguments: `engine`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--memory` | Memory the engine may use: 4096, 512m or 4g. The kernel kills it above. |  |
+| `--cpus` | Processors it may use: 0.5, 2 or 3.5. |  |
+| `--swap` | Swap it may use besides its memory, in megabytes; 0 gives it none. |  |
+| `--tasks` | Processes and threads it may have (256 or more). |  |
+| `--remove` | Take a limit away; repeat it for several. |  |
+| `--yes`, `-y` | Accept a memory limit below what the engine uses now. |  |
+| `--json` | Print the limits or the outcome as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust db link
 
 Give an application a database's connection string, and restart it.
@@ -5548,6 +5603,73 @@ Arguments: `database`
 | `--engine`, `-e` | Engine the database is on. |  |
 | `--limit` |  | `20` |
 | `--json` | Print them as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust db sqlite
+
+The SQLite databases an application keeps: list, check and copy them.
+
+```
+noust db sqlite [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`check`](#noust-db-sqlite-check), [`copy`](#noust-db-sqlite-copy), [`list`](#noust-db-sqlite-list)
+
+### noust db sqlite check
+
+Ask SQLite whether a database is sound. Changes nothing.
+
+```
+noust db sqlite check [OPTIONS] DOMAIN PATH
+```
+
+Arguments: `domain`, `path`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--full` | Run integrity_check, which also checks every index against its table; slower. |  |
+| `--budget` | Seconds after which a check stops where it is and says so. | `30.0` |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the result as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust db sqlite copy
+
+Copy a database, consistently, while the application runs.
+
+```
+noust db sqlite copy [OPTIONS] DOMAIN PATH
+```
+
+Arguments: `domain`, `path`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--output`, `-o` | The file to write. It must not exist; it is created private (0600). |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the copy as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust db sqlite list
+
+List the SQLite databases applications keep, in their data directories.
+
+```
+noust db sqlite list [OPTIONS] [DOMAIN]
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the databases as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust db start
@@ -6407,7 +6529,7 @@ Enroll this server in a fleet, or see the fleet from its central.
 noust fleet [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`access`](#noust-fleet-access), [`activity`](#noust-fleet-activity), [`apps`](#noust-fleet-apps), [`authorize`](#noust-fleet-authorize), [`backups`](#noust-fleet-backups), [`certs`](#noust-fleet-certs), [`cloud`](#noust-fleet-cloud), [`deauthorize`](#noust-fleet-deauthorize), [`enroll`](#noust-fleet-enroll), [`jobs`](#noust-fleet-jobs), [`link`](#noust-fleet-link), [`logs`](#noust-fleet-logs), [`metrics`](#noust-fleet-metrics), [`retry`](#noust-fleet-retry), [`run`](#noust-fleet-run), [`status`](#noust-fleet-status), [`unlink`](#noust-fleet-unlink), [`updates`](#noust-fleet-updates)
+Subcommands: [`access`](#noust-fleet-access), [`activity`](#noust-fleet-activity), [`apps`](#noust-fleet-apps), [`authorize`](#noust-fleet-authorize), [`backups`](#noust-fleet-backups), [`certs`](#noust-fleet-certs), [`cloud`](#noust-fleet-cloud), [`deauthorize`](#noust-fleet-deauthorize), [`enroll`](#noust-fleet-enroll), [`jobs`](#noust-fleet-jobs), [`link`](#noust-fleet-link), [`logs`](#noust-fleet-logs), [`metrics`](#noust-fleet-metrics), [`placement`](#noust-fleet-placement), [`retry`](#noust-fleet-retry), [`run`](#noust-fleet-run), [`status`](#noust-fleet-status), [`unlink`](#noust-fleet-unlink), [`updates`](#noust-fleet-updates)
 
 ### noust fleet access
 
@@ -6724,7 +6846,7 @@ The machines this central created at a provider.
 noust fleet cloud server [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`create`](#noust-fleet-cloud-server-create), [`delete`](#noust-fleet-cloud-server-delete), [`list`](#noust-fleet-cloud-server-list), [`power-on`](#noust-fleet-cloud-server-power-on), [`show`](#noust-fleet-cloud-server-show)
+Subcommands: [`create`](#noust-fleet-cloud-server-create), [`delete`](#noust-fleet-cloud-server-delete), [`link`](#noust-fleet-cloud-server-link), [`list`](#noust-fleet-cloud-server-list), [`power-on`](#noust-fleet-cloud-server-power-on), [`show`](#noust-fleet-cloud-server-show), [`unlink`](#noust-fleet-cloud-server-unlink)
 
 ### noust fleet cloud server create
 
@@ -6772,6 +6894,24 @@ Arguments: `name`
 | `--yes`, `-y` | Do not ask. The machine and its disk are destroyed. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust fleet cloud server link
+
+Link the server NAME, already in the fleet, to its machine at a provider.
+
+```
+noust fleet cloud server link [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--account` | The cloud account the machine belongs to. |  |
+| `--id` | The provider's id for the machine. |  |
+| `--force` | Link even when the machine is not at the address the server is reached on. |  |
+| `--json` | Print the machine as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust fleet cloud server list
 
 List the machines this central created.
@@ -6813,6 +6953,20 @@ Arguments: `name`
 |---|---|---|
 | `--live` | Ask the provider for the machine's state too. |  |
 | `--json` | Print the machine as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet cloud server unlink
+
+Forget which machine NAME runs on. The machine and the server are not touched.
+
+```
+noust fleet cloud server unlink [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust fleet deauthorize
@@ -6931,6 +7085,143 @@ noust fleet metrics [OPTIONS]
 | `--json` | Print the view as JSON, with every point. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust fleet placement
+
+An application that runs on several servers: where, how it looks, rolling it out.
+
+```
+noust fleet placement [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`add`](#noust-fleet-placement-add), [`copy`](#noust-fleet-placement-copy), [`list`](#noust-fleet-placement-list), [`remove`](#noust-fleet-placement-remove), [`rollout`](#noust-fleet-placement-rollout), [`status`](#noust-fleet-placement-status), [`upstreams`](#noust-fleet-placement-upstreams)
+
+### noust fleet placement add
+
+Record where DOMAIN runs, or change it; what you do not give is kept.
+
+```
+noust fleet placement add [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--nodes` | Comma-separated servers it runs on. |  |
+| `--label` | Every server carrying this label runs it too (repeat: all must match). |  |
+| `--serial` | Servers an update goes to at a time: 2 or 25%. |  |
+| `--max-failures` | Failures that stop an update. |  |
+| `--canary` | The server that goes first and alone. |  |
+| `--rollback`, `--no-rollback` | Put the servers already moved back when an update stops (the default). |  |
+| `--json` | Print the placement as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet placement copy
+
+Put DOMAIN on the servers that lack it, from one that has it.
+
+```
+noust fleet placement copy [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--from` | The server to copy it from. |  |
+| `--to` | Comma-separated servers to copy it to. |  |
+| `--new-domain` | Make the copy under another domain. |  |
+| `--no-secrets` | Leave the secret values out; the servers will ask for them. |  |
+| `--no-match-commit` | Keep the commit the import builds (the branch head). |  |
+| `--plan` | Only show what would happen. |  |
+| `-y`, `--yes` | Do not ask first. |  |
+| `--json` | Print the plan, then the job's result, as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet placement list
+
+List the applications that run on several servers (the central's own record).
+
+```
+noust fleet placement list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the placements as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet placement remove
+
+Forget where DOMAIN runs. Nothing is touched on any server.
+
+```
+noust fleet placement remove [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-y`, `--yes` | Do not ask. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet placement rollout
+
+Roll DOMAIN out over its servers so that they all run the same commit.
+
+```
+noust fleet placement rollout [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--commit` | Deploy exactly this commit on every server. |  |
+| `--tag` | Deploy the commit this tag points at. |  |
+| `--image-tag` | For an application that runs a registry image: the tag every server pulls (build it once, push it, roll it out). |  |
+| `--force` | Rebuild even a server already on it. |  |
+| `--canary` | The server that goes first and alone. |  |
+| `--rollback`, `--no-rollback` | Put the servers already moved back if it stops (the placement's own by default). |  |
+| `--serial` | Servers at a time: 2 or 25%. |  |
+| `--max-failures` | Failures that stop it; -1 never stops. |  |
+| `--plan` | Only show what would happen. |  |
+| `-y`, `--yes` | Do not ask first. |  |
+| `--json` | Print the plan, then the job's result, as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet placement status
+
+Show DOMAIN across its servers: which commit each serves, and who differs.
+
+```
+noust fleet placement status [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the placement and its status as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet placement upstreams
+
+Write the servers DOMAIN runs on for the load balancer in front of them.
+
+```
+noust fleet placement upstreams [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--format` | nginx: an upstream block. list: address:port per serving server. json: everything. | `nginx` |
+| `--port` |  | `443` |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust fleet retry
 
 Run a fleet job again on its nodes that failed or were not reached.
@@ -6955,7 +7246,7 @@ Run ACTION on several nodes: renew certificates, back up, update, restart, updat
 ```
 noust fleet run [OPTIONS] {certs_renew|backups_run|backups_verify|apps_
                        update|apps_restart|noust_update|index_refresh|os_updat
-                       es}
+                       es|placement_rollout|placement_copy}
 ```
 
 Arguments: `action`
@@ -8031,7 +8322,7 @@ Manage the servers this central manages, through their API over SSH tunnels.
 noust node [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`add`](#noust-node-add), [`key`](#noust-node-key), [`label`](#noust-node-label), [`link`](#noust-node-link), [`list`](#noust-node-list), [`migrate-tunnel`](#noust-node-migrate-tunnel), [`pause`](#noust-node-pause), [`rekey`](#noust-node-rekey), [`remove`](#noust-node-remove), [`resume`](#noust-node-resume), [`show`](#noust-node-show), [`test`](#noust-node-test)
+Subcommands: [`add`](#noust-node-add), [`export`](#noust-node-export), [`inventory`](#noust-node-inventory), [`key`](#noust-node-key), [`label`](#noust-node-label), [`link`](#noust-node-link), [`list`](#noust-node-list), [`migrate-tunnel`](#noust-node-migrate-tunnel), [`pause`](#noust-node-pause), [`rekey`](#noust-node-rekey), [`remove`](#noust-node-remove), [`resume`](#noust-node-resume), [`show`](#noust-node-show), [`ssh`](#noust-node-ssh), [`test`](#noust-node-test)
 
 ### noust node add
 
@@ -8047,7 +8338,44 @@ Arguments: `name`
 |---|---|---|
 | `--ssh` | USER@HOST[:PORT] the node is reached at. |  |
 | `--join-code` | The code 'noust fleet authorize' printed; '-' reads it from stdin. Omitted, it is asked for without echo. |  |
+| `--bastion` | Reach the node through this host. Its host key is pinned from --bastion-fingerprint or --bastion-host-key, never learnt on first use. |  |
+| `--bastion-fingerprint` | SHA256:... of the bastion's host key. |  |
+| `--bastion-host-key` | The bastion's ssh-ed25519 host key line. |  |
+| `--timeout` | Seconds to wait for the connection (default 10). |  |
+| `--inventory` | An inventory exported by the central the server comes from (noust node export): its labels, placements and the rest are recorded here once the server is added. |  |
+| `--include-ssh` | With --inventory: also apply how that central reached the server (its wait, its bastion). |  |
 | `--json` | Print the registered node as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust node export
+
+Write down what this central knows about NAME, to take it over on another central.
+
+```
+noust node export [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-o`, `--output` | Write the inventory to this file instead of printing it. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust node inventory
+
+Record, for NAME already added here, the inventory another central exported for it.
+
+```
+noust node inventory [OPTIONS] NAME FILE
+```
+
+Arguments: `name`, `file`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--include-ssh` | Also apply how the other central reached the server (its wait, its bastion). |  |
+| `--json` | Print what was applied as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust node key
@@ -8267,6 +8595,29 @@ Arguments: `name`
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print the node and its tunnel as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust node ssh
+
+Show or change how this central connects to NAME: its wait and its bastion.
+
+```
+noust node ssh [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--timeout` | Seconds to wait for the connection (1 to 300). |  |
+| `--default-timeout` | Go back to the default wait (10 seconds). |  |
+| `--bastion` | Reach the node through this host. Needs --bastion-fingerprint or --bastion-host-key for a new one: a host key is never learnt on first use. |  |
+| `--bastion-fingerprint` | SHA256:... of the bastion's host key. |  |
+| `--bastion-host-key` | The bastion's ssh-ed25519 host key line. |  |
+| `--no-bastion` | Connect to the node directly. |  |
+| `--no-test` | Keep the change without opening the tunnel first (a node that is down now). |  |
+| `--show` | Print the authorized_keys line to add on the bastion: one stream to the node, no shell. |  |
+| `--json` | Print the options as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust node test
@@ -8519,7 +8870,26 @@ Pull request previews: a short-lived copy of an application per pull request.
 noust preview [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`create`](#noust-preview-create), [`disable`](#noust-preview-disable), [`enable`](#noust-preview-enable), [`list`](#noust-preview-list), [`logs`](#noust-preview-logs), [`pulls`](#noust-preview-pulls), [`redeploy`](#noust-preview-redeploy), [`remove`](#noust-preview-remove), [`start`](#noust-preview-start), [`stop`](#noust-preview-stop), [`sweep`](#noust-preview-sweep), [`vars`](#noust-preview-vars)
+Subcommands: [`approve`](#noust-preview-approve), [`create`](#noust-preview-create), [`disable`](#noust-preview-disable), [`enable`](#noust-preview-enable), [`list`](#noust-preview-list), [`logs`](#noust-preview-logs), [`pulls`](#noust-preview-pulls), [`redeploy`](#noust-preview-redeploy), [`reject`](#noust-preview-reject), [`remove`](#noust-preview-remove), [`start`](#noust-preview-start), [`stop`](#noust-preview-stop), [`sweep`](#noust-preview-sweep), [`vars`](#noust-preview-vars)
+
+### noust preview approve
+
+Approve the commit of a pull request that waits, and build it.
+
+```
+noust preview approve [OPTIONS] PREVIEW_DOMAIN
+```
+
+Arguments: `preview_domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--no-wait` | Record it and return; a console build follows. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the preview as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust preview create
 
@@ -8584,7 +8954,10 @@ Arguments: `domain`
 | `--env-mode` | Which of the application's variables a preview is given: 'allowlist' (only --allow-env, the default for previews turned on now) or 'all' (every one less --exclude-env, as before 3.4). |  |
 | `--allow-env` | A variable an 'allowlist' preview copies; repeat for more. Replaces the current list. |  |
 | `--no-allow-env` | Copy no variable of the application's (clear the allowed list). |  |
-| `--data` | 'empty' gives each preview a database of its own, 'shared' lets it use the application's (a pull request can then write into production's). Default for previews turned on now: empty, when the application has a database. |  |
+| `--data` | 'empty' gives each preview a database of its own, 'clone' a database of its own that starts as a copy of the application's, 'shared' lets it use the application's (a pull request can then write into production's). Default for previews turned on now: empty, when the application has a database. |  |
+| `--domain-template` | How a preview is named, such as '{{pr_id}}-{{name}}.{{base}}' ({{pr_id}}, {{random}}, {{domain}}, {{name}}, {{base}}); '' goes back to pr-<n>-<name>.BASE. Applies to the previews made from now on. |  |
+| `--noindex`, `--index` | Tell search engines to leave previews alone (X-Robots-Tag). [default: noindex] |  |
+| `--forks` | 'refuse' (a pull request from a fork, or from someone not trusted with the repository, gets no preview) or 'approve' (it waits for an operator to approve each commit: noust preview approve). [default: refuse] |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
@@ -8643,6 +9016,23 @@ Build a preview again, from the head of its branch as it is now.
 
 ```
 noust preview redeploy [OPTIONS] PREVIEW_DOMAIN
+```
+
+Arguments: `preview_domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust preview reject
+
+Turn down the commit of a pull request that waits; the pull request is told.
+
+```
+noust preview reject [OPTIONS] PREVIEW_DOMAIN
 ```
 
 Arguments: `preview_domain`
@@ -9415,7 +9805,7 @@ List an application's releases and go back to one instantly.
 noust releases [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`keep`](#noust-releases-keep), [`list`](#noust-releases-list), [`rollback`](#noust-releases-rollback)
+Subcommands: [`keep`](#noust-releases-keep), [`list`](#noust-releases-list), [`promote`](#noust-releases-promote), [`rollback`](#noust-releases-rollback)
 
 ### noust releases keep
 
@@ -9448,6 +9838,23 @@ Arguments: `domain`
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print the releases as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust releases promote
+
+Make a release that was built with 'noust update --build-only' the one that serves.
+
+```
+noust releases promote [OPTIONS] DOMAIN [RELEASE]
+```
+
+Arguments: `domain`, `release`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--schema-changed-ok` | Switch even though later deployments changed the database schema. |  |
+| `--during-freeze` | Switch although deploys are frozen for the application (noust deploy freeze). |  |
+| `--json` | Print what was done as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust releases rollback
@@ -9826,7 +10233,8 @@ noust self-backup schedule set [OPTIONS]
 | `--schedule` | hourly, daily, weekly, monthly or a systemd OnCalendar expression. | `daily` |
 | `--keep` | Scheduled bundles to keep here, or 'none'. | `7` |
 | `--keep-days` | Days to keep one here, or 'none'. | `30` |
-| `--to` | Send each bundle to this destination, keeping COUNT and DAYS there. Repeatable. |  |
+| `--keep-gb` | The most the scheduled backups kept here may weigh together, in gigabytes, or 'none'. The newest always stays, whatever its size. | `none` |
+| `--to` | Send each bundle to this destination, keeping COUNT, DAYS and GB there. Repeatable. |  |
 | `--keep-passphrase` | Keep the passphrase already stored instead of asking for one. |  |
 | `--disable` | Keep the settings but install no timer. |  |
 | `--passphrase-file` | Read the passphrase from this file (mode 600), not from a prompt. |  |
@@ -11347,7 +11755,7 @@ noust store compat [OPTIONS]
 
 ### noust store export
 
-Dump every record as JSON, to a file or to stdout.
+Dump every record as JSON, to a file or to stdout, without secret values.
 
 ```
 noust store export [OPTIONS]
@@ -11356,6 +11764,7 @@ noust store export [OPTIONS]
 | Option | What it does | Default |
 |---|---|---|
 | `-o`, `--output` | Write to this file instead of stdout. |  |
+| `--with-secrets` | Keep the values of secret variables and the credentials of source addresses (needed to move a server; audited). |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust store import
@@ -11846,6 +12255,8 @@ Arguments: `domain`
 | `-y`, `--force` | Rebuild without asking when the branch has nothing new since the live commit. |  |
 | `--schema-changed-ok` | With --commit, go back even past deployments that changed the database schema. |  |
 | `--no-cache` | Build from scratch: empty the build cache first, install the dependencies again instead of taking them from the release that serves, and build images without their layer cache. Rebuilds what is live even when there is nothing new. |  |
+| `--during-freeze` | Deploy although deploys are frozen for the application (noust deploy freeze). A person's decision, recorded in the audit trail. |  |
+| `--build-only` | Build the release and leave it waiting, not serving: nothing is activated, no hook runs and nothing restarts. Make it serve later, without building it again, with 'noust releases promote'. Only for an application on the releases layout. |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |

@@ -13,7 +13,8 @@ that cannot be applied is reported and never guessed. This module only decides
 what is *not* copied and what is copied besides the export:
 
 - **Not copied**: the names the original answers on (aliases, redirects, ``www``),
-  which a second application cannot also answer on.
+  which a second application cannot also answer on, and its scheduled update, which
+  the clone's operator decides.
 - **A database is a decision.** An application's variables point at its database,
   so a clone given the same variables writes into the original's data. When the
   application has a database, the clone is told to share it (``share``) or to
@@ -149,6 +150,14 @@ def plan_clone(
                 )
         document["cron"] = []
         document["backup"] = None
+    delivery = document.get("delivery") or {}
+    if delivery.get("update_schedule") is not None:
+        # A clone is another application: it updates when somebody asks, or when its operator
+        # schedules it. Two applications updating at the same minute is a decision, not a copy.
+        omitted.append(
+            "its scheduled update (schedule the clone yourself: noust deploy schedule set)"
+        )
+        delivery["update_schedule"] = None
     document["databases"] = []
     for name, expression in environment.expressions.items():
         if name in document["env"]:

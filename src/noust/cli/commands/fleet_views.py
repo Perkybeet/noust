@@ -565,6 +565,8 @@ def _options(pairs: tuple[str, ...]) -> dict[str, Any]:
             "noust_update",
             "index_refresh",
             "os_updates",
+            "placement_rollout",
+            "placement_copy",
         ]
     ),
 )

@@ -16,8 +16,9 @@ Three sources of packages, and nothing else:
 - **The distribution's own repositories**, for the version the release ships.
   Asking for exactly that version uses them, without adding a repository.
 - **The engine's upstream repository**, for every other supported version:
-  PostgreSQL's (``apt.postgresql.org``, PGDG), MariaDB's (``deb.mariadb.org``)
-  and MongoDB's (``repo.mongodb.org``, the only source of ``mongodb-org``).
+  PostgreSQL's (``apt.postgresql.org``, PGDG), MariaDB's (``deb.mariadb.org``),
+  MySQL's (``repo.mysql.com``, Oracle's, which publishes for amd64 only) and
+  MongoDB's (``repo.mongodb.org``, the only source of ``mongodb-org``).
 - Nothing for a release an upstream repository does not publish for: the
   refusal comes before apt is touched, naming the releases it does publish for.
 
@@ -35,6 +36,7 @@ unsupported (3.3 spec, 9.6), and is refused by the managers' ``install``.
 
 from __future__ import annotations
 
+import platform
 import tempfile
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
@@ -79,11 +81,16 @@ class Flavour:
         engine: The manager that runs it (``mysql`` for MariaDB, ``redis``
             for Valkey).
         display_name: How it is named to a person.
+        container_only: No distribution packages it, so it is never installed on the
+            host: it only runs as an instance Noust makes from the project's image
+            (:mod:`noust.managers.database.instance_catalog`). It is named here because
+            this is the one table of the flavours Noust knows.
     """
 
     name: str
     engine: str
     display_name: str
+    container_only: bool = False
 
 
 #: Every flavour, in the order the console offers them.
@@ -95,6 +102,8 @@ FLAVOURS: dict[str, Flavour] = {
         Flavour("mariadb", "mysql", "MariaDB"),
         Flavour("redis", "redis", "Redis"),
         Flavour("valkey", "redis", "Valkey"),
+        Flavour("keydb", "redis", "KeyDB", container_only=True),
+        Flavour("clickhouse", "clickhouse", "ClickHouse", container_only=True),
         Flavour("mongodb", "mongodb", "MongoDB"),
     )
 }
@@ -210,6 +219,45 @@ MONGODB_RELEASES: dict[str, dict[Release, tuple[str, str, str]]] = {
 #: The MongoDB series installed when none is asked for: supported until 2029.
 MONGODB_DEFAULT_SERIES = "8.0"
 
+#: MySQL's long-term series Oracle's APT repository (``repo.mysql.com``) publishes, and
+#: the releases it publishes each for. Read from the repository's ``InRelease`` files
+#: (October 2026): ``mysql-8.4-lts`` and ``mysql-9.7-lts`` exist for all five. 8.0 is not
+#: offered: it reached the end of its support in April 2026.
+MYSQL_RELEASES: dict[str, frozenset[Release]] = {
+    series: frozenset(
+        {
+            ("debian", "bookworm"),
+            ("debian", "trixie"),
+            ("ubuntu", "jammy"),
+            ("ubuntu", "noble"),
+            ("ubuntu", "resolute"),
+        }
+    )
+    for series in ("8.4", "9.7")
+}
+
+#: The MySQL series installed from Oracle's repository when none is asked for and the
+#: distribution ships none (Debian): the long-term release that is supported the longest
+#: of the two that are not an innovation release's.
+MYSQL_DEFAULT_SERIES = "8.4"
+
+#: The only processor Oracle's APT repository publishes packages for.
+MYSQL_ARCHITECTURES = ("amd64",)
+
+
+def architecture() -> str:
+    """
+    Name this machine's processor the way apt does.
+
+    Returns:
+        ``amd64`` or ``arm64`` (the two Noust installs on); anything else as the kernel
+        names it. A test replaces this function to plan for another machine.
+    """
+    machine = platform.machine().lower()
+    return {"x86_64": "amd64", "amd64": "amd64", "aarch64": "arm64", "arm64": "arm64"}.get(
+        machine, machine
+    )
+
 
 @dataclass(frozen=True)
 class SigningKey:
@@ -224,6 +272,14 @@ class SigningKey:
     url: str
     fingerprint: str
 
+
+#: The key that signs Oracle's MySQL APT repository (``mysql-build@oss.oracle.com``).
+#: The file served is the one MySQL renews every two years with the same primary key, so
+#: the fingerprint holds across the renewal; the one served in 2023 expired in October 2025.
+MYSQL_KEY = SigningKey(
+    url="https://repo.mysql.com/RPM-GPG-KEY-mysql-2025",
+    fingerprint="BCA43417C3B485DD128EC6D4B7B3B788A8D3785C",
+)
 
 #: The PostgreSQL Debian Repository key (ACCC4CF8).
 PGDG_KEY = SigningKey(
@@ -394,11 +450,21 @@ def resolve_flavour(
     """
     if flavour:
         chosen = FLAVOURS.get(flavour.strip().lower())
-        if chosen is None or chosen.engine != engine:
-            offered = [name for name, spec in FLAVOURS.items() if spec.engine == engine]
+        if chosen is None or chosen.engine != engine or chosen.container_only:
+            offered = [
+                name
+                for name, spec in FLAVOURS.items()
+                if spec.engine == engine and not spec.container_only
+            ]
             raise ValidationError(
                 f"{flavour!r} is not something Noust installs for {engine}",
-                details=f"Choose one of: {', '.join(offered)}.",
+                details=f"Choose one of: {', '.join(offered)}."
+                + (
+                    f" {chosen.display_name} runs as an instance: noust db instance create "
+                    f"NAME --engine {chosen.name}."
+                    if chosen is not None and chosen.container_only
+                    else ""
+                ),
                 field="flavour",
             )
         return chosen.name
@@ -441,10 +507,16 @@ def plan_install(flavour: str, version: str | None, os_release: OsRelease) -> In
             has been touched.
     """
     spec = FLAVOURS.get(flavour)
-    if spec is None:
+    if spec is None or spec.container_only:
         raise ValidationError(
             f"Noust does not install {flavour!r}",
-            details=f"Choose one of: {', '.join(FLAVOURS)}.",
+            details=f"Choose one of: {', '.join(n for n, f in FLAVOURS.items() if not f.container_only)}."
+            + (
+                f" {spec.display_name} runs as an instance: noust db instance create NAME "
+                f"--engine {spec.name}."
+                if spec is not None
+                else ""
+            ),
             field="flavour",
         )
     release = release_of(os_release)
@@ -656,6 +728,93 @@ def _plan_distribution_only(
     return _distribution_plan(spec, distro_version, packages)
 
 
+def _plan_mysql(
+    spec: Flavour,
+    version: str | None,
+    release: Release,
+    os_release: OsRelease,
+    known: bool,
+    distro_version: str | None,
+) -> InstallPlan:
+    """
+    Plan MySQL: the distribution's, or one of Oracle's long-term series.
+
+    Ubuntu ships MySQL and Debian does not, so asking for MySQL on Debian with no
+    version installs the default series from Oracle's repository; a version the
+    release ships itself is the distribution's. Oracle publishes its packages for
+    amd64 only, which is why MySQL on an arm64 server is refused here and offered as
+    an instance (a container, whose official image is built for both processors).
+
+    Args:
+        spec: The flavour.
+        version: The series asked for.
+        release: The release.
+        os_release: Its identity, for messages.
+        known: Whether the release is in :data:`DISTRIBUTION_VERSIONS`.
+        distro_version: The version the release ships, None for none.
+
+    Returns:
+        The plan.
+
+    Raises:
+        ValidationError: For a series Noust does not install, a release or a
+            processor Oracle does not publish for.
+    """
+    if version is None and distro_version is not None:
+        return _distribution_plan(spec, distro_version, ("mysql-server",))
+    if version is not None and version == distro_version:
+        return _distribution_plan(spec, distro_version, ("mysql-server",))
+    series = version or MYSQL_DEFAULT_SERIES
+    if series not in MYSQL_RELEASES:
+        raise _refuse(
+            f"MySQL {series} is not a version Noust installs",
+            f"Choose one of Oracle's long-term series: {', '.join(MYSQL_RELEASES)}"
+            + (f", or {distro_version}, the distribution's." if distro_version else "."),
+        )
+    builds = MYSQL_RELEASES[series]
+    if release not in builds:
+        raise _refuse(
+            f"MySQL {series} publishes no packages for {os_release.pretty_name}",
+            f"repo.mysql.com builds MySQL {series} for {_names(builds)}."
+            + (
+                f" This release ships MySQL {distro_version}: install that one."
+                if distro_version
+                else " MariaDB is in its own repositories: noust db install mariadb."
+            ),
+        )
+    if architecture() not in MYSQL_ARCHITECTURES:
+        raise _refuse(
+            f"Oracle publishes its MySQL packages for amd64 only, and this server is "
+            f"{architecture()}",
+            "Run MySQL as an instance, a container whose official image is built for this "
+            "processor: noust db instance create NAME --engine mysql. "
+            + (
+                f"Or install the distribution's, MySQL {distro_version}: leave the version out."
+                if distro_version
+                else "MariaDB is in the distribution: noust db install mariadb."
+            ),
+        )
+    distro, codename = release
+    repository = Repository(
+        name="repo.mysql.com",
+        key=MYSQL_KEY,
+        keyring=Path("/usr/share/keyrings/noust-mysql.gpg"),
+        sources=Path("/etc/apt/sources.list.d/noust-mysql.list"),
+        url=f"https://repo.mysql.com/apt/{distro}/",
+        suite=f"{codename} mysql-{series}-lts",
+        architectures="amd64",
+        family="https://repo.mysql.com/apt/",
+    )
+    return InstallPlan(
+        flavour=spec.name,
+        engine=spec.engine,
+        version=series,
+        source="upstream",
+        package_sets=(("mysql-server",),),
+        repository=repository,
+    )
+
+
 def _plan_mongodb(
     spec: Flavour,
     version: str | None,
@@ -720,18 +879,12 @@ def _plan_mongodb(
 
 #: The package of each flavour that only the distribution provides.
 _DISTRIBUTION_PACKAGES: dict[str, tuple[str, ...]] = {
-    "mysql": ("mysql-server",),
     "redis": ("redis-server",),
     "valkey": ("valkey-server",),
 }
 
 #: What to do instead, for a flavour a release does not ship.
 _NOT_SHIPPED: dict[str, str] = {
-    "mysql": (
-        "Debian packages MariaDB instead: run 'noust db install mariadb'. To run MySQL "
-        "itself, add Oracle's MySQL APT repository by hand and install mysql-server; "
-        "Noust manages it from there."
-    ),
     "redis": "Install Valkey instead: run 'noust db install valkey'.",
     "valkey": (
         "Valkey is packaged from Debian 13 and Ubuntu 24.04 on. Install Redis instead: "
@@ -742,7 +895,7 @@ _NOT_SHIPPED: dict[str, str] = {
 #: The planner of each flavour.
 _PLANNERS: dict[str, Callable[..., InstallPlan]] = {
     "postgresql": _plan_postgresql,
-    "mysql": _plan_distribution_only,
+    "mysql": _plan_mysql,
     "mariadb": _plan_mariadb,
     "redis": _plan_distribution_only,
     "valkey": _plan_distribution_only,
@@ -854,6 +1007,8 @@ def offered_versions(flavour: str, os_release: OsRelease) -> tuple[VersionChoice
         candidates = set(PGDG_VERSIONS)
     elif flavour == "mariadb":
         candidates = set(MARIADB_RELEASES)
+    elif flavour == "mysql":
+        candidates = set(MYSQL_RELEASES)
     elif flavour == "mongodb":
         candidates = set(MONGODB_RELEASES)
     if distro_version:
@@ -888,6 +1043,8 @@ def catalog(
     """
     choices: list[FlavourChoice] = []
     for spec in FLAVOURS.values():
+        if spec.container_only:
+            continue
         present = installed.get(spec.engine)
         versions = offered_versions(spec.name, os_release) if apt else ()
         blocked: str | None = None
@@ -901,8 +1058,9 @@ def catalog(
             blocked = "no_apt"
             reason = (
                 f"Noust installs {spec.display_name} with apt, which this system does not "
-                "have. Install it with the distribution's package manager: Noust manages it "
-                "from there."
+                "have. Run it as an instance, a container that needs no package manager "
+                f"(noust db instance create NAME --engine {spec.name}), or install it "
+                "with the distribution's package manager: Noust manages it from there."
             )
         elif not _installable_here(spec.name, os_release):
             blocked = "not_available"

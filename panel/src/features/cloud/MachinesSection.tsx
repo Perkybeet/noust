@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Power, Server } from "lucide-react";
+import { Plus, Power, Server, Unlink } from "lucide-react";
 import { useState } from "react";
 
 import { CommandHint } from "../../components/page/CommandHint";
@@ -78,7 +78,7 @@ function DeleteMachineDialog({ machine, open, onOpenChange }: { machine: CloudMa
 
 function RowActions({ machine }: { machine: CloudMachine }) {
   const t = useT();
-  const { powerOn } = useCloudActions();
+  const { powerOn, unlinkMachine } = useCloudActions();
   const [deleting, setDeleting] = useState(false);
   const gone = machine.state === "deleted";
   return (
@@ -86,6 +86,9 @@ function RowActions({ machine }: { machine: CloudMachine }) {
       <Menu align="end" trigger={<IconButton label={t("cloud.machines.actionsFor", { name: machine.node })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
         <MenuItem icon={<Power />} disabled={gone || powerOn.isPending} onClick={() => powerOn.mutate(machine.node)}>
           {t("cloud.machines.powerOn")}
+        </MenuItem>
+        <MenuItem icon={<Unlink />} disabled={unlinkMachine.isPending} onClick={() => unlinkMachine.mutate(machine.node)}>
+          {t("cloud.machines.unlink")}
         </MenuItem>
         <MenuSeparator />
         <MenuItem icon={<ICONS.delete />} destructive disabled={gone} onClick={() => setDeleting(true)}>

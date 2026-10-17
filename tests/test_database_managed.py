@@ -337,6 +337,8 @@ class TestMakingAnInstance:
             ("mariadb", "11.8", "mysql@x"),
             ("redis", "8.0", "redis@x"),
             ("valkey", "8", "redis@x"),
+            ("keydb", "6.3", "redis@x"),
+            ("clickhouse", "26.8", "clickhouse@x"),
         ],
     )
     def test_every_engine_comes_up_under_the_key_of_its_manager(

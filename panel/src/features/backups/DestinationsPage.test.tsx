@@ -81,6 +81,44 @@ describe("the Destinations tab", () => {
     await expectNoAxeViolations(container);
   });
 
+  it("says which destinations keep their credentials in clear, and encrypts them from one button", async () => {
+    let clear = true;
+    const backend = fakeBackend(
+      baseRoutes([], {
+        "GET /api/backup-destinations": () => {
+          const items = [destination({ credentials_protected: !clear }), destination({ name: "nas", credentials_protected: true })];
+          return json(200, { destinations: items, total: items.length });
+        },
+        "POST /api/backup-destinations/protect": () => {
+          clear = false;
+          return json(200, { protected: ["offsite"] });
+        },
+      }),
+    );
+    const { user, container } = renderConsole("/backups/destinations");
+    await screen.findByRole("heading", { level: 1, name: "Backups" });
+    const region = await destinationsRegion();
+    const notice = await screen.findByText("Some credentials are stored in clear on this server's disk");
+    expect(notice).toBeInTheDocument();
+    expect(within(region).getByText("Stored in clear")).toBeInTheDocument();
+    expect(within(region).getByText("Encrypted on this disk")).toBeInTheDocument();
+    await expectNoAxeViolations(container);
+
+    await user.click(screen.getByRole("button", { name: "Encrypt credentials" }));
+
+    await waitFor(() => expect(backend.callsTo("POST /api/backup-destinations/protect")).toHaveLength(1));
+    await waitFor(() => expect(screen.queryByText("Some credentials are stored in clear on this server's disk")).not.toBeInTheDocument());
+    expect(within(await destinationsRegion()).queryByText("Stored in clear")).not.toBeInTheDocument();
+  });
+
+  it("says nothing about credentials when every destination's are encrypted", async () => {
+    fakeBackend(baseRoutes([destination({ credentials_protected: true })]));
+    renderConsole("/backups/destinations");
+    await screen.findByRole("heading", { level: 1, name: "Backups" });
+    await destinationsRegion();
+    expect(screen.queryByRole("button", { name: "Encrypt credentials" })).not.toBeInTheDocument();
+  });
+
   it("shows the empty state and its CLI hint when there are none yet", async () => {
     fakeBackend(baseRoutes([]));
     renderConsole("/backups/destinations");

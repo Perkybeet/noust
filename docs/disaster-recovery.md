@@ -17,7 +17,9 @@ Every destination (rclone) is the same one for the four of them: configure it on
 
 PostgreSQL, MySQL, MariaDB and MongoDB are covered; a SQLite file inside an application is
 protected by the application's own backup, which takes it with SQLite's online backup so it
-is consistent while the application writes.
+is consistent while the application writes. `noust db sqlite list` shows which files an
+application keeps, `check` asks SQLite whether one is sound, and `copy` takes a consistent copy
+of one before a risky change (see [databases](databases.md#sqlite-files)).
 
 ```bash
 noust db backup-schedule set app_db -e postgresql --schedule daily --keep 7
@@ -162,7 +164,9 @@ noust backup drills shop.example.com           # the reports kept, newest first
 
 The backup is verified in depth, unpacked with the extractor a restore uses into a scratch directory,
 and each database dump it carries is loaded into a temporary database of its engine, looked at and
-dropped. Nothing of the application, its databases or its units is touched, and it is not started: the
+dropped. An application that keeps its data in a SQLite file gets a step per file too: SQLite's own
+`quick_check` runs on the unpacked copy, so a file that came back damaged fails the drill with SQLite's
+words. Nothing of the application, its databases or its units is touched, and it is not started: the
 report is dated and says what it proved (the files unpack, the data loads) and what it did not (that a
 new server would serve them; a Redis snapshot, which replaces every key, and the dumps of a Compose
 stack's own containers are named as not tried). It exits 1 when something fails. A scheduled backup runs
@@ -171,6 +175,89 @@ after the backup and its destinations, in the same run; a drill that fails is an
 backup and does not fail the backup's own run. `POST /api/apps/{domain}/restore-drills` (a job) and
 `GET` the same path are the API, and the backup history drawer shows the reports. For a whole server,
 `noust restore-server --plan` rehearses it, and the next section moves one.
+
+## Provider guides
+
+A destination is an rclone remote; the `--type` decides which. Object stores take the bucket (or
+container) as the first part of the **folder**: `--field path=my-bucket/noust-backups`. Every
+destination can be proved live with `noust backup destination test NAME`, which creates the folder (the first real write, so a key that can only read fails here)
+and lists it, so that is the matrix that matters: a provider is
+supported on your account when that command succeeds. Noust's own tests run offline against
+rclone's interface; they pin what is passed to rclone for each type below, not how a provider
+answers.
+
+| Where | `--type` | What to give |
+|---|---|---|
+| Amazon S3 | `s3` | `provider=AWS`, `region`, the access key; no endpoint |
+| Cloudflare R2 | `s3` | `provider=Cloudflare`, `endpoint=https://<account>.r2.cloudflarestorage.com` |
+| Backblaze B2 | `b2` (native) or `s3` | `account` and application key; or `provider=Backblaze`, `endpoint=https://s3.<region>.backblazeb2.com` |
+| Hetzner Object Storage | `s3` | `provider=Hetzner`, `endpoint=https://<location>.your-objectstorage.com` |
+| Wasabi | `s3` | `provider=Wasabi`, `endpoint=https://s3.<region>.wasabisys.com` |
+| DigitalOcean Spaces | `s3` | `provider=DigitalOcean`, `endpoint=https://<region>.digitaloceanspaces.com` |
+| Scaleway | `s3` | `provider=Scaleway`, `endpoint=https://s3.<region>.scw.cloud`, `region` |
+| IDrive e2 | `s3` | `provider=IDrive`, the endpoint of your bucket's region |
+| MinIO | `s3` | `provider=Minio`, your own `endpoint` |
+| Ceph (RadosGW) | `s3` | `provider=Ceph`, your own `endpoint` |
+| Supabase Storage, Vultr and other S3 | `s3` | `provider=Other`, the `endpoint` they give you |
+| Azure Blob Storage | `azureblob` | `account` and the account key |
+| Google Cloud Storage | `gcs` | the JSON key of a service account (read from `--stdin`) |
+| An SSH server | `sftp` | `host`, `user`, and a password or `key_file` |
+| An FTP server | `ftp` | `host`, `user`, password, and `explicit_tls=true` (plain FTP sends the password in clear) |
+| A NAS | `smb`, `webdav` or `sftp` | `host`, `user`, password |
+| Nextcloud, ownCloud | `webdav` | `url`, `vendor`, `user`, an app password |
+| Google Drive, OneDrive, Dropbox, Box, pCloud | `drive`, `onedrive`, `dropbox`, `box`, `pcloud` | the token `rclone authorize <type>` prints on your own computer |
+| A disk this server mounts | `local` | an absolute `path` |
+
+A provider name outside the list of the S3 form is passed to rclone as written (`provider=Alibaba`):
+rclone knows more of them than the form offers. An address inside this machine's own networks (a NAS
+on the LAN, a local MinIO) is refused until it is named in `security.allow_private_hosts`.
+
+**Amazon S3 with the least access.** Give the key only what a backup needs; this policy is the whole of
+it (replace the bucket):
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
+      "Resource": "arn:aws:s3:::my-noust-backups"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
+      "Resource": "arn:aws:s3:::my-noust-backups/*"
+    }
+  ]
+}
+```
+
+```bash
+noust backup destination add offsite --type s3 \
+  --field provider=AWS --field region=eu-west-1 --field access_key_id=AKIA... \
+  --field path=my-noust-backups/server-1 --stdin < secret-access-key.txt
+noust backup destination test offsite
+```
+
+**Cloudflare R2.** Create an API token with "Object Read & Write" on the bucket; R2 has no regions, so
+leave `region` empty and use the account's endpoint.
+
+**Google Cloud Storage.** Create a service account, give it *Storage Object Admin* on the bucket only,
+download its JSON key and pass it whole: `--stdin < key.json`. `bucket_policy_only=true` is right for a
+bucket with uniform bucket-level access, which is the default for new ones.
+
+**Azure Blob Storage.** The container must exist; `--field path=container/noust-backups`. The account key
+is under *Access keys* of the storage account.
+
+**Backblaze.** The native `b2` type uses an application key limited to one bucket; the S3 type works with
+the same key against the S3 endpoint of the bucket's region. Either is fine; native is one request fewer
+per file.
+
+What a provider does with a bucket's own lifecycle rules (versioning, object lock, expiry) is its
+business and Noust's retention does not know about it: a lifecycle rule that deletes objects younger
+than the schedule keeps them makes a backup disappear from under the schedule, and `noust backup
+verify` is how you find out.
 
 ## Destinations are encrypted, and watched
 

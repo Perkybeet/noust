@@ -39,7 +39,6 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
-from noust.core import webhook_deliveries as deliveries_log
 from noust.core.exceptions import NoustError, QueueFullError
 from noust.core.forge_events import PushEvent, TagEvent, parse_pull_request, parse_tag_event
 from noust.core.secrets import SecretStore
@@ -160,7 +159,7 @@ def _queue_updates(
             declined.append(
                 {
                     "domain": app.domain,
-                    "reason": "skip" if pushed.outcome == deliveries_log.IGNORED_SKIP else "paths",
+                    "reason": pushed.reason,
                     "detail": pushed.detail,
                 }
             )

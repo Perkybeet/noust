@@ -14,7 +14,7 @@ import { translate } from "../../i18n";
  * Backends that authenticate through a token pasted from `rclone authorize "<backend>"`, run
  * by the operator on their own machine - never on the server, which never sees the sign-in.
  */
-export const OAUTH_BACKENDS: ReadonlySet<string> = new Set(["drive", "onedrive", "dropbox", "pcloud"]);
+export const OAUTH_BACKENDS: ReadonlySet<string> = new Set(["drive", "onedrive", "dropbox", "pcloud", "box"]);
 
 export function backendLabel(backend: string, locale: Locale = getLocale()): string {
   switch (backend) {
@@ -36,6 +36,14 @@ export function backendLabel(backend: string, locale: Locale = getLocale()): str
       return translate(locale, "backups.backends.dropbox.label");
     case "pcloud":
       return translate(locale, "backups.backends.pcloud.label");
+    case "box":
+      return translate(locale, "backups.backends.box.label");
+    case "ftp":
+      return translate(locale, "backups.backends.ftp.label");
+    case "azureblob":
+      return translate(locale, "backups.backends.azureblob.label");
+    case "gcs":
+      return translate(locale, "backups.backends.gcs.label");
     case "local":
       return translate(locale, "backups.backends.local.label");
     default:
@@ -63,6 +71,14 @@ export function backendDescription(backend: string, locale: Locale = getLocale()
       return translate(locale, "backups.backends.dropbox.description");
     case "pcloud":
       return translate(locale, "backups.backends.pcloud.description");
+    case "box":
+      return translate(locale, "backups.backends.box.description");
+    case "ftp":
+      return translate(locale, "backups.backends.ftp.description");
+    case "azureblob":
+      return translate(locale, "backups.backends.azureblob.description");
+    case "gcs":
+      return translate(locale, "backups.backends.gcs.description");
     case "local":
       return translate(locale, "backups.backends.local.description");
     default:
