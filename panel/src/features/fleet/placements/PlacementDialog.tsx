@@ -158,7 +158,7 @@ export function PlacementDialog({ placement, onClose }: PlacementDialogProps) {
             ))}
           </ul>
           {errors.nodes !== undefined ? (
-            <p role="alert" className="text-13 text-danger">
+            <p role="alert" className="text-13 text-fail">
               {errors.nodes}
             </p>
           ) : null}

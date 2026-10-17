@@ -186,7 +186,7 @@ export function ShipDialog({ placement, onClose }: ShipDialogProps) {
               ))}
             </ul>
             {errors.targets !== undefined ? (
-              <p role="alert" className="text-13 text-danger">
+              <p role="alert" className="text-13 text-fail">
                 {errors.targets}
               </p>
             ) : null}

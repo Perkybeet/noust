@@ -61,7 +61,7 @@ export function WafCard({ form, domain }: { form: ReturnType<typeof useAccessFor
           value={draft.waf}
           onValueChange={(value) => edit("waf", value)}
         />
-        {form.errorOf("waf") !== undefined ? <p className="text-13 text-danger">{form.errorOf("waf")}</p> : null}
+        {form.errorOf("waf") !== undefined ? <p className="text-13 text-fail">{form.errorOf("waf")}</p> : null}
         {unavailable ? (
           <Notice
             tone="warning"
