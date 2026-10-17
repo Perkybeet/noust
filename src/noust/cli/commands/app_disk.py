@@ -157,6 +157,9 @@ def disk_command(
     if limit is not None or no_limit:
         app_disk.set_disk_limit(app, None if no_limit else limit, actor=_actor())
     if kernel is not None:
+        if kernel:
+            # Before the sentence about a long walk, so a refusal is not preceded by a promise.
+            app_disk.check_kernel_possible(app)
         ctx.logger.info(
             "Setting the project on every file of the tree; a large one takes a while."
             if kernel

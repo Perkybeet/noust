@@ -9067,7 +9067,6 @@ def scenario_app_disk(sc: Scenario) -> None:
 
 
 KERNEL_DOMAIN = "kq.test"
-KERNEL_APP = "kq-test"
 KERNEL_ROOT = "/var/www/apps/kq-test"
 KERNEL_TREE = "/root/kq-tree"
 #: Detach the loop devices this scenario made, by the images that back them and nothing else.
@@ -9123,7 +9122,7 @@ def kernel_quota_move(sc: Scenario, fstype: str) -> None:
     Nothing here is Noust's doing: mounting and tuning a filesystem is the operator's.
     """
     image = f"/root/kq-{fstype}.img"
-    sc.run(f"systemctl stop {KERNEL_APP}", timeout=60, label="stop the app while its tree moves")
+    sc.run(f"noust stop {KERNEL_DOMAIN}", timeout=120, label="stop the app while its tree moves")
     sc.run(
         f"rm -rf {KERNEL_TREE} && cp -a {KERNEL_ROOT} {KERNEL_TREE}",
         timeout=120,
@@ -9145,7 +9144,7 @@ def kernel_quota_move(sc: Scenario, fstype: str) -> None:
         label=f"{fstype} on a loop device, mounted over /var/www/apps with prjquota",
     )
     sc.run(
-        f"cp -a {KERNEL_TREE} {KERNEL_ROOT} && systemctl start {KERNEL_APP}",
+        f"cp -a {KERNEL_TREE} {KERNEL_ROOT} && noust start {KERNEL_DOMAIN}",
         timeout=120,
         label="the tree back, on the new filesystem",
     )
@@ -9315,11 +9314,10 @@ def scenario_kernel_quota(sc: Scenario) -> None:
         sc.check(limits == "", f"the deleted app left a limit behind (projects {left}): {limits}")
     finally:
         sc.run(
-            f"systemctl stop {KERNEL_APP}; noust delete {KERNEL_DOMAIN} --force >/dev/null 2>&1; "
+            f"noust delete {KERNEL_DOMAIN} --force >/dev/null 2>&1; "
             "if mountpoint -q /var/www/apps; then umount /var/www/apps; fi; "
             f"{KERNEL_LET_GO}; "
-            f"rm -f /root/kq-xfs.img /root/kq-ext4.img; rm -rf {KERNEL_TREE} {KERNEL_ROOT} "
-            f"/etc/systemd/system/{KERNEL_APP}.service; systemctl daemon-reload; true",
+            f"rm -f /root/kq-xfs.img /root/kq-ext4.img; rm -rf {KERNEL_TREE} {KERNEL_ROOT}; true",
             timeout=180,
             check=False,
             label="cleanup: the loop filesystems and the application",
