@@ -74,6 +74,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, ClassVar, Protocol, runtime_checkable
 
 from noust.central import require_server_role
+from noust.core import legacy_archive, legacy_names
 from noust.core.applock import app_lock
 from noust.core.audit import record as audit_record
 from noust.core.backup_files import open_backup, seal_in_place, sealing_suspended
@@ -166,7 +167,7 @@ _COMPRESS_LEVEL = 6
 
 #: Reserved top-level directory inside the archive. Everything that is not the
 #: application tree lives under it.
-PAYLOAD_DIR = "wasm-backup"
+PAYLOAD_DIR = legacy_archive.PAYLOAD_DIR
 
 #: Database dumps, inside :data:`PAYLOAD_DIR`.
 DATABASES_DIR = "databases"
@@ -240,7 +241,7 @@ def server_id() -> str:
         raw = ""
     if not raw:
         raw = socket.gethostname()
-    return hashlib.sha256(f"wasm-backup-origin:{raw}".encode()).hexdigest()[:16]
+    return hashlib.sha256(f"{legacy_names.ARCHIVE_ORIGIN_SALT}:{raw}".encode()).hexdigest()[:16]
 
 
 def backup_id_of_archive(path: Path) -> str | None:
@@ -1557,7 +1558,7 @@ class BackupManager:
             )
 
         app_name = validate_app_name(domain_to_app_name(domain))
-        if app_name == PAYLOAD_DIR:
+        if legacy_archive.is_payload_dir(app_name):
             raise BackupError(
                 f"Application name '{app_name}' is reserved inside a backup archive",
                 details="Rename the deployment; this name collides with the archive payload.",
@@ -2588,7 +2589,7 @@ class BackupManager:
                     archive,
                     [str(entry.get("archive_path", "")) for entry in entries],
                     Path(staging),
-                    prefix=f"{PAYLOAD_DIR}/{DATABASES_DIR}/",
+                    prefix=legacy_archive.payload_prefixes(DATABASES_DIR),
                     max_bytes=self.max_bytes,
                 )
                 was_running = self._stop_service_for_restore(app_name, True)
@@ -2812,9 +2813,8 @@ class BackupManager:
         """
         try:
             with open_backup(archive) as readable, tarfile.open(readable, "r:gz") as tar:
-                try:
-                    member = tar.getmember(f"{PAYLOAD_DIR}/{MANIFEST_NAME}")
-                except KeyError:
+                member = legacy_archive.find_member(tar, MANIFEST_NAME)
+                if member is None:
                     return None
                 source = tar.extractfile(member)
                 if source is None:
@@ -2980,7 +2980,7 @@ class BackupManager:
         Raises:
             BackupError: If the manifest exists but is not readable JSON.
         """
-        manifest_file = extracted / PAYLOAD_DIR / MANIFEST_NAME
+        manifest_file = extracted / legacy_archive.payload_dir_in(extracted) / MANIFEST_NAME
         if not manifest_file.is_file():
             return None
         try:
@@ -3061,7 +3061,9 @@ class BackupManager:
                 return root
 
         directories = [
-            entry for entry in extracted.iterdir() if entry.is_dir() and entry.name != PAYLOAD_DIR
+            entry
+            for entry in extracted.iterdir()
+            if entry.is_dir() and not legacy_archive.is_payload_dir(entry.name)
         ]
         if len(directories) == 1:
             return directories[0]
@@ -4116,7 +4118,7 @@ class BackupManager:
 
         try:
             with (
-                tempfile.TemporaryDirectory(prefix="wasm-verify-") as tmp_dir,
+                tempfile.TemporaryDirectory(prefix="noust-verify-") as tmp_dir,
                 open_backup(backup_file) as readable,
             ):
                 extract_archive(

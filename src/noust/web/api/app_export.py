@@ -22,6 +22,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+from noust.core import legacy_archive
 from noust.core.store import get_store
 from noust.core.teams import scoped_store
 from noust.deployers.app_export import (
@@ -166,10 +167,16 @@ class ExportDatabase(BaseModel):
 class AppExportDocument(BaseModel):
     """An application's definition, as ``noust app export`` writes it."""
 
-    format: str = Field(description='Always "wasm-app"')
+    format: str = Field(description='Always "noust-app"; the name before 4.0 is still read')
     version: int = Field(description="Shape of the document; this release writes 1")
     exported_at: str | None = None
-    wasm_version: str | None = None
+    noust_version: str | None = None
+    legacy_version: str | None = Field(
+        default=None,
+        alias=legacy_archive.EXPORT_VERSION_KEY,
+        description="Which release made an export of before 4.0 (this release writes "
+        "noust_version); read, never written",
+    )
     secrets_included: bool = False
     app: ExportApp
     domains: ExportDomains = Field(default_factory=ExportDomains)

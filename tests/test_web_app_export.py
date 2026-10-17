@@ -118,7 +118,7 @@ def test_export_answers_the_document_without_secrets(session: TestClient) -> Non
 
     assert response.status_code == 200, response.text
     doc = response.json()
-    assert doc["format"] == "wasm-app"
+    assert doc["format"] == "noust-app"
     assert doc["app"]["domain"] == DOMAIN
     assert doc["env"]["STRIPE_KEY"] == {"secret": True, "value": None}
     assert STRIPE not in response.text

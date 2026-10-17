@@ -7,7 +7,7 @@ An application's definition as a document, and an application made from one.
 :func:`export_app` writes everything that defines an application - type,
 source, branch, layout, domains, environment, health check, limits, release
 retention, persistent paths, cron jobs, backup schedule, previews, blue/green
-- as a versioned JSON document (``"format": "wasm-app"``). Every part is read
+- as a versioned JSON document (``"format": "noust-app"``; the name before 4.0 is still read). Every part is read
 through the reader that already owns it: the store's getters, the domain
 helpers, :func:`~noust.deployers.helpers.app_env.read_app_env`,
 :meth:`~noust.managers.cron_manager.CronManager.list_jobs`. Secret values are
@@ -44,7 +44,13 @@ from typing import Any
 
 from noust import __version__
 from noust.central import require_server_role
-from noust.core import app_build_store, app_rollout_store, app_source_store, update_schedule_store
+from noust.core import (
+    app_build_store,
+    app_rollout_store,
+    app_source_store,
+    legacy_archive,
+    update_schedule_store,
+)
 from noust.core.config import REDACTED, Config
 from noust.core.exceptions import DomainConflictError, NoustError, ValidationError
 from noust.core.logger import Logger
@@ -70,7 +76,7 @@ from noust.validators.health import check_health_expect, check_health_path, chec
 from noust.validators.source import is_push_source
 
 #: What the document says it is, and the version of its shape.
-FORMAT = "wasm-app"
+FORMAT = legacy_archive.EXPORT_FORMAT
 VERSION = 1
 
 #: Variables the unit sets itself (see ``helpers/app_env.py``): never exported,
@@ -142,7 +148,7 @@ def export_app(
         "format": FORMAT,
         "version": VERSION,
         "exported_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-        "wasm_version": __version__,
+        legacy_archive.EXPORT_VERSION_KEY: __version__,
         "secrets_included": with_secrets,
         "app": {
             "domain": app.domain,
@@ -543,11 +549,11 @@ def validate_document(data: Any) -> dict[str, Any]:
         A copy of the document, every section present.
 
     Raises:
-        ValidationError: It is not a ``wasm-app`` document of a version this
-            release reads, or a field has the wrong type.
+        ValidationError: It is not an export document (of either format name) of a version
+            this release reads, or a field has the wrong type.
     """
     doc = dict(_object(data, "document"))
-    if doc.get("format") != FORMAT:
+    if not legacy_archive.is_export_document(doc):
         raise ValidationError(
             "This is not a Noust application export",
             details=f'An export says "format": "{FORMAT}"; make one with \'noust app export\'.',
@@ -559,7 +565,7 @@ def validate_document(data: Any) -> dict[str, Any]:
     if version > VERSION:
         raise ValidationError(
             f"The export is version {version}; this Noust reads version {VERSION}",
-            details=f"It was made by Noust {doc.get('wasm_version') or 'a newer release'}. "
+            details=f"It was made by Noust {legacy_archive.export_made_by(doc) or 'a newer release'}. "
             "Upgrade Noust on this server to import it.",
             field="version",
         )
@@ -1677,7 +1683,7 @@ def proposal_document(
         "format": FORMAT,
         "version": VERSION,
         "exported_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-        "wasm_version": __version__,
+        legacy_archive.EXPORT_VERSION_KEY: __version__,
         "secrets_included": False,
         "app": {
             "domain": domain,
