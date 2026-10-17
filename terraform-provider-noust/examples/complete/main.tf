@@ -34,6 +34,12 @@ variable "app_type" {
   description = "The type of application. Detected from the repository when null."
 }
 
+variable "member" {
+  type        = string
+  default     = null
+  description = "The name of an account that already exists on the server, to make a member of the team. None when null."
+}
+
 variable "greeting" {
   type        = string
   default     = "hello"
@@ -62,6 +68,44 @@ resource "noust_environment" "staging" {
   slug    = "staging"
 }
 
+# People are accounts a security officer invites; a team only gives an existing one a role inside it.
+resource "noust_team_member" "operator" {
+  count    = var.member == null ? 0 : 1
+  team     = noust_team.shop.slug
+  username = var.member
+  role     = "operator"
+}
+
+# Variables defined once for a scope and used by reference from an application's own, as {{project.NAME}}.
+# The application below names them through these resources, so Terraform removes the application first.
+resource "noust_server_variable" "region" {
+  name  = "SHOP_REGION_${upper(replace(var.suffix, "-", "_"))}"
+  value = "eu-west-1"
+}
+
+resource "noust_project_variable" "log_level" {
+  team    = noust_team.shop.slug
+  project = noust_project.web.slug
+  name    = "LOG_LEVEL"
+  value   = "info"
+}
+
+resource "noust_environment_variable" "api_url" {
+  team        = noust_team.shop.slug
+  project     = noust_project.web.slug
+  environment = noust_environment.staging.slug
+  name        = "API_URL"
+  value       = "https://api.staging.example.com"
+}
+
+# A credential is masked in every read of the API, so the plan cannot see a change made to it by hand.
+resource "noust_team_variable" "registry_token" {
+  team   = noust_team.shop.slug
+  name   = "REGISTRY_TOKEN"
+  value  = "a-token-from-your-secret-store"
+  secret = true
+}
+
 resource "noust_application" "shop" {
   domain      = var.domain
   source      = var.repository
@@ -72,7 +116,9 @@ resource "noust_application" "shop" {
   environment = noust_environment.staging.slug
 
   env_vars = {
-    GREETING = var.greeting
+    GREETING  = var.greeting
+    LOG_LEVEL = "{{project.${noust_project_variable.log_level.name}}}"
+    API_URL   = "{{environment.${noust_environment_variable.api_url.name}}}"
   }
 
   # Destroying the application removes its files too (the default). Keep a production application's uploads

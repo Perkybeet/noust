@@ -34,6 +34,10 @@ cd "$WORK/stack"
 
 SUFFIX=$(tr -dc 'a-z' < /dev/urandom | head -c 6)
 VARS="-var suffix=$SUFFIX -var domain=e2e-$SUFFIX.example.net -var repository=https://code.example.net/acme/site.git -var app_type=static"
+# An account that exists on the server, to make a member of the team.
+if [ -n "${NOUST_ACCOUNT:-}" ]; then
+  VARS="$VARS -var member=$NOUST_ACCOUNT"
+fi
 
 step() { printf '\n==> %s\n' "$*"; }
 

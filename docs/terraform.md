@@ -2,8 +2,9 @@
 
 Noust has a provider for Terraform and OpenTofu: `terraform-provider-noust/` in this repository, written in
 Go with the Terraform Plugin Framework. It manages a server's applications, their domains, databases and
-backup schedules, the teams, projects and environments that own them, deploy keys and registry accounts, from
-the same `terraform plan` and state as the infrastructure the server runs on.
+backup schedules, the teams, projects, environments and members that own them, the variables they share,
+deploy keys and registry accounts, from the same `terraform plan` and state as the infrastructure the server
+runs on.
 
 It is a client of the [HTTP API](api.md) and implements nothing a server does. Every change is the call the
 console or `noust` would make, behind the same permissions, [sudo mode](#a-token-that-can-do-what-the-plan-does),
@@ -100,6 +101,10 @@ that each variable is there instead.
 | `noust_team_member` | `teams.manage`, `teams.read` | yes |
 | `noust_project` | `teams.manage`, `teams.read` | yes |
 | `noust_environment` | `teams.manage`, `teams.read` | yes |
+| `noust_team_variable` | `apps.manage`, `apps.read` | yes |
+| `noust_project_variable` | `apps.manage`, `apps.read` | yes |
+| `noust_environment_variable` | `apps.manage`, `apps.read` | yes |
+| `noust_server_variable` | `settings.manage`, `settings.read` | yes |
 | `noust_deploy_key` | `apps.manage`, `apps.read` | yes |
 | `noust_registry_login` | `apps.manage`, `apps.read` | yes |
 | `data.noust_application` | `apps.read` | no |
@@ -120,6 +125,7 @@ operations the code calls.)
 | `noust_backup_schedule` | An application's scheduled backups, their retention and remote destinations | the application's domain |
 | `noust_team`, `noust_project`, `noust_environment` | Who owns what | `team`, `team/project`, `team/project/environment` |
 | `noust_team_member` | An existing account's role in a team | `team/username` |
+| `noust_team_variable`, `noust_project_variable`, `noust_environment_variable`, `noust_server_variable` | A variable defined once for a scope and used by reference from an application's own (`{{team.NAME}}`) | `team/NAME`, `team/project/NAME`, `team/project/environment/NAME`, `NAME` |
 | `noust_deploy_key` | The SSH key an application's repository is reached with | the application's domain |
 | `noust_registry_login` | An account on a container registry | its name |
 
@@ -127,6 +133,17 @@ Data sources: `noust_application` (one deployed application, however it got ther
 (those of a team, project, environment or tag), `noust_servers` (the servers of the fleet) and `noust_team`.
 The reference of every attribute is generated from the schemas into
 [`terraform-provider-noust/docs`](../terraform-provider-noust/docs).
+
+**Shared variables.** A variable of the server, a team, a project or an environment is defined once and an
+application names it from its own variables: `DATABASE_URL = "{{project.DATABASE_URL}}"`. The four resources
+are one implementation told which scope it serves. A `value` is always sensitive in the plan. Whether the
+server treats a variable as a secret is its own decision from the name and the value (`DB_PASSWORD`, the shape of
+a known credential), or the operator's, with `secret = true` or `secret = false`; a secret is masked in every
+read of the API, so the state keeps the value the configuration wrote and **a secret changed by hand is not
+seen by the next plan**, while one that is not a secret is compared like any attribute. An imported secret has
+only its mask, and the next apply sets the configured value. Removing a variable that applications still
+refer to is allowed and the provider warns with their names, since their next deploy fails until the reference
+changes.
 
 **What changes in place and what replaces.** The API takes some settings only when the object is made, and
 Terraform is honest about it: changing those shows `must be replaced` in the plan. An application's `source`,
@@ -183,9 +200,8 @@ Terraform's (`lifecycle { prevent_destroy = true }`).
 resources, in the format of HashiCorp's `terraform-plugin-codegen-openapi`, and `x_noust.provided` says which
 of its entries the provider offers. The rest is the plan, each as the API already has it: `noust_account`,
 `noust_role`, `noust_access_binding` and `noust_api_token` (the secret is in the answer to
-the create and in no read: kept in state, sensitive), `noust_cron_job`, `noust_team_variable` and
-`noust_server_variable` (the value is sensitive), `noust_notification_channel` (only changed and removed: the
-channels exist), `noust_secret_provider` and `noust_dns_provider` (their tokens and credentials are
+the create and in no read: kept in state, sensitive), `noust_cron_job`, `noust_notification_channel` (only
+changed and removed: the channels exist), `noust_secret_provider` and `noust_dns_provider` (their tokens and credentials are
 sensitive). `tests/test_terraform_map.py` holds every operation the map names to `panel/openapi.json`, so the
 map cannot drift from the API, and holds `provided` to what the provider's code calls.
 
@@ -214,11 +230,18 @@ runs in a `golang` container and Terraform in a `hashicorp/terraform` one. Its s
 * **e2e**: the provider binary under the real Terraform CLI applies `examples/complete`, plans again (empty),
   changes a variable in place, plans (empty), and destroys.
 * **sdk**: the generated Python client ([sdk.md](sdk.md)) against the same live API.
+* **release** (asked for by name, not in the default set): the registry's release made for real, with a key
+  made for the run and thrown away. The staged public repository is committed, tagged, vetted and tested as
+  its own workflow would, built by GoReleaser from the same `.goreleaser.yml`, and the files are held to what
+  the registry reads (names, the checksums, a binary signature that verifies, protocol 6, a binary that
+  starts as a plugin). Nothing is published. [terraform-registry.md](terraform-registry.md) is what is left
+  for the owner.
 
 ```bash
 python tests/integration/terraform_run.py                       # every stage, in Docker
 python tests/integration/terraform_run.py --stage acceptance -k TestAccApplication
 python tests/integration/terraform_run.py --native              # go, terraform and python on the PATH, as CI runs it
+python tests/integration/terraform_run.py --stage release       # rehearse the registry release
 ```
 
 CI runs the same stages (`Terraform provider` in `.github/workflows/ci.yml`). The containers are named

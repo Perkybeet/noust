@@ -44,7 +44,8 @@ func TestEverySchemaIsValidAndTheProviderOffersWhatTheDocsPromise(t *testing.T) 
 	sort.Strings(dataSources)
 	wantResources := []string{
 		"noust_application", "noust_backup_schedule", "noust_database", "noust_deploy_key", "noust_domain",
-		"noust_environment", "noust_project", "noust_registry_login", "noust_team", "noust_team_member",
+		"noust_environment", "noust_environment_variable", "noust_project", "noust_project_variable",
+		"noust_registry_login", "noust_server_variable", "noust_team", "noust_team_member", "noust_team_variable",
 	}
 	wantDataSources := []string{"noust_application", "noust_applications", "noust_servers", "noust_team"}
 	if strings.Join(resources, ",") != strings.Join(wantResources, ",") {
@@ -65,6 +66,11 @@ func TestSecretsAreMarkedSensitive(t *testing.T) {
 		"noust_application":    {"env_vars"},
 		"noust_registry_login": {"password"},
 		"noust_deploy_key":     {"private_key"},
+		// A variable's value is sensitive whatever the server decides, since the schema cannot be dynamic.
+		"noust_team_variable":        {"value"},
+		"noust_project_variable":     {"value"},
+		"noust_environment_variable": {"value"},
+		"noust_server_variable":      {"value"},
 	}
 	for resource, names := range sensitive {
 		attributes := map[string]bool{}

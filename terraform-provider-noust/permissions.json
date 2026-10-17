@@ -11,6 +11,8 @@
     "fleet.read",
     "root_equivalent",
     "self",
+    "settings.manage",
+    "settings.read",
     "teams.manage",
     "teams.read"
   ],
@@ -85,6 +87,13 @@
       ],
       "sudo": true
     },
+    "noust_environment_variable": {
+      "permissions": [
+        "apps.manage",
+        "apps.read"
+      ],
+      "sudo": true
+    },
     "noust_project": {
       "permissions": [
         "teams.manage",
@@ -92,10 +101,24 @@
       ],
       "sudo": true
     },
+    "noust_project_variable": {
+      "permissions": [
+        "apps.manage",
+        "apps.read"
+      ],
+      "sudo": true
+    },
     "noust_registry_login": {
       "permissions": [
         "apps.manage",
         "apps.read"
+      ],
+      "sudo": true
+    },
+    "noust_server_variable": {
+      "permissions": [
+        "settings.manage",
+        "settings.read"
       ],
       "sudo": true
     },
@@ -110,6 +133,13 @@
       "permissions": [
         "teams.manage",
         "teams.read"
+      ],
+      "sudo": true
+    },
+    "noust_team_variable": {
+      "permissions": [
+        "apps.manage",
+        "apps.read"
       ],
       "sudo": true
     },

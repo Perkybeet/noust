@@ -81,6 +81,10 @@ x_noust:
       - team_member
       - project
       - environment
+      - team_variable
+      - project_variable
+      - environment_variable
+      - server_variable
       - deploy_key
       - registry_login
     data_sources:
@@ -179,15 +183,31 @@ x_noust:
       read: {path: /api/cron, method: GET, pick: name}
       delete: {path: "/api/cron/{name}", method: DELETE}
       id: name
+    # The API keeps a scope's variables in a list and has a call to set one; the secret ones come masked
+    # from every read, so the provider keeps the value the configuration wrote (docs/terraform.md).
     team_variable:
-      create: {path: "/api/teams/{team}/variables", method: POST}
+      create: {path: "/api/teams/{team}/variables/{name}", method: PUT}
       read: {path: "/api/teams/{team}/variables", method: GET, pick: name}
       update: {path: "/api/teams/{team}/variables/{name}", method: PUT}
       delete: {path: "/api/teams/{team}/variables/{name}", method: DELETE}
       id: team/name
       sensitive: [value]
+    project_variable:
+      create: {path: "/api/teams/{team}/projects/{project}/variables/{name}", method: PUT}
+      read: {path: "/api/teams/{team}/projects/{project}/variables", method: GET, pick: name}
+      update: {path: "/api/teams/{team}/projects/{project}/variables/{name}", method: PUT}
+      delete: {path: "/api/teams/{team}/projects/{project}/variables/{name}", method: DELETE}
+      id: team/project/name
+      sensitive: [value]
+    environment_variable:
+      create: {path: "/api/teams/{team}/projects/{project}/environments/{environment}/variables/{name}", method: PUT}
+      read: {path: "/api/teams/{team}/projects/{project}/environments/{environment}/variables", method: GET, pick: name}
+      update: {path: "/api/teams/{team}/projects/{project}/environments/{environment}/variables/{name}", method: PUT}
+      delete: {path: "/api/teams/{team}/projects/{project}/environments/{environment}/variables/{name}", method: DELETE}
+      id: team/project/environment/name
+      sensitive: [value]
     server_variable:
-      create: {path: /api/variables/server, method: POST}
+      create: {path: "/api/variables/server/{name}", method: PUT}
       read: {path: /api/variables/server, method: GET, pick: name}
       update: {path: "/api/variables/server/{name}", method: PUT}
       delete: {path: "/api/variables/server/{name}", method: DELETE}

@@ -43,6 +43,7 @@ probes and the journal word for word.
 | `noust_backup_schedule` | An application's scheduled backups, retention and remote destinations |
 | `noust_team`, `noust_project`, `noust_environment` | Who owns what |
 | `noust_team_member` | An existing account's role in a team |
+| `noust_team_variable`, `noust_project_variable`, `noust_environment_variable`, `noust_server_variable` | A variable defined once for a scope and used by reference from an application's own |
 | `noust_deploy_key` | The SSH key an application's repository is reached with |
 | `noust_registry_login` | An account on a container registry |
 

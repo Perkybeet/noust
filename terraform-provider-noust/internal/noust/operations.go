@@ -99,6 +99,22 @@ var (
 	ChangeRegistryLogin = Op{"ChangeRegistryLogin", "PATCH", "/api/registries/{name}", "apps.manage", true}
 	DeleteRegistryLogin = Op{"DeleteRegistryLogin", "DELETE", "/api/registries/{name}", "apps.manage", true}
 
+	ListServerVariables  = Op{"ListServerVariables", "GET", "/api/variables/server", "settings.read", false}
+	SetServerVariable    = Op{"SetServerVariable", "PUT", "/api/variables/server/{name}", "settings.manage", true}
+	DeleteServerVariable = Op{"DeleteServerVariable", "DELETE", "/api/variables/server/{name}", "settings.manage", true}
+
+	ListTeamVariables  = Op{"ListTeamVariables", "GET", "/api/teams/{team}/variables", "apps.read", false}
+	SetTeamVariable    = Op{"SetTeamVariable", "PUT", "/api/teams/{team}/variables/{name}", "apps.manage", true}
+	DeleteTeamVariable = Op{"DeleteTeamVariable", "DELETE", "/api/teams/{team}/variables/{name}", "apps.manage", true}
+
+	ListProjectVariables  = Op{"ListProjectVariables", "GET", "/api/teams/{team}/projects/{project}/variables", "apps.read", false}
+	SetProjectVariable    = Op{"SetProjectVariable", "PUT", "/api/teams/{team}/projects/{project}/variables/{name}", "apps.manage", true}
+	DeleteProjectVariable = Op{"DeleteProjectVariable", "DELETE", "/api/teams/{team}/projects/{project}/variables/{name}", "apps.manage", true}
+
+	ListEnvironmentVariables  = Op{"ListEnvironmentVariables", "GET", "/api/teams/{team}/projects/{project}/environments/{environment}/variables", "apps.read", false}
+	SetEnvironmentVariable    = Op{"SetEnvironmentVariable", "PUT", "/api/teams/{team}/projects/{project}/environments/{environment}/variables/{name}", "apps.manage", true}
+	DeleteEnvironmentVariable = Op{"DeleteEnvironmentVariable", "DELETE", "/api/teams/{team}/projects/{project}/environments/{environment}/variables/{name}", "apps.manage", true}
+
 	ListFleetServers = Op{"ListFleetServers", "GET", "/api/fleet/servers", "fleet.read", false}
 )
 
@@ -116,5 +132,9 @@ var AllOperations = []Op{
 	DeleteProject, CreateEnvironment, ListEnvironments, RenameEnvironment, DeleteEnvironment,
 	CreateDeployKey, GetDeployKey, ImportDeployKey, DeleteDeployKey,
 	CreateRegistryLogin, GetRegistryLogin, ChangeRegistryLogin, DeleteRegistryLogin,
+	ListServerVariables, SetServerVariable, DeleteServerVariable,
+	ListTeamVariables, SetTeamVariable, DeleteTeamVariable,
+	ListProjectVariables, SetProjectVariable, DeleteProjectVariable,
+	ListEnvironmentVariables, SetEnvironmentVariable, DeleteEnvironmentVariable,
 	ListFleetServers,
 }
