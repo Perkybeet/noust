@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { useState } from "react";
 
@@ -20,13 +20,16 @@ import { useT } from "../../../i18n";
 import { downloadText } from "../../../lib/clipboard";
 import { splitErrors } from "../../settings/formErrors";
 import { reportActionError } from "../../apps/useAppActions";
+import { discardBlock } from "./declarationDiff";
+import { DeclarationReview } from "./DeclarationReview";
 
 type Applied = ResponseOf<"/api/apps/{domain}/apply", "post">;
 
 /**
- * Paste a declaration, see what it would change, and apply it. The check changes nothing; what
- * runs commands (a build block, hooks, tasks, Compose arguments) is flagged in the plan and
- * needs the box ticked before the server will apply it.
+ * Build a declaration (pasted, or started from what runs now), review what it would change block
+ * by block, put back the blocks that should stay as they are, and apply the rest as one set
+ * (checklist M-35). The check changes nothing; what runs commands (a build block, hooks, tasks,
+ * Compose arguments) is flagged in the plan and needs the box ticked before the server will apply it.
  */
 function ApplyDialog({ domain, open, onOpenChange }: { domain: string; open: boolean; onOpenChange: (open: boolean) => void }) {
   const t = useT();
@@ -35,9 +38,28 @@ function ApplyDialog({ domain, open, onOpenChange }: { domain: string; open: boo
   const [agreed, setAgreed] = useState(false);
   const [result, setResult] = useState<Applied | null>(null);
 
+  // The declaration of the application as it runs now: what a draft is compared with. Read once a
+  // plan exists (or when a draft is started from it), so a draft is never compared with a stale one.
+  const [started, setStarted] = useState(false);
+  const current = useQuery({
+    queryKey: ["app", domain, "declaration"],
+    queryFn: () => request("get", "/api/apps/{domain}/declaration", { params: { domain } }),
+    enabled: open && (result !== null || started),
+    retry: false,
+    staleTime: 0,
+  });
+  const fromNow = useMutation({
+    mutationFn: () => request("get", "/api/apps/{domain}/declaration", { params: { domain } }),
+    onSuccess: (answer) => {
+      setText(answer.declaration);
+      setStarted(true);
+      setResult(null);
+    },
+  });
+
   const run = useMutation({
-    mutationFn: (check: boolean) =>
-      request("post", "/api/apps/{domain}/apply", { params: { domain }, body: { declaration: text, check, confirm: agreed, prune } }),
+    mutationFn: ({ check, declaration }: { check: boolean; declaration?: string }) =>
+      request("post", "/api/apps/{domain}/apply", { params: { domain }, body: { declaration: declaration ?? text, check, confirm: agreed, prune } }),
     onSuccess: (answer) => {
       setResult(answer);
       if (answer.applied) {
@@ -61,6 +83,15 @@ function ApplyDialog({ domain, open, onOpenChange }: { domain: string; open: boo
     // A plan is of the text that was checked.
     setResult(null);
   };
+  // One block put back to what runs now, and the rest checked again: the plan follows the draft.
+  const discard = (key: string): void => {
+    if (current.data === undefined) return;
+    const next = discardBlock(current.data.declaration, text, key);
+    setText(next);
+    setAgreed(false);
+    setResult(null);
+    run.mutate({ check: true, declaration: next });
+  };
 
   return (
     <Dialog
@@ -79,14 +110,14 @@ function ApplyDialog({ domain, open, onOpenChange }: { domain: string; open: boo
           </Button>
           {result?.applied ? null : (
             <>
-              <Button disabled={text.trim() === ""} loading={run.isPending && run.variables} onClick={() => run.mutate(true)}>
+              <Button disabled={text.trim() === ""} loading={run.isPending && run.variables.check} onClick={() => run.mutate({ check: true })}>
                 {t("declaration.dialog.check")}
               </Button>
               <Button
                 variant="primary"
                 disabled={plan === null || plan.changes.length === 0 || (needsAgreement && !agreed)}
-                loading={run.isPending && !run.variables}
-                onClick={() => run.mutate(false)}
+                loading={run.isPending && !run.variables.check}
+                onClick={() => run.mutate({ check: false })}
               >
                 {t("declaration.dialog.applyNow")}
               </Button>
@@ -96,6 +127,13 @@ function ApplyDialog({ domain, open, onOpenChange }: { domain: string; open: boo
       }
     >
       <div className="flex flex-col gap-4">
+        <Notice title={t("declaration.scope.title")}>{t("declaration.scope.body")}</Notice>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="ghost" size="sm" loading={fromNow.isPending} disabled={run.isPending} onClick={() => fromNow.mutate()}>
+            {t("declaration.dialog.startFromNow")}
+          </Button>
+          {fromNow.isError ? <ErrorBlock live compact error={fromNow.error} title={t("declaration.dialog.startFailed", { domain })} /> : null}
+        </div>
         <Field label={t("declaration.dialog.label")} error={split.fields.declaration}>
           <Textarea mono rows={10} value={text} placeholder={t("declaration.dialog.placeholder")} onChange={(event) => edit(event.target.value)} />
         </Field>
@@ -116,6 +154,9 @@ function ApplyDialog({ domain, open, onOpenChange }: { domain: string; open: boo
                 </li>
               ))}
             </ul>
+            {current.data !== undefined ? (
+              <DeclarationReview current={current.data.declaration} text={text} plan={plan} onDiscard={discard} locked={run.isPending || result?.applied === true} />
+            ) : null}
             {plan.unchanged.length > 0 ? <p className="text-12 text-fg-muted">{t("declaration.plan.already", { sections: plan.unchanged.join(", ") })}</p> : null}
             {plan.notes.map((note) => (
               <Notice key={note}>{note}</Notice>
