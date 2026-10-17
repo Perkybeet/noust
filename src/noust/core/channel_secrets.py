@@ -37,7 +37,7 @@ from typing import TYPE_CHECKING, Any
 import yaml
 
 from noust.core import at_rest
-from noust.core.fs import is_rehearsal
+from noust.core.fs import get_fs, is_rehearsal
 
 if TYPE_CHECKING:
     from noust.core.config import Config
@@ -227,7 +227,7 @@ def _key(key_file: Path) -> bytes:
     if is_rehearsal():
         found = at_rest.load_key(key_file, create=False)
         return found if found is not None else _random.token_bytes(32)
-    key_file.parent.mkdir(parents=True, exist_ok=True)
+    get_fs().make_dir(key_file.parent, mode=0o755)
     key = at_rest.load_key(key_file, create=True)
     if key is None:  # create=True gives a key or raises; kept for the type
         raise OSError(f"{key_file} could not be made")
