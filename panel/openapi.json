@@ -1204,6 +1204,292 @@
         "title": "AddRouteRequest",
         "type": "object"
       },
+      "AdoptSiteRequest": {
+        "description": "The site to adopt, and what is not found by looking.",
+        "properties": {
+          "domain": {
+            "description": "The domain the site answers on",
+            "title": "Domain",
+            "type": "string"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The directory of its files; the unit's WorkingDirectory or the site's root",
+            "title": "Path"
+          },
+          "preview": {
+            "default": false,
+            "description": "Answer what would be done; change nothing",
+            "title": "Preview",
+            "type": "boolean"
+          },
+          "site": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The site file serving the domain; found when omitted",
+            "title": "Site"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The unit the site is in front of; the one that listens on its port when omitted",
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "domain"
+        ],
+        "title": "AdoptSiteRequest",
+        "type": "object"
+      },
+      "AdoptSiteResponse": {
+        "description": "What an adoption found, and whether it was recorded.",
+        "properties": {
+          "adopted": {
+            "description": "False for a preview or a rehearsal",
+            "title": "Adopted",
+            "type": "boolean"
+          },
+          "app_name": {
+            "title": "App Name",
+            "type": "string"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "proxy",
+              "php",
+              "static"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "root": {
+            "title": "Root",
+            "type": "string"
+          },
+          "site": {
+            "title": "Site",
+            "type": "string"
+          },
+          "site_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "That file's name, recorded because it is not the domain",
+            "title": "Site Name"
+          },
+          "ssl": {
+            "title": "Ssl",
+            "type": "boolean"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The operator's unit; none for PHP and static sites",
+            "title": "Unit"
+          },
+          "unit_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Active"
+          },
+          "upstream": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upstream"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          },
+          "webserver": {
+            "enum": [
+              "nginx",
+              "apache"
+            ],
+            "title": "Webserver",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "app_name",
+          "kind",
+          "site",
+          "site_name",
+          "webserver",
+          "enabled",
+          "ssl",
+          "root",
+          "port",
+          "upstream",
+          "unit",
+          "unit_active",
+          "warnings",
+          "adopted"
+        ],
+        "title": "AdoptSiteResponse",
+        "type": "object"
+      },
+      "AdoptionResponse": {
+        "description": "What an adopted application is: the operator's unit, site and directory.",
+        "properties": {
+          "adopted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adopted At"
+          },
+          "adopted_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adopted By"
+          },
+          "kind": {
+            "enum": [
+              "proxy",
+              "php",
+              "static"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "root": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root"
+          },
+          "site_file": {
+            "description": "The operator's site file, never rewritten",
+            "title": "Site File",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The unit Noust starts, stops and restarts, never rewrites",
+            "title": "Unit"
+          },
+          "upstream": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upstream"
+          },
+          "webserver": {
+            "enum": [
+              "nginx",
+              "apache"
+            ],
+            "title": "Webserver",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "unit",
+          "webserver",
+          "site_file",
+          "root",
+          "upstream",
+          "adopted_by",
+          "adopted_at"
+        ],
+        "title": "AdoptionResponse",
+        "type": "object"
+      },
       "AnalysisOut": {
         "description": "The last scan of the known places.",
         "properties": {
@@ -24106,6 +24392,171 @@
           "database"
         ],
         "title": "MovedDatabaseResponse",
+        "type": "object"
+      },
+      "NativeSiteModel": {
+        "description": "A site on the server that no application records.",
+        "properties": {
+          "adoptable": {
+            "title": "Adoptable",
+            "type": "boolean"
+          },
+          "config_path": {
+            "title": "Config Path",
+            "type": "string"
+          },
+          "domains": {
+            "description": "The names it answers on",
+            "items": {
+              "type": "string"
+            },
+            "title": "Domains",
+            "type": "array"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "proxy",
+                  "php",
+                  "static"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A unit behind the web server, PHP, or files; None when it cannot be adopted",
+            "title": "Kind"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The local port it proxies to",
+            "title": "Port"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it cannot be adopted, or what to know about it",
+            "title": "Reason"
+          },
+          "root": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The directory it serves, when it names one",
+            "title": "Root"
+          },
+          "site": {
+            "description": "The file in the web server's sites directory",
+            "title": "Site",
+            "type": "string"
+          },
+          "ssl": {
+            "title": "Ssl",
+            "type": "boolean"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The unit that listens on that port, proposed",
+            "title": "Unit"
+          },
+          "unit_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Active"
+          },
+          "upstream": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What it hands requests to",
+            "title": "Upstream"
+          },
+          "webserver": {
+            "enum": [
+              "nginx",
+              "apache"
+            ],
+            "title": "Webserver",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site",
+          "webserver",
+          "config_path",
+          "enabled",
+          "domains",
+          "kind",
+          "root",
+          "upstream",
+          "port",
+          "unit",
+          "unit_active",
+          "ssl",
+          "adoptable",
+          "reason"
+        ],
+        "title": "NativeSiteModel",
+        "type": "object"
+      },
+      "NativeSitesResponse": {
+        "description": "The sites that could be adopted.",
+        "properties": {
+          "sites": {
+            "items": {
+              "$ref": "#/components/schemas/NativeSiteModel"
+            },
+            "title": "Sites",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sites"
+        ],
+        "title": "NativeSitesResponse",
         "type": "object"
       },
       "NetworkResponse": {
@@ -49879,6 +50330,50 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/apps/adopt-site": {
+      "post": {
+        "description": "Adopt a site that already runs, or preview the adoption.\n\nArgs:\n    body: The site.\n    session: The authenticated, elevated session.\n\nReturns:\n    What was found and done.\n\nRaises:\n    DeploymentError: The domain is an application, no site serves it, the site serves\n        nothing Noust can adopt, the unit cannot be one, or the directory is not the site's.",
+        "operationId": "adopt_site_api_apps_adopt_site_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdoptSiteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdoptSiteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Adopt Site",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/apps/import": {
       "post": {
         "description": "Queue the creation of an application from an export document.\n\nChecked before anything is queued: the document, the domain (409 when\ntaken), the source (a local path is the operator's alone, as for ``POST\n/api/apps``) and the secret values the export left out (400 naming every\none missing). Sudo mode: it deploys as root, and the document may create\ncron jobs and previews, which is what the console's confirmation is for.\nThe job's ``metadata.plan`` carries the whole plan (every cron job with\nits user, directory and command; what previews copy; the reasons it\nneeded confirming), and its log opens with it.\n\nArgs:\n    body: The document, and what to change about it.\n    request: The incoming request, for the audit record of a refusal.\n    session: The authenticated session.\n\nReturns:\n    The queued job; its result lists what was applied and what was not.\n\nRaises:\n    ValidationError: The document is not valid, or a value is missing.\n    DomainConflictError: The domain is taken.\n    HTTPException: 403 for a local source the credential may not deploy,\n        503 when no port is free.",
@@ -49960,6 +50455,29 @@
           }
         },
         "summary": "Inspect App Source",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
+      }
+    },
+    "/api/apps/native-sites": {
+      "get": {
+        "description": "List the sites that no application records, and what each one is.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    One entry per site the operator wrote, adoptable or with the reason it is not.",
+        "operationId": "list_native_sites_api_apps_native_sites_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NativeSitesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Native Sites",
         "tags": [
           "Applications"
         ],
@@ -50108,6 +50626,50 @@
           }
         },
         "summary": "Get App",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/apps/{domain}/adoption": {
+      "get": {
+        "description": "Say what an adopted application is.\n\nArgs:\n    domain: The application's domain.\n    session: The authenticated session.\n\nReturns:\n    Its unit, site and directory.\n\nRaises:\n    HTTPException: 404 when the application does not exist, is outside the caller's teams, or\n        was not adopted.",
+        "operationId": "get_adoption_api_apps__domain__adoption_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdoptionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Adoption",
         "tags": [
           "Applications"
         ],

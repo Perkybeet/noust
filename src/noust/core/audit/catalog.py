@@ -274,6 +274,7 @@ EVENTS: dict[str, EventSpec] = {
             "runtimes.install": "A language runtime was installed for applications to be pinned to.",
             "runtimes.remove": "An installed language runtime was removed.",
             "apps.adopt": "A Docker Compose stack that already ran was registered as it is.",
+            "apps.adopt_site": "A site that already ran on nginx or Apache was registered as it is.",
             "apps.reclaim": "A Compose stack running outside its unit was handed back to it.",
             "apps.move": "An application, with its sites and databases, moved to another project.",
             "hooks.deploy": "A deploy webhook delivery was handled.",

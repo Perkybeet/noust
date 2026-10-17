@@ -148,6 +148,8 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/registries/**", INSTANCE),
     # Adopting a stack that already runs reaches containers nobody here owns.
     _rule("/api/apps/adopt", INSTANCE),
+    _rule("/api/apps/adopt-site", INSTANCE),
+    _rule("/api/apps/native-sites", INSTANCE),
     # A database linked to an application changes owner with it, so it must be visible too.
     # An account for a private registry is a credential of the server: choosing which
     # applications use it is the server's, not a team's.

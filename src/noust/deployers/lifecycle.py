@@ -87,6 +87,7 @@ from noust.core.store import (
     ReleaseRecord,
     ReleaseStatus,
     get_store,
+    is_adopted,
     is_compose_backed,
 )
 from noust.core.tags import compare_tags, newest_tag, tag_matches, why_not_deploy
@@ -188,6 +189,24 @@ class AppUpdate:
     warnings: str | None = None
 
 
+def _refuse_adopted(domain: str, what: str) -> None:
+    """
+    Refuse to change what runs of a site Noust adopted rather than built.
+
+    Args:
+        domain: The application's domain.
+        what: The operation, as a verb.
+
+    Raises:
+        ValidationError: The application is an adopted site; nothing was touched.
+    """
+    app = get_store().get_app(domain)
+    if app is not None and is_adopted(app.app_type):
+        from noust.deployers.native_adopt import refuse_to_build
+
+        raise refuse_to_build(domain, what)
+
+
 def update_app(
     domain: str,
     *,
@@ -274,6 +293,7 @@ def update_app(
     """
     require_server_role("Applications")
     domain = validate_domain(domain)
+    _refuse_adopted(domain, "update")
     if commit is not None:
         commit = validate_commit_id(commit)
         if source or branch:
@@ -4103,6 +4123,8 @@ def _delete_app(
     """
     store = get_store()
     app = store.get_app(domain)
+    if app is not None and is_adopted(app.app_type):
+        return _release_adopted(domain, remove_adopted_directory, phase, log)
     # The store holds the real path, which is what finds a legacy app
     # deployed under a wasm- prefix.
     app_path = (
@@ -4286,6 +4308,75 @@ def _delete_app(
         warnings=tuple(warnings),
         kept_directory=str(app_path) if keep_adopted and app_path.exists() else None,
         kept=tuple(kept),
+    )
+
+
+def _release_adopted(
+    domain: str,
+    remove_adopted_directory: str | None,
+    phase: PhaseReporter,
+    log: Logger,
+) -> AppDeletion:
+    """
+    Stop managing a site Noust adopted, and remove nothing of it.
+
+    The unit, the site, the certificate and the files were the operator's before Noust met the
+    site, so deleting the application is forgetting it: its record, the backup schedules Noust
+    made for it, and the names and policy it holds elsewhere.
+
+    Args:
+        domain: The adopted application.
+        remove_adopted_directory: What the operator named for removal; refused.
+        phase: Reporter for the :data:`DELETE_PHASES` phases.
+        log: Where the details are reported.
+
+    Returns:
+        What was done: nothing removed, and what was kept.
+
+    Raises:
+        ValidationError: The operator asked for the directory to be removed.
+    """
+    from noust.deployers.native_adopt import release
+
+    if remove_adopted_directory is not None:
+        raise ValidationError(
+            f"{domain} is an adopted site: Noust never removes its files",
+            details="Deleting it only forgets it. Remove the directory yourself if it should go.",
+        )
+    store = get_store()
+    app = store.get_app(domain)
+    warnings: list[str] = []
+
+    def failed(what: str, error: BaseException) -> None:
+        warnings.append(f"{what}: {error}")
+        log.warning(f"{what}: {error}")
+
+    phase(1, DELETE_PHASES, "Leaving its unit as it is")
+    phase(2, DELETE_PHASES, "Leaving its processes as they are")
+    phase(3, DELETE_PHASES, "Leaving its site and certificate in place")
+    kept = release(domain, store=store)
+    for sentence in kept:
+        log.info(sentence)
+    phase(4, DELETE_PHASES, "Keeping its files")
+    if app is not None:
+        # What Noust made for it since: the names, routes, ports and policy held elsewhere.
+        warnings.extend(forget_network(domain, log))
+    phase(5, DELETE_PHASES, "Removing its records")
+    if app is not None and not is_rehearsal():
+        _forget_backup_policies(store, domain, failed)
+        store.delete_site(domain)
+        store.delete_app(domain)
+        store.delete_preview(domain)
+    return AppDeletion(
+        domain=domain,
+        units=(),
+        containers_stopped=False,
+        volumes_removed=False,
+        certificate_removed=False,
+        files_removed=False,
+        warnings=tuple(warnings),
+        kept_directory=app.app_path if app is not None and app.app_path else None,
+        kept=kept,
     )
 
 

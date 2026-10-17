@@ -423,6 +423,31 @@ Print what was adopted as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust app adopt\-site
+Register a site that already runs on nginx or Apache, without rebuilding it.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-site
+The site file serving the domain (found otherwise).
+.TP
+.B \-\-unit
+The unit the site is in front of (the one that listens on its port otherwise).
+.TP
+.B \-\-path
+The directory of its files (the unit's WorkingDirectory or the site's root otherwise).
+.TP
+.B \-\-yes, \-y
+Adopt without asking.
+.TP
+.B \-\-json
+Print what was adopted as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust app apply
 Set an application from a declaration file, as 'noust app export \-\-as\-yaml' writes one.
 .TP
@@ -1072,6 +1097,15 @@ Only this many bytes, from the end.
 .TP
 .B \-\-json
 Print the log and whether it was cut as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app discover
+List the sites on this server that Noust did not deploy, and what each one is.
+.TP
+.B \-\-json
+Print the sites as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.

@@ -32,7 +32,7 @@ from typing import Any
 import click
 
 from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
-from noust.cli.commands.app_adopt import adopt_command
+from noust.cli.commands.app_adopt import adopt_command, adopt_site_command, discover_command
 from noust.cli.commands.app_apply import apply_command
 from noust.cli.commands.app_backup import backup_before_update_command, backup_required_command
 from noust.cli.commands.app_build import build as build_group
@@ -150,6 +150,8 @@ cli.add_command(backup_before_update_command)
 cli.add_command(backup_required_command)
 cli.add_command(headless_command)
 cli.add_command(adopt_command)
+cli.add_command(adopt_site_command)
+cli.add_command(discover_command)
 cli.add_command(exec_command)
 cli.add_command(reclaim_command)
 for _command in RUNTIME_COMMANDS:

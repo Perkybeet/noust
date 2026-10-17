@@ -558,6 +558,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/adopt-site": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adopt Site
+         * @description Adopt a site that already runs, or preview the adoption.
+         *
+         *     Args:
+         *         body: The site.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was found and done.
+         *
+         *     Raises:
+         *         DeploymentError: The domain is an application, no site serves it, the site serves
+         *             nothing Noust can adopt, the unit cannot be one, or the directory is not the site's.
+         */
+        post: operations["adopt_site_api_apps_adopt_site_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/import": {
         parameters: {
             query?: never;
@@ -660,6 +691,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/native-sites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Native Sites
+         * @description List the sites that no application records, and what each one is.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         One entry per site the operator wrote, adoptable or with the reason it is not.
+         */
+        get: operations["list_native_sites_api_apps_native_sites_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/types": {
         parameters: {
             query?: never;
@@ -741,6 +798,37 @@ export interface paths {
          *         ValidationError: The directory named is not the application's (400).
          */
         delete: operations["delete_app_api_apps__domain__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/adoption": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Adoption
+         * @description Say what an adopted application is.
+         *
+         *     Args:
+         *         domain: The application's domain.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its unit, site and directory.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application does not exist, is outside the caller's teams, or
+         *             was not adopted.
+         */
+        get: operations["get_adoption_api_apps__domain__adoption_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -22727,6 +22815,123 @@ export interface components {
             service?: string | null;
         };
         /**
+         * AdoptSiteRequest
+         * @description The site to adopt, and what is not found by looking.
+         */
+        AdoptSiteRequest: {
+            /**
+             * Domain
+             * @description The domain the site answers on
+             */
+            domain: string;
+            /**
+             * Path
+             * @description The directory of its files; the unit's WorkingDirectory or the site's root
+             */
+            path?: string | null;
+            /**
+             * Preview
+             * @description Answer what would be done; change nothing
+             * @default false
+             */
+            preview: boolean;
+            /**
+             * Site
+             * @description The site file serving the domain; found when omitted
+             */
+            site?: string | null;
+            /**
+             * Unit
+             * @description The unit the site is in front of; the one that listens on its port when omitted
+             */
+            unit?: string | null;
+        };
+        /**
+         * AdoptSiteResponse
+         * @description What an adoption found, and whether it was recorded.
+         */
+        AdoptSiteResponse: {
+            /**
+             * Adopted
+             * @description False for a preview or a rehearsal
+             */
+            adopted: boolean;
+            /** App Name */
+            app_name: string;
+            /** Domain */
+            domain: string;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "proxy" | "php" | "static";
+            /** Port */
+            port: number | null;
+            /** Root */
+            root: string;
+            /** Site */
+            site: string;
+            /**
+             * Site Name
+             * @description That file's name, recorded because it is not the domain
+             */
+            site_name: string | null;
+            /** Ssl */
+            ssl: boolean;
+            /**
+             * Unit
+             * @description The operator's unit; none for PHP and static sites
+             */
+            unit: string | null;
+            /** Unit Active */
+            unit_active: boolean | null;
+            /** Upstream */
+            upstream: string | null;
+            /** Warnings */
+            warnings: string[];
+            /**
+             * Webserver
+             * @enum {string}
+             */
+            webserver: "nginx" | "apache";
+        };
+        /**
+         * AdoptionResponse
+         * @description What an adopted application is: the operator's unit, site and directory.
+         */
+        AdoptionResponse: {
+            /** Adopted At */
+            adopted_at: string | null;
+            /** Adopted By */
+            adopted_by: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "proxy" | "php" | "static";
+            /** Root */
+            root: string | null;
+            /**
+             * Site File
+             * @description The operator's site file, never rewritten
+             */
+            site_file: string;
+            /**
+             * Unit
+             * @description The unit Noust starts, stops and restarts, never rewrites
+             */
+            unit: string | null;
+            /** Upstream */
+            upstream: string | null;
+            /**
+             * Webserver
+             * @enum {string}
+             */
+            webserver: "nginx" | "apache";
+        };
+        /**
          * AnalysisOut
          * @description The last scan of the known places.
          */
@@ -34846,6 +35051,75 @@ export interface components {
             apps?: string[];
             /** Database */
             database: string;
+        };
+        /**
+         * NativeSiteModel
+         * @description A site on the server that no application records.
+         */
+        NativeSiteModel: {
+            /** Adoptable */
+            adoptable: boolean;
+            /** Config Path */
+            config_path: string;
+            /**
+             * Domains
+             * @description The names it answers on
+             */
+            domains: string[];
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Kind
+             * @description A unit behind the web server, PHP, or files; None when it cannot be adopted
+             */
+            kind: ("proxy" | "php" | "static") | null;
+            /**
+             * Port
+             * @description The local port it proxies to
+             */
+            port: number | null;
+            /**
+             * Reason
+             * @description Why it cannot be adopted, or what to know about it
+             */
+            reason: string | null;
+            /**
+             * Root
+             * @description The directory it serves, when it names one
+             */
+            root: string | null;
+            /**
+             * Site
+             * @description The file in the web server's sites directory
+             */
+            site: string;
+            /** Ssl */
+            ssl: boolean;
+            /**
+             * Unit
+             * @description The unit that listens on that port, proposed
+             */
+            unit: string | null;
+            /** Unit Active */
+            unit_active: boolean | null;
+            /**
+             * Upstream
+             * @description What it hands requests to
+             */
+            upstream: string | null;
+            /**
+             * Webserver
+             * @enum {string}
+             */
+            webserver: "nginx" | "apache";
+        };
+        /**
+         * NativeSitesResponse
+         * @description The sites that could be adopted.
+         */
+        NativeSitesResponse: {
+            /** Sites */
+            sites: components["schemas"]["NativeSiteModel"][];
         };
         /**
          * NetworkResponse
@@ -48508,6 +48782,39 @@ export interface operations {
             };
         };
     };
+    adopt_site_api_apps_adopt_site_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdoptSiteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdoptSiteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     import_app_api_apps_import_post: {
         parameters: {
             query?: never;
@@ -48570,6 +48877,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_native_sites_api_apps_native_sites_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NativeSitesResponse"];
                 };
             };
         };
@@ -48648,6 +48975,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_adoption_api_apps__domain__adoption_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdoptionResponse"];
                 };
             };
             /** @description Validation Error */

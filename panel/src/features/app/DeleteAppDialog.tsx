@@ -10,6 +10,7 @@ import { Mono } from "../../components/ui/Mono";
 import { toast } from "../../components/ui/toast";
 import { translate, useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
+import { isAdopted } from "./adopted";
 import { useDeleteApp } from "./useDeleteApp";
 
 /**
@@ -25,7 +26,7 @@ export function deletionSummary(removeFiles: boolean, removeSsl: boolean, locale
 }
 
 export interface DeleteAppDialogProps {
-  app: Pick<App, "domain" | "path">;
+  app: Pick<App, "domain" | "path" | "app_type">;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -53,6 +54,27 @@ export function DeleteAppDialog({ app, open, onOpenChange }: DeleteAppDialogProp
       setRemoveFiles(false);
       setRemoveSsl(false);
     }
+  }
+
+  if (isAdopted(app)) {
+    // Forgetting a site Noust adopted removes nothing it is made of: no choices, only the record.
+    return (
+      <ConfirmDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        friction="type"
+        server={node}
+        title={t("runtime.adopted.stopManagingTitle", { domain })}
+        description={t("runtime.adopted.stopManagingSummary", { domain })}
+        confirmText={domain}
+        actionLabel={t("runtime.adopted.stopManagingAction")}
+        onConfirm={async () => {
+          await remove.mutateAsync({ removeFiles: false, removeSsl: false });
+          toast.info(t("appPages.actions.deletionQueued", { domain }), { description: t("appPages.actions.deletionQueuedDescription") });
+          void navigate({ to: "/apps" });
+        }}
+      />
+    );
   }
 
   return (

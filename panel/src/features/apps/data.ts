@@ -12,6 +12,7 @@ import type { DeploymentList } from "../../api/queries/deployments";
 import { deploymentsQuery } from "../../api/queries/deployments";
 import { metricKeys } from "../../api/queries/metrics";
 import type { MetricsSnapshot } from "../../api/queries/metrics";
+import { useT } from "../../i18n";
 
 export type AppInfo = AppList["apps"][number];
 export type Deployment = DeploymentList["items"][number];
@@ -31,9 +32,11 @@ export function typeName(types: readonly AppTypeInfo[], type: string): string {
  * Null for an app whose type was never recorded.
  */
 export function useTypeName(): (type: string | null | undefined) => string | null {
+  const t = useT();
   const types = useQuery({ ...appTypesQuery(), retry: false });
   const list = types.data?.types ?? [];
-  return (type) => (type === null || type === undefined || type === "" ? null : typeName(list, type));
+  // An adopted site has no deployer, so the registry that names the other types does not list it.
+  return (type) => (type === null || type === undefined || type === "" ? null : type === "adopted" ? t("runtime.adopted.typeName") : typeName(list, type));
 }
 
 /**

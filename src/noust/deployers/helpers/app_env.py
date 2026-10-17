@@ -22,7 +22,7 @@ from noust.core.config import Config
 from noust.core.exceptions import DeploymentError
 from noust.core.fs import SECRET_MODE, FileSystem, get_fs
 from noust.core.logger import Logger
-from noust.core.store import App, get_store
+from noust.core.store import App, get_store, is_adopted
 from noust.core.utils import domain_to_app_name
 from noust.core.variables.resolver import Resolver
 from noust.core.variables.store import VariableStore
@@ -110,6 +110,30 @@ def _reject_managed_vars(values: Mapping[str, str], current: Mapping[str, str]) 
     )
 
 
+def refuse_adopted_environment(app: App) -> None:
+    """
+    Refuse to write the environment of a site Noust adopted rather than built.
+
+    The environment of an adopted site is whatever its operator's unit loads, and a ``.env`` that
+    Noust created beside it would be read by nothing or, in a web root, by anybody who asks the
+    web server for it.
+
+    Args:
+        app: The application.
+
+    Raises:
+        EnvironmentValidationError: The application is an adopted site; nothing was written.
+    """
+    if is_adopted(app.app_type):
+        raise EnvironmentValidationError(
+            f"{app.domain} is an adopted site: Noust does not manage its environment",
+            details=(
+                "Its variables are whatever its own unit loads (Environment= or EnvironmentFile= "
+                "in the unit file). Edit them there and restart the application."
+            ),
+        )
+
+
 def find_app(domain: str) -> App | None:
     """
     Find a deployed application by domain, with or without a store row.
@@ -144,6 +168,8 @@ def read_runtime_env(app: App, *, manager: EnvManager | None = None) -> dict[str
         Variable name to value; empty when the application has no ``.env``.
         A build-only variable is not in the file and is not here.
     """
+    if is_adopted(app.app_type):
+        return {}
     return (manager or EnvManager()).read_env_file(env_file_for(app))
 
 
@@ -208,6 +234,7 @@ def check_app_env(
     Raises:
         EnvironmentValidationError: If :func:`write_app_env` would raise it.
     """
+    refuse_adopted_environment(app)
     reader = manager or EnvManager()
     current = reader.read_env_file(env_file_for(app))
     clean = validate_environment(values, multiline=True)
@@ -359,6 +386,7 @@ def commit_environment(
         SecurityError: If the destination is a symlink.
         OSError: If the file cannot be written.
     """
+    refuse_adopted_environment(app)
     log = logger or Logger()
     env_file = env_file_for(app)
     writer = manager or EnvManager(fs=fs)

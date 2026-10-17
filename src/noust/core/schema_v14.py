@@ -1040,6 +1040,13 @@ FLEET_COLUMNS: list[tuple[str, str, str]] = []
 #   open. ``options`` is one JSON document validated by noust.managers.unit_tuning. No row means
 #   the unit is as it always was.
 #
+# app_adoption: what a site Noust adopted is (noust.core.native_adoption_store is its only reader
+#   and writer): ``proxy`` (a web server in front of a unit the operator wrote), ``php`` or
+#   ``static`` (the web server alone). ``unit`` is the operator's unit, the one thing Noust may
+#   start, stop, restart and read the logs of; ``site_file`` is the operator's site, ``root`` the
+#   directory, ``upstream`` what the site hands requests to. An application of the ``adopted``
+#   type always has its row: an adoption that cannot write it removes the application it made.
+#
 # app_replicas: the extra copies of an application's web process (noust.core.app_replica_store
 #   is its only reader and writer): the ports reserved for them, in order, and how many run.
 #   No row means one copy, the application's own unit. nginx balances over the unit and the
@@ -1133,6 +1140,18 @@ CREATE TABLE IF NOT EXISTS app_unit_tuning (
     options TEXT NOT NULL DEFAULT '{}',
     changed_by TEXT,
     changed_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_adoption (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('proxy', 'php', 'static')),
+    unit TEXT,
+    webserver TEXT NOT NULL,
+    site_file TEXT NOT NULL,
+    root TEXT,
+    upstream TEXT,
+    adopted_by TEXT,
+    adopted_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS app_replicas (

@@ -451,7 +451,8 @@ A stack that somebody brought up by hand (Proggest, in `/opt/proggest`, started 
 `deploy.sh`, served by its own nginx file) cannot be deployed with `noust create`: that would
 clone into a directory that holds its data, derive a project name the running containers do not
 have (and with it new, empty volumes) and write a second site next to yours. `noust app adopt`
-registers it as it is.
+registers it as it is. A site that is not a stack (a unit you wrote, PHP, files) is adopted with
+`noust app adopt-site`: see [Adopting sites that already run](adopting.md).
 
 ```bash
 noust --dry-run app adopt proggest.es --path /opt/proggest   # what it would record; changes nothing

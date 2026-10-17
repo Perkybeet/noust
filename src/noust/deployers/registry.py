@@ -16,6 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, ClassVar
 
+from noust.core.store import is_adopted
 from noust.deployers.interface import AppDeployer
 
 
@@ -134,6 +135,13 @@ def get_deployer(app_type: str, verbose: bool = False) -> AppDeployer:
         ValueError: If app type is not supported.
     """
     _import_deployers()
+
+    if is_adopted(app_type):
+        # The one place a deployer is asked for: every build, domain, preview and promotion goes
+        # through it, so a site Noust adopted cannot be rebuilt by any of them.
+        from noust.deployers.native_adopt import refuse_to_build
+
+        raise refuse_to_build()
 
     deployer_class = DeployerRegistry.get(app_type)
     if not deployer_class:

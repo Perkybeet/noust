@@ -63,6 +63,11 @@ API version 1.
   in the `.env`; `PUT` and `PATCH` take them over the existing ones, an empty text takes one away),
   and a variable's value may have several lines when it holds no single quote and no control
   character but the line feed ([variables.md](variables.md#values-of-several-lines-literals-and-comments)).
+- `GET /api/apps/native-sites`, `POST /api/apps/adopt-site` and `GET /api/apps/{domain}/adoption`:
+  list the sites on the server that Noust did not deploy, register one as it is (sudo mode), and say what
+  an adopted application is ([adopting.md](adopting.md)). An adopted application has the type `adopted`;
+  an update, a rollback, a rebuild, an environment change or a deployer-backed operation on it answers
+  400 with the reason, and deleting it removes nothing it is made of.
 - `GET /api/cron/{name}/ledger`: which moments a scheduled task was due and whether each ran on
   time, late or not at all ([runtime.md](runtime.md#scheduled-tasks-what-ran-and-what-did-not)).
   The timeline's `jobs` source carries the ones that did not as `cron_missed` events.

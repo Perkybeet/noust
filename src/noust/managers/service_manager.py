@@ -93,6 +93,7 @@ from noust.core.store import (
     NoustStore,
     Service,
     get_store,
+    is_adopted,
     runs_as_instances,
 )
 from noust.core.utils import domain_to_app_name
@@ -697,6 +698,13 @@ class ServiceManager(BaseManager):
 
     #: Units Noust runs for itself, not for an application, under their
     #: names and the ones WASM gave them.
+    #: What an operator may ask of a unit they adopted (checklist B-85): the verbs that leave its
+    #: file alone. Everything that writes, enables, disables, limits or deletes a unit still
+    #: needs the marker, so an adopted unit stays exactly as its author wrote it.
+    ADOPTED_OPERATIONS: ClassVar[frozenset[str]] = frozenset(
+        {"inspect", "start", "stop", "restart", "read the logs of"}
+    )
+
     OWN_UNITS: ClassVar[frozenset[str]] = paths.OWN_UNITS
     #: Prefixes of the units Noust (and WASM) writes for scheduled work.
     OWN_UNIT_PREFIXES: ClassVar[tuple[str, ...]] = paths.OWN_UNIT_PREFIXES
@@ -768,8 +776,90 @@ class ServiceManager(BaseManager):
             instance = self._serving_instance(given)
             if instance is not None:
                 return instance
+            adopted = self._adopted_unit_of(given)
+            if adopted is not None:
+                return adopted
 
         return given
+
+    def _adopted_units(self) -> dict[str, str]:
+        """
+        Name the units adopted sites run as.
+
+        Returns:
+            The unit (without ``.service``) to the name its application is addressed by. Empty
+            when the store cannot be read, which only makes the adopted allowance stricter.
+        """
+        from noust.core.native_adoption_store import adopted_units
+
+        if not isinstance(self.store, NoustStore):
+            # A store of another shape (a test's spy) records no adoption.
+            return {}
+        try:
+            return adopted_units(self.store)
+        except (NoustError, sqlite3.Error) as exc:
+            self.logger.debug(f"Could not read the adopted sites from store: {exc}")
+            return {}
+
+    def _adopted_unit_of(self, app_name: str) -> str | None:
+        """
+        Find the unit an adopted site runs as from the name its application is addressed by.
+
+        An adopted site's unit is the operator's, with any name they gave it; everything that
+        asks for "the unit of this application" asks by the name Noust derives from the domain.
+        Resolving it here, with the other aliases, is what lets those callers reach the unit
+        without each one learning about adoption.
+
+        Args:
+            app_name: The name derived from a domain.
+
+        Returns:
+            The adopted unit, or None when no adopted site is addressed by this name.
+        """
+        return next(
+            (unit for unit, name in sorted(self._adopted_units().items()) if name == app_name),
+            None,
+        )
+
+    def adoption_problem(self, name: str) -> str | None:
+        """
+        Say why a unit cannot be adopted as an application's.
+
+        The ownership rules decide, here and nowhere else: an adopted unit is one the operator
+        wrote by hand in the directory units are written to, that Noust has no claim on and the
+        system does not ship. Adopting lets Noust start, stop and restart it, so a unit that is
+        the web server's, the SSH server's, Docker's or Noust's own is never one.
+
+        Args:
+            name: Unit name, with or without the ``.service`` suffix.
+
+        Returns:
+            The reason, or None when it can be adopted.
+
+        Raises:
+            ValidationError: When the name is not a safe unit name.
+        """
+        info = self.inspect_unit(name, serving=False)
+        if "@" in info.unit:
+            return "it is a template or one of its instances, not one process"
+        if self._is_own_unit_name(info.unit):
+            return "it is one of Noust's own units"
+        if not info.exists:
+            return f"there is no unit called {info.unit}"
+        if info.managed:
+            return (
+                "Noust already manages it: it carries Noust's marker or an application records it"
+            )
+        if self._shadowing_file(info.unit) is not None:
+            return "the system ships a unit of that name, so it is not an application's"
+        if info.fragment_path is not None and not self._is_managed_dir(info.fragment_path.parent):
+            return (
+                f"systemd loads it from {info.fragment_path}, not from {self.SYSTEMD_DIR} "
+                "where an operator writes their own"
+            )
+        if info.path.is_symlink() or not info.path.is_file():
+            return f"{info.path} is not a regular file (a link or a mask)"
+        return None
 
     @staticmethod
     def instance_template(unit: str) -> str | None:
@@ -989,6 +1079,12 @@ class ServiceManager(BaseManager):
             Unit names without the ``.service`` suffix, primary first. Empty
             for a static application, which has no process.
         """
+        if app.app_type == "adopted":
+            # The operator's unit, whatever it is called; a site the web server alone serves has
+            # none. Never derived from the domain: that name is Noust's.
+            record = self._adoption_of(app.domain)
+            return [record] if record else []
+
         # A site of the static type has no process, even when a unit was left
         # behind from a type it had before.
         if app.is_static or app.app_type == "static":
@@ -1082,6 +1178,27 @@ class ServiceManager(BaseManager):
             return legacy
         return name
 
+    def _adoption_of(self, domain: str) -> str | None:
+        """
+        Read the unit an adopted application runs as.
+
+        Args:
+            domain: The application's domain.
+
+        Returns:
+            The unit, or None when the site has none or the store cannot be read.
+        """
+        from noust.core.native_adoption_store import get_record
+
+        if not isinstance(self.store, NoustStore):
+            return None
+        try:
+            record = get_record(domain, store=self.store)
+        except (NoustError, sqlite3.Error) as exc:
+            self.logger.debug(f"Could not read the adoption of {domain} from store: {exc}")
+            return None
+        return record.unit if record is not None else None
+
     def serving_units(self, app: App) -> list[str]:
         """
         Name the unit(s) that serve an application now.
@@ -1120,6 +1237,10 @@ class ServiceManager(BaseManager):
         """
         owners: dict[str, str] = {}
         for app in apps:
+            if is_adopted(app.app_type):
+                # An adopted site's unit is the operator's: an application recording it is not
+                # a sign that Noust wrote it, and the ownership rule is built on these signs.
+                continue
             for unit in self.app_units(
                 app, services=services, marked=marked, listed=listed, apps=apps
             ):
@@ -1379,6 +1500,19 @@ class ServiceManager(BaseManager):
 
         if info.managed:
             return info
+
+        if operation in self.ADOPTED_OPERATIONS and info.unit in self._adopted_units():
+            return info
+
+        if info.unit in self._adopted_units():
+            raise ServiceError(
+                f"Refusing to {operation} a unit that belongs to an adopted site: {info.unit}",
+                details=(
+                    "Noust starts, stops, restarts and reads the logs of an adopted site's unit "
+                    "and never rewrites it. Change the unit file yourself, then restart the "
+                    "application."
+                ),
+            )
 
         raise ServiceError(
             f"Refusing to {operation} a unit Noust does not manage: {info.unit}",

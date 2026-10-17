@@ -16,6 +16,7 @@ import { SM_UP, useMediaQuery } from "../../components/ui/useMediaQuery";
 import { useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
 import { hasUnit } from "../apps/AppRowActions";
+import { isAdopted } from "./adopted";
 import { useCloneApp, usePromoteApp } from "../promotion/useAppTransfers";
 import { NothingNewDialog } from "../apps/NothingNewDialog";
 import { reportActionError, useAppActions } from "../apps/useAppActions";
@@ -90,6 +91,9 @@ export function useAppHeaderActions(
   // Nothing to act on until the app is read: the header keeps its place meanwhile.
   if (app === undefined) return {};
   const unit = hasUnit(app);
+  // An adopted site is the operator's: Noust restarts it and reads it, and offers no way to build,
+  // roll back or hand over what it did not make.
+  const adopted = isAdopted(app);
   const running = appStatus(app.status).state === "running";
   // A stack running outside its unit is neither started nor stopped through the unit: starting
   // it skips the rehearsal, and stopping an inactive unit leaves its containers running. The
@@ -109,7 +113,7 @@ export function useAppHeaderActions(
           <Verb wide={wide} label={t("appPages.actions.start")} icon={<Play aria-hidden="true" />} loading={start.isPending} onClick={() => start.mutate()} />
         )
       ) : null}
-      <Verb wide={wide} label={t("appPages.actions.rollBack")} icon={<History aria-hidden="true" />} onClick={() => setRollbackOpen(true)} />
+      {adopted ? null : <Verb wide={wide} label={t("appPages.actions.rollBack")} icon={<History aria-hidden="true" />} onClick={() => setRollbackOpen(true)} />}
     </>
   );
 
@@ -119,26 +123,28 @@ export function useAppHeaderActions(
       <MenuItem icon={<Stethoscope />} onClick={() => void navigate({ to: "/apps/$domain/diagnose", params: { domain } })}>
         {t("appPages.actions.diagnose")}
       </MenuItem>
-      <MenuItem icon={<Hammer />} onClick={() => rebuildFresh.mutate()}>
-        {t("appPages.actions.rebuildFresh")}
-      </MenuItem>
+      {adopted ? null : (
+        <MenuItem icon={<Hammer />} onClick={() => rebuildFresh.mutate()}>
+          {t("appPages.actions.rebuildFresh")}
+        </MenuItem>
+      )}
       {canOpenTerminal ? (
         <MenuItem icon={<SquareTerminal />} onClick={() => void navigate({ to: "/apps/$domain/terminal", params: { domain } })}>
           {t("appPages.actions.terminal")}
         </MenuItem>
       ) : null}
       {/* The files are what a shell as the application is: the same permission. */}
-      {canOpenTerminal && unit ? (
+      {canOpenTerminal && unit && !adopted ? (
         <MenuItem icon={<FolderOpen />} onClick={() => void navigate({ to: "/apps/$domain/files", params: { domain } })}>
           {t("runtime.files.title")}
         </MenuItem>
       ) : null}
-      {promote.available ? (
+      {promote.available && !adopted ? (
         <MenuItem icon={<ArrowRightLeft />} description={t("promotion.promote.menuDescription")} onClick={promote.open}>
           {t("promotion.promote.menu")}
         </MenuItem>
       ) : null}
-      {clone.available ? (
+      {clone.available && !adopted ? (
         <MenuItem icon={<Copy />} description={t("promotion.clone.menuDescription")} onClick={clone.open}>
           {t("promotion.clone.menu")}
         </MenuItem>
@@ -159,7 +165,7 @@ export function useAppHeaderActions(
           );
         }}
       >
-        {t("appPages.actions.deleteApplication")}
+        {adopted ? t("runtime.adopted.stopManaging") : t("appPages.actions.deleteApplication")}
       </MenuItem>
     </>
   );
@@ -201,11 +207,15 @@ export function useAppHeaderActions(
 
   return {
     secondaryActions,
-    primaryAction: (
-      <Button variant="primary" icon={<CircleArrowUp aria-hidden="true" />} loading={update.isPending || busy} onClick={() => update.mutate()}>
-        {t("appPages.actions.update")}
-      </Button>
-    ),
+    ...(adopted
+      ? {}
+      : {
+          primaryAction: (
+            <Button variant="primary" icon={<CircleArrowUp aria-hidden="true" />} loading={update.isPending || busy} onClick={() => update.mutate()}>
+              {t("appPages.actions.update")}
+            </Button>
+          ),
+        }),
     overflow,
     dialogs,
   };

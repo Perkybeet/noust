@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-795 operations.
+798 operations.
 
 ## Access
 
@@ -39,11 +39,14 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/apps` | List Apps | `apps.read` |  |  |
 | POST | `/api/apps` | Create App | `apps.manage` |  | yes |
 | POST | `/api/apps/adopt` | Adopt App | `apps.manage` | yes |  |
+| POST | `/api/apps/adopt-site` | Adopt Site | `apps.manage` | yes |  |
 | POST | `/api/apps/import` | Import App | `apps.manage` | yes |  |
 | POST | `/api/apps/inspect` | Inspect App Source | `apps.manage` |  |  |
+| GET | `/api/apps/native-sites` | List Native Sites | `apps.manage` |  |  |
 | GET | `/api/apps/types` | List App Types | `apps.read` |  |  |
 | GET | `/api/apps/{domain}` | Get App | `apps.read` |  |  |
 | DELETE | `/api/apps/{domain}` | Delete App | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/adoption` | Get Adoption | `apps.read` |  |  |
 | POST | `/api/apps/{domain}/apply` | Apply | `root_equivalent` | yes | yes |
 | PATCH | `/api/apps/{domain}/backup-before-update` | Patch Backup Before Update | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/backup-required` | Get Backup Required | `apps.read` |  |  |
