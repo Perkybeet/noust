@@ -4483,7 +4483,7 @@
             },
             {
               "type": "TextBlock",
-              "text": "Ver lo ejecutado: noust server cleanup-schedule runs",
+              "text": "Ver lo ejecutado: noust server cleanup-schedule history",
               "fontType": "Monospace",
               "wrap": true
             },
@@ -4554,7 +4554,7 @@
             },
             {
               "type": "TextBlock",
-              "text": "Ver lo ejecutado: noust server cleanup-schedule runs",
+              "text": "Ver lo ejecutado: noust server cleanup-schedule history",
               "fontType": "Monospace",
               "wrap": true
             },

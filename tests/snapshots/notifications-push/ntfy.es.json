@@ -1274,7 +1274,7 @@
   "cleanup.partial": {
     "topic": "noust-alerts",
     "title": "▲ La limpieza del disco ha fallado en parte · /",
-    "message": "La política de limpieza se ha ejecutado, pero algunas de sus acciones han fallado.\n\nServidor: web-1\nUsado: 91% -> 88%\nLiberado: 2.0 GB\nAcciones: journal, pkg-cache, releases\nVer lo ejecutado: noust server cleanup-schedule runs\n\nLo que ha dicho releases:\n  rm: cannot remove '/var/www/apps/shop/releases/x': Permission denied",
+    "message": "La política de limpieza se ha ejecutado, pero algunas de sus acciones han fallado.\n\nServidor: web-1\nUsado: 91% -> 88%\nLiberado: 2.0 GB\nAcciones: journal, pkg-cache, releases\nVer lo ejecutado: noust server cleanup-schedule history\n\nLo que ha dicho releases:\n  rm: cannot remove '/var/www/apps/shop/releases/x': Permission denied",
     "priority": 3,
     "tags": [
       "cleanup_failed",
@@ -1292,7 +1292,7 @@
   "cleanup.failed": {
     "topic": "noust-alerts",
     "title": "✕ Ha fallado la limpieza del disco · /",
-    "message": "La política de limpieza se ha ejecutado y todas sus acciones han fallado, así que el disco sigue como estaba.\n\nServidor: web-1\nUsado: 93% -> 93%\nAcciones: journal\nVer lo ejecutado: noust server cleanup-schedule runs\n\nLo que ha dicho journal:\n  Failed to vacuum: Read-only file system",
+    "message": "La política de limpieza se ha ejecutado y todas sus acciones han fallado, así que el disco sigue como estaba.\n\nServidor: web-1\nUsado: 93% -> 93%\nAcciones: journal\nVer lo ejecutado: noust server cleanup-schedule history\n\nLo que ha dicho journal:\n  Failed to vacuum: Read-only file system",
     "priority": 4,
     "tags": [
       "cleanup_failed",

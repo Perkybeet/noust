@@ -2253,7 +2253,7 @@
         "fallback": "▲ La limpieza del disco ha fallado en parte · /",
         "color": "#e3a73c",
         "title": "▲ La limpieza del disco ha fallado en parte · /",
-        "text": "La política de limpieza se ha ejecutado, pero algunas de sus acciones han fallado.\n\n**Ver lo ejecutado:** `noust server cleanup-schedule runs`\n\n*Lo que ha dicho releases*\n```\nrm: cannot remove '/var/www/apps/shop/releases/x': Permission denied\n```",
+        "text": "La política de limpieza se ha ejecutado, pero algunas de sus acciones han fallado.\n\n**Ver lo ejecutado:** `noust server cleanup-schedule history`\n\n*Lo que ha dicho releases*\n```\nrm: cannot remove '/var/www/apps/shop/releases/x': Permission denied\n```",
         "fields": [
           {
             "short": true,
@@ -2288,7 +2288,7 @@
         "fallback": "✕ Ha fallado la limpieza del disco · /",
         "color": "#cf3a30",
         "title": "✕ Ha fallado la limpieza del disco · /",
-        "text": "La política de limpieza se ha ejecutado y todas sus acciones han fallado, así que el disco sigue como estaba.\n\n**Ver lo ejecutado:** `noust server cleanup-schedule runs`\n\n*Lo que ha dicho journal*\n```\nFailed to vacuum: Read-only file system\n```",
+        "text": "La política de limpieza se ha ejecutado y todas sus acciones han fallado, así que el disco sigue como estaba.\n\n**Ver lo ejecutado:** `noust server cleanup-schedule history`\n\n*Lo que ha dicho journal*\n```\nFailed to vacuum: Read-only file system\n```",
         "fields": [
           {
             "short": true,

@@ -4556,7 +4556,7 @@
             "type": "section",
             "text": {
               "type": "mrkdwn",
-              "text": "*Ver lo ejecutado:* `noust server cleanup-schedule runs`"
+              "text": "*Ver lo ejecutado:* `noust server cleanup-schedule history`"
             }
           },
           {
@@ -4625,7 +4625,7 @@
             "type": "section",
             "text": {
               "type": "mrkdwn",
-              "text": "*Ver lo ejecutado:* `noust server cleanup-schedule runs`"
+              "text": "*Ver lo ejecutado:* `noust server cleanup-schedule history`"
             }
           },
           {

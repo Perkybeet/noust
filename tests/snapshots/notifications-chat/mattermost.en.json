@@ -2253,7 +2253,7 @@
         "fallback": "▲ Disk cleanup partly failed · /",
         "color": "#e3a73c",
         "title": "▲ Disk cleanup partly failed · /",
-        "text": "The cleanup policy ran, but some of its actions failed.\n\n**See what ran:** `noust server cleanup-schedule runs`\n\n*What releases reported*\n```\nrm: cannot remove '/var/www/apps/shop/releases/x': Permission denied\n```",
+        "text": "The cleanup policy ran, but some of its actions failed.\n\n**See what ran:** `noust server cleanup-schedule history`\n\n*What releases reported*\n```\nrm: cannot remove '/var/www/apps/shop/releases/x': Permission denied\n```",
         "fields": [
           {
             "short": true,
@@ -2288,7 +2288,7 @@
         "fallback": "✕ Disk cleanup failed · /",
         "color": "#cf3a30",
         "title": "✕ Disk cleanup failed · /",
-        "text": "The cleanup policy ran and every one of its actions failed, so the disk is as it was.\n\n**See what ran:** `noust server cleanup-schedule runs`\n\n*What journal reported*\n```\nFailed to vacuum: Read-only file system\n```",
+        "text": "The cleanup policy ran and every one of its actions failed, so the disk is as it was.\n\n**See what ran:** `noust server cleanup-schedule history`\n\n*What journal reported*\n```\nFailed to vacuum: Read-only file system\n```",
         "fields": [
           {
             "short": true,

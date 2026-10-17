@@ -3280,7 +3280,7 @@
     "locale": "en",
     "title": "Disk cleanup partly failed: /",
     "summary": "The cleanup policy ran, but some of its actions failed.",
-    "body": "The cleanup policy ran, but some of its actions failed.\n\nServer: web-1\nUsed: 91% -> 88%\nFreed: 2.0 GB\nActions: journal, pkg-cache, releases\nSee what ran: noust server cleanup-schedule runs\n\nWhat releases reported:\n  rm: cannot remove '/var/www/apps/shop/releases/x': Permission denied\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "body": "The cleanup policy ran, but some of its actions failed.\n\nServer: web-1\nUsed: 91% -> 88%\nFreed: 2.0 GB\nActions: journal, pkg-cache, releases\nSee what ran: noust server cleanup-schedule history\n\nWhat releases reported:\n  rm: cannot remove '/var/www/apps/shop/releases/x': Permission denied\n\nOpen in the console: https://console.example.com/n/web-1/server",
     "domain": null,
     "server": "web-1",
     "ts": "2026-09-29T10:45:51Z",
@@ -3308,7 +3308,7 @@
       {
         "key": "cleanup_runs",
         "label": "See what ran",
-        "value": "noust server cleanup-schedule runs"
+        "value": "noust server cleanup-schedule history"
       }
     ],
     "links": [
@@ -3335,7 +3335,7 @@
     "locale": "en",
     "title": "Disk cleanup failed: /",
     "summary": "The cleanup policy ran and every one of its actions failed, so the disk is as it was.",
-    "body": "The cleanup policy ran and every one of its actions failed, so the disk is as it was.\n\nServer: web-1\nUsed: 93% -> 93%\nActions: journal\nSee what ran: noust server cleanup-schedule runs\n\nWhat journal reported:\n  Failed to vacuum: Read-only file system\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "body": "The cleanup policy ran and every one of its actions failed, so the disk is as it was.\n\nServer: web-1\nUsed: 93% -> 93%\nActions: journal\nSee what ran: noust server cleanup-schedule history\n\nWhat journal reported:\n  Failed to vacuum: Read-only file system\n\nOpen in the console: https://console.example.com/n/web-1/server",
     "domain": null,
     "server": "web-1",
     "ts": "2026-09-29T10:45:51Z",
@@ -3358,7 +3358,7 @@
       {
         "key": "cleanup_runs",
         "label": "See what ran",
-        "value": "noust server cleanup-schedule runs"
+        "value": "noust server cleanup-schedule history"
       }
     ],
     "links": [
