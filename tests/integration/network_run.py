@@ -1389,6 +1389,9 @@ def scenario_site_history(env: Env) -> None:
     )
 
     # -- a hand edit nobody told Noust about: drift, then the edit survives in the history
+    # A file written within three seconds of the workers starting is the reload's own (the grace
+    # the history allows), and the last reload was Noust's own write just above.
+    time.sleep(5)
     env.srv(f'sed -i \'s|X-History "v2"|X-History "by-hand"|\' /etc/nginx/sites-available/{domain}')
     drifted = history(env, domain)
     env.check(drifted["edited_outside"], f"a hand edit was not noticed: {drifted}")
