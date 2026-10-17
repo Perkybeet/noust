@@ -72,6 +72,7 @@ import { Route as ConsoleSettingsLogShippingRouteImport } from "./routes/_consol
 import { Route as ConsoleSettingsManifestRouteImport } from "./routes/_console/settings/manifest"
 import { Route as ConsoleSettingsMcpRouteImport } from "./routes/_console/settings/mcp"
 import { Route as ConsoleSettingsNotificationsRouteImport } from "./routes/_console/settings/notifications"
+import { Route as ConsoleSettingsProbesRouteImport } from "./routes/_console/settings/probes"
 import { Route as ConsoleSettingsSecretManagersRouteImport } from "./routes/_console/settings/secret-managers"
 import { Route as ConsoleSettingsSecurityRouteImport } from "./routes/_console/settings/security"
 import { Route as ConsoleSettingsServersRouteImport } from "./routes/_console/settings/servers"
@@ -453,6 +454,11 @@ const ConsoleSettingsNotificationsRoute =
     path: "/notifications",
     getParentRoute: () => ConsoleSettingsRoute,
   } as any)
+const ConsoleSettingsProbesRoute = ConsoleSettingsProbesRouteImport.update({
+  id: "/probes",
+  path: "/probes",
+  getParentRoute: () => ConsoleSettingsRoute,
+} as any)
 const ConsoleSettingsSecretManagersRoute =
   ConsoleSettingsSecretManagersRouteImport.update({
     id: "/secret-managers",
@@ -848,6 +854,7 @@ export interface FileRoutesByFullPath {
   "/settings/manifest": typeof ConsoleSettingsManifestRoute
   "/settings/mcp": typeof ConsoleSettingsMcpRoute
   "/settings/notifications": typeof ConsoleSettingsNotificationsRoute
+  "/settings/probes": typeof ConsoleSettingsProbesRoute
   "/settings/secret-managers": typeof ConsoleSettingsSecretManagersRoute
   "/settings/security": typeof ConsoleSettingsSecurityRoute
   "/settings/servers": typeof ConsoleSettingsServersRoute
@@ -967,6 +974,7 @@ export interface FileRoutesByTo {
   "/settings/manifest": typeof ConsoleSettingsManifestRoute
   "/settings/mcp": typeof ConsoleSettingsMcpRoute
   "/settings/notifications": typeof ConsoleSettingsNotificationsRoute
+  "/settings/probes": typeof ConsoleSettingsProbesRoute
   "/settings/secret-managers": typeof ConsoleSettingsSecretManagersRoute
   "/settings/security": typeof ConsoleSettingsSecurityRoute
   "/settings/servers": typeof ConsoleSettingsServersRoute
@@ -1088,6 +1096,7 @@ export interface FileRoutesById {
   "/_console/settings/manifest": typeof ConsoleSettingsManifestRoute
   "/_console/settings/mcp": typeof ConsoleSettingsMcpRoute
   "/_console/settings/notifications": typeof ConsoleSettingsNotificationsRoute
+  "/_console/settings/probes": typeof ConsoleSettingsProbesRoute
   "/_console/settings/secret-managers": typeof ConsoleSettingsSecretManagersRoute
   "/_console/settings/security": typeof ConsoleSettingsSecurityRoute
   "/_console/settings/servers": typeof ConsoleSettingsServersRoute
@@ -1213,6 +1222,7 @@ export interface FileRouteTypes {
     | "/settings/manifest"
     | "/settings/mcp"
     | "/settings/notifications"
+    | "/settings/probes"
     | "/settings/secret-managers"
     | "/settings/security"
     | "/settings/servers"
@@ -1332,6 +1342,7 @@ export interface FileRouteTypes {
     | "/settings/manifest"
     | "/settings/mcp"
     | "/settings/notifications"
+    | "/settings/probes"
     | "/settings/secret-managers"
     | "/settings/security"
     | "/settings/servers"
@@ -1452,6 +1463,7 @@ export interface FileRouteTypes {
     | "/_console/settings/manifest"
     | "/_console/settings/mcp"
     | "/_console/settings/notifications"
+    | "/_console/settings/probes"
     | "/_console/settings/secret-managers"
     | "/_console/settings/security"
     | "/_console/settings/servers"
@@ -1974,6 +1986,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleSettingsNotificationsRouteImport
       parentRoute: typeof ConsoleSettingsRoute
     }
+    "/_console/settings/probes": {
+      id: "/_console/settings/probes"
+      path: "/probes"
+      fullPath: "/settings/probes"
+      preLoaderRoute: typeof ConsoleSettingsProbesRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
     "/_console/settings/secret-managers": {
       id: "/_console/settings/secret-managers"
       path: "/secret-managers"
@@ -2457,6 +2476,7 @@ interface ConsoleSettingsRouteChildren {
   ConsoleSettingsManifestRoute: typeof ConsoleSettingsManifestRoute
   ConsoleSettingsMcpRoute: typeof ConsoleSettingsMcpRoute
   ConsoleSettingsNotificationsRoute: typeof ConsoleSettingsNotificationsRoute
+  ConsoleSettingsProbesRoute: typeof ConsoleSettingsProbesRoute
   ConsoleSettingsSecretManagersRoute: typeof ConsoleSettingsSecretManagersRoute
   ConsoleSettingsSecurityRoute: typeof ConsoleSettingsSecurityRoute
   ConsoleSettingsServersRoute: typeof ConsoleSettingsServersRoute
@@ -2483,6 +2503,7 @@ const ConsoleSettingsRouteChildren: ConsoleSettingsRouteChildren = {
   ConsoleSettingsManifestRoute: ConsoleSettingsManifestRoute,
   ConsoleSettingsMcpRoute: ConsoleSettingsMcpRoute,
   ConsoleSettingsNotificationsRoute: ConsoleSettingsNotificationsRoute,
+  ConsoleSettingsProbesRoute: ConsoleSettingsProbesRoute,
   ConsoleSettingsSecretManagersRoute: ConsoleSettingsSecretManagersRoute,
   ConsoleSettingsSecurityRoute: ConsoleSettingsSecurityRoute,
   ConsoleSettingsServersRoute: ConsoleSettingsServersRoute,
