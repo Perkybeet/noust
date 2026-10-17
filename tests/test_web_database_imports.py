@@ -310,6 +310,77 @@ class TestImportingOverHttp:
         assert job["kwargs"]["safety_backup"] is False
         assert job["func"].__name__ == "import_job"
 
+    def test_the_superuser_is_refused_until_the_operator_confirms_it(
+        self,
+        client: TestClient,
+        engine: type[BaseDatabaseManager],
+        folders: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        created = _capture_queued_jobs(monkeypatch)
+        done = upload_whole(client, "x.sql", SQL)
+        elevate(client)
+
+        response = client.post(
+            f"{BASE}/imports",
+            json={
+                "engine": "postgresql",
+                "database": "fresh",
+                "upload_id": done["id"],
+                "as_superuser": True,
+            },
+        )
+
+        assert response.status_code == 400
+        body = response.json()
+        assert body["error"] == "confirmation_required"
+        assert "COPY ... FROM PROGRAM" in " ".join(body["warnings"])
+        assert not created
+
+    def test_confirmed_the_superuser_reaches_the_job(
+        self,
+        client: TestClient,
+        engine: type[BaseDatabaseManager],
+        folders: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        created = _capture_queued_jobs(monkeypatch)
+        done = upload_whole(client, "x.sql", SQL)
+        elevate(client)
+
+        response = client.post(
+            f"{BASE}/imports",
+            json={
+                "engine": "postgresql",
+                "database": "fresh",
+                "upload_id": done["id"],
+                "as_superuser": True,
+                "confirm_superuser": True,
+            },
+        )
+
+        assert response.status_code == 202, response.text
+        (job,) = created
+        assert job["kwargs"]["as_superuser"] is True
+
+    def test_by_default_the_job_is_not_the_superuser(
+        self,
+        client: TestClient,
+        engine: type[BaseDatabaseManager],
+        folders: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        created = _capture_queued_jobs(monkeypatch)
+        done = upload_whole(client, "x.sql", SQL)
+        elevate(client)
+
+        client.post(
+            f"{BASE}/imports",
+            json={"engine": "postgresql", "database": "fresh", "upload_id": done["id"]},
+        )
+
+        assert created[0]["kwargs"]["as_superuser"] is False
+
     def test_the_job_loads_the_dump_and_removes_the_upload(
         self, client: TestClient, engine: type[BaseDatabaseManager], folders: Path
     ) -> None:

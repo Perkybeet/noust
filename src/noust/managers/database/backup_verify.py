@@ -38,7 +38,7 @@ from pathlib import Path
 from noust.core.backup_files import open_backup
 from noust.core.exceptions import BackupError, DatabaseBackupError, DatabaseError
 from noust.core.runner import CommandResult
-from noust.managers.database.base import BaseDatabaseManager, backup_format
+from noust.managers.database.base import OWN_DUMP_OPTIONS, BaseDatabaseManager, backup_format
 from noust.managers.database.clickhouse import backup_problem
 from noust.managers.database.mongo_archive import (
     ARCHIVE_MAGIC,
@@ -526,7 +526,14 @@ def restore_test(manager: BaseDatabaseManager, path: Path) -> RestoreTest:
     try:
         # Isolated: a dump taken with --databases names the database it came
         # from, and loading it into the temporary one would write there.
-        manager.restore(name, path, drop_existing=False, safety_backup=False, isolated=True)
+        manager.restore(
+            name,
+            path,
+            drop_existing=False,
+            safety_backup=False,
+            isolated=True,
+            **OWN_DUMP_OPTIONS,
+        )
         loaded = True
         try:
             tables = manager.get_database_info(name).tables

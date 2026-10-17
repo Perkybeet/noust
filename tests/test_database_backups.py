@@ -1243,7 +1243,8 @@ def test_a_restore_as_a_new_database_loads_isolated(
 
     backups.restore("postgresql", "shop", taken.name, new_name="shop_copy")
 
-    assert seen == [{"isolated": True}]
+    # Noust's own dump: loaded as the superuser, as ever.
+    assert seen == [{"isolated": True, "as_superuser": True}]
 
 
 def test_a_restore_over_the_database_itself_is_not_isolated(
@@ -1254,7 +1255,7 @@ def test_a_restore_over_the_database_itself_is_not_isolated(
 
     backups.restore("postgresql", "shop", taken.name)
 
-    assert seen == [{}]
+    assert seen == [{"as_superuser": True}]
 
 
 # ---------------------------------------------------------------------------

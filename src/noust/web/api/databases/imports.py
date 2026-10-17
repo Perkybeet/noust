@@ -176,6 +176,12 @@ class ImportRequest(SourceRequest):
             instead of giving everything to the database's owner.
         safety_backup: Dump the database first when it is loaded over rather
             than replaced.
+        as_superuser: PostgreSQL: load the dump as the server's superuser
+            instead of the database's owner. A dump can run programs on the
+            server with that account, so it needs ``confirm_superuser`` too.
+        confirm_superuser: The operator accepted what ``as_superuser`` costs.
+            Without it the answer is a 400 ``confirmation_required`` carrying
+            the warning, and nothing is queued.
     """
 
     engine: str
@@ -183,6 +189,8 @@ class ImportRequest(SourceRequest):
     replace: bool = False
     keep_owners: bool = False
     safety_backup: bool = True
+    as_superuser: bool = False
+    confirm_superuser: bool = False
 
 
 # ----------------------------------------------------------------- helpers
@@ -417,6 +425,7 @@ def import_job(
     replace: bool = False,
     keep_owners: bool = False,
     safety_backup: bool = True,
+    as_superuser: bool = False,
     actor: str | None = None,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
@@ -431,6 +440,7 @@ def import_job(
         replace: Drop and recreate the database first.
         keep_owners: PostgreSQL: keep the dump's owners and privileges.
         safety_backup: Take the safety copy when nothing is dropped.
+        as_superuser: PostgreSQL: load it as the superuser (confirmed when queued).
         actor: Who queued it, as the audit trail names them.
         job_context: Injected by the job manager.
 
@@ -454,6 +464,8 @@ def import_job(
             keep_owners=keep_owners,
             safety_backup=safety_backup,
             on_step=progress,
+            as_superuser=as_superuser,
+            confirm_superuser=as_superuser,
         )
     else:
         outcome = importer.run(
@@ -464,6 +476,8 @@ def import_job(
             keep_owners=keep_owners,
             safety_backup=safety_backup,
             on_step=progress,
+            as_superuser=as_superuser,
+            confirm_superuser=as_superuser,
         )
     _done(job_context)
     return outcome.to_dict()
@@ -490,12 +504,19 @@ def import_dump(
     Raises:
         ValidationError: 400 for an unfinished upload, a path outside the
             allowed folders or an unusable name.
+        ConfirmationRequired: 400 ``confirmation_required`` for
+            ``as_superuser`` without ``confirm_superuser``.
         DatabaseEngineError: When the engine is not running.
     """
     _source_of(request)
     databases = service(session)
     manager = databases.running(request.engine)
     name = manager.validate_database_name(request.database)
+    if request.as_superuser:
+        # Before the job exists: an unconfirmed request is an answer, not a failed job.
+        DatabaseImports(databases).backups.superuser_options(
+            manager, None, request.confirm_superuser
+        )
     if request.upload_id is not None:
         # Finished, and the caller's: the job holds only the identifier.
         _store().get(request.upload_id, owner=actor_label(session))
@@ -522,6 +543,7 @@ def import_dump(
             "replace": request.replace,
             "keep_owners": request.keep_owners,
             "safety_backup": request.safety_backup,
+            "as_superuser": request.as_superuser,
         },
         metadata={"engine": manager.ENGINE_NAME, "database": name, "kind": "database"},
         message=f"Importing into {name}",

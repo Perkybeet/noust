@@ -79,7 +79,9 @@ INTEGRATION_DIR = Path(__file__).resolve().parent
 REPO_ROOT = INTEGRATION_DIR.parents[1]
 
 #: Every name this runner creates starts with this, and every object carries the label.
-PREFIX = "noust-test-ch"
+#: ``NOUST_ENGINES_PREFIX`` names another family (``noust-test-w6d``) for a run that must not meet
+#: the containers of another lane's run on the same machine.
+PREFIX = os.environ.get("NOUST_ENGINES_PREFIX", "noust-test-ch")
 LABEL = "noust.test=1"
 
 #: The working tree as seen inside a container with ``--dev``.
@@ -2670,6 +2672,201 @@ def scenario_dragonfly_facts(sc: Any) -> None:
             check=False,
             label="cleanup",
         )
+
+
+# ---------------------------------------------------------------------------
+# 4.0 (W6-DB): a dump is not a superuser's script
+# ---------------------------------------------------------------------------
+
+#: What the dumps below try to do on the server: leave a file only a program could.
+H19_MARK = "/tmp/noust-h19-ran"
+
+
+def write_file(sc: Any, path: str, text: str) -> None:
+    """
+    Write a file inside the scenario's machine, dressed as a pg_dump (header and trailer).
+
+    Args:
+        sc: The scenario.
+        path: Where.
+        text: What it holds between them.
+    """
+    sc.run(
+        f"cat > {path} <<'NOUST_EOF'\n-- PostgreSQL database dump\n{text}\n"
+        "-- PostgreSQL database dump complete\nNOUST_EOF",
+        label=f"write {path}",
+    )
+
+
+def loader_roles(sc: Any) -> str:
+    """
+    Args:
+        sc: The scenario.
+
+    Returns:
+        The logins of Noust's loaders the server still holds, one per line.
+    """
+    return sc.run(
+        f"{PSQL} -tAc \"select rolname from pg_roles where rolname like 'noust\\_load\\_%'\"",  # noqa: S608 - fixed text
+        label="loader logins left",
+    ).stdout.strip()
+
+
+@engines_scenario("restore_unprivileged")
+def scenario_restore_unprivileged(sc: Any) -> None:
+    """
+    H-19: a dump from elsewhere is loaded as the database's owner, so it cannot run a program.
+
+    Against a real PostgreSQL: ``COPY ... FROM PROGRAM`` is refused (nothing runs, the database is
+    put back, no loader login is left), a dump that tries ``RESET ROLE`` first is refused too,
+    ordinary dumps (owners, ACL, a trusted extension) load and their objects belong to the
+    database's owner, a database owned by the superuser is loaded by a login that owns what it
+    makes and hands it over, Noust's own backup of a database with an extension that needs a
+    superuser still restores, and ``--as-superuser`` is the one explicit way to let a dump run a
+    program.
+    """
+    noust(sc, "db uninstall postgresql --purge -f", timeout=900, check=False)
+    noust(sc, "db install postgresql", timeout=1800)
+    sc.run(f"rm -f {H19_MARK}")
+    psql(sc, "postgres", "create role shopapp login password 'x1y2z3w4'")
+    noust(sc, "db create shop --engine postgresql --owner shopapp")
+    psql(sc, "shop", "create table keep(i int); insert into keep select generate_series(1, 5)")
+    psql(sc, "shop", "alter table keep owner to shopapp")
+
+    # --- COPY ... FROM PROGRAM is refused, and nothing is left behind
+    write_file(
+        sc,
+        f"{SCRATCH}/evil.sql",
+        "SET standard_conforming_strings = on;\n"
+        "CREATE TABLE loot (line text);\n"
+        f"COPY loot FROM PROGRAM 'touch {H19_MARK}';\n",
+    )
+    refused = noust(
+        sc, f"db import shop {SCRATCH}/evil.sql -e postgresql -f", check=False, timeout=300
+    )
+    said = refused.stdout + refused.stderr
+    sc.check(refused.returncode != 0, f"a dump that runs a program must be refused: {said[:400]}")
+    sc.check("--as-superuser" in said, f"the refusal should say how to repeat it: {said[-600:]}")
+    sc.check(
+        sc.run(f"test ! -e {H19_MARK}", check=False).returncode == 0,
+        "the program ran on the server",
+    )
+    sc.check(psql(sc, "shop", "select count(*) from keep") == "5", "the database was not put back")
+    sc.check(loader_roles(sc) == "", f"a loader login was left behind: {loader_roles(sc)}")
+
+    # --- the superuser cannot be handed back from inside the script
+    write_file(
+        sc,
+        f"{SCRATCH}/reset.sql",
+        "SET standard_conforming_strings = on;\n"
+        "RESET ROLE;\nRESET SESSION AUTHORIZATION;\n"
+        "CREATE TABLE loot2 (line text);\n"
+        f"COPY loot2 FROM PROGRAM 'touch {H19_MARK}';\n",
+    )
+    reset = noust(
+        sc, f"db import shop {SCRATCH}/reset.sql -e postgresql -f", check=False, timeout=300
+    )
+    sc.check(reset.returncode != 0, "RESET ROLE must not give the superuser back")
+    sc.check(sc.run(f"test ! -e {H19_MARK}", check=False).returncode == 0, "RESET ROLE worked")
+    write_file(
+        sc,
+        f"{SCRATCH}/auth.sql",
+        "SET standard_conforming_strings = on;\n"
+        "SET SESSION AUTHORIZATION postgres;\n"
+        "CREATE TABLE loot3 (line text);\n",
+    )
+    auth = noust(
+        sc, f"db import shop {SCRATCH}/auth.sql -e postgresql -f", check=False, timeout=300
+    )
+    sc.check(auth.returncode != 0, "SET SESSION AUTHORIZATION postgres must be refused")
+
+    # --- an ordinary dump of another database loads, and its objects belong to the owner
+    psql(sc, "postgres", "create role legacy login")
+    psql(sc, "postgres", "create database origin owner legacy")
+    psql(
+        sc,
+        "origin",
+        "create extension pg_trgm; create table people(id serial primary key, name text); "
+        "insert into people(name) select 'p' || g from generate_series(1, 30) g; "
+        "alter table people owner to legacy; grant select on people to public",
+    )
+    sc.run(f"runuser -u postgres -- pg_dump origin > {SCRATCH}/origin.sql", label="pg_dump (plain)")
+    sc.run(
+        f"runuser -u postgres -- pg_dump -Fc origin > {SCRATCH}/origin.dump", label="pg_dump -Fc"
+    )
+    noust(sc, f"db import shop {SCRATCH}/origin.sql -e postgresql -f", timeout=300)
+    sc.check(psql(sc, "shop", "select count(*) from people") == "30", "the plain dump loaded")
+    sc.check(
+        psql(sc, "shop", "select tableowner from pg_tables where tablename = 'people'")
+        == "shopapp",
+        "the objects of the dump belong to the database's owner, not to the roles it came from",
+    )
+    noust(sc, f"db import shop2 {SCRATCH}/origin.dump -e postgresql -f", timeout=300)
+    sc.check(psql(sc, "shop2", "select count(*) from people") == "30", "the archive loaded")
+    owner = psql(sc, "shop2", "select tableowner from pg_tables where tablename = 'people'")
+    sc.check(
+        owner == "postgres", f"a database made by the import is owned as it always was: {owner}"
+    )
+    sc.check(loader_roles(sc) == "", f"a loader login was left behind: {loader_roles(sc)}")
+
+    # --- Noust's own backup of a database with an extension that needs a superuser comes back
+    psql(sc, "shop", "create extension file_fdw")
+    noust(sc, "db backup shop --engine postgresql", timeout=300)
+    psql(sc, "shop", "drop extension file_fdw cascade; delete from keep")
+    newest_dump = sc.run(
+        "ls -1t /var/backups/noust/databases/postgresql-shop-* | head -1", label="newest backup"
+    ).stdout.strip()
+    noust(sc, f"db restore shop {newest_dump} -e postgresql --drop -f", timeout=300)
+    sc.check(
+        psql(sc, "shop", "select count(*) from pg_extension where extname = 'file_fdw'") == "1",
+        "Noust's own backup should put an extension that needs a superuser back",
+    )
+    # The same objects in a dump from anywhere else are not Noust's to vouch for.
+    sc.run(f"runuser -u postgres -- pg_dump shop > {SCRATCH}/shop-elsewhere.sql", label="pg_dump")
+    psql(sc, "shop", "drop extension file_fdw cascade")
+    elsewhere = noust(
+        sc,
+        f"db import shop {SCRATCH}/shop-elsewhere.sql -e postgresql -f",
+        check=False,
+        timeout=300,
+    )
+    sc.check(
+        elsewhere.returncode != 0 and "--as-superuser" in elsewhere.stdout + elsewhere.stderr,
+        f"an extension that needs a superuser needs the operator to say so: {elsewhere.stdout[-500:]}",
+    )
+
+    # --- the explicit way: audited, and a program does run
+    explicit = noust(
+        sc,
+        f"db import shop {SCRATCH}/evil.sql -e postgresql -f --as-superuser",
+        timeout=300,
+        check=False,
+    )
+    sc.check(explicit.returncode == 0, f"--as-superuser should load it: {explicit.stdout[-400:]}")
+    sc.check(
+        sc.run(f"test -e {H19_MARK}", check=False).returncode == 0,
+        "--as-superuser should let the program run (that is what it asks for)",
+    )
+    trail = noust(sc, "audit list --action db.restore.superuser --limit 5", check=False)
+    sc.check(
+        "db.restore.superuser" in trail.stdout, "the superuser load should be on the audit trail"
+    )
+
+    # --- a login left by a process that died is swept by the next load
+    psql(
+        sc,
+        "postgres",
+        "create role noust_load_deadbeef login valid until '2020-01-01'",
+    )
+    noust(sc, f"db import shop2 {SCRATCH}/origin.dump -e postgresql -f --replace", timeout=300)
+    sc.check(
+        loader_roles(sc) == "", f"the dead loader login should have been swept: {loader_roles(sc)}"
+    )
+
+    sc.run(f"rm -f {H19_MARK}")
+    for name in ("shop", "shop2", "origin"):
+        noust(sc, f"db drop {name} --engine postgresql -f", check=False)
+    noust(sc, "db uninstall postgresql --purge -f", timeout=900)
 
 
 # ---------------------------------------------------------------------------

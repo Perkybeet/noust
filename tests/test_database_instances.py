@@ -459,7 +459,7 @@ class TestPostgresInAContainer:
         dump = tmp_path / "plain.sql"
         dump.write_text("CREATE TABLE t (id int);\n")
 
-        manager._load_backup("empleo", dump, format="plain")
+        manager._load_backup("empleo", dump, format="plain", as_superuser=True)
 
         (load,) = [call for call in fleet.calls if call[-2:] == ("-f", "-")]
         assert str(dump) not in " ".join(load)

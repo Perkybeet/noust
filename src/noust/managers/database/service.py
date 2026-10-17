@@ -3369,7 +3369,7 @@ class DatabaseService:
             on_safety_copy: Called with the safety copy before anything is
                 dropped or loaded (see the manager's ``restore``).
             options: Engine-specific loader options an import passes
-                (``keep_owners``, ``owner_role``).
+                (``keep_owners``, ``as_superuser``).
 
         Returns:
             What was done.

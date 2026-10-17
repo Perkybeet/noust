@@ -31,7 +31,7 @@ from typing import Any
 import pytest
 
 from noust.core.config import Config
-from noust.core.exceptions import DatabaseBackupError, ValidationError
+from noust.core.exceptions import ConfirmationRequired, DatabaseBackupError, ValidationError
 from noust.core.runner import set_runner
 from noust.core.store import NoustStore
 from noust.managers.database.base import BaseDatabaseManager
@@ -466,15 +466,85 @@ class TestImporting:
         assert event["details"]["keep_owners"] is True
 
 
+class TestTheSuperuser:
+    """PostgreSQL loads a dump from outside as the owner; the superuser is asked for (H-19)."""
+
+    def test_an_import_is_not_loaded_as_the_superuser(
+        self, imports: DatabaseImports, engine: type[BaseDatabaseManager], tmp_path: Path
+    ) -> None:
+        imports.run("postgresql", "shop", dump_file(tmp_path / "in"))
+
+        assert "as_superuser" not in engine.state["loaded"][0]["kwargs"]
+
+    def test_a_restore_from_a_path_is_not_either(
+        self, imports: DatabaseImports, engine: type[BaseDatabaseManager], tmp_path: Path
+    ) -> None:
+        imports.backups.restore_file(
+            "postgresql", "shop", dump_file(tmp_path / "in"), False, False, None
+        )
+
+        assert "as_superuser" not in engine.state["loaded"][0]["kwargs"]
+
+    def test_the_superuser_needs_the_operator_to_accept_what_it_costs(
+        self, imports: DatabaseImports, engine: type[BaseDatabaseManager], tmp_path: Path
+    ) -> None:
+        with pytest.raises(ConfirmationRequired) as raised:
+            imports.run("postgresql", "shop", dump_file(tmp_path / "in"), as_superuser=True)
+
+        assert "COPY ... FROM PROGRAM" in raised.value.warnings[0]
+        assert raised.value.field == "confirm_superuser"
+        # Nothing was dumped, dropped or loaded to find that out.
+        assert engine.state["calls"] == []
+
+    def test_confirmed_it_is_loaded_as_the_superuser_and_audited_twice(
+        self,
+        imports: DatabaseImports,
+        engine: type[BaseDatabaseManager],
+        tmp_path: Path,
+        audited: list[dict[str, Any]],
+    ) -> None:
+        imports.run(
+            "postgresql",
+            "shop",
+            dump_file(tmp_path / "in"),
+            as_superuser=True,
+            confirm_superuser=True,
+        )
+
+        assert engine.state["loaded"][0]["kwargs"]["as_superuser"] is True
+        decision = next(e for e in audited if e["event"] == "db.restore.superuser")
+        assert decision["target"] == "db:postgresql/shop"
+        done = next(e for e in audited if e["event"] == "db.import")
+        assert done["details"]["as_superuser"] is True
+
+    def test_an_engine_that_has_no_such_account_refuses_the_option(
+        self, tmp_path: Path, runner: RcloneRunner
+    ) -> None:
+        mysql = make_engine(tmp_path / "mdump", engine="mysql", suffix=".sql", databases=("shop",))
+        importer = DatabaseImports(
+            make_service(tmp_path / "svc", [mysql]), uploads=UploadStore(tmp_path / "uploads")
+        )
+
+        with pytest.raises(ValidationError, match="no superuser load"):
+            importer.run(
+                "mysql",
+                "shop",
+                dump_file(tmp_path / "in"),
+                as_superuser=True,
+                confirm_superuser=True,
+            )
+
+
 class TestOptions:
-    def test_owners_are_dropped_by_default_and_the_database_owner_takes_over(
+    def test_owners_are_dropped_by_default_and_the_loader_is_the_database_owner(
         self, imports: DatabaseImports, engine: type[BaseDatabaseManager], tmp_path: Path
     ) -> None:
         imports.run("postgresql", "shop", dump_file(tmp_path / "in"))
 
         kwargs = engine.state["loaded"][0]["kwargs"]
         assert kwargs["keep_owners"] is False
-        assert kwargs["owner_role"] == "app"
+        # Who the objects belong to is who loads them (pg_loader), not a role named here.
+        assert "owner_role" not in kwargs
 
     def test_keep_owners_asks_the_loader_to_keep_them(
         self, imports: DatabaseImports, engine: type[BaseDatabaseManager], tmp_path: Path

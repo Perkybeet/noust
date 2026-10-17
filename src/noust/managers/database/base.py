@@ -128,6 +128,16 @@ PROFILES: tuple[Profile, ...] = ("owner", "read_write", "read_only")
 #: A legacy name kept through 3.x: servers already hold roles called this.
 READ_ONLY_ACCOUNT_PREFIX = "wasm_ro_"
 
+#: The prefix of the throw-away logins a PostgreSQL dump is loaded with (H-19).
+LOAD_ACCOUNT_PREFIX = "noust_load_"
+
+#: What a restore is told when the dump is one Noust itself wrote and keeps: a backup it took,
+#: the safety copy it put back, the dump of a move. PostgreSQL loads a dump from anywhere
+#: else as the database's owner, not as the superuser (H-19), so what Noust took out of a
+#: database (extensions that need a superuser, objects of several owners) is the one thing
+#: that is put back as it was.
+OWN_DUMP_OPTIONS: Mapping[str, Any] = {"as_superuser": True}
+
 #: Where apt is found, and the programs of the other two package managers an engine is
 #: installed through (see install()), by the name a plan gives its family.
 APT_GET = "apt-get"
@@ -2264,7 +2274,9 @@ class BaseDatabaseManager(BaseManager):
         """
         if self.instance is not None and username == self.instance.admin_user:
             return True
-        return username in self.INTERNAL_USERS or username.startswith(READ_ONLY_ACCOUNT_PREFIX)
+        return username in self.INTERNAL_USERS or username.startswith(
+            (READ_ONLY_ACCOUNT_PREFIX, LOAD_ACCOUNT_PREFIX)
+        )
 
     def apply_profile(
         self, username: str, database: str, profile: str, host: str = "localhost"
@@ -2938,7 +2950,9 @@ class BaseDatabaseManager(BaseManager):
             ):
                 self.drop_database(database, force=True)
                 self._create_for_restore(database, owner)
-                self._load_backup(database, loadable)
+                # Noust's own dump, taken a moment ago from this very database: what it
+                # held (extensions, other owners) is put back as it was, not re-judged.
+                self._load_backup(database, loadable, as_superuser=True)
         except DatabaseError as again:
             return DatabaseBackupError(
                 f"Restoring '{database}' failed, and putting its previous contents back failed too",

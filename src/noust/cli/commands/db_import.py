@@ -31,6 +31,7 @@ from noust.cli.commands.db_backups import (
     _quiet,
 )
 from noust.core.exceptions import NoustError
+from noust.managers.database.backups import SUPERUSER_WARNING
 from noust.managers.database.imports import DatabaseImports, resolve_server_path
 
 
@@ -61,6 +62,13 @@ from noust.managers.database.imports import DatabaseImports, resolve_server_path
     help="Do not dump the database first when nothing is dropped.",
 )
 @click.option(
+    "--as-superuser",
+    is_flag=True,
+    help="PostgreSQL: load the dump as the server's superuser. By default it is loaded as the "
+    "database's owner, so what a dump asks beyond that (COPY ... FROM PROGRAM, extensions that "
+    "need a superuser) is refused. Use it only for a dump you made or have read. Audited.",
+)
+@click.option(
     "--inspect",
     "inspect_only",
     is_flag=True,
@@ -77,6 +85,7 @@ def import_dump(
     replace: bool,
     keep_owners: bool,
     no_safety_copy: bool,
+    as_superuser: bool,
     inspect_only: bool,
     force: bool,
 ) -> None:
@@ -128,6 +137,10 @@ def import_dump(
         ctx.logger.info("Cancelled")
         _exit(0)
         return
+    if as_superuser and not _confirm(f"{SUPERUSER_WARNING} Load it as the superuser?", force=force):
+        ctx.logger.info("Cancelled")
+        _exit(0)
+        return
     try:
         with _quiet(ctx):
             outcome = importer.run(
@@ -138,6 +151,8 @@ def import_dump(
                 keep_owners=keep_owners,
                 safety_backup=not no_safety_copy,
                 on_step=lambda text: ctx.logger.info(text),
+                as_superuser=as_superuser,
+                confirm_superuser=as_superuser,
             )
     except NoustError as exc:
         _exit(_fail(ctx.logger, exc))

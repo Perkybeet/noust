@@ -33,12 +33,15 @@ ATOMIC`` ends a statement - a construct whose meaning would differ is refused
 instead of guessed. pg_dump sets ``standard_conforming_strings = on`` in its
 header, before any string that could be ambiguous.
 
-This is not a sandbox for the SQL itself. A restore runs as the cluster
-superuser and trusts the dump's statements, which can already run programs as
-the ``postgres`` account (``COPY ... TO PROGRAM``) - the same account psql runs
-as. So the scanner follows the settings the dump states; SQL that changes
-psql's reading behind its back (dynamic SQL flipping a setting) gains nothing
-the SQL did not already have. See
+This is not a sandbox for the SQL itself: that is the login's job. A dump from
+outside is loaded by a role that is not a superuser
+(:mod:`noust.managers.database.pg_loader`), so ``COPY ... FROM PROGRAM`` is
+refused by the server; only a restore the operator asked to run
+``--as-superuser`` trusts the dump's statements, which can then run programs as
+the ``postgres`` account - the same account psql runs as. In both, the scanner
+follows the settings the dump states; SQL that changes psql's reading behind
+its back (dynamic SQL flipping a setting) gains nothing the SQL did not
+already have. See
 :meth:`noust.managers.database.postgres.PostgresManager.restore`.
 """
 

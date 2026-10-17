@@ -184,7 +184,7 @@ def test_a_custom_dump_named_sql_is_restored_with_pg_restore(
     dump = tmp_path / "postgresql-shop-20250101_000000.sql.gz"
     dump.write_bytes(gzip.compress(b"PGDMP\x01\x0e\x00binary archive"))
 
-    postgres.restore("shop", dump, safety_backup=False)
+    postgres.restore("shop", dump, safety_backup=False, as_superuser=True)
 
     assert runner.calls[-1][4:] == ("pg_restore", "--no-password", "-d", "shop")
     assert (

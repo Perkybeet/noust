@@ -249,6 +249,14 @@ class DockerHost(FakeRunner):
             What ``psql -t -A`` would print, or an empty string for any other
             statement.
         """
+        if "pg_has_role" in sql:
+            # Who owns the database, and whether that role could give the superuser back:
+            # the answer a dump is loaded with its own login by (H-19).
+            found = re.search(r"datname = '([^']+)'", sql)
+            owner = self.databases.get(found.group(1)) if found else None
+            if owner is None:
+                return ""
+            return f"{owner}|{'t' if owner == 'postgres' else 'f'}\n"
         if "FROM pg_database WHERE datname" in sql:
             found = re.search(r"datname = '([^']+)'", sql)
             return "1\n" if found and found.group(1) in self.databases else ""
