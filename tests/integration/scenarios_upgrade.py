@@ -31,8 +31,10 @@ from __future__ import annotations
 
 import re
 import secrets
+import sys
 import tempfile
 import time
+import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -291,6 +293,46 @@ class Seeded:
     units: list[str]
 
 
+def main_pid(sc: Scenario, unit: str) -> str:
+    """The MainPID systemd reports for a unit: a different one after a restart."""
+    return sc.run(
+        f"systemctl show -p MainPID --value {unit}",
+        timeout=15,
+        check=False,
+        label=f"MainPID of {unit}",
+    ).stdout.strip()
+
+
+def resolves_legacy_unit(sc: Scenario, who: str) -> None:
+    """Check that ``noust restart`` finds an application whose unit has the legacy prefix.
+
+    The command is asked to act on the application and the effect is read in systemd: the
+    ``wasm-`` unit is the one that restarts, and no unit of the plain name appears beside it.
+
+    Args:
+        sc: The scenario.
+        who: Which Noust is asked, for the evidence.
+    """
+    before = main_pid(sc, LEGACY_UNIT)
+    sc.run(
+        f"noust restart {LEGACY_DOMAIN}",
+        timeout=120,
+        label=f"{who} noust restart {LEGACY_DOMAIN} (its unit is {LEGACY_UNIT})",
+    )
+    after = main_pid(sc, LEGACY_UNIT)
+    sc.check(
+        before not in ("", "0") and after not in ("", "0") and before != after,
+        f"{who} did not restart {LEGACY_UNIT}: MainPID {before} -> {after}",
+    )
+    plain = sc.run(
+        f"ls /etc/systemd/system/{LEGACY_APP}.service 2>&1 | grep -vc 'No such'; true",
+        timeout=15,
+        check=False,
+        label=f"{who} no unit of the plain name beside the legacy one",
+    ).stdout.strip()
+    sc.check(plain == "0", f"{who} made a unit named {LEGACY_APP} beside {LEGACY_UNIT}")
+
+
 def jar_login(sc: Scenario, master: str, label: str) -> set[str]:
     """Sign in with the access token, keeping the cookies in :data:`COOKIE_JAR`.
 
@@ -304,16 +346,21 @@ def jar_login(sc: Scenario, master: str, label: str) -> set[str]:
     Returns:
         The names of the cookies the console set.
     """
-    body = run.json.dumps({"token": master})
+
+    def quoted(value: str) -> str:
+        return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
     config = "\n".join(
         [
-            f'url = "{run.PANEL_URL}/api/auth/login"',
+            f"url = {quoted(run.PANEL_URL + '/api/auth/login')}",
             'request = "POST"',
             "silent",
             "show-error",
-            f'cookie-jar = "{COOKIE_JAR}"',
-            'header = "Content-Type: application/json"',
-            f"data = '{body}'",
+            'write-out = "%{http_code}"',
+            'output = "/dev/null"',
+            f"cookie-jar = {quoted(COOKIE_JAR)}",
+            f"header = {quoted('Content-Type: application/json')}",
+            f"data = {quoted(run.json.dumps({'token': master}))}",
         ]
     )
     proc = run.subprocess.run(
@@ -324,8 +371,10 @@ def jar_login(sc: Scenario, master: str, label: str) -> set[str]:
         timeout=30,
     )
     sc.evidence.append(f"$ {label}\n(response withheld: it holds the session)")
-    if proc.returncode != 0:
-        raise AssertionError(f"the sign-in failed: {proc.stderr.strip()[:200]}")
+    if proc.returncode != 0 or proc.stdout.strip() != "200":
+        raise AssertionError(
+            f"the sign-in answered {proc.stdout.strip()!r}: {proc.stderr.strip()[:200]}"
+        )
     jar = run.docker_exec(
         sc.container, f"awk '!/^#/ || /HttpOnly/ {{print $6}}' {COOKIE_JAR}", timeout=15
     ).stdout.split()
@@ -387,21 +436,34 @@ def seed_legacy_server(sc: Scenario) -> Seeded:
         label=f"{old} the unit of {LEGACY_DOMAIN} as an application from before 0.14.1 has it",
     )
     wait_page(sc, LEGACY_DOMAIN, "ok ", f"{old} {LEGACY_DOMAIN}")
-    status = sc.run(
-        f"noust status {LEGACY_DOMAIN}", timeout=30, label=f"{old} noust status {LEGACY_DOMAIN}"
-    )
-    sc.check(
-        LEGACY_UNIT in status.stdout, f"3.3.1 does not resolve the legacy unit: {status.stdout!r}"
-    )
+    resolves_legacy_unit(sc, old)
 
     # -- A blue/green application: wasm_bg_<app> --------------------------------------------
     bg_repo, bg_url = make_node_repo(sc, "bgapp")
+    # A dependency, so the install leaves a node_modules and in it the runtime stamp 3.3.1 names
+    # `.wasm-runtime.json`. A local one: npm links it from the tree and never touches the network.
+    commit_to(
+        sc,
+        bg_repo,
+        'mkdir local-dep && echo \'{"name": "local-dep", "version": "1.0.0"}\' > '
+        "local-dep/package.json && echo 'module.exports = 1;' > local-dep/index.js && "
+        "npm pkg set dependencies.local-dep=file:./local-dep && npm install --package-lock-only",
+        "a local dependency",
+    )
     sc.run(
         f"noust create -d {BG_DOMAIN} -s {bg_url} -t nodejs --no-ssl --layout releases",
         timeout=DEPLOY_TIMEOUT,
         label=f"{old} noust create -d {BG_DOMAIN} (releases, without downtime)",
     )
     wait_page(sc, BG_DOMAIN, "ok 1", f"{old} {BG_DOMAIN}")
+    # 3.3.1 makes a plain application; blue/green is the command that follows (the default only
+    # from 3.4), and it is what writes the wasm_bg_ upstream and the instances of a template.
+    sc.run(
+        f"noust app zero-downtime {BG_DOMAIN} on --drain 2",
+        timeout=300,
+        label=f"{old} noust app zero-downtime {BG_DOMAIN} on",
+    )
+    wait_page(sc, BG_DOMAIN, "ok 1", f"{old} {BG_DOMAIN} on its instances")
     named = sc.run(
         f"grep -rl '{BG_UPSTREAM}' /etc/nginx",
         timeout=15,
@@ -474,6 +536,20 @@ def seed_legacy_server(sc: Scenario) -> Seeded:
     wait_page(sc, BG_DOMAIN, "ok 1b", f"{old} {BG_DOMAIN}")
     wait_page(sc, EDGE_DOMAIN, "ok 1b", f"{old} {EDGE_DOMAIN}")
     wait_page(sc, LEGACY_DOMAIN, "ok 1b", f"{old} {LEGACY_DOMAIN}")
+    stamps = sc.run(
+        "find /var/www/apps -maxdepth 6 -name '.wasm*'",
+        timeout=30,
+        label=f"{old} the files named .wasm* in the applications' trees",
+    ).stdout.split()
+    sc.check(
+        bool(stamps), "3.3.1 left no .wasm-runtime.json in a release: the seed is not faithful"
+    )
+    previous = sc.run(
+        "docker images --format '{{.Repository}}:{{.Tag}}' | grep ':wasm-previous$' || true",
+        timeout=30,
+        label=f"{old} the images tagged wasm-previous",
+    ).stdout.split()
+    sc.check(bool(previous), "3.3.1 left no wasm-previous image after a Compose update")
 
     # -- A database, and the read-only role the first read makes ------------------------------
     sc.run(
@@ -516,18 +592,13 @@ def seed_legacy_server(sc: Scenario) -> Seeded:
 
     # -- A backup in the wasm-backups folder of an S3 bucket ------------------------------------
     secret = secrets.token_urlsafe(18)
-    sc.run(
-        f"docker rm -f {S3_NAME} >/dev/null 2>&1; docker run -d --name {S3_NAME} "
-        f"-p 127.0.0.1:{S3_PORT}:9000 -e MINIO_ROOT_USER={S3_USER} "
-        f"-e MINIO_ROOT_PASSWORD={secret} {scenarios_34.S3_IMAGE} server /data",
-        timeout=120,
-        label=f"{old} MinIO, for a destination whose folder is the default one",
-    )
-    sc.run(
-        f"for i in $(seq 1 60); do curl -fsS http://127.0.0.1:{S3_PORT}/minio/health/ready "
-        "&& exit 0; sleep 1; done; exit 1",
-        timeout=90,
-        label="wait for MinIO",
+    scenarios_34.start_minio(
+        sc,
+        S3_NAME,
+        S3_PORT,
+        S3_USER,
+        secret,
+        f"{old} MinIO, for a destination whose folder is the default one",
     )
     sc.run(
         "noust config set security.allow_private_hosts 127.0.0.1 --list",
@@ -567,7 +638,7 @@ def seed_legacy_server(sc: Scenario) -> Seeded:
     ids = run.remote_ids(listing)
     sc.check(len(ids) == 1, f"the bucket should hold the one backup: {ids!r}")
     folders = sc.run(
-        f"docker exec {S3_NAME} sh -c 'ls /data'",
+        f"docker exec {S3_NAME} sh -c 'ls {scenarios_34.S3_DATA}'",
         timeout=30,
         label=f"{old} the buckets MinIO holds",
     ).stdout.split()
@@ -578,7 +649,13 @@ def seed_legacy_server(sc: Scenario) -> Seeded:
     sc.evidence.append(f"$ {old} noust web enable\n(output withheld: it holds the access token)")
     master_match = re.search(r"Access Token:\s*(\S+)", enable.stdout)
     sc.check(master_match is not None, "noust web enable printed no access token")
-    run.wait_for_console(sc)
+    # `noust web enable` installs noust-web.service and starts it: it only has to be waited for.
+    sc.run(
+        f"for i in $(seq 1 60); do curl -fsS -o /dev/null {run.PANEL_URL}/health && exit 0; "
+        "sleep 1; done; exit 1",
+        timeout=90,
+        label=f"{old} wait for the console (noust-web.service)",
+    )
     issued = run.docker_exec(
         sc.container, f"noust token create {TOKEN_NAME} --scope admin", timeout=30
     )
@@ -698,13 +775,7 @@ def run_upgrade_rehearsal(sc: Scenario, wheel: Path) -> None:
         f"the applications listed changed: {listed_domains(list_before)} -> "
         f"{listed_domains(list_after)}",
     )
-    status = sc.run(
-        f"noust status {LEGACY_DOMAIN}", timeout=30, label=f"{new} noust status {LEGACY_DOMAIN}"
-    )
-    sc.check(
-        LEGACY_UNIT in status.stdout,
-        f"the legacy unit is not resolved after the upgrade: {status.stdout!r}",
-    )
+    resolves_legacy_unit(sc, new)
 
     # -- The old backup restores -----------------------------------------------------------------------
     listing = json_of(
@@ -869,7 +940,7 @@ def run_upgrade_rehearsal(sc: Scenario, wheel: Path) -> None:
         label=f"{new} a backup after the upgrade, and the destination's listing",
     )
     buckets = sc.run(
-        f"docker exec {S3_NAME} sh -c 'ls /data'",
+        f"docker exec {S3_NAME} sh -c 'ls {scenarios_34.S3_DATA}'",
         timeout=30,
         label=f"{new} the buckets MinIO holds now",
     ).stdout.split()
@@ -880,12 +951,22 @@ def run_upgrade_rehearsal(sc: Scenario, wheel: Path) -> None:
     )
     wave5.expect(
         sc.run(
-            "find /var/www/apps -maxdepth 3 -name '.wasm*' | wc -l",
+            "find /var/www/apps -maxdepth 6 -name '.wasm*' | wc -l",
             timeout=30,
             label=f"{new} files named .wasm* in the applications' trees",
         ).stdout.strip()
         == "0",
         "no application tree keeps a .wasm* file",
+    )
+    tags = sc.run(
+        "docker images --format '{{.Repository}}:{{.Tag}}' | grep ':wasm-previous$' || true",
+        timeout=30,
+        label=f"{new} the images tagged wasm-previous",
+    ).stdout.split()
+    wave5.expect(
+        tags == [],
+        "no image is tagged wasm-previous: the stack's way back has the new name",
+        f"{tags}",
     )
     failed = wave5.report(sc)
     if failed:
@@ -917,9 +998,18 @@ def run_upgrade_33_mode(wheel: Path, *, keep: bool) -> int:
             run.install_fixtures(name)
             install_from_git(name, FROM_TAG)
             run_upgrade_rehearsal(sc, wheel)
+        except run.ScenarioSkipped as exc:
+            # Nothing was checked, and this rehearsal is the one thing the run is for: not a PASS.
+            failures += 1
+            print(f"FAIL: {label}: it could not run here: {exc}")
         except (AssertionError, HarnessError) as exc:
             failures += 1
             print(f"FAIL: {label}: {exc}")
+        except Exception:
+            # The harness's error boundary: the evidence below and the teardown still happen.
+            failures += 1
+            print(f"FAIL: {label} (the rehearsal itself raised)")
+            traceback.print_exc(file=sys.stdout)
         else:
             print(f"PASS: {label}")
     finally:
