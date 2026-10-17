@@ -31,6 +31,7 @@ __all__ = [
     "ARCHIVE_ORIGIN_SALT",
     "ARCHIVE_PAYLOAD_DIR",
     "BACKUP_FOLDER",
+    "CURRENT_BACKUP_FOLDER",
     "CSRF_COOKIE",
     "CSRF_HEADER",
     "EXPORT_FORMAT",
@@ -133,8 +134,9 @@ FOLLOW_BRANCH_KEY = "wasm.branch"
 PREVIOUS_IMAGE_TAG = "wasm-previous"
 
 #: The folder backups went to by default; the ones already there stay listed until their
-#: retention removes them.
+#: retention removes them. ``CURRENT_BACKUP_FOLDER`` is the one that replaces it.
 BACKUP_FOLDER = "wasm-backups"
+CURRENT_BACKUP_FOLDER = "noust-backups"
 
 #: The prefix application units had before 0.14.1. A unit that still has it keeps working
 #: and is renamed by that application's next deployment, which restarts it anyway.
@@ -302,7 +304,7 @@ REGISTRY: tuple[LegacyName, ...] = (
     LegacyName(
         "backup folder",
         BACKUP_FOLDER,
-        "noust-backups",
+        CURRENT_BACKUP_FOLDER,
         "kept",
         "Backups already in it stay listed, restorable and subject to their retention.",
         "until retention has removed the last backup in it",

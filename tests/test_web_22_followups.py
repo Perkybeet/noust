@@ -116,7 +116,7 @@ def test_an_unreachable_destination_is_a_4xx_with_rclones_words(
 ) -> None:
     create_destination(client)
     runner.script(
-        ("rclone", "mkdir", "nas:wasm-backups"),
+        ("rclone", "mkdir", "nas:noust-backups"),
         stderr="Failed to create file system for nas:: couldn't connect SSH: dial tcp: i/o timeout",
         exit_code=1,
     )
@@ -136,7 +136,7 @@ def test_a_destination_that_fails_the_listing_is_a_4xx_too(
 ) -> None:
     create_destination(client)
     runner.script(
-        ("rclone", "lsf", "nas:wasm-backups", "--max-depth", "1"),
+        ("rclone", "lsf", "nas:noust-backups", "--max-depth", "1"),
         stderr="permission denied",
         exit_code=3,
     )
@@ -152,7 +152,7 @@ def test_no_secret_reaches_the_output_of_a_failed_test(
 ) -> None:
     create_destination(client)
     runner.script(
-        ("rclone", "mkdir", "nas:wasm-backups"),
+        ("rclone", "mkdir", "nas:noust-backups"),
         stderr="login failed for user noust password s3cr3t-password-value",
         exit_code=1,
     )
@@ -165,7 +165,7 @@ def test_no_secret_reaches_the_output_of_a_failed_test(
 def test_a_reachable_destination_still_answers_200(client: TestClient, runner: FakeRunner) -> None:
     create_destination(client)
     runner.script(
-        ("rclone", "lsf", "nas:wasm-backups", "--max-depth", "1"), stdout="shop-example-com/\n"
+        ("rclone", "lsf", "nas:noust-backups", "--max-depth", "1"), stdout="shop-example-com/\n"
     )
 
     response = client.post("/api/backup-destinations/nas/test")

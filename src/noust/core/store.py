@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import Any, NoReturn, Optional, TypeVar
 from urllib.parse import quote
 
-from noust.core import paths, schema_v12, schema_v13, schema_v14
+from noust.core import paths, schema_v12, schema_v13, schema_v14, schema_v15
 from noust.core.exceptions import DomainConflictError, DomainError, NoustError, ValidationError
 from noust.core.fs import (
     SECRET_DIR_MODE,
@@ -1167,7 +1167,7 @@ def _decode_object(raw: Any) -> dict[str, Any]:
 
 
 # Schema version for migrations
-SCHEMA_VERSION = 14
+SCHEMA_VERSION = 15
 
 _DEPLOYMENT_STATUSES_SQL = ", ".join(f"'{status.value}'" for status in DeploymentStatus)
 _DEPLOYMENT_TRIGGERS_SQL = ", ".join(f"'{trigger.value}'" for trigger in DeploymentTrigger)
@@ -2162,6 +2162,7 @@ class NoustStore:
             12: self._migrate_v11_to_v12,
             13: self._migrate_v12_to_v13,
             14: self._migrate_v13_to_v14,
+            15: self._migrate_v14_to_v15,
         }
 
         for version in range(from_version + 1, SCHEMA_VERSION + 1):
@@ -2380,6 +2381,15 @@ class NoustStore:
         # every row that exists. Idempotent, and run here rather than in the
         # schema module, which only declares tables and columns.
         teams_backfill.run(cursor)
+
+    def _migrate_v14_to_v15(self, cursor: sqlite3.Cursor) -> None:
+        """
+        Rename what the store holds that carried the old product's name (schema v15).
+
+        Args:
+            cursor: Cursor the migration runs on.
+        """
+        schema_v15.apply_v15(cursor)
 
     # =========================================================================
     # Application CRUD
