@@ -55,6 +55,7 @@
     { "route": "/backups/noust", "slug": "disaster-recovery", "source": "docs/disaster-recovery.md" },
 
     { "route": "/cron", "slug": "overview", "source": "README.md", "anchor": "cron" },
+    { "route": "/logs", "slug": "logs", "source": "docs/logs.md" },
     { "route": "/activity", "slug": "console", "source": "docs/console.md", "anchor": "activity" },
     { "route": "/map", "slug": "console", "source": "docs/console.md", "anchor": "map" },
 
