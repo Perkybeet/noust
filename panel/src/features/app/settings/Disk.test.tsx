@@ -5,9 +5,11 @@ import { setLocale } from "../../../app/locale";
 import { expectNoAxeViolations } from "../../../test/axe";
 import { json, problem } from "../../../test/fakes";
 import { parseDiskLimit } from "./DiskSettings";
-import { DOMAIN, NO_DISK, accepted, jobOf, renderSettings } from "./testKit";
+import { DOMAIN, ELEVATED, NO_DISK, accepted, jobOf, renderSettings } from "./testKit";
 
 const MB = 1024 * 1024;
+
+const ELEVATED_SESSION = { "GET /api/auth/session": () => json(200, ELEVATED) };
 
 const MEASURED = {
   ...NO_DISK,
@@ -146,6 +148,68 @@ describe("the disk of an application", () => {
 
     expect(await screen.findByText(words)).toBeInTheDocument();
     expect(screen.getByText(/This limit is Noust's: it is checked before a deploy, never when going back to an earlier release/)).toBeInTheDocument();
+  });
+
+  it("offers nothing to the kernel on a filesystem without project quotas", async () => {
+    await resources({ ...MEASURED });
+
+    await screen.findByRole("list", { name: "What the app takes, by place" });
+    expect(screen.queryByRole("heading", { name: "Kernel quota" })).not.toBeInTheDocument();
+  });
+
+  it("asks to give the limit to the kernel once the filesystem has project quotas, and waits for the job", async () => {
+    const job = jobOf("k1", "disk");
+    let current: object = { ...MEASURED, filesystem: { mount: "/var", fstype: "xfs", options: ["prjquota"], project_quota: "enabled" } };
+    const { user, backend } = await resources(current, {
+      ...ELEVATED_SESSION,
+      [`GET /api/apps/${DOMAIN}/disk`]: () => json(200, current),
+      [`PUT /api/apps/${DOMAIN}/disk/kernel`]: () => {
+        current = { ...current, kernel: { applied: true, project: 3000000001, mount: "/var", hard_mb: 128, used_bytes: 5 * MB } };
+        return json(202, accepted(job));
+      },
+      "GET /api/jobs/k1": () => json(200, { ...job, status: "completed", progress: 100 }),
+    });
+    expect(await screen.findByText(/the kernel can hold the 128 MB limit too/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Give the limit to the kernel" }));
+    const dialog = await screen.findByRole("alertdialog", { name: `Give the limit of ${DOMAIN} to the kernel?` });
+    expect(within(dialog).getByText(/The kernel will hold 128 MB for this app and refuse its writes past it/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Give the limit to the kernel" }));
+
+    await waitFor(() => {
+      expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/disk/kernel`)[0]?.body).toEqual({ enabled: true });
+    });
+    expect(await screen.findByText(/The kernel holds this limit as project 3000000001 on \/var: 128 MB, 5\.0 MB counted/, {}, { timeout: 5_000 })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Take it off the kernel" })).toBeInTheDocument();
+  });
+
+  it("holds the offer back while there is no limit to give", async () => {
+    await resources({ ...NO_DISK, filesystem: { mount: "/var", fstype: "xfs", options: ["prjquota"], project_quota: "enabled" } });
+
+    expect(await screen.findByText(/Save a limit above first/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Give the limit to the kernel" })).toBeDisabled();
+  });
+
+  it("takes the limit off the kernel, and says so verbatim when the job fails", async () => {
+    const job = jobOf("k2", "disk");
+    const { user, backend } = await resources(
+      { ...MEASURED, filesystem: { mount: "/var", fstype: "xfs", options: ["prjquota"], project_quota: "enabled" }, kernel: { applied: true, project: 3000000001, mount: "/var", hard_mb: 128, used_bytes: null } },
+      {
+        ...ELEVATED_SESSION,
+        [`PUT /api/apps/${DOMAIN}/disk/kernel`]: () => json(202, accepted(job)),
+        "GET /api/jobs/k2": () => json(200, { ...job, status: "failed", error: "xfs_quota: cannot set project: Operation not permitted" }),
+      },
+    );
+    expect(await screen.findByText(/counted\. The app's own writes are refused past it/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Take it off the kernel" }));
+    const dialog = await screen.findByRole("alertdialog", { name: `Take the limit of ${DOMAIN} off the kernel?` });
+    await user.click(within(dialog).getByRole("button", { name: "Take it off the kernel" }));
+
+    await waitFor(() => {
+      expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/disk/kernel`)[0]?.body).toEqual({ enabled: false });
+    });
+    expect(await within(dialog).findByText(/xfs_quota: cannot set project: Operation not permitted/, {}, { timeout: 5_000 })).toBeInTheDocument();
   });
 
   it("is there for a static site too, which has no unit to limit", async () => {

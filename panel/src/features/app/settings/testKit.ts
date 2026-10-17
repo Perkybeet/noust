@@ -101,6 +101,7 @@ export const NO_DISK = {
   usage: null,
   verdict: null,
   filesystem: { mount: "/", fstype: "ext4", options: ["rw", "relatime"], project_quota: "available" },
+  kernel: { applied: false, project: null, mount: null, hard_mb: null, used_bytes: null },
 };
 
 /** An application nothing speaks against running on a second server. */

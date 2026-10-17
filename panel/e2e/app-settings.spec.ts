@@ -59,7 +59,7 @@ test("the subsections are URLs of their own, and on a phone the list is a page o
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, consoleServer, `/apps/${RELEASE_APP}/settings`);
   const nav = page.getByRole("navigation", { name: "Application settings" }).first();
-  await expect(nav.getByRole("link")).toHaveText(["General", "Source", "Deploys", "Deploy on push", "Deploy hooks", "Access", "Build commands", "Builds", "Resources", "Processes", "Unit security", "Mounts", "Previews", "Export", "Delete"]);
+  await expect(nav.getByRole("link")).toHaveText(["General", "Source", "Deploys", "Deploy on push", "Deploy hooks", "Access", "Build commands", "Builds", "Resources", "Disk", "Processes", "Unit security", "Mounts", "Previews", "Export", "Delete"]);
   await nav.getByRole("link", { name: "Deploy on push" }).click();
   await expect(page).toHaveURL(new RegExp(`/apps/${escapeRegExp(RELEASE_APP)}/settings/deploy-on-push$`));
   await expect(page.getByRole("heading", { level: 2, name: "Deploy on push" })).toBeVisible();
@@ -193,7 +193,7 @@ test("resource limits are refused as the backend would, then saved with exactly 
   await expect(page.getByText("A memory limit of 32M is too small. Allow at least 64M, or no limit.")).toBeVisible();
 
   await memoryField.fill(String(memory));
-  await page.getByRole("textbox", { name: "CPU" }).fill("50");
+  await page.getByRole("textbox", { name: "CPU", exact: true }).fill("50");
   await page.getByRole("textbox", { name: "Processes and threads" }).fill("128");
   const patched = page.waitForRequest((r) => r.url().endsWith(`/api/apps/${IN_PLACE_APP}/limits`) && r.method() === "PATCH");
   await saveBar(page).getByRole("button", { name: "Save" }).click();

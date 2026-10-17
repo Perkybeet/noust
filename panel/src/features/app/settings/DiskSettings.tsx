@@ -24,6 +24,7 @@ import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatBytes } from "../../../lib/format";
+import { KernelQuota } from "./KernelQuota";
 import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
 
 /** The least a limit can be (MB), the backend's own floor: a release has to fit in it. */
@@ -216,6 +217,7 @@ function DiskCard({ app }: { app: App }) {
               ? t("runtime.disk.quota.unknown")
               : t(`runtime.disk.quota.${filesystem.project_quota}`, { fstype: filesystem.fstype, mount: filesystem.mount ?? "/" })}
           </p>
+          <KernelQuota disk={disk.data} domain={domain} />
         </div>
       </Card>
       <CommandHint command={`noust app disk ${domain} --measure --limit 2048`} label={t("appSettings.fromTerminal")} />
