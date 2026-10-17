@@ -8,7 +8,10 @@
  * - a rollout is planned from the page, and nothing is deployed until it is asked for;
  * - the servers are written for a load balancer in the format chosen;
  * - the connection options of a server open with their default, refuse what is not valid and
- *   leave the server untouched.
+ *   leave the server untouched;
+ * - the server that builds an application for the others is chosen from the page, and a shipment
+ *   whose builder cannot build releases is refused with the reason when it is planned, before
+ *   anything is built.
  */
 
 import { csrf } from "./apps-cleanup";
@@ -16,6 +19,12 @@ import { expect, expectNoA11yViolations, settle, signIn, startConsoleServer, tes
 import type { ConsoleServer, RunningServer } from "./fixtures";
 
 const NODE_NAME = "fleet-node";
+
+/**
+ * A second name for the same node process: the build server of a shipment is another server than
+ * the ones that run the application, and one process is all the sandbox has to answer for both.
+ */
+const BUILDER_NAME = "build-1";
 
 /** Seeded only on the node (see NOUST_E2E_FLEET_APP): the placement names it, so the node answers for it. */
 const NODE_APP = "node-only.example.net";
@@ -44,7 +53,15 @@ const withFleet = test.extend<object, FleetWorkerFixtures>({
   ],
   consoleServer: [
     async ({ node }, use) => {
-      const central = await startConsoleServer(["--totp", "--backup-codes", "500", "--fleet-node", `${NODE_NAME}=127.0.0.1:${portOf(node)}`]);
+      const central = await startConsoleServer([
+        "--totp",
+        "--backup-codes",
+        "500",
+        "--fleet-node",
+        `${NODE_NAME}=127.0.0.1:${portOf(node)}`,
+        "--fleet-node",
+        `${BUILDER_NAME}=127.0.0.1:${portOf(node)}`,
+      ]);
       try {
         await use(central);
       } finally {
@@ -137,4 +154,64 @@ withFleet("a server's connection options open with their default, refuse what is
   const body = (await options.json()) as { connect_timeout: number | null; bastion: unknown };
   expect(body.connect_timeout).toBeNull();
   expect(body.bastion).toBeNull();
+});
+
+withFleet("the build server is chosen from the page and recorded, and no server is touched", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, "/fleet/placements");
+  const saved = await page.request.put(`/api/fleet/placements/${NODE_APP}`, {
+    data: { nodes: [NODE_NAME], labels: {}, serial: 1, max_failures: null, canary: null, rollback_on_failure: true },
+    headers: await csrf(page),
+  });
+  expect(saved.ok(), await saved.text()).toBe(true);
+  await page.reload();
+
+  await page.getByRole("button", { name: `Actions for ${NODE_APP}` }).click();
+  await page.getByRole("menuitem", { name: "Choose the build server" }).click();
+  const dialog = page.getByRole("dialog", { name: `Build server of ${NODE_APP}` });
+  await dialog.getByRole("combobox", { name: "Build server" }).click();
+  await page.getByRole("option", { name: BUILDER_NAME, exact: true }).click();
+  await settle(page);
+  await expectNoA11yViolations(page, "the build server dialog");
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect(dialog).toBeHidden();
+
+  await expect(page.getByText(`Built on ${BUILDER_NAME}`)).toBeVisible();
+  const recorded = await page.request.get(`/api/fleet/builders/${NODE_APP}`);
+  expect(recorded.ok(), await recorded.text()).toBe(true);
+  expect(((await recorded.json()) as { node: string }).node).toBe(BUILDER_NAME);
+});
+
+withFleet("a shipment whose build server cannot build releases is refused when planned, before anything is built", async ({ page, consoleServer, problems }) => {
+  // The refusal is the server's own 400, which the browser reports as a failed resource.
+  problems.expect(/status of 400.*\/api\/fleet\/placements\/[^/]+\/ship/);
+  await signIn(page, consoleServer, "/fleet/placements");
+  const saved = await page.request.put(`/api/fleet/placements/${NODE_APP}`, {
+    data: { nodes: [NODE_NAME], labels: {}, serial: 1, max_failures: null, canary: null, rollback_on_failure: true },
+    headers: await csrf(page),
+  });
+  expect(saved.ok(), await saved.text()).toBe(true);
+  await page.reload();
+
+  await page.getByRole("button", { name: `Actions for ${NODE_APP}` }).click();
+  await page.getByRole("menuitem", { name: "Build on one server, run on the others" }).click();
+  const dialog = page.getByRole("dialog", { name: `Build ${NODE_APP} on one server, run it on the others` });
+  await dialog.getByRole("combobox", { name: "Build it on" }).click();
+  await page.getByRole("option", { name: BUILDER_NAME, exact: true }).click();
+  await expect(dialog.getByRole("checkbox", { name: NODE_NAME })).toBeChecked();
+  await settle(page);
+  await expectNoA11yViolations(page, "the shipment form");
+
+  // The application of the node's sandbox is in place: it has no release to build for others.
+  await dialog.getByRole("button", { name: "Show the plan" }).click();
+  await expect(dialog.getByText(`${NODE_APP} is not on the release layout on ${BUILDER_NAME}`)).toBeVisible();
+  await settle(page);
+  await expectNoA11yViolations(page, "a shipment refused at the plan");
+
+  // Planning only plans: no shipment was queued because of it.
+  const jobs = await page.request.get("/api/fleet/jobs");
+  expect(jobs.ok()).toBe(true);
+  const listed = (await jobs.json()) as { items?: { action?: string }[] };
+  expect((listed.items ?? []).filter((job) => job.action === "placement_ship")).toHaveLength(0);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
 });

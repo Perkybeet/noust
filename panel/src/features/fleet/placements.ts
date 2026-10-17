@@ -19,6 +19,9 @@ export type PlacementServer = PlacementDetail["status"]["servers"][number];
 export type PlacementBody = BodyOf<"/api/fleet/placements/{domain}", "put">;
 export type RolloutBody = BodyOf<"/api/fleet/placements/{domain}/rollout", "post">;
 export type CopyBody = BodyOf<"/api/fleet/placements/{domain}/copy", "post">;
+export type ShipBody = BodyOf<"/api/fleet/placements/{domain}/ship", "post">;
+export type BuilderList = ResponseOf<"/api/fleet/builders", "get">;
+export type Builder = BuilderList["builders"][number];
 export type Upstreams = ResponseOf<"/api/fleet/placements/{domain}/upstreams", "get">;
 export type ActionAnswer = ResponseOf<"/api/fleet/placements/{domain}/rollout", "post">;
 
@@ -27,6 +30,7 @@ export const placementKeys = {
   list: ["fleet", "placements", "list"] as const,
   one: (domain: string) => ["fleet", "placements", "one", domain] as const,
   upstreams: (domain: string, format: string, port: number) => ["fleet", "placements", "upstreams", domain, format, port] as const,
+  builders: ["fleet", "builders"] as const,
 };
 
 /** How often a placement's status is read again while it is on screen. */
@@ -56,6 +60,13 @@ export const upstreamsQuery = (domain: string, format: UpstreamFormat, port: num
     retry: false,
   });
 
+/** Which server builds which application: the central's own record, which asks no server. */
+export const buildersQuery = () =>
+  queryOptions({
+    queryKey: placementKeys.builders,
+    queryFn: ({ signal }) => request("get", "/api/fleet/builders", { signal }),
+  });
+
 export const UPSTREAM_FORMATS = ["nginx", "list", "json"] as const;
 export type UpstreamFormat = (typeof UPSTREAM_FORMATS)[number];
 
@@ -77,6 +88,21 @@ export function runRollout(domain: string, body: RolloutBody): Promise<ActionAns
 /** Plans putting the application on the servers that lack it, or queues it. Needs sudo mode. */
 export function runCopy(domain: string, body: CopyBody): Promise<ActionAnswer> {
   return request("post", "/api/fleet/placements/{domain}/copy", { params: { domain }, body });
+}
+
+/** Plans building on one server and running the build on the others (`plan: true`), or queues it. */
+export function runShip(domain: string, body: ShipBody): Promise<ActionAnswer> {
+  return request("post", "/api/fleet/placements/{domain}/ship", { params: { domain }, body });
+}
+
+/** Chooses the server that builds an application. Touches no server. */
+export function setBuilder(domain: string, node: string): Promise<Builder> {
+  return request("put", "/api/fleet/builders/{domain}", { params: { domain }, body: { node } });
+}
+
+/** Goes back to building an application where it runs. */
+export function clearBuilder(domain: string): Promise<Builder> {
+  return request("delete", "/api/fleet/builders/{domain}", { params: { domain } });
 }
 
 // ---------------------------------------------------------------------------------------
@@ -135,6 +161,41 @@ export const IMAGE_TAG = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/;
 
 /** A git tag, as the servers pass it on. */
 export const GIT_TAG = /^[A-Za-z0-9][A-Za-z0-9._/+-]{0,127}$/;
+
+/** The body of a shipment, from what the form holds; null for a value that is not valid. */
+export function shipBody(input: {
+  builder: string;
+  targets: readonly string[];
+  commit: string;
+  force: boolean;
+  schemaChangedOk: boolean;
+  rollback: boolean;
+  serial: string;
+  failures: string;
+  canary: string;
+  plan: boolean;
+}): ShipBody | null {
+  const serial = parseSerial(input.serial);
+  const failures = parseFailures(input.failures);
+  const commit = input.commit.trim();
+  if (serial === undefined || failures === undefined) return null;
+  if (commit !== "" && !COMMIT.test(commit)) return null;
+  if (input.builder === "" || input.targets.length === 0 || input.targets.includes(input.builder)) return null;
+  return {
+    builder: input.builder,
+    to: [...input.targets],
+    commit: commit === "" ? null : commit.toLowerCase(),
+    keep: false,
+    force: input.force,
+    schema_changed_ok: input.schemaChangedOk,
+    frozen_ok: false,
+    rollback_on_failure: input.rollback,
+    serial,
+    max_failures: failures,
+    canary: input.canary === "" ? null : input.canary,
+    plan: input.plan,
+  };
+}
 
 /** What a rollout deploys. */
 export type RolloutWhat = "head" | "commit" | "tag" | "image";

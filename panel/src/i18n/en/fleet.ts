@@ -487,6 +487,10 @@ export const fleet = {
       label: "Copy an application to servers",
       description: "Put an application on servers that lack it, from one that has it, at the same commit.",
     },
+    placement_ship: {
+      label: "Build on one server, run on others",
+      description: "One server builds the application once; every other server receives that release and switches to it behind its health check.",
+    },
   },
   bulk: {
     title: "Run an action on several servers",
