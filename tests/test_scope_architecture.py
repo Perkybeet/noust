@@ -437,6 +437,7 @@ class TestEveryRouteIsHeldToTheScope:
             "GET /api/jobs/active",
             "GET /api/jobs/queue",
             "POST /api/jobs/update-many",
+            "POST /api/manifest/apply",
             "GET /api/recipes/installed",
             "GET /api/tags",
             "POST /api/tags/{tag}/deploy",

@@ -293,6 +293,9 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/mcp/settings", INSTANCE),
     _rule("/api/mcp/**", OPEN),
     # A preview reads through the API as the caller, so every route it meets holds it to its team.
+    # An apply is held to the ceiling (a team's admin applies what is in their team) and then each
+    # call it makes is a request as the caller to a route that holds it to the application's own.
+    _rule("/api/manifest/apply", SCOPED),
     _rule("/api/manifest/**", OPEN),
     # --- the rest is about the server, or about nobody ------------------------
     _rule("/api/auth/**", OPEN),

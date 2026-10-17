@@ -22,6 +22,7 @@ from click.testing import CliRunner
 
 from noust.cli.app import cli as root_cli
 from noust.client import ApiClient
+from noust.core.app_tags import AppTags
 from noust.core.store import NoustStore
 from noust.core.teams import Scope
 from noust.web.jobs import Job, JobType
@@ -205,6 +206,142 @@ class TestWhoMayAndWhat:
         assert domains_queued(world) == {MOBILE, STAGING}
 
 
+class TestByTag:
+    """A tag is a way to say which applications (J-08): the same call, the same gates."""
+
+    @staticmethod
+    def tag(world: World, domain: str, *tags: str) -> None:
+        AppTags(world.store).set(domain, tags)
+
+    @staticmethod
+    def pia_headers(world: World, label: str) -> dict[str, str]:
+        """An operator of the mobile project only, and a reader of the rest of the team."""
+        person = make_person(world.teams, "pia", "viewer", team="acme", team_role="viewer")
+        world.people["pia"] = person
+        AccessManager(world.store).bind("pia", "operator", team="acme", project="mobile")
+        from noust.web.server import get_token_manager
+
+        account = get_token_manager().accounts.find("pia")
+        issued = get_token_manager().create_api_token(
+            label, "admin", None, owner=account, allow_elevated=True
+        )
+        return {"Authorization": f"Bearer {issued['token']}"}
+
+    def test_a_tag_alone_says_which_applications(self, world: World) -> None:
+        self.tag(world, SHOP, "prod")
+        self.tag(world, STAGING, "prod", "eu")
+        self.tag(world, MOBILE, "staging")
+
+        response = update_many(world, "omar", tags=["prod"], force=True)
+
+        assert response.status_code == 202, response.text
+        assert {i["domain"] for i in response.json()["items"]} == {SHOP, STAGING}
+        assert domains_queued(world) == {SHOP, STAGING}
+
+    def test_several_tags_mean_any_of_them(self, world: World) -> None:
+        self.tag(world, SHOP, "prod")
+        self.tag(world, MOBILE, "nightly")
+        self.tag(world, STAGING, "eu")
+
+        response = update_many(world, "omar", tags=["prod", "Nightly"], force=True)
+
+        assert {i["domain"] for i in response.json()["items"]} == {SHOP, MOBILE}
+
+    def test_a_tag_narrows_a_project_instead_of_widening_it(self, world: World) -> None:
+        self.tag(world, SHOP, "nightly")
+        self.tag(world, MOBILE, "nightly")
+
+        response = update_many(world, "omar", project="mobile", tags=["nightly"], force=True)
+
+        assert {i["domain"] for i in response.json()["items"]} == {MOBILE}
+
+    def test_named_domains_are_added_to_what_a_tag_selects(self, world: World) -> None:
+        self.tag(world, SHOP, "prod")
+
+        response = update_many(world, "omar", tags=["prod"], domains=[MOBILE], force=True)
+
+        assert {i["domain"] for i in response.json()["items"]} == {SHOP, MOBILE}
+
+    def test_another_teams_tagged_applications_are_not_in_it(self, world: World) -> None:
+        self.tag(world, SHOP, "prod")
+        self.tag(world, BLOG, "prod")
+
+        response = update_many(world, "omar", tags=["prod"], force=True)
+
+        assert {i["domain"] for i in response.json()["items"]} == {SHOP}
+
+    def test_a_tag_nobody_carries_queues_nothing_and_says_so(self, world: World) -> None:
+        response = update_many(world, "omar", tags=["ghost"], force=True)
+
+        assert response.status_code == 202
+        assert response.json()["items"] == [] and response.json()["queued"] == 0
+        assert domains_queued(world) == set()
+
+    @pytest.mark.parametrize("tags", [["not a tag"], ["x" * 40], [f"t{i}" for i in range(17)]])
+    def test_what_is_not_a_tag_is_a_400(self, world: World, tags: list[str]) -> None:
+        response = update_many(world, "omar", tags=tags, force=True)
+
+        assert response.status_code == 400
+        assert domains_queued(world) == set()
+
+    def test_the_tags_endpoint_is_the_same_group_with_the_same_gates(self, world: World) -> None:
+        self.tag(world, SHOP, "prod")
+        self.tag(world, MOBILE, "prod")
+
+        response = world.client.post(
+            "/api/tags/prod/deploy", json={"force": True}, headers=world.as_("omar")
+        )
+
+        assert response.status_code == 202, response.text
+        body = response.json()
+        assert body["tag"] == "prod" and body["queued"] == 2
+        assert {r["domain"]: r["outcome"] for r in body["results"]} == {
+            SHOP: "queued",
+            MOBILE: "queued",
+        }
+        assert domains_queued(world) == {SHOP, MOBILE}
+
+    def test_the_tags_endpoint_skips_what_the_caller_may_not_deploy_where_it_lives(
+        self, world: World
+    ) -> None:
+        self.tag(world, SHOP, "prod")
+        self.tag(world, MOBILE, "prod")
+
+        response = world.client.post(
+            "/api/tags/prod/deploy",
+            json={"force": True},
+            headers=self.pia_headers(world, "pia-tags"),
+        )
+
+        results = {r["domain"]: r for r in response.json()["results"]}
+        assert results[MOBILE]["outcome"] == "queued"
+        assert results[SHOP]["outcome"] == "skipped"
+        assert results[SHOP]["detail"] == "you may not deploy it"
+        assert domains_queued(world) == {MOBILE}
+
+    def test_a_tag_nobody_carries_is_a_404_on_its_own_endpoint(self, world: World) -> None:
+        response = world.client.post("/api/tags/ghost/deploy", json={}, headers=world.as_("omar"))
+
+        assert response.status_code == 404
+
+    def test_a_branch_with_nothing_new_is_skipped_for_a_tag_too(
+        self, world: World, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self.tag(world, SHOP, "prod")
+
+        class Upstream:
+            has_new_commits = False
+            summary = "The branch has nothing new"
+
+        monkeypatch.setattr("noust.web.api.jobs.check_upstream", lambda domain: Upstream())
+
+        body = world.client.post("/api/tags/prod/deploy", json={}, headers=world.as_("omar")).json()
+
+        assert body["queued"] == 0
+        assert body["results"][0]["outcome"] == "skipped"
+        assert "nothing new" in body["results"][0]["detail"]
+
+
 class TestFromTheCommandLine:
     @pytest.fixture(autouse=True)
     def home(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -362,3 +499,54 @@ class TestFromTheCommandLine:
         body = json.loads(self.run("--json", "update", "--team", "acme"))
 
         assert body["queued"] == 1 and body["jobs"][0]["state"] == "succeeded"
+
+    def test_a_tag_is_a_group_in_one_call(self, wire: Wire) -> None:
+        wire.on(
+            "POST",
+            "/api/jobs/update-many",
+            Answer(
+                202,
+                {
+                    "message": "Queued 1",
+                    "queued": 1,
+                    "skipped": 0,
+                    "items": [{"domain": "a.test", "status": "queued", "job_id": "j1"}],
+                },
+            ),
+        )
+        wire.on("GET", "/api/jobs/j1", Answer(200, {"id": "j1", "state": "succeeded"}))
+
+        output = self.run("update", "--tag", "prod", "--tag", "eu", "--force")
+
+        assert wire.seen[0][3] == {
+            "team": None,
+            "project": None,
+            "environment": None,
+            "domains": [],
+            "tags": ["prod", "eu"],
+            "force": True,
+        }
+        assert "a.test: succeeded" in output
+
+    def test_a_tag_updated_serially_lists_the_applications_that_carry_it(self, wire: Wire) -> None:
+        wire.on("GET", "/api/apps?tag=prod", Answer(200, {"apps": [{"domain": "b.test"}]}))
+        wire.on("GET", "/api/apps?tag=eu", Answer(200, {"apps": [{"domain": "a.test"}]}))
+        wire.on(
+            "POST",
+            "/api/jobs/update",
+            Answer(202, {"job": {"id": "j1"}}),
+            Answer(202, {"job": {"id": "j2"}}),
+        )
+        wire.on("GET", "/api/jobs/j1", Answer(200, {"id": "j1", "state": "succeeded"}))
+        wire.on("GET", "/api/jobs/j2", Answer(200, {"id": "j2", "state": "succeeded"}))
+        for job in ("j1", "j2"):
+            wire.on(
+                "GET",
+                f"/api/jobs/{job}/log?tail=20000",
+                Answer(200, {"content": "", "truncated": False}),
+            )
+
+        self.run("update", "--tag", "prod", "--tag", "eu", "--serial")
+
+        updates = [s for s in wire.seen if s[0] == "POST"]
+        assert [u[3]["domain"] for u in updates] == ["a.test", "b.test"]

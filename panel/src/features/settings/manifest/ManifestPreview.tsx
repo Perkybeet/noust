@@ -1,8 +1,9 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
-import type { SyntheticEvent } from "react";
+import type { ReactNode, SyntheticEvent } from "react";
 
-import { planManifest } from "../../../api/queries/manifest";
+import { appKeys } from "../../../api/queries/apps";
+import { applyManifest, planManifest } from "../../../api/queries/manifest";
 import type { ManifestAction, ManifestPlan } from "../../../api/queries/manifest";
 import { useDocumentTitle } from "../../../app/documentTitle";
 import { CommandHint } from "../../../components/page/CommandHint";
@@ -10,6 +11,7 @@ import { ErrorBlock } from "../../../components/page/QueryState";
 import { Section, Sections } from "../../../components/page/Section";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
@@ -19,6 +21,7 @@ import { Notice } from "../../../components/ui/Notice";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
+import { useJobInHand } from "../../jobs/useJobInHand";
 import { SettingsPrimaryAction } from "../SettingsShell";
 
 /** The sentence for an action kind; a kind this console does not know is shown as the server named it. */
@@ -83,7 +86,7 @@ function columnsFor(t: T): Column<ManifestAction>[] {
   ];
 }
 
-function Result({ plan }: { plan: ManifestPlan }) {
+function Result({ plan, apply }: { plan: ManifestPlan; apply: ReactNode }) {
   const t = useT();
   const columns = columnsFor(t);
   return (
@@ -112,26 +115,55 @@ function Result({ plan }: { plan: ManifestPlan }) {
         <Notice title={t("manifestPreview.result.unmanagedTitle")}>{t("manifestPreview.result.unmanagedBody", { names: plan.unmanaged.join(", ") })}</Notice>
       ) : null}
       <p className="text-13 text-fg-muted">{t("manifestPreview.result.applyHint")}</p>
+      {apply}
     </Section>
   );
 }
 
 /**
- * Settings > Manifest: paste the manifest of a server's applications and see what applying it
- * would change here. It is a preview only: applying is the command line's, from the repository
- * the manifest lives in, so the truth is kept in one place and every apply is a token's.
+ * Settings > Manifest: paste the manifest of a server's applications, see what applying it would
+ * change here, and apply exactly that. The apply is made as the person who clicks (the server calls
+ * its own API with their credentials, so their role, team, sudo mode and approvals decide each
+ * change) and a plan that is no longer the one read is refused. A manifest that reads variables
+ * from an environment or a file is applied from the machine that has them, with the command line.
  */
 export function ManifestPreview() {
   const t = useT();
   useDocumentTitle(t("manifestPreview.documentTitle"), 1);
   const formId = useId();
+  const queryClient = useQueryClient();
   const [text, setText] = useState("");
-  const preview = useMutation({ mutationFn: () => planManifest(text) });
+  // The text the plan on screen was made from: what is applied is exactly this, never what the
+  // box holds now, and the digest of that plan travels with it so the server refuses a stale one.
+  const [previewed, setPreviewed] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const preview = useMutation({
+    mutationFn: (manifest: string) => planManifest(manifest),
+    onSuccess: (_plan, manifest) => setPreviewed(manifest),
+  });
+  // Once the apply has ended the server may match the manifest: read the plan again, and what
+  // the applications list shows has changed.
+  const job = useJobInHand(() => {
+    void queryClient.invalidateQueries({ queryKey: appKeys.list });
+    if (previewed !== null) preview.mutate(previewed);
+  });
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    if (!preview.isPending && text.trim() !== "") preview.mutate();
+    if (!preview.isPending && text.trim() !== "") preview.mutate(text);
   };
+
+  const plan = preview.data;
+  const stale = plan !== undefined && previewed !== text;
+  const applyControl =
+    plan === undefined || plan.empty ? null : (
+      <div className="flex flex-col items-start gap-2">
+        <Button variant="primary" disabled={stale || job.busy || preview.isPending} onClick={() => setConfirming(true)}>
+          {t("manifestPreview.apply.action")}
+        </Button>
+        {stale ? <p className="text-13 text-fg-muted">{t("manifestPreview.apply.changedSince")}</p> : null}
+      </div>
+    );
 
   return (
     <Sections>
@@ -158,7 +190,30 @@ export function ManifestPreview() {
           </Field>
         </form>
       </Section>
-      {preview.data !== undefined ? <Result plan={preview.data} /> : null}
+      {job.notice}
+      {plan !== undefined ? <Result plan={plan} apply={applyControl} /> : null}
+      {plan !== undefined && previewed !== null ? (
+        <ConfirmDialog
+          friction="simple"
+          open={confirming}
+          onOpenChange={setConfirming}
+          title={t("manifestPreview.apply.confirm.title")}
+          description={t("manifestPreview.apply.confirm.description", { count: plan.actions.length })}
+          actionLabel={t("manifestPreview.apply.confirm.action")}
+          onConfirm={async () => {
+            const accepted = await applyManifest(previewed, plan.digest);
+            if (!accepted.queued || accepted.job_id === null || accepted.job_id === undefined) return;
+            job.track(
+              { job_id: accepted.job_id, job: accepted.job },
+              {
+                running: t("manifestPreview.apply.running", { count: plan.actions.length }),
+                succeeded: t("manifestPreview.apply.succeeded"),
+                failed: t("manifestPreview.apply.failed"),
+              },
+            );
+          }}
+        />
+      ) : null}
       <div className="flex flex-col gap-2">
         <CommandHint command={t("manifestPreview.commandPlan")} label={t("manifestPreview.command")} />
         <CommandHint command={t("manifestPreview.commandExport")} />

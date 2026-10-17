@@ -1,0 +1,154 @@
+# The map from the Noust API to a Terraform and OpenTofu provider (checklist J-14).
+#
+# A provider is a Go program that lives in a repository of its own (the registry only publishes
+# `terraform-provider-<name>`). What it can be derived from is the API's schema and this file:
+#
+#   tfplugingen-openapi generate --config sdk/terraform/generator_config.yml \
+#       --output provider_code_spec.json panel/openapi.json
+#
+# is HashiCorp's own generator (terraform-plugin-codegen-openapi) reading this file, and it
+# accepts it as it stands. `tests/test_terraform_map.py` holds every operation named here to the
+# schema, so the map cannot drift from the API, and docs/terraform.md says what the rest of the
+# provider has to do.
+#
+# `resources` and `data_sources` are the generator's. Those are the objects the API reads one by
+# one (GET /api/teams/{team}); the generator needs a read of one object to derive a schema.
+# `x_noust` is ours (the generator ignores it): what the API has no read of one object for
+# (the provider reads the list and picks the object) and what is not an object but a job.
+provider:
+  name: noust
+
+resources:
+  team:
+    create: {path: /api/teams, method: POST}
+    read: {path: "/api/teams/{team}", method: GET}
+    update: {path: "/api/teams/{team}", method: PATCH}
+    delete: {path: "/api/teams/{team}", method: DELETE}
+    schema:
+      attributes:
+        aliases: {team: slug}
+
+  account:
+    create: {path: /api/auth/accounts, method: POST}
+    read: {path: "/api/auth/accounts/{username}", method: GET}
+    update: {path: "/api/auth/accounts/{username}", method: PATCH}
+    delete: {path: "/api/auth/accounts/{username}", method: DELETE}
+
+  role:
+    create: {path: /api/access/roles, method: POST}
+    read: {path: "/api/access/roles/{role}", method: GET}
+    update: {path: "/api/access/roles/{role}", method: PATCH}
+    delete: {path: "/api/access/roles/{role}", method: DELETE}
+    schema:
+      attributes:
+        aliases: {role: name}
+
+  registry_login:
+    create: {path: /api/registries, method: POST}
+    read: {path: "/api/registries/{name}", method: GET}
+    update: {path: "/api/registries/{name}", method: PATCH}
+    delete: {path: "/api/registries/{name}", method: DELETE}
+
+data_sources:
+  team:
+    read: {path: "/api/teams/{team}", method: GET}
+    schema:
+      attributes:
+        aliases: {team: slug}
+  account:
+    read: {path: "/api/auth/accounts/{username}", method: GET}
+  role:
+    read: {path: "/api/access/roles/{role}", method: GET}
+    schema:
+      attributes:
+        aliases: {role: name}
+  application:
+    read: {path: "/api/apps/{domain}", method: GET}
+
+x_noust:
+  # Resources the provider writes by hand, from the operations of the API they stand on. `read` is
+  # a list the provider filters (`pick`: the field that identifies the object in it), because the
+  # API has no read of one object; `async` means the call answers 202 with a job the provider
+  # waits for (`GET /api/jobs/{id}`, state succeeded) before it says the resource exists.
+  hand_written:
+    application:
+      async: true
+      create: {path: /api/apps, method: POST}
+      read: {path: "/api/apps/{domain}", method: GET}
+      delete: {path: "/api/apps/{domain}", method: DELETE}
+      id: domain
+    project:
+      create: {path: "/api/teams/{team}/projects", method: POST}
+      read: {path: "/api/teams/{team}/projects", method: GET, pick: slug}
+      update: {path: "/api/teams/{team}/projects/{project}", method: PATCH}
+      delete: {path: "/api/teams/{team}/projects/{project}", method: DELETE}
+      id: team/slug
+    environment:
+      create: {path: "/api/teams/{team}/projects/{project}/environments", method: POST}
+      read: {path: "/api/teams/{team}/projects/{project}/environments", method: GET, pick: slug}
+      update: {path: "/api/teams/{team}/projects/{project}/environments/{environment}", method: PATCH}
+      delete: {path: "/api/teams/{team}/projects/{project}/environments/{environment}", method: DELETE}
+      id: team/project/slug
+    team_member:
+      create: {path: "/api/teams/{team}/members", method: POST}
+      read: {path: "/api/teams/{team}/members", method: GET, pick: username}
+      update: {path: "/api/teams/{team}/members/{username}", method: PATCH}
+      delete: {path: "/api/teams/{team}/members/{username}", method: DELETE}
+      id: team/username
+    access_binding:
+      create: {path: /api/access/bindings, method: POST}
+      read: {path: /api/access/bindings, method: GET, pick: id}
+      delete: {path: "/api/access/bindings/{binding_id}", method: DELETE}
+      id: binding_id
+    api_token:
+      create: {path: /api/auth/tokens, method: POST}
+      read: {path: /api/auth/tokens, method: GET, pick: id}
+      delete: {path: "/api/auth/tokens/{token_id}", method: DELETE}
+      id: token_id
+      # The secret is in the answer to the create and in no read: it is the one thing the provider
+      # keeps in state, marked sensitive.
+      sensitive: [token]
+    backup_schedule:
+      create: {path: /api/backup-schedules, method: POST}
+      read: {path: /api/backup-schedules, method: GET, pick: domain}
+      update: {path: "/api/backup-schedules/{domain}", method: PUT}
+      delete: {path: "/api/backup-schedules/{domain}", method: DELETE}
+      id: domain
+    cron_job:
+      create: {path: /api/cron, method: POST}
+      read: {path: /api/cron, method: GET, pick: name}
+      delete: {path: "/api/cron/{name}", method: DELETE}
+      id: name
+    team_variable:
+      create: {path: "/api/teams/{team}/variables", method: POST}
+      read: {path: "/api/teams/{team}/variables", method: GET, pick: name}
+      update: {path: "/api/teams/{team}/variables/{name}", method: PUT}
+      delete: {path: "/api/teams/{team}/variables/{name}", method: DELETE}
+      id: team/name
+      sensitive: [value]
+    server_variable:
+      create: {path: /api/variables/server, method: POST}
+      read: {path: /api/variables/server, method: GET, pick: name}
+      update: {path: "/api/variables/server/{name}", method: PUT}
+      delete: {path: "/api/variables/server/{name}", method: DELETE}
+      id: name
+      sensitive: [value]
+    notification_channel:
+      read: {path: /api/notifications/channels, method: GET, pick: name}
+      update: {path: "/api/notifications/channels/{name}", method: PUT}
+      delete: {path: "/api/notifications/channels/{name}", method: DELETE}
+      id: name
+      sensitive: [settings]
+    secret_provider:
+      read: {path: /api/secret-providers, method: GET, pick: name}
+      update: {path: "/api/secret-providers/{name}", method: PUT}
+      delete: {path: "/api/secret-providers/{name}", method: DELETE}
+      id: name
+      sensitive: [token]
+    dns_provider:
+      create: {path: /api/dns/providers, method: POST}
+      read: {path: /api/dns/providers, method: GET, pick: name}
+      update: {path: "/api/dns/providers/{name}", method: PATCH}
+      delete: {path: "/api/dns/providers/{name}", method: DELETE}
+      id: name
+      sensitive: [credentials]

@@ -181,6 +181,15 @@ API version 1.
 - Previews: the settings take and answer `domain_template`, `noindex` and `fork_policy`, and
   `data_mode` may be `clone`; a preview may have the status `awaiting` (a fork's commit that waits
   for an operator), and `POST .../previews/{number}/approve` and `.../reject` decide it.
+- `POST /api/manifest/apply` (sudo mode, `apps.manage`): applies a manifest as a job made of the
+  caller's own API calls, refused with `409 plan_changed` when the `expect` digest of the preview
+  is not the plan's now, and with `409 apply_running` while another is being applied. The preview
+  (`POST /api/manifest/plan`) answers the plan's `digest`. The job's type is `manifest`; it runs
+  beside the deploy queue instead of in it.
+- `POST /api/jobs/update-many` takes `tags`: every application that carries any of them, narrowed
+  by `team`, `project` or `environment` when those are given too. `POST /api/tags/{tag}/deploy`
+  is now this same call with one tag, so it also skips what the caller may not deploy where it
+  lives (it queued it before).
 
 ### Deprecated
 

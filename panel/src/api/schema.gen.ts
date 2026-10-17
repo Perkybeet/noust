@@ -14899,7 +14899,7 @@ export interface paths {
         put?: never;
         /**
          * Create Update Jobs
-         * @description Queue the update of every application of a team, a project or an environment.
+         * @description Queue the update of every application of a team, a project, an environment or a tag.
          *
          *     One call for what a pipeline would otherwise loop over: each application
          *     gets the job ``POST /api/jobs/update`` would have queued, so each goes
@@ -14909,15 +14909,15 @@ export interface paths {
          *     reported as skipped with the reason; nothing is refused for it.
          *
          *     Args:
-         *         request: Which applications: a team, a project, an environment, or domains.
+         *         request: Which applications: a team, a project, an environment, tags, or domains.
          *         session: The authenticated session.
          *
          *     Returns:
          *         What became of each.
          *
          *     Raises:
-         *         ValidationError: 400 when nothing says which applications, or more than
-         *             :data:`MAX_GROUP` match.
+         *         ValidationError: 400 when nothing says which applications, a tag is not
+         *             one, or more than :data:`MAX_GROUP` match.
          */
         post: operations["create_update_jobs_api_jobs_update_many_post"];
         delete?: never;
@@ -15130,6 +15130,48 @@ export interface paths {
          *         DeliveryError: It did not accept the line; its own words are in the answer.
          */
         post: operations["test_drain_api_log_drains__name__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/manifest/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply
+         * @description Queue the application of a manifest, made as the caller.
+         *
+         *     Creates what is missing and brings what exists to what is written, with the
+         *     calls the caller would make by hand; it never deletes anything. The calls
+         *     are checked by the routes they reach, so the caller's role, team, sudo mode
+         *     and approvals decide each step, and a refusal stops the run there. Follow
+         *     the job: it waits for the deployments it queues.
+         *
+         *     Args:
+         *         request: The request.
+         *         response: To answer 200 when there is nothing to apply.
+         *         body: The manifest, the digest previewed, and whether to restart.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The job, or the news that the server already matches the manifest.
+         *
+         *     Raises:
+         *         ManifestError: 400, naming the field that is not valid, or because a
+         *             variable is read from an environment or a file.
+         *         HTTPException: 409 ``plan_changed`` when the plan is not the one previewed,
+         *             or ``apply_running`` while another manifest is being applied; the
+         *             status of the route that refused a read.
+         */
+        post: operations["apply_api_manifest_apply_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -34176,6 +34218,61 @@ export interface components {
             zone: string;
         };
         /**
+         * ManifestApplyRequest
+         * @description Request to apply a manifest.
+         *
+         *     Attributes:
+         *         manifest: The manifest, as YAML or JSON, with every variable's value written in it.
+         *         expect: The digest of the preview its author saw. When it is given and the
+         *             plan is no longer the same, nothing is applied.
+         *         restart: Restart the applications whose variables changed.
+         */
+        ManifestApplyRequest: {
+            /**
+             * Expect
+             * @description The digest of the preview that was read; refused if the plan has changed
+             */
+            expect?: string | null;
+            /**
+             * Manifest
+             * @description The manifest, as YAML or JSON
+             */
+            manifest: string;
+            /**
+             * Restart
+             * @description Restart the applications whose variables changed
+             */
+            restart?: boolean | null;
+        };
+        /**
+         * ManifestApplyResponse
+         * @description What asking to apply a manifest did.
+         *
+         *     Attributes:
+         *         queued: Whether a job was queued; false when the server already matches.
+         *         message: One sentence.
+         *         digest: The plan's digest.
+         *         job_id: The job to follow (``GET /api/jobs/{id}``), when one was queued.
+         *         status: The job's status when the request returned.
+         *         job: The job's snapshot, the same shape the jobs API returns.
+         */
+        ManifestApplyResponse: {
+            /** Digest */
+            digest: string;
+            /** Job */
+            job?: {
+                [key: string]: unknown;
+            };
+            /** Job Id */
+            job_id?: string | null;
+            /** Message */
+            message: string;
+            /** Queued */
+            queued: boolean;
+            /** Status */
+            status?: string | null;
+        };
+        /**
          * ManifestOut
          * @description What the console posts to GitHub.
          *
@@ -45074,6 +45171,11 @@ export interface components {
              */
             project?: string | null;
             /**
+             * Tags
+             * @description Every application that carries any of these tags; with a team, a project or an environment, only those among that group's
+             */
+            tags?: string[];
+            /**
              * Team
              * @description Every application of this team
              */
@@ -47699,6 +47801,8 @@ export interface components {
          *
          *     Attributes:
          *         empty: Nothing would.
+         *         digest: What the preview says, in one hash: send it with the apply so
+         *             it is refused if the plan has changed since.
          *         actions: The changes, in the order they would run.
          *         warnings: Differences that are not reconciled, and what could not be checked.
          *         unmanaged: Applications the caller sees that the manifest does not name.
@@ -47711,6 +47815,8 @@ export interface components {
             counts: {
                 [key: string]: number;
             };
+            /** Digest */
+            digest: string;
             /** Empty */
             empty: boolean;
             /** Unmanaged */
@@ -64949,6 +65055,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TestDrainResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_api_manifest_apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManifestApplyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManifestApplyResponse"];
                 };
             };
             /** @description Validation Error */

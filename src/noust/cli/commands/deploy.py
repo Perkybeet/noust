@@ -27,6 +27,7 @@ from noust.core.audit.actor import cli_actor
 from noust.core.delivery_queue import (
     BUILD_JOB_TYPES,
     FINISHED_STATUSES,
+    ORCHESTRATION_JOB_TYPES,
     PENDING,
     RUNNING,
     cancel_recorded_job,
@@ -70,6 +71,8 @@ def _waiting_for(record: JobRecord, running: list[JobRecord]) -> str:
     Returns:
         One short phrase; empty when it starts next.
     """
+    # A manifest being applied only queues other jobs and waits for them: nothing waits for it.
+    running = [job for job in running if job.type not in ORCHESTRATION_JOB_TYPES]
     for other in running:
         if record.domain and other.domain == record.domain:
             return f"the {other.type} of {record.domain} (job {other.id})"
