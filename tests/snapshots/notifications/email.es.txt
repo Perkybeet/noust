@@ -1821,7 +1821,7 @@ Servidor: web-1
 Usado: 91% -> 88%
 Liberado: 2.0 GB
 Acciones: journal, pkg-cache, releases
-Ver lo ejecutado: noust server cleanup-schedule runs
+Ver lo ejecutado: noust server cleanup-schedule history
 
 Lo que ha dicho releases:
   rm: cannot remove '/var/www/apps/shop/releases/x': Permission denied
@@ -1847,7 +1847,7 @@ La política de limpieza se ha ejecutado y todas sus acciones han fallado, así 
 Servidor: web-1
 Usado: 93% -> 93%
 Acciones: journal
-Ver lo ejecutado: noust server cleanup-schedule runs
+Ver lo ejecutado: noust server cleanup-schedule history
 
 Lo que ha dicho journal:
   Failed to vacuum: Read-only file system

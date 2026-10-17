@@ -86,7 +86,7 @@ def compose_cleanup(
         facts=facts,
         command=None
         if status == "ok"
-        else _fact("cleanup_runs", "noust server cleanup-schedule runs", ctx, mono=True),
+        else _fact("cleanup_runs", "noust server cleanup-schedule history", ctx, mono=True),
         excerpt=excerpt,
         path="/server",
     )

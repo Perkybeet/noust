@@ -264,6 +264,14 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `notifications.events.cron_success` | `false` | Every successful run of every cron job: a heartbeat, off like `backup_success`. |
 | `notifications.events.os_patches` | `true` | Operating system updates are waiting, security ones first; also when the check itself cannot be made. |
 | `notifications.events.token_expiring` | `true` | An API token is about to expire, expires today or just expired. |
+| `notifications.events.cleanup_failed` | `true` | A disk cleanup (`noust server cleanup-schedule`) failed or freed less than it should, with what it said. |
+| `notifications.events.cleanup_success` | `false` | Every cleanup that went well: a heartbeat, off like `backup_success`. |
+| `notifications.events.cron_missed` | `true` | A scheduled task will not run when it should: its timer is gone, disabled or cannot be read. |
+| `notifications.events.probe_failed` | `true` | An external probe (`noust probe`) stopped answering as expected, once per outage. |
+| `notifications.events.probe_recovered` | `true` | A probe that was reported failing answers again. |
+| `status_page.enabled` | `false` | The monitor writes the public status page of the probes (see [probes.md](probes.md#the-status-page)). |
+| `status_page.directory` | empty | Where its files are written, an absolute path; empty is `/var/lib/noust/status-page`. |
+| `status_page.title` | empty | The page's title, at most 80 characters; empty is `Status`. |
 | `notifications.channels.webhook.webhook_url` | empty | The generic endpoint notifications are posted to (a secret: it is a capability URL). |
 | `notifications.channels.webhook.secret` | empty | Signs every delivery with HMAC-SHA256 in `X-Noust-Signature` when set (a secret). |
 | `notifications.channels.slack.webhook_url` | empty | A Slack incoming webhook (a secret). |
