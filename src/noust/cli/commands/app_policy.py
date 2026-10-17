@@ -90,6 +90,13 @@ def _print(ctx: Context, view: access.AccessView) -> None:
         {"www": "www", "apex": "without www", "": "both as they are"}[policy.canonical],
     )
     logger.key_value("Search engines", "told not to index" if policy.noindex else "may index")
+    if not policy.force_https:
+        logger.key_value(
+            "HTTP",
+            "answered as it is, beside HTTPS"
+            if view.serves_tls
+            else "not redirected once the site has a certificate",
+        )
     if policy.http3:
         logger.key_value(
             "HTTP/3",
@@ -284,6 +291,13 @@ def show_command(ctx: Context, domain: str) -> None:
     "(noust app policy clients issue makes them).",
 )
 @click.option(
+    "--force-https/--no-force-https",
+    "force_https",
+    default=None,
+    help="Send port 80 to HTTPS once the site has a certificate (the default). --no-force-https "
+    "leaves the site answering on both, for a client that cannot follow a redirect (nginx only).",
+)
+@click.option(
     "--waf",
     type=click.Choice(["off", "detect", "block"]),
     default=None,
@@ -336,6 +350,7 @@ def set_command(
     accept_unreachable_auth: bool,
     http3: bool | None,
     client_certs: bool | None,
+    force_https: bool | None,
     waf: str | None,
     waf_exclude: tuple[int, ...],
     clear_waf_exclusions: bool,
@@ -362,6 +377,7 @@ def set_command(
         ("noindex", noindex),
         ("http3", http3),
         ("client_certs", client_certs),
+        ("force_https", force_https),
         ("waf", waf),
     ):
         if value is not None:

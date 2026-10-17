@@ -30,15 +30,16 @@ server {
     location /.well-known/acme-challenge/ {
         root /var/www/html;
         allow all;
-{% if not ssl and policy | default({}) and policy.auth %}
+{% if not (ssl and force_https | default(true)) and policy | default({}) and policy.auth %}
         auth_basic off;
 {% endif %}
-{% if not ssl and policy | default({}) and policy.forward_auth %}
+{% if not (ssl and force_https | default(true)) and policy | default({}) and policy.forward_auth %}
         auth_request off;
 {% endif %}
     }
 
 {% if ssl %}
+{% if force_https | default(true) %}
     # Redirect HTTP to HTTPS (except ACME challenges)
     location / {
         return 301 https://$host$request_uri;
@@ -50,6 +51,11 @@ server {
     listen [::]:443 ssl http2;
     server_name {{ server_names | default(domain) }};
     server_tokens off;
+{% else %}
+    # The policy does not force HTTPS: one server answers on both ports.
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+{% endif %}
 
     # SSL Configuration
     ssl_certificate {{ ssl_certificate }};

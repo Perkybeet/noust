@@ -997,6 +997,13 @@ def _require_applicable(app: App, policy: SitePolicy, *, verbose: bool) -> None:
                 details="Asking it about every request would loop back into that service.",
                 field="forward_auth",
             )
+    if not policy.force_https and app.webserver == "apache":
+        raise ValidationError(
+            "Serving HTTP and HTTPS from one site is nginx's here",
+            details=f"{app.domain} is served by Apache, which redirects to HTTPS once it has a "
+            "certificate. Move it to nginx to leave it answering on both.",
+            field="force_https",
+        )
     if policy.http3 and app.webserver == "apache":
         raise ValidationError(
             "HTTP/3 is nginx's: Apache's stock builds have no QUIC",
