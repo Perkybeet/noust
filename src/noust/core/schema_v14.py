@@ -1385,7 +1385,7 @@ CREATE TABLE IF NOT EXISTS app_mounts (
 CREATE TABLE IF NOT EXISTS log_drains (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
-    kind TEXT NOT NULL CHECK (kind IN ('loki', 'axiom', 'http', 'otlp', 'syslog')),
+    kind TEXT NOT NULL CHECK (kind IN ('loki', 'axiom', 'newrelic', 'http', 'otlp', 'syslog')),
     settings TEXT NOT NULL DEFAULT '{}',
     apps TEXT NOT NULL DEFAULT '[]',
     enabled INTEGER NOT NULL DEFAULT 1,
