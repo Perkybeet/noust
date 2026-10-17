@@ -21,6 +21,7 @@ import yaml
 from noust.deployers.docker_compose import parse_services
 from noust.deployers.helpers.compose_ports import (
     PortMapping,
+    host_port_variables,
     is_headless_stack,
     parse_ports,
     published_port,
@@ -155,3 +156,36 @@ def test_a_port_that_cannot_be_read_is_not_taken_for_none() -> None:
     services = services_of("services:\n  web:\n    image: nginx\n    ports: ['${PORT}:3000']\n")
 
     assert is_headless_stack(services) is False
+
+
+@pytest.mark.parametrize(
+    ("entry", "expected"),
+    [
+        ("127.0.0.1:${PORT:-80}:80", {"PORT"}),
+        ("${PORT}:80", {"PORT"}),
+        ("$PORT:80", {"PORT"}),
+        ("${BIND:-0.0.0.0}:${PORT:-3000}:3000/tcp", {"BIND", "PORT"}),
+        ("[::1]:${PORT:?set it}:80", {"PORT"}),
+        ("${PORT:-8080}", set()),  # the container's port alone: nothing to set on the host
+        ("127.0.0.1:3000:${INNER:-3000}", set()),  # the container side is the image's
+        ("3000:3000", set()),
+        ({"target": 80, "published": "${PORT}", "host_ip": "127.0.0.1"}, {"PORT"}),
+        ({"target": 80, "published": 3000, "host_ip": "${BIND:-127.0.0.1}"}, {"BIND"}),
+        ({"target": 80}, set()),
+        (3000, set()),
+    ],
+)
+def test_the_variables_a_host_port_reads_are_named_whatever_the_form(
+    entry: object, expected: set[str]
+) -> None:
+    """
+    ``${PORT:-80}`` reads as 80 above, which is what the file says when nothing is set. A deploy
+    that can set it needs to know the entry reads it, in the short form and the long.
+    """
+    assert host_port_variables([entry]) == expected
+    assert host_port_variables(entry) == expected
+
+
+def test_no_ports_read_no_variable() -> None:
+    assert host_port_variables(None) == set()
+    assert host_port_variables([]) == set()

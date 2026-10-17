@@ -61,6 +61,7 @@ from noust.core.utils import domain_to_app_name
 from noust.deployers.helpers import compose_preview, compose_retention
 from noust.deployers.helpers.build_config import refuse_unsupported, resolve_build
 from noust.deployers.helpers.compose_ports import (
+    host_port_variables,
     is_headless_stack,
     published_port,
     web_root_service,
@@ -1579,6 +1580,29 @@ class DockerComposeDeployer(AppDeployer):
             self.logger.substep(f"Wrote {len(self.env_vars)} environment variables")
         else:
             self.logger.substep("No environment configuration needed")
+        self._own_the_port_variable(manager)
+
+    def _own_the_port_variable(self, manager: Any) -> None:
+        """
+        Give ``PORT`` the port the site proxies to, when the document publishes on it.
+
+        The site goes to the port the application was given, and a document that publishes its
+        web service on ``127.0.0.1:${PORT:-80}:80`` (every template converted from Coolify's
+        catalogue does) published on its default instead: 80, which nginx holds, so the stack
+        failed to start, or whatever number the site did not know about, behind a 502. ``PORT``
+        is the one value Noust owns in a stack's ``.env``; a recipe writes it the same way, and
+        a value the operator already set is theirs.
+
+        Args:
+            manager: The environment manager that writes the file.
+        """
+        if not self.port or "PORT" in self.env_vars:
+            return
+        published = [entry for service in self.services for entry in service.ports]
+        if "PORT" not in host_port_variables(published):
+            return
+        if manager.add_if_missing(self.app_path / ".env", "PORT", str(self.port)):
+            self.logger.substep(f"PORT={self.port}: where the site proxies to")
 
     def _build_images(self, no_cache: bool = False) -> None:
         """

@@ -323,6 +323,35 @@ def _variables(document: str, services: dict[str, Any]) -> list[PastedVariable]:
     ]
 
 
+def plain_uses_with_a_default(document: str) -> dict[str, str]:
+    """
+    List the variables a document reads with no default in one place and with one in another.
+
+    Compose gives the plain use a blank: ``$DB`` in one service and ``${DB:-app}`` in another is
+    ``app`` for the second and nothing for the first. Coolify gives both the default, because it
+    makes the variable's value from it, so a template converted from there needs it written.
+
+    Args:
+        document: The text.
+
+    Returns:
+        Each such variable and the first default it is given. An empty default is not one: it is
+        what the plain use gets anyway.
+    """
+    text = document.replace("$$", "")
+    plain: set[str] = set()
+    defaults: dict[str, str] = {}
+    for match in _BRACED.finditer(text):
+        name, operator, argument = match.group(1), match.group(2) or "", match.group(3)
+        if operator in (":-", "-"):
+            if argument:
+                defaults.setdefault(name, argument)
+        elif not operator:
+            plain.add(name)
+    plain.update(match.group(1) for match in _BARE.finditer(text))
+    return {name: value for name, value in defaults.items() if name in plain}
+
+
 def write_document(app_name: str, document: str, store: NoustStore, *, fs: Any = None) -> Path:
     """
     Put a pasted document where the deployment is made from.

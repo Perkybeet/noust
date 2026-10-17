@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Real-software harness for the network features of Noust: fail2ban, HTTP/3, forward-auth,
-prefix routes, the site's history and the Coolify templates, against the real programs.
+prefix routes, the site's history and the Coolify templates,
+against the real programs.
 
 pytest proves these features with fakes (tests/conftest.py refuses a real process), which proves
 that Noust writes what it means to write and says nothing about whether nginx, fail2ban,
@@ -18,6 +19,11 @@ Containers (never more than three at once, all on a network of their own, no pub
 - ``noust-test-de-authelia`` / ``noust-test-de-oauth2``: one at a time, sharing the server's
   network namespace so that the service listens on the server's loopback, where Noust's
   presets expect it.
+
+The Coolify scenarios (``--scenario coolify``) download templates from Coolify's repository at a
+pinned commit, check their sha256 and deploy them with the inner Docker's Compose, so they need
+the network and pull images; they leave their stacks running (``--keep``) and start from nothing
+on a re-run, removing the stack's containers and volumes in the inner Docker only.
 
 Every name carries the prefix ``noust-test-de-`` and the label ``noust.test=1``. Nothing else on
 the machine's Docker is read, stopped, started or removed: :func:`owned` refuses any name that is
@@ -1822,6 +1828,285 @@ def scenario_forward_auth_authelia(env: Env) -> None:
     sign_in()
     env.check(asking()["status"] == 200, "the site did not open again once Authelia was back")
     remove_container(AUTHELIA)
+
+
+# ---------------------------------------------------------------------------
+# Coolify templates, converted and deployed with a real Docker Compose
+# ---------------------------------------------------------------------------
+
+#: The commit of Coolify's repository the catalogue was read at, and the templates used with the
+#: sha256 of each (Coolify and its templates are Apache-2.0: fetched when the scenario runs,
+#: never kept in this repository).
+COOLIFY_COMMIT = "e79347295ae36881eb239b1962d26d118e35a6bc"
+COOLIFY_TEMPLATES = {
+    "it-tools": "d7244ebe98e02183511f07feb95f8f442a95f2c419faa5e89ef9d9966cc0bc39",
+    "listmonk": "356793cad36ff8d303775347668176eb4e6e840e4cd2bc64c963a26663c5b903",
+    "umami": "d65b0d45133c26c36f1aaff7a462800cf032ebe2c1908de8ab49f78d07419007",
+    "vaultwarden": "abb5e007a8b43a72fbddaea7b6df30845bd103af04ada437fb49cf2347817f09",
+    "wordpress-with-mysql": "819478592769b7b93795474dd4c1544899b1d548ddcd26d1f42c6578ff19905f",
+    "gitea-with-mariadb": "b13daecbf63cc5f5c82d6aafaad9da2db82c0125de8f4a2414914dbc5ec8f9e7",
+    "docmost": "6daa37d2517dd9a49b999d0c09cb3a83683e58df424d14c429b8759198cc5059",
+    "portainer": "ab7ab9db225c11baf2f89214ab1c82fa68f2eb685580c865e38e0c77b5d6a6f7",
+}
+
+
+def fetch_template(env: Env, name: str) -> str:
+    """
+    Download a template at the pinned commit into the server and check it is the one that was
+    read when the scenario was written.
+
+    Returns:
+        The path of the file in the server.
+    """
+    path = f"/root/coolify/{name}.yaml"
+    url = f"https://raw.githubusercontent.com/coollabsio/coolify/{COOLIFY_COMMIT}/templates/compose/{name}.yaml"
+    env.srv(f"mkdir -p /root/coolify && curl -fsS {url} -o {path}", timeout=120)
+    digest = env.srv(f"sha256sum {path}").stdout.split()[0]
+    env.check(
+        digest == COOLIFY_TEMPLATES[name],
+        f"{name}.yaml is not the template this scenario was written against ({digest})",
+    )
+    return path
+
+
+def project_of(domain: str) -> str:
+    """The Compose project Noust gives an application: its name, the domain with dots as dashes."""
+    return domain.replace(".", "-")
+
+
+def clean_stack(env: Env, domain: str) -> None:
+    """
+    Start a template from nothing: the application, its containers and its volumes.
+
+    ``noust delete`` keeps a stack's named volumes on purpose (they are the data), and a database
+    that kept the previous run's volume refuses the passwords the next run generates. The volumes
+    are in the inner Docker, the server container's own, so removing them touches nothing else.
+    """
+    if env.srv(f"noust status {domain}", check=False).returncode == 0:
+        env.srv(f"noust delete {domain} -y", label="(a re-run) start from nothing", timeout=300)
+    label = f"label=com.docker.compose.project={project_of(domain)}"
+    env.srv(
+        f"docker ps -aq --filter {label} | xargs -r docker rm -f; "
+        f"docker volume ls -q --filter {label} | xargs -r docker volume rm",
+        label="(a re-run) the stack's leftovers in the inner Docker",
+        timeout=120,
+    )
+
+
+def deploy_template(
+    env: Env, name: str, domain: str, *, give: dict[str, str] | None = None
+) -> dict[str, Any]:
+    """
+    Import a template and deploy it the way the documentation says, and return the import.
+
+    Args:
+        env: The environment.
+        name: The template.
+        domain: The name to serve it on.
+        give: Variables the template needs and the operator must provide, by name. The import
+            has to have said so: they are looked for among the ones it reports as required.
+
+    Returns:
+        ``noust compose import --json``: what was made, never the values.
+    """
+    clean_stack(env, domain)
+    template = fetch_template(env, name)
+    folder = f"/root/coolify/{name}-stack"
+    env.srv(f"rm -rf {folder}")
+    imported = json_of(
+        env.srv(f"noust compose import {template} --domain {domain} --out {folder} --json"),
+        "compose import --json",
+    )
+    env.check(imported["deployable"], f"the converted {name} is refused: {imported['refused']}")
+    env.check(
+        env.srv(f"stat -c '%a' {folder}/.env").stdout.strip() == "600",
+        "the generated values are not readable by their owner alone",
+    )
+    said = {item["name"] for item in imported["required"]}
+    env.check(
+        set(give or {}) <= said,
+        f"the import should have said which variables to give ({sorted(give or {})}), said {sorted(said)}",
+    )
+    for variable, value in (give or {}).items():
+        env.srv(f"printf '%s=%s\\n' {variable} {value} >> {folder}/.env", label=f"give {variable}")
+    env.srv(
+        f"docker compose -f {folder}/docker-compose.yml config -q", label="docker compose config"
+    )
+    env.srv(f"noust create -d {domain} -s {folder} --no-ssl", timeout=1500)
+    return imported
+
+
+def stack_state(env: Env, domain: str) -> str:
+    """``docker ps`` of the inner Docker, one line per container."""
+    return env.srv(
+        f"docker ps --filter label=com.docker.compose.project={project_of(domain)} "
+        "--format '{{.Names}} {{.Status}} {{.Ports}}'",
+        check=False,
+    ).stdout
+
+
+def through_nginx(env: Env, domain: str, path: str = "/", *, extra: str = "") -> str:
+    """What the site answers for ``path``, asked of nginx on the server's own loopback."""
+    return env.srv(
+        f"curl -s {extra} -H 'Host: {domain}' http://127.0.0.1{path}", check=False
+    ).stdout
+
+
+def served(env: Env, domain: str, path: str, expect: str, what: str, *, timeout: float) -> None:
+    """Wait until the site's ``path`` answers with ``expect`` in it."""
+    wait_for(lambda: expect in through_nginx(env, domain, path), what, timeout=timeout)
+
+
+def check_published_on_loopback(env: Env, domain: str, container_port: int) -> None:
+    """The web service is on a loopback port of its own, not on 80, which nginx holds."""
+    ports = stack_state(env, domain)
+    env.check(
+        "127.0.0.1:" in ports
+        and f"->{container_port}/tcp" in ports
+        and ":80->" not in ports.replace("127.0.0.1", ""),
+        f"{domain} must be published on a loopback port of its own, not on 80: {ports}",
+    )
+
+
+@scenario("coolify_templates_simple")
+def scenario_coolify_simple(env: Env) -> None:
+    """Templates of one container: an address variable, a long generated secret, a header-only route."""
+    tools = deploy_template(env, "it-tools", "tools.test")
+    served(env, "tools.test", "/", "IT Tools", "it-tools to be served through nginx", timeout=120)
+    env.check(
+        tools["routed"] == ["it-tools", 80], f"the web service was not found: {tools['routed']}"
+    )
+    check_published_on_loopback(env, "tools.test", 80)
+
+    # no routing entry: the header names the port; ADMIN_TOKEN is a 64-character secret made here
+    vault = deploy_template(env, "vaultwarden", "vault.test")
+    env.check(vault["routed"] == ["vaultwarden", 80], f"routed {vault['routed']}")
+    wait_for(
+        lambda: through_nginx(env, "vault.test", "/alive").strip().startswith('"20'),
+        "vaultwarden to answer /alive",
+        timeout=240,
+    )
+    served(env, "vault.test", "/", "Vaultwarden Web", "vaultwarden's web vault", timeout=60)
+    length = env.srv(
+        f"docker exec {project_of('vault.test')}-vaultwarden-1 sh -c 'echo ${{#ADMIN_TOKEN}}'"
+    ).stdout.strip()
+    env.check(length == "64", f"ADMIN_TOKEN should be the 64 characters made for it, not {length}")
+
+
+@scenario("coolify_templates_postgres")
+def scenario_coolify_postgres(env: Env) -> None:
+    """Templates with PostgreSQL: generated users, a one-off installer, shared defaults, a required variable."""
+    deploy_template(env, "listmonk", "lists.test")
+    served(
+        env,
+        "lists.test",
+        "/admin/login",
+        "listmonk",
+        "listmonk's login page (the application reaches its database to start)",
+        timeout=240,
+    )
+    setup = env.srv(
+        "docker inspect -f '{{.State.ExitCode}}' lists-test-listmonk-initial-database-setup-1"
+    ).stdout.strip()
+    env.check(setup == "0", f"the one-off service that installs the schema exited {setup}")
+    env.check(
+        "invalid session" in through_nginx(env, "lists.test", "/api/health"),
+        "listmonk's API should answer (and ask for a session) through the site",
+    )
+
+    # $POSTGRES_DB is read plainly by the application and given a default by the database
+    stats = deploy_template(env, "umami", "stats.test")
+    env.check(
+        any(v["name"] == "POSTGRES_DB" and v["origin"] == "template" for v in stats["variables"]),
+        f"the default another service declares was not made a value: {stats['variables']}",
+    )
+    wait_for(
+        lambda: '"ok":true' in through_nginx(env, "stats.test", "/api/heartbeat"),
+        "umami to answer its heartbeat",
+        timeout=300,
+    )
+    signed = env.srv(
+        "curl -s -X POST -H 'Content-Type: application/json' -H 'Host: stats.test' "
+        '-d \'{"username":"admin","password":"umami"}\' http://127.0.0.1/api/auth/login',
+        check=False,
+    ).stdout
+    env.check(
+        '"token"' in signed,
+        "umami cannot sign in, so it does not reach its database (DATABASE_URL built from "
+        f"the template's variables): {signed[:200]}",
+    )
+
+    # secrets made for the stacks are in .env only, never in a unit's journal
+    leaked = env.srv(
+        'journalctl --no-pager -u lists-test | grep -c "$(grep SERVICE_PASSWORD_POSTGRES '
+        '/root/coolify/listmonk-stack/.env | cut -d= -f2)" || true'
+    ).stdout.split()
+    env.check(leaked[-1] == "0", "a generated password reached the unit's journal")
+
+
+@scenario("coolify_templates_required")
+def scenario_coolify_required(env: Env) -> None:
+    """A template with a variable it cannot start without: the import says so, the operator gives it."""
+    imported = deploy_template(env, "docmost", "docs.test", give={"MAIL_DRIVER": "smtp"})
+    env.check(
+        imported["routed"] == ["docmost", 3000],
+        f"the web service was not found: {imported['routed']}",
+    )
+    wait_for(
+        lambda: "docmost" in through_nginx(env, "docs.test", "/", extra="-L").lower(),
+        "docmost to be served",
+        timeout=360,
+    )
+    # the application, its database and its cache are all up behind the one domain
+    up = stack_state(env, "docs.test")
+    env.check(
+        up.count("healthy") >= 3,
+        f"the three services of the stack should be healthy (the database and the cache gate the application): {up}",
+    )
+
+
+@scenario("coolify_templates_mysql")
+def scenario_coolify_mysql(env: Env) -> None:
+    """Templates with MySQL and MariaDB: a database the service only depends_on, a published SSH port."""
+    deploy_template(env, "wordpress-with-mysql", "blog.test")
+    # WordPress redirects to its installer, by the name it is served on: follow it by hand, since
+    # the name only resolves inside the server.
+    wait_for(
+        lambda: "/wp-admin/install.php" in through_nginx(env, "blog.test", "/", extra="-i"),
+        "WordPress to send a visitor to its installer (it reaches its database)",
+        timeout=360,
+    )
+    page = through_nginx(env, "blog.test", "/wp-admin/install.php")
+    env.check(
+        "Error establishing a database connection" not in page and "WordPress" in page,
+        "WordPress does not reach its MySQL with the user and password made for it",
+    )
+
+    deploy_template(env, "gitea-with-mariadb", "git.test")
+    wait_for(
+        lambda: "Gitea" in through_nginx(env, "git.test", "/install"),
+        "gitea's installer to be served",
+        timeout=360,
+    )
+
+
+@scenario("coolify_template_refused")
+def scenario_coolify_refused(env: Env) -> None:
+    """A template that mounts the Docker socket is converted, refused, and nothing is deployed."""
+    template = fetch_template(env, "portainer")
+
+    refused = env.srv(f"noust compose import {template} --domain admin.test --json", check=False)
+
+    env.check(refused.returncode == 1, "a template mounting the Docker socket must exit 1")
+    body = json_of(refused, "compose import --json")
+    env.check(
+        body["deployable"] is False and any("Docker socket" in p for p in body["refused"]),
+        f"portainer should be refused for the socket: {body['refused']}",
+    )
+    env.check(
+        env.srv("noust status admin.test", check=False).returncode != 0,
+        "a refused template must not leave an application behind",
+    )
 
 
 # ---------------------------------------------------------------------------

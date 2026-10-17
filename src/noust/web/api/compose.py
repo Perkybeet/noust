@@ -27,7 +27,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from noust.deployers.compose_paste import MAX_DOCUMENT_BYTES, PastedCompose, analyze_document
-from noust.recipes.coolify import MAX_TEMPLATE_BYTES, convert
+from noust.recipes.coolify import MAX_TEMPLATE_BYTES, convert, default_host_port
 from noust.validators.domain import validate_domain
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute
@@ -243,7 +243,7 @@ def import_coolify(
         ValidationError: It is not a Compose template, or the domain is not a name (400).
     """
     domain = validate_domain(body.domain) if body.domain else None
-    result = convert(body.document, domain=domain, port=body.port)
+    result = convert(body.document, domain=domain, port=body.port or default_host_port())
     found = analyze_document(result.document)
     return CoolifyImportOut(
         document=result.document,

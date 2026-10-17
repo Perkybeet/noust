@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 __all__ = [
     "PortMapping",
     "ServicePorts",
+    "host_port_variables",
     "is_headless_stack",
     "parse_ports",
     "published_port",
@@ -40,6 +41,9 @@ __all__ = [
 
 #: ``${NAME:-default}`` or ``${NAME-default}``: what Compose substitutes when unset.
 _DEFAULTED_VARIABLE = re.compile(r"\$\{[A-Za-z_][A-Za-z0-9_]*:?-([^}]*)\}")
+
+#: A variable a value reads: ``${NAME}``, ``${NAME:-x}``, ``$NAME``.
+_VARIABLE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)[^}]*\}|\$([A-Za-z_][A-Za-z0-9_]*)")
 
 #: A port or a range of them.
 _PORT_RANGE = re.compile(r"^(\d+)(?:-(\d+))?$")
@@ -96,6 +100,39 @@ def parse_ports(value: object) -> list[PortMapping]:
     for entry in entries:
         mappings.extend(_parse_entry(entry) or [])
     return mappings
+
+
+def host_port_variables(value: object) -> set[str]:
+    """
+    Name the variables the host side of a service's ``ports:`` reads.
+
+    The reading above takes ``${PORT:-80}`` at its default, which is what the file says when
+    nothing is set; the variable is what a deploy can set, so that the stack is published where
+    its site proxies to.
+
+    Args:
+        value: The list under ``ports:``, or a single entry.
+
+    Returns:
+        The names in the address and the host port of each entry (the container's port is the
+        image's, not something to set), in either form.
+    """
+    if value is None:
+        return set()
+    entries: Iterable[object] = value if isinstance(value, list) else [value]
+    names: set[str] = set()
+    for entry in entries:
+        if isinstance(entry, dict):
+            sides = [str(entry.get("host_ip", "")), str(entry.get("published", ""))]
+        else:
+            text = str(entry)
+            # The colons and slashes inside a variable (``${PORT:-80}``) are not the entry's.
+            masked = _VARIABLE.sub(lambda match: "_" * len(match.group(0)), text)
+            masked = masked.split("/", 1)[0]
+            sides = [text[: masked.rfind(":")]] if ":" in masked else []
+        for side in sides:
+            names.update(match.group(1) or match.group(2) for match in _VARIABLE.finditer(side))
+    return names
 
 
 def published_port(service: ServicePorts) -> int | None:

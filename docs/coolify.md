@@ -187,6 +187,23 @@ convert, then go on as with any Compose file).
   Noust's web server reaches a stack, and stops being an entry. With no entry the `# port:` header goes
   to the service that asks for the stack's address, never to a database, and it is said that this was a
   guess.
+- **The port is a free one**, not the container's own: 80 and 443 are the web server's, and 3000 or
+  8080 are as likely to be another application's. `noust compose import` and the API convert with the
+  port `noust create` would give the next application (`--port` names another). The document reads it
+  through `${PORT:-3021}`, and a stack that is deployed writes `PORT=<the port its site proxies to>` in
+  its `.env` when the document publishes on `${PORT}` and you have not set it.
+- **What Coolify does for you and Compose does not is done here**: a service that does not say how it
+  restarts gets `restart: unless-stopped` (an application that starts before its database is ready
+  exits and has to be started again); the named volumes a service mounts are declared at the top
+  level (Compose refuses a project that mounts one nobody declared, and 340 of the 345 templates of the
+  catalogue that mount one leave the declaration out); and a default one service gives a variable
+  (`${POSTGRES_DB:-umami}`) is the value another service that reads it plainly (`$POSTGRES_DB` in a
+  connection string) gets, as Coolify's variables work. A default with a space or a quote in it is
+  asked for instead of guessed.
+- **What the template needs from you is said**: a variable with no default and no value made here
+  (`${MAIL_DRIVER:?}`, or one read plainly that nothing defines) is listed by `noust compose import`
+  (`required` in `--json`) and by the console's analysis, because Compose stops on the first kind
+  and starts the second with a blank.
 - **What means nothing here is dropped, and said**: the Traefik and Coolify labels, the `coolify`
   network, `exclude_from_hc`. `$NAME` becomes `${NAME}`, the one spelling Noust reads.
 - **What cannot be translated is a warning, never a guess**: a file mounted from inline `content:` (a
