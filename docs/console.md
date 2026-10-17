@@ -620,7 +620,9 @@ is, or says it is not an application's. A site written by hand is never rewritte
 Three more tabs are shown to whoever may see the server: **DNS** (the accounts Noust holds at DNS
 providers and the records it manages in them), **Tunnels** (Cloudflare Tunnels and the names each
 carries) and **Ports** (the TCP and UDP ports nginx publishes). The Certificates tab can **upload**
-a certificate and its key, and opens the **certificate authority** settings, from More actions; see
+a certificate and its key, opens the **certificate authority** settings and the **private authority**
+(the server's own, for names that only resolve inside a network: made, trusted on this server, how to
+trust it on each kind of device, the certificates it signed), from More actions; see
 [certificates.md](certificates.md) and
 [network.md](network.md). An application's **Domains** tab also chooses the spelling that is served
 (`www` or the bare name), sends an alias to another port, shows and makes the DNS records of its
