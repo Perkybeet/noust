@@ -26,6 +26,11 @@ Stages::
     e2e          the provider binary under the real Terraform CLI: apply, an empty plan, a change, destroy
     e2e-tofu     the same under OpenTofu, which speaks the same plugin protocol
     sdk          the generated Python client against the same live API
+    release      (not in the default set) the registry's release, made for real and signed with a key made
+                 for the run: scripts/prepare_terraform_registry.py stages the public repository, which is
+                 vetted and tested as its own workflow would, then built by GoReleaser from the same
+                 .goreleaser.yml, and e2e/verify_release.py holds the files to what the registry reads.
+                 Nothing is published: no token, no upload, no key of the owner's
 
 Usage::
 
@@ -74,7 +79,14 @@ OPENTOFU_IMAGE = "ghcr.io/opentofu/opentofu:1.12.8"
 PYTHON_IMAGE = "python:3.12-slim-bookworm"
 HELPER_IMAGE = "alpine:latest"
 
-STAGES = ("unit", "docs", "acceptance", "e2e", "e2e-tofu", "sdk")
+STAGES = ("unit", "docs", "acceptance", "e2e", "e2e-tofu", "sdk", "release")
+
+#: What runs when no stage is named. The release stage downloads GoReleaser and builds thirteen binaries, which
+#: is worth doing when the release machinery changes and before the owner publishes, and not on every run.
+DEFAULT_STAGES = tuple(stage for stage in STAGES if stage != "release")
+
+#: The version the release stage tags the staged repository with; it is never pushed.
+RELEASE_VERSION = "0.1.0"
 
 
 @dataclass
@@ -115,16 +127,46 @@ def server_requirements() -> list[str]:
     return sorted(set(wanted))
 
 
+def stage_for_registry(destination: Path) -> int:
+    """
+    Write the repository the registry would publish, with the script the owner uses.
+
+    Args:
+        destination: The directory to write.
+
+    Returns:
+        The script's exit status.
+    """
+    return subprocess.run(
+        [
+            sys.executable,
+            str(REPO / "scripts" / "prepare_terraform_registry.py"),
+            "--out",
+            str(destination),
+        ],
+        stdout=subprocess.DEVNULL,
+    ).returncode
+
+
 class Backend:
     """Where the stages run: Docker containers, or this machine."""
 
     def start(self) -> contextlib.AbstractContextManager[Live]:
         raise NotImplementedError
 
-    def go(self, args: Sequence[str], live: Live | None, extra_env: dict[str, str]) -> int:
+    def go(
+        self,
+        args: Sequence[str],
+        live: Live | None,
+        extra_env: dict[str, str],
+        mounts: Sequence[str] = (),
+    ) -> int:
         raise NotImplementedError
 
     def e2e(self, live: Live, engine: str = "terraform") -> int:
+        raise NotImplementedError
+
+    def release(self) -> int:
         raise NotImplementedError
 
     def sdk(self, live: Live) -> int:
@@ -345,7 +387,13 @@ class DockerBackend(Backend):
                 "mkdir -p /cache/tf-1.16.6 && cp /bin/terraform /cache/tf-1.16.6/terraform",
             )
 
-    def go(self, args: Sequence[str], live: Live | None, extra_env: dict[str, str]) -> int:
+    def go(
+        self,
+        args: Sequence[str],
+        live: Live | None,
+        extra_env: dict[str, str],
+        mounts: Sequence[str] = (),
+    ) -> int:
         self.ensure_image(GO_IMAGE)
         self._terraform_binary()
         env = {
@@ -381,6 +429,8 @@ class DockerBackend(Backend):
             "-v",
             f"{self.cache}:/cache",
         ]
+        for mount in mounts:
+            command += ["-v", mount]
         if live is not None:
             command += ["--network", f"container:{self.server}"]
         for key, value in {**env, **(live.env() if live else {})}.items():
@@ -435,6 +485,21 @@ class DockerBackend(Backend):
             command, env={**os.environ, "DOCKER_CONFIG": self.config_dir}
         ).returncode
 
+    def release(self) -> int:
+        with tempfile.TemporaryDirectory(
+            prefix="noust-release-", ignore_cleanup_errors=True
+        ) as scratch:
+            staged = Path(scratch, "terraform-provider-noust")
+            code = stage_for_registry(staged)
+            if code != 0:
+                return code
+            return self.go(
+                ["sh", "/e2e/release.sh", "/stage", RELEASE_VERSION],
+                None,
+                {},
+                mounts=[f"{staged}:/stage", f"{PROVIDER / 'e2e'}:/e2e:ro"],
+            )
+
     def sdk(self, live: Live) -> int:
         self.ensure_image(PYTHON_IMAGE)
         command = [
@@ -483,7 +548,13 @@ class NativeBackend(Backend):
             tokens = live_api.mint_tokens(server.url, server.master_token, provider_permissions())
             yield Live(url=server.url, tokens=tokens)
 
-    def go(self, args: Sequence[str], live: Live | None, extra_env: dict[str, str]) -> int:
+    def go(
+        self,
+        args: Sequence[str],
+        live: Live | None,
+        extra_env: dict[str, str],
+        mounts: Sequence[str] = (),
+    ) -> int:
         env = {
             **os.environ,
             "NOUST_OPENAPI": str(REPO / "panel" / "openapi.json"),
@@ -514,6 +585,19 @@ class NativeBackend(Backend):
             }
             return subprocess.run(
                 ["sh", str(PROVIDER / "e2e" / "run.sh"), str(dist)], cwd=PROVIDER, env=env
+            ).returncode
+
+    def release(self) -> int:
+        with tempfile.TemporaryDirectory(
+            prefix="noust-release-", ignore_cleanup_errors=True
+        ) as scratch:
+            staged = Path(scratch, "terraform-provider-noust")
+            code = stage_for_registry(staged)
+            if code != 0:
+                return code
+            return subprocess.run(
+                ["sh", str(PROVIDER / "e2e" / "release.sh"), str(staged), RELEASE_VERSION],
+                env={**os.environ, "GOFLAGS": "-buildvcs=false"},
             ).returncode
 
     def sdk(self, live: Live) -> int:
@@ -554,7 +638,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="also remove the build cache volume and the server image",
     )
     args = parser.parse_args(argv)
-    stages = args.stage or list(STAGES)
+    stages = args.stage or list(DEFAULT_STAGES)
 
     backend: Backend = NativeBackend() if args.native else DockerBackend(args.prefix)
     results: dict[str, int] = {}
@@ -602,6 +686,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 if "sdk" in needs_server:
                     print("== sdk", flush=True)
                     results["sdk"] = backend.sdk(live)
+        if "release" in stages:
+            print("== release", flush=True)
+            results["release"] = backend.release()
     finally:
         backend.close(clean=args.clean)
     for stage, code in results.items():

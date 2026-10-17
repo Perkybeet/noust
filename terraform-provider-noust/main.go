@@ -11,6 +11,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
@@ -22,9 +23,15 @@ import (
 var version = "dev"
 
 func main() {
-	var debug bool
+	var debug, showVersion bool
 	flag.BoolVar(&debug, "debug", false, "start the provider with support for debuggers such as delve")
+	flag.BoolVar(&showVersion, "version", false, "print the version this binary was built as and exit")
 	flag.Parse()
+	if showVersion {
+		// How a release is told apart from a local build without running it under Terraform.
+		fmt.Printf("terraform-provider-noust %s\n", version)
+		return
+	}
 
 	err := providerserver.Serve(context.Background(), provider.New(version), providerserver.ServeOpts{
 		Address: "registry.terraform.io/perkybeet/noust",

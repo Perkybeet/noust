@@ -25,6 +25,15 @@ is a client of lives and where its tests find the server they run against, and p
   provider speaks protocol 6; `.github/workflows/release.yml` runs GoReleaser when a `v*` tag is pushed,
   and `.github/workflows/test.yml` runs the unit tests on every push. They are templates here (GitHub only
   runs workflows at the root of a repository) and become live in the staged repository.
+* The whole release, rehearsed. `python tests/integration/terraform_run.py --stage release` stages the public
+  repository with the script below, commits and tags it in a container, runs what its own `test` workflow
+  runs, builds it with GoReleaser from the same `.goreleaser.yml`, signs the checksums with a key made for the
+  run and thrown away after, and holds the output to what the registry documents: thirteen zips named
+  `terraform-provider-noust_<version>_<os>_<arch>.zip` each holding `terraform-provider-noust_v<version>`,
+  a `SHA256SUMS` that lists every zip and the manifest, a binary detached signature that verifies, a manifest
+  that says protocol 6, and a binary that starts as a plugin with the version built in. It publishes nothing
+  and uses no key of yours. What it cannot rehearse is the part that is yours: the repository, your key and
+  your registry account.
 * The module path (`github.com/Perkybeet/terraform-provider-noust`) and the registry address
   (`registry.terraform.io/perkybeet/noust`, so `source = "perkybeet/noust"`) are written for the account
   `Perkybeet`. For another account or an organisation, stage with `--owner` and they are rewritten.
@@ -68,10 +77,11 @@ repository's harness) and makes the links of its README absolute.
 ### 3. Make the signing key
 
 The registry only accepts a release whose `SHA256SUMS` file is signed, with a key whose public half you give
-it. Make one for the provider, with a passphrase, on a machine you trust:
+it. It accepts RSA and DSA keys and rejects the elliptic-curve type that recent GPG offers by default, so
+choose RSA explicitly. Make the key for the provider, with a passphrase, on a machine you trust:
 
 ```bash
-gpg --full-generate-key                    # RSA and RSA, 4096 bits, a long validity, a passphrase
+gpg --full-generate-key                    # "RSA and RSA", 4096 bits, a long validity, a passphrase
 gpg --list-secret-keys --keyid-format=long # note the key id after "rsa4096/"
 gpg --armor --export <KEY-ID>              # the public half: for the registry
 gpg --armor --export-secret-keys <KEY-ID>  # the private half: for the repository's secrets
@@ -80,8 +90,7 @@ gpg --armor --export-secret-keys <KEY-ID>  # the private half: for the repositor
 The private half goes to the **public repository's** Actions secrets and nowhere else: `GPG_PRIVATE_KEY`
 (the armoured block) and `PASSPHRASE`. It is never committed, never put in this repository's secrets, and
 never pasted into a chat or an issue. Keep an offline copy: a lost key means a new key and a new version
-that people must trust again. RSA is the type the registry documents as accepted; check its page on signing
-keys if you prefer another.
+that people must trust again.
 
 ### 4. Register with the registry
 
@@ -89,7 +98,8 @@ keys if you prefer another.
    organisation) that owns the repository.
 2. Settings, Signing Keys: add the **public** key you exported, under the namespace.
 3. Publish, Provider: pick the repository. The registry installs a webhook on it so that every release is
-   ingested; nothing is published until a release exists.
+   ingested; nothing is published until a release exists. If the webhook is missing afterwards, delete any
+   `registry.terraform.io` webhooks the repository has and press Resync on the provider's settings page.
 
 ### 5. Release
 
@@ -97,6 +107,10 @@ keys if you prefer another.
 git tag v0.1.0
 git push origin v0.1.0
 ```
+
+The registry reads a tag that is a semantic version with the `v` in front (`v0.1.0`, or `v0.2.0-rc1` for a
+pre-release), from a release that is finished and not a draft, and no branch may carry the tag's name. A
+version it has ingested is never changed or replaced: a mistake is a new version.
 
 The `release` workflow imports the key from the secrets, runs GoReleaser, and the GitHub release it
 creates carries the files the registry reads: `terraform-provider-noust_0.1.0_<os>_<arch>.zip` for each
@@ -106,9 +120,16 @@ few minutes; `terraform init` with `source = "perkybeet/noust"` then installs it
 ### 6. OpenTofu
 
 OpenTofu has a registry of its own, `registry.opentofu.org`, which reads the same GitHub release. A provider
-is added to it by a submission to <https://github.com/opentofu/registry> (an issue from its provider
-template, naming the repository), and its signing key by a second one. Follow the instructions that
-repository publishes: they are the source of truth and change.
+is added to it by two submissions to <https://github.com/opentofu/registry>, and **only through the issue
+forms in the browser**: its maintainers ask that nobody opens pull requests or creates these issues with the
+`gh` command or the API, because those are not processed.
+
+1. "Submit new Provider" (the `provider.yml` form): the repository, `Perkybeet/terraform-provider-noust`.
+2. "Submit new Provider Signing Key" (the `provider_key.yml` form): the public half of the key you exported
+   for the Terraform registry, so that OpenTofu can check the same signature.
+
+The team reviews and approves them. The forms and their fields are theirs and change; the README of that
+repository is the source of truth.
 
 ## Releasing again
 
