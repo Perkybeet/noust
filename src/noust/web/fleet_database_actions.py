@@ -56,8 +56,6 @@ from noust.web.fleet_jobs import (
     _ceiling_refuses,
     resolve_targets,
 )
-from noust.web.fleet_placement_actions import _check, _flag
-from noust.web.fleet_ship_actions import _missing_operation
 
 __all__ = ["DATABASE_OPERATIONS", "transfer_request"]
 
@@ -193,6 +191,10 @@ def _transfer_options(options: Any) -> dict[str, Any]:
         ValidationError: A name that is not one, an engine whose databases do not travel as a dump,
             an engine on the target of another kind than the source's, or no source server.
     """
+    # The helpers of the sibling action modules are fetched when used: the fleet's job module loads
+    # them all at its end, so at import time whichever of them was imported first is half made.
+    from noust.web.fleet_placement_actions import _check, _flag
+
     given = _check(
         {
             "database": str,
@@ -396,6 +398,8 @@ def _transfer_prepare(
             details="To move a database between engines on one server: noust db move.",
             field="targets",
         )
+    from noust.web.fleet_ship_actions import _missing_operation
+
     wanted = _source_operations(options)
     spec = ActionSpec(
         "database_transfer_source",

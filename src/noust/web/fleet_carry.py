@@ -21,11 +21,13 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from noust.core.exceptions import NoustError
 from noust.fleet.aggregate import Failure, NodeSource, decode_answer
-from noust.web.fleet_jobs import ActionFailed, NodeRun
+
+if TYPE_CHECKING:
+    from noust.web.fleet_jobs import NodeRun
 
 __all__ = [
     "DOWNLOAD_CHUNK",
@@ -111,6 +113,10 @@ def carry(run: NodeRun, carriage: Carriage) -> str:
         ActionFailed: The first server's copy ended early, or the transfer kept failing; the
             upload is dropped from the receiving server.
     """
+    # Not at the top: the fleet's job module loads the action modules at its end, and they load
+    # this one, so a process whose first fleet import is this module would find that one half made.
+    from noust.web.fleet_jobs import ActionFailed
+
     source = carriage.source
     size = carriage.size
     started = run.call("POST", carriage.start_path, body=dict(carriage.start_body))

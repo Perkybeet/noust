@@ -19,7 +19,9 @@ field the real route would refuse is refused here too.
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -896,3 +898,49 @@ class TestThePlan:
             "accounts": True,
             "drop_source": True,
         }
+
+
+class TestTheModulesLoadInAnyOrder:
+    """
+    The fleet's job module loads the action modules at its end, and they load the shared
+    carrying: a process whose first fleet import is any one of them must still find them all made.
+    The central's API imports the action only when a request needs it, so the first import of a
+    running central is whichever route is asked first.
+    """
+
+    @pytest.mark.parametrize(
+        "first",
+        [
+            "noust.web.fleet_carry",
+            "noust.web.fleet_database_actions",
+            "noust.web.fleet_ship_actions",
+            "noust.web.fleet_jobs",
+        ],
+    )
+    def test_whichever_is_imported_first_registers_every_action(
+        self, first: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import noust.web
+
+        fleet = [name for name in sys.modules if name.startswith("noust.web.fleet_")]
+        saved = {name: sys.modules[name] for name in fleet}
+        for name in fleet:
+            monkeypatch.delitem(sys.modules, name)
+            # `from noust.web import fleet_jobs` looks at the package's attribute first.
+            monkeypatch.delattr(noust.web, name.rpartition(".")[2], raising=False)
+        try:
+            importlib.import_module(first)
+            jobs = importlib.import_module("noust.web.fleet_jobs")
+            importlib.import_module("noust.web.fleet_database_actions")
+            assert {
+                "placement_ship",
+                "placement_copy",
+                "placement_rollout",
+                "database_transfer",
+            } <= set(jobs.ACTIONS)
+        finally:
+            for name in [n for n in sys.modules if n.startswith("noust.web.fleet_")]:
+                del sys.modules[name]
+            sys.modules.update(saved)
+            for name, module in saved.items():
+                setattr(noust.web, name.rpartition(".")[2], module)
