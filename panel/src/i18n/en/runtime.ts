@@ -552,8 +552,8 @@ export const runtime = {
     stopManagingButton: "Stop managing…",
   },
   rollback: {
-    instantWords: "Goes back in seconds: what deployment {id} ran is still on the server, so nothing is built.",
-    rebuildWords: "Builds commit {commit} again where the application runs, which takes as long as a deploy.",
+    instantWords: "Goes back in seconds: what deployment {id} ran is still on the server, so nothing is built. The database stays as it is: going back puts code back, never data.",
+    rebuildWords: "Builds commit {commit} again where the application runs, which takes as long as a deploy. The database stays as it is: going back puts code back, never data.",
     instantBadge: "Instant",
     rebuildBadge: "Rebuilds",
   },

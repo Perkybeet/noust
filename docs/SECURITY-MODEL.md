@@ -359,18 +359,18 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **802** API operations. **788** need a permission (`x-noust-permission`) and **14** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **275** operations need sudo mode and **35** can need a second person.
+- **832** API operations. **818** need a permission (`x-noust-permission`) and **14** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **282** operations need sudo mode and **35** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
 |---|---|
 | `accounts.manage` | 22 |
 | `accounts.read` | 8 |
-| `apps.deploy` | 16 |
-| `apps.manage` | 113 |
+| `apps.deploy` | 24 |
+| `apps.manage` | 117 |
 | `apps.operate` | 29 |
-| `apps.read` | 111 |
+| `apps.read` | 114 |
 | `apps.terminal` | 12 |
 | `audit.manage` | 1 |
 | `audit.read` | 9 |
@@ -381,8 +381,8 @@ only what recovering an account takes.
 | `databases.manage` | 33 |
 | `databases.read` | 55 |
 | `databases.write` | 12 |
-| `fleet.manage` | 30 |
-| `fleet.read` | 13 |
+| `fleet.manage` | 38 |
+| `fleet.read` | 18 |
 | `public` | 14 |
 | `root_equivalent` | 15 |
 | `secrets.reveal` | 11 |
@@ -392,8 +392,8 @@ only what recovering an account takes.
 | `server.manage` | 43 |
 | `server.read` | 67 |
 | `server.terminal` | 1 |
-| `settings.manage` | 24 |
-| `settings.read` | 19 |
+| `settings.manage` | 25 |
+| `settings.read` | 20 |
 | `teams.manage` | 14 |
 | `teams.read` | 10 |
 <!-- /generated:routes -->
@@ -485,15 +485,15 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **410** events.
+The catalogue holds **428** events.
 
 | Category | Events |
 |---|---|
 | access | 35 |
 | account | 36 |
 | config | 17 |
-| change | 264 |
-| read | 19 |
+| change | 281 |
+| read | 20 |
 | denial | 15 |
 | system | 21 |
 | host | 3 |
@@ -547,8 +547,10 @@ These are the limits, stated before you find them.
 - **A redactor works by value.** It scrubs what Noust knows is a secret and nothing it does not, and it
   leaves values shorter than six characters alone.
 - **A key beside the ciphertext does not protect from a compromised host.** `config.yaml` holds SMTP and
-  destination secrets in clear, `0600`, and the central can be sealed with `noust central seal`; neither
-  helps if the attacker is root on the same machine.
+  notification secrets in clear, `0600`, and the central can be sealed with `noust central seal`; neither
+  helps if the attacker is root on the same machine. What is guaranteed is about the copies: no read of the
+  API, no `noust store export` and no incident package carries a secret value unless it was asked for and is
+  audited ([docs/security.md](security.md#secrets-at-rest)).
 - **`security.profile: ens-medium` is a mapping, not a certification.**
 - **Dated.** The counts of other products' advisories are those of 2026-10-13, read from GitHub's
   published advisories of each repository. Nothing here is a ranking: advisories count attention as
@@ -620,6 +622,9 @@ publishing with attestations, which PyPI shows on the release's page.
 
 A release that fixes a vulnerability is titled *(security release)* on GitHub, and an installation
 that is behind one says so in `noust health`, in its CLI banner and in Settings > About.
+
+The wheel and the source distribution can also be rebuilt from the tag and compared byte for byte
+with the files of the release: [docs/reproducible-builds.md](reproducible-builds.md).
 
 ## How this page is kept true
 

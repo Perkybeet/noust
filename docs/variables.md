@@ -134,6 +134,11 @@ running application from a file beside each release (`.noust-env`), so going bac
 release gives it that release's commit. The port is the unit's (`PORT`, and `HOST` for the Node
 frameworks), and `{{app.PORT}}` and `{{app.HOST}}` name the same facts in a value.
 
+A [preview](previews.md) is also told what it is: `NOUST_PREVIEW_OF` is the application it copies
+and, when it is for a pull request, `NOUST_PR_NUMBER` is that pull request's number (a preview of
+a branch or a tag has none). `{{app.PR_NUMBER}}` and `{{app.PREVIEW_OF}}` name them in a value, for
+a database name or a banner that says which pull request this is.
+
 The build gets them too, **except the commit and the release**: both change on every deploy, and a
 build that depends on them could never be reused or compared with the last one. A build that needs
 the commit asks for it by name: a variable whose value is `{{app.COMMIT}}` and whose audience is

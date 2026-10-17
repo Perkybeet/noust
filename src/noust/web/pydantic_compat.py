@@ -130,3 +130,22 @@ def dump_model(model: BaseModel) -> dict[str, Any]:
     if PYDANTIC_V2:
         return model.model_dump()
     return model.dict()
+
+
+def dump_set_fields(model: BaseModel) -> dict[str, Any]:
+    """
+    Serialise only the fields a client sent.
+
+    A field left out of a request and one sent as ``null`` are different
+    asks (leave it, and go back to the default); the model alone cannot say
+    which, and v2 and v1 spell the answer differently.
+
+    Args:
+        model: The model instance to serialise.
+
+    Returns:
+        The fields the request carried, with the values it gave them.
+    """
+    if PYDANTIC_V2:
+        return model.model_dump(exclude_unset=True)
+    return model.dict(exclude_unset=True)

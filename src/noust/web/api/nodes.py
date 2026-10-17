@@ -259,6 +259,109 @@ class NodeAddRequest(BaseModel):
         return value
 
 
+class BastionIn(BaseModel):
+    """
+    A bastion to reach a server through, as the operator describes it.
+
+    Attributes:
+        address: ``USER@HOST[:PORT]``.
+        host_key: The bastion's ed25519 host key line.
+        fingerprint: Its ``SHA256:...`` fingerprint, checked by asking the address for its
+            key. One of the two is needed for a bastion that is new or at another address:
+            the central never learns a host key on first use.
+    """
+
+    address: str = Field(min_length=3, max_length=300)
+    host_key: str | None = Field(default=None, max_length=1024)
+    fingerprint: str | None = Field(default=None, max_length=100)
+
+
+class SSHOptionsIn(BaseModel):
+    """
+    Body of ``PUT /api/nodes/{node}/ssh``: the whole desired state.
+
+    Attributes:
+        connect_timeout: Seconds to wait for the connection (1 to 300); null for the default.
+        bastion: The host the server is reached through; null to connect directly. The
+            same address as the current bastion, with no key or fingerprint, keeps its
+            pinned key.
+        test: Open the tunnel with the new options and keep them only when the server
+            answers. False for a server that is down now.
+    """
+
+    connect_timeout: int | None = None
+    bastion: BastionIn | None = None
+    test: bool = True
+
+
+class BastionOut(BaseModel):
+    """
+    A bastion, as shown. Its host key is pinned, and is not part of what is shown.
+
+    Attributes:
+        host: Its host name or address.
+        port: Its SSH port.
+        user: The account the central logs in as there.
+        address: ``user@host:port``.
+        fingerprint: The pinned key's ``SHA256:...``.
+    """
+
+    host: str
+    port: int
+    user: str
+    address: str
+    fingerprint: str
+
+
+class SSHOptionsOut(BaseModel):
+    """
+    How the central connects to one server beyond its address.
+
+    Attributes:
+        connect_timeout: Seconds it waits; null is the default.
+        effective_timeout: Seconds it waits now.
+        default_timeout: The default.
+        bastion: The host it goes through; null when direct.
+        authorized_key_line: What the bastion's operator adds to the account's
+            ``authorized_keys``: one stream to this server, no shell. Null without a
+            bastion.
+    """
+
+    connect_timeout: int | None = None
+    effective_timeout: int
+    default_timeout: int
+    bastion: BastionOut | None = None
+    authorized_key_line: str | None = None
+
+
+class InventoryApplyIn(BaseModel):
+    """
+    Body of ``POST /api/nodes/{node}/inventory``.
+
+    Attributes:
+        document: An inventory another central exported for this server.
+        include_ssh: Also apply how that central reached it (its wait, its bastion).
+    """
+
+    document: dict[str, Any]
+    include_ssh: bool = False
+
+
+class InventoryPartOut(BaseModel):
+    """One part of an inventory, applied or left out."""
+
+    part: str
+    detail: Any = None
+    reason: str | None = None
+
+
+class InventoryReportOut(BaseModel):
+    """What applying an inventory did."""
+
+    applied: list[InventoryPartOut]
+    skipped: list[InventoryPartOut]
+
+
 class NodeRemovedResponse(BaseModel):
     """
     Response for ``DELETE /api/nodes/{node}``.
@@ -407,6 +510,178 @@ def get_node(node: str, session: Annotated[dict[str, Any], Depends(require_auth)
         The node.
     """
     return describe(find_node(node))
+
+
+def _ssh_view(name: str) -> SSHOptionsOut:
+    """
+    Describe a node's connection options, with the line its bastion's operator needs.
+
+    Args:
+        name: The node's name.
+
+    Returns:
+        The options.
+    """
+    manager = node_manager()
+    described = manager.describe_ssh(name)
+    line = manager.bastion_authorization(name) if described["bastion"] else None
+    return SSHOptionsOut(**described, authorized_key_line=line)
+
+
+@router.get("/{node}/ssh", response_model=SSHOptionsOut)
+def get_node_ssh(
+    node: str, session: Annotated[dict[str, Any], Depends(require_auth)]
+) -> SSHOptionsOut:
+    """
+    Show how the central connects to a node: its wait and its bastion.
+
+    Args:
+        node: The node's name.
+        session: The authenticated session.
+
+    Returns:
+        The options, and the line a bastion's operator authorizes.
+    """
+    return _ssh_view(find_node(node).name)
+
+
+@router.put("/{node}/ssh", response_model=SSHOptionsOut)
+def set_node_ssh(
+    node: str,
+    body: SSHOptionsIn,
+    request: Request,
+    session: Annotated[dict[str, Any], Depends(require_elevated)],
+) -> SSHOptionsOut:
+    """
+    Set how the central connects to a node, and prove it before keeping it.
+
+    The tunnel is closed and opened again through the new options; when the server does
+    not answer, the old ones are put back and the error says why. The central never
+    learns a bastion's host key on first use: a new bastion needs its key or the
+    fingerprint the operator checked on it.
+
+    Args:
+        node: The node's name.
+        body: The wait and the bastion, as they should be.
+        request: The incoming request, for the audit record.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The options now in force.
+
+    Raises:
+        NodeError: 400 when a value is invalid or the bastion is unknown; 400 too when
+            the server did not answer with the new options (they were not kept).
+    """
+    from noust.fleet.ssh_options import parse_bastion_address
+
+    record = find_node(node)
+    manager = node_manager()
+    current = manager.ssh_options(record.name).bastion
+    chosen = None
+    if body.bastion is not None:
+        user, host, port = parse_bastion_address(body.bastion.address)
+        if (
+            current is not None
+            and (current.user, current.host.lower(), current.port) == (user, host.lower(), port)
+            and not body.bastion.host_key
+            and not body.bastion.fingerprint
+        ):
+            chosen = current
+        else:
+            chosen = manager.resolve_bastion(
+                body.bastion.address,
+                host_key=body.bastion.host_key,
+                fingerprint=body.bastion.fingerprint,
+            )
+    manager.set_ssh_options(
+        record.name,
+        connect_timeout=body.connect_timeout,
+        bastion=chosen,
+        test=body.test,
+        actor=actor_label(session),
+    )
+    _audit(
+        request,
+        session,
+        "fleet.node.ssh",
+        record.name,
+        detail=(
+            f"timeout {body.connect_timeout or 'default'}, "
+            f"bastion {chosen.address if chosen else 'none'}"
+        ),
+    )
+    return _ssh_view(record.name)
+
+
+@router.get("/{node}/inventory", response_model=dict[str, Any])
+def get_node_inventory(
+    node: str, session: Annotated[dict[str, Any], Depends(require_auth)]
+) -> dict[str, Any]:
+    """
+    Write down what this central knows about a server, so another central can take it over.
+
+    The document has the labels, the applications placed on the server, the machine it is at a
+    provider, whether its monitoring is paused and how this central reaches it. It has no secret:
+    not the server's token, not this central's key for it, not an account's API token.
+
+    Args:
+        node: The node's name.
+        session: The authenticated session.
+
+    Returns:
+        The inventory document.
+    """
+    from noust.fleet.inventory import export_inventory
+
+    record = find_node(node)
+    return export_inventory(node_manager(), record.name)
+
+
+@router.post("/{node}/inventory", response_model=InventoryReportOut)
+def apply_node_inventory(
+    node: str,
+    body: InventoryApplyIn,
+    request: Request,
+    session: Annotated[dict[str, Any], Depends(require_scope("admin"))],
+) -> InventoryReportOut:
+    """
+    Record, for a server just added here, what the central it came from knew about it.
+
+    The document is checked whole before anything is written. What cannot be applied here (a
+    cloud account this central lacks, a path to the server that may not exist from here) is
+    reported with the reason, not dropped.
+
+    Args:
+        node: The node's name, registered on this central.
+        body: The inventory, and whether to apply how the other central reached it.
+        request: The incoming request, for the audit record.
+        session: The authenticated session, of ``admin`` scope.
+
+    Returns:
+        What was applied and what was left out.
+
+    Raises:
+        ValidationError: 400 when the document is not a valid inventory.
+    """
+    from noust.fleet.inventory import apply_inventory
+
+    record = find_node(node)
+    report = apply_inventory(
+        node_manager(),
+        record.name,
+        body.document,
+        actor=actor_label(session),
+        include_ssh=body.include_ssh,
+    )
+    _audit(
+        request,
+        session,
+        "fleet.node.inventory",
+        record.name,
+        detail=", ".join(item["part"] for item in report["applied"]) or "nothing to apply",
+    )
+    return InventoryReportOut(**report)
 
 
 @router.put("/{node}/monitoring", response_model=NodeResponse)

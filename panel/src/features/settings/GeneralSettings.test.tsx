@@ -19,6 +19,7 @@ function generalRoutes(config: Record<string, unknown> = {}, extra: Record<strin
     "GET /api/config/ssl": () => json(200, { enabled: true, provider: "certbot", email: "ops@example.com" }),
     "GET /api/config/backup": () => json(200, { directory: "/var/backups/noust", max_per_app: 10 }),
     "GET /api/config/web": () => json(200, { host: "127.0.0.1", port: 8080, session_timeout: 3600 }),
+    "GET /api/config/delivery": () => json(200, { max_concurrent_builds: 2, queue_limit: 25, max_minutes: 60 }),
     "GET /api/system/update": () => json(200, { current_version: "3.1.0", method: "apt", supported: true }),
     ...extra,
   };
@@ -125,6 +126,46 @@ describe("Settings > General", () => {
     });
     expect(backend.callsTo("PUT /api/config/backup").at(-1)?.body).toEqual({ directory: "/var/backups/noust", max_per_app: 20 });
     expect(count).toHaveValue("20");
+  });
+
+  it("sets how long a deployment may take, with the other limits of the server, from the same bar", { timeout: 20_000 }, async () => {
+    let limits = { max_concurrent_builds: 2, queue_limit: 25, max_minutes: 60 };
+    const backend = fakeBackend(
+      generalRoutes(
+        {},
+        {
+          "GET /api/config/delivery": () => json(200, limits),
+          "PUT /api/config/delivery": (call) => {
+            const body = call.body as typeof limits;
+            if (body.max_minutes > 1440) {
+              return problem(422, "validation_error", "Validation failed", { fields: { max_minutes: "Input should be less than or equal to 1440" } });
+            }
+            limits = body;
+            return json(200, { message: "Delivery limits updated" });
+          },
+        },
+      ),
+    );
+    const { user } = renderConsole("/settings");
+    const minutes = await screen.findByLabelText(/Longest a deployment may take/);
+    expect(minutes).toHaveValue("60");
+    expect(screen.getByLabelText(/Builds at the same time/)).toHaveValue("2");
+    expect(screen.getByLabelText(/Deployments that may wait/)).toHaveValue("25");
+
+    await user.clear(minutes);
+    await user.type(minutes, "5000");
+    await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Input should be less than or equal to 1440")).toBeInTheDocument();
+    expect(minutes).toHaveAttribute("aria-invalid", "true");
+
+    await user.clear(minutes);
+    await user.type(minutes, "0");
+    await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
+    await waitFor(() => {
+      expect(within(saveBar()).getByText("No unsaved changes")).toBeInTheDocument();
+    });
+    expect(backend.callsTo("PUT /api/config/delivery").at(-1)?.body).toEqual({ max_concurrent_builds: 2, queue_limit: 25, max_minutes: 0 });
+    expect(minutes).toHaveValue("0");
   });
 
   it("discards every change at once", { timeout: 20_000 }, async () => {

@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-802 operations.
+832 operations.
 
 ## Access
 
@@ -128,12 +128,18 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | PUT | `/api/apps/{domain}/registry-logins` | Set App Registry Logins | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/releases` | Get App Releases | `apps.read` |  |  |
 | PATCH | `/api/apps/{domain}/releases/retention` | Update Release Retention | `apps.manage` | yes |  |
+| POST | `/api/apps/{domain}/releases/stage` | Stage Release | `apps.deploy` |  |  |
 | POST | `/api/apps/{domain}/releases/{release_id}/activate` | Activate App Release | `apps.deploy` |  |  |
+| POST | `/api/apps/{domain}/releases/{release_id}/promote` | Promote Release | `apps.deploy` |  |  |
 | GET | `/api/apps/{domain}/replicas` | Get Replicas | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/replicas` | Put Replicas | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/replication` | Get Replication | `apps.read` |  |  |
 | POST | `/api/apps/{domain}/restart` | Restart App | `apps.operate` |  |  |
 | GET | `/api/apps/{domain}/rollback-points` | List Rollback Points | `apps.read` |  |  |
+| GET | `/api/apps/{domain}/rollout` | Get Rollout | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/rollout` | Put Rollout | `apps.manage` |  |  |
+| POST | `/api/apps/{domain}/rollout/pause` | Pause Deploys | `apps.deploy` |  |  |
+| POST | `/api/apps/{domain}/rollout/resume` | Resume Deploys | `apps.deploy` |  |  |
 | GET | `/api/apps/{domain}/sandbox` | Get Sandbox | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/sandbox/compose-exception` | Put Compose Exception | `root_equivalent` | yes | yes |
 | DELETE | `/api/apps/{domain}/sandbox/compose-exception` | Delete Compose Exception | `apps.manage` |  |  |
@@ -148,6 +154,9 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/apps/{domain}/stop` | Stop App | `apps.operate` |  |  |
 | GET | `/api/apps/{domain}/tuning` | Get Tuning | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/tuning` | Put Tuning | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/update-schedule` | Get Update Schedule | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/update-schedule` | Put Update Schedule | `apps.manage` |  |  |
+| DELETE | `/api/apps/{domain}/update-schedule` | Delete Update Schedule | `apps.manage` |  |  |
 | GET | `/api/apps/{domain}/zero-downtime` | Get Zero Downtime | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/zero-downtime` | Put Zero Downtime | `apps.manage` | yes |  |
 | POST | `/api/deploy` | Deploy Apps | `apps.deploy` |  |  |
@@ -316,6 +325,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/config/backup` | Get Backup Config | `settings.read` |  |  |
 | PUT | `/api/config/backup` | Update Backup Config | `settings.manage` | yes |  |
 | GET | `/api/config/defaults` | Get Defaults | `settings.read` |  |  |
+| GET | `/api/config/delivery` | Get Delivery Config | `settings.read` |  |  |
+| PUT | `/api/config/delivery` | Update Delivery Config | `settings.manage` | yes |  |
 | GET | `/api/config/notifications/telegram` | Get Telegram Config | `settings.read` |  |  |
 | PUT | `/api/config/notifications/telegram` | Update Telegram Config | `settings.manage` | yes |  |
 | POST | `/api/config/notifications/telegram/chats` | List Telegram Chats | `settings.manage` |  |  |
@@ -556,6 +567,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/fleet/cloud/servers` | Create Machine | `fleet.manage` | yes | yes |
 | GET | `/api/fleet/cloud/servers/{node}` | Get Machine | `fleet.manage` |  |  |
 | DELETE | `/api/fleet/cloud/servers/{node}` | Delete Machine | `fleet.manage` | yes | yes |
+| POST | `/api/fleet/cloud/servers/{node}/link` | Link Machine | `fleet.manage` | yes |  |
+| DELETE | `/api/fleet/cloud/servers/{node}/link` | Unlink Machine | `fleet.manage` | yes |  |
 | POST | `/api/fleet/cloud/servers/{node}/power-on` | Power On Machine | `fleet.manage` | yes |  |
 | POST | `/api/fleet/enroll` | Enroll Server | `fleet.manage` | yes | yes |
 | POST | `/api/fleet/enroll/host-key` | Scan Host Key | `fleet.manage` |  |  |
@@ -566,6 +579,13 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/fleet/link/accept` | Accept Server | `fleet.manage` | yes | yes |
 | POST | `/api/fleet/link/invites` | Invite Server | `fleet.manage` | yes |  |
 | DELETE | `/api/fleet/link/invites/{name}` | Cancel Invite | `fleet.manage` | yes |  |
+| GET | `/api/fleet/placements` | List Placements | `fleet.read` |  |  |
+| GET | `/api/fleet/placements/{domain}` | Get Placement | `fleet.read` |  |  |
+| PUT | `/api/fleet/placements/{domain}` | Save Placement | `fleet.manage` |  |  |
+| DELETE | `/api/fleet/placements/{domain}` | Remove Placement | `fleet.manage` |  |  |
+| POST | `/api/fleet/placements/{domain}/copy` | Copy Application | `fleet.manage` |  |  |
+| POST | `/api/fleet/placements/{domain}/rollout` | Rollout | `fleet.manage` |  |  |
+| GET | `/api/fleet/placements/{domain}/upstreams` | Get Upstreams | `fleet.read` |  |  |
 | GET | `/api/fleet/servers` | Fleet Servers | `fleet.read` |  |  |
 | PUT | `/api/fleet/servers/{node}/labels` | Set Labels | `fleet.manage` |  |  |
 | GET | `/api/fleet/summary` | Fleet Summary | `fleet.read` |  |  |
@@ -600,6 +620,9 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 
 | Method | Path | What it does | Permission | Sudo | Approval |
 |---|---|---|---|---|---|
+| GET | `/api/deploy-freezes` | List Freezes | `apps.read` |  |  |
+| POST | `/api/deploy-freezes` | Create Freeze | `apps.deploy` |  |  |
+| DELETE | `/api/deploy-freezes/{freeze_id}` | Lift Freeze | `apps.deploy` |  |  |
 | GET | `/api/jobs` | List Jobs | `apps.read` |  |  |
 | GET | `/api/jobs/active` | List Active Jobs | `apps.read` |  |  |
 | POST | `/api/jobs/backup` | Create Backup Job | `backups.run` |  |  |
@@ -637,6 +660,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 
 | Method | Path | What it does | Permission | Sudo | Approval |
 |---|---|---|---|---|---|
+| POST | `/api/manifest/apply` | Apply | `apps.manage` | yes |  |
 | POST | `/api/manifest/plan` | Preview | `apps.read` |  |  |
 
 ## Metrics
@@ -675,8 +699,12 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/nodes` | Add Node | `fleet.manage` | yes | yes |
 | GET | `/api/nodes/{node}` | Get Node | `fleet.read` |  |  |
 | DELETE | `/api/nodes/{node}` | Remove Node | `fleet.manage` | yes | yes |
+| GET | `/api/nodes/{node}/inventory` | Get Node Inventory | `fleet.read` |  |  |
+| POST | `/api/nodes/{node}/inventory` | Apply Node Inventory | `fleet.manage` |  |  |
 | GET | `/api/nodes/{node}/key` | Get Node Key | `fleet.manage` |  |  |
 | PUT | `/api/nodes/{node}/monitoring` | Set Node Monitoring | `fleet.manage` |  |  |
+| GET | `/api/nodes/{node}/ssh` | Get Node Ssh | `fleet.read` |  |  |
+| PUT | `/api/nodes/{node}/ssh` | Set Node Ssh | `fleet.manage` | yes |  |
 | POST | `/api/nodes/{node}/test` | Test Node | `fleet.read` |  |  |
 
 ## Notifications
@@ -737,8 +765,10 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | DELETE | `/api/apps/{domain}/previews/variables/{name}` | Delete Preview Variable | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/previews/{number}` | Get Preview | `apps.read` |  |  |
 | DELETE | `/api/apps/{domain}/previews/{number}` | Delete Preview | `apps.manage` | yes |  |
+| POST | `/api/apps/{domain}/previews/{number}/approve` | Approve Preview | `apps.deploy` | yes |  |
 | GET | `/api/apps/{domain}/previews/{number}/logs` | Get Preview Logs | `apps.read` |  |  |
 | POST | `/api/apps/{domain}/previews/{number}/redeploy` | Redeploy Preview | `apps.deploy` | yes |  |
+| POST | `/api/apps/{domain}/previews/{number}/reject` | Reject Preview | `apps.deploy` | yes |  |
 | POST | `/api/apps/{domain}/previews/{number}/start` | Start Preview | `apps.operate` | yes |  |
 | POST | `/api/apps/{domain}/previews/{number}/stop` | Stop Preview | `apps.operate` | yes |  |
 

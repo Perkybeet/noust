@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { releasesQuery, rollbackPointsQuery } from "../../../api/queries/apps";
 import type { Release, RollbackPoint } from "../../../api/queries/apps";
 import { deploymentKeys } from "../../../api/queries/deployments";
+import type { ApiError } from "../../../api/errors";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Section } from "../../../components/page/Section";
@@ -21,7 +22,9 @@ import type { T } from "../../../i18n";
 import { formatBytes } from "../../../lib/format";
 import { versionTitle } from "../versionTitle";
 import { useNode } from "../../../nodes/useNode";
-import { useAppActions } from "../../apps/useAppActions";
+import { FrozenDeployDialog } from "../../apps/FrozenDeployDialog";
+import { isDeploysFrozen, reportActionError, useAppActions } from "../../apps/useAppActions";
+import { usePromoteRelease } from "../useStagedRelease";
 import { schemaChangeRefusal } from "../schemaChange";
 import { useSchemaChangeConfirmation } from "../SchemaChangeDialog";
 import { releaseBadge, shortCommit } from "./words";
@@ -50,13 +53,34 @@ function madeAt(t: T, when: string | null | undefined): string | null {
  * One version: when it was built and from which commit, whether it is live, and going back to
  * it. The release id, which the command line and the disk use, is the row's second line.
  */
-function ReleaseRow({ release, active, onActivate, t }: { release: Release; active: Release | undefined; onActivate: (release: Release) => void; t: T }) {
-  const badge = releaseBadge(t, release.active ? "active" : release.status);
+function ReleaseRow({
+  release,
+  active,
+  onActivate,
+  onPromote,
+  t,
+}: {
+  release: Release;
+  active: Release | undefined;
+  onActivate: (release: Release) => void;
+  onPromote: (release: Release) => void;
+  t: T;
+}) {
+  // Built and never served: going "back" to it would put on a release nobody has run, so it is made to serve instead.
+  const waiting = release.waiting && !release.active;
+  const badge = waiting ? { label: t("rollout.releases.waiting"), tone: "neutral" as const } : releaseBadge(t, release.active ? "active" : release.status);
   const commit = shortCommit(release.commit);
   const older = active !== undefined && release.id < active.id;
   const title = madeAt(t, release.created_at) ?? release.id;
   let action: ReactNode = null;
-  if (!release.active && release.on_disk) {
+  if (waiting && release.on_disk) {
+    action = (
+      <Button size="sm" onClick={() => onPromote(release)}>
+        {t("rollout.releases.promote")}
+        <span className="sr-only">{t("rollout.releases.promoteAria", { id: release.id })}</span>
+      </Button>
+    );
+  } else if (!release.active && release.on_disk) {
     action = (
       <Button size="sm" onClick={() => onActivate(release)}>
         {older ? t("appPages.deployments.releases.goBack") : t("appPages.deployments.releases.activate")}
@@ -98,6 +122,10 @@ function Releases({ domain, releases, t }: { domain: string; releases: Release[]
   const { activateRelease } = useAppActions(domain);
   const schema = useSchemaChangeConfirmation(domain);
   const [chosen, setChosen] = useState<Release | null>(null);
+  const [toPromote, setToPromote] = useState<Release | null>(null);
+  // A freeze refused making it serve: asked again, saying it must go ahead, if the operator is sure.
+  const [frozen, setFrozen] = useState<{ refusal: ApiError; id: string } | null>(null);
+  const promote = usePromoteRelease(domain);
   const active = releases.find((release) => release.active);
   const older = chosen !== null && active !== undefined && chosen.id < active.id;
   const commit = shortCommit(chosen?.commit);
@@ -109,7 +137,7 @@ function Releases({ domain, releases, t }: { domain: string; releases: Release[]
         <Card padding="none">
           <ul aria-label={t("appPages.deployments.releases.ariaLabel", { domain })} className="flex flex-col divide-y divide-border">
             {releases.map((release) => (
-              <ReleaseRow key={release.id} release={release} active={active} onActivate={setChosen} t={t} />
+              <ReleaseRow key={release.id} release={release} active={active} onActivate={setChosen} onPromote={setToPromote} t={t} />
             ))}
           </ul>
         </Card>
@@ -145,6 +173,55 @@ function Releases({ domain, releases, t }: { domain: string; releases: Release[]
             settle();
           }
         }}
+      />
+      <ConfirmDialog
+        open={toPromote !== null}
+        onOpenChange={(open) => {
+          if (!open) setToPromote(null);
+        }}
+        friction="simple"
+        destructive={false}
+        server={node}
+        title={t("rollout.releases.promoteTitle", { id: toPromote?.id ?? "" })}
+        description={
+          shortCommit(toPromote?.commit)
+            ? t("rollout.releases.promoteDescriptionCommit", { commit: shortCommit(toPromote?.commit) ?? "" })
+            : t("rollout.releases.promoteDescription")
+        }
+        actionLabel={t("rollout.releases.promote")}
+        onConfirm={async () => {
+          if (toPromote === null) return;
+          const id = toPromote.id;
+          try {
+            await promote.mutateAsync({ id });
+          } catch (error) {
+            if (isDeploysFrozen(error)) {
+              setFrozen({ refusal: error, id });
+              return;
+            }
+            // Past a schema change this question closes and the one that names them opens.
+            if (!schema.intercept(schemaChangeRefusal(error), () => promote.mutateAsync({ id, schemaChangedOk: true }))) throw error;
+          }
+        }}
+      />
+      <FrozenDeployDialog
+        domain={domain}
+        refusal={frozen?.refusal ?? null}
+        pending={promote.isPending}
+        onDeploy={() => {
+          if (frozen === null) return;
+          promote.mutate(
+            { id: frozen.id, frozenOk: true },
+            {
+              onSuccess: () => setFrozen(null),
+              onError: (error) => {
+                setFrozen(null);
+                reportActionError(t("rollout.releases.promoteFailed", { id: frozen.id }), error);
+              },
+            },
+          );
+        }}
+        onClose={() => setFrozen(null)}
       />
       {schema.dialog}
     </>

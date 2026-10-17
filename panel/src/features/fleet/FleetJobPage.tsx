@@ -40,7 +40,7 @@ import { HrefLink } from "./links";
 import { NodeJobDrawer } from "./NodeJobDrawer";
 
 /** The order a job's counts are said in: what went wrong first. */
-const COUNT_ORDER: readonly NodeJobState[] = ["failed", "unreachable", "refused", "interrupted", "running", "queued", "succeeded", "skipped", "cancelled"];
+const COUNT_ORDER: readonly NodeJobState[] = ["failed", "unreachable", "refused", "interrupted", "running", "queued", "succeeded", "rolled_back", "skipped", "cancelled"];
 
 function reasonWords(t: T, node: FleetNodeState): string | null {
   if (node.reason === null || node.reason === undefined) return null;

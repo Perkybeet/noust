@@ -65,6 +65,8 @@ READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = (
     ("systemctl", "--failed", "--no-legend", "--plain", "--no-pager"),
     ("systemctl", "show", ...),
     ("systemctl", "list-timers", ...),
+    # Who holds a shutdown inhibitor, to say why a reboot was refused.
+    ("systemd-inhibit", "--list", "--no-pager", "--no-legend"),
     ("journalctl", ...),
     ("timedatectl", "show"),
     ("timedatectl", "status"),

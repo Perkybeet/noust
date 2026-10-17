@@ -575,8 +575,8 @@ export const runtime: Catalog<typeof en> = {
     stopManagingButton: "Dejar de gestionar…",
   },
   rollback: {
-    instantWords: "Vuelve en segundos: lo que ejecutó el despliegue {id} sigue en el servidor, así que no se construye nada.",
-    rebuildWords: "Construye otra vez el commit {commit} donde corre la aplicación, y tarda lo que un despliegue.",
+    instantWords: "Vuelve en segundos: lo que ejecutó el despliegue {id} sigue en el servidor, así que no se construye nada. La base de datos queda como está: volver atrás devuelve el código, nunca los datos.",
+    rebuildWords: "Construye otra vez el commit {commit} donde corre la aplicación, y tarda lo que un despliegue. La base de datos queda como está: volver atrás devuelve el código, nunca los datos.",
     instantBadge: "Al instante",
     rebuildBadge: "Reconstruye",
   },

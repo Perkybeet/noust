@@ -479,6 +479,14 @@ export const fleet = {
       label: "Apply system updates",
       description: "Each server installs its pending operating system updates. None restarts on its own.",
     },
+    placement_rollout: {
+      label: "Roll an application out",
+      description: "One commit on every server an application runs on; the servers already moved are put back if it stops.",
+    },
+    placement_copy: {
+      label: "Copy an application to servers",
+      description: "Put an application on servers that lack it, from one that has it, at the same commit.",
+    },
   },
   bulk: {
     title: "Run an action on several servers",
@@ -639,6 +647,7 @@ export const fleet = {
       refused: "Refused",
       interrupted: "Interrupted",
       cancelled: "Cancelled",
+      rolled_back: "Put back",
     },
     count: {
       queued: { one: "{count} queued", other: "{count} queued" },
@@ -650,6 +659,7 @@ export const fleet = {
       refused: { one: "{count} refused", other: "{count} refused" },
       interrupted: { one: "{count} interrupted", other: "{count} interrupted" },
       cancelled: { one: "{count} cancelled", other: "{count} cancelled" },
+      rolled_back: { one: "{count} put back", other: "{count} put back" },
     },
     status: {
       queued: "Queued",

@@ -106,3 +106,47 @@ def test_the_queue_reads_a_change_without_a_restart(config: Config) -> None:
     assert config.save() is True
 
     assert delivery.current(refresh=True).max_concurrent_builds == 3
+
+
+# ---------------------------------------------------------------------------
+# The longest a deployment may take (checklist F-28)
+# ---------------------------------------------------------------------------
+
+
+def test_the_default_is_an_hour_and_zero_means_no_limit(config: Config) -> None:
+    assert DEFAULT_CONFIG["deploy"]["max_minutes"] == delivery.DEFAULT_MAX_MINUTES == 60
+    assert delivery.DeliverySettings().max_minutes == 60
+
+    config.set("deploy.max_minutes", "0")
+
+    assert delivery.DeliverySettings.read(config).max_minutes == 0
+    assert delivery.DeliverySettings.read(config).max_seconds is None
+
+
+def test_the_limit_is_read_with_the_other_two_from_one_place(config: Config) -> None:
+    config.set("deploy.max_minutes", "15")
+    config.set("deploy.max_concurrent_builds", "3")
+    config.set("deploy.queue_limit", "7")
+
+    settings = delivery.DeliverySettings.read(config)
+
+    assert (settings.max_minutes, settings.max_concurrent_builds, settings.queue_limit) == (
+        15,
+        3,
+        7,
+    )
+    assert settings.max_seconds == 900
+
+
+@pytest.mark.parametrize("value", ["-1", "1441", "soon", "2.5"])
+def test_a_time_limit_out_of_range_is_refused_where_it_is_written(
+    config: Config, value: str
+) -> None:
+    with pytest.raises(ConfigError):
+        config.set("deploy.max_minutes", value)
+
+
+def test_a_hand_edited_file_with_nonsense_reads_as_the_default(config: Config) -> None:
+    config._config["deploy"]["max_minutes"] = "soon"
+
+    assert delivery.DeliverySettings.read(config).max_minutes == delivery.DEFAULT_MAX_MINUTES

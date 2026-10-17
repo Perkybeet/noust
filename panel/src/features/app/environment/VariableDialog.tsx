@@ -38,6 +38,7 @@ interface FormProps {
 const SCOPES_SYNTAX = "{{team.NAME}}, {{project.NAME}}, {{environment.NAME}}, {{server.NAME}}";
 const DEPLOYMENT_SYNTAX = "{{app.URL}}";
 const SECRET_SYNTAX = "{{secret:vault/path#key}}";
+const PEER_SYNTAX = "{{peer:api.example.com/URL}}";
 
 /** Mounted fresh for every opening, so it starts from the target's values. */
 function VariableForm({ formId, target, existing, onSubmit }: FormProps) {
@@ -91,6 +92,7 @@ function VariableForm({ formId, target, existing, onSubmit }: FormProps) {
             {t.rich("variables.dialog.referenceHelp", {
               scopes: <Mono>{SCOPES_SYNTAX}</Mono>,
               deployment: <Mono>{DEPLOYMENT_SYNTAX}</Mono>,
+              peer: <Mono>{PEER_SYNTAX}</Mono>,
               secret: <Mono>{SECRET_SYNTAX}</Mono>,
             })}
           </>

@@ -22,13 +22,16 @@ import re
 import sqlite3
 from argparse import Namespace
 from pathlib import Path
+from typing import Any
 
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.audit import record as audit_record
 from noust.core.config import Config, secure_write
 from noust.core.exceptions import ConfigError, NoustError
 from noust.core.logger import Logger
+from noust.core.store_secrets import mask_environment
 
 #: Where a proxying vhost declares the port the application listens on.
 _PROXY_PASS = re.compile(r"proxy_pass\s+http://(?:127\.0\.0\.1|localhost):(\d+)")
@@ -401,17 +404,54 @@ def _store_import(verbose: bool) -> int:
     return 0
 
 
-def _store_export(output: str | None, verbose: bool) -> int:
+def _without_secrets(data: dict[str, Any]) -> dict[str, Any]:
+    """
+    Take the secrets out of a dump of the store.
+
+    Args:
+        data: ``apps``, ``sites``, ``services``, ``databases`` and ``statistics``.
+
+    Returns:
+        The dump with each application's and service's secret variables masked
+        and the credentials of an application's source address removed.
+    """
+    from noust.deployers.app_export import strip_url_secrets
+    from noust.managers.source_manager import redact_git_text
+
+    apps = []
+    for app in data.get("apps", []):
+        record = dict(app)
+        if "env_vars" in record:
+            record["env_vars"] = mask_environment(
+                record["env_vars"], record.get("env_secret_marks")
+            )
+        if isinstance(record.get("source"), str):
+            record["source"] = redact_git_text(strip_url_secrets(record["source"]))
+        apps.append(record)
+    services = []
+    for service in data.get("services", []):
+        record = dict(service)
+        if "environment" in record:
+            record["environment"] = mask_environment(record["environment"])
+        services.append(record)
+    return {**data, "apps": apps, "services": services}
+
+
+def _store_export(output: str | None, verbose: bool, with_secrets: bool = False) -> int:
     """
     Dump the whole store as JSON.
 
-    A service record carries the environment it runs with, so the dump can
-    contain credentials. Written to a file it is created 0600; written to the
-    terminal it is in clear, which is what a pipe into another tool needs.
+    A service record carries the environment it runs with, and an application
+    its variables and the address of its source, so a dump can contain
+    credentials. It goes to tickets, chats and backups, so they are masked
+    unless ``with_secrets`` asks for them (a migration needs them). Written to
+    a file it is created 0600; written to the terminal it is in clear, which is
+    what a pipe into another tool needs.
 
     Args:
         output: Destination path, or None to write to stdout.
         verbose: Print the detail of each step.
+        with_secrets: Keep the secret values.
 
     Returns:
         Exit code.
@@ -439,15 +479,31 @@ def _store_export(output: str | None, verbose: bool) -> int:
             details="Run 'noust store init' to create the database.",
         ) from exc
 
+    if not with_secrets:
+        data = _without_secrets(data)
     payload = json.dumps(data, indent=2, default=str)
 
+    if with_secrets:
+        audit_record(
+            "store.export.secrets",
+            target=output or "stdout",
+            details={"applications": len(data["apps"]), "services": len(data["services"])},
+        )
     if output:
         # secure_parent is off: the operator chose this directory and it is not
         # Noust's to lock down.
         secure_write(Path(output), payload, secure_parent=False)
         logger.success(f"Exported to: {output}")
-        logger.info("The dump may contain service credentials; it is owner-readable only.")
+        if with_secrets:
+            logger.info("The dump carries secret values in clear; it is owner-readable only.")
     else:
+        if with_secrets:
+            # On stderr, so a pipe still gets the document alone.
+            click.echo(
+                "Warning: the dump carries secret values in clear. Write it with -o FILE, which "
+                "is created readable by its owner only, rather than through a terminal.",
+                err=True,
+            )
         click.echo(payload)
 
     return 0
@@ -550,10 +606,17 @@ def import_(state: Context) -> None:
     type=click.Path(dir_okay=False, writable=True, path_type=str),
     help="Write to this file instead of stdout.",
 )
+@click.option(
+    "--with-secrets",
+    is_flag=True,
+    default=False,
+    help="Keep the values of secret variables and the credentials of source addresses "
+    "(needed to move a server; audited).",
+)
 @pass_context
-def export(state: Context, output: str | None) -> None:
-    """Dump every record as JSON, to a file or to stdout."""
-    _store_export(output, state.verbose)
+def export(state: Context, output: str | None, with_secrets: bool) -> None:
+    """Dump every record as JSON, to a file or to stdout, without secret values."""
+    _store_export(output, state.verbose, with_secrets)
 
 
 @cli.command("sync")

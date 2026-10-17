@@ -46,17 +46,20 @@ import { PreviewLogsDrawer } from "./PreviewLogsDrawer";
 import { PreviewRow } from "./PreviewRow";
 import type { PreviewAbilities } from "./PreviewRow";
 import {
+  DEFAULT_TEMPLATE,
   MAX_PREVIEWS_MAX,
   MAX_PREVIEWS_MIN,
   PREVIEW_FIELDS,
+  TEMPLATE_PLACEHOLDERS,
   lifetime,
   parsePreviewDraft,
   previewChanges,
   previewDraftOf,
   previewFieldOf,
   samePreviewDraft,
+  templateExample,
 } from "./previews";
-import type { DataMode, InheritMode, PreviewErrors, PreviewField, TtlUnit } from "./previews";
+import type { DataMode, ForkPolicy, InheritMode, PreviewErrors, PreviewField, TtlUnit } from "./previews";
 import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
 
 type Disabled = ResponseOf<"/api/apps/{domain}/previews/settings", "delete">;
@@ -209,7 +212,7 @@ function PreviewSettingsForm({
   }
   const errorOf = (field: PreviewField): string | undefined => (submitted || touched[field] ? parsed.errors[field] : undefined) ?? serverFields[field];
 
-  const edit = (field: "base_domain" | "max_previews" | "ttl_hours" | "exclude_env" | "allow_env") => (value: string) => {
+  const edit = (field: "base_domain" | "max_previews" | "ttl_hours" | "exclude_env" | "allow_env" | "domain_template") => (value: string) => {
     setDraft((previous) => ({ ...previous, [field]: value }));
     if (save.isError) save.reset();
   };
@@ -354,6 +357,57 @@ function PreviewSettingsForm({
                 if (save.isError) save.reset();
               }}
             />
+            <ChoiceCards<ForkPolicy>
+              legend={t("rollout.previews.forkLegend")}
+              value={draft.fork_policy}
+              onValueChange={(fork_policy) => {
+                setDraft((previous) => ({ ...previous, fork_policy }));
+                if (save.isError) save.reset();
+              }}
+              options={[
+                { value: "refuse", label: t("rollout.previews.forkRefuseLabel"), description: t("rollout.previews.forkRefuseDescription") },
+                { value: "approve", label: t("rollout.previews.forkApproveLabel"), description: t("rollout.previews.forkApproveDescription") },
+              ]}
+            />
+            {draft.fork_policy === "approve" ? (
+              <Notice tone="warning" title={t("rollout.previews.forkApproveWarningTitle")}>
+                {t("rollout.previews.forkApproveWarning")}
+              </Notice>
+            ) : null}
+          </div>
+        </Card>
+
+        <Card title={t("rollout.previews.nameTitle")}>
+          <div className="flex flex-col gap-5">
+            <Field
+              label={t("rollout.previews.templateLabel")}
+              description={t("rollout.previews.templateDescription", { tokens: TEMPLATE_PLACEHOLDERS.map((name) => `{{${name}}}`).join(", "), default: DEFAULT_TEMPLATE })}
+              error={errorOf("domain_template")}
+              optional
+            >
+              <Input
+                mono
+                autoComplete="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                placeholder={DEFAULT_TEMPLATE}
+                value={draft.domain_template}
+                onValueChange={edit("domain_template")}
+                onBlur={blur("domain_template")}
+              />
+            </Field>
+            <p className="text-12 text-fg-muted" data-testid="template-example">
+              {t.rich("rollout.previews.templateExample", { example: <Mono className="break-all">{templateExample(draft.domain_template, domain, draft.base_domain)}</Mono> })}
+            </p>
+            <Checkbox
+              label={t("rollout.previews.noindexLabel")}
+              description={t("rollout.previews.noindexDescription")}
+              checked={draft.noindex}
+              onCheckedChange={(noindex) => {
+                setDraft((previous) => ({ ...previous, noindex }));
+                if (save.isError) save.reset();
+              }}
+            />
           </div>
         </Card>
 
@@ -407,6 +461,7 @@ function PreviewSettingsForm({
               }}
               options={[
                 { value: "empty", label: t("previewHand.data.emptyLabel"), description: t("previewHand.data.emptyDescription") },
+                { value: "clone", label: t("rollout.previews.dataCloneLabel"), description: t("rollout.previews.dataCloneDescription") },
                 { value: "shared", label: t("previewHand.data.sharedLabel"), description: t("previewHand.data.sharedDescription") },
               ]}
             />

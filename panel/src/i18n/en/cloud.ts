@@ -158,7 +158,7 @@ export const cloud = {
 
   machines: {
     title: "Servers created here",
-    description: "Machines this central asked a provider for. One that did not make it stays on record with the reason, and is billed until you delete it.",
+    description: "Machines this central asked a provider for, or that you linked to a server. One that did not make it stays on record with the reason, and is billed until you delete it.",
     loadingLabel: "created servers",
     caption: "Servers created at a cloud provider",
     create: "Create a server",
@@ -195,6 +195,9 @@ export const cloud = {
     poweredOnToast: "{name} is starting",
     powerOnFailedToast: "{name} could not be powered on",
     deletedToast: "The machine of {name} was deleted",
+    unlink: "Forget which machine it runs on",
+    unlinkedToast: "{name} is no longer linked to a machine",
+    unlinkFailedToast: "{name} could not be unlinked",
   },
 
   // -------------------------------------------------------------------------------------

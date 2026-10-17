@@ -109,6 +109,7 @@ NODE_STATES = (
     "unreachable",
     "refused",
     "interrupted",
+    "rolled_back",
 )
 
 #: States that count against ``max_failures`` and are retried.
@@ -128,6 +129,10 @@ def _now() -> str:
 
 class ActionFailed(NoustError):
     """A step of an action failed on a node; ``output`` carries its words."""
+
+
+class NothingToUndo(Exception):
+    """A server has nothing to put back: the action changed nothing on it."""
 
 
 class NotNeeded(Exception):
@@ -163,11 +168,30 @@ class NodeRun:
     poll: float = POLL_SECONDS
     sleep: Callable[[float], None] = time.sleep
     clock: Callable[[], float] = time.monotonic
+    peer: NodeSource | None = None
+    lock: threading.Lock = field(default_factory=threading.Lock)
+    pinned: dict[str, Any] = field(default_factory=dict)
 
     @property
     def name(self) -> str:
         """The node's name."""
         return self.source.name
+
+    def pin(self, key: str, value: Any) -> None:
+        """
+        Fix an option for the servers that have not started yet.
+
+        The options are the job's, shared by every server, so a choice one server makes
+        for all (the commit a first server built, which the others are asked for) is
+        made once, under a lock, and kept with the job so a retry makes the same one.
+
+        Args:
+            key: The option.
+            value: Its value.
+        """
+        with self.lock:
+            self.options[key] = value
+            self.pinned[key] = value
 
     def send(
         self, method: str, path: str, *, body: Any = None, params: Mapping[str, Any] | None = None
@@ -881,6 +905,13 @@ class ActionSpec:
         run: The step function for one node.
         check_options: Checks and completes the options.
         precheck: Raises :class:`NotNeeded` for a node with nothing to do.
+        prepare: Completes the request once its options are checked (an action whose
+            first server must go alone says so here) and returns it with the sentences
+            the plan shows the operator.
+        undo: Puts one server back as it was; run, when the job stops, for each server
+            that succeeded, if the job's ``rollback_on_failure`` option is on.
+        peer_option: The option that names a second server the step reads from (the
+            server an application is copied from); the step finds it as ``run.peer``.
     """
 
     name: str
@@ -891,6 +922,12 @@ class ActionSpec:
     run: Callable[[NodeRun], None]
     check_options: Callable[[Mapping[str, Any]], dict[str, Any]] = _no_options
     precheck: Callable[[NodeRun], None] | None = None
+    prepare: (
+        Callable[[FleetRequest, dict[str, Any], NodeManager, Asker], tuple[FleetRequest, list[str]]]
+        | None
+    ) = None
+    undo: Callable[[NodeRun], None] | None = None
+    peer_option: str | None = None
 
     def describe(self) -> dict[str, Any]:
         """Returns: The action, for ``GET /api/fleet/actions``."""
@@ -1464,6 +1501,10 @@ def plan(request: FleetRequest, *, manager: NodeManager, asker: Asker, probe: bo
     spec = request.spec
     options = spec.check_options(request.options or {})
     targets = resolve_targets(request, manager)
+    prepared_notes: list[str] = []
+    if spec.prepare is not None:
+        request, prepared_notes = spec.prepare(request, options, manager, asker)
+        targets = resolve_targets(request, manager)
     serial = batch_size(request.serial, len(targets), spec.serial)
     if request.max_failures is None:
         max_failures = spec.max_failures
@@ -1494,7 +1535,7 @@ def plan(request: FleetRequest, *, manager: NodeManager, asker: Asker, probe: bo
             if state.state == "failed":
                 state.state = "skipped"
                 state.reason = "error"
-    notes = []
+    notes = list(prepared_notes)
     if spec.name == "noust_update":
         notes.append(
             "This central is not updated by this job: update it last, on its own, "
@@ -1637,6 +1678,30 @@ class FleetJobs:
                     job_id,
                     node.node,
                 ),
+            )
+
+    def save_options(self, job_id: str, options: Mapping[str, Any]) -> None:
+        """
+        Keep the options of a job as they are now.
+
+        A choice the first server made for the rest (the commit it ended on) is part of
+        what the job did, and a retry of the servers that failed must make the same one.
+
+        Args:
+            job_id: The job.
+            options: The options.
+        """
+        with self.store._transaction() as cursor:
+            row = cursor.execute(
+                "SELECT request FROM fleet_jobs WHERE job_id = ?", (job_id,)
+            ).fetchone()
+            if row is None:
+                return
+            request = json.loads(row["request"])
+            request["options"] = dict(options)
+            cursor.execute(
+                "UPDATE fleet_jobs SET request = ? WHERE job_id = ?",
+                (json.dumps(request), job_id),
             )
 
     def finish(self, job_id: str, status: str) -> None:
@@ -1911,6 +1976,46 @@ class Runner:
     poll: float = POLL_SECONDS
     sleep: Callable[[float], None] = time.sleep
     _lock: threading.Lock = field(default_factory=threading.Lock)
+    _options_lock: threading.Lock = field(default_factory=threading.Lock)
+
+    def _peer(self) -> NodeSource | None:
+        """
+        Build the second server a step reads from, when the action names one.
+
+        Returns:
+            The server, asked as the operator; None when the action has none.
+        """
+        name = (
+            self.plan.options.get(self.plan.spec.peer_option)
+            if self.plan.spec.peer_option
+            else None
+        )
+        if not name:
+            return None
+        return NodeSource(self.manager, self.manager.get(str(name)), self.asker, REQUEST_TIMEOUT)
+
+    def _node_run(self, node: NodeState, source: NodeSource) -> NodeRun:
+        """
+        Build what a step works with on one server.
+
+        Args:
+            node: The server's state.
+            source: The server.
+
+        Returns:
+            The run, sharing the job's options and their lock.
+        """
+        name = node.node
+        return NodeRun(
+            source=source,
+            options=self.plan.options,
+            log=lambda line: self.reporter.log(f"[{name}] {line}"),
+            step=lambda text: self._step(node, text),
+            poll=self.poll,
+            sleep=self.sleep,
+            peer=self._peer(),
+            lock=self._options_lock,
+        )
 
     def snapshot(self, status: str = "running") -> dict[str, Any]:
         """
@@ -1986,19 +2091,14 @@ class Runner:
             node.state = "running"
             node.started_at = _now()
             self._changed(node, f"{name}: started")
-            run = NodeRun(
-                source=source,
-                options=self.plan.options,
-                log=lambda line: self.reporter.log(f"[{name}] {line}"),
-                step=lambda text: self._step(node, text),
-                poll=self.poll,
-                sleep=self.sleep,
-            )
+            run = self._node_run(node, source)
             try:
                 spec.run(run)
             finally:
                 node.node_jobs = list(run.node_jobs)
                 node.items = [dict(item) for item in run.items]
+                if run.pinned:
+                    self.jobs.save_options(self.job_id, self.plan.options)
             node.state = "succeeded"
         except NotNeeded as exc:
             _skip(node, "not_needed", str(exc), None)
@@ -2017,6 +2117,77 @@ class Runner:
         )
         self.reporter.log(f"[{name}] {node.state}: {node.step or ''}".rstrip(": "), level)
         self._changed(node, f"{name}: {node.state}")
+
+    def _undo(self) -> None:
+        """
+        Put back the servers that succeeded in a job that stopped.
+
+        A rollout that stops half way leaves some servers on the new version and some on
+        the old, which is the one state it is meant to prevent. Each server that moved is
+        put back by the action's own undo (for an application, the release that served
+        before: instant, and refused by the server when it would pass a schema change).
+        A server that cannot be put back is failed with the server's words and left where
+        it is: it is not hidden.
+        """
+        spec = self.plan.spec
+        undo = spec.undo
+        if undo is None:
+            return
+        movers = [
+            node for node in self.plan.nodes if node.state in ("succeeded", "failed") and node.items
+        ]
+        if not movers:
+            return
+        self.reporter.log(
+            f"The job stopped: putting back {', '.join(node.node for node in movers)}", "warning"
+        )
+        for node in movers:
+            name = node.node
+            holder = _claim(name, self.job_id)
+            if holder is not None:
+                node.error = {
+                    "code": "busy",
+                    "message": f"Fleet job {holder} is working on {name}; it was not put back",
+                    "hint": None,
+                }
+                continue
+            try:
+                source = NodeSource(
+                    self.manager, self.manager.get(name), self.asker, REQUEST_TIMEOUT
+                )
+                run = self._node_run(node, source)
+                run.items = [dict(item) for item in node.items]
+                run.step("Putting back")
+                undo(run)
+                node.items = [dict(item) for item in run.items]
+                node.state = "rolled_back"
+                node.step = "Put back as it was"
+                self.reporter.log(f"[{name}] put back", "warning")
+            except NothingToUndo:
+                continue
+            except NotNeeded as exc:
+                node.items = [dict(item) for item in run.items]
+                node.step = str(exc)
+                self.reporter.log(f"[{name}] not put back: {exc}", "warning")
+            except (Failure, NoustError) as exc:
+                reason = exc.message
+                words = (exc.output or "").strip()
+                if node.state == "failed":
+                    # It had failed already: say that too, and keep what it failed with.
+                    node.output = "\n".join(
+                        part
+                        for part in (f"Could not be put back either: {reason}", words, node.output)
+                        if part
+                    )
+                else:
+                    _failed(node, exc)
+                    node.step = f"Could not be put back: {node.step}"
+                self.reporter.log(f"[{name}] could not be put back: {reason}", "error")
+            finally:
+                _release(name, self.job_id)
+                get_aggregator().forget(name)
+            node.ended_at = _now()
+            self._changed(node, f"{name}: {node.state}")
 
     def _step(self, node: NodeState, text: str) -> None:
         """
@@ -2073,6 +2244,13 @@ class Runner:
                     "this job tolerates; the rest were not started"
                 )
         failed = any(node.state in FAILED_STATES for node in self.plan.nodes)
+        if (
+            (aborted or failed)
+            and spec.undo is not None
+            and self.plan.options.get("rollback_on_failure")
+        ):
+            self._undo()
+            failed = any(node.state in FAILED_STATES for node in self.plan.nodes)
         status = "aborted" if aborted else ("failed" if failed else "succeeded")
         self.jobs.finish(self.job_id, status)
         snapshot = self.snapshot(status)
@@ -2232,3 +2410,8 @@ def start_job(
 def new_job_id() -> str:
     """Returns: An identifier for a fleet job run outside the console (the CLI)."""
     return uuid.uuid4().hex[:8]
+
+
+# The actions of an application on several servers are in their own module, which
+# registers them in ACTIONS: it needs everything above to exist.
+from noust.web import fleet_placement_actions as _placement_actions  # noqa: E402,F401

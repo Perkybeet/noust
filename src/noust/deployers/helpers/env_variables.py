@@ -118,6 +118,12 @@ def deployment_for(
     Returns:
         The deployment.
     """
+    from noust.core.preview_store import preview_identity
+    from noust.core.store import get_store
+
+    pull_request, preview_of = (
+        preview_identity(get_store(), app.domain) if app.preview_parent else (None, None)
+    )
     return Deployment(
         domain=app.domain,
         ssl=bool(app.ssl_enabled),
@@ -125,6 +131,8 @@ def deployment_for(
         commit=commit,
         release=release,
         port=app.port,
+        pull_request=pull_request,
+        preview_of=preview_of,
     )
 
 

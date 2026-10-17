@@ -2139,6 +2139,8 @@ class ServiceManager(BaseManager):
             # writes it: a deploy, a migration, the console.
             "hardening": self._app_hardening(unit) if template == "app" else [],
             "tuning": self._app_tuning(unit) if template == "app" else [],
+            # How long it has to stop is the application's own setting, whoever writes it.
+            "stop_policy": self._app_stop_policy(unit) if template == "app" else [],
         }
         ctx.update(kwargs)
 
@@ -2412,6 +2414,7 @@ class ServiceManager(BaseManager):
             "resource_limits": (limits or ResourceLimits()).validated().directives(),
             "hardening": self._app_hardening(unit.removesuffix("@")),
             "tuning": self._app_tuning(unit.removesuffix("@")),
+            "stop_policy": self._app_stop_policy(unit.removesuffix("@")),
         }
         path = self.SYSTEMD_DIR / f"{unit}.service"
         previous = path.read_text() if path.is_file() and not path.is_symlink() else None
@@ -2708,6 +2711,56 @@ class ServiceManager(BaseManager):
                 f"Could not read the current unit file: {info.path}", details=str(exc)
             ) from exc
         return self.update_config(name, with_tuning(body, lines))
+
+    def _app_stop_policy(self, name: str) -> list[str]:
+        """
+        Name the stop directives the unit of the application called ``name`` gets.
+
+        Args:
+            name: The unit's name, without ``.service`` or ``@``.
+
+        Returns:
+            The application's ``TimeoutStopSec`` and ``KillSignal``, as it set them;
+            empty for one that did not.
+        """
+        from noust.managers.unit_stop import stop_policy_for_unit
+
+        try:
+            return stop_policy_for_unit(name, self._stored_apps())
+        except (NoustError, sqlite3.Error) as exc:
+            self.logger.debug(f"Could not read the stop policy of {name}: {exc}")
+            return []
+
+    def set_stop_policy(self, name: str, timeout: int | None, signal: str | None) -> str:
+        """
+        Give a unit Noust manages exactly this stop policy.
+
+        Written through :meth:`update_config`, which keeps the ownership rules and
+        reloads systemd. Nothing restarts: systemd uses the new numbers the next
+        time it stops the unit.
+
+        Args:
+            name: Service name; an instance of a template (``shop@blue``) is
+                written into the template.
+            timeout: Seconds, or None for systemd's.
+            signal: A signal name, or None for ``SIGTERM``.
+
+        Returns:
+            The previous unit body, to put back with :meth:`update_config`.
+
+        Raises:
+            ServiceError: The unit is not Noust's, or cannot be read or written.
+        """
+        from noust.managers.unit_stop import with_stop_policy
+
+        info = self._require_managed(name, operation="set the stop policy of")
+        try:
+            body = info.path.read_text()
+        except OSError as exc:
+            raise ServiceError(
+                f"Could not read the current unit file: {info.path}", details=str(exc)
+            ) from exc
+        return self.update_config(name, with_stop_policy(body, timeout, signal))
 
     def set_unit_hardening(self, name: str, directives: Sequence[str]) -> str:
         """

@@ -40,6 +40,9 @@ ExecStart={{ esc.line(command) }}
 # Restart policy
 Restart=always
 RestartSec=10
+{% for directive in stop_policy | default([]) %}
+{{ esc.line(directive) }}
+{% endfor %}
 
 # Security
 NoNewPrivileges=true

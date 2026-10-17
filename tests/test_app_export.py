@@ -241,6 +241,13 @@ def test_export_carries_the_definition(shop: App, cron: FakeCron) -> None:
         "ttl_hours": 48,
         "allow_bots": True,
         "exclude_env": ["STRIPE_KEY"],
+        # How previews are made came with 3.4; this application was set up before it.
+        "inherit_env": "all",
+        "allow_env": [],
+        "data_mode": "shared",
+        "domain_template": None,
+        "noindex": True,
+        "fork_policy": "refuse",
     }
     assert doc["github"] == {"installation_linked": True}
     assert doc["databases"] == [{"engine": "postgresql", "name": "shop"}]
