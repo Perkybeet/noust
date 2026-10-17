@@ -31,7 +31,7 @@ import yaml
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from noust.core import paths
+from noust.core import delivery, paths
 from noust.core.config import (
     DEFAULT_CONFIG,
     NO_DEFAULT,
@@ -211,6 +211,23 @@ class BackupConfig(BaseModel):
         description="Backup storage directory: an absolute path, or empty for the default",
     )
     max_per_app: int = Field(10, ge=1, le=100, description="Maximum backups per application")
+
+
+class DeliveryConfig(BaseModel):
+    """The limits a server delivers under: how much builds at once, waits, and takes."""
+
+    max_concurrent_builds: int = Field(
+        2, ge=1, le=16, description="Applications that build at the same time"
+    )
+    queue_limit: int = Field(
+        25, ge=1, le=1000, description="Deployments and updates that may wait before one is refused"
+    )
+    max_minutes: int = Field(
+        60,
+        ge=0,
+        le=1440,
+        description="The longest a deployment may build before it is stopped; 0 is no limit",
+    )
 
 
 class SSLConfig(BaseModel):
@@ -636,6 +653,60 @@ def update_backup_config(
     persist(config)
     _audit_write(request, session, changed=["backup"])
     return MessageResponse(message="Backup configuration updated")
+
+
+@router.get("/delivery", response_model=DeliveryConfig)
+def get_delivery_config(session: dict = Depends(get_current_session)) -> DeliveryConfig:
+    """
+    Get the limits this server delivers under.
+
+    Args:
+        session: Authenticated session, injected by the dependency.
+
+    Returns:
+        How many builds run at once, how many may wait and how many minutes one
+        may take, read the way the queue reads them.
+    """
+    settings = delivery.DeliverySettings.read(load_config())
+    return DeliveryConfig(
+        max_concurrent_builds=settings.max_concurrent_builds,
+        queue_limit=settings.queue_limit,
+        max_minutes=settings.max_minutes,
+    )
+
+
+@router.put("/delivery", response_model=MessageResponse)
+def update_delivery_config(
+    body: DeliveryConfig,
+    request: Request,
+    session: dict = Depends(require_elevated),
+) -> MessageResponse:
+    """
+    Set the limits this server delivers under.
+
+    The three are written together, and the queue obeys them from the next look
+    at it, with no restart: a build that already runs keeps going, and is held
+    to the new time limit from then on.
+
+    Args:
+        body: The three limits.
+        request: The incoming request, for the audit record.
+        session: Authenticated session, injected by the dependency.
+
+    Returns:
+        Confirmation message.
+
+    Raises:
+        HTTPException: If the configuration cannot be written.
+    """
+    config = load_config()
+    config.set("deploy.max_concurrent_builds", body.max_concurrent_builds)
+    config.set("deploy.queue_limit", body.queue_limit)
+    config.set("deploy.max_minutes", body.max_minutes)
+    persist(config)
+    delivery.forget()
+    _audit_write(request, session, changed=["deploy"])
+    return MessageResponse(message="Delivery limits updated")
 
 
 @router.get("/ssl", response_model=SSLSettingsResponse)

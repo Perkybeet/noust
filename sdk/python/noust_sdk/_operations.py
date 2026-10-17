@@ -274,6 +274,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("configuration", "get_backup_config"): ("GET", "/api/config/backup", "settings.read", False),
     ("configuration", "update_backup_config"): ("PUT", "/api/config/backup", "settings.manage", True),
     ("configuration", "get_defaults"): ("GET", "/api/config/defaults", "settings.read", False),
+    ("configuration", "get_delivery_config"): ("GET", "/api/config/delivery", "settings.read", False),
+    ("configuration", "update_delivery_config"): ("PUT", "/api/config/delivery", "settings.manage", True),
     ("configuration", "get_telegram_config"): ("GET", "/api/config/notifications/telegram", "settings.read", False),
     ("configuration", "update_telegram_config"): ("PUT", "/api/config/notifications/telegram", "settings.manage", True),
     ("configuration", "list_telegram_chats"): ("POST", "/api/config/notifications/telegram/chats", "settings.manage", False),
@@ -488,6 +490,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("fleet", "create_machine"): ("POST", "/api/fleet/cloud/servers", "fleet.manage", True),
     ("fleet", "get_machine"): ("GET", "/api/fleet/cloud/servers/{node}", "fleet.manage", False),
     ("fleet", "delete_machine"): ("DELETE", "/api/fleet/cloud/servers/{node}", "fleet.manage", True),
+    ("fleet", "link_machine"): ("POST", "/api/fleet/cloud/servers/{node}/link", "fleet.manage", True),
+    ("fleet", "unlink_machine"): ("DELETE", "/api/fleet/cloud/servers/{node}/link", "fleet.manage", True),
     ("fleet", "power_on_machine"): ("POST", "/api/fleet/cloud/servers/{node}/power-on", "fleet.manage", True),
     ("fleet", "enroll_server"): ("POST", "/api/fleet/enroll", "fleet.manage", True),
     ("fleet", "scan_host_key"): ("POST", "/api/fleet/enroll/host-key", "fleet.manage", False),
@@ -498,6 +502,13 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("fleet", "accept_server"): ("POST", "/api/fleet/link/accept", "fleet.manage", True),
     ("fleet", "invite_server"): ("POST", "/api/fleet/link/invites", "fleet.manage", True),
     ("fleet", "cancel_invite"): ("DELETE", "/api/fleet/link/invites/{name}", "fleet.manage", True),
+    ("fleet", "list_placements"): ("GET", "/api/fleet/placements", "fleet.read", False),
+    ("fleet", "get_placement"): ("GET", "/api/fleet/placements/{domain}", "fleet.read", False),
+    ("fleet", "save_placement"): ("PUT", "/api/fleet/placements/{domain}", "fleet.manage", False),
+    ("fleet", "remove_placement"): ("DELETE", "/api/fleet/placements/{domain}", "fleet.manage", False),
+    ("fleet", "copy_application"): ("POST", "/api/fleet/placements/{domain}/copy", "fleet.manage", False),
+    ("fleet", "rollout"): ("POST", "/api/fleet/placements/{domain}/rollout", "fleet.manage", False),
+    ("fleet", "get_upstreams"): ("GET", "/api/fleet/placements/{domain}/upstreams", "fleet.read", False),
     ("fleet", "fleet_servers"): ("GET", "/api/fleet/servers", "fleet.read", False),
     ("fleet", "set_labels"): ("PUT", "/api/fleet/servers/{node}/labels", "fleet.manage", False),
     ("fleet", "fleet_summary"): ("GET", "/api/fleet/summary", "fleet.read", False),
@@ -571,8 +582,12 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("nodes", "add_node"): ("POST", "/api/nodes", "fleet.manage", True),
     ("nodes", "get_node"): ("GET", "/api/nodes/{node}", "fleet.read", False),
     ("nodes", "remove_node"): ("DELETE", "/api/nodes/{node}", "fleet.manage", True),
+    ("nodes", "get_node_inventory"): ("GET", "/api/nodes/{node}/inventory", "fleet.read", False),
+    ("nodes", "apply_node_inventory"): ("POST", "/api/nodes/{node}/inventory", "fleet.manage", False),
     ("nodes", "get_node_key"): ("GET", "/api/nodes/{node}/key", "fleet.manage", False),
     ("nodes", "set_node_monitoring"): ("PUT", "/api/nodes/{node}/monitoring", "fleet.manage", False),
+    ("nodes", "get_node_ssh"): ("GET", "/api/nodes/{node}/ssh", "fleet.read", False),
+    ("nodes", "set_node_ssh"): ("PUT", "/api/nodes/{node}/ssh", "fleet.manage", True),
     ("nodes", "test_node"): ("POST", "/api/nodes/{node}/test", "fleet.read", False),
     ("notifications", "list_channels"): ("GET", "/api/notifications/channels", "settings.read", False),
     ("notifications", "save_channel"): ("PUT", "/api/notifications/channels/{name}", "settings.manage", True),
@@ -2841,7 +2856,7 @@ class Compose:
 
 
 class Configuration:
-    """Configuration: 21 operations."""
+    """Configuration: 23 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -2909,6 +2924,22 @@ class Configuration:
 
         Needs: permission `settings.read`."""
         return self._call("GET", "/api/config/defaults", query=None, body=None)
+
+    def get_delivery_config(self) -> "DeliveryConfig":
+        """GET /api/config/delivery
+
+        Get Delivery Config
+
+        Needs: permission `settings.read`."""
+        return self._call("GET", "/api/config/delivery", query=None, body=None)
+
+    def update_delivery_config(self, body: "DeliveryConfig") -> "MessageResponse":
+        """PUT /api/config/delivery
+
+        Update Delivery Config
+
+        Needs: permission `settings.manage`, sudo mode."""
+        return self._call("PUT", "/api/config/delivery", query=None, body=body)
 
     def get_telegram_config(self) -> "TelegramSettingsResponse":
         """GET /api/config/notifications/telegram
@@ -4497,7 +4528,7 @@ class Domains:
 
 
 class Fleet:
-    """Fleet: 37 operations."""
+    """Fleet: 46 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -4686,6 +4717,22 @@ class Fleet:
         Needs: permission `fleet.manage`, sudo mode, a second person's approval can be required."""
         return self._call("DELETE", f"/api/fleet/cloud/servers/{quote(str(node), safe='')}", query={"confirm": confirm, "remove_node": remove_node}, body=None)
 
+    def link_machine(self, node: str, body: "LinkBody") -> "NoustWebApiCloudMachineOut":
+        """POST /api/fleet/cloud/servers/{node}/link
+
+        Link Machine
+
+        Needs: permission `fleet.manage`, sudo mode."""
+        return self._call("POST", f"/api/fleet/cloud/servers/{quote(str(node), safe='')}/link", query=None, body=body)
+
+    def unlink_machine(self, node: str) -> Any:
+        """DELETE /api/fleet/cloud/servers/{node}/link
+
+        Unlink Machine
+
+        Needs: permission `fleet.manage`, sudo mode."""
+        return self._call("DELETE", f"/api/fleet/cloud/servers/{quote(str(node), safe='')}/link", query=None, body=None)
+
     def power_on_machine(self, node: str) -> "NoustWebApiCloudMachineOut":
         """POST /api/fleet/cloud/servers/{node}/power-on
 
@@ -4765,6 +4812,62 @@ class Fleet:
 
         Needs: permission `fleet.manage`, sudo mode."""
         return self._call("DELETE", f"/api/fleet/link/invites/{quote(str(name), safe='')}", query=None, body=None)
+
+    def list_placements(self) -> "PlacementListOut":
+        """GET /api/fleet/placements
+
+        List Placements
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", "/api/fleet/placements", query=None, body=None)
+
+    def get_placement(self, domain: str, *, refresh: Union[bool, None] = None) -> "PlacementDetailOut":
+        """GET /api/fleet/placements/{domain}
+
+        Get Placement
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", f"/api/fleet/placements/{quote(str(domain), safe='')}", query={"refresh": refresh}, body=None)
+
+    def save_placement(self, domain: str, body: "PlacementIn") -> "PlacementOut":
+        """PUT /api/fleet/placements/{domain}
+
+        Save Placement
+
+        Needs: permission `fleet.manage`."""
+        return self._call("PUT", f"/api/fleet/placements/{quote(str(domain), safe='')}", query=None, body=body)
+
+    def remove_placement(self, domain: str) -> "PlacementOut":
+        """DELETE /api/fleet/placements/{domain}
+
+        Remove Placement
+
+        Needs: permission `fleet.manage`."""
+        return self._call("DELETE", f"/api/fleet/placements/{quote(str(domain), safe='')}", query=None, body=None)
+
+    def copy_application(self, domain: str, body: "CopyIn") -> "NoustWebApiFleetActionOut":
+        """POST /api/fleet/placements/{domain}/copy
+
+        Copy Application
+
+        Needs: permission `fleet.manage`."""
+        return self._call("POST", f"/api/fleet/placements/{quote(str(domain), safe='')}/copy", query=None, body=body)
+
+    def rollout(self, domain: str, body: "RolloutIn") -> "NoustWebApiFleetActionOut":
+        """POST /api/fleet/placements/{domain}/rollout
+
+        Rollout
+
+        Needs: permission `fleet.manage`."""
+        return self._call("POST", f"/api/fleet/placements/{quote(str(domain), safe='')}/rollout", query=None, body=body)
+
+    def get_upstreams(self, domain: str, *, format: Union[str, None] = None, port: Union[int, None] = None) -> "UpstreamsOut":
+        """GET /api/fleet/placements/{domain}/upstreams
+
+        Get Upstreams
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", f"/api/fleet/placements/{quote(str(domain), safe='')}/upstreams", query={"format": format, "port": port}, body=None)
 
     def fleet_servers(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None) -> "FleetViewOut":
         """GET /api/fleet/servers
@@ -5377,7 +5480,7 @@ class Monitor:
 
 
 class Nodes:
-    """Nodes: 7 operations."""
+    """Nodes: 11 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -5414,6 +5517,22 @@ class Nodes:
         Needs: permission `fleet.manage`, sudo mode, a second person's approval can be required."""
         return self._call("DELETE", f"/api/nodes/{quote(str(node), safe='')}", query={"revoke": revoke}, body=None)
 
+    def get_node_inventory(self, node: str) -> dict[str, Any]:
+        """GET /api/nodes/{node}/inventory
+
+        Get Node Inventory
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", f"/api/nodes/{quote(str(node), safe='')}/inventory", query=None, body=None)
+
+    def apply_node_inventory(self, node: str, body: "InventoryApplyIn") -> "InventoryReportOut":
+        """POST /api/nodes/{node}/inventory
+
+        Apply Node Inventory
+
+        Needs: permission `fleet.manage`."""
+        return self._call("POST", f"/api/nodes/{quote(str(node), safe='')}/inventory", query=None, body=body)
+
     def get_node_key(self, node: str) -> "NodeKeyResponse":
         """GET /api/nodes/{node}/key
 
@@ -5429,6 +5548,22 @@ class Nodes:
 
         Needs: permission `fleet.manage`."""
         return self._call("PUT", f"/api/nodes/{quote(str(node), safe='')}/monitoring", query=None, body=body)
+
+    def get_node_ssh(self, node: str) -> "SSHOptionsOut":
+        """GET /api/nodes/{node}/ssh
+
+        Get Node Ssh
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", f"/api/nodes/{quote(str(node), safe='')}/ssh", query=None, body=None)
+
+    def set_node_ssh(self, node: str, body: "SSHOptionsIn") -> "SSHOptionsOut":
+        """PUT /api/nodes/{node}/ssh
+
+        Set Node Ssh
+
+        Needs: permission `fleet.manage`, sudo mode."""
+        return self._call("PUT", f"/api/nodes/{quote(str(node), safe='')}/ssh", query=None, body=body)
 
     def test_node(self, node: str) -> dict[str, Any]:
         """POST /api/nodes/{node}/test

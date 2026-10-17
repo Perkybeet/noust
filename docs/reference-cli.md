@@ -6730,7 +6730,7 @@ Enroll this server in a fleet, or see the fleet from its central.
 noust fleet [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`access`](#noust-fleet-access), [`activity`](#noust-fleet-activity), [`apps`](#noust-fleet-apps), [`authorize`](#noust-fleet-authorize), [`backups`](#noust-fleet-backups), [`certs`](#noust-fleet-certs), [`cloud`](#noust-fleet-cloud), [`deauthorize`](#noust-fleet-deauthorize), [`enroll`](#noust-fleet-enroll), [`jobs`](#noust-fleet-jobs), [`link`](#noust-fleet-link), [`retry`](#noust-fleet-retry), [`run`](#noust-fleet-run), [`status`](#noust-fleet-status), [`unlink`](#noust-fleet-unlink), [`updates`](#noust-fleet-updates)
+Subcommands: [`access`](#noust-fleet-access), [`activity`](#noust-fleet-activity), [`apps`](#noust-fleet-apps), [`authorize`](#noust-fleet-authorize), [`backups`](#noust-fleet-backups), [`certs`](#noust-fleet-certs), [`cloud`](#noust-fleet-cloud), [`deauthorize`](#noust-fleet-deauthorize), [`enroll`](#noust-fleet-enroll), [`jobs`](#noust-fleet-jobs), [`link`](#noust-fleet-link), [`placement`](#noust-fleet-placement), [`retry`](#noust-fleet-retry), [`run`](#noust-fleet-run), [`status`](#noust-fleet-status), [`unlink`](#noust-fleet-unlink), [`updates`](#noust-fleet-updates)
 
 ### noust fleet access
 
@@ -7047,7 +7047,7 @@ The machines this central created at a provider.
 noust fleet cloud server [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`create`](#noust-fleet-cloud-server-create), [`delete`](#noust-fleet-cloud-server-delete), [`list`](#noust-fleet-cloud-server-list), [`power-on`](#noust-fleet-cloud-server-power-on), [`show`](#noust-fleet-cloud-server-show)
+Subcommands: [`create`](#noust-fleet-cloud-server-create), [`delete`](#noust-fleet-cloud-server-delete), [`link`](#noust-fleet-cloud-server-link), [`list`](#noust-fleet-cloud-server-list), [`power-on`](#noust-fleet-cloud-server-power-on), [`show`](#noust-fleet-cloud-server-show), [`unlink`](#noust-fleet-cloud-server-unlink)
 
 ### noust fleet cloud server create
 
@@ -7095,6 +7095,24 @@ Arguments: `name`
 | `--yes`, `-y` | Do not ask. The machine and its disk are destroyed. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust fleet cloud server link
+
+Link the server NAME, already in the fleet, to its machine at a provider.
+
+```
+noust fleet cloud server link [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--account` | The cloud account the machine belongs to. |  |
+| `--id` | The provider's id for the machine. |  |
+| `--force` | Link even when the machine is not at the address the server is reached on. |  |
+| `--json` | Print the machine as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust fleet cloud server list
 
 List the machines this central created.
@@ -7136,6 +7154,20 @@ Arguments: `name`
 |---|---|---|
 | `--live` | Ask the provider for the machine's state too. |  |
 | `--json` | Print the machine as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet cloud server unlink
+
+Forget which machine NAME runs on. The machine and the server are not touched.
+
+```
+noust fleet cloud server unlink [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust fleet deauthorize
@@ -7218,6 +7250,143 @@ noust fleet link [OPTIONS]
 | `--json` | Print the result, link code included, as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
+### noust fleet placement
+
+An application that runs on several servers: where, how it looks, rolling it out.
+
+```
+noust fleet placement [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`add`](#noust-fleet-placement-add), [`copy`](#noust-fleet-placement-copy), [`list`](#noust-fleet-placement-list), [`remove`](#noust-fleet-placement-remove), [`rollout`](#noust-fleet-placement-rollout), [`status`](#noust-fleet-placement-status), [`upstreams`](#noust-fleet-placement-upstreams)
+
+### noust fleet placement add
+
+Record where DOMAIN runs, or change it; what you do not give is kept.
+
+```
+noust fleet placement add [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--nodes` | Comma-separated servers it runs on. |  |
+| `--label` | Every server carrying this label runs it too (repeat: all must match). |  |
+| `--serial` | Servers an update goes to at a time: 2 or 25%. |  |
+| `--max-failures` | Failures that stop an update. |  |
+| `--canary` | The server that goes first and alone. |  |
+| `--rollback`, `--no-rollback` | Put the servers already moved back when an update stops (the default). |  |
+| `--json` | Print the placement as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet placement copy
+
+Put DOMAIN on the servers that lack it, from one that has it.
+
+```
+noust fleet placement copy [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--from` | The server to copy it from. |  |
+| `--to` | Comma-separated servers to copy it to. |  |
+| `--new-domain` | Make the copy under another domain. |  |
+| `--no-secrets` | Leave the secret values out; the servers will ask for them. |  |
+| `--no-match-commit` | Keep the commit the import builds (the branch head). |  |
+| `--plan` | Only show what would happen. |  |
+| `-y`, `--yes` | Do not ask first. |  |
+| `--json` | Print the plan, then the job's result, as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet placement list
+
+List the applications that run on several servers (the central's own record).
+
+```
+noust fleet placement list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the placements as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet placement remove
+
+Forget where DOMAIN runs. Nothing is touched on any server.
+
+```
+noust fleet placement remove [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-y`, `--yes` | Do not ask. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet placement rollout
+
+Roll DOMAIN out over its servers so that they all run the same commit.
+
+```
+noust fleet placement rollout [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--commit` | Deploy exactly this commit on every server. |  |
+| `--tag` | Deploy the commit this tag points at. |  |
+| `--image-tag` | For an application that runs a registry image: the tag every server pulls (build it once, push it, roll it out). |  |
+| `--force` | Rebuild even a server already on it. |  |
+| `--canary` | The server that goes first and alone. |  |
+| `--rollback`, `--no-rollback` | Put the servers already moved back if it stops (the placement's own by default). |  |
+| `--serial` | Servers at a time: 2 or 25%. |  |
+| `--max-failures` | Failures that stop it; -1 never stops. |  |
+| `--plan` | Only show what would happen. |  |
+| `-y`, `--yes` | Do not ask first. |  |
+| `--json` | Print the plan, then the job's result, as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet placement status
+
+Show DOMAIN across its servers: which commit each serves, and who differs.
+
+```
+noust fleet placement status [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the placement and its status as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust fleet placement upstreams
+
+Write the servers DOMAIN runs on for the load balancer in front of them.
+
+```
+noust fleet placement upstreams [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--format` | nginx: an upstream block. list: address:port per serving server. json: everything. | `nginx` |
+| `--port` |  | `443` |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
 ### noust fleet retry
 
 Run a fleet job again on its nodes that failed or were not reached.
@@ -7242,7 +7411,7 @@ Run ACTION on several nodes: renew certificates, back up, update, restart, updat
 ```
 noust fleet run [OPTIONS] {certs_renew|backups_run|backups_verify|apps_
                        update|apps_restart|noust_update|index_refresh|os_updat
-                       es}
+                       es|placement_rollout|placement_copy}
 ```
 
 Arguments: `action`
@@ -8218,7 +8387,7 @@ Manage the servers this central manages, through their API over SSH tunnels.
 noust node [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`add`](#noust-node-add), [`key`](#noust-node-key), [`label`](#noust-node-label), [`link`](#noust-node-link), [`list`](#noust-node-list), [`migrate-tunnel`](#noust-node-migrate-tunnel), [`pause`](#noust-node-pause), [`rekey`](#noust-node-rekey), [`remove`](#noust-node-remove), [`resume`](#noust-node-resume), [`show`](#noust-node-show), [`test`](#noust-node-test)
+Subcommands: [`add`](#noust-node-add), [`export`](#noust-node-export), [`inventory`](#noust-node-inventory), [`key`](#noust-node-key), [`label`](#noust-node-label), [`link`](#noust-node-link), [`list`](#noust-node-list), [`migrate-tunnel`](#noust-node-migrate-tunnel), [`pause`](#noust-node-pause), [`rekey`](#noust-node-rekey), [`remove`](#noust-node-remove), [`resume`](#noust-node-resume), [`show`](#noust-node-show), [`ssh`](#noust-node-ssh), [`test`](#noust-node-test)
 
 ### noust node add
 
@@ -8234,7 +8403,44 @@ Arguments: `name`
 |---|---|---|
 | `--ssh` | USER@HOST[:PORT] the node is reached at. |  |
 | `--join-code` | The code 'noust fleet authorize' printed; '-' reads it from stdin. Omitted, it is asked for without echo. |  |
+| `--bastion` | Reach the node through this host. Its host key is pinned from --bastion-fingerprint or --bastion-host-key, never learnt on first use. |  |
+| `--bastion-fingerprint` | SHA256:... of the bastion's host key. |  |
+| `--bastion-host-key` | The bastion's ssh-ed25519 host key line. |  |
+| `--timeout` | Seconds to wait for the connection (default 10). |  |
+| `--inventory` | An inventory exported by the central the server comes from (noust node export): its labels, placements and the rest are recorded here once the server is added. |  |
+| `--include-ssh` | With --inventory: also apply how that central reached the server (its wait, its bastion). |  |
 | `--json` | Print the registered node as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust node export
+
+Write down what this central knows about NAME, to take it over on another central.
+
+```
+noust node export [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-o`, `--output` | Write the inventory to this file instead of printing it. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust node inventory
+
+Record, for NAME already added here, the inventory another central exported for it.
+
+```
+noust node inventory [OPTIONS] NAME FILE
+```
+
+Arguments: `name`, `file`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--include-ssh` | Also apply how the other central reached the server (its wait, its bastion). |  |
+| `--json` | Print what was applied as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust node key
@@ -8454,6 +8660,29 @@ Arguments: `name`
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print the node and its tunnel as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust node ssh
+
+Show or change how this central connects to NAME: its wait and its bastion.
+
+```
+noust node ssh [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--timeout` | Seconds to wait for the connection (1 to 300). |  |
+| `--default-timeout` | Go back to the default wait (10 seconds). |  |
+| `--bastion` | Reach the node through this host. Needs --bastion-fingerprint or --bastion-host-key for a new one: a host key is never learnt on first use. |  |
+| `--bastion-fingerprint` | SHA256:... of the bastion's host key. |  |
+| `--bastion-host-key` | The bastion's ssh-ed25519 host key line. |  |
+| `--no-bastion` | Connect to the node directly. |  |
+| `--no-test` | Keep the change without opening the tunnel first (a node that is down now). |  |
+| `--show` | Print the authorized_keys line to add on the bastion: one stream to the node, no shell. |  |
+| `--json` | Print the options as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust node test

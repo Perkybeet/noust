@@ -323,6 +323,22 @@ describe("Settings > Cloud", () => {
     expect(backend.callsTo("DELETE /api/fleet/cloud/servers/web-6")[0]?.search.get("confirm")).toBe("web-6");
   });
 
+  it("forgets which machine a server runs on without touching the machine", { timeout: 30_000 }, async () => {
+    const backend = cloudBackend({
+      extra: { "DELETE /api/fleet/cloud/servers/web-5/link": () => json(200, { node: "web-5", warnings: [] }) },
+    });
+    const { user } = renderConsole("/settings/cloud");
+    await user.click(await screen.findByRole("button", { name: "Actions for web-5" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Forget which machine it runs on" }));
+
+    await waitFor(() => {
+      expect(backend.callsTo("DELETE /api/fleet/cloud/servers/web-5/link")).toHaveLength(1);
+    });
+    expect(await screen.findByText("web-5 is no longer linked to a machine")).toBeInTheDocument();
+    // The machine itself is deleted only by the other action, after its name is typed.
+    expect(backend.callsTo("DELETE /api/fleet/cloud/servers/web-5")).toHaveLength(0);
+  });
+
   it("says in Spanish what it says in English", { timeout: 30_000 }, async () => {
     await act(async () => {
       await setLocale("es");

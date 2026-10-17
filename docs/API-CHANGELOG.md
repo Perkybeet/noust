@@ -58,6 +58,19 @@ API version 1.
 - Log shipping: `GET /api/log-drains`, `PUT` and `DELETE /api/log-drains/{name}` and
   `POST /api/log-drains/{name}/test` (`settings.read`, `settings.manage`). A token is only
   written: the destination reports `has_secret`, never the secret.
+- An application on several servers ([CENTRAL.md](CENTRAL.md#an-application-on-several-servers)):
+  `GET /api/fleet/placements`, `GET`, `PUT` and `DELETE /api/fleet/placements/{domain}` (the servers
+  compared, and the record of where it runs), `POST .../rollout` and `POST .../copy` (fleet jobs, with
+  `plan: true` to see the plan first) and `GET .../upstreams` (the servers written for a load balancer).
+  A rollout takes `commit`, `tag` or `image_tag`.
+- How the central connects to a server: `GET` and `PUT /api/nodes/{node}/ssh` (the wait for the
+  connection and a bastion; `PUT` needs sudo mode and is tried before it is kept) and the node's
+  inventory, `GET` and `POST /api/nodes/{node}/inventory`, to move a server to another central.
+- `POST` and `DELETE /api/fleet/cloud/servers/{node}/link`: link a server to its machine at a
+  provider, or forget it (sudo mode).
+- `GET` and `PUT /api/config/delivery`: `max_minutes`, the longest a build may take (60 by default; 0
+  is no limit), beside `max_concurrent_builds` and `queue_limit`. A build past it fails with the time
+  limit as the reason; its job and deployment are `failed`, not `cancelled`.
 - `GET /api/apps/{domain}/health` reads the health check with the defaults marked, and
   `PATCH /api/apps/{domain}/health` (and the response) gain `kind`, `command`, `service`,
   `method`, `scheme`, `host`, `port`, `interval`, `retries`, `start_period` and

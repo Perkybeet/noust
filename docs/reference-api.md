@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-830 operations.
+845 operations.
 
 ## Access
 
@@ -317,6 +317,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/config/backup` | Get Backup Config | `settings.read` |  |  |
 | PUT | `/api/config/backup` | Update Backup Config | `settings.manage` | yes |  |
 | GET | `/api/config/defaults` | Get Defaults | `settings.read` |  |  |
+| GET | `/api/config/delivery` | Get Delivery Config | `settings.read` |  |  |
+| PUT | `/api/config/delivery` | Update Delivery Config | `settings.manage` | yes |  |
 | GET | `/api/config/notifications/telegram` | Get Telegram Config | `settings.read` |  |  |
 | PUT | `/api/config/notifications/telegram` | Update Telegram Config | `settings.manage` | yes |  |
 | POST | `/api/config/notifications/telegram/chats` | List Telegram Chats | `settings.manage` |  |  |
@@ -571,6 +573,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/fleet/cloud/servers` | Create Machine | `fleet.manage` | yes | yes |
 | GET | `/api/fleet/cloud/servers/{node}` | Get Machine | `fleet.manage` |  |  |
 | DELETE | `/api/fleet/cloud/servers/{node}` | Delete Machine | `fleet.manage` | yes | yes |
+| POST | `/api/fleet/cloud/servers/{node}/link` | Link Machine | `fleet.manage` | yes |  |
+| DELETE | `/api/fleet/cloud/servers/{node}/link` | Unlink Machine | `fleet.manage` | yes |  |
 | POST | `/api/fleet/cloud/servers/{node}/power-on` | Power On Machine | `fleet.manage` | yes |  |
 | POST | `/api/fleet/enroll` | Enroll Server | `fleet.manage` | yes | yes |
 | POST | `/api/fleet/enroll/host-key` | Scan Host Key | `fleet.manage` |  |  |
@@ -581,6 +585,13 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/fleet/link/accept` | Accept Server | `fleet.manage` | yes | yes |
 | POST | `/api/fleet/link/invites` | Invite Server | `fleet.manage` | yes |  |
 | DELETE | `/api/fleet/link/invites/{name}` | Cancel Invite | `fleet.manage` | yes |  |
+| GET | `/api/fleet/placements` | List Placements | `fleet.read` |  |  |
+| GET | `/api/fleet/placements/{domain}` | Get Placement | `fleet.read` |  |  |
+| PUT | `/api/fleet/placements/{domain}` | Save Placement | `fleet.manage` |  |  |
+| DELETE | `/api/fleet/placements/{domain}` | Remove Placement | `fleet.manage` |  |  |
+| POST | `/api/fleet/placements/{domain}/copy` | Copy Application | `fleet.manage` |  |  |
+| POST | `/api/fleet/placements/{domain}/rollout` | Rollout | `fleet.manage` |  |  |
+| GET | `/api/fleet/placements/{domain}/upstreams` | Get Upstreams | `fleet.read` |  |  |
 | GET | `/api/fleet/servers` | Fleet Servers | `fleet.read` |  |  |
 | PUT | `/api/fleet/servers/{node}/labels` | Set Labels | `fleet.manage` |  |  |
 | GET | `/api/fleet/summary` | Fleet Summary | `fleet.read` |  |  |
@@ -694,8 +705,12 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/nodes` | Add Node | `fleet.manage` | yes | yes |
 | GET | `/api/nodes/{node}` | Get Node | `fleet.read` |  |  |
 | DELETE | `/api/nodes/{node}` | Remove Node | `fleet.manage` | yes | yes |
+| GET | `/api/nodes/{node}/inventory` | Get Node Inventory | `fleet.read` |  |  |
+| POST | `/api/nodes/{node}/inventory` | Apply Node Inventory | `fleet.manage` |  |  |
 | GET | `/api/nodes/{node}/key` | Get Node Key | `fleet.manage` |  |  |
 | PUT | `/api/nodes/{node}/monitoring` | Set Node Monitoring | `fleet.manage` |  |  |
+| GET | `/api/nodes/{node}/ssh` | Get Node Ssh | `fleet.read` |  |  |
+| PUT | `/api/nodes/{node}/ssh` | Set Node Ssh | `fleet.manage` | yes |  |
 | POST | `/api/nodes/{node}/test` | Test Node | `fleet.read` |  |  |
 
 ## Notifications

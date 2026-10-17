@@ -8845,6 +8845,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/config/delivery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Delivery Config
+         * @description Get the limits this server delivers under.
+         *
+         *     Args:
+         *         session: Authenticated session, injected by the dependency.
+         *
+         *     Returns:
+         *         How many builds run at once, how many may wait and how many minutes one
+         *         may take, read the way the queue reads them.
+         */
+        get: operations["get_delivery_config_api_config_delivery_get"];
+        /**
+         * Update Delivery Config
+         * @description Set the limits this server delivers under.
+         *
+         *     The three are written together, and the queue obeys them from the next look
+         *     at it, with no restart: a build that already runs keeps going, and is held
+         *     to the new time limit from then on.
+         *
+         *     Args:
+         *         body: The three limits.
+         *         request: The incoming request, for the audit record.
+         *         session: Authenticated session, injected by the dependency.
+         *
+         *     Returns:
+         *         Confirmation message.
+         *
+         *     Raises:
+         *         HTTPException: If the configuration cannot be written.
+         */
+        put: operations["update_delivery_config_api_config_delivery_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/config/notifications/telegram": {
         parameters: {
             query?: never;
@@ -13955,6 +14001,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/fleet/cloud/servers/{node}/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Link Machine
+         * @description Link a server of the fleet to its machine at a provider.
+         *
+         *     The provider is asked whether the machine exists and is where the server is; nothing is
+         *     changed at the provider. Afterwards the fleet can show the machine's power state, power
+         *     it on and, with the server's removal, delete it (always asked for apart).
+         *
+         *     Args:
+         *         node: The server's name on this central.
+         *         body: The account and the provider's id for the machine.
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         The record, with the provider's live report.
+         *
+         *     Raises:
+         *         NodeError: 400 when the server is not registered, is linked, the machine is another
+         *             server's, or it is not at the server's address.
+         */
+        post: operations["link_machine_api_fleet_cloud_servers__node__link_post"];
+        /**
+         * Unlink Machine
+         * @description Forget which machine a server runs on. The machine and the server are not touched.
+         *
+         *     Args:
+         *         node: The server's name on this central.
+         *         session: The authenticated session in sudo mode.
+         */
+        delete: operations["unlink_machine_api_fleet_cloud_servers__node__link_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/fleet/cloud/servers/{node}/power-on": {
         parameters: {
             query?: never;
@@ -14240,6 +14330,208 @@ export interface paths {
          *         NodeError: 400 when there is no invitation, or the server already dials in.
          */
         delete: operations["cancel_invite_api_fleet_link_invites__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/placements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Placements
+         * @description List the applications that run on several servers.
+         *
+         *     Asks no server: it is the central's own record. Use the status of one for how it looks.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Every placement, with the servers it runs on now.
+         */
+        get: operations["list_placements_api_fleet_placements_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/placements/{domain}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Placement
+         * @description Show an application across its servers: which commit each serves and who differs.
+         *
+         *     Args:
+         *         domain: The application.
+         *         session: The authenticated session.
+         *         refresh: Ask even the servers whose answer is fresh.
+         *
+         *     Returns:
+         *         ``placement`` and ``status``: the reference commit, whether they are in sync, and a
+         *         row per server.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is not placed.
+         */
+        get: operations["get_placement_api_fleet_placements__domain__get"];
+        /**
+         * Save Placement
+         * @description Record where an application runs, or change it; what is not sent is kept.
+         *
+         *     Touches no server.
+         *
+         *     Args:
+         *         domain: The application.
+         *         body: The servers, the label and the way an update goes out.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The placement as it is now.
+         *
+         *     Raises:
+         *         ValidationError: Nothing says where it runs, or a value is invalid.
+         *         NodeError: A named server is not registered.
+         */
+        put: operations["save_placement_api_fleet_placements__domain__put"];
+        post?: never;
+        /**
+         * Remove Placement
+         * @description Forget where an application runs. Nothing is touched on any server.
+         *
+         *     Args:
+         *         domain: The application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The placement that was forgotten.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is not placed.
+         */
+        delete: operations["remove_placement_api_fleet_placements__domain__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/placements/{domain}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy Application
+         * @description Put the application on servers that do not have it, from one that does.
+         *
+         *     The source's own export (with the secret values unless told not to) is imported on each
+         *     destination, then each is brought to the commit the source serves. The document passes through the
+         *     central and is kept nowhere. Needs sudo mode: an import deploys as root.
+         *
+         *     Args:
+         *         domain: The application.
+         *         request: The request.
+         *         body: The source, the destinations (the members that lack it by default) and options.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan and, unless ``plan``, the job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is not placed.
+         *         ValidationError: There is no server to copy it from or to.
+         */
+        post: operations["copy_application_api_fleet_placements__domain__copy_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/placements/{domain}/rollout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rollout
+         * @description Roll the application out over its servers: one commit everywhere, put back if it stops.
+         *
+         *     The first server goes alone and builds the head of the branch (or the commit or tag asked
+         *     for); the commit it ends on is what the others are asked for. Planned and queued like a
+         *     bulk action: sudo mode when a server's schema asks for it, a job to follow, a record per server.
+         *
+         *     Args:
+         *         domain: The application.
+         *         request: The request.
+         *         body: What to deploy, and how; the placement's own strategy where absent.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan and, unless ``plan``, the job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is not placed.
+         *         ValidationError: A server does not run the application, or a value is invalid.
+         */
+        post: operations["rollout_api_fleet_placements__domain__rollout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/placements/{domain}/upstreams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Upstreams
+         * @description Write the servers an application runs on for the load balancer in front of them.
+         *
+         *     Noust routes no traffic between servers: the balancer is the operator's. This is the list of
+         *     servers to put behind it, with the ones that do not serve right now marked down.
+         *
+         *     Args:
+         *         domain: The application.
+         *         session: The authenticated session.
+         *         format: ``nginx`` (an ``upstream`` block), ``list`` (``address:port`` per line) or ``json``.
+         *         port: The port the servers' web server answers on.
+         *
+         *     Returns:
+         *         The text, and the servers it was written from.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is not placed.
+         *         ValidationError: An unknown format.
+         */
+        get: operations["get_upstreams_api_fleet_placements__domain__upstreams_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -16299,6 +16591,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/nodes/{node}/inventory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Node Inventory
+         * @description Write down what this central knows about a server, so another central can take it over.
+         *
+         *     The document has the labels, the applications placed on the server, the machine it is at a
+         *     provider, whether its monitoring is paused and how this central reaches it. It has no secret:
+         *     not the server's token, not this central's key for it, not an account's API token.
+         *
+         *     Args:
+         *         node: The node's name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The inventory document.
+         */
+        get: operations["get_node_inventory_api_nodes__node__inventory_get"];
+        put?: never;
+        /**
+         * Apply Node Inventory
+         * @description Record, for a server just added here, what the central it came from knew about it.
+         *
+         *     The document is checked whole before anything is written. What cannot be applied here (a
+         *     cloud account this central lacks, a path to the server that may not exist from here) is
+         *     reported with the reason, not dropped.
+         *
+         *     Args:
+         *         node: The node's name, registered on this central.
+         *         body: The inventory, and whether to apply how the other central reached it.
+         *         request: The incoming request, for the audit record.
+         *         session: The authenticated session, of ``admin`` scope.
+         *
+         *     Returns:
+         *         What was applied and what was left out.
+         *
+         *     Raises:
+         *         ValidationError: 400 when the document is not a valid inventory.
+         */
+        post: operations["apply_node_inventory_api_nodes__node__inventory_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/nodes/{node}/key": {
         parameters: {
             query?: never;
@@ -16356,6 +16699,55 @@ export interface paths {
          *         The node, with its monitoring.
          */
         put: operations["set_node_monitoring_api_nodes__node__monitoring_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/nodes/{node}/ssh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Node Ssh
+         * @description Show how the central connects to a node: its wait and its bastion.
+         *
+         *     Args:
+         *         node: The node's name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The options, and the line a bastion's operator authorizes.
+         */
+        get: operations["get_node_ssh_api_nodes__node__ssh_get"];
+        /**
+         * Set Node Ssh
+         * @description Set how the central connects to a node, and prove it before keeping it.
+         *
+         *     The tunnel is closed and opened again through the new options; when the server does
+         *     not answer, the old ones are put back and the error says why. The central never
+         *     learns a bastion's host key on first use: a new bastion needs its key or the
+         *     fingerprint the operator checked on it.
+         *
+         *     Args:
+         *         node: The node's name.
+         *         body: The wait and the bastion, as they should be.
+         *         request: The incoming request, for the audit record.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The options now in force.
+         *
+         *     Raises:
+         *         NodeError: 400 when a value is invalid or the bastion is unknown; 400 too when
+         *             the server did not answer with the new options (they were not kept).
+         */
+        put: operations["set_node_ssh_api_nodes__node__ssh_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -25823,6 +26215,48 @@ export interface components {
             with_backup_24h: number;
         };
         /**
+         * BastionIn
+         * @description A bastion to reach a server through, as the operator describes it.
+         *
+         *     Attributes:
+         *         address: ``USER@HOST[:PORT]``.
+         *         host_key: The bastion's ed25519 host key line.
+         *         fingerprint: Its ``SHA256:...`` fingerprint, checked by asking the address for its
+         *             key. One of the two is needed for a bastion that is new or at another address:
+         *             the central never learns a host key on first use.
+         */
+        BastionIn: {
+            /** Address */
+            address: string;
+            /** Fingerprint */
+            fingerprint?: string | null;
+            /** Host Key */
+            host_key?: string | null;
+        };
+        /**
+         * BastionOut
+         * @description A bastion, as shown. Its host key is pinned, and is not part of what is shown.
+         *
+         *     Attributes:
+         *         host: Its host name or address.
+         *         port: Its SSH port.
+         *         user: The account the central logs in as there.
+         *         address: ``user@host:port``.
+         *         fingerprint: The pinned key's ``SHA256:...``.
+         */
+        BastionOut: {
+            /** Address */
+            address: string;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Host */
+            host: string;
+            /** Port */
+            port: number;
+            /** User */
+            user: string;
+        };
+        /**
          * BatchDeployRequest
          * @description Several applications at once, with the options they share.
          */
@@ -28232,6 +28666,41 @@ export interface components {
             port?: number | null;
         };
         /**
+         * CopyIn
+         * @description Put the application on servers that do not have it.
+         *
+         *     Attributes:
+         *         from_node: The server to copy it from; a member that serves it, by default.
+         *         to: The servers to copy it to; the members that lack it, by default.
+         *         new_domain: Make the copy under another domain.
+         *         secrets: Carry the secret values with it.
+         *         match_commit: Bring each copy to the commit the source serves.
+         *         plan: Only say what would happen.
+         */
+        CopyIn: {
+            /** From Node */
+            from_node?: string | null;
+            /**
+             * Match Commit
+             * @default true
+             */
+            match_commit: boolean;
+            /** New Domain */
+            new_domain?: string | null;
+            /**
+             * Plan
+             * @default false
+             */
+            plan: boolean;
+            /**
+             * Secrets
+             * @default true
+             */
+            secrets: boolean;
+            /** To */
+            to?: string[] | null;
+        };
+        /**
          * CpuInfo
          * @description CPU count, utilisation and load average.
          */
@@ -29383,6 +29852,30 @@ export interface components {
             applications?: string[];
             /** Name */
             name: string;
+        };
+        /**
+         * DeliveryConfig
+         * @description The limits a server delivers under: how much builds at once, waits, and takes.
+         */
+        DeliveryConfig: {
+            /**
+             * Max Concurrent Builds
+             * @description Applications that build at the same time
+             * @default 2
+             */
+            max_concurrent_builds: number;
+            /**
+             * Max Minutes
+             * @description The longest a deployment may build before it is stopped; 0 is no limit
+             * @default 60
+             */
+            max_minutes: number;
+            /**
+             * Queue Limit
+             * @description Deployments and updates that may wait before one is refused
+             * @default 25
+             */
+            queue_limit: number;
         };
         /**
          * DeliveryListResponse
@@ -33938,6 +34431,25 @@ export interface components {
             speed_mbps: number;
         };
         /**
+         * InventoryApplyIn
+         * @description Body of ``POST /api/nodes/{node}/inventory``.
+         *
+         *     Attributes:
+         *         document: An inventory another central exported for this server.
+         *         include_ssh: Also apply how that central reached it (its wait, its bastion).
+         */
+        InventoryApplyIn: {
+            /** Document */
+            document: {
+                [key: string]: unknown;
+            };
+            /**
+             * Include Ssh
+             * @default false
+             */
+            include_ssh: boolean;
+        };
+        /**
          * InventoryEntryModel
          * @description One application in the inventory.
          *
@@ -33989,6 +34501,28 @@ export interface components {
             updated_at?: string | null;
             /** Updated By */
             updated_by?: string | null;
+        };
+        /**
+         * InventoryPartOut
+         * @description One part of an inventory, applied or left out.
+         */
+        InventoryPartOut: {
+            /** Detail */
+            detail?: unknown;
+            /** Part */
+            part: string;
+            /** Reason */
+            reason?: string | null;
+        };
+        /**
+         * InventoryReportOut
+         * @description What applying an inventory did.
+         */
+        InventoryReportOut: {
+            /** Applied */
+            applied: components["schemas"]["InventoryPartOut"][];
+            /** Skipped */
+            skipped: components["schemas"]["InventoryPartOut"][];
         };
         /**
          * InventoryResponse
@@ -34750,6 +35284,26 @@ export interface components {
             tasks_max?: number | null;
             /** Units */
             units: string[];
+        };
+        /**
+         * LinkBody
+         * @description Link a server of the fleet to its machine at a provider.
+         *
+         *     Attributes:
+         *         account: The cloud account the machine belongs to.
+         *         provider_id: The provider's id for the machine.
+         *         force: Link even when the machine is not at the address the server is reached on.
+         */
+        LinkBody: {
+            /** Account */
+            account: string;
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
+            /** Provider Id */
+            provider_id: string;
         };
         /**
          * LinkEntryOut
@@ -37213,6 +37767,113 @@ export interface components {
             total: number;
         };
         /**
+         * PlacementDetailOut
+         * @description A placement and how its application looks now.
+         */
+        PlacementDetailOut: {
+            placement: components["schemas"]["PlacementOut"];
+            status: components["schemas"]["PlacementStatusOut"];
+        };
+        /**
+         * PlacementIn
+         * @description Where an application runs, and how an update goes out over its servers.
+         *
+         *     The servers (``nodes`` and ``labels``) are kept when not sent; the way an update goes out is
+         *     what is sent, so a form that shows all of it can also clear a field.
+         *
+         *     Attributes:
+         *         nodes: The servers it is named on; keeps the current ones when absent.
+         *         labels: A label selector: every server carrying all of its pairs is a member too;
+         *             keeps the current one when absent.
+         *         serial: Servers an update goes to at a time (a number or ``"25%"``); one at a time
+         *             when null.
+         *         max_failures: Failures that stop an update (0 stops at the first); the first when null.
+         *         canary: The server that goes first and alone; the first member when null.
+         *         rollback_on_failure: Put the servers already moved back when an update stops.
+         */
+        PlacementIn: {
+            /** Canary */
+            canary?: string | null;
+            /** Labels */
+            labels?: {
+                [key: string]: string;
+            } | null;
+            /** Max Failures */
+            max_failures?: number | null;
+            /** Nodes */
+            nodes?: string[] | null;
+            /**
+             * Rollback On Failure
+             * @default true
+             */
+            rollback_on_failure: boolean;
+            /** Serial */
+            serial?: number | string | null;
+        };
+        /**
+         * PlacementListOut
+         * @description Every placement.
+         */
+        PlacementListOut: {
+            /** Placements */
+            placements: components["schemas"]["PlacementOut"][];
+        };
+        /**
+         * PlacementOut
+         * @description An application placed on several servers.
+         */
+        PlacementOut: {
+            /** Canary */
+            canary?: string | null;
+            /** Created At */
+            created_at: string;
+            /** Created By */
+            created_by?: string | null;
+            /** Domain */
+            domain: string;
+            /** Labels */
+            labels: {
+                [key: string]: string;
+            };
+            /** Max Failures */
+            max_failures?: number | null;
+            /**
+             * Members
+             * @description Every server it runs on now: named, or by label
+             */
+            members: string[];
+            /** Nodes */
+            nodes: string[];
+            /** Rollback On Failure */
+            rollback_on_failure: boolean;
+            /** Serial */
+            serial?: number | string | null;
+            /** Updated At */
+            updated_at: string;
+        };
+        /**
+         * PlacementStatusOut
+         * @description The application compared across its servers.
+         */
+        PlacementStatusOut: {
+            /** Domain */
+            domain: string;
+            /**
+             * In Sync
+             * @description Every server there, answering, running and on the reference
+             */
+            in_sync: boolean;
+            /** Members */
+            members: string[];
+            /**
+             * Reference Commit
+             * @description The commit most servers serve; on a tie, the one deployed last
+             */
+            reference_commit: string | null;
+            /** Servers */
+            servers: components["schemas"]["ServerStatusOut"][];
+        };
+        /**
          * PlanRequest
          * @description Request to preview a manifest.
          */
@@ -39376,6 +40037,12 @@ export interface components {
              */
             max_concurrent_builds: number;
             /**
+             * Max Minutes
+             * @description deploy.max_minutes: the longest a build may take before it is stopped; 0 is no limit
+             * @default 60
+             */
+            max_minutes: number;
+            /**
              * Queue Limit
              * @description deploy.queue_limit: builds that may wait
              */
@@ -41249,6 +41916,48 @@ export interface components {
             total: number;
         };
         /**
+         * RolloutIn
+         * @description Roll the application out over its servers.
+         *
+         *     Attributes:
+         *         commit: Deploy exactly this commit everywhere (7 to 40 hex characters).
+         *         tag: Deploy the commit this tag points at.
+         *         image_tag: For an application that runs a registry image: the tag every server pulls.
+         *         force: Rebuild even a server already on it.
+         *         rollback_on_failure: Put the servers already moved back if it stops; the
+         *             placement's own setting when absent.
+         *         serial: Servers at a time; the placement's own when absent.
+         *         max_failures: Failures that stop it; the placement's own when absent.
+         *         canary: The server that goes first; the placement's own when absent.
+         *         plan: Only say what would happen.
+         */
+        RolloutIn: {
+            /** Canary */
+            canary?: string | null;
+            /** Commit */
+            commit?: string | null;
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
+            /** Image Tag */
+            image_tag?: string | null;
+            /** Max Failures */
+            max_failures?: number | null;
+            /**
+             * Plan
+             * @default false
+             */
+            plan: boolean;
+            /** Rollback On Failure */
+            rollback_on_failure?: boolean | null;
+            /** Serial */
+            serial?: number | string | null;
+            /** Tag */
+            tag?: string | null;
+        };
+        /**
          * RolloutRequest
          * @description Delivery settings to change. A field left out keeps its value; null goes back to the default.
          */
@@ -41853,6 +42562,52 @@ export interface components {
             use_tls: boolean;
             /** Username */
             username: string;
+        };
+        /**
+         * SSHOptionsIn
+         * @description Body of ``PUT /api/nodes/{node}/ssh``: the whole desired state.
+         *
+         *     Attributes:
+         *         connect_timeout: Seconds to wait for the connection (1 to 300); null for the default.
+         *         bastion: The host the server is reached through; null to connect directly. The
+         *             same address as the current bastion, with no key or fingerprint, keeps its
+         *             pinned key.
+         *         test: Open the tunnel with the new options and keep them only when the server
+         *             answers. False for a server that is down now.
+         */
+        SSHOptionsIn: {
+            bastion?: components["schemas"]["BastionIn"] | null;
+            /** Connect Timeout */
+            connect_timeout?: number | null;
+            /**
+             * Test
+             * @default true
+             */
+            test: boolean;
+        };
+        /**
+         * SSHOptionsOut
+         * @description How the central connects to one server beyond its address.
+         *
+         *     Attributes:
+         *         connect_timeout: Seconds it waits; null is the default.
+         *         effective_timeout: Seconds it waits now.
+         *         default_timeout: The default.
+         *         bastion: The host it goes through; null when direct.
+         *         authorized_key_line: What the bastion's operator adds to the account's
+         *             ``authorized_keys``: one stream to this server, no shell. Null without a
+         *             bastion.
+         */
+        SSHOptionsOut: {
+            /** Authorized Key Line */
+            authorized_key_line?: string | null;
+            bastion?: components["schemas"]["BastionOut"] | null;
+            /** Connect Timeout */
+            connect_timeout?: number | null;
+            /** Default Timeout */
+            default_timeout: number;
+            /** Effective Timeout */
+            effective_timeout: number;
         };
         /**
          * SSLConfig
@@ -42576,6 +43331,42 @@ export interface components {
              * @description Why it may not be opened
              */
             reason?: string | null;
+        };
+        /**
+         * ServerStatusOut
+         * @description How the application looks on one of its servers.
+         */
+        ServerStatusOut: {
+            /** Branch */
+            branch?: string | null;
+            /** Commit */
+            commit?: string | null;
+            /** Deployed At */
+            deployed_at?: string | null;
+            /** Href */
+            href: string;
+            /** Layout */
+            layout?: string | null;
+            /** Message */
+            message?: string | null;
+            /** Node */
+            node: string;
+            /** Present */
+            present: boolean;
+            /** Reachable */
+            reachable: boolean;
+            /**
+             * Stale
+             * @default false
+             */
+            stale: boolean;
+            /** Status */
+            status?: string | null;
+            /**
+             * Sync
+             * @description current, differs, unknown (no deployment to compare), missing or unreachable
+             */
+            sync: string;
         };
         /**
          * ServiceActionResponse
@@ -47229,6 +48020,40 @@ export interface components {
         UploadedList: {
             /** Certificates */
             certificates: components["schemas"]["UploadedCertificate"][];
+        };
+        /**
+         * UpstreamServerOut
+         * @description One server, as a load balancer sees it.
+         */
+        UpstreamServerOut: {
+            /** Address */
+            address?: string | null;
+            /** Commit */
+            commit?: string | null;
+            /** Node */
+            node: string;
+            /** Note */
+            note?: string | null;
+            /** Serving */
+            serving: boolean;
+            /** Sync */
+            sync?: string | null;
+        };
+        /**
+         * UpstreamsOut
+         * @description The servers an application runs on, written for the load balancer in front of them.
+         */
+        UpstreamsOut: {
+            /** Domain */
+            domain: string;
+            /** Format */
+            format: string;
+            /** Port */
+            port: number;
+            /** Servers */
+            servers: components["schemas"]["UpstreamServerOut"][];
+            /** Text */
+            text: string;
         };
         /**
          * UsageResponse
@@ -59723,6 +60548,59 @@ export interface operations {
             };
         };
     };
+    get_delivery_config_api_config_delivery_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryConfig"];
+                };
+            };
+        };
+    };
+    update_delivery_config_api_config_delivery_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeliveryConfig"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_telegram_config_api_config_notifications_telegram_get: {
         parameters: {
             query?: never;
@@ -65643,6 +66521,70 @@ export interface operations {
             };
         };
     };
+    link_machine_api_fleet_cloud_servers__node__link_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__cloud__MachineOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unlink_machine_api_fleet_cloud_servers__node__link_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     power_on_machine_api_fleet_cloud_servers__node__power_on_post: {
         parameters: {
             query?: never;
@@ -65939,6 +66881,232 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_placements_api_fleet_placements_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlacementListOut"];
+                };
+            };
+        };
+    };
+    get_placement_api_fleet_placements__domain__get: {
+        parameters: {
+            query?: {
+                /** @description Ask the servers again */
+                refresh?: boolean;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlacementDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_placement_api_fleet_placements__domain__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlacementIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlacementOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_placement_api_fleet_placements__domain__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlacementOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    copy_application_api_fleet_placements__domain__copy_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CopyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__fleet__ActionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rollout_api_fleet_placements__domain__rollout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RolloutIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__fleet__ActionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_upstreams_api_fleet_placements__domain__upstreams_get: {
+        parameters: {
+            query?: {
+                /** @description nginx, list or json */
+                format?: string;
+                /** @description The servers' web port */
+                port?: number;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpstreamsOut"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -67972,6 +69140,74 @@ export interface operations {
             };
         };
     };
+    get_node_inventory_api_nodes__node__inventory_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_node_inventory_api_nodes__node__inventory_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InventoryApplyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryReportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_node_key_api_nodes__node__key_get: {
         parameters: {
             query?: never;
@@ -68025,6 +69261,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NodeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_node_ssh_api_nodes__node__ssh_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSHOptionsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_node_ssh_api_nodes__node__ssh_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SSHOptionsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSHOptionsOut"];
                 };
             };
             /** @description Validation Error */
