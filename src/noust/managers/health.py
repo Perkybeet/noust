@@ -103,6 +103,8 @@ class HealthReport:
             that is out. Warnings only, each with its fix.
         accounts: How many applications still share one system account, so a
             compromised one could read the others' trees (3.4, B-59).
+        recipes: How many applications were installed from a recipe the catalogue has a newer
+            version of (D-15); informational, an old recipe is a choice.
     """
 
     disk: HealthCheck | None
@@ -119,6 +121,7 @@ class HealthReport:
     updates: HealthCheck | None = None
     security: HealthCheck | None = None
     accounts: HealthCheck | None = None
+    recipes: HealthCheck | None = None
 
     @property
     def checks(self) -> list[HealthCheck]:
@@ -135,6 +138,7 @@ class HealthReport:
                 self.builds,
                 self.accounts,
                 self.updates,
+                self.recipes,
                 self.audit,
                 self.security,
                 self.hardening,
@@ -593,6 +597,45 @@ def _check_updates() -> HealthCheck | None:
     )
 
 
+def _check_recipes() -> HealthCheck | None:
+    """
+    Say which installed recipes have a newer version in the catalogue (checklist D-15).
+
+    Never a warning: an old version of a recipe is a choice and a working one. The monitor
+    announces a change of the list (``recipe_outdated``); this is the line anyone reads when
+    they run the report.
+
+    Returns:
+        The check; None when no application was installed from a recipe, so there is nothing
+        to say.
+    """
+    from noust.recipes.updates import installed_statuses
+
+    try:
+        statuses = installed_statuses()
+    except (NoustError, sqlite3.Error, OSError) as exc:
+        return HealthCheck("Recipes", f"Could not check: {exc}", "info")
+    if not statuses:
+        return None
+    behind = [status for status in statuses if status.update_available]
+    if not behind:
+        count = len(statuses)
+        noun = "recipe is" if count == 1 else "recipes are"
+        return HealthCheck("Recipes", f"{count} installed {noun} up to date", "ok")
+    shown = ", ".join(
+        f"{status.domain} ({status.installed_version} -> {status.latest_version})"
+        for status in behind[:3]
+    )
+    if len(behind) > 3:
+        shown += f" and {len(behind) - 3} more"
+    noun = "recipe has" if len(behind) == 1 else "recipes have"
+    return HealthCheck(
+        "Recipes",
+        f"{len(behind)} installed {noun} a newer version: {shown}; see: noust recipe outdated",
+        "info",
+    )
+
+
 def _check_audit(issues: list[str], warnings: list[str]) -> HealthCheck:
     """
     Report whether the audit trail records, from :func:`noust.core.audit.health`.
@@ -716,6 +759,7 @@ def collect_health_report(
     builds = _check_builds(warnings)
     accounts = _check_accounts(warnings)
     updates = _check_updates()
+    recipes = _check_recipes()
     audit_check = _check_audit(issues, warnings)
     security_check = _check_security_posture(warnings)
     hardening_check = _check_hardening(hardening, warnings)
@@ -733,6 +777,7 @@ def collect_health_report(
         builds=builds,
         accounts=accounts,
         updates=updates,
+        recipes=recipes,
         audit=audit_check,
         security=security_check,
     )
