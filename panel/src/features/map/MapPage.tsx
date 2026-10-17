@@ -13,8 +13,8 @@ import { useMemo } from "react";
 
 import { mapQuery } from "../../api/queries/map";
 import type { MapNode } from "../../api/queries/map";
-import { PageHeader } from "../../app/PageHeader";
 import { CommandHint } from "../../components/page/CommandHint";
+import { DashboardPage } from "../../components/page/DashboardPage";
 import { QueryState } from "../../components/page/QueryState";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { FlowDiagram } from "../../components/ui/FlowDiagram";
@@ -70,48 +70,50 @@ export function MapPage() {
   const typeName = useTypeName();
   const diagram = useMemo(() => (query.data ? diagramOf(query.data, t, (type) => typeName(type) ?? type) : null), [query.data, t, typeName]);
 
+  // An empty server replaces everything below the header, as on the Overview: an empty diagram is
+  // not a welcome.
+  const empty = query.data?.layers.length === 0;
+
   return (
-    <div data-template="map" className="flex min-w-0 flex-col gap-6">
-      <PageHeader
-        title={t("map.title")}
-        description={t("map.description")}
-        primaryAction={
+    <DashboardPage
+      header={{
+        title: t("map.title"),
+        description: t("map.description"),
+        primaryAction: (
           <Link to="/apps/new" className={buttonClassName("primary")}>
             <Plus aria-hidden="true" />
             {t("map.newApplication")}
           </Link>
-        }
-      />
-      <QueryState query={query} label={t("map.queryLabel")} skeleton={<MapSkeleton />}>
-        {(data) => {
-          if (data.layers.length === 0 || diagram === null) {
-            return (
-              <EmptyState
-                variant="firstUse"
-                title={t("map.emptyTitle")}
-                description={t("map.emptyDescription")}
-                command="noust create"
-              />
-            );
-          }
-          const counts = countsOf(data);
-          return (
-            <div className="flex min-w-0 flex-col gap-4">
-              {data.truncated ? <Notice tone="info">{t("map.truncated")}</Notice> : null}
-              <FlowDiagram
-                layers={diagram.layers}
-                edges={diagram.edges}
-                label={t("map.label")}
-                animated={false}
-                legend={t("map.legend")}
-                summary={t("map.summary", counts)}
-                nodeLink={(node, name) => <NodeLink node={diagram.nodes.get(node.id)} name={typeof name === "string" ? name : node.label} />}
-              />
-            </div>
-          );
-        }}
-      </QueryState>
-      <CommandHint command="noust map" label={t("map.fromTerminal")} />
-    </div>
+        ),
+      }}
+      firstSteps={
+        empty ? <EmptyState variant="firstUse" title={t("map.emptyTitle")} description={t("map.emptyDescription")} command="noust create" /> : undefined
+      }
+      charts={
+        <div className="col-span-full min-w-0">
+          <QueryState query={query} label={t("map.queryLabel")} skeleton={<MapSkeleton />}>
+            {(data) => {
+              if (diagram === null) return null;
+              const counts = countsOf(data);
+              return (
+                <div className="flex min-w-0 flex-col gap-4">
+                  {data.truncated ? <Notice tone="info">{t("map.truncated")}</Notice> : null}
+                  <FlowDiagram
+                    layers={diagram.layers}
+                    edges={diagram.edges}
+                    label={t("map.label")}
+                    animated={false}
+                    legend={t("map.legend")}
+                    summary={t("map.summary", counts)}
+                    nodeLink={(node, name) => <NodeLink node={diagram.nodes.get(node.id)} name={typeof name === "string" ? name : node.label} />}
+                  />
+                </div>
+              );
+            }}
+          </QueryState>
+        </div>
+      }
+      footer={<CommandHint command="noust map" label={t("map.fromTerminal")} />}
+    />
   );
 }
