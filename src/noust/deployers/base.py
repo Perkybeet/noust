@@ -4332,6 +4332,8 @@ class BaseDeployer(AppDeployer):
         staged = self._require_staged()
         report(f"Receiving release {staged.id}")
         self._record_release_row(staged)
+        # What this application's own list declares: the release runs here, not where it was built.
+        self._ensure_system_packages(report)
         self._prime_build()
         self._refresh_variables()
         links = staged.manager.link_shared(staged.path, self._persistent_paths())
@@ -4463,6 +4465,78 @@ class BaseDeployer(AppDeployer):
                 self._restart_and_probe()
 
         return self._update_result(prisma_updated)
+
+    def build_release(self, on_step: StepReporter | None = None) -> StagedRelease:
+        """
+        Build the source as a new release and leave it there: nothing activated, nothing recorded.
+
+        What the server that builds for another one runs (``noust releases bundle``). It is an
+        update up to the switch: the source is fetched, dependencies are installed and the
+        project is built, in the build sandbox like any build. It stops there. There is no
+        Prisma migration and no ``pre_deploy`` or ``post_deploy`` hook, because they act on a
+        database and a service this server is not running this release for, and no deployment is
+        written to the history. The release is the caller's to pack and to remove
+        (:meth:`forget_built_release`); a failed build removes what it made.
+
+        Args:
+            on_step: Called as each step begins.
+
+        Returns:
+            The release, built, with its permissions set.
+
+        Raises:
+            DeploymentError: The application is not on the release layout, or a step failed
+                (its own output is carried).
+        """
+        require_server_role("Applications")
+        report = on_step or (lambda _message: None)
+        if self.resolve_layout() != RELEASES:
+            raise DeploymentError(
+                f"{self.domain} is not on the release layout",
+                details="Only an application that builds releases can send one.",
+            )
+        self._forget_hooks()
+        built = False
+        try:
+            report("Fetching into a new release")
+            self._step_fetch_release()
+            self._sandbox_by_default(report)
+            self._ensure_system_packages(report)
+            cancellation.checkpoint()
+            report("Installing dependencies")
+            with self._in_phase(BuildPhase.INSTALL):
+                self._install_release_dependencies()
+            if self.has_prisma:
+                # The client is part of the build; the migration is the receiver's to run.
+                report("Generating the Prisma client")
+                with self._in_phase(BuildPhase.INSTALL):
+                    self.generate_prisma()
+            cancellation.checkpoint()
+            report("Building")
+            with self._in_phase(BuildPhase.BUILD):
+                self.build()
+            cancellation.checkpoint()
+            self._set_permissions()
+            built = True
+        finally:
+            if not built:
+                self._abandon_release()
+        return self._require_staged()
+
+    def forget_built_release(self, staged: StagedRelease) -> None:
+        """
+        Forget the record of a release that :meth:`build_release` made and was packed.
+
+        Args:
+            staged: The release; its directory is removed by the caller.
+        """
+        app_id = self._records_releases()
+        if app_id is None:
+            return
+        try:
+            self.store.delete_releases(app_id, [staged.id])
+        except _RECORDING_ERRORS as exc:
+            self.logger.warning(f"Could not forget release {staged.id}: {exc}")
 
     def _ensure_system_packages(self, report: StepReporter) -> None:
         """

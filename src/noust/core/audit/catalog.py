@@ -273,6 +273,8 @@ EVENTS: dict[str, EventSpec] = {
             "push.enable": "An application was set to deploy from git pushes to this server.",
             "push.disable": "An application stopped deploying from git pushes to this server.",
             "push.key": "A key that may push to an application's repository was added or removed.",
+            "releases.bundle": "A release was built without activating it and packed as a bundle for another server.",
+            "releases.receive": "A release that another server built was received from a bundle and activated.",
             "apps.packages": "The system packages an application needs were declared or changed.",
             "apps.packages_installed": "System packages an application needs were installed on the host.",
             "apps.source_options": "An application's source options (submodules, LFS, shallow clone, watch paths, skip markers) were changed.",

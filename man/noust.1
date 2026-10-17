@@ -9778,6 +9778,31 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 .SS noust releases
 List an application's releases and go back to one instantly.
 
+.SS noust releases bundle
+Build a release without activating it and pack it into one file for another server.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-o, \-\-out
+The file to write. By default <domain>\-<time>.noust\-release.tar.gz here.
+.TP
+.B \-\-commit
+Build this commit instead of the head of the branch (a git source).
+.TP
+.B \-\-release
+Pack this release, already built here, instead of building one.
+.TP
+.B \-\-keep
+Keep the release this built in releases/.
+.TP
+.B \-\-json
+Print the bundle and its checksum as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust releases keep
 Show or set how many releases an application keeps on disk.
 .TP
@@ -9811,6 +9836,27 @@ List the releases of an application, newest first.
 .TP
 .B \-\-json
 Print the releases as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust releases receive
+Run a release that another server built, behind the health gate.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIbundle\fR
+.TP
+.B \-\-sha256
+The bundle's SHA\-256, as the builder printed it, or a .sha256 file. Required: nothing is read from a bundle that is not the file this names.
+.TP
+.B \-\-schema\-changed\-ok
+Take a release older than a deployment that changed the database schema.
+.TP
+.B \-\-json
+Print the outcome as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.

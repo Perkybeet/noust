@@ -9342,7 +9342,26 @@ List an application's releases and go back to one instantly.
 noust releases [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`keep`](#noust-releases-keep), [`list`](#noust-releases-list), [`rollback`](#noust-releases-rollback)
+Subcommands: [`bundle`](#noust-releases-bundle), [`keep`](#noust-releases-keep), [`list`](#noust-releases-list), [`receive`](#noust-releases-receive), [`rollback`](#noust-releases-rollback)
+
+### noust releases bundle
+
+Build a release without activating it and pack it into one file for another server.
+
+```
+noust releases bundle [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `-o`, `--out` | The file to write. By default <domain>-<time>.noust-release.tar.gz here. |  |
+| `--commit` | Build this commit instead of the head of the branch (a git source). |  |
+| `--release` | Pack this release, already built here, instead of building one. |  |
+| `--keep` | Keep the release this built in releases/. |  |
+| `--json` | Print the bundle and its checksum as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust releases keep
 
@@ -9375,6 +9394,23 @@ Arguments: `domain`
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print the releases as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
+
+### noust releases receive
+
+Run a release that another server built, behind the health gate.
+
+```
+noust releases receive [OPTIONS] DOMAIN BUNDLE
+```
+
+Arguments: `domain`, `bundle`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--sha256` | The bundle's SHA-256, as the builder printed it, or a .sha256 file. Required: nothing is read from a bundle that is not the file this names. |  |
+| `--schema-changed-ok` | Take a release older than a deployment that changed the database schema. |  |
+| `--json` | Print the outcome as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens-medium security profile. |  |
 
 ### noust releases rollback
