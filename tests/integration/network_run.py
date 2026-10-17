@@ -39,12 +39,16 @@ Evidence (every command and its output, per scenario) is written to ``--evidence
 from __future__ import annotations
 
 import argparse
+import base64
 import importlib.util
+import io
 import json
 import os
 import re
+import secrets
 import subprocess
 import sys
+import tarfile
 import tempfile
 import time
 from collections.abc import Callable
@@ -102,11 +106,19 @@ DOCKER_VOLUME = f"{PREFIX}-docker"
 SERVER_IMAGE = f"{PREFIX}-server:latest"
 CLIENT_IMAGE = f"{PREFIX}-client:latest"
 
-#: What the harness may remove, by exact name.
-OWNED_CONTAINERS = (SERVER, CLIENT, AUTHELIA, OAUTH2)
+#: What the harness may remove, by exact name. The providers share the server's network
+#: namespace, so they go first.
+OWNED_CONTAINERS = (AUTHELIA, OAUTH2, CLIENT, SERVER)
 
 #: The fixtures served by git:// inside the server.
 ECHO_REPO = "/root/fixtures/echo-app"
+
+#: The identity providers of the forward-auth scenarios, by digest (authelia v4.39.28 and
+#: oauth2-proxy v7.15.5 when they were chosen).
+AUTHELIA_IMAGE = (
+    "authelia/authelia@sha256:bd97cff4fcbf715b5ff1f9ae286afbe6033afce385302520b0368122d43a6f54"
+)
+OAUTH2_IMAGE = "quay.io/oauth2-proxy/oauth2-proxy@sha256:8498b0d0ef0a7b29686414000a08aee467f02d0299c9ed1e006a8f33fc017916"
 ECHO_URL = "git://127.0.0.1/echo-app"
 
 DEPLOY_TIMEOUT = 300
@@ -265,7 +277,8 @@ def remove_container(name: str) -> None:
             check=False,
             timeout=120,
         )
-    docker("rm", "-f", name, check=False, timeout=60)
+    # -v: a provider image may declare a volume, and the anonymous one goes with its container
+    docker("rm", "-f", "-v", name, check=False, timeout=60)
 
 
 def remove_network() -> None:
@@ -1410,6 +1423,405 @@ def scenario_site_history(env: Env) -> None:
         env.srv(f"sha256sum /etc/nginx/sites-available/{domain}").stdout == current,
         "a refused restore changed the file",
     )
+    # -- and the way back: the version before the listener loads again, so the server is whole
+    # (one site whose files are gone makes nginx refuse every other site's change too)
+    good = history(env, domain)["versions"][1]["version"]
+    env.srv(f"noust site restore {domain} {good} --reload")
+    env.srv("nginx -t")
+
+
+# ---------------------------------------------------------------------------
+# Forward-auth against the real identity providers
+# ---------------------------------------------------------------------------
+
+
+def start_provider(
+    name: str, image: str, args: list[str], files: dict[str, str] | None = None
+) -> None:
+    """
+    Run an identity provider in the server's network namespace, so it listens on the server's
+    loopback where the presets expect it (nginx asks ``http://127.0.0.1:<port>``).
+
+    Args:
+        name: The container (one of ours).
+        image: Its image, by digest.
+        args: Its command line.
+        files: Container path to the text copied in before it starts (test credentials only).
+    """
+    remove_container(name)
+    docker(
+        "create",
+        "--name",
+        owned(name),
+        "--label",
+        LABEL,
+        "--network",
+        f"container:{SERVER}",
+        image,
+        *args,
+        timeout=300,
+    )
+    if files:
+        # One tar on standard input: it creates the directories a path needs (a volume's
+        # directory does not exist in a container that was created and never started).
+        archive = io.BytesIO()
+        with tarfile.open(fileobj=archive, mode="w") as tar:
+            for target, text in files.items():
+                data = text.encode()
+                info = tarfile.TarInfo(target.lstrip("/"))
+                info.size = len(data)
+                info.mode = 0o644
+                tar.addfile(info, io.BytesIO(data))
+        copied = subprocess.run(
+            ["docker", "cp", "-", f"{owned(name)}:/"],
+            input=archive.getvalue(),
+            capture_output=True,
+            timeout=60,
+            env=docker_env(),
+        )
+        if copied.returncode != 0:
+            raise HarnessError(f"copying files into {name} failed: {copied.stderr.decode()}")
+    docker("start", name)
+
+
+def provider_version(name: str, *command: str) -> str:
+    """The version a provider prints, for the evidence."""
+    return docker("exec", owned(name), *command, check=False).stdout.strip()
+
+
+@scenario("forward_auth_oauth2_proxy")
+def scenario_forward_auth_oauth2(env: Env) -> None:
+    """The oauth2-proxy preset against a real oauth2-proxy: sign-in landing, identity, fail closed."""
+    domain = "fa.test"
+    if env.srv(f"noust status {domain}", check=False).returncode == 0:
+        env.srv(f"noust delete {domain} -y", label="(a re-run) start from nothing")
+    ensure_app(env, domain)
+    env.srv("htpasswd -nbB ana good-pass > /tmp/oauth2.htpasswd")
+    htpasswd = env.srv("cat /tmp/oauth2.htpasswd").stdout
+    cookie_secret = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode()
+    start_provider(
+        OAUTH2,
+        OAUTH2_IMAGE,
+        [
+            "--http-address=127.0.0.1:4180",
+            "--provider=oidc",
+            "--client-id=noust-test",
+            "--client-secret=not-used",
+            f"--cookie-secret={cookie_secret}",
+            "--cookie-secure=false",
+            "--email-domain=*",
+            "--oidc-issuer-url=http://127.0.0.1:9/dex",
+            "--skip-oidc-discovery=true",
+            "--login-url=http://127.0.0.1:9/auth",
+            "--redeem-url=http://127.0.0.1:9/token",
+            "--oidc-jwks-url=http://127.0.0.1:9/keys",
+            "--insecure-oidc-skip-issuer-verification=true",
+            f"--redirect-url=http://{domain}/oauth2/callback",
+            "--set-xauthrequest=true",
+            "--reverse-proxy=true",
+            "--upstream=static://202",
+            "--whitelist-domain=.test",
+            "--htpasswd-file=/htpasswd",
+        ],
+        {"/htpasswd": htpasswd},
+    )
+    wait_for(
+        lambda: (
+            env.srv(
+                "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4180/ping", check=False
+            ).stdout.strip()
+            == "200"
+        ),
+        "oauth2-proxy to answer",
+    )
+    env.versions["oauth2-proxy"] = provider_version(OAUTH2, "/bin/oauth2-proxy", "--version")
+
+    # -- the preset, as an operator picks it; the service is asked once before it is kept
+    env.srv(f"noust app policy set {domain} --forward-auth-preset oauth2-proxy")
+    shown = json_of(env.srv(f"noust app policy show {domain} --json"), "policy show")
+    auth = shown["policy"]["forward_auth"]
+    env.check(
+        auth["url"] == "http://127.0.0.1:4180/oauth2/auth"
+        and auth["sign_in"] == "/oauth2/start?rd=",
+        f"the preset was not kept as it is: {auth}",
+    )
+
+    # -- not signed in: sent to the sign-in with the page asked for
+    first = probe(env, domain, "/")
+    expect(
+        env,
+        first,
+        "not signed in",
+        status=302,
+        location="http://fa.test/oauth2/start?rd=http://fa.test/",
+    )
+
+    # -- the sign-in lands on oauth2-proxy through the same site (the preset's note): no loop
+    env.srv(f"noust app policy route add {domain} /oauth2 --proxy-port 4180 --open")
+    landing = probe(env, domain, "/oauth2/start?rd=http://fa.test/")
+    env.check(
+        landing.status == 302 and landing.location.startswith("http://127.0.0.1:9/auth"),
+        f"the sign-in did not reach oauth2-proxy and its redirect to the provider: {landing}",
+    )
+
+    # -- signed in (basic authentication is oauth2-proxy's own session loader): the application is
+    # told who came, in headers a client cannot choose
+    ana = probe(env, domain, "/who", auth="ana:good-pass")
+    env.check(ana.status == 200, f"a signed-in visitor was refused: {ana}")
+    seen = json_of(
+        env.cli(f"curl -s -u ana:good-pass -H 'Host: {domain}' http://{env.server_ip}/who"),
+        "echo",
+    )["headers"]
+    env.check(
+        seen.get("x-auth-request-user") == "ana",
+        f"the application was not told who came: {seen}",
+    )
+    spoof = json_of(
+        env.cli(
+            f"curl -s -u ana:good-pass -H 'X-Auth-Request-User: admin' "
+            f"-H 'X-Auth-Request-Email: admin@example.test' -H 'Host: {domain}' "
+            f"http://{env.server_ip}/who"
+        ),
+        "echo",
+    )["headers"]
+    env.check(
+        spoof.get("x-auth-request-user") == "ana" and "admin@example.test" not in json.dumps(spoof),
+        f"a visitor chose their own identity headers: {spoof}",
+    )
+    expect(
+        env,
+        probe(env, domain, "/", auth="ana:wrong"),
+        "wrong credentials are not signed in",
+        status=302,
+    )
+    expect(
+        env,
+        probe(env, domain, "/", extra="-H 'X-Auth-Request-User: admin'"),
+        "a spoofed identity header alone opens nothing",
+        status=302,
+    )
+
+    # -- the service goes down: everybody is refused, the application is not served
+    docker("stop", OAUTH2)
+    down = probe(env, domain, "/", auth="ana:good-pass")
+    env.check(
+        down.status in (500, 502, 503, 504),
+        f"the site was served while oauth2-proxy was down: {down}",
+    )
+    refused = env.srv(
+        f"noust app policy set {domain} --forward-auth-url http://127.0.0.1:4180/oauth2/auth "
+        "--forward-auth-header X-Auth-Request-User --noindex",
+        check=False,
+    )
+    env.check(
+        refused.returncode != 0 and "does not answer" in refused.stdout + refused.stderr,
+        f"an authentication service that is down was accepted: {refused.stdout!r}",
+    )
+    docker("start", OAUTH2)
+    wait_for(
+        lambda: probe(env, domain, "/who", auth="ana:good-pass").status == 200,
+        "the site to be served again once oauth2-proxy is back",
+    )
+    remove_container(OAUTH2)
+
+
+AUTHELIA_CONFIG = """\
+theme: 'light'
+server:
+  address: 'tcp://127.0.0.1:9091/'
+  endpoints:
+    authz:
+      auth-request:
+        implementation: 'AuthRequest'
+log:
+  level: 'debug'
+identity_validation:
+  reset_password:
+    jwt_secret: 'noust-test-reset-secret-not-used-anywhere-else-1234567890'
+authentication_backend:
+  file:
+    path: '/config/users.yml'
+access_control:
+  default_policy: 'one_factor'
+session:
+  secret: 'noust-test-session-secret-not-used-anywhere-else-1234567890'
+  cookies:
+    - name: 'authelia_session'
+      domain: 'example.test'
+      authelia_url: 'https://auth.example.test'
+      expiration: '1h'
+      inactivity: '10m'
+storage:
+  encryption_key: 'noust-test-storage-key-not-used-anywhere-else-1234567890'
+  local:
+    path: '/config/db.sqlite3'
+notifier:
+  filesystem:
+    filename: '/config/notification.txt'
+"""
+
+AUTHELIA_USERS = """\
+users:
+  ana:
+    disabled: false
+    displayname: 'Ana Test'
+    password: '{digest}'
+    email: 'ana@example.test'
+    groups:
+      - 'staff'
+"""
+
+
+@scenario("forward_auth_authelia")
+def scenario_forward_auth_authelia(env: Env) -> None:
+    """The authelia preset against a real Authelia: a session opens the site, nothing else does."""
+    domain = "app.example.test"
+    if env.srv(f"noust status {domain}", check=False).returncode == 0:
+        env.srv(f"noust delete {domain} -y", label="(a re-run) start from nothing")
+    ensure_app(env, domain)
+    self_signed(env, "autheliacert", domain, "auth.example.test")
+    env.srv(f"noust cert use {domain} --upload autheliacert")
+
+    # Authelia wants an argon2 hash: its own tool makes it (a container that exits at once)
+    digest_out = docker(
+        "run",
+        "--rm",
+        "--label",
+        LABEL,
+        "--name",
+        owned(f"{PREFIX}-authelia-hash"),
+        AUTHELIA_IMAGE,
+        "authelia",
+        "crypto",
+        "hash",
+        "generate",
+        "argon2",
+        "--password",
+        "good-pass",
+        timeout=120,
+    ).stdout
+    digest = next(
+        line.split("Digest:", 1)[1].strip() for line in digest_out.splitlines() if "Digest:" in line
+    )
+    start_provider(
+        AUTHELIA,
+        AUTHELIA_IMAGE,
+        [],
+        {
+            "/config/configuration.yml": AUTHELIA_CONFIG,
+            "/config/users.yml": AUTHELIA_USERS.format(digest=digest),
+        },
+    )
+    wait_for(
+        lambda: (
+            env.srv(
+                "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:9091/api/health",
+                check=False,
+            ).stdout.strip()
+            == "200"
+        ),
+        "Authelia to answer its health check",
+        timeout=90,
+    )
+    env.versions["authelia"] = provider_version(AUTHELIA, "authelia", "--version")
+
+    # -- the preset: its portal is another site, so the sign-in is the operator's to give
+    env.srv(
+        f"noust app policy set {domain} --forward-auth-preset authelia "
+        "--forward-auth-sign-in 'https://auth.example.test/?rd='"
+    )
+    asked = probe(env, domain, "/", tls=True)
+    expect(
+        env,
+        asked,
+        "not signed in",
+        status=302,
+        location="https://auth.example.test/?rd=https://app.example.test/",
+    )
+
+    # -- a session made the way the portal makes one
+    def sign_in() -> None:
+        login = env.srv(
+            "curl -s -i -X POST http://127.0.0.1:9091/api/firstfactor "
+            "-H 'Content-Type: application/json' -H 'X-Forwarded-Proto: https' "
+            "-H 'X-Forwarded-Host: auth.example.test' -H 'X-Forwarded-URI: /' "
+            '-d \'{"username":"ana","password":"good-pass","keepMeLoggedIn":false}\' '
+            "| grep -i '^set-cookie: authelia_session' | sed 's/^[Ss]et-[Cc]ookie: //; s/;.*//' "
+            "> /tmp/authelia.cookie; wc -c < /tmp/authelia.cookie",
+            label="sign in as ana on the portal (the cookie goes to a file, not to the evidence)",
+        )
+        env.check(int(login.stdout.strip() or 0) > 30, "Authelia did not open a session for ana")
+        cookie_text = docker("exec", SERVER, "cat", "/tmp/authelia.cookie").stdout.strip()
+        docker("exec", "-i", CLIENT, "sh", "-c", "cat > /tmp/cookie", input_text=cookie_text)
+
+    sign_in()
+
+    def asking(extra: str = "", *, signed_in: bool = True) -> dict[str, Any]:
+        header = '-H "Cookie: $(cat /tmp/cookie)"' if signed_in else ""
+        proc = env.cli(
+            f"curl -sk -D /tmp/h {header} {extra} --resolve {domain}:443:{env.server_ip} "
+            f"-w '\\n%{{http_code}}' https://{domain}/who",
+            check=False,
+            label=f"https://{domain}/who {'with the session' if signed_in else 'without it'} {extra}",
+        )
+        body, _, code = proc.stdout.rpartition("\n")
+        seen: dict[str, Any] = {}
+        try:
+            seen = json.loads(body)
+        except ValueError:
+            pass
+        return {"status": int(code or 0), "headers": seen.get("headers", {}), "raw": body}
+
+    mine = asking()
+    env.check(mine["status"] == 200, f"a signed-in visitor was refused: {mine}")
+    headers = mine["headers"]
+    env.check(
+        headers.get("remote-user") == "ana"
+        and headers.get("remote-groups") == "staff"
+        and headers.get("remote-email") == "ana@example.test"
+        and headers.get("remote-name") == "Ana Test",
+        f"the application was not told who came: { {k: v for k, v in headers.items() if k.startswith('remote')} }",
+    )
+    spoofed = asking("-H 'Remote-User: admin' -H 'Remote-Groups: admins'")
+    env.check(
+        spoofed["headers"].get("remote-user") == "ana"
+        and spoofed["headers"].get("remote-groups") == "staff",
+        f"a visitor chose their own identity: {spoofed['headers']}",
+    )
+    anonymous = asking("-H 'Remote-User: admin'", signed_in=False)
+    env.check(anonymous["status"] == 302, f"a spoofed header alone opened the site: {anonymous}")
+    forged = env.cli(
+        f"curl -sk -o /dev/null -w '%{{http_code}}' -H 'Cookie: authelia_session=forged' "
+        f"--resolve {domain}:443:{env.server_ip} https://{domain}/who"
+    )
+    env.check(forged.stdout.strip() == "302", f"a forged session opened the site: {forged.stdout}")
+    posted = env.cli(
+        f"curl -sk -X POST -d x=1 -o /dev/null -w '%{{http_code}}' "
+        '-H "Cookie: $(cat /tmp/cookie)" '
+        f"--resolve {domain}:443:{env.server_ip} https://{domain}/who"
+    )
+    env.check(posted.stdout.strip() == "200", f"a signed-in POST was refused: {posted.stdout}")
+
+    # -- Authelia down: the site is closed to everybody, the session included
+    docker("stop", AUTHELIA)
+    env.check(asking()["status"] in (500, 502, 503, 504), "the site was served with Authelia down")
+    docker("start", AUTHELIA)
+    wait_for(
+        lambda: (
+            env.srv(
+                "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:9091/api/health",
+                check=False,
+            ).stdout.strip()
+            == "200"
+        ),
+        "Authelia to answer again",
+        timeout=90,
+    )
+    # its sessions lived in its memory: ana signs in again, and the site opens
+    env.check(asking()["status"] == 302, "a session outlived Authelia's restart")
+    sign_in()
+    env.check(asking()["status"] == 200, "the site did not open again once Authelia was back")
+    remove_container(AUTHELIA)
 
 
 # ---------------------------------------------------------------------------
@@ -1508,6 +1920,16 @@ def setup(args: argparse.Namespace) -> Env:
     return env
 
 
+#: Session cookies the providers hand out: throwaway ones, but evidence is shared, so they never
+#: reach a file.
+_SESSION_COOKIE = re.compile(r"(authelia_session|_oauth2_proxy)=[^;\"'\s]+")
+
+
+def redacted(text: str) -> str:
+    """The text with every session cookie value replaced."""
+    return _SESSION_COOKIE.sub(r"\1=<redacted>", text)
+
+
 def write_evidence(directory: Path, name: str, status: str, env: Env, detail: str) -> None:
     """Write one scenario's evidence to a file."""
     directory.mkdir(parents=True, exist_ok=True)
@@ -1518,7 +1940,7 @@ def write_evidence(directory: Path, name: str, status: str, env: Env, detail: st
     body.append("versions: " + json.dumps(env.versions, indent=2))
     body.append("")
     body.extend(env.evidence)
-    (directory / f"{safe}.txt").write_text("\n\n".join(body) + "\n")
+    (directory / f"{safe}.txt").write_text(redacted("\n\n".join(body) + "\n"))
 
 
 def main() -> int:

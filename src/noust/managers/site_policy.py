@@ -822,6 +822,9 @@ def _route_context(
             "pattern": route.path.replace(".", "[.]"),
             "port": route.port,
             "strip": route.strip,
+            # Lifts the authentication service's check there too: the sign-in it redirects
+            # to is behind it otherwise.
+            "open": route.auth == "open",
         }
         for route in proxies
     ]
@@ -840,7 +843,8 @@ def _route_context(
         return
 
     auth_routes = [route for route in routes if route.auth != "inherit"]
-    if auth_routes:
+    # An open prefix of a site that asks for no password has nothing to lift: no decision to make.
+    if auth_routes and "auth" in block:
         variable = f"noust_auth_{prefix}"
         block["auth"]["variable"] = variable
         # A map is evaluated once per request: after try_files sent the request to a fallback page

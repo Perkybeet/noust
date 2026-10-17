@@ -42,9 +42,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         docker-compose \
     && apt-get clean
 
-# docker.io on Debian 13 is the daemon only; the command is its own package. A separate layer so
-# the one above stays cached.
-RUN apt-get install -y --no-install-recommends docker-cli && apt-get clean
+# docker.io on Debian 13 is the daemon only; the command is its own package. apache2-utils gives
+# htpasswd, which makes the bcrypt accounts oauth2-proxy reads. A separate layer so the one above
+# stays cached.
+RUN apt-get install -y --no-install-recommends docker-cli apache2-utils && apt-get clean
 
 RUN systemctl mask \
         getty.target \

@@ -143,6 +143,9 @@
 {% if route.strip %}
         proxy_set_header X-Forwarded-Prefix {{ route.path }};
 {% endif %}
+{% if route.open and rules.forward_auth %}
+        auth_request off;
+{% endif %}
 
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
