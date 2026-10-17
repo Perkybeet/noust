@@ -21,10 +21,16 @@ which ``noust db import`` calls too. The API has two ways in:
 
 Loading is a job, with sudo mode, like every restore: the target is dumped
 first and put back if the load fails.
+
+A dump of **all** databases (``pg_dumpall``) is another operation, ``/imports/cluster``:
+the plan first (what would be created, loaded over or left out, and which accounts), read from the
+file without changing anything, then the job, which asks for ``confirm_users`` when the accounts
+of the dump are to be made (:mod:`~noust.managers.database.cluster_import`).
 """
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -32,7 +38,8 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from noust.core.exceptions import ValidationError
+from noust.core.exceptions import ConfirmationRequired, DatabaseBackupError, ValidationError
+from noust.managers.database.cluster_import import ClusterImporter
 from noust.managers.database.imports import DatabaseImports, resolve_server_path
 from noust.managers.database.uploads import (
     MAX_CHUNK_BYTES,
@@ -64,12 +71,15 @@ class DumpFormatResponse(BaseModel):
         compression: ``none``, ``gzip``, ``bz2``, ``xz`` or ``zip`` around it.
         description: One sentence to show.
         engines: The engines that can load it.
+        scope: ``database`` for the dump of one database, ``cluster`` for a dump of every
+            database of an engine (``/imports/cluster``).
     """
 
     kind: str
     compression: str
     description: str
     engines: list[str] = Field(default_factory=list)
+    scope: str = "database"
 
 
 class UploadStartRequest(BaseModel):
@@ -191,6 +201,109 @@ class ImportRequest(SourceRequest):
     safety_backup: bool = True
     as_superuser: bool = False
     confirm_superuser: bool = False
+
+
+class ClusterRequest(SourceRequest):
+    """
+    Request to plan or import a dump of all databases.
+
+    Attributes:
+        engine: The engine (``postgresql``).
+        restore_users: Also create the accounts of the dump, without the power the source gave them
+            and never over one that exists; the databases then keep the owners and privileges the
+            dump names for them.
+        databases: Only these databases; the server's own are loaded only when named.
+        replace: Drop each database that exists and load a fresh one. A safety copy is taken first.
+        safety_backup: Dump a database first when it is loaded over rather than replaced.
+        confirm_users: The operator accepted creating the accounts (read them in the plan).
+            Without it, ``restore_users`` is a 400 ``confirmation_required`` and nothing is queued.
+        as_superuser: Load every database as the server's superuser instead of as its owner. A
+            dump can run programs on the server with that account, so it needs
+            ``confirm_superuser`` too; for a file the operator made or has read.
+        confirm_superuser: The operator accepted what ``as_superuser`` costs.
+    """
+
+    engine: str
+    restore_users: bool = False
+    databases: list[str] = Field(default_factory=list)
+    replace: bool = False
+    safety_backup: bool = True
+    confirm_users: bool = False
+    as_superuser: bool = False
+    confirm_superuser: bool = False
+
+
+class ClusterRolePlan(BaseModel):
+    """
+    What would happen to one account of the dump.
+
+    Attributes:
+        name: The account.
+        action: ``create``, ``exists`` (left exactly as it is) or ``skip``.
+        reason: Why, when it is not created.
+        dropped: Attributes it had at the source that are not carried.
+        has_password: The dump holds a password hash for it.
+        login: It can sign in.
+    """
+
+    name: str
+    action: str
+    reason: str | None = None
+    dropped: list[str] = Field(default_factory=list)
+    has_password: bool = False
+    login: bool = False
+
+
+class ClusterDatabasePlan(BaseModel):
+    """
+    What would happen to one database of the dump.
+
+    Attributes:
+        name: The database.
+        action: ``create``, ``load``, ``replace`` or ``skip``.
+        owner: The account that will own it when it is created.
+        reason: Why, when it is skipped.
+        size: Bytes of its dump.
+    """
+
+    name: str
+    action: str
+    owner: str | None = None
+    reason: str | None = None
+    size: int = 0
+
+
+class ClusterPlanResponse(BaseModel):
+    """
+    What importing a dump of all databases would do. Nothing has been done.
+
+    Attributes:
+        engine: The engine.
+        format: What the file is.
+        restore_users: The accounts would be made.
+        roles: The accounts, each with what happens to it.
+        memberships: How many role-to-role grants would be kept.
+        databases: The databases, each with what happens to it.
+        ignored: What the dump holds that is not carried.
+        warnings: What the operator accepts by creating the accounts.
+    """
+
+    engine: str
+    format: DumpFormatResponse
+    restore_users: bool
+    roles: list[ClusterRolePlan] = Field(default_factory=list)
+    memberships: int = 0
+    databases: list[ClusterDatabasePlan] = Field(default_factory=list)
+    ignored: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+#: What queueing an import with accounts asks the operator to accept, before the plan is read.
+ACCOUNTS_WARNING = (
+    "The accounts in the dump will be created on this server with the password hash it holds for "
+    "them, without superuser, role-creating, replication or row-security-bypassing power, and "
+    "none that exists will be changed. Read the plan for which."
+)
 
 
 # ----------------------------------------------------------------- helpers
@@ -481,6 +594,190 @@ def import_job(
         )
     _done(job_context)
     return outcome.to_dict()
+
+
+def _cluster_source(request: ClusterRequest, session: dict) -> Path:
+    """
+    Find the dump a cluster request names, held to what the single import is held to.
+
+    Args:
+        request: The request.
+        session: The authenticated session.
+
+    Returns:
+        The file.
+
+    Raises:
+        ValidationError: When it names no dump, an unfinished upload or a path outside the
+            folders dumps are read from.
+    """
+    _source_of(request)
+    if request.upload_id is not None:
+        _store().get(request.upload_id, owner=actor_label(session))
+        return _store().path(request.upload_id)
+    return resolve_server_path(request.path or "", restrict=True)
+
+
+@router.post("/imports/cluster/plan", response_model=ClusterPlanResponse)
+def plan_cluster_import(
+    request: ClusterRequest, session: Annotated[dict, Depends(get_current_session)]
+) -> ClusterPlanResponse:
+    """
+    Say what importing a dump of all databases would do. Changes nothing.
+
+    Args:
+        request: An upload or a server path, the engine and the options.
+        session: The authenticated session.
+
+    Returns:
+        The accounts and the databases, each with what happens to it, and what is not carried.
+
+    Raises:
+        ValidationError: 400 for an engine with no such dump or a path outside the allowed folders.
+        DatabaseBackupError: 400 when the file is not a dump of all databases.
+    """
+    source = _cluster_source(request, session)
+    plan = ClusterImporter(DatabaseImports(service(session))).plan(
+        request.engine,
+        source,
+        restore_users=request.restore_users,
+        only=request.databases,
+        replace=request.replace,
+    )
+    return ClusterPlanResponse(**plan.to_dict())
+
+
+def cluster_import_job(
+    engine: str,
+    upload_id: str | None = None,
+    path: str | None = None,
+    restore_users: bool = False,
+    databases: list[str] | None = None,
+    replace: bool = False,
+    safety_backup: bool = True,
+    as_superuser: bool = False,
+    actor: str | None = None,
+    job_context: JobContext | None = None,
+) -> dict[str, Any]:
+    """
+    Import a dump of all databases.
+
+    Args:
+        engine: The engine.
+        upload_id: A finished upload, removed once every database has loaded.
+        path: Or a path on the server, left where it is.
+        restore_users: Create the accounts of the dump (confirmed when queued).
+        databases: Only these databases.
+        replace: Replace the databases that exist.
+        safety_backup: Dump a database first when it is loaded over.
+        as_superuser: Load them as the superuser (confirmed when queued).
+        actor: Who queued it, as the audit trail names them.
+        job_context: Injected by the job manager.
+
+    Returns:
+        What :meth:`~noust.managers.database.cluster_import.ClusterImporter.run` did.
+
+    Raises:
+        DatabaseBackupError: When a database did not load; the others were, and the error says
+            which and why in the engine's own words.
+    """
+    steps = {"count": 0}
+
+    def progress(text: str) -> None:
+        steps["count"] += 1
+        if job_context is not None:
+            job_context.update(text, min(90, 5 + 4 * steps["count"]))
+
+    importer = ClusterImporter(
+        DatabaseImports(_service(job_context, "Importing all databases", actor))
+    )
+    source = (
+        _store().path(upload_id)
+        if upload_id is not None
+        else resolve_server_path(path or "", restrict=True)
+    )
+    outcome = importer.run(
+        engine,
+        source,
+        restore_users=restore_users,
+        confirm_users=restore_users,
+        only=databases or (),
+        replace=replace,
+        safety_backup=safety_backup,
+        on_step=progress,
+        as_superuser=as_superuser,
+        confirm_superuser=as_superuser,
+    )
+    _done(job_context)
+    if outcome.failed:
+        loaded = [d.name for d in outcome.databases if d.status not in ("skipped", "failed")]
+        raise DatabaseBackupError(
+            f"{len(outcome.failed)} of {len(outcome.failed) + len(loaded)} databases were not imported",
+            details="\n\n".join(f"{d.name}:\n{d.detail}" for d in outcome.failed)
+            + (f"\n\nImported: {', '.join(loaded)}." if loaded else ""),
+        )
+    if upload_id is not None:
+        _store().discard(upload_id)
+    return outcome.to_dict()
+
+
+@router.post("/imports/cluster", response_model=JobAcceptedResponse, status_code=202)
+def import_cluster(
+    request: ClusterRequest, session: Annotated[dict, Depends(require_elevated)]
+) -> JobAcceptedResponse:
+    """
+    Queue importing a dump of all databases, with sudo mode.
+
+    What can be checked is checked before the job exists: the dump is a finished upload or a file
+    in an allowed folder, the engine reads such a dump, and the accounts, when asked for, were
+    accepted.
+
+    Args:
+        request: The engine, the dump and the options.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The queued job; its result lists, per database, what happened.
+
+    Raises:
+        ValidationError: 400 for an unfinished upload, a path outside the allowed folders or an
+            engine with no such dump.
+        ConfirmationRequired: 400 ``confirmation_required`` for ``restore_users`` without
+            ``confirm_users``.
+    """
+    _cluster_source(request, session)
+    manager = service(session).running(request.engine)
+    if manager.engine_type != "postgresql":
+        raise ValidationError(
+            f"{manager.DISPLAY_NAME} has no dump of all databases to import",
+            details="Only PostgreSQL's pg_dumpall is read.",
+            field="engine",
+        )
+    if request.restore_users and not request.confirm_users:
+        raise ConfirmationRequired([ACCOUNTS_WARNING], field="confirm_users")
+    if request.as_superuser:
+        DatabaseImports(service(session)).backups.superuser_options(
+            manager, None, request.confirm_superuser
+        )
+    return queue(
+        session,
+        job_type=JobType.RESTORE,
+        name="Import all databases",
+        description=f"Importing a dump of every {manager.DISPLAY_NAME} database",
+        func=cluster_import_job,
+        kwargs={
+            "engine": manager.ENGINE_NAME,
+            "upload_id": request.upload_id,
+            "path": request.path,
+            "restore_users": request.restore_users,
+            "databases": request.databases,
+            "replace": request.replace,
+            "safety_backup": request.safety_backup,
+            "as_superuser": request.as_superuser,
+        },
+        metadata={"engine": manager.ENGINE_NAME, "kind": "database"},
+        message="Importing all databases",
+    )
 
 
 @router.post("/imports", response_model=JobAcceptedResponse, status_code=202)

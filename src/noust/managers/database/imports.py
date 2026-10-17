@@ -74,7 +74,9 @@ from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
 from noust.managers.database.backup_verify import check_dump
 from noust.managers.database.backups import DatabaseBackups
 from noust.managers.database.base import BaseDatabaseManager, RestoreOutcome, format_size
+from noust.managers.database.cluster_dump import is_cluster_dump
 from noust.managers.database.mongo_archive import ARCHIVE_MAGIC
+from noust.managers.database.psql_script import RoleFilter
 from noust.managers.database.service import DatabaseService
 from noust.managers.database.uploads import (
     UploadStore,
@@ -131,12 +133,20 @@ ACCEPTS: dict[str, frozenset[str]] = {
     "mongodb": frozenset({"mongo-archive", "mongo-tree"}),
 }
 
+#: What each engine reads as a dump of *all* its databases (and, for PostgreSQL, its accounts):
+#: a different operation from loading one database, asked for by name
+#: (:mod:`~noust.managers.database.cluster_import`).
+CLUSTER_ACCEPTS: dict[str, frozenset[str]] = {
+    "postgresql": frozenset({"pg-cluster"}),
+}
+
 #: What a kind is called to an operator.
 _KIND_NAMES = {
     "pg-custom": "a PostgreSQL custom-format archive (pg_dump -Fc)",
     "pg-tar": "a PostgreSQL tar-format archive (pg_dump -Ft)",
     "sql": "plain SQL",
     "tar-sql": "a tar holding one SQL dump",
+    "pg-cluster": "a dump of all databases and accounts (pg_dumpall)",
     "mongo-archive": "a mongodump archive (--archive)",
     "mongo-tree": "a tar of a mongodump directory",
     "unknown": "something that is not a database dump",
@@ -161,6 +171,15 @@ class DumpFormat:
     description: str
     engines: tuple[str, ...] = ()
 
+    @property
+    def scope(self) -> str:
+        """``cluster`` for a dump of every database of an engine, else ``database``."""
+        return (
+            "cluster"
+            if self.kind in {k for kinds in CLUSTER_ACCEPTS.values() for k in kinds}
+            else "database"
+        )
+
     def to_dict(self) -> dict[str, Any]:
         """
         Returns:
@@ -171,6 +190,7 @@ class DumpFormat:
             "compression": self.compression,
             "description": self.description,
             "engines": list(self.engines),
+            "scope": self.scope,
         }
 
 
@@ -192,7 +212,7 @@ def _classify(head: bytes) -> str:
     if len(head) > 262 and head[257:262] == b"ustar":
         return "tar"
     if b"\x00" not in head and _SQL_START.match(head):
-        return "sql"
+        return "pg-cluster" if is_cluster_dump(head) else "sql"
     return "unknown"
 
 
@@ -325,7 +345,11 @@ def detect_format(path: Path) -> DumpFormat:
             f"Could not read {path.name}",
             details=f"{exc}. Check that the file is complete and not damaged.",
         ) from exc
-    engines = tuple(engine for engine, kinds in ACCEPTS.items() if kind in kinds)
+    engines = tuple(
+        engine
+        for engine in {*ACCEPTS, *CLUSTER_ACCEPTS}
+        if kind in ACCEPTS.get(engine, ()) or kind in CLUSTER_ACCEPTS.get(engine, ())
+    )
     return DumpFormat(
         kind=kind,
         compression=compression,
@@ -408,6 +432,7 @@ def prepare(
     scratch: Path,
     *,
     fs: FileSystem | None = None,
+    allow_cluster: bool = False,
 ) -> Prepared:
     """
     Make a detected dump into what the engine's restore reads.
@@ -425,6 +450,9 @@ def prepare(
         engine_type: ``postgresql``, ``mysql`` or ``mongodb``.
         scratch: A private directory to put what is written in.
         fs: The filesystem links are made through.
+        allow_cluster: Also make a dump of all databases loadable by the
+            operation that takes one (:mod:`~noust.managers.database.cluster_import`);
+            loading one database refuses it and says where to go.
 
     Returns:
         What to restore from.
@@ -435,6 +463,14 @@ def prepare(
     """
     fs = fs or get_fs()
     accepted = ACCEPTS.get(engine_type, frozenset())
+    if fmt.kind in CLUSTER_ACCEPTS.get(engine_type, ()) and not allow_cluster:
+        raise DatabaseBackupError(
+            f"{source.name} is {_KIND_NAMES[fmt.kind]}, not the dump of one database",
+            details="Import it with 'noust db import-all', or in the console's import of all "
+            "databases: it creates every database in it, and its accounts when you ask.",
+        )
+    if allow_cluster:
+        accepted = accepted | CLUSTER_ACCEPTS.get(engine_type, frozenset())
     if fmt.kind not in accepted:
         offered = ", ".join(sorted(_KIND_NAMES[kind] for kind in accepted)) or "no dump"
         raise DatabaseBackupError(
@@ -450,6 +486,7 @@ def prepare(
         "pg-custom": ".dump",
         "pg-tar": ".tar",
         "sql": ".sql",
+        "pg-cluster": ".sql",
         "tar-sql": ".sql",
         "mongo-archive": ".archive",
         "mongo-tree": ".tar",
@@ -711,7 +748,7 @@ class DatabaseImports:
     # -------------------------------------------------------------- import
 
     @contextmanager
-    def _scratch(self) -> Iterator[Path]:
+    def scratch(self) -> Iterator[Path]:
         """
         A private directory for what an import writes, removed afterwards.
 
@@ -745,6 +782,8 @@ class DatabaseImports:
         on_step: Callable[[str], None] | None = None,
         as_superuser: bool = False,
         confirm_superuser: bool = False,
+        role_filter: RoleFilter | None = None,
+        create_owner: str | None = None,
     ) -> ImportOutcome:
         """
         Import a dump into a database, creating it when it does not exist.
@@ -765,6 +804,11 @@ class DatabaseImports:
             as_superuser: PostgreSQL: load it as the cluster's superuser
                 rather than the database's owner.
             confirm_superuser: The operator accepted what that costs.
+            role_filter: PostgreSQL, with ``keep_owners``: leave out only the
+                ownership statements that name a role outside this filter (an
+                import of all databases that restored the dump's accounts).
+            create_owner: PostgreSQL, with ``replace``: the account the database is recreated
+                with instead of the one it had.
 
         Returns:
             What was done.
@@ -801,7 +845,11 @@ class DatabaseImports:
         options: dict[str, Any] = {}
         if manager.engine_type == "postgresql":
             options["keep_owners"] = keep_owners
-        with self._scratch() as scratch:
+            if role_filter is not None:
+                options["role_filter"] = role_filter
+            if create_owner and exists and replace:
+                options["create_owner"] = create_owner
+        with self.scratch() as scratch:
             prepared = prepare(source, fmt, manager.engine_type, scratch, fs=self.fs)
             for note in prepared.notes:
                 step(note)

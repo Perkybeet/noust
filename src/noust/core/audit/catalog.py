@@ -429,6 +429,8 @@ EVENTS: dict[str, EventSpec] = {
             "db.replica.remove": "A replica was taken away from the primary that served it.",
             "db.import": "A dump from elsewhere was imported into a database.",
             "db.import.upload": "A dump was uploaded to be imported into a database.",
+            "db.import.cluster": "A dump of every database of an engine was imported.",
+            "db.import.accounts": "The accounts of a dump were created from it.",
             "source.upload": "An archive of an application's code was uploaded and extracted.",
             "db.query": "A statement that may write ran in the SQL console.",
             "db.row.update": "A row was edited in the data explorer.",

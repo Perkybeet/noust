@@ -2869,6 +2869,192 @@ def scenario_restore_unprivileged(sc: Any) -> None:
     noust(sc, "db uninstall postgresql --purge -f", timeout=900)
 
 
+#: The pg_dumpall of PostgreSQL 16 the unit tests read, written by a real server: four accounts
+#: (one a superuser), a membership and three databases, two with rows.
+CLUSTER_FIXTURE = REPO_ROOT / "tests" / "fixtures" / "pg_dumpall" / "all16.sql"
+GLOBALS_FIXTURE = REPO_ROOT / "tests" / "fixtures" / "pg_dumpall" / "globals16.sql"
+H18_MARK = "/tmp/noust-h18-ran"
+
+
+def drop_everything_of_the_fixture(sc: Any) -> None:
+    """
+    Leave the server without the databases and accounts the cluster fixture names.
+
+    Args:
+        sc: The scenario.
+    """
+    for name in ("shop", "blog", "evil"):
+        sc.run(f"{PSQL} -c 'drop database if exists {name}'", check=False, label=f"drop {name}")
+    for name in ("shopapp", "reporting", "legacy", "bossman"):
+        sc.run(f"{PSQL} -c 'drop role if exists {name}'", check=False, label=f"drop role {name}")
+
+
+@engines_scenario("import_cluster_postgresql")
+def scenario_import_cluster_postgresql(sc: Any) -> None:
+    """
+    H-18: a pg_dumpall of another server comes in: every database, and its accounts when asked.
+
+    The file is what a real PostgreSQL 16 wrote for four accounts and three databases. Without
+    ``--users`` the databases are created and loaded and no account is made; with it, the accounts
+    come with the password hash they had (the old password signs in), without the superuser
+    power one of them had, and the databases belong to them with the privileges the dump gave.
+    An account that exists is never touched. A database of a hostile file that runs a program
+    fails alone, and the others load.
+    """
+    noust(sc, "db uninstall postgresql --purge -f", timeout=900, check=False)
+    noust(sc, "db install postgresql", timeout=1800)
+    sc.run(f"rm -f {H18_MARK}")
+    sh(["docker", "cp", str(CLUSTER_FIXTURE), f"{sc.container}:{SCRATCH}/all16.sql"], timeout=60)
+    sh(
+        ["docker", "cp", str(GLOBALS_FIXTURE), f"{sc.container}:{SCRATCH}/globals16.sql"],
+        timeout=60,
+    )
+    dump = f"{SCRATCH}/all16.sql"
+
+    # --- the plan changes nothing and says what would happen
+    plan = json_of(noust(sc, f"db import-all {dump} -e postgresql --users --plan --json"), "plan")
+    actions = {d["name"]: d["action"] for d in plan["databases"]}
+    sc.check(
+        actions == {"template1": "skip", "blog": "create", "postgres": "skip", "shop": "create"},
+        f"the plan should create the two user databases: {actions}",
+    )
+    roles = {r["name"]: r for r in plan["roles"]}
+    sc.check(
+        roles["bossman"]["dropped"] == ["SUPERUSER"] and roles["postgres"]["action"] == "skip",
+        f"the plan should name what is not carried: {roles}",
+    )
+    sc.check(
+        psql(sc, "postgres", "select count(*) from pg_database where datname in ('shop', 'blog')")
+        == "0",
+        "planning created a database",
+    )
+
+    # --- without --users: the databases, no accounts
+    noust(sc, f"db import-all {dump} -e postgresql -f", timeout=300)
+    sc.check(psql(sc, "shop", "select count(*) from orders") == "4", "shop was not loaded")
+    sc.check(psql(sc, "blog", "select count(*) from posts") == "2", "blog was not loaded whole")
+    sc.check(
+        psql(sc, "postgres", "select count(*) from pg_roles where rolname = 'shopapp'") == "0",
+        "an account was made without asking for them",
+    )
+    sc.check(
+        psql(sc, "shop", "select tableowner from pg_tables where tablename = 'orders'")
+        == "postgres",
+        "without the accounts everything belongs to the server's own",
+    )
+
+    # --- with --users: the accounts, their passwords and their databases
+    refused = noust(
+        sc, f"db import-all {dump} -e postgresql --users --replace", check=False, timeout=60
+    )
+    sc.check(refused.returncode == 0, "declining by closing stdin should be a quiet no")
+    sc.check(
+        psql(sc, "postgres", "select count(*) from pg_roles where rolname = 'shopapp'") == "0",
+        "the accounts were made without being accepted",
+    )
+    noust(sc, f"db import-all {dump} -e postgresql --users --replace -f", timeout=300)
+    sc.check(
+        psql(
+            sc,
+            "postgres",
+            "select rolname || ':' || rolsuper || ':' || rolcanlogin || ':' || rolconnlimit "
+            "from pg_roles where rolname in ('bossman', 'legacy', 'reporting', 'shopapp') "
+            "order by 1",
+        )
+        == "bossman:false:true:-1\nlegacy:false:true:5\nreporting:false:false:-1\nshopapp:false:true:-1",
+        "the accounts should be there, none a superuser",
+    )
+    signed_in = sc.run(
+        "PGPASSWORD=secretpw psql -h 127.0.0.1 -U shopapp -d shop -tAc 'select count(*) from orders'",
+        label="sign in as shopapp with the password it had",
+    )
+    sc.check(signed_in.stdout.strip() == "4", "the password hash should have come with the account")
+    sc.check(
+        psql(sc, "shop", "select tableowner from pg_tables where tablename = 'orders'")
+        == "shopapp",
+        "the table should belong to the account that owned it",
+    )
+    sc.check(
+        psql(sc, "postgres", "select datdba::regrole from pg_database where datname = 'blog'")
+        == "legacy",
+        "the database should belong to its account",
+    )
+    sc.check(
+        psql(sc, "shop", "select has_table_privilege('reporting', 'orders', 'select')") == "t",
+        "the privilege the dump gave should be kept",
+    )
+    sc.check(
+        psql(sc, "postgres", "select pg_has_role('shopapp', 'reporting', 'member')") == "t",
+        "the membership between the accounts should be kept",
+    )
+    sc.check(
+        psql(sc, "shop", "select proowner::regrole from pg_proc where proname = 'f'") == "shopapp",
+        "what the source's superuser owned goes to the database's owner",
+    )
+    sc.check(loader_roles(sc) == "", f"a loader login was left behind: {loader_roles(sc)}")
+
+    # --- an account that exists is never touched
+    drop_everything_of_the_fixture(sc)
+    psql(sc, "postgres", "create role shopapp login password 'mine-not-theirs'")
+    noust(sc, f"db import-all {dump} -e postgresql --users -f", timeout=300)
+    still = sc.run(
+        "PGPASSWORD=mine-not-theirs psql -h 127.0.0.1 -U shopapp -d postgres -tAc 'select 1'",
+        check=False,
+        label="the password of the account that was already here",
+    )
+    sc.check(still.stdout.strip() == "1", "the account that existed lost its password")
+    sc.check(
+        psql(sc, "postgres", "select pg_has_role('shopapp', 'reporting', 'member')") == "f",
+        "a membership was granted to an account that was not made now",
+    )
+
+    # --- a hostile file: its database fails alone, the program does not run
+    sc.run(f"cp {dump} {SCRATCH}/hostile.sql")
+    sc.run(
+        f"cat >> {SCRATCH}/hostile.sql <<'NOUST_EOF'\n--\n-- Database \"evil\" dump\n--\n\n"
+        "CREATE DATABASE evil WITH TEMPLATE = template0 ENCODING = 'UTF8';\n\n"
+        "\\connect evil\n\nSET standard_conforming_strings = on;\nCREATE TABLE loot (l text);\n"
+        f"COPY loot FROM PROGRAM 'touch {H18_MARK}';\n-- PostgreSQL database dump complete\n"
+        "NOUST_EOF",
+        label="a database of the file that runs a program",
+    )
+    drop_everything_of_the_fixture(sc)
+    hostile = noust(
+        sc, f"db import-all {SCRATCH}/hostile.sql -e postgresql -f", check=False, timeout=300
+    )
+    said = hostile.stdout + hostile.stderr
+    sc.check(
+        hostile.returncode == 1, f"a database that fails should be the exit status: {said[-500:]}"
+    )
+    sc.check("evil was not imported" in said, f"the failure should be told: {said[-500:]}")
+    sc.check(
+        sc.run(f"test ! -e {H18_MARK}", check=False).returncode == 0,
+        "the program of the hostile database ran",
+    )
+    sc.check(psql(sc, "shop", "select count(*) from orders") == "4", "the others should load")
+    sc.check(
+        psql(sc, "postgres", "select count(*) from pg_database where datname = 'evil'") == "0",
+        "the database that failed should not stay behind",
+    )
+
+    # --- a file of accounts alone
+    drop_everything_of_the_fixture(sc)
+    noust(sc, f"db import-all {SCRATCH}/globals16.sql -e postgresql --users -f", timeout=120)
+    sc.check(
+        psql(sc, "postgres", "select count(*) from pg_roles where rolname in ('shopapp', 'legacy')")
+        == "2",
+        "a file of accounts should make them",
+    )
+    sc.check(
+        psql(sc, "postgres", "select count(*) from pg_database where datname = 'shop'") == "0",
+        "and no database",
+    )
+
+    drop_everything_of_the_fixture(sc)
+    sc.run(f"rm -f {H18_MARK}")
+    noust(sc, "db uninstall postgresql --purge -f", timeout=900)
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------

@@ -54,6 +54,7 @@ __all__ = [
     "parse_owner",
     "provision_statements",
     "release_statements",
+    "role_query",
     "superuser_hint",
     "sweep_statement",
 ]
@@ -137,6 +138,25 @@ def owner_query(database: str) -> str:
         "OR pg_has_role(r.oid, 'pg_write_server_files', 'USAGE')) THEN 't' ELSE 'f' END "
         "FROM pg_catalog.pg_database d JOIN pg_catalog.pg_roles r ON r.oid = d.datdba "
         f"WHERE d.datname = {_literal(database)};"
+    )
+
+
+def role_query(role: str) -> str:
+    """
+    Build the statement that says what a role can do, as :func:`owner_query` does for an owner.
+
+    Args:
+        role: The role.
+
+    Returns:
+        SQL whose one row is ``role|t`` or ``role|f`` (privileged).
+    """
+    return (
+        "SELECT r.rolname || '|' || CASE WHEN (r.rolsuper OR r.rolcreaterole OR r.rolreplication "  # noqa: S608 - quoted literal, not interpolated data
+        "OR pg_has_role(r.oid, 'pg_execute_server_program', 'USAGE') "
+        "OR pg_has_role(r.oid, 'pg_read_server_files', 'USAGE') "
+        "OR pg_has_role(r.oid, 'pg_write_server_files', 'USAGE')) THEN 't' ELSE 'f' END "
+        f"FROM pg_catalog.pg_roles r WHERE r.rolname = {_literal(role)};"
     )
 
 

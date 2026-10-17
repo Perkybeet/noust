@@ -88,6 +88,7 @@ from noust.managers.database.pg_loader import (
     parse_owner,
     provision_statements,
     release_statements,
+    role_query,
     superuser_hint,
     sweep_statement,
 )
@@ -1055,6 +1056,44 @@ class PostgresManager(BaseDatabaseManager):
         )
         return success and output.strip() == "1"
 
+    def role_names(self) -> set[str]:
+        """
+        List every role of the cluster, the server's own and Noust's included.
+
+        Returns:
+            The names, for a caller that has to know which roles a dump would find already there.
+
+        Raises:
+            DatabaseUserError: When the server does not answer.
+        """
+        success, output = self._execute_sql("SELECT rolname FROM pg_catalog.pg_roles;")
+        if not success:
+            raise DatabaseUserError("Could not list the roles", details=output.strip())
+        return {line for line in output.splitlines() if line}
+
+    def create_accounts(self, script: str, *, secrets: Sequence[str] = ()) -> None:
+        """
+        Run the statements that make the accounts of an imported dump, all or none.
+
+        The script is built by Noust from data it read, never the dump's own text
+        (:mod:`~noust.managers.database.cluster_dump`); it carries password hashes, so they are
+        kept out of the logs.
+
+        Args:
+            script: ``CREATE ROLE`` and ``GRANT`` statements.
+            secrets: The password hashes in it.
+
+        Raises:
+            DatabaseUserError: When the server refuses one; none is made.
+        """
+        success, output = self._execute_sql(
+            f"BEGIN;\n{script}COMMIT;\n", secrets=secrets, timeout=SERVICE_TIMEOUT
+        )
+        if not success:
+            raise DatabaseUserError(
+                "Could not create the accounts of the dump; none was made", details=output.strip()
+            )
+
     def list_users(self) -> list[UserInfo]:
         """
         List the roles that are not internal to PostgreSQL.
@@ -1545,6 +1584,28 @@ class PostgresManager(BaseDatabaseManager):
                 with self._staged_backup(filtered, staged_name, owner=owner) as staged:
                     yield staged
             return
+        if dump_format == "plain" and kwargs.get("role_filter") is not None:
+            # The dump's own accounts were made first: its statements are kept for the roles that
+            # are there and left out, one by one, for the rest (the source's superuser). Objects
+            # may be handed to the database's owner, whom the unprivileged loader becomes, and to
+            # nobody else: an account that is not the owner has no right to create in its schemas.
+            keep = kwargs["role_filter"]
+            if not kwargs.get("as_superuser"):
+                # The owner it will have when it is loaded: the one a replaced database is
+                # recreated with, else the one it has.
+                borrowed = self._loader_owner(database, kwargs.get("create_owner"))
+                if not borrowed.privileged:
+                    keep = replace(keep, owners=frozenset({*keep.owners, borrowed.name}))
+            with tempfile.TemporaryDirectory(prefix="noust-restore-") as scratch:
+                filtered = Path(scratch) / "owners-filtered.sql"
+                left_out = strip_owners(backup_path, filtered, keep=keep)
+                self.logger.info(
+                    f"Left {left_out} ownership and privilege statement(s) out: they name roles "
+                    "that are not here"
+                )
+                with self._staged_backup(filtered, staged_name, owner=owner) as staged:
+                    yield staged
+            return
         with self._staged_backup(backup_path, staged_name, owner=owner) as staged:
             yield staged
 
@@ -1643,12 +1704,14 @@ class PostgresManager(BaseDatabaseManager):
             failure.details = f"{failure.details}\n\n{superuser_hint(database)}"
         raise failure
 
-    def _loader_owner(self, database: str) -> OwnerFacts:
+    def _loader_owner(self, database: str, role: str | None = None) -> OwnerFacts:
         """
         Find out who owns a database and whether being them would be too much.
 
         Args:
             database: The database the dump is loaded into.
+            role: A role the database is about to be recreated with, asked about instead of
+                the owner it has now.
 
         Returns:
             The owner and whether it is privileged.
@@ -1656,7 +1719,7 @@ class PostgresManager(BaseDatabaseManager):
         Raises:
             DatabaseBackupError: When the server does not say.
         """
-        success, output = self._execute_sql(owner_query(database))
+        success, output = self._execute_sql(role_query(role) if role else owner_query(database))
         facts = parse_owner(output) if success else None
         if facts is None:
             raise DatabaseBackupError(

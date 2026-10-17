@@ -261,6 +261,196 @@ class TestUploadingOverHttp:
             assert response.status_code in (401, 403)
 
 
+# ============================================================ every database
+
+CLUSTER = Path(__file__).parent / "fixtures" / "pg_dumpall" / "all17.sql"
+
+
+@pytest.fixture
+def pg_engine(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    runner: RcloneRunner,
+    systemd_dir: Path,
+    folders: Path,
+) -> type[BaseDatabaseManager]:
+    """A PostgreSQL that has the server's own accounts."""
+    (tmp_path / "pgdumps").mkdir()
+    base = make_engine(tmp_path / "pgdumps", suffix=".sql", content=SQL, databases=())
+
+    class Postgres(base):  # type: ignore[valid-type, misc]
+        def role_names(self) -> set[str]:
+            return {"postgres"}
+
+    wire(monkeypatch, [Postgres])
+    return Postgres
+
+
+class TestImportingEveryDatabase:
+    def test_the_plan_reads_the_file_and_changes_nothing(
+        self, client: TestClient, pg_engine: type[BaseDatabaseManager]
+    ) -> None:
+        done = upload_whole(client, "all.sql", CLUSTER.read_bytes())
+
+        response = client.post(
+            f"{BASE}/imports/cluster/plan",
+            json={"engine": "postgresql", "upload_id": done["id"], "restore_users": True},
+        )
+
+        assert response.status_code == 200, response.text
+        plan = response.json()
+        assert plan["format"]["scope"] == "cluster"
+        assert {d["name"]: d["action"] for d in plan["databases"]}["shop"] == "create"
+        assert any(r["name"] == "shopapp" and r["action"] == "create" for r in plan["roles"])
+        assert any("account(s) will be created" in w for w in plan["warnings"])
+        assert pg_engine.state["dbs"] == {}
+
+    def test_a_file_that_holds_one_database_is_refused_with_where_to_go(
+        self, client: TestClient, pg_engine: type[BaseDatabaseManager]
+    ) -> None:
+        done = upload_whole(client, "one.sql", SQL)
+
+        response = client.post(
+            f"{BASE}/imports/cluster/plan", json={"engine": "postgresql", "upload_id": done["id"]}
+        )
+
+        assert response.status_code == 400
+        assert "not a dump of all databases" in response.json()["detail"]
+
+    def test_it_needs_sudo_mode(
+        self, client: TestClient, pg_engine: type[BaseDatabaseManager]
+    ) -> None:
+        done = upload_whole(client, "all.sql", CLUSTER.read_bytes())
+
+        response = client.post(
+            f"{BASE}/imports/cluster", json={"engine": "postgresql", "upload_id": done["id"]}
+        )
+
+        assert response.status_code == 403
+        assert response.json()["error"] == "elevation_required"
+
+    def test_the_accounts_are_refused_until_the_operator_confirms_them(
+        self,
+        client: TestClient,
+        pg_engine: type[BaseDatabaseManager],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        created = _capture_queued_jobs(monkeypatch)
+        done = upload_whole(client, "all.sql", CLUSTER.read_bytes())
+        elevate(client)
+
+        response = client.post(
+            f"{BASE}/imports/cluster",
+            json={"engine": "postgresql", "upload_id": done["id"], "restore_users": True},
+        )
+
+        assert response.status_code == 400
+        assert response.json()["error"] == "confirmation_required"
+        assert not created
+
+    def test_it_is_queued_as_a_job_with_the_options(
+        self,
+        client: TestClient,
+        pg_engine: type[BaseDatabaseManager],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        created = _capture_queued_jobs(monkeypatch)
+        done = upload_whole(client, "all.sql", CLUSTER.read_bytes())
+        elevate(client)
+
+        response = client.post(
+            f"{BASE}/imports/cluster",
+            json={
+                "engine": "postgresql",
+                "upload_id": done["id"],
+                "restore_users": True,
+                "confirm_users": True,
+                "databases": ["shop"],
+                "replace": True,
+            },
+        )
+
+        assert response.status_code == 202, response.text
+        (job,) = created
+        assert job["func"].__name__ == "cluster_import_job"
+        assert job["kwargs"]["restore_users"] is True
+        assert job["kwargs"]["databases"] == ["shop"]
+        assert job["kwargs"]["replace"] is True
+
+    def test_a_path_outside_the_allowed_folders_is_refused_before_a_job_exists(
+        self,
+        client: TestClient,
+        pg_engine: type[BaseDatabaseManager],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        created = _capture_queued_jobs(monkeypatch)
+        elevate(client)
+
+        response = client.post(
+            f"{BASE}/imports/cluster", json={"engine": "postgresql", "path": str(CLUSTER)}
+        )
+
+        assert response.status_code == 400
+        assert not created
+
+    def test_an_engine_that_has_no_such_dump_is_refused(
+        self, client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, folders: Path
+    ) -> None:
+        (tmp_path / "mdumps").mkdir()
+        mysql = make_engine(
+            tmp_path / "mdumps", engine="mysql", suffix=".sql", content=SQL, databases=("shop",)
+        )
+        wire(monkeypatch, [mysql])
+        done = upload_whole(client, "all.sql", CLUSTER.read_bytes())
+        elevate(client)
+
+        response = client.post(
+            f"{BASE}/imports/cluster", json={"engine": "mysql", "upload_id": done["id"]}
+        )
+
+        assert response.status_code == 400
+        assert "no dump of all databases" in response.json()["detail"]
+
+    def test_the_job_imports_every_database_and_removes_the_upload(
+        self, client: TestClient, pg_engine: type[BaseDatabaseManager], folders: Path
+    ) -> None:
+        from noust.web.api.databases.imports import cluster_import_job
+
+        done = upload_whole(client, "all.sql", CLUSTER.read_bytes())
+
+        result = cluster_import_job("postgresql", upload_id=done["id"])
+
+        assert {d["name"]: d["status"] for d in result["databases"]}["shop"] == "created"
+        assert {"shop", "blog"} <= set(pg_engine.state["dbs"])
+        assert not (folders / ".uploads" / done["id"]).exists()
+
+    def test_a_database_that_failed_makes_the_job_fail_and_keeps_the_upload(
+        self, client: TestClient, pg_engine: type[BaseDatabaseManager], folders: Path
+    ) -> None:
+        from noust.core.exceptions import DatabaseBackupError
+        from noust.web.api.databases.imports import cluster_import_job
+
+        original = pg_engine._load_backup
+
+        def fail_blog(self: Any, database: str, backup_path: Path, **kwargs: Any) -> None:
+            if database == "blog":
+                raise DatabaseBackupError("Failed to restore", details="ERROR: permission denied")
+            original(self, database, backup_path, **kwargs)
+
+        pg_engine._load_backup = fail_blog  # type: ignore[method-assign]
+        done = upload_whole(client, "all.sql", CLUSTER.read_bytes())
+
+        with pytest.raises(DatabaseBackupError) as raised:
+            cluster_import_job("postgresql", upload_id=done["id"])
+
+        assert "1 of 2 databases were not imported" in raised.value.message
+        assert "blog:" in (raised.value.details or "") and "permission denied" in (
+            raised.value.details or ""
+        )
+        assert "Imported: shop" in (raised.value.details or "")
+        assert (folders / ".uploads" / done["id"]).exists()
+
+
 # ============================================================= the import
 
 

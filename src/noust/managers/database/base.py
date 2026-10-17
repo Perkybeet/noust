@@ -2278,6 +2278,34 @@ class BaseDatabaseManager(BaseManager):
             (READ_ONLY_ACCOUNT_PREFIX, LOAD_ACCOUNT_PREFIX)
         )
 
+    def role_names(self) -> set[str]:
+        """
+        List every account the engine has, the engine's own included.
+
+        An import that creates the accounts of a dump asks first, so that it never
+        overwrites one.
+
+        Returns:
+            The names; empty for an engine with no accounts to import.
+        """
+        return set()
+
+    def create_accounts(self, script: str, *, secrets: Sequence[str] = ()) -> None:
+        """
+        Run the statements that make the accounts of an imported dump, all or none.
+
+        Args:
+            script: Statements Noust built from data it read, never the dump's own text.
+            secrets: Values in them (password hashes) to keep out of the logs.
+
+        Raises:
+            DatabaseUserError: Always here; an engine that can import accounts says how.
+        """
+        raise DatabaseUserError(
+            f"{self.DISPLAY_NAME} cannot create accounts from a dump",
+            details="Create them with 'noust db user-create'.",
+        )
+
     def apply_profile(
         self, username: str, database: str, profile: str, host: str = "localhost"
     ) -> None:
@@ -2862,7 +2890,9 @@ class BaseDatabaseManager(BaseManager):
                 back on record.
             **kwargs: Engine-specific options, handed to the checks and the
                 loader (``format`` for PostgreSQL; ``isolated`` for a load
-                beside a database, which must reach no other).
+                beside a database, which must reach no other; ``create_owner``,
+                the account a database that is replaced is recreated with instead
+                of the one it had, which a failed load still puts back).
 
         Returns:
             What was done, the safety copy included.
@@ -2906,7 +2936,7 @@ class BaseDatabaseManager(BaseManager):
                     self.drop_database(database, force=True)
                     dropped = True
                 if replaced or not exists:
-                    self._create_for_restore(database, owner)
+                    self._create_for_restore(database, kwargs.get("create_owner") or owner)
                 self._load_backup(database, loadable, **kwargs)
             except DatabaseError as exc:
                 failure = exc

@@ -32,6 +32,7 @@ from noust.cli.commands.db_backups import (
 )
 from noust.core.exceptions import NoustError
 from noust.managers.database.backups import SUPERUSER_WARNING
+from noust.managers.database.cluster_import import ClusterImporter, ClusterPlan
 from noust.managers.database.imports import DatabaseImports, resolve_server_path
 
 
@@ -176,3 +177,178 @@ def register(group: click.Group) -> None:
         group: The ``db`` group.
     """
     group.add_command(import_dump)
+    group.add_command(import_all)
+
+
+def _show_plan(ctx: Context, plan: ClusterPlan) -> None:
+    """
+    Print what an import of all databases would do.
+
+    Args:
+        ctx: The invocation's context.
+        plan: The plan.
+    """
+    ctx.logger.info(f"{plan.format.description}")
+    if plan.roles:
+        made = plan.to_create
+        ctx.logger.info(f"Accounts: {len(made)} to create, {len(plan.roles) - len(made)} left out")
+        for role in plan.roles:
+            note = f" ({role.reason})" if role.reason else ""
+            cut = f", without {', '.join(role.dropped)}" if role.dropped else ""
+            ctx.logger.info(f"  {role.action:<7} {role.name}{cut}{note}")
+    ctx.logger.info("Databases:")
+    for database in plan.databases:
+        owner = f", owned by {database.owner}" if database.owner else ""
+        note = f" ({database.reason})" if database.reason else ""
+        ctx.logger.info(f"  {database.action:<7} {database.name}{owner}{note}")
+    for line in plan.ignored:
+        ctx.logger.info(f"  not carried: {line}")
+
+
+@click.command(
+    "import-all",
+    cls=NoustCommand,
+    read_only=lambda params: bool(params.get("plan_only")),
+)
+@click.argument("file", type=click.Path(dir_okay=False, path_type=Path))
+@click.option("--engine", "-e", type=ENGINE, required=True, help="Engine to import into.")
+@click.option(
+    "--users",
+    is_flag=True,
+    help="Also create the accounts of the dump (PostgreSQL: its roles, with the password hash it "
+    "holds). Without superuser, role-creating, replication or row-security-bypassing power, and "
+    "never over an account that exists. The databases then keep the owners and privileges the "
+    "dump names for those accounts.",
+)
+@click.option(
+    "--database",
+    "-d",
+    "databases",
+    multiple=True,
+    help="Load only this database (repeat for several). The server's own ones (postgres) are "
+    "loaded only when named.",
+)
+@click.option(
+    "--replace",
+    is_flag=True,
+    help="Drop each database that exists and load the dump into a fresh one. A safety copy is "
+    "taken first and put back if its load fails.",
+)
+@click.option(
+    "--no-safety-copy",
+    is_flag=True,
+    help="Do not dump a database first when it is loaded over rather than replaced.",
+)
+@click.option(
+    "--as-superuser",
+    is_flag=True,
+    help="Load every database as the server's superuser instead of as its owner. By default a "
+    "database is loaded as its owner, so what a dump asks beyond that (COPY ... FROM PROGRAM, "
+    "extensions that need a superuser) is refused. Use it only for a file you made or have read. "
+    "Audited.",
+)
+@click.option(
+    "--plan",
+    "plan_only",
+    is_flag=True,
+    help="Say what would be created, loaded over, replaced or left out, and stop.",
+)
+@click.option("--force", "-f", "-y", is_flag=True, help="Do not ask for confirmation.")
+@json_option("Print the plan or what was done as JSON.")
+@pass_context
+def import_all(
+    ctx: Context,
+    file: Path,
+    engine: str,
+    users: bool,
+    databases: tuple[str, ...],
+    replace: bool,
+    no_safety_copy: bool,
+    as_superuser: bool,
+    plan_only: bool,
+    force: bool,
+) -> None:
+    """
+    Import a dump of every database of an engine, and its accounts when asked.
+
+    FILE is what pg_dumpall writes (plain or compressed): the roles, then each
+    database. Each database is loaded like one imported with 'noust db import',
+    as its owner, with its own safety copy; one that fails does not stop the
+    others, and a database this created is dropped again when it fails.
+    """
+    try:
+        source = resolve_server_path(str(file.expanduser().absolute()), restrict=False)
+        backups = _backups(ctx.logger)
+        importer = ClusterImporter(DatabaseImports(backups.service, backups=backups))
+        with _quiet(ctx):
+            plan = importer.plan(
+                engine, source, restore_users=users, only=databases, replace=replace
+            )
+    except NoustError as exc:
+        _exit(_fail(ctx.logger, exc))
+        return
+    if plan_only:
+        if ctx.json_output:
+            _echo_json(plan.to_dict())
+        else:
+            _show_plan(ctx, plan)
+        _exit(0)
+        return
+    if not ctx.json_output:
+        _show_plan(ctx, plan)
+    loading = [d for d in plan.databases if d.action != "skip"]
+    if not _confirm(
+        f"Import {len(loading)} database(s) from {source.name}"
+        + ("" if no_safety_copy else "? Those that exist are dumped first"),
+        force=force,
+    ):
+        ctx.logger.info("Cancelled")
+        _exit(0)
+        return
+    if as_superuser and not _confirm(
+        f"{SUPERUSER_WARNING} Load every database as the superuser?", force=force
+    ):
+        ctx.logger.info("Cancelled")
+        _exit(0)
+        return
+    accepted = False
+    if users and plan.warnings:
+        for warning in plan.warnings:
+            ctx.logger.warning(warning)
+        accepted = _confirm("Create these accounts?", force=force)
+        if not accepted:
+            ctx.logger.info("Cancelled")
+            _exit(0)
+            return
+    try:
+        with _quiet(ctx):
+            outcome = importer.run(
+                engine,
+                source,
+                restore_users=users,
+                confirm_users=accepted or (users and not plan.warnings),
+                only=databases,
+                replace=replace,
+                safety_backup=not no_safety_copy,
+                on_step=lambda text: ctx.logger.info(text),
+                as_superuser=as_superuser,
+                confirm_superuser=as_superuser,
+            )
+    except NoustError as exc:
+        _exit(_fail(ctx.logger, exc))
+        return
+    if ctx.json_output:
+        _echo_json(outcome.to_dict())
+    else:
+        if outcome.accounts_created:
+            ctx.logger.success(f"Accounts created: {', '.join(outcome.accounts_created)}")
+        for result in outcome.databases:
+            if result.status == "skipped":
+                continue
+            if result.status == "failed":
+                ctx.logger.error(f"{result.name} was not imported:\n{result.detail}")
+            else:
+                ctx.logger.success(f"Database {result.name} {result.status}")
+                if result.safety_copy:
+                    ctx.logger.info(f"  Safety copy: {result.safety_copy}")
+    _exit(1 if outcome.failed else 0)
