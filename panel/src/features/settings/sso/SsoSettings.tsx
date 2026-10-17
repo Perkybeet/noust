@@ -8,6 +8,7 @@ import { useT } from "../../../i18n";
 import { IdentitiesSection } from "./IdentitiesSection";
 import { LocalSignInSection } from "./LocalSignInSection";
 import { ProvidersSection } from "./ProvidersSection";
+import { ScimSection } from "./ScimSection";
 
 /**
  * Settings > Single sign-on: the identity providers people sign in with, the people linked to
@@ -15,8 +16,10 @@ import { ProvidersSection } from "./ProvidersSection";
  * come first because everything else depends on there being one; turning the password sign-in
  * off follows, with its way back spelled out.
  *
- * The three sections are read together and drawn together: each one's answer changes how tall
- * it is, and one that arrived after the others would push the rest down the page.
+ * The first three sections are read together and drawn together: each one's answer changes how
+ * tall it is, and one that arrived after the others would push the rest down the page. The
+ * provisioning sources come last and load on their own: a person who may read the sign-in settings
+ * may not read them, and that must not hold the page back.
  */
 export function SsoSettings() {
   const t = useT();
@@ -41,6 +44,7 @@ export function SsoSettings() {
       <ProvidersSection />
       <LocalSignInSection />
       <IdentitiesSection />
+      <ScimSection />
     </Sections>
   );
 }

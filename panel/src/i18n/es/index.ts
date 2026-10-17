@@ -56,6 +56,7 @@ export { remoteImport } from "./remoteImport";
 export { runtime } from "./runtime";
 export { selfBackup } from "./selfBackup";
 export { server } from "./server";
+export { scimAdmin } from "./scimAdmin";
 export { servers } from "./servers";
 export { services } from "./services";
 export { settings } from "./settings";

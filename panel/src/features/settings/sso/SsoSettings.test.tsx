@@ -67,9 +67,31 @@ function account(username: string, role: string, extra: Record<string, unknown> 
   };
 }
 
+const SCIM_URL = "https://noust.acme.test/api/scim/v2";
+const SCIM_SOURCE = {
+  name: "entra",
+  label: "Entra ID",
+  enabled: true,
+  token_hint: "k3Yz",
+  token_created_at: 1_790_000_000,
+  last_used_at: null,
+  last_used_ip: null,
+  default_role: "viewer",
+  default_team: null,
+  default_team_role: null,
+  link_by_email: false,
+  allowed_domains: ["acme.test"],
+  group_sync: true,
+  group_mappings: [{ group: "release", role: null, team: "acme", team_role: null, bind: "release-manager", project: "web", environment: null }],
+  users: 12,
+  created_at: 1_790_000_000,
+  created_by: "ana",
+};
+
 interface Fixture {
   providers: unknown[];
   identities: unknown[];
+  scim: unknown[];
   local: { enabled: boolean; exempt: string[]; providers: number; survivors: string[] };
 }
 
@@ -78,6 +100,7 @@ function ssoBackend(initial: Partial<Fixture> = {}, extra: Record<string, RouteH
   const state: Fixture = {
     providers: [PROVIDER],
     identities: [IDENTITY],
+    scim: [],
     local: { enabled: true, exempt: [], providers: 1, survivors: ["ana"] },
     ...initial,
   };
@@ -85,6 +108,7 @@ function ssoBackend(initial: Partial<Fixture> = {}, extra: Record<string, RouteH
     ...signedInRoutes(),
     "GET /api/auth/oidc/config": () => json(200, { providers: state.providers, redirect_uri: REDIRECT }),
     "GET /api/auth/oidc/identities": () => json(200, { identities: state.identities }),
+    "GET /api/auth/scim/sources": () => json(200, { base_url: SCIM_URL, sources: state.scim }),
     "GET /api/auth/oidc/local-login": () => json(200, state.local),
     "PUT /api/auth/oidc/local-login": (call: RecordedCall) => {
       const body = call.body as { enabled?: boolean; exempt?: string[] };
@@ -335,6 +359,125 @@ describe("Settings > Single sign-on", () => {
         expect(backend.callsTo("POST /api/auth/oidc/identities")).toHaveLength(1);
       });
       expect(backend.callsTo("POST /api/auth/oidc/identities")[0]?.body).toEqual({ username: "bruno", provider: "corp", subject: "00uZZZ" });
+    });
+  });
+
+  describe("provisioning (SCIM)", () => {
+    it("offers to add the first source, and says it signs nobody in", { timeout: 30_000 }, async () => {
+      await pageAt();
+      const empty = await screen.findByRole("heading", { name: "No provisioning source" });
+      const section = screen.getByRole("region", { name: "Provisioning (SCIM)" });
+      expect(within(section).getByRole("heading", { name: "No provisioning source" })).toBe(empty);
+      expect(within(section).getByText(/It does not sign anybody in/)).toBeInTheDocument();
+      expect(within(section).getByRole("button", { name: "Add a source" })).toBeInTheDocument();
+    });
+
+    it("lists the sources with how many people each provisioned, and the address to give the provider", { timeout: 30_000 }, async () => {
+      await pageAt({ scim: [SCIM_SOURCE] });
+      // The skeleton has the table's name too: wait for the source, then take the real table.
+      await screen.findByText("Entra ID");
+      const table = screen.getByRole("region", { name: "Provisioning sources" });
+      const row = within(table).getAllByRole("row")[1];
+      if (!row) throw new Error("no source row");
+      expect(within(row).getByText("Entra ID")).toBeInTheDocument();
+      expect(within(row).getByText("Enabled")).toHaveAttribute("data-state", "running");
+      expect(within(row).getByText("12")).toBeInTheDocument();
+      expect(screen.getByText(SCIM_URL)).toBeInTheDocument();
+      await expectNoAxeViolations(screen.getByRole("main"));
+    });
+
+    it("adds a source and shows its token once, with the address to give the provider", { timeout: 30_000 }, async () => {
+      const { backend, state, user } = await pageAt();
+      backend.on("PUT /api/auth/scim/sources/entra", (call: RecordedCall) => {
+        const body = call.body as Record<string, unknown>;
+        state.scim = [{ ...SCIM_SOURCE, label: body["label"], users: 0 }];
+        return json(200, { source: state.scim[0], token: "noust_scim_s3cr3t-value", base_url: SCIM_URL });
+      });
+      await user.click(await screen.findByRole("button", { name: "Add a source" }));
+      const drawer = await screen.findByRole("dialog", { name: "Add a provisioning source" });
+      await user.type(within(drawer).getByLabelText(/^Name/), "entra");
+      await user.type(within(drawer).getByLabelText(/^Label/), "Entra ID");
+      await user.click(within(drawer).getByRole("button", { name: "Add source" }));
+
+      const once = await screen.findByRole("dialog", { name: "Give the provider this token" });
+      expect(within(once).getByTestId("new-scim-token")).toHaveTextContent("noust_scim_s3cr3t-value");
+      expect(within(once).getByText(SCIM_URL)).toBeInTheDocument();
+      const body = backend.callsTo("PUT /api/auth/scim/sources/entra")[0]?.body as Record<string, unknown>;
+      expect(body).toMatchObject({ label: "Entra ID", enabled: true, default_role: "viewer", link_by_email: false, rotate_token: false, group_sync: false });
+      // Provisioning sources have no sign-in policy: nothing about provisioning or e-mail trust is sent.
+      expect(body).not.toHaveProperty("provisioning");
+      expect(body).not.toHaveProperty("require_email_verified");
+      await user.click(within(once).getByRole("button", { name: "Done" }));
+      expect(screen.queryByText("noust_scim_s3cr3t-value")).not.toBeInTheDocument();
+      expect(await screen.findByText("Entra ID")).toBeInTheDocument();
+    });
+
+    it("changes a source without issuing a token, and issues one when asked", { timeout: 30_000 }, async () => {
+      const { backend, user } = await pageAt(
+        { scim: [SCIM_SOURCE] },
+        {
+          "PUT /api/auth/scim/sources/entra": (call: RecordedCall) => {
+            const asked = (call.body as { rotate_token: boolean }).rotate_token;
+            return json(200, { source: SCIM_SOURCE, token: asked ? "noust_scim_n3w" : null, base_url: SCIM_URL });
+          },
+        },
+      );
+      await user.click(await screen.findByRole("button", { name: "Edit entra" }));
+      let drawer = await screen.findByRole("dialog", { name: "Edit entra" });
+      // The mapping reads back as the line it was written as.
+      await user.click(within(drawer).getByText("What each group means", { exact: false }));
+      expect(within(drawer).getByLabelText(/^What each group means/)).toHaveValue("release=release-manager@acme/web");
+      await user.click(within(drawer).getByRole("button", { name: "Save source" }));
+      await waitFor(() => {
+        expect(backend.callsTo("PUT /api/auth/scim/sources/entra")).toHaveLength(1);
+      });
+      expect(screen.queryByRole("dialog", { name: "Give the provider this token" })).not.toBeInTheDocument();
+
+      await user.click(await screen.findByRole("button", { name: "Edit entra" }));
+      drawer = await screen.findByRole("dialog", { name: "Edit entra" });
+      await user.click(within(drawer).getByRole("checkbox", { name: /Issue a new token/ }));
+      await user.click(within(drawer).getByRole("button", { name: "Save source" }));
+      const once = await screen.findByRole("dialog", { name: "Give the provider this token" });
+      expect(within(once).getByTestId("new-scim-token")).toHaveTextContent("noust_scim_n3w");
+      expect(backend.callsTo("PUT /api/auth/scim/sources/entra")[1]?.body).toMatchObject({ rotate_token: true });
+    });
+
+    it("says what the server refused, beside the field it is about", { timeout: 30_000 }, async () => {
+      const { user } = await pageAt(
+        {},
+        {
+          "PUT /api/auth/scim/sources/entra": () =>
+            problem(422, "validation_error", "Invalid", { fields: { default_team: "There is no team 'ghost'." } }),
+        },
+      );
+      await user.click(await screen.findByRole("button", { name: "Add a source" }));
+      const drawer = await screen.findByRole("dialog", { name: "Add a provisioning source" });
+      await user.type(within(drawer).getByLabelText(/^Name/), "entra");
+      await user.click(within(drawer).getByRole("button", { name: "Add source" }));
+      expect((await within(drawer).findAllByText("There is no team 'ghost'.")).length).toBeGreaterThan(0);
+    });
+
+    it("removes a source after asking, and reads the list again", { timeout: 30_000 }, async () => {
+      const { backend, state, user } = await pageAt(
+        { scim: [SCIM_SOURCE] },
+        { "DELETE /api/auth/scim/sources/entra": () => json(200, { success: true, removed: "entra" }) },
+      );
+      await user.click(await screen.findByRole("button", { name: "Remove entra" }));
+      const dialog = await screen.findByRole("alertdialog", { name: "Remove entra?" });
+      state.scim = [];
+      await user.click(within(dialog).getByRole("button", { name: "Remove source" }));
+      await waitFor(() => {
+        expect(backend.callsTo("DELETE /api/auth/scim/sources/entra")).toHaveLength(1);
+      });
+      expect(await screen.findByRole("heading", { name: "No provisioning source" })).toBeInTheDocument();
+    });
+
+    it("speaks Spanish", { timeout: 30_000 }, async () => {
+      await pageAt({ scim: [SCIM_SOURCE] });
+      await act(() => setLocale("es"));
+      expect(await screen.findByRole("region", { name: "Fuentes de aprovisionamiento" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Editar entra" })).toBeInTheDocument();
+      await act(() => setLocale("en"));
     });
   });
 

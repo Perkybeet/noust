@@ -13,16 +13,11 @@ export type Provisioning = (typeof PROVISIONING)[number];
 /** The roles an account created by a sign-in may hold; a person gives `security` and `auditor`. */
 export const CREATED_ROLES = ["viewer", "operator", "admin"] as const;
 
-export interface ProviderDraft {
-  name: string;
-  label: string;
-  issuer: string;
-  clientId: string;
-  /** What was typed: empty keeps the stored one. */
-  clientSecret: string;
-  clearSecret: boolean;
-  enabled: boolean;
-  scopes: string;
+/**
+ * What every source of identities decides in the same way (the server has one implementation of
+ * it): who may come in, what a new account starts as, and what each group means.
+ */
+export interface AdmissionDraft {
   provisioning: Provisioning;
   defaultRole: string;
   defaultTeam: string;
@@ -35,22 +30,12 @@ export interface ProviderDraft {
   requireAmr: string;
   groupSync: boolean;
   groupsClaim: string;
-  /** One `GROUP=ROLE` or `GROUP=TEAM:ROLE` per line. */
+  /** One `GROUP=ROLE`, `GROUP=TEAM:ROLE` or `GROUP=ROLE@TEAM/PROJECT` per line. */
   mappings: string;
-  clockSkew: string;
-  redirectUri: string;
 }
 
-/** The defaults of a provider nobody configured yet, as the server's own are. */
-export const NEW_DRAFT: ProviderDraft = {
-  name: "",
-  label: "",
-  issuer: "",
-  clientId: "",
-  clientSecret: "",
-  clearSecret: false,
-  enabled: true,
-  scopes: "openid email profile",
+/** The defaults of the shared part, as the server's own are. */
+export const NEW_ADMISSION: AdmissionDraft = {
   provisioning: "off",
   defaultRole: "viewer",
   defaultTeam: "",
@@ -63,6 +48,33 @@ export const NEW_DRAFT: ProviderDraft = {
   groupSync: false,
   groupsClaim: "groups",
   mappings: "",
+};
+
+export interface ProviderDraft extends AdmissionDraft {
+  name: string;
+  label: string;
+  issuer: string;
+  clientId: string;
+  /** What was typed: empty keeps the stored one. */
+  clientSecret: string;
+  clearSecret: boolean;
+  enabled: boolean;
+  scopes: string;
+  clockSkew: string;
+  redirectUri: string;
+}
+
+/** The defaults of a provider nobody configured yet, as the server's own are. */
+export const NEW_DRAFT: ProviderDraft = {
+  ...NEW_ADMISSION,
+  name: "",
+  label: "",
+  issuer: "",
+  clientId: "",
+  clientSecret: "",
+  clearSecret: false,
+  enabled: true,
+  scopes: "openid email profile",
   clockSkew: "60",
   redirectUri: "",
 };
