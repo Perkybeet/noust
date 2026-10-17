@@ -2023,13 +2023,13 @@ class Applications:
         Needs: permission `apps.deploy`."""
         return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}/releases/bundles/{quote(str(bundle_id), safe='')}", query=None, body=None)
 
-    def bundle_data(self, domain: str, bundle_id: str, *, offset: int, length: Union[int, None] = None) -> Any:
+    def bundle_data(self, domain: str, bundle_id: str, *, offset: int, length: Union[int, None] = None) -> bytes:
         """GET /api/apps/{domain}/releases/bundles/{bundle_id}/data
 
         Bundle Data
 
         Needs: permission `apps.deploy`."""
-        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/releases/bundles/{quote(str(bundle_id), safe='')}/data", query={"offset": offset, "length": length}, body=None)
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/releases/bundles/{quote(str(bundle_id), safe='')}/data", query={"offset": offset, "length": length}, body=None, binary=True)
 
     def receive_bundle(self, domain: str, body: "ReceiveRequest") -> "JobAcceptedResponse":
         """POST /api/apps/{domain}/releases/receive

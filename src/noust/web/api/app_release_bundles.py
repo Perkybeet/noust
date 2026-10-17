@@ -353,12 +353,15 @@ def build_bundle(
 
 
 @router.get("/{domain}/releases/bundles", response_model=BundleListOut)
-def list_bundles(domain: str) -> BundleListOut:
+def list_bundles(
+    domain: str, session: Annotated[dict, Depends(get_current_session)]
+) -> BundleListOut:
     """
     List the bundles waiting to be fetched for an application.
 
     Args:
         domain: The application.
+        session: The authenticated session.
 
     Returns:
         Its bundles, newest first.
@@ -368,13 +371,16 @@ def list_bundles(domain: str) -> BundleListOut:
 
 
 @router.get("/{domain}/releases/bundles/{bundle_id}", response_model=BundleOut)
-def bundle_info(domain: str, bundle_id: str) -> BundleOut:
+def bundle_info(
+    domain: str, bundle_id: str, session: Annotated[dict, Depends(get_current_session)]
+) -> BundleOut:
     """
     Describe one bundle.
 
     Args:
         domain: The application.
         bundle_id: The bundle.
+        session: The authenticated session.
 
     Returns:
         It.
@@ -382,15 +388,33 @@ def bundle_info(domain: str, bundle_id: str) -> BundleOut:
     return _bundle(_spool().get(bundle_id, _known(domain)))
 
 
-@router.get("/{domain}/releases/bundles/{bundle_id}/data")
+class BundleBytes(Response):
+    """A range of a bundle: bytes the caller carries on, never JSON."""
+
+    media_type = "application/octet-stream"
+
+
+@router.get(
+    "/{domain}/releases/bundles/{bundle_id}/data",
+    response_class=BundleBytes,
+    responses={
+        200: {
+            "description": "The bytes asked for: fewer at the end of the bundle, none past it.",
+            "content": {
+                "application/octet-stream": {"schema": {"type": "string", "format": "binary"}}
+            },
+        }
+    },
+)
 async def bundle_data(
     domain: str,
     bundle_id: str,
     offset: Annotated[int, Query(ge=0, description="Where to start in the bundle")],
+    session: Annotated[dict, Depends(get_current_session)],
     length: Annotated[
         int, Query(ge=1, le=MAX_READ_BYTES, description="How many bytes at most")
     ] = CHUNK_BYTES,
-) -> Response:
+) -> BundleBytes:
     """
     Read a range of a bundle.
 
@@ -398,6 +422,7 @@ async def bundle_data(
         domain: The application.
         bundle_id: The bundle.
         offset: Where to start.
+        session: The authenticated session.
         length: How many bytes at most.
 
     Returns:
@@ -405,17 +430,20 @@ async def bundle_data(
     """
     validated = _known(domain)
     data = await run_in_threadpool(_spool().read, bundle_id, validated, offset, length)
-    return Response(content=data, media_type="application/octet-stream")
+    return BundleBytes(content=data)
 
 
 @router.delete("/{domain}/releases/bundles/{bundle_id}", status_code=204)
-def discard_bundle(domain: str, bundle_id: str) -> None:
+def discard_bundle(
+    domain: str, bundle_id: str, session: Annotated[dict, Depends(get_current_session)]
+) -> None:
     """
     Let go of a bundle: the central has it, or does not want it.
 
     Args:
         domain: The application.
         bundle_id: The bundle.
+        session: The authenticated session.
     """
     _spool().discard(bundle_id, _known(domain))
 

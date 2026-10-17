@@ -4946,6 +4946,7 @@ export interface paths {
          *
          *     Args:
          *         domain: The application.
+         *         session: The authenticated session.
          *
          *     Returns:
          *         Its bundles, newest first.
@@ -4973,6 +4974,7 @@ export interface paths {
          *     Args:
          *         domain: The application.
          *         bundle_id: The bundle.
+         *         session: The authenticated session.
          *
          *     Returns:
          *         It.
@@ -4987,6 +4989,7 @@ export interface paths {
          *     Args:
          *         domain: The application.
          *         bundle_id: The bundle.
+         *         session: The authenticated session.
          */
         delete: operations["discard_bundle_api_apps__domain__releases_bundles__bundle_id__delete"];
         options?: never;
@@ -5009,6 +5012,7 @@ export interface paths {
          *         domain: The application.
          *         bundle_id: The bundle.
          *         offset: Where to start.
+         *         session: The authenticated session.
          *         length: How many bytes at most.
          *
          *     Returns:
@@ -63617,13 +63621,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Successful Response */
+            /** @description The bytes asked for: fewer at the end of the bundle, none past it. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/octet-stream": string;
                 };
             };
             /** @description Validation Error */

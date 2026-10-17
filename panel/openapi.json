@@ -67827,7 +67827,7 @@
     },
     "/api/apps/{domain}/releases/bundles": {
       "get": {
-        "description": "List the bundles waiting to be fetched for an application.\n\nArgs:\n    domain: The application.\n\nReturns:\n    Its bundles, newest first.",
+        "description": "List the bundles waiting to be fetched for an application.\n\nArgs:\n    domain: The application.\n    session: The authenticated session.\n\nReturns:\n    Its bundles, newest first.",
         "operationId": "list_bundles_api_apps__domain__releases_bundles_get",
         "parameters": [
           {
@@ -67871,7 +67871,7 @@
     },
     "/api/apps/{domain}/releases/bundles/{bundle_id}": {
       "delete": {
-        "description": "Let go of a bundle: the central has it, or does not want it.\n\nArgs:\n    domain: The application.\n    bundle_id: The bundle.",
+        "description": "Let go of a bundle: the central has it, or does not want it.\n\nArgs:\n    domain: The application.\n    bundle_id: The bundle.\n    session: The authenticated session.",
         "operationId": "discard_bundle_api_apps__domain__releases_bundles__bundle_id__delete",
         "parameters": [
           {
@@ -67915,7 +67915,7 @@
         "x-noust-permission": "apps.deploy"
       },
       "get": {
-        "description": "Describe one bundle.\n\nArgs:\n    domain: The application.\n    bundle_id: The bundle.\n\nReturns:\n    It.",
+        "description": "Describe one bundle.\n\nArgs:\n    domain: The application.\n    bundle_id: The bundle.\n    session: The authenticated session.\n\nReturns:\n    It.",
         "operationId": "bundle_info_api_apps__domain__releases_bundles__bundle_id__get",
         "parameters": [
           {
@@ -67968,7 +67968,7 @@
     },
     "/api/apps/{domain}/releases/bundles/{bundle_id}/data": {
       "get": {
-        "description": "Read a range of a bundle.\n\nArgs:\n    domain: The application.\n    bundle_id: The bundle.\n    offset: Where to start.\n    length: How many bytes at most.\n\nReturns:\n    The raw bytes; fewer at the end of the file, none past it.",
+        "description": "Read a range of a bundle.\n\nArgs:\n    domain: The application.\n    bundle_id: The bundle.\n    offset: Where to start.\n    session: The authenticated session.\n    length: How many bytes at most.\n\nReturns:\n    The raw bytes; fewer at the end of the file, none past it.",
         "operationId": "bundle_data_api_apps__domain__releases_bundles__bundle_id__data_get",
         "parameters": [
           {
@@ -68019,11 +68019,14 @@
         "responses": {
           "200": {
             "content": {
-              "application/json": {
-                "schema": {}
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "The bytes asked for: fewer at the end of the bundle, none past it."
           },
           "422": {
             "content": {
