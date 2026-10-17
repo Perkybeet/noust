@@ -82,10 +82,10 @@ from jinja2 import Environment, PackageLoader, TemplateNotFound
 from jinja2 import TemplateError as JinjaTemplateError
 
 from noust.central import require_server_role
-from noust.core import paths
+from noust.core import legacy_names, paths
 from noust.core.config import SYSTEMD_DIR
 from noust.core.exceptions import NoustError, ServiceError, TemplateError, ValidationError
-from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem
+from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, DryRunFileSystem, FileSystem
 from noust.core.runner import DEFAULT_TIMEOUT, CommandResult, CommandRunner
 from noust.core.store import (
     BLUE_GREEN_COLORS,
@@ -284,6 +284,24 @@ def _is_plain(name: str) -> bool:
         True when it has no glob or escape character.
     """
     return not any(char in name for char in "*?[]\\")
+
+
+@dataclass(frozen=True)
+class UnitRename:
+    """
+    A unit that was given the name it has since 0.14.1.
+
+    Attributes:
+        old: The name it had, with the prefix.
+        new: The name it has now.
+        old_text: The file it was, to write back if the release is not kept.
+        was_enabled: Whether the old unit started at boot, so the new one does.
+    """
+
+    old: str
+    new: str
+    old_text: str
+    was_enabled: bool
 
 
 @dataclass(frozen=True)
@@ -580,7 +598,7 @@ class ServiceManager(BaseManager):
     #: Prefix carried by every unit this project created before the name was
     #: shortened. New units drop it and are recognised through the store or the
     #: unit-file marker instead.
-    SERVICE_PREFIX = "wasm-"
+    SERVICE_PREFIX = legacy_names.UNIT_PREFIX
     LEGACY_PREFIX = SERVICE_PREFIX
 
     def __init__(
@@ -1532,6 +1550,139 @@ class ServiceManager(BaseManager):
         )
 
     # State ----------------------------------------------------------------
+
+    def rename_legacy_unit(self, name: str) -> UnitRename | None:
+        """
+        Give an application's unit the name it has since 0.14.1, if it still carries the old prefix.
+
+        Called by the application's own deployment, which restarts the unit anyway: the old
+        unit is stopped and disabled, the new one is written (the marker and the unit's own
+        name inside it brought up to date), enabled if the old one was, and left stopped for
+        the deployment's restart to start behind its health gate. Nothing else may call this:
+        a rename outside a deployment would stop an application for a name.
+
+        Args:
+            name: The application's unit name, with or without the prefix.
+
+        Returns:
+            What was renamed, to put back with :meth:`restore_legacy_unit` if the release
+            does not pass its health check; None when there was nothing to rename or it was
+            not safe to (the unit is a link, the new name is taken or shadows a unit the system
+            ships, the unit is not Noust's, it is one of Noust's own, or this is a rehearsal).
+
+        Raises:
+            ServiceError: The new unit cannot be written; nothing has changed by then.
+            ValidationError: When the name is not a safe unit name.
+        """
+        base = self._get_service_name(name)
+        if "@" in base or self._is_own_unit_name(base) or isinstance(self.fs, DryRunFileSystem):
+            return None
+        old = f"{self.LEGACY_PREFIX}{base}"
+        old_path = self.SYSTEMD_DIR / f"{old}.service"
+        new_path = self.SYSTEMD_DIR / f"{base}.service"
+        if old_path.is_symlink() or not old_path.is_file():
+            return None
+        if os.path.lexists(new_path) or self._shadowing_file(base) is not None:
+            return None
+        if self._fragment_path(f"{base}.service") is not None:
+            return None
+        if not self.inspect_unit(old, serving=False).managed:
+            return None
+        try:
+            old_text = old_path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            self.logger.debug(f"Could not read {old_path}: {exc}")
+            return None
+
+        was_enabled = (
+            self._exec(["systemctl", "is-enabled", f"{old}.service"]).stdout.strip() == "enabled"
+        )
+        self._write_unit_atomically(new_path, self._renamed_unit_text(old_text, old, base))
+        self.daemon_reload()
+        # The old one is stopped before anything of the new one starts: they run the same
+        # command on the same port.
+        self._exec(["systemctl", "stop", f"{old}.service"], timeout=_LIFECYCLE_TIMEOUT)
+        self._exec(["systemctl", "disable", f"{old}.service"])
+        try:
+            self.fs.remove(old_path, missing_ok=True)
+        except OSError as exc:
+            self.fs.remove(new_path, missing_ok=True)
+            self.daemon_reload()
+            raise ServiceError(f"Failed to rename service: {old}", details=str(exc)) from exc
+        self.daemon_reload()
+        if was_enabled:
+            self._exec(["systemctl", "enable", f"{base}.service"])
+        self._move_stored_service(old, base, new_path)
+        return UnitRename(old=old, new=base, old_text=old_text, was_enabled=was_enabled)
+
+    def restore_legacy_unit(self, renamed: UnitRename) -> None:
+        """
+        Put a unit back under the name :meth:`rename_legacy_unit` took it from.
+
+        What the deployment does when the release does not pass its health check: what
+        served before is what serves again, the unit included.
+
+        Args:
+            renamed: What :meth:`rename_legacy_unit` returned.
+
+        Raises:
+            ServiceError: The old unit cannot be written back.
+        """
+        old_path = self.SYSTEMD_DIR / f"{renamed.old}.service"
+        new_path = self.SYSTEMD_DIR / f"{renamed.new}.service"
+        self._exec(["systemctl", "stop", f"{renamed.new}.service"], timeout=_LIFECYCLE_TIMEOUT)
+        self._exec(["systemctl", "disable", f"{renamed.new}.service"])
+        self._write_unit_atomically(old_path, renamed.old_text)
+        try:
+            self.fs.remove(new_path, missing_ok=True)
+        except OSError as exc:
+            self.logger.warning(
+                f"Could not remove {new_path} after putting {renamed.old} back: {exc}"
+            )
+        self.daemon_reload()
+        if renamed.was_enabled:
+            self._exec(["systemctl", "enable", f"{renamed.old}.service"])
+        self._move_stored_service(renamed.new, renamed.old, old_path)
+
+    @staticmethod
+    def _renamed_unit_text(text: str, old: str, new: str) -> str:
+        """
+        Bring a unit's own text up to date with its new name.
+
+        Only the unit's name where it stands alone is replaced (its description, its syslog
+        identifier), never a path that happens to contain it, and the marker of before 3.0 is
+        the current one.
+
+        Args:
+            text: The old unit file.
+            old: The old unit name.
+            new: The new one.
+
+        Returns:
+            The text of the new unit file.
+        """
+        renamed = re.sub(rf"(?<![A-Za-z0-9_.@/-]){re.escape(old)}(?![A-Za-z0-9_@-])", new, text)
+        return renamed.replace(LEGACY_UNIT_MARKER, UNIT_MARKER)
+
+    def _move_stored_service(self, old: str, new: str, unit_file: Path) -> None:
+        """
+        Make the services table say the unit's new name.
+
+        Args:
+            old: The name the row has now.
+            new: The name it takes.
+            unit_file: The unit's file under the new name.
+        """
+        try:
+            row = self.store.get_service(old)
+            if row is None:
+                return
+            self.store.delete_service(old)
+            row.name = new
+            row.unit_file = str(unit_file)
+            self.store.create_service(row)
+        except (NoustError, sqlite3.Error) as exc:
+            self.logger.debug(f"Could not move the stored service {old} to {new}: {exc}")
 
     def daemon_reload(self) -> bool:
         """
@@ -3253,8 +3404,8 @@ class ServiceManager(BaseManager):
             ServiceError: When the scratch directory or file cannot be
                 staged.
         """
-        staging = Path(tempfile.gettempdir()) / f"wasm-verify-{os.urandom(6).hex()}"
-        candidate = staging / "wasm-verify.service"
+        staging = Path(tempfile.gettempdir()) / f"noust-verify-{os.urandom(6).hex()}"
+        candidate = staging / "noust-verify.service"
         try:
             try:
                 self.fs.make_dir(staging, mode=SECRET_DIR_MODE, parents=True, exist_ok=False)
