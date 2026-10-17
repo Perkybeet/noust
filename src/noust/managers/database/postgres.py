@@ -41,6 +41,7 @@ import time
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -58,6 +59,7 @@ from noust.core.fs import FileSystem, is_rehearsal
 from noust.core.runner import CommandResult, CommandRunner, runuser_prefix
 from noust.managers.database import flavours, pg_hba
 from noust.managers.database.base import (
+    BACKUP_DIR_MODE,
     DEFAULT_STRUCTURED_ROW_CAP,
     PROFILES,
     QUERY_TIMEOUT,
@@ -80,6 +82,7 @@ from noust.managers.database.base import (
     validate_name,
 )
 from noust.managers.database.instances import storage_name
+from noust.managers.database.pg_globals import filter_missing
 from noust.managers.database.psql_script import check_plain_dump, strip_owners
 from noust.managers.database.registry import DatabaseRegistry
 from noust.managers.database.settings import read_config_file, write_config_file
@@ -111,6 +114,28 @@ TABLE_PRIVILEGES = frozenset(
         "UPDATE",
     }
 )
+
+#: What psql prints for a statement the server refused.
+_PSQL_ERROR = re.compile(r"ERROR:\s*(.+)")
+
+
+@dataclass(frozen=True)
+class GlobalsRestore:
+    """
+    What putting the roles of a dump back did.
+
+    Attributes:
+        created: The roles that were missing and were created, unquoted.
+        present: The roles the file names that the server already had (left as they were).
+        left_out: What could not be put back yet and why.
+        errors: What the server refused, in its own words.
+    """
+
+    created: tuple[str, ...]
+    present: tuple[str, ...]
+    left_out: tuple[str, ...]
+    errors: tuple[str, ...]
+
 
 #: pg_dump output formats that can be streamed to stdout. "directory" cannot.
 DUMP_FORMATS = frozenset({"plain", "custom", "tar"})
@@ -518,7 +543,7 @@ class PostgresManager(BaseDatabaseManager):
         """
         return "'" + value.replace("'", "''") + "'"
 
-    def _psql_argv(self, database: str, *tail: str) -> list[str]:
+    def _psql_argv(self, database: str, *tail: str, ok_on_error: bool = False) -> list[str]:
         """
         Build a psql invocation that fails loudly and prints only data.
 
@@ -530,6 +555,8 @@ class PostgresManager(BaseDatabaseManager):
         Args:
             database: Database to connect to.
             *tail: Arguments describing where the SQL comes from.
+            ok_on_error: Go on after a statement the server refuses (a script of independent
+                statements, each of which says by itself whether it worked).
 
         Returns:
             The argument vector.
@@ -537,7 +564,7 @@ class PostgresManager(BaseDatabaseManager):
         return [
             "psql",
             "-v",
-            "ON_ERROR_STOP=1",
+            "ON_ERROR_STOP=0" if ok_on_error else "ON_ERROR_STOP=1",
             "-d",
             database,
             "-t",
@@ -1394,6 +1421,127 @@ class PostgresManager(BaseDatabaseManager):
             except DatabaseBackupError as exc:
                 self.logger.warning(f"Failed to backup schema {schema}: {exc}")
         return backups
+
+    # ==================== Roles of the server ====================
+
+    #: Where the roles of the server are kept, apart from the dumps (a listing of the dumps
+    #: must not take a file of roles for a database).
+    GLOBALS_DIR = "globals"
+
+    HAS_GLOBALS = True
+
+    def _globals_directory(self) -> Path:
+        """
+        Make, private, the directory the roles of the server are written into.
+
+        Returns:
+            The directory. Private because the file holds the roles' password hashes.
+        """
+        self._ensure_private_directory(self.BACKUP_DIR, BACKUP_DIR_MODE)
+        return self._ensure_private_directory(self.BACKUP_DIR / self.GLOBALS_DIR, BACKUP_DIR_MODE)
+
+    def backup_globals(self, output_path: Path | None = None, compress: bool = True) -> BackupInfo:
+        """
+        Dump the roles of the server with ``pg_dumpall --globals-only``.
+
+        A database dump names its owners and the roles it grants to, and carries none of
+        them: they belong to the server. Without them a dump restored on a new server
+        loses its owners or fails on the first ``ALTER ... OWNER TO``.
+
+        Args:
+            output_path: Where to write it; a file of its own under the backup directory
+                when None.
+            compress: Pipe it through gzip.
+
+        Returns:
+            Information about the file written.
+
+        Raises:
+            DatabaseBackupError: When ``pg_dumpall`` fails or writes nothing.
+        """
+        if output_path is None:
+            stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            name = f"{self._backup_prefix()}globals-{stamp}.sql" + (".gz" if compress else "")
+            output_path = self._globals_directory() / name
+        return self._dump_to_file(
+            ["pg_dumpall", "--no-password", "--globals-only"],
+            output_path,
+            database="the roles of the server",
+            compress=compress,
+            user=self.SUPERUSER,
+        )
+
+    def list_globals(self) -> list[Path]:
+        """
+        List the files of roles this engine has written.
+
+        Returns:
+            Their paths, newest first.
+        """
+        directory = self.BACKUP_DIR / self.GLOBALS_DIR
+        prefix = f"{self._backup_prefix()}globals-"
+        if not directory.is_dir():
+            return []
+        return sorted(
+            (path for path in directory.glob(f"{prefix}*") if path.is_file()),
+            key=lambda path: path.name,
+            reverse=True,
+        )
+
+    def restore_globals(self, source: Path) -> GlobalsRestore:
+        """
+        Create the roles of a file of globals that this server does not have.
+
+        Only what is missing is created; nothing that exists is altered (see
+        :mod:`noust.managers.database.pg_globals`). The statements are run as the superuser
+        without stopping at the first refusal, and what the server refused is returned.
+
+        Args:
+            source: A file written by :meth:`backup_globals`, gzipped or not.
+
+        Returns:
+            The roles created, the ones that were already there, what was left out and
+            what the server refused.
+
+        Raises:
+            DatabaseBackupError: The file cannot be read, or the roles of the server
+                cannot be listed.
+        """
+        try:
+            opener = gzip.open if source.suffix == ".gz" else open
+            with opener(source, "rt", encoding="utf-8") as handle:
+                text = handle.read()
+        except (OSError, EOFError, UnicodeDecodeError) as exc:
+            raise DatabaseBackupError(
+                f"Could not read the roles file {source}",
+                details=f"{exc}. Check that the file is the output of pg_dumpall --globals-only.",
+            ) from exc
+        success, output = self._execute_sql("SELECT rolname FROM pg_roles;")
+        if not success:
+            raise DatabaseBackupError(
+                "Could not list the roles this server has", details=output.strip()
+            )
+        existing = {line.strip() for line in output.splitlines() if line.strip()}
+        plan = filter_missing(text, existing=existing)
+        if not plan.created:
+            return GlobalsRestore((), plan.present, plan.left_out, ())
+        result = self._exec(
+            self._psql_argv("postgres", "-f", "-", ok_on_error=True),
+            input=plan.sql,
+            timeout=QUERY_TIMEOUT,
+            user=self.SUPERUSER,
+        )
+        refused = tuple(
+            match.group(1).strip()
+            for line in (result.stderr or "").splitlines()
+            if (match := _PSQL_ERROR.search(line))
+        )
+        if not result.success:
+            raise DatabaseBackupError(
+                "Could not create the roles of the dump",
+                details=(result.stderr or result.stdout).strip(),
+            )
+        return GlobalsRestore(plan.created, plan.present, plan.left_out, refused)
 
     def _dump_format(self, backup_path: Path, requested: str | None = None) -> str:
         """

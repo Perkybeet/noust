@@ -874,6 +874,9 @@ class BaseDatabaseManager(BaseManager):
 
     #: Where backups are written when the caller gives no path.
     BACKUP_DIR = paths.backup_dir() / "databases"
+    #: Whether the engine has roles of its own server to dump and put back
+    #: (``backup_globals``, ``restore_globals``): PostgreSQL's, which no database dump carries.
+    HAS_GLOBALS = False
 
     #: The container this manager drives, or None for the host's engine.
     #: Set by :meth:`bind`; see :mod:`noust.managers.database.instances`.

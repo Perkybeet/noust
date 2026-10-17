@@ -524,3 +524,12 @@ def user_state_dir(home: Path | None = None) -> Path:
         The directory; created by whoever writes to it.
     """
     return (home or Path.home()) / ".local" / "state" / NAME
+
+
+#: The web servers' configuration trees, by the label a bundle of Noust's state keeps them under.
+#: Debian and Ubuntu put Apache in ``apache2``, the RPM families in ``httpd``.
+WEBSERVER_CONFIG_DIRS: dict[str, Path] = {
+    "nginx": Path("/etc/nginx"),
+    "apache2": Path("/etc/apache2"),
+    "httpd": Path("/etc/httpd"),
+}

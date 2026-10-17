@@ -103,6 +103,8 @@ class Server:
     held: list[sqlite3.Connection] = field(default_factory=list)
 
     def manager(self, runner: Runner, **extra: Any) -> SelfBackupManager:
+        # A test server is isolated: the web server of the machine running the tests is not its own.
+        extra.setdefault("webservers", {})
         return SelfBackupManager(
             runner=runner,
             sources={"config": self.config, "state": self.state},
@@ -269,6 +271,7 @@ class TestCreate:
             "seal_header": False,
             "certificates": True,
             "units": 3,
+            "webservers": [],
         }
 
     def test_what_regenerates_and_what_is_not_noust_s_is_left_out(

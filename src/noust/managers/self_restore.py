@@ -23,7 +23,8 @@ lost or is new. The order is what keeps a restore from making things worse:
    and renamed over it, 0600 (a unit 0644), through no symbolic link: a path
    in a bundle is untrusted input, so it must be relative, climb nowhere and
    cross no link. The places are this server's own (``/etc/noust``, the state
-   directory, ``/etc/letsencrypt``, ``/etc/systemd/system``), never the paths
+   directory, ``/etc/letsencrypt``, ``/etc/systemd/system``, the web servers' directories),
+   never the paths
    the bundle says it came from. A store's ``-wal`` and ``-shm`` files are
    removed first: a write-ahead log of the old database replayed over the new
    one corrupts it.
@@ -399,6 +400,30 @@ class SelfRestore:
                 details="\n".join(problems[:10]),
             )
 
+    @staticmethod
+    def _mode_of(label: str, entry: dict[str, Any]) -> int:
+        """
+        Decide a restored file's permission bits.
+
+        Units are 0644 and everything else 0600, except a web server's files, which get the
+        mode they had (a configuration stays readable by the tools that read it, a key stays
+        private). What a bundle asks for is clamped: never writable by group or others, never
+        set-uid, set-gid or sticky.
+
+        Args:
+            label: What the file belongs to.
+            entry: Its manifest entry.
+
+        Returns:
+            The mode.
+        """
+        if label == "units":
+            return _UNIT_MODE
+        recorded = entry.get("mode")
+        if label in paths.WEBSERVER_CONFIG_DIRS and isinstance(recorded, int):
+            return recorded & 0o755 & ~0o022
+        return SECRET_MODE
+
     def _stop_writers(self) -> list[str]:
         """
         Stop what writes to the store, remembering what was running.
@@ -471,7 +496,7 @@ class SelfRestore:
                     root / relative,
                     self._checked(target_root, below),
                     "",
-                    _UNIT_MODE if label == "units" else SECRET_MODE,
+                    self._mode_of(label, entry),
                 )
             )
         for link in manifest.get("links", []):

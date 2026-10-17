@@ -23,7 +23,10 @@ no new dependency):
 - the certificates (``/etc/letsencrypt``) with the links certbot's ``live``
   folders are made of;
 - the units Noust wrote (``/etc/systemd/system``: its own, every
-  application's, their drop-ins), and which of them were enabled.
+  application's, their drop-ins), and which of them were enabled;
+- the web server's configuration (``/etc/nginx``, Apache's directory) with each file's mode
+  and its links, because a site edited by hand, the site of an adopted application and the
+  settings an operator added to the http block are in no store and cannot be rendered again.
 
 It holds what is needed to read its own secrets except the one thing that
 cannot be stored beside them: the passphrase. A sealed store keeps its seal
@@ -133,6 +136,10 @@ MAX_RETENTION_DAYS = 3650
 #: Members and bytes an extraction takes at most.
 MAX_ENTRIES = 2_000_000
 MAX_BYTES = 256 * 1024**3
+
+#: The largest file of a web server's directory a bundle takes: a configuration file, never a
+#: log or a cache someone left there.
+_MAX_CONFIG_FILE = 16 * 1024 * 1024
 
 #: Most units a bundle takes: a server runs hundreds, never tens of thousands.
 _MAX_UNITS = 20_000
@@ -289,6 +296,7 @@ class SelfBackupManager:
         sources: dict[str, Path] | None = None,
         letsencrypt: Path | None = None,
         systemd_dir: Path | None = None,
+        webservers: dict[str, Path] | None = None,
     ) -> None:
         """
         Args:
@@ -306,6 +314,9 @@ class SelfBackupManager:
                 server's own directories by default.
             letsencrypt: The certificates' directory.
             systemd_dir: Where the units are.
+            webservers: The web servers' configuration directories by label (``nginx``,
+                ``apache2``, ``httpd``); the server's own by default. One that does not
+                exist is not in the bundle.
         """
         self._runner = runner
         self._fs = fs
@@ -320,6 +331,9 @@ class SelfBackupManager:
         self._sources = sources
         self.letsencrypt = letsencrypt if letsencrypt is not None else CertManager.LETSENCRYPT_DIR
         self.systemd_dir = systemd_dir if systemd_dir is not None else SYSTEMD_DIR
+        self.webservers = (
+            dict(webservers) if webservers is not None else dict(paths.WEBSERVER_CONFIG_DIRS)
+        )
 
     # ------------------------------------------------------------ plumbing
 
@@ -451,13 +465,15 @@ class SelfBackupManager:
         Returns:
             Label to this server's directory: ``config`` and ``state``
             whether or not they exist yet, any other directory this server
-            backs up under the same label, ``letsencrypt`` and ``units``.
+            backs up under the same label, ``letsencrypt``, ``units`` and the web servers'
+            directories.
         """
         known = dict(self._labels())
         known.setdefault("config", paths.config_dir())
         known.setdefault("state", paths.state_dir())
         known["letsencrypt"] = self.letsencrypt
         known["units"] = self.systemd_dir
+        known.update(self.webservers)
         return known
 
     def _stage_letsencrypt(self, staging: Path, manifest: dict[str, Any]) -> None:
@@ -468,10 +484,45 @@ class SelfBackupManager:
             staging: The archive's root directory.
             manifest: Filled with ``files``, ``links`` and ``skipped``.
         """
-        root = self.letsencrypt
+        self._stage_tree("letsencrypt", self.letsencrypt, staging, manifest)
+
+    def _stage_webservers(self, staging: Path, manifest: dict[str, Any]) -> None:
+        """
+        Copy each web server's configuration directory that exists, with each file's mode.
+
+        Args:
+            staging: The archive's root directory.
+            manifest: Filled with ``files``, ``links`` and ``skipped``.
+        """
+        for label, root in self.webservers.items():
+            self._stage_tree(label, root, staging, manifest, keep_modes=True)
+
+    def _stage_tree(
+        self,
+        label: str,
+        root: Path,
+        staging: Path,
+        manifest: dict[str, Any],
+        *,
+        keep_modes: bool = False,
+    ) -> None:
+        """
+        Copy a directory tree, never following a link, and record its links.
+
+        A link that stays inside the tree is recorded relative to where it is (Debian's
+        ``sites-enabled`` links to an absolute path of the same tree, which a restore on
+        another layout would not accept); one that leaves the tree is left out and said.
+
+        Args:
+            label: What the tree is called in the bundle.
+            root: The directory.
+            staging: The archive's root directory.
+            manifest: Filled with ``files``, ``links`` and ``skipped``.
+            keep_modes: Record each file's permission bits, so a restore gives them back
+                (a web server's private key stays private and its configuration readable).
+        """
         if not root.is_dir() or root.is_symlink():
             return
-        label = "letsencrypt"
         manifest["sources"][label] = str(root)
         for directory, dirnames, filenames in os.walk(root, followlinks=False):
             current = Path(directory)
@@ -484,32 +535,50 @@ class SelfBackupManager:
                 if full.is_symlink():
                     target = os.readlink(full)
                     resolved = Path(os.path.normpath(os.path.join(full.parent, target)))
-                    if os.path.isabs(target) or not resolved.is_relative_to(root):
+                    if not resolved.is_relative_to(root):
+                        manifest["skipped"].append(
+                            {"path": relative, "reason": "link out of the tree"}
+                        )
+                    elif os.path.isabs(target) and not keep_modes:
                         manifest["skipped"].append(
                             {"path": relative, "reason": "link out of the tree"}
                         )
                     else:
-                        manifest["links"].append({"path": relative, "target": target})
+                        manifest["links"].append(
+                            {
+                                "path": relative,
+                                "target": os.path.relpath(resolved, full.parent)
+                                if os.path.isabs(target)
+                                else target,
+                            }
+                        )
                     if name in dirnames:
                         # A link to a directory is a link, not a place to walk into.
                         dirnames.remove(name)
                     continue
                 if name in filenames:
-                    if not stat.S_ISREG(full.lstat().st_mode):
+                    status = full.lstat()
+                    if not stat.S_ISREG(status.st_mode):
                         manifest["skipped"].append(
                             {"path": relative, "reason": "not a regular file"}
+                        )
+                        continue
+                    if keep_modes and status.st_size > _MAX_CONFIG_FILE:
+                        manifest["skipped"].append(
+                            {"path": relative, "reason": "larger than a configuration file"}
                         )
                         continue
                     destination = target_dir / name
                     shutil.copyfile(full, destination, follow_symlinks=False)
                     os.chmod(destination, SECRET_MODE)
-                    manifest["files"].append(
-                        {
-                            "path": relative,
-                            "size": destination.stat().st_size,
-                            "sha256": file_sha256(destination),
-                        }
-                    )
+                    entry: dict[str, Any] = {
+                        "path": relative,
+                        "size": destination.stat().st_size,
+                        "sha256": file_sha256(destination),
+                    }
+                    if keep_modes:
+                        entry["mode"] = stat.S_IMODE(status.st_mode)
+                    manifest["files"].append(entry)
 
     def _enabled_names(self) -> set[str]:
         """
@@ -607,6 +676,9 @@ class SelfBackupManager:
             "seal_header": any(name.endswith(f"/{sealing.SEAL_FILE}") for name in names),
             "certificates": any(name.startswith("letsencrypt/archive/") for name in names),
             "units": len(manifest["enabled_units"]),
+            "webservers": sorted(
+                label for label in paths.WEBSERVER_CONFIG_DIRS if label in manifest["sources"]
+            ),
         }
 
     def _store_version(self, snapshot: Path) -> int | None:
@@ -699,6 +771,7 @@ class SelfBackupManager:
                         label, directory, staging, manifest, exclude, self.fs, SKIP_FILES
                     )
                 self._stage_letsencrypt(staging, manifest)
+                self._stage_webservers(staging, manifest)
                 self._stage_units(staging, manifest)
                 manifest["contains"] = self._contains(manifest)
                 snapshot = next(

@@ -37,6 +37,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from noust.core.runner import CommandRunner
+from noust.managers.database.backup_records import bound_evidence
 from noust.managers.stack_databases import (
     COMPOSE_TIMEOUT,
     RESTORE_TIMEOUT,
@@ -221,7 +222,8 @@ def restore_test_stack_dump(
             said = (loaded.stderr or loaded.stdout).strip() or f"exit code {loaded.exit_code}"
             return StackRestoreTest(
                 False,
-                f"{database.label} did not load into a clean {database.image}: {said}",
+                f"{database.label} did not load into a clean {database.image}: "
+                f"{bound_evidence(said)}",
                 time.monotonic() - started,
             )
         counted = runner.run(
