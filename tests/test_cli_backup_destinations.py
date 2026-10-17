@@ -497,3 +497,72 @@ def test_schedule_update_replaces_destinations(systemd_dir: Path) -> None:
     record = get_store().get_backup_schedule("shop.example.com")
     assert record is not None
     assert record.destinations == []
+
+
+# ---------------------------------------------------------------------------
+# Tried before it is kept (checklist H-11)
+# ---------------------------------------------------------------------------
+
+
+def add_nas(*extra: str) -> object:
+    return invoke(
+        [
+            "backup",
+            "destination",
+            "add",
+            "nas",
+            "--type",
+            "sftp",
+            "--no-encrypt",
+            "--field",
+            "host=nas.example.com",
+            "--field",
+            "user=noust",
+            "--stdin",
+            *extra,
+        ],
+        input="s3cr3t-password-value\n",
+    )
+
+
+def test_add_tries_the_connection_and_says_so(runner: FakeRunner) -> None:
+    result = add_nas()
+
+    assert result.exit_code == 0, result.output  # type: ignore[attr-defined]
+    assert "tried and it answers" in result.output  # type: ignore[attr-defined]
+    assert any(call[:2] == ("rclone", "mkdir") for call in runner.calls)
+
+
+def test_add_that_does_not_connect_keeps_nothing_and_exits_1(runner: FakeRunner) -> None:
+    runner.script(("rclone", "mkdir"), stderr="ssh: handshake failed", exit_code=1)
+
+    result = add_nas()
+
+    assert result.exit_code == 1  # type: ignore[attr-defined]
+    assert "was not saved" in result.output and "handshake failed" in result.output  # type: ignore[attr-defined]
+    assert get_store().get_backup_destination("nas") is None
+
+
+def test_skip_test_keeps_a_destination_that_is_down_on_purpose(runner: FakeRunner) -> None:
+    runner.script(("rclone", "mkdir"), stderr="connection refused", exit_code=1)
+
+    result = add_nas("--skip-test")
+
+    assert result.exit_code == 0, result.output  # type: ignore[attr-defined]
+    assert "not tried" in result.output  # type: ignore[attr-defined]
+    assert get_store().get_backup_destination("nas") is not None
+
+
+def test_an_update_that_does_not_connect_leaves_the_destination_as_it_was(
+    runner: FakeRunner,
+) -> None:
+    add_nas()
+    runner.script(("rclone", "mkdir"), stderr="no route to host", exit_code=1)
+
+    result = invoke(
+        ["backup", "destination", "update", "nas", "--field", "host=elsewhere.example.com"]
+    )
+
+    assert result.exit_code == 1 and "was not changed" in result.output
+    stored = get_store().get_backup_destination("nas")
+    assert stored is not None and stored.settings["host"] == "nas.example.com"

@@ -27,6 +27,10 @@ What each scenario proves (the checklist row it answers):
   of a database policy, a data policy, Noust's own state and the sweep, written with a time limit,
   a time zone with an underscore and a priority, are accepted by ``systemd-analyze verify`` of a
   real systemd 255.
+* ``s3_destination`` (H-11, H-15): a MinIO bucket as a destination: refused while the bucket does
+  not exist and not created, refused with the provider's words and scrubbed for a wrong key, a
+  name MinIO would refuse is stopped before the network, and the good one (plain and encrypted)
+  carries a file there, lists it and deletes it, with rclone 1.60 of the harness image.
 * ``stack_dump_restore`` (D-18, H-31): the dump of PostgreSQL, MySQL and MariaDB databases that live
   in containers is taken with the commands an update runs, loaded into a throwaway container of the
   image the service ran, and counted; a truncated dump fails the test with the engine's own words;
@@ -513,6 +517,186 @@ def unit_files(lab: Lab) -> None:
     lab.check("Buenos_Aires" in verify.stdout, "the time zone is not in the timer")
     lab.check("Nice=10" in verify.stdout, "the priority is not in the unit")
     lab.remove(container)
+
+
+# ---------------------------------------------------------------------------
+# s3_destination
+# ---------------------------------------------------------------------------
+
+
+def rclone_in_docker(network: str, mount: Path) -> object:
+    """
+    Build a runner that runs ``rclone`` in a container of the image that has it.
+
+    The host has no rclone, and MinIO is only reachable on the lab's network, so every ``rclone``
+    argv is run by ``docker run --rm`` of the harness image on that network. The ``RCLONE_*``
+    variables travel as ``-e NAME`` (their values in the ``docker`` process's environment, never in
+    an argument), and the scratch directory is mounted at the same path so a file Noust names on the
+    host is the file rclone opens.
+
+    Args:
+        network: The lab's network.
+        mount: The directory shared with the container.
+
+    Returns:
+        A ``SubprocessRunner`` whose ``rclone`` runs there.
+    """
+    from noust.core.runner import SubprocessRunner
+
+    class DockerRclone(SubprocessRunner):
+        def exists(self, program: str) -> bool:
+            return True if program == "rclone" else super().exists(program)
+
+        def run(self, argv, *, env=None, input=None, timeout=120, secrets=(), **kwargs):  # type: ignore[no-untyped-def]
+            if not argv or argv[0] != "rclone":
+                return super().run(
+                    argv, env=env, input=input, timeout=timeout, secrets=secrets, **kwargs
+                )
+            carried = {k: v for k, v in (env or {}).items() if k.startswith("RCLONE_")}
+            command = [
+                "docker", "run", "--rm", "-i", "--name", f"{PREFIX}-rclone-{secrets_hex()}",
+                "--label", LABEL, "--network", network, "-v", f"{mount}:{mount}",
+                *(part for key in carried for part in ("-e", key)),
+                "--entrypoint", "rclone", "noust-integration:latest", *argv[1:],
+            ]  # fmt: skip
+            return super().run(command, env=carried, input=input, timeout=timeout, secrets=secrets)
+
+    def secrets_hex() -> str:
+        return secrets.token_hex(4)
+
+    return DockerRclone()
+
+
+@scenario("s3_destination")
+def s3_destination(lab: Lab) -> None:
+    """A MinIO bucket as a backup destination: tried before it is kept, the bucket looked at, a round trip."""
+    import noust.core.config as config_module
+    from noust.core.exceptions import BackupError
+    from noust.core.runner import set_runner
+    from noust.managers.backup_destination_files import DestinationFileManager
+    from noust.managers.backup_destinations import BackupDestinationManager
+
+    lab.require_image(IMAGES["minio"])
+    lab.require_image("noust-integration:latest")
+    network = lab.name("net")
+    lab.networks.append(network)
+    lab.docker("network", "create", "--label", LABEL, network)
+    minio = lab.name("minio")
+    root_secret = secrets.token_urlsafe(18)
+    # `docker run IMAGE server /data`: the arguments go after the image, so start it by hand.
+    lab.containers.append(minio)
+    lab.docker(
+        "run", "-d", "--name", minio, "--label", LABEL, "--network", network,
+        "-e", "MINIO_ROOT_USER=noustlab", "-e", "MINIO_ROOT_PASSWORD",
+        IMAGES["minio"], "server", "/data",
+        env={"MINIO_ROOT_PASSWORD": root_secret},
+    )  # fmt: skip
+
+    config_module.DEFAULT_CONFIG_PATH = lab.scratch / "config.yaml"
+    config_module.Config().set("security.allow_private_hosts", [minio])
+    config_module.Config().save()
+    runner = rclone_in_docker(network, lab.scratch)
+    set_runner(runner)  # type: ignore[arg-type]
+    try:
+        manager = BackupDestinationManager(runner=runner)  # type: ignore[arg-type]
+        files = DestinationFileManager(runner=runner)  # type: ignore[arg-type]
+        version = runner.run(["rclone", "version"], timeout=60)  # type: ignore[attr-defined]
+        lab.evidence.append("rclone: " + (version.stdout.splitlines() or ["?"])[0])
+
+        endpoint = f"http://{minio}:9000"
+        good = {
+            "provider": "Minio",
+            "access_key_id": "noustlab",
+            "secret_access_key": root_secret,
+            "endpoint": endpoint,
+        }
+        # MinIO takes a moment to listen: the first call that works is the bucket's creation by
+        # the lab itself (Noust never creates one).
+        env = {
+            "RCLONE_CONFIG_LAB_TYPE": "s3",
+            "RCLONE_CONFIG_LAB_PROVIDER": "Minio",
+            "RCLONE_CONFIG_LAB_ACCESS_KEY_ID": "noustlab",
+            "RCLONE_CONFIG_LAB_SECRET_ACCESS_KEY": root_secret,
+            "RCLONE_CONFIG_LAB_ENDPOINT": endpoint,
+        }
+        for _ in range(40):
+            made = runner.run(["rclone", "mkdir", "lab:noust-test-bucket"], env=env, timeout=60)  # type: ignore[attr-defined]
+            if made.success:
+                break
+            time.sleep(2)
+        lab.check(made.success, f"MinIO never accepted a bucket: {made.stderr}")
+
+        # a. A bucket that does not exist is an error, and is not created.
+        try:
+            manager.add("lab", "s3", {**good, "path": "no-such-bucket/noust"}, encrypted=False)
+        except BackupError as exc:
+            lab.evidence.append(f"missing bucket: {exc.message} | {(exc.details or '')[:200]}")
+            lab.check("does not exist" in str(exc), f"unexpected: {exc}")
+        else:
+            raise AssertionError("a destination on a bucket that does not exist was saved")
+        lab.check(manager.get("lab") is None, "the destination was kept")
+        listing = runner.run(["rclone", "lsd", "lab:"], env=env, timeout=60)  # type: ignore[attr-defined]
+        lab.check("no-such-bucket" not in listing.stdout, "the missing bucket was created")
+
+        # b. A wrong secret is refused with the provider's words, scrubbed.
+        wrong = secrets.token_urlsafe(18)
+        try:
+            manager.add(
+                "lab",
+                "s3",
+                {**good, "secret_access_key": wrong, "path": "noust-test-bucket/noust"},
+                encrypted=False,
+            )
+        except BackupError as exc:
+            lab.evidence.append(f"wrong secret: {exc.message} | {(exc.details or '')[:300]}")
+            lab.check(wrong not in str(exc), "the wrong secret leaked into the error")
+            lab.check("SignatureDoesNotMatch" in str(exc), f"MinIO's own words are missing: {exc}")
+            lab.check("does not exist" not in str(exc), "a wrong key was called a missing bucket")
+        else:
+            raise AssertionError("a destination with a wrong secret was saved")
+        lab.check(manager.get("lab") is None, "the destination was kept")
+
+        # c. A name the provider would refuse is refused before the network.
+        try:
+            manager.add("lab", "s3", {**good, "path": "Bad_Bucket/noust"}, encrypted=False)
+        except BackupError as exc:
+            lab.check("lowercase" in str(exc), f"unexpected: {exc}")
+        else:
+            raise AssertionError("a bucket name MinIO would refuse was accepted")
+
+        # d. The good one is tried, kept, and carries a backup there and back.
+        for name, encrypted in (("lab", False), ("labcrypt", True)):
+            manager.add(
+                name, "s3", {**good, "path": f"noust-test-bucket/{name}"}, encrypted=encrypted
+            )
+            entries = manager.test(name)
+            lab.check(entries["ok"] is True, f"{name} did not answer its test")
+            payload = lab.scratch / f"{name}.dump"
+            payload.write_bytes(b"PGDMP lab payload " * 1000)
+            import hashlib
+
+            digest = hashlib.sha256(payload.read_bytes()).hexdigest()
+            pushed = files.push_file(
+                payload, name, "databases/postgresql/shop",
+                sidecar={"version": 1, "sha256": digest, "scheduled": True},
+            )  # fmt: skip
+            listed = files.list_files(name, "databases/postgresql/shop")
+            lab.evidence.append(
+                f"{name}: pushed {pushed['file']} verified by {pushed['verified_by']}; "
+                f"listed {[f.name for f in listed]}"
+            )
+            lab.check(any(f.name == payload.name for f in listed), f"{name}: not listed")
+            files.delete_file(name, "databases/postgresql/shop", payload.name)
+            lab.check(
+                not any(
+                    f.name == payload.name
+                    for f in files.list_files(name, "databases/postgresql/shop")
+                ),
+                f"{name}: not deleted",
+            )
+    finally:
+        set_runner(None)
+    lab.check(lab.leftovers() == [minio], f"left behind: {lab.leftovers()}")
 
 
 # ---------------------------------------------------------------------------

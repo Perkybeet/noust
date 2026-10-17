@@ -223,7 +223,9 @@ class TestRemoteEnv:
         self, manager: BackupDestinationManager, runner: FakeRunner
     ) -> None:
         """rclone looks remote my-nas up as RCLONE_CONFIG_MY-NAS_* (found by the harness)."""
-        manager.add("my-nas", "b2", {"account": "acct123", "key": "topsecretkey"})
+        manager.add(
+            "my-nas", "b2", {"account": "acct123", "key": "topsecretkey", "path": "noust-backups"}
+        )
         env = manager.remote_env("my-nas")
         assert env["RCLONE_CONFIG_MY-NAS_TYPE"] == "b2"
         assert env["RCLONE_CONFIG_MY-NAS_ACCOUNT"] == "acct123"

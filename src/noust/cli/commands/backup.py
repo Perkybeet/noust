@@ -415,6 +415,7 @@ def _add_destination(
     from_prompt: bool,
     encrypted: bool | None,
     key_stdin: bool = False,
+    verify: bool = True,
 ) -> int:
     """
     Create a backup destination and report it.
@@ -432,6 +433,8 @@ def _add_destination(
         key_stdin: Read an existing encryption key from standard input, in
             the format ``show-key`` prints, instead of generating one.
             Implies ``encrypted``.
+        verify: Try the connection before keeping the destination; False keeps one
+            that does not connect (it is down on purpose).
 
     Returns:
         0 on success, 1 if the destination could not be created.
@@ -463,6 +466,7 @@ def _add_destination(
             fields,
             encrypted=resolve_encryption(encrypted, backend=backend, key_given=key_stdin),
             crypt_key=crypt_key,
+            verify=verify,
         )
     except NoustError as exc:
         logger.error(f"Could not create backup destination: {exc}")
@@ -470,6 +474,11 @@ def _add_destination(
 
     logger.success(f"Backup destination created: {destination.name}")
     logger.info(f"  Backend: {destination.backend}")
+    logger.info(
+        "  Connection: tried and it answers"
+        if verify
+        else f"  Connection: not tried; try it with 'noust backup destination test {name}'"
+    )
     if not destination.encrypted and destination.backend != "local":
         logger.warning(
             f"{destination.name} sends backups unencrypted: they hold the .env and the database "
@@ -498,6 +507,7 @@ def _update_destination(
     from_stdin: bool,
     from_prompt: bool,
     encrypted: bool | None,
+    verify: bool = True,
 ) -> int:
     """
     Change a backup destination's fields and report it.
@@ -510,6 +520,7 @@ def _update_destination(
         from_stdin: Read the backend's secret field from standard input.
         from_prompt: Prompt for the backend's secret field.
         encrypted: Turn encryption on or off; None leaves it as it was.
+        verify: Try the connection with the new fields before keeping them.
 
     Returns:
         0 on success, 1 if the destination could not be changed.
@@ -527,7 +538,7 @@ def _update_destination(
         fields.update(
             _read_secret_field(existing.backend, from_stdin=from_stdin, from_prompt=from_prompt)
         )
-        destination = manager.update(name, fields, encrypted=encrypted)
+        destination = manager.update(name, fields, encrypted=encrypted, verify=verify)
     except NoustError as exc:
         logger.error(f"Could not update backup destination: {exc}")
         return 1
@@ -2105,6 +2116,12 @@ def backup_destination() -> None:
     help="Encrypt with an existing key read from standard input, as 'show-key' printed it "
     "(its text, its --json, or the two passphrases on two lines). Implies --encrypt.",
 )
+@click.option(
+    "--skip-test",
+    is_flag=True,
+    help="Keep the destination without trying the connection first. By default one that "
+    "does not connect is not saved, and an object store's bucket must exist.",
+)
 @pass_context
 def destination_add(
     state: Context,
@@ -2115,6 +2132,7 @@ def destination_add(
     from_prompt: bool,
     encrypt: bool | None,
     key_stdin: bool,
+    skip_test: bool,
 ) -> None:
     """
     Create a backup destination.
@@ -2152,6 +2170,7 @@ def destination_add(
             from_prompt=from_prompt,
             encrypted=encrypt,
             key_stdin=key_stdin,
+            verify=not skip_test,
         )
     )
 
@@ -2171,6 +2190,12 @@ def destination_add(
     "--prompt", "from_prompt", is_flag=True, help="Prompt for the backend's secret field."
 )
 @click.option("--encrypt/--no-encrypt", "encrypt", default=None, help="Turn encryption on or off.")
+@click.option(
+    "--skip-test",
+    is_flag=True,
+    help="Keep the change without trying the connection first. By default a change that "
+    "does not connect leaves the destination as it was.",
+)
 @pass_context
 def destination_update(
     state: Context,
@@ -2179,6 +2204,7 @@ def destination_update(
     from_stdin: bool,
     from_prompt: bool,
     encrypt: bool | None,
+    skip_test: bool,
 ) -> None:
     """
     Change a backup destination's fields. A blank secret field keeps its stored value.
@@ -2191,6 +2217,7 @@ def destination_update(
             from_stdin=from_stdin,
             from_prompt=from_prompt,
             encrypted=encrypt,
+            verify=not skip_test,
         )
     )
 

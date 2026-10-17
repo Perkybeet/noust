@@ -140,6 +140,12 @@ class CreateDestinationRequest(BaseModel):
         "one: how backups already on the destination are read from a new server. Requires "
         "encrypted.",
     )
+    verify: bool = Field(
+        default=True,
+        description="Try the connection before keeping the destination: one that does not "
+        "connect is not saved (400 destination_unreachable, with rclone's words). False keeps "
+        "one that is down on purpose, to be tried later.",
+    )
 
 
 class UpdateDestinationRequest(BaseModel):
@@ -147,6 +153,11 @@ class UpdateDestinationRequest(BaseModel):
 
     fields: dict[str, str] = Field(default_factory=dict)
     encrypted: bool | None = None
+    verify: bool = Field(
+        default=True,
+        description="Try the connection with the new fields before keeping them; a change that "
+        "does not connect leaves the destination as it was.",
+    )
 
 
 class DestinationActionResponse(BaseModel):
@@ -311,15 +322,21 @@ def create_destination(
         if data.encryption_key is not None
         else None
     )
-    destination = manager.add(
-        name,
-        data.backend,
-        data.fields,
-        encrypted=resolve_encryption(
-            data.encrypted, backend=data.backend, key_given=crypt_key is not None
-        ),
-        crypt_key=crypt_key,
-    )
+    try:
+        destination = manager.add(
+            name,
+            data.backend,
+            data.fields,
+            encrypted=resolve_encryption(
+                data.encrypted, backend=data.backend, key_given=crypt_key is not None
+            ),
+            crypt_key=crypt_key,
+            verify=data.verify,
+        )
+    except BackupError as exc:
+        if "could not be reached" in exc.message:
+            raise _unreachable(exc) from exc
+        raise
     return DestinationActionResponse(
         success=True,
         message=f"Backup destination created: {name}",
@@ -375,7 +392,14 @@ def update_destination(
     """
     audit_log.info("update_backup_destination name=%s session=%s", name, actor_label(session))
     manager = BackupDestinationManager()
-    destination = manager.update(name, data.fields, encrypted=data.encrypted)
+    try:
+        destination = manager.update(
+            name, data.fields, encrypted=data.encrypted, verify=data.verify
+        )
+    except BackupError as exc:
+        if "could not be reached" in exc.message:
+            raise _unreachable(exc) from exc
+        raise
     return DestinationActionResponse(
         success=True,
         message=f"Backup destination updated: {name}",
