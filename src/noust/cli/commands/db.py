@@ -3113,3 +3113,18 @@ def _attach_pitr_commands() -> None:
 
 
 _attach_pitr_commands()
+
+
+def _attach_tls_commands() -> None:
+    """
+    Add ``tls``: a host engine that serves a certificate clients can verify.
+
+    It lives in :mod:`noust.cli.commands.db_tls`, which imports this module only at call time,
+    like the other command modules.
+    """
+    from noust.cli.commands import db_tls
+
+    db_tls.register(cli)
+
+
+_attach_tls_commands()

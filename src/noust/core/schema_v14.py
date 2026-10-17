@@ -379,6 +379,28 @@ CREATE TABLE IF NOT EXISTS database_exposures (
     UNIQUE (engine, db_name)
 );
 """
+DATABASES_SQL += """
+-- db_host_tls: the certificate a host engine serves TLS with (noust.managers.database.host_tls
+-- is its only reader and writer). One row per engine: the name it is reached by, which
+-- certificate Noust copies from and the fingerprint of the copy the engine serves, so a renewal
+-- is noticed by comparing it with the source. Never a key: the key stays in the certificate's
+-- own directory and in the copy only the engine's account reads.
+CREATE TABLE IF NOT EXISTS db_host_tls (
+    engine TEXT PRIMARY KEY,
+    hostname TEXT NOT NULL,
+    source TEXT NOT NULL CHECK (source IN ('acme', 'custom', 'lineage')),
+    certificate TEXT,
+    installed_dir TEXT NOT NULL,
+    fingerprint TEXT,
+    not_after TEXT,
+    ssl_was TEXT,
+    last_refresh_at TEXT,
+    last_status TEXT,
+    last_error TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+"""
 DATABASES_COLUMNS: list[tuple[str, str, str]] = [
     # How a client verifies the engine a link signs in to: require, verify-ca or
     # verify-full. Null leaves the engine's own default (noust.managers.database.tls_links).

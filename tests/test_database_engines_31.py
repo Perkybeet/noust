@@ -696,3 +696,65 @@ def test_an_apt_uninstall_of_postgresql_takes_out_every_major_and_the_wrappers(
         "postgresql-common",
         "postgresql-client-common",
     )
+
+
+def test_an_apt_uninstall_of_mariadb_takes_out_the_server_and_the_client_and_leaves_the_commons(
+    runner: FakeRunner,
+) -> None:
+    """A client left behind keeps ``mysql`` on the path: the engine would be reported installed."""
+    runner.only_knows("apt-get", "dpkg-query", "mysql")
+    runner.script(
+        ["dpkg-query", "-W", "-f", "${Package}\\n"],
+        stdout=(
+            "mariadb-server\nmariadb-server-core\nmariadb-client\nmariadb-client-core\n"
+            "mariadb-common\nmysql-common\nmariadb-plugin-provider-lz4\nmysql-server-8.0\n"
+        ),
+    )
+
+    MySQLManager().uninstall(purge=False)
+
+    removal = next(call for call in runner.calls if call[:3] == ("apt-get", "remove", "-y"))
+    assert removal[3:] == (
+        "mariadb-client",
+        "mariadb-client-core",
+        "mariadb-plugin-provider-lz4",
+        "mariadb-server",
+        "mariadb-server-core",
+        "mysql-server-8.0",
+    )
+
+
+def test_a_purge_gives_the_shared_packages_their_configuration_back(runner: FakeRunner) -> None:
+    """``rm -rf /etc/mysql`` deletes files of packages that stay: dpkg would not restore them."""
+    runner.only_knows("apt-get", "dpkg-query", "mysql")
+    runner.script(["dpkg-query", "-W", "-f", "${Package}\\n"], stdout="mariadb-server\n")
+    runner.script(
+        ["dpkg-query", "-W", "-f", "${Status}", "mariadb-common"], stdout="install ok installed"
+    )
+    runner.script(["dpkg-query", "-W", "-f", "${Status}", "mysql-common"], exit_code=1)
+
+    MySQLManager().uninstall(purge=True)
+
+    reinstalls = [call for call in runner.calls if "--reinstall" in call]
+    assert reinstalls == [
+        (
+            "apt-get",
+            "install",
+            "--reinstall",
+            "-y",
+            "-o",
+            "Dpkg::Options::=--force-confmiss",
+            "mariadb-common",
+        )
+    ]
+    wiped = runner.calls.index(("rm", "-rf", "/etc/mysql"))
+    assert runner.calls.index(reinstalls[0]) > wiped
+
+
+def test_removal_without_a_purge_leaves_the_configuration_alone(runner: FakeRunner) -> None:
+    runner.only_knows("apt-get", "dpkg-query", "mysql")
+    runner.script(["dpkg-query", "-W", "-f", "${Package}\\n"], stdout="mariadb-server\n")
+
+    MySQLManager().uninstall(purge=False)
+
+    assert not [call for call in runner.calls if "--reinstall" in call or call[:2] == ("rm", "-rf")]

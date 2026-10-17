@@ -1054,6 +1054,246 @@ def scenario_pitr_postgresql(sc: Any) -> None:
         )
 
 
+TLS_HOST = "db.noust.test"
+TLS_LINEAGE = f"/etc/letsencrypt/live/{TLS_HOST}"
+
+
+def issue_certificate(sc: Any, *, directory: str, days: int = 30, names: str = TLS_HOST) -> None:
+    """
+    Issue a certificate for the scenario's name from a private authority, as a certbot lineage.
+
+    The authority is made once (``/root/tls-ca``) and every call signs a new key with it, so a
+    "renewal" is a new certificate the same clients still verify.
+
+    Args:
+        sc: The scenario.
+        directory: Where ``fullchain.pem`` and ``privkey.pem`` are written.
+        days: How long it is valid.
+        names: The subject alternative name.
+    """
+    sc.run(
+        "test -f /root/tls-ca/ca.pem || { mkdir -p /root/tls-ca && cd /root/tls-ca && "
+        "openssl req -x509 -newkey rsa:2048 -nodes -keyout ca.key -out ca.pem -days 365 "
+        "-subj '/CN=Noust test CA' 2>/dev/null; }",
+        label="the private authority",
+    )
+    sc.run(
+        f"mkdir -p {directory} && cd /root/tls-ca && "
+        f"openssl req -newkey rsa:2048 -nodes -keyout {directory}/privkey.pem -out leaf.csr "
+        f"-subj '/CN={names}' 2>/dev/null && "
+        f"printf 'subjectAltName=DNS:{names}\\n' > leaf.ext && "
+        f"openssl x509 -req -in leaf.csr -CA ca.pem -CAkey ca.key -CAcreateserial -days {days} "
+        f"-extfile leaf.ext -out leaf.pem 2>/dev/null && "
+        f"cat leaf.pem ca.pem > {directory}/fullchain.pem && chmod 600 {directory}/privkey.pem",
+        label=f"a certificate for {names}",
+    )
+
+
+def presented(sc: Any, port: int, protocol: str) -> str:
+    """
+    Ask an engine what certificate it presents, as a client that verifies would.
+
+    Args:
+        sc: The scenario.
+        port: The engine's port.
+        protocol: ``postgres`` or ``mysql``.
+
+    Returns:
+        The leaf's SHA-256 fingerprint, once the handshake verified against the authority and
+        the name.
+    """
+    done = sc.run(
+        f"echo | openssl s_client -connect 127.0.0.1:{port} -starttls {protocol} "
+        f"-servername {TLS_HOST} -CAfile /root/tls-ca/ca.pem -verify_return_error "
+        f"-verify_hostname {TLS_HOST} 2>&1 | tee /root/handshake.txt | "
+        "openssl x509 -noout -fingerprint -sha256",
+        label=f"what the {protocol} engine presents",
+    )
+    sc.check(
+        "Verify return code: 0 (ok)" in sc.run("cat /root/handshake.txt").stdout,
+        "a client that verifies the authority and the name should accept the engine",
+    )
+    return done.stdout.strip().split("=", 1)[1].replace(":", "").lower()
+
+
+def lineage_fingerprint(sc: Any) -> str:
+    """
+    Args:
+        sc: The scenario.
+
+    Returns:
+        The SHA-256 fingerprint of the leaf of the scenario's lineage.
+    """
+    done = sc.run(
+        f"openssl x509 -in {TLS_LINEAGE}/fullchain.pem -noout -fingerprint -sha256",
+        label="the lineage's leaf",
+    )
+    return done.stdout.strip().split("=", 1)[1].replace(":", "").lower()
+
+
+@engines_scenario("host_tls")
+def scenario_host_tls(sc: Any) -> None:
+    """
+    C-27: PostgreSQL and MariaDB on the host present a real certificate, and a renewal reaches them.
+
+    The certificate is a certbot-shaped lineage signed by a private authority; the engines are
+    installed by Noust. A client that verifies the authority and the name is accepted, a name the
+    certificate does not cover is refused before the engine is touched, and when the lineage is
+    replaced, certbot's own deploy hook (the one Noust installs) makes both engines present the new
+    certificate: PostgreSQL by a reload and MariaDB by FLUSH SSL, neither restarted.
+    """
+    try:
+        noust(sc, "db uninstall postgresql --purge -f", timeout=900, check=False)
+        noust(sc, "db uninstall mysql --purge -f", timeout=900, check=False)
+        noust(sc, "db install postgresql", timeout=1800)
+        noust(sc, "db install mariadb", timeout=1800)
+        sc.run(f"grep -q {TLS_HOST} /etc/hosts || echo '127.0.0.1 {TLS_HOST}' >> /etc/hosts")
+        issue_certificate(sc, directory=TLS_LINEAGE)
+        first = lineage_fingerprint(sc)
+
+        # --- refused before anything is touched
+        wrong_name = noust(
+            sc,
+            "db tls enable -e postgresql --host other.noust.test --source lineage "
+            f"--certificate {TLS_HOST} --plan",
+            check=False,
+        )
+        sc.check(
+            wrong_name.returncode != 0
+            and "does not cover other.noust.test" in wrong_name.stdout + wrong_name.stderr,
+            f"a certificate that does not cover the name is refused: {wrong_name.stdout}",
+        )
+        sc.run(
+            "mkdir -p /etc/letsencrypt/live/mismatch && cd /etc/letsencrypt/live/mismatch && "
+            f"cp {TLS_LINEAGE}/fullchain.pem . && openssl genrsa -out privkey.pem 2048 2>/dev/null"
+        )
+        mismatch = noust(
+            sc,
+            "db tls enable -e postgresql --host db.noust.test --source lineage "
+            "--certificate mismatch --plan",
+            check=False,
+        )
+        sc.check(
+            mismatch.returncode != 0
+            and "not the certificate's" in mismatch.stdout + mismatch.stderr,
+            "a key that is not the certificate's is refused",
+        )
+        sc.check(
+            psql(sc, "postgres", "show ssl_cert_file")
+            != "/etc/ssl/noust-db/postgresql/fullchain.pem",
+            "the refusals changed nothing",
+        )
+
+        # --- PostgreSQL: a reload, and a client that verifies is accepted
+        pg_start = psql(sc, "postgres", "select pg_postmaster_start_time()")
+        noust(sc, f"db tls enable -e postgresql --host {TLS_HOST} --yes", timeout=300)
+        port = int(psql(sc, "postgres", "show port"))
+        sc.check(
+            presented(sc, port, "postgres") == first,
+            "PostgreSQL should present the lineage's certificate",
+        )
+        sc.run(f"{PSQL} -c \"create role tlsuser login password 'tlspass'\"")
+        who = sc.run(
+            f"PGPASSWORD=tlspass psql -X -tA 'host={TLS_HOST} dbname=postgres user=tlsuser "  # noqa: S608
+            "sslmode=verify-full sslrootcert=/root/tls-ca/ca.pem' "
+            "-c 'select ssl from pg_stat_ssl where pid = pg_backend_pid()'",
+            label="psql with sslmode=verify-full",
+        ).stdout.strip()
+        sc.check(who == "t", f"a verify-full client should connect over TLS: {who!r}")
+        sc.check(
+            psql(sc, "postgres", "select pg_postmaster_start_time()") == pg_start, "no restart"
+        )
+
+        # --- MariaDB: one restart, then the same
+        noust(sc, f"db tls enable -e mysql --host {TLS_HOST} --yes", timeout=600)
+        my_port = int(sc.run("mysql -N -e 'select @@port'").stdout.strip())
+        sc.check(
+            presented(sc, my_port, "mysql") == first,
+            "MariaDB should present the lineage's certificate",
+        )
+        sc.run(
+            "mysql -e \"create user if not exists 'tlsuser'@'127.0.0.1' identified by 'tlspass'; "
+            "grant select on mysql.* to 'tlsuser'@'127.0.0.1'\""
+        )
+        cipher = sc.run(
+            f"mysql -N -h {TLS_HOST} -u tlsuser -ptlspass --ssl --ssl-verify-server-cert "
+            "--ssl-ca=/root/tls-ca/ca.pem -e \"show status like 'Ssl_cipher'\"",
+            label="mariadb client verifying the certificate and the name",
+        ).stdout
+        sc.check("TLS" in cipher, f"a verify-identity client should connect over TLS: {cipher!r}")
+        status = json_of(noust(sc, "db tls status --json"), "db tls status")
+        sc.check(
+            sorted(v["engine"] for v in status if v["enabled"]) == ["mysql", "postgresql"]
+            and all(not v["warnings"] for v in status if v["enabled"]),
+            f"both engines are given the certificate and nothing is behind: {status}",
+        )
+
+        # --- the renewal: certbot replaces the lineage and runs its deploy hook
+        uptime = int(sc.run("mysql -N -e \"show global status like 'Uptime'\"").stdout.split()[1])
+        issue_certificate(sc, directory=TLS_LINEAGE)
+        second = lineage_fingerprint(sc)
+        sc.check(second != first, "a renewal is a new certificate")
+        behind = json_of(noust(sc, "db tls status --json"), "status")
+        sc.check(
+            any(v["enabled"] and v.get("source_changed") for v in behind),
+            "status should say the copy is behind its source",
+        )
+        hook = "/etc/letsencrypt/renewal-hooks/deploy/noust-reload"
+        sc.check(
+            sc.run(f"grep -c 'noust db tls refresh' {hook}", check=False).stdout.strip() == "1",
+            "certbot's deploy hook should refresh the engines",
+        )
+        sc.run(f"RENEWED_LINEAGE={TLS_LINEAGE} {hook}", label="certbot's deploy hook")
+        sc.check(
+            presented(sc, port, "postgres") == second,
+            "PostgreSQL should present the renewed certificate",
+        )
+        sc.check(
+            presented(sc, my_port, "mysql") == second,
+            "MariaDB should present the renewed certificate",
+        )
+        sc.check(
+            psql(sc, "postgres", "select pg_postmaster_start_time()") == pg_start,
+            "PostgreSQL loaded the renewed certificate without a restart",
+        )
+        now = int(sc.run("mysql -N -e \"show global status like 'Uptime'\"").stdout.split()[1])
+        sc.check(now >= uptime, "MariaDB loaded the renewed certificate without a restart")
+
+        # --- off: the settings are back and the copies are gone
+        noust(sc, "db tls disable -e postgresql", timeout=300)
+        noust(sc, "db tls disable -e mysql --yes", timeout=600)
+        sc.check(
+            psql(sc, "postgres", "show ssl_cert_file")
+            != "/etc/ssl/noust-db/postgresql/fullchain.pem",
+            "PostgreSQL's settings are back",
+        )
+        sc.check(
+            sc.run("find /etc/ssl/noust-db -type f 2>/dev/null | wc -l", check=False).stdout.strip()
+            == "0",
+            "the copies are removed",
+        )
+        sc.check(
+            sc.run(
+                "ls /etc/mysql/*/98-noust-tls.cnf 2>/dev/null | wc -l", check=False
+            ).stdout.strip()
+            == "0",
+            "MariaDB's include is removed",
+        )
+        off = json_of(noust(sc, "db tls status --json"), "status")
+        sc.check(not any(v["enabled"] for v in off), "nothing is given a certificate any more")
+    finally:
+        sc.run(
+            "noust db tls disable -e postgresql; noust db tls disable -e mysql --yes; "
+            "runuser -u postgres -- psql -X -c 'drop role if exists tlsuser'; "
+            "mysql -e \"drop user if exists 'tlsuser'@'127.0.0.1'\"; "
+            f"rm -rf /etc/letsencrypt/live/mismatch {TLS_LINEAGE}; "
+            f"sed -i '/{TLS_HOST}/d' /etc/hosts",
+            timeout=600,
+            check=False,
+            label="cleanup",
+        )
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------

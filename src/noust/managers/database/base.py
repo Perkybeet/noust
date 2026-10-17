@@ -1503,6 +1503,19 @@ class BaseDatabaseManager(BaseManager):
         if purge:
             for path in self.PURGE_PATHS:
                 self._exec(["rm", "-rf", path], timeout=SERVICE_TIMEOUT)
+            if family is PackageFamily.APT or family is PackageFamily.NONE:
+                self._restore_shared_configuration()
+
+    def _restore_shared_configuration(self) -> None:
+        """
+        Put back the configuration files of packages a purge left installed.
+
+        A directory the engine's packages share with others (MySQL's ``/etc/mysql`` holds the
+        files of ``mariadb-common`` and ``mysql-common``, which libraries depend on) is wiped by
+        the purge, and dpkg does not give a deleted configuration file back to a package that
+        stays installed: the next install finds no ``mariadb.cnf`` and the server does not
+        start. Engines whose purge touches such a directory override this.
+        """
 
     def _removal_sets(self) -> tuple[list[str], ...]:
         """

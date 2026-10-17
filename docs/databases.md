@@ -579,6 +579,108 @@ engine in a container has its own (`noust db instance limits`). The console show
 under an engine's settings, and `GET`/`PUT /api/databases/engines/{engine}/limits` is the API
 (sudo mode to change, audited as `db.limits.change`).
 
+## Recovering PostgreSQL to an instant
+
+A dump says what a database held when it was taken. Point-in-time recovery says what the whole
+cluster held at any instant since: PostgreSQL copies every segment of its write-ahead log to an
+archive as it fills, Noust takes a base backup now and then, and a recovery puts a base backup back
+and replays the log over it up to the instant you name. It is the engine's own mechanism
+(`archive_command`, `pg_basebackup`, `recovery.signal`, `recovery_target_time`) driven by Noust, with
+no external archiver: a server that loses Noust can still recover by hand from the same files.
+
+```bash
+noust db pitr enable --plan                    # what the engine is given, and that it restarts once
+noust db pitr enable --keep-days 14 --to nas   # turn it on, prove the archive, take the first base backup
+noust db pitr status                           # the window that can be recovered, the base backups, warnings
+noust db pitr restore --time '2026-10-17 12:34:56' --plan
+noust db pitr restore --time '2026-10-17 12:34:56'      # asks first
+noust db pitr restore --latest                 # to the end of the archived log
+noust db pitr base                             # a base backup now (the timer takes one weekly)
+noust db pitr fetch nas                        # bring the archive back on a server that lost its own
+noust db pitr disable                          # settings back; --delete-archive also removes the files
+```
+
+- **What it asks of the engine.** `archive_mode = on` (one restart, which it asks about),
+  `archive_command`, `archive_timeout = 60s` (so a quiet server still archives every minute, which is
+  the granularity of a recovery) and a `wal_level` of at least `replica`, set with `ALTER SYSTEM` so
+  they work on any layout and undo with `RESET`. An `archive_command` that is not Noust's is never
+  replaced. The command is coreutils alone (copy, flush, rename into place; a segment archived twice
+  with the same bytes succeeds, one that differs fails loudly), so the archive keeps working when
+  Noust does not run. Turning it on proves the archive: the engine is made to switch segment and the
+  archiver must report the new one; when it does not, the settings are put back.
+- **Where things are.** The log is archived to `noust-wal/<system identifier>` in the `postgres`
+  account's home (the engine writes there; Noust's backups directory is root's alone). The base
+  backups are root's, in `<backups>/databases/pitr/postgresql/<system identifier>/`, each with a
+  sidecar saying everything a recovery needs. A cluster that is replaced by another (a different
+  system identifier) never mixes into the archive of the first.
+- **The timer.** `noust-backup-pitr-postgresql.timer` runs `noust db pitr run` every five minutes: a
+  base backup when the last is older than `--every` hours (weekly), retention, and sending the log and
+  the base backups to the destinations (verified, with the same rules as every other upload; an
+  encrypted destination is required under the ENS profile). One change at a time: the timer skips a
+  run while a recovery or another change holds the lock.
+- **Retention.** `--keep N` base backups and `--keep-days D` days back; with both, the one that keeps
+  more wins, and the newest base backup always stays. "D days back" means any instant of the last D
+  days can be recovered, so the base backup from before the window opens is kept too. The log that
+  only a deleted base backup needed goes with it, here and on each destination (which can have its
+  own limits: `--to nas:COUNT:DAYS`). Timeline histories are never pruned.
+- **A recovery is in place and can be undone.** Before anything is touched it is planned: the base
+  backup for the instant (the newest that finished before it), the log between them must be whole,
+  the base backup must match the digest it was taken with, and an instant before the first base
+  backup or after the archive is refused. Then the current segment is archived, the engine is stopped
+  and *waited for until its server process is gone*, the data directory is **renamed aside, never
+  deleted**, the base backup is extracted for the `postgres` account, the engine is started in
+  recovery and waited for until it promotes. When it does not, the failed attempt is kept at
+  `<data directory>.noust-failed-recovery`, the previous directory is put back and started, and the
+  error carries the engine's own journal. Instants are UTC unless they carry an offset.
+- **Recovering to the same instant twice, or to one before an earlier recovery.** Each recovery
+  starts a new timeline. The engine's default follows the newest, which makes a second recovery to
+  the same instant fail when nothing was written after the first ("recovery ended before configured
+  recovery target was reached"), so Noust reads the timeline histories and follows a branch only
+  when the instant is at or after the moment it split off.
+- **What it does not do yet.** PostgreSQL of the server only (not an instance); a cluster with
+  tablespaces besides the two every cluster has is refused; the archive directory is the engine's
+  own and is not encrypted (the base backups and the destinations are subject to the encryption of
+  [backups](#local-backups-encrypted-at-rest) and of the destination); a recovery is not
+  tried automatically in a scratch directory first (a restore drill of the archive).
+
+The API is `GET /api/databases/pitr`, `POST .../pitr/enable/plan` and `.../pitr/restore/plan`, and, as
+jobs with sudo mode, `POST .../pitr/enable`, `.../disable`, `.../base`, `.../sync`, `.../fetch` and
+`.../restore`. A change that restarts the engine or replaces the cluster is refused without `confirm`.
+
+## A host engine with a certificate clients can verify
+
+A database made public is reached through a proxy that passes bytes, so the certificate the client
+sees is the engine's own, and a package leaves a self-signed one: a client can encrypt but cannot know
+who answers. `noust db tls` gives PostgreSQL, MySQL or MariaDB on the host a real certificate (an
+ACME lineage, or one you uploaded) so `sslmode=verify-full` works from anywhere, with nothing
+terminating TLS in between.
+
+```bash
+noust db tls enable -e postgresql --host db.example.com             # the lineage named db.example.com
+noust db tls enable -e mysql --host db.example.com --source custom --certificate corp-db
+noust db tls status
+noust db tls refresh                       # what certbot runs after a renewal
+noust db tls disable -e postgresql
+```
+
+- **Checked first.** The key is the certificate's, it covers the name, it has not expired. Then the
+  certificate and key are copied to `/etc/ssl/noust-db/<engine>/` for the engine's account (the source
+  stays root's: `/etc/letsencrypt/archive` is not a directory a database should be given).
+- **Applied.** PostgreSQL by `ALTER SYSTEM` (`ssl`, `ssl_cert_file`, `ssl_key_file`, a TLS 1.2
+  minimum) and a reload; MySQL and MariaDB by `98-noust-tls.cnf` and one restart (asked about).
+- **Proved.** The engine is asked what it presents, with a TLS handshake started the way its protocol
+  starts it and the name a client would send; the fingerprint must be the certificate's. When it is
+  not, the settings are put back.
+- **Renewed.** `noust db tls refresh` copies a changed source and makes the engine load it *without a
+  restart* (`pg_reload_conf()`, `ALTER INSTANCE RELOAD TLS`, `FLUSH SSL`), then proves what is
+  presented again. certbot's deploy hook (the one Noust installs for the web server) runs it after
+  every renewal that succeeds. For an uploaded certificate it is the command to run after uploading a
+  new one, and `status` says when the copy is behind its source.
+
+The engine does not require TLS of every client because of this; what a public database's account
+requires is in [Making a database public](#making-a-database-public-on-purpose). Redis, Valkey and
+MongoDB are not covered, and an instance has its own certificate (`noust db instance tls`).
+
 ## Making a database public, on purpose
 
 A database is private: its engine listens on the loopback and `noust db connect-info` prints the SSH
