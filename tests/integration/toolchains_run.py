@@ -239,6 +239,30 @@ def forget_every_application(name: str) -> None:
         )
 
 
+def ensure_git_daemon(name: str) -> None:
+    """
+    Serve the fixtures again when a kept container was stopped and started.
+
+    The daemon is a process of the container's, and does not survive a restart that the
+    container's PID 1 (systemd) was not asked to bring it back from.
+
+    Args:
+        name: The container.
+    """
+    probe = docker_exec(
+        name, f"git ls-remote --exit-code {run.RELEASE_URL} HEAD", timeout=30, check=False
+    )
+    if probe.returncode == 0:
+        return
+    print(f"[setup] serving the fixtures again in {name}")
+    docker_exec(
+        name,
+        "git daemon --reuseaddr --export-all --base-path=/root/fixtures "
+        "--listen=127.0.0.1 --detach /root/fixtures",
+        timeout=30,
+    )
+
+
 def remove_container(name: str) -> None:
     """Remove the container (and the anonymous volumes it made); never raises."""
     subprocess.run(["docker", "rm", "-f", "-v", name], capture_output=True, text=True, timeout=120)
@@ -915,6 +939,7 @@ def main() -> int:
         try:
             if reusing:
                 reinstall_noust(CONTAINER_NAME, wheel)
+                ensure_git_daemon(CONTAINER_NAME)
                 forget_every_application(CONTAINER_NAME)
                 docker_exec(CONTAINER_NAME, "rm -rf /root/fixtures/toolchains", timeout=30)
                 sh(
