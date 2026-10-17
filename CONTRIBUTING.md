@@ -441,6 +441,7 @@ npm test                        # vitest unit + component tests (axe included)
 npm run check:api               # schema.gen.ts matches openapi.json (npm run gen:api to fix)
 npm run build                   # writes src/noust/web/static: commit the result
 npm run check:bundle            # the build's gzip weight against panel/bundle-budget.json
+npm run i18n:routes             # rewrite src/i18n/routeNamespaces.gen.ts after a route or a page's texts change
 npm run e2e                     # Playwright: every page, both themes, zero axe/CSP violations
 npm run e2e:screens             # screenshots of every route, both themes + 390px mobile
 ```
@@ -581,6 +582,16 @@ case, and lives only in the typed catalogs of `panel/src/i18n` (rules and glossa
 README): whole sentences with placeholders, never fragments. A language beyond these two is not a
 typed catalog but a JSON file in `panel/src/i18n/community/` that anyone can contribute without
 TypeScript (`npm run i18n:new`, guide in `docs/TRANSLATING.md`); tests hold it to English.
+
+The catalogs are not in the script every page loads. Each namespace of each typed language is a
+chunk of its own; only the chrome (what the frame of any page draws) is bundled, in English
+(`CHROME` in `panel/src/i18n/catalogs.ts`). The router loads a route's namespaces before the page
+is shown, from a map generated from the source: after a page starts to draw another feature's
+texts, or a route is added, run `npm run i18n:routes` and commit `routeNamespaces.gen.ts` (a test
+fails until you have). The rest of the language is fetched while the browser is idle, and `t()`
+outside a render never waits or throws (`panel/src/i18n/README.md`, "How the texts reach the
+browser"). Nothing but `catalogs.ts` imports a catalog; a test fails on the next
+`import * as en from "./en"`.
 
 A system error is never paraphrased. Show nginx's or systemd's own output verbatim in mono,
 with the suggested fix above it.

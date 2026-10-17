@@ -5,10 +5,16 @@ import { afterEach, vi } from "vitest";
 import { resetApiHooks } from "../api/client";
 import { resetLocale } from "../app/locale";
 import { cancelElevation } from "../features/auth/elevation";
+import { loadCatalog } from "../i18n/catalogs";
 import { FakeEventSource, FakeWebSocket } from "./fakes";
 
 // Every file starts in English, on <html> too, whatever the machine's browser languages.
 resetLocale("en");
+// The build fetches a namespace when a page needs it; a test should not have to know which. English
+// is here whole before the first line of a test, and a language a test switches to is brought up to
+// it (app/locale.ts), so `t()` is as synchronous for whoever writes one as it ever was. The tests of
+// the loading itself (i18n/*.test.ts, routes/namespaces.test.tsx) start from a cold catalog on purpose.
+await loadCatalog("en");
 
 afterEach(() => {
   cleanup();
