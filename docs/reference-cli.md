@@ -5287,7 +5287,7 @@ Arguments: `database`
 | Option | What it does | Default |
 |---|---|---|
 | `--engine`, `-e` | Engine the database is on. |  |
-| `--output`, `-o` | Where to write the file. Defaults to the engine's backup directory. |  |
+| `--output`, `-o` | Where to write the file. Defaults to the engine's backup directory. A name ending in .gz is gzipped; any other is written as the engine dumps it. |  |
 | `--no-compress` | Write the dump without gzip. |  |
 | `--format` | PostgreSQL's dump format. custom (pg_dump -Fc) by default. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
