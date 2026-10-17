@@ -436,7 +436,8 @@ def backup_format(path: Path) -> str:
 
     Returns:
         ``custom`` (``pg_dump -Fc``), ``plain`` (SQL text), ``tar``, ``rdb``,
-        ``aof``, ``archive`` (a mongodump tarball) or ``unknown``.
+        ``aof``, ``archive`` (a mongodump tarball), ``zip`` (a ClickHouse backup)
+        or ``unknown``.
     """
     name = path.name.removesuffix(".gz")
     for suffix, kind in (
@@ -445,6 +446,7 @@ def backup_format(path: Path) -> str:
         (".tar", "archive" if path.name.endswith(".tar.gz") else "tar"),
         (".rdb", "rdb"),
         (".aof", "aof"),
+        (".zip", "zip"),
     ):
         if name.endswith(suffix):
             return kind
@@ -792,6 +794,9 @@ class BaseDatabaseManager(BaseManager):
     EOL_FAMILY: str = ""
     #: Accounts that belong to the engine, which Noust never alters or drops.
     INTERNAL_USERS: frozenset[str] = frozenset()
+    #: The engine only runs as an instance Noust makes: the host has none to list,
+    #: install or configure, and the engines page of the host leaves it out.
+    CONTAINER_ONLY: bool = False
 
     #: Where backups are written when the caller gives no path.
     BACKUP_DIR = paths.backup_dir() / "databases"
@@ -1197,7 +1202,10 @@ class BaseDatabaseManager(BaseManager):
             raise DatabaseEngineError(
                 f"Noust installs {self.DISPLAY_NAME} with apt, which this system does not have",
                 details=(
-                    f"Install {self.DISPLAY_NAME} with your distribution's package manager "
+                    f"Run it as an instance, a container that needs no package manager: "
+                    f"noust db instance create NAME --engine "
+                    f"{plan.flavour if plan is not None else self.ENGINE_NAME}. Or install "
+                    f"{self.DISPLAY_NAME} with your distribution's package manager "
                     "(dnf or zypper), enable and start its service, then run "
                     f"'noust db status {self.ENGINE_NAME}': Noust manages it from there."
                 ),

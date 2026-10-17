@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { PanelTop, Play, RotateCw, Tags, Trash2, X } from "lucide-react";
+import { Cable, Download, FileUp, Link2, PanelTop, Play, RotateCw, Tags, Trash2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { CommandHint } from "../../components/page/CommandHint";
@@ -21,6 +21,7 @@ import { Mono } from "../../components/ui/Mono";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { downloadText } from "../../lib/clipboard";
 import { describeError } from "../../lib/errors";
 import { RemoveServerDialog } from "../settings/servers/RemoveServerDialog";
 import { nodeKeys, testNode } from "./nodes";
@@ -30,6 +31,8 @@ import type { FleetRow, NodeOutcome } from "./data";
 import { isFiltered, matchesQuery, patchSearch } from "./filters";
 import type { FleetSearch, FleetSearchPatch } from "./filters";
 import { LabelsDialog } from "./LabelsDialog";
+import { ConnectionDialog, InventoryDialog, LinkMachineDialog } from "./NodeToolsDialogs";
+import { fetchInventory } from "./nodeTools";
 import { OutcomePill, PartialNotice, ServerCell, StateFilter, useFleetView } from "./parts";
 
 /** The Servers view's own states, for its filter. */
@@ -158,16 +161,20 @@ function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>, handlers: Row
   ];
 }
 
+type Tool = "connection" | "inventory" | "link";
+
 function RowActions({
   t,
   row,
   onLabels,
   onRemove,
+  onTool,
 }: {
   t: T;
   row: FleetRow;
   onLabels: () => void;
   onRemove: () => void;
+  onTool: (tool: Tool) => void;
 }) {
   const origin = originOf(row);
   const navigate = useNavigate();
@@ -200,6 +207,20 @@ function RowActions({
       void queryClient.invalidateQueries({ queryKey: fleetKeys.all });
     },
   });
+  const exportInventory = useMutation({
+    mutationFn: () => fetchInventory(origin.node),
+    onSuccess: (document) => {
+      downloadText(`${origin.node}.inventory.json`, `${JSON.stringify(document, null, 2)}\n`, "application/json");
+      toast.success(t("nodeTools.inventory.exportDone", { name: origin.node }));
+    },
+    onError: (error) => {
+      const described = describeError(error);
+      toast.error(t("nodeTools.inventory.exportFailed", { name: origin.node }), {
+        ...(described.hint !== null ? { description: described.hint } : {}),
+        detail: described.detail,
+      });
+    },
+  });
   return (
     <Menu align="end" trigger={<IconButton label={t("fleet.servers.actionsFor", { name: origin.node })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
       <MenuItem icon={<PanelTop />} onClick={() => void navigate({ to: "/", search: { node: origin.local ? undefined : origin.node } })}>
@@ -220,6 +241,34 @@ function RowActions({
             }}
           >
             {t("fleet.servers.runOn")}
+          </MenuItem>
+          <MenuSeparator />
+          <MenuItem
+            icon={<Cable />}
+            onClick={() => {
+              onTool("connection");
+            }}
+          >
+            {t("nodeTools.menu.connection")}
+          </MenuItem>
+          <MenuItem
+            icon={<Link2 />}
+            onClick={() => {
+              onTool("link");
+            }}
+          >
+            {t("nodeTools.menu.linkMachine")}
+          </MenuItem>
+          <MenuItem icon={<Download />} disabled={exportInventory.isPending} onClick={() => exportInventory.mutate()}>
+            {t("nodeTools.menu.exportInventory")}
+          </MenuItem>
+          <MenuItem
+            icon={<FileUp />}
+            onClick={() => {
+              onTool("inventory");
+            }}
+          >
+            {t("nodeTools.menu.applyInventory")}
           </MenuItem>
           <MenuSeparator />
           <MenuItem icon={<Trash2 />} destructive onClick={onRemove}>
@@ -249,6 +298,7 @@ export function ServersTab({ search, onSearchChange }: ServersTabProps) {
   const [labelling, setLabelling] = useState<FleetRow | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [tool, setTool] = useState<{ kind: Tool; node: string } | null>(null);
 
   const rows = useMemo(() => view.data?.items ?? [], [view.data]);
   const shown = rows.filter((row) => {
@@ -343,6 +393,9 @@ export function ServersTab({ search, onSearchChange }: ServersTabProps) {
               setRemoving(originOf(row).node);
               setConfirming(true);
             }}
+            onTool={(kind) => {
+              setTool({ kind, node: originOf(row).node });
+            }}
           />
         )}
         empty={
@@ -374,6 +427,33 @@ export function ServersTab({ search, onSearchChange }: ServersTabProps) {
         />
       ) : null}
       {removing !== null ? <RemoveServerDialog key={removing} name={removing} open={confirming} onOpenChange={setConfirming} /> : null}
+      {tool?.kind === "connection" ? (
+        <ConnectionDialog
+          key={tool.node}
+          node={tool.node}
+          onClose={() => {
+            setTool(null);
+          }}
+        />
+      ) : null}
+      {tool?.kind === "inventory" ? (
+        <InventoryDialog
+          key={tool.node}
+          node={tool.node}
+          onClose={() => {
+            setTool(null);
+          }}
+        />
+      ) : null}
+      {tool?.kind === "link" ? (
+        <LinkMachineDialog
+          key={tool.node}
+          node={tool.node}
+          onClose={() => {
+            setTool(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

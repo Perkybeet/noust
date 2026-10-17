@@ -299,6 +299,7 @@ class TestRunSchedule:
             retention_count: int | None = None,
             retention_days: int | None = None,
             backup_manager: BackupManager | None = None,
+            retention_gb: float | None = None,
         ) -> dict[str, object]:
             pushed[destination_name] = (retention_count, retention_days)
             return {

@@ -25,6 +25,9 @@ SCHEMES: Mapping[str, str] = {
     "mysql": "mysql",
     "redis": "redis",
     "mongodb": "mongodb",
+    # The HTTP interface is what applications use; a URL for the native protocol names its
+    # scheme (ClickHouseManager.get_connection_string).
+    "clickhouse": "clickhouse",
 }
 
 #: Redis's implicit account: a URL for it carries the password alone.

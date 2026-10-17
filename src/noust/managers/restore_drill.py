@@ -35,6 +35,7 @@ import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 from noust.core import audit
@@ -43,6 +44,7 @@ from noust.core.config import Config
 from noust.core.exceptions import DatabaseError, NoustError
 from noust.core.logger import Logger
 from noust.core.store import NoustStore, get_store
+from noust.managers import sqlite_files
 from noust.managers.backup_manager import BackupManager
 
 #: How a drill was started.
@@ -422,6 +424,7 @@ class RestoreDrill:
             report.steps.append(
                 DrillStep("unpack", True, f"{files} files unpacked with a restore's own rules")
             )
+            self._sqlite(report, unpacked.root, say)
             self._databases(report, unpacked.dumps, unpacked.stack_dumps, say)
         report.steps.append(
             DrillStep(
@@ -432,6 +435,34 @@ class RestoreDrill:
                 skipped=True,
             )
         )
+
+    def _sqlite(self, report: DrillReport, root: Path, say: Callable[[str], None]) -> None:
+        """
+        Ask SQLite whether each database kept in the unpacked files is sound.
+
+        The files of an application that keeps its data in SQLite (a Vaultwarden, a Memos) are
+        its database: a copy SQLite cannot read is a backup that does not bring the data back.
+        It adds nothing for an application that keeps none.
+
+        Args:
+            report: The report being made.
+            root: The unpacked backup.
+            say: Reports progress.
+        """
+        found = sqlite_files.check_tree(root)
+        if found:
+            say(f"Checking {len(found)} SQLite database(s)")
+        for result in found:
+            if result.problems:
+                detail = "\n".join(result.problems)
+            elif not result.complete:
+                detail = (
+                    f"SQLite found nothing wrong up to where its {result.seconds:g} s ended; "
+                    "run 'noust db sqlite check --full' on a restored copy for the whole file"
+                )
+            else:
+                detail = f"SQLite's quick_check passes ({result.seconds:g} s)"
+            report.steps.append(DrillStep(f"sqlite/{result.path}", result.ok, detail))
 
     def _databases(
         self,

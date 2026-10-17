@@ -28,7 +28,13 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from noust.core.exceptions import CancelRefused, NoustError, ValidationError
+from noust.core import deploy_guard
+from noust.core.exceptions import (
+    CancelRefused,
+    DeploysFrozenError,
+    NoustError,
+    ValidationError,
+)
 from noust.core.store import JobRecord
 from noust.core.teams import scoped_store
 from noust.deployers.lifecycle import (
@@ -78,6 +84,11 @@ class UpdateRequest(BaseModel):
         default=None,
         description="Build from scratch: no package manager cache, no dependencies taken from "
         "the release that serves, no image layer cache. Implies force",
+    )
+    frozen_ok: bool | None = Field(
+        default=None,
+        description="Deploy although deploys are frozen for this application: a person's "
+        "decision, recorded in the audit trail",
     )
 
 
@@ -185,6 +196,11 @@ class QueueResponse(BaseModel):
     max_concurrent_builds: int = Field(description="deploy.max_concurrent_builds")
     queue_limit: int = Field(description="deploy.queue_limit: builds that may wait")
     builds_queued: int = Field(description="How many of the waiting jobs build an application")
+    max_minutes: int = Field(
+        default=60,
+        description="deploy.max_minutes: the longest a build may take before it is stopped; "
+        "0 is no limit",
+    )
 
 
 class JobListResponse(BaseModel):
@@ -458,6 +474,7 @@ def get_queue(session: Annotated[dict, Depends(get_current_session)]) -> QueueRe
         max_concurrent_builds=snapshot.max_concurrent_builds,
         queue_limit=snapshot.queue_limit,
         builds_queued=len(queued) if scoped.scope.restricted else snapshot.builds_queued,
+        max_minutes=snapshot.max_minutes,
     )
 
 
@@ -493,6 +510,7 @@ def queue_update(
     no_cache: bool = False,
     commit: str | None = None,
     tag: str | None = None,
+    frozen_ok: bool = False,
 ) -> tuple[Job, bool]:
     """
     Queue an update of an application, the one way every door does.
@@ -508,13 +526,26 @@ def queue_update(
         no_cache: Build from scratch.
         commit: Deploy this commit instead of the head of the branch.
         tag: Deploy the commit this tag points at.
+        frozen_ok: The operator confirmed deploying during a freeze of deploys.
 
     Returns:
         The job and whether the request joined one that was already waiting.
+
+    Raises:
+        DeploysFrozenError: Deploys are frozen for the application and this was
+            not confirmed. Refused here, before a job exists, so the console
+            can ask; the update asks again when it runs, for a freeze that
+            began while it waited.
     """
+    deploy_guard.require_open(domain, override=frozen_ok, record=False)
     kwargs: dict[str, Any] = {"domain": domain}
     metadata: dict[str, Any] = {"domain": domain}
-    for key, value in (("no_cache", no_cache or None), ("commit", commit), ("tag", tag)):
+    for key, value in (
+        ("no_cache", no_cache or None),
+        ("commit", commit),
+        ("tag", tag),
+        ("frozen_ok", frozen_ok or None),
+    ):
         if value is not None:
             kwargs[key] = value
             metadata[key] = value
@@ -537,7 +568,12 @@ def queue_update(
 
 
 def _queue_update(
-    domain: str, force: bool, session: dict[str, Any], *, no_cache: bool = False
+    domain: str,
+    force: bool,
+    session: dict[str, Any],
+    *,
+    no_cache: bool = False,
+    frozen_ok: bool = False,
 ) -> tuple[Job, bool]:
     """
     Queue the update of one application.
@@ -550,17 +586,22 @@ def _queue_update(
         force: Rebuild even when the branch has no commit the live build lacks.
         session: The authenticated payload.
         no_cache: Build from scratch: no cache of any kind. Implies force.
+        frozen_ok: Deploy although deploys are frozen for the application.
 
     Returns:
         The job, and whether the request joined an update that was already waiting.
 
     Raises:
         HTTPException: 409 ``nothing_new`` when the branch has nothing new.
+        DeploysFrozenError: 409 ``deploys_frozen`` while a freeze holds it.
     """
+    # A freeze is the first thing said: a branch with nothing new is no news
+    # to somebody who may not deploy at all.
+    deploy_guard.require_open(domain, override=frozen_ok, record=False)
     # Rebuilding without the cache is asked for to rebuild what is live.
     if not force and not no_cache:
         refuse_if_nothing_new(domain)
-    return queue_update(domain, actor=actor_label(session), no_cache=no_cache)
+    return queue_update(domain, actor=actor_label(session), no_cache=no_cache, frozen_ok=frozen_ok)
 
 
 @router.post("/update", response_model=JobCreatedResponse, status_code=202)
@@ -587,7 +628,11 @@ def create_update_job(
         HTTPException: 409 ``nothing_new`` when the branch has nothing new.
     """
     job, joined = _queue_update(
-        strict_domain(request.domain), request.force, session, no_cache=bool(request.no_cache)
+        strict_domain(request.domain),
+        request.force,
+        session,
+        no_cache=bool(request.no_cache),
+        frozen_ok=bool(request.frozen_ok),
     )
     if joined:
         return _queued(
@@ -767,6 +812,10 @@ def update_group(request: UpdateManyRequest, session: dict[str, Any]) -> UpdateM
             continue
         try:
             job, joined = _queue_update(domain, request.force, session)
+        except DeploysFrozenError as exc:
+            # A group is not held up by one application that is frozen.
+            items.append(UpdateManyItem(domain=domain, status="skipped", reason=exc.message))
+            continue
         except HTTPException as exc:
             detail: dict[str, Any] = exc.detail if isinstance(exc.detail, dict) else {}
             if exc.status_code == 409 and detail.get("error") == "nothing_new":

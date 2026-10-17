@@ -19,13 +19,15 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
-import os
 import secrets
 import struct
 import time
 from collections.abc import Mapping
 from pathlib import Path
 from urllib.parse import quote
+
+from noust.core import at_rest
+from noust.core.at_rest import AtRestError, Domain
 
 #: 160 bits of secret, the length RFC 4226 recommends for HMAC-SHA1. It also
 #: encodes to exactly 32 base32 characters, so the secret never needs padding.
@@ -207,34 +209,32 @@ def provisioning_uri(secret_b32: str, *, issuer: str = "Noust", account: str = "
 # A copy of the store - in a backup, an incident package, a support bundle -
 # must not carry every account's second factor. The secrets are encrypted
 # under a key kept in a file of its own beside the store (never in it), so
-# the database file alone discloses nothing.
-#
-# The standard library has no block cipher, and spawning openssl on every
-# sign-in would put a process in the login path, so the construction is
-# built from HMAC-SHA256 alone: the keystream is HMAC-SHA256 of a random
-# nonce and a counter (a PRF in counter mode, the construction of HKDF's
-# expand step), XORed with the secret, and the result is authenticated with
-# HMAC-SHA256 under a second key over a context that binds it to its
-# account (encrypt-then-MAC). A secret moved to another account's row, or
-# changed by one bit, is refused before anything reads it.
+# the database file alone discloses nothing. The construction is
+# :mod:`noust.core.at_rest`'s, the one implementation of encrypting a small
+# secret under a key file; this module only names its domain, which keeps the
+# bytes it has always stored.
+
+
+class TotpSealError(AtRestError):
+    """A stored TOTP secret cannot be opened: altered, moved, or the key is not its key."""
+
+
+_DOMAIN = Domain(
+    prefix="noust-totp:v1:",
+    label="noust-totp",
+    noun="TOTP secret",
+    error=TotpSealError,
+)
 
 #: Prefix of a secret stored encrypted. A secret without it is from before
 #: encryption at rest and is read as it is, then sealed.
-SEALED_PREFIX = "noust-totp:v1:"
+SEALED_PREFIX = _DOMAIN.prefix
 
 #: The key's file name, in the store's directory.
 KEY_FILE_NAME = "totp.key"
 
 #: Owner-only, from the moment the file exists.
-KEY_MODE = 0o600
-
-_NONCE_BYTES = 16
-_TAG_BYTES = 32
-_KEY_BYTES = 32
-
-
-class TotpSealError(ValueError):
-    """A stored TOTP secret cannot be opened: altered, moved, or the key is not its key."""
+KEY_MODE = at_rest.KEY_MODE
 
 
 def key_path(store_path: Path) -> Path:
@@ -254,10 +254,6 @@ def load_key(path: Path, *, create: bool) -> bytes | None:
     """
     Read the key, creating it when asked and missing.
 
-    Written with ``O_EXCL`` and :data:`KEY_MODE` so it is never readable by
-    anyone else, not even for an instant, and two processes creating it at
-    once agree on one key. Never follows a symlink.
-
     Args:
         path: The key file.
         create: Create a key when there is none.
@@ -268,85 +264,7 @@ def load_key(path: Path, *, create: bool) -> bytes | None:
     Raises:
         OSError: The file exists and cannot be read, or holds no key.
     """
-    nofollow = getattr(os, "O_NOFOLLOW", 0)
-    try:
-        descriptor = os.open(path, os.O_RDONLY | nofollow)
-    except FileNotFoundError:
-        if not create:
-            return None
-        key = secrets.token_bytes(_KEY_BYTES)
-        try:
-            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | nofollow, KEY_MODE)
-        except FileExistsError:
-            return load_key(path, create=False)
-        try:
-            os.write(descriptor, key.hex().encode("ascii") + b"\n")
-            os.fsync(descriptor)
-        finally:
-            os.close(descriptor)
-        return key
-    with os.fdopen(descriptor, "rb") as handle:
-        text = handle.read().decode("ascii", errors="replace").strip()
-    try:
-        key = bytes.fromhex(text)
-    except ValueError as exc:
-        raise OSError(f"{path} does not hold a TOTP key") from exc
-    if len(key) != _KEY_BYTES:
-        raise OSError(f"{path} holds a key that is not 256 bits")
-    return key
-
-
-def _subkeys(key: bytes) -> tuple[bytes, bytes]:
-    """
-    Derive the encryption and MAC keys, so neither is ever used for both.
-
-    Args:
-        key: The stored key.
-
-    Returns:
-        ``(encryption key, MAC key)``.
-    """
-    return (
-        hmac.new(key, b"noust-totp-encrypt", hashlib.sha256).digest(),
-        hmac.new(key, b"noust-totp-authenticate", hashlib.sha256).digest(),
-    )
-
-
-def _keystream(key: bytes, nonce: bytes, length: int) -> bytes:
-    """
-    HMAC-SHA256 of the nonce and a block counter, as long as the plaintext.
-
-    Args:
-        key: The encryption key.
-        nonce: This secret's random nonce.
-        length: Bytes needed.
-
-    Returns:
-        The keystream.
-    """
-    blocks = bytearray()
-    counter = 0
-    while len(blocks) < length:
-        blocks += hmac.new(key, nonce + struct.pack(">I", counter), hashlib.sha256).digest()
-        counter += 1
-    return bytes(blocks[:length])
-
-
-def _tag(key: bytes, context: str, nonce: bytes, ciphertext: bytes) -> bytes:
-    """
-    Authenticate a sealed secret and what it belongs to.
-
-    Args:
-        key: The MAC key.
-        context: What it is bound to, such as ``account:17``.
-        nonce: Its nonce.
-        ciphertext: Its ciphertext.
-
-    Returns:
-        The HMAC-SHA256.
-    """
-    message = b"noust-totp:v1\0" + context.encode("utf-8") + b"\0" + nonce + ciphertext
-    return hmac.new(key, message, hashlib.sha256).digest()
+    return at_rest.load_key(path, create=create)
 
 
 def is_sealed(stored: str | None) -> bool:
@@ -359,7 +277,7 @@ def is_sealed(stored: str | None) -> bool:
     Returns:
         True when it carries :data:`SEALED_PREFIX`.
     """
-    return bool(stored) and str(stored).startswith(SEALED_PREFIX)
+    return _DOMAIN.is_sealed(stored)
 
 
 def seal_secret(secret_b32: str, key: bytes, context: str) -> str:
@@ -375,14 +293,7 @@ def seal_secret(secret_b32: str, key: bytes, context: str) -> str:
     Returns:
         The value to store.
     """
-    encrypt, authenticate = _subkeys(key)
-    nonce = secrets.token_bytes(_NONCE_BYTES)
-    plaintext = secret_b32.encode("ascii")
-    ciphertext = bytes(
-        a ^ b for a, b in zip(plaintext, _keystream(encrypt, nonce, len(plaintext)), strict=True)
-    )
-    tag = _tag(authenticate, context, nonce, ciphertext)
-    return SEALED_PREFIX + base64.urlsafe_b64encode(nonce + ciphertext + tag).decode("ascii")
+    return _DOMAIN.seal(secret_b32, key, context)
 
 
 def open_secret(stored: str, key: bytes | None, context: str) -> str:
@@ -402,31 +313,11 @@ def open_secret(stored: str, key: bytes | None, context: str) -> str:
         TotpSealError: It is sealed and the key is missing, is not its key, or
             the value was altered or moved from another account.
     """
-    if not is_sealed(stored):
-        return stored
-    if key is None:
-        raise TotpSealError(
-            "The TOTP secrets are encrypted and their key is missing: restore "
-            f"{KEY_FILE_NAME} beside the store, or reset the account's second factor."
-        )
-    try:
-        raw = base64.urlsafe_b64decode(stored[len(SEALED_PREFIX) :].encode("ascii"))
-    except (ValueError, UnicodeEncodeError) as exc:
-        raise TotpSealError("A stored TOTP secret is damaged: it is not base64.") from exc
-    if len(raw) <= _NONCE_BYTES + _TAG_BYTES:
-        raise TotpSealError("A stored TOTP secret is damaged: it is too short.")
-    nonce, ciphertext, tag = (
-        raw[:_NONCE_BYTES],
-        raw[_NONCE_BYTES:-_TAG_BYTES],
-        raw[-_TAG_BYTES:],
+    return _DOMAIN.open(
+        stored,
+        key,
+        context,
+        missing_key=(
+            f"Restore {KEY_FILE_NAME} beside the store, or reset the account's second factor."
+        ),
     )
-    encrypt, authenticate = _subkeys(key)
-    if not hmac.compare_digest(_tag(authenticate, context, nonce, ciphertext), tag):
-        raise TotpSealError(
-            "A stored TOTP secret failed its integrity check: it was altered, moved from "
-            "another account, or sealed under another key."
-        )
-    plaintext = bytes(
-        a ^ b for a, b in zip(ciphertext, _keystream(encrypt, nonce, len(ciphertext)), strict=True)
-    )
-    return plaintext.decode("ascii")

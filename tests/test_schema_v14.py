@@ -28,6 +28,7 @@ AREAS = (
     "RBAC",
     "ENVIRONMENTS",
     "FEDERATION",
+    "ROLLOUT",
 )
 
 

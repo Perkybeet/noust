@@ -14,6 +14,11 @@ the command that fixes it:
   encrypted sends them to somebody else's disk in clear. New remote
   destinations are encrypted unless the operator says otherwise; the ones made
   before are named here.
+- **Destination credentials in clear** (checklist H-14). The password of a backup
+  destination, and the key its backups are encrypted with, are kept encrypted
+  under this server's own key; the destinations made before that are named here
+  until the console (or a backup) has encrypted them, or ``noust backup
+  destination protect`` does.
 - **A central whose keys are not sealed** (L-04). A central holds the SSH keys
   and tokens that reach every server it manages. ``noust central seal`` keeps
   them under a passphrase that is never stored; until it is run they are files
@@ -82,6 +87,40 @@ def _unencrypted_backups() -> list[Finding]:
     ]
 
 
+def _clear_credentials() -> list[Finding]:
+    """
+    Name the destinations whose credentials are still stored in clear.
+
+    Returns:
+        One finding naming them all, or none. A secret that cannot be read
+        (its key is gone) is not "in clear" and is reported where it is used.
+    """
+    from noust.core.exceptions import NoustError
+    from noust.core.secrets import SecretStore
+
+    secrets = SecretStore()
+    clear: list[str] = []
+    for destination in get_store().list_backup_destinations():
+        try:
+            state = secrets.is_protected(f"backup-destinations/{destination.name}")
+        except NoustError:
+            continue
+        if state is False:
+            clear.append(destination.name)
+    if not clear:
+        return []
+    count = len(clear)
+    return [
+        Finding(
+            "destination_credentials_clear",
+            f"{count} backup destination{'s' if count != 1 else ''} keep their credentials "
+            f"unencrypted on this disk ({', '.join(sorted(clear))}): a copy of the secrets "
+            "directory discloses them, and the key the backups are encrypted with.",
+            "noust backup destination protect",
+        )
+    ]
+
+
 def _unsealed_central() -> list[Finding]:
     """
     Say when the keys that reach other servers are stored unsealed.
@@ -139,4 +178,9 @@ def collect() -> list[Finding]:
     Raises:
         NoustError: The store cannot be read.
     """
-    return [*_security_update(), *_unsealed_central(), *_unencrypted_backups()]
+    return [
+        *_security_update(),
+        *_unsealed_central(),
+        *_clear_credentials(),
+        *_unencrypted_backups(),
+    ]

@@ -133,11 +133,17 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("applications", "set_app_registry_logins"): ("PUT", "/api/apps/{domain}/registry-logins", "apps.manage", True),
     ("applications", "get_app_releases"): ("GET", "/api/apps/{domain}/releases", "apps.read", False),
     ("applications", "update_release_retention"): ("PATCH", "/api/apps/{domain}/releases/retention", "apps.manage", True),
+    ("applications", "stage_release"): ("POST", "/api/apps/{domain}/releases/stage", "apps.deploy", False),
     ("applications", "activate_app_release"): ("POST", "/api/apps/{domain}/releases/{release_id}/activate", "apps.deploy", False),
+    ("applications", "promote_release_post"): ("POST", "/api/apps/{domain}/releases/{release_id}/promote", "apps.deploy", False),
     ("applications", "get_replicas"): ("GET", "/api/apps/{domain}/replicas", "apps.read", False),
     ("applications", "put_replicas"): ("PUT", "/api/apps/{domain}/replicas", "apps.manage", True),
     ("applications", "restart_app"): ("POST", "/api/apps/{domain}/restart", "apps.operate", False),
     ("applications", "list_rollback_points"): ("GET", "/api/apps/{domain}/rollback-points", "apps.read", False),
+    ("applications", "get_rollout"): ("GET", "/api/apps/{domain}/rollout", "apps.read", False),
+    ("applications", "put_rollout"): ("PUT", "/api/apps/{domain}/rollout", "apps.manage", False),
+    ("applications", "pause_deploys"): ("POST", "/api/apps/{domain}/rollout/pause", "apps.deploy", False),
+    ("applications", "resume_deploys"): ("POST", "/api/apps/{domain}/rollout/resume", "apps.deploy", False),
     ("applications", "get_sandbox"): ("GET", "/api/apps/{domain}/sandbox", "apps.read", False),
     ("applications", "put_compose_exception"): ("PUT", "/api/apps/{domain}/sandbox/compose-exception", "root_equivalent", True),
     ("applications", "delete_compose_exception"): ("DELETE", "/api/apps/{domain}/sandbox/compose-exception", "apps.manage", False),
@@ -148,8 +154,13 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("applications", "get_source_options"): ("GET", "/api/apps/{domain}/source-options", "apps.read", False),
     ("applications", "put_source_options"): ("PUT", "/api/apps/{domain}/source-options", "apps.manage", False),
     ("applications", "delete_source_options"): ("DELETE", "/api/apps/{domain}/source-options", "apps.manage", False),
+    ("applications", "list_app_sqlite"): ("GET", "/api/apps/{domain}/sqlite", "apps.read", False),
+    ("applications", "check_app_sqlite"): ("POST", "/api/apps/{domain}/sqlite/check", "apps.operate", False),
     ("applications", "start_app"): ("POST", "/api/apps/{domain}/start", "apps.operate", False),
     ("applications", "stop_app"): ("POST", "/api/apps/{domain}/stop", "apps.operate", False),
+    ("applications", "get_update_schedule"): ("GET", "/api/apps/{domain}/update-schedule", "apps.read", False),
+    ("applications", "put_update_schedule"): ("PUT", "/api/apps/{domain}/update-schedule", "apps.manage", False),
+    ("applications", "delete_update_schedule"): ("DELETE", "/api/apps/{domain}/update-schedule", "apps.manage", False),
     ("applications", "get_zero_downtime"): ("GET", "/api/apps/{domain}/zero-downtime", "apps.read", False),
     ("applications", "put_zero_downtime"): ("PUT", "/api/apps/{domain}/zero-downtime", "apps.manage", True),
     ("applications", "deploy_apps"): ("POST", "/api/deploy", "apps.deploy", False),
@@ -204,12 +215,14 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("authentication", "revoke_one_session"): ("DELETE", "/api/auth/sessions/{sid_prefix}", "self", False),
     ("authentication", "list_api_tokens"): ("GET", "/api/auth/tokens", "self", False),
     ("authentication", "create_api_token"): ("POST", "/api/auth/tokens", "self", True),
+    ("authentication", "restrict_api_token"): ("PATCH", "/api/auth/tokens/{token_id}", "self", False),
     ("authentication", "revoke_api_token"): ("DELETE", "/api/auth/tokens/{token_id}", "self", False),
     ("authentication", "verify_token"): ("GET", "/api/auth/verify", "self", False),
     ("authentication", "create_ws_ticket"): ("POST", "/api/auth/ws-ticket", "self", False),
     ("backup_destinations", "list_destinations"): ("GET", "/api/backup-destinations", "backups.read", False),
     ("backup_destinations", "create_destination"): ("POST", "/api/backup-destinations", "backups.manage", True),
     ("backup_destinations", "list_backends"): ("GET", "/api/backup-destinations/backends", "backups.read", False),
+    ("backup_destinations", "protect_credentials"): ("POST", "/api/backup-destinations/protect", "backups.manage", True),
     ("backup_destinations", "update_destination"): ("PUT", "/api/backup-destinations/{name}", "backups.manage", True),
     ("backup_destinations", "delete_destination"): ("DELETE", "/api/backup-destinations/{name}", "backups.manage", True),
     ("backup_destinations", "list_remote_backups"): ("GET", "/api/backup-destinations/{name}/backups", "backups.read", False),
@@ -246,6 +259,10 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("certificates", "delete_certificate"): ("DELETE", "/api/certs/{domain}", "apps.manage", True),
     ("certificates", "renew_certificate"): ("POST", "/api/certs/{domain}/renew", "apps.operate", False),
     ("certificates", "revoke_certificate"): ("POST", "/api/certs/{domain}/revoke", "apps.manage", True),
+    ("compliance", "get_compliance"): ("GET", "/api/compliance", "settings.read", False),
+    ("compliance", "change_compliance"): ("PUT", "/api/compliance", "security.manage", False),
+    ("compliance", "check_compliance"): ("GET", "/api/compliance/check", "compliance.read", False),
+    ("compliance", "plan_change"): ("POST", "/api/compliance/plan", "security.manage", False),
     ("compliance", "ens_access_review"): ("GET", "/api/ens/access-review", "accounts.read", False),
     ("compliance", "ens_access_review_attest"): ("POST", "/api/ens/access-review", "accounts.manage", False),
     ("compliance", "ens_check"): ("GET", "/api/ens/check", "compliance.read", False),
@@ -263,6 +280,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("configuration", "get_backup_config"): ("GET", "/api/config/backup", "settings.read", False),
     ("configuration", "update_backup_config"): ("PUT", "/api/config/backup", "settings.manage", True),
     ("configuration", "get_defaults"): ("GET", "/api/config/defaults", "settings.read", False),
+    ("configuration", "get_delivery_config"): ("GET", "/api/config/delivery", "settings.read", False),
+    ("configuration", "update_delivery_config"): ("PUT", "/api/config/delivery", "settings.manage", True),
     ("configuration", "get_telegram_config"): ("GET", "/api/config/notifications/telegram", "settings.read", False),
     ("configuration", "update_telegram_config"): ("PUT", "/api/config/notifications/telegram", "settings.manage", True),
     ("configuration", "list_telegram_chats"): ("POST", "/api/config/notifications/telegram/chats", "settings.manage", False),
@@ -357,6 +376,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("databases", "set_engine_credentials"): ("PUT", "/api/databases/engines/{engine}/credentials", "databases.manage", True),
     ("databases", "get_engine_exposure"): ("GET", "/api/databases/engines/{engine}/exposure", "databases.read", False),
     ("databases", "install_engine"): ("POST", "/api/databases/engines/{engine}/install", "databases.manage", True),
+    ("databases", "get_engine_limits"): ("GET", "/api/databases/engines/{engine}/limits", "databases.read", False),
+    ("databases", "put_engine_limits"): ("PUT", "/api/databases/engines/{engine}/limits", "databases.manage", True),
     ("databases", "get_engine_logs"): ("GET", "/api/databases/engines/{engine}/logs", "databases.read", False),
     ("databases", "engine_metrics"): ("GET", "/api/databases/engines/{engine}/metrics", "databases.read", False),
     ("databases", "get_engine_privileges"): ("GET", "/api/databases/engines/{engine}/privileges", "databases.read", False),
@@ -462,6 +483,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("fleet", "create_machine"): ("POST", "/api/fleet/cloud/servers", "fleet.manage", True),
     ("fleet", "get_machine"): ("GET", "/api/fleet/cloud/servers/{node}", "fleet.manage", False),
     ("fleet", "delete_machine"): ("DELETE", "/api/fleet/cloud/servers/{node}", "fleet.manage", True),
+    ("fleet", "link_machine"): ("POST", "/api/fleet/cloud/servers/{node}/link", "fleet.manage", True),
+    ("fleet", "unlink_machine"): ("DELETE", "/api/fleet/cloud/servers/{node}/link", "fleet.manage", True),
     ("fleet", "power_on_machine"): ("POST", "/api/fleet/cloud/servers/{node}/power-on", "fleet.manage", True),
     ("fleet", "enroll_server"): ("POST", "/api/fleet/enroll", "fleet.manage", True),
     ("fleet", "scan_host_key"): ("POST", "/api/fleet/enroll/host-key", "fleet.manage", False),
@@ -472,6 +495,13 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("fleet", "accept_server"): ("POST", "/api/fleet/link/accept", "fleet.manage", True),
     ("fleet", "invite_server"): ("POST", "/api/fleet/link/invites", "fleet.manage", True),
     ("fleet", "cancel_invite"): ("DELETE", "/api/fleet/link/invites/{name}", "fleet.manage", True),
+    ("fleet", "list_placements"): ("GET", "/api/fleet/placements", "fleet.read", False),
+    ("fleet", "get_placement"): ("GET", "/api/fleet/placements/{domain}", "fleet.read", False),
+    ("fleet", "save_placement"): ("PUT", "/api/fleet/placements/{domain}", "fleet.manage", False),
+    ("fleet", "remove_placement"): ("DELETE", "/api/fleet/placements/{domain}", "fleet.manage", False),
+    ("fleet", "copy_application"): ("POST", "/api/fleet/placements/{domain}/copy", "fleet.manage", False),
+    ("fleet", "rollout"): ("POST", "/api/fleet/placements/{domain}/rollout", "fleet.manage", False),
+    ("fleet", "get_upstreams"): ("GET", "/api/fleet/placements/{domain}/upstreams", "fleet.read", False),
     ("fleet", "fleet_servers"): ("GET", "/api/fleet/servers", "fleet.read", False),
     ("fleet", "set_labels"): ("PUT", "/api/fleet/servers/{node}/labels", "fleet.manage", False),
     ("fleet", "fleet_summary"): ("GET", "/api/fleet/summary", "fleet.read", False),
@@ -496,6 +526,9 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("integrations", "gitlab_oauth_app_remove"): ("DELETE", "/api/integrations/gitlab/oauth-apps/{host}", "apps.manage", True),
     ("integrations", "gitlab_oauth_start"): ("POST", "/api/integrations/gitlab/oauth/authorize", "apps.manage", True),
     ("integrations", "gitlab_oauth_callback"): ("POST", "/api/integrations/gitlab/oauth/callback", "apps.manage", True),
+    ("jobs", "list_freezes"): ("GET", "/api/deploy-freezes", "apps.read", False),
+    ("jobs", "create_freeze"): ("POST", "/api/deploy-freezes", "apps.deploy", False),
+    ("jobs", "lift_freeze"): ("DELETE", "/api/deploy-freezes/{freeze_id}", "apps.deploy", False),
     ("jobs", "list_jobs"): ("GET", "/api/jobs", "apps.read", False),
     ("jobs", "list_active_jobs"): ("GET", "/api/jobs/active", "apps.read", False),
     ("jobs", "create_backup_job"): ("POST", "/api/jobs/backup", "backups.run", False),
@@ -542,8 +575,12 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("nodes", "add_node"): ("POST", "/api/nodes", "fleet.manage", True),
     ("nodes", "get_node"): ("GET", "/api/nodes/{node}", "fleet.read", False),
     ("nodes", "remove_node"): ("DELETE", "/api/nodes/{node}", "fleet.manage", True),
+    ("nodes", "get_node_inventory"): ("GET", "/api/nodes/{node}/inventory", "fleet.read", False),
+    ("nodes", "apply_node_inventory"): ("POST", "/api/nodes/{node}/inventory", "fleet.manage", False),
     ("nodes", "get_node_key"): ("GET", "/api/nodes/{node}/key", "fleet.manage", False),
     ("nodes", "set_node_monitoring"): ("PUT", "/api/nodes/{node}/monitoring", "fleet.manage", False),
+    ("nodes", "get_node_ssh"): ("GET", "/api/nodes/{node}/ssh", "fleet.read", False),
+    ("nodes", "set_node_ssh"): ("PUT", "/api/nodes/{node}/ssh", "fleet.manage", True),
     ("nodes", "test_node"): ("POST", "/api/nodes/{node}/test", "fleet.read", False),
     ("notifications", "list_channels"): ("GET", "/api/notifications/channels", "settings.read", False),
     ("notifications", "save_channel"): ("PUT", "/api/notifications/channels/{name}", "settings.manage", True),
@@ -574,8 +611,10 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("previews", "delete_preview_variable"): ("DELETE", "/api/apps/{domain}/previews/variables/{name}", "apps.manage", True),
     ("previews", "get_preview"): ("GET", "/api/apps/{domain}/previews/{number}", "apps.read", False),
     ("previews", "delete_preview"): ("DELETE", "/api/apps/{domain}/previews/{number}", "apps.manage", True),
+    ("previews", "approve_preview"): ("POST", "/api/apps/{domain}/previews/{number}/approve", "apps.deploy", True),
     ("previews", "get_preview_logs"): ("GET", "/api/apps/{domain}/previews/{number}/logs", "apps.read", False),
     ("previews", "redeploy_preview"): ("POST", "/api/apps/{domain}/previews/{number}/redeploy", "apps.deploy", True),
+    ("previews", "reject_preview"): ("POST", "/api/apps/{domain}/previews/{number}/reject", "apps.deploy", True),
     ("previews", "start_preview"): ("POST", "/api/apps/{domain}/previews/{number}/start", "apps.operate", True),
     ("previews", "stop_preview"): ("POST", "/api/apps/{domain}/previews/{number}/stop", "apps.operate", True),
     ("recipes", "get_recipes"): ("GET", "/api/recipes", "apps.read", False),
@@ -599,6 +638,21 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("registries", "change_registry_login"): ("PATCH", "/api/registries/{name}", "apps.manage", True),
     ("registries", "remove_registry_login"): ("DELETE", "/api/registries/{name}", "apps.manage", True),
     ("registries", "test_registry_login"): ("POST", "/api/registries/{name}/test", "apps.manage", True),
+    ("scim_provisioning", "list_groups"): ("GET", "/api/scim/v2/Groups", "public", False),
+    ("scim_provisioning", "create_group"): ("POST", "/api/scim/v2/Groups", "public", False),
+    ("scim_provisioning", "get_group"): ("GET", "/api/scim/v2/Groups/{group_id}", "public", False),
+    ("scim_provisioning", "replace_group"): ("PUT", "/api/scim/v2/Groups/{group_id}", "public", False),
+    ("scim_provisioning", "patch_group"): ("PATCH", "/api/scim/v2/Groups/{group_id}", "public", False),
+    ("scim_provisioning", "delete_group"): ("DELETE", "/api/scim/v2/Groups/{group_id}", "public", False),
+    ("scim_provisioning", "resource_types"): ("GET", "/api/scim/v2/ResourceTypes", "public", False),
+    ("scim_provisioning", "schemas"): ("GET", "/api/scim/v2/Schemas", "public", False),
+    ("scim_provisioning", "service_provider_config"): ("GET", "/api/scim/v2/ServiceProviderConfig", "public", False),
+    ("scim_provisioning", "list_users"): ("GET", "/api/scim/v2/Users", "public", False),
+    ("scim_provisioning", "create_user"): ("POST", "/api/scim/v2/Users", "public", False),
+    ("scim_provisioning", "get_user"): ("GET", "/api/scim/v2/Users/{user_id}", "public", False),
+    ("scim_provisioning", "replace_user"): ("PUT", "/api/scim/v2/Users/{user_id}", "public", False),
+    ("scim_provisioning", "patch_user"): ("PATCH", "/api/scim/v2/Users/{user_id}", "public", False),
+    ("scim_provisioning", "delete_user"): ("DELETE", "/api/scim/v2/Users/{user_id}", "public", False),
     ("self_backup", "overview"): ("GET", "/api/self-backup", "backups.read", False),
     ("self_backup", "create_bundle"): ("POST", "/api/self-backup", "backups.run", False),
     ("self_backup", "run_schedule"): ("POST", "/api/self-backup/run", "backups.run", False),
@@ -687,6 +741,11 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("services", "restart_service"): ("POST", "/api/services/{name}/restart", "apps.operate", False),
     ("services", "start_service"): ("POST", "/api/services/{name}/start", "apps.operate", False),
     ("services", "stop_service"): ("POST", "/api/services/{name}/stop", "apps.operate", False),
+    ("single_sign_on", "list_directories"): ("GET", "/api/auth/ldap/directories", "accounts.read", False),
+    ("single_sign_on", "put_directory"): ("PUT", "/api/auth/ldap/directories/{name}", "accounts.manage", True),
+    ("single_sign_on", "delete_directory"): ("DELETE", "/api/auth/ldap/directories/{name}", "accounts.manage", True),
+    ("single_sign_on", "test_directory"): ("POST", "/api/auth/ldap/directories/{name}/test", "accounts.manage", False),
+    ("single_sign_on", "login"): ("POST", "/api/auth/ldap/login", "public", False),
     ("single_sign_on", "callback"): ("GET", "/api/auth/oidc/callback", "public", False),
     ("single_sign_on", "complete"): ("POST", "/api/auth/oidc/complete", "public", False),
     ("single_sign_on", "list_providers"): ("GET", "/api/auth/oidc/config", "accounts.read", False),
@@ -700,6 +759,17 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("single_sign_on", "put_local_login"): ("PUT", "/api/auth/oidc/local-login", "accounts.manage", True),
     ("single_sign_on", "list_choices"): ("GET", "/api/auth/oidc/providers", "public", False),
     ("single_sign_on", "start"): ("GET", "/api/auth/oidc/start", "public", False),
+    ("single_sign_on", "assertion_consumer_service"): ("POST", "/api/auth/saml/acs", "public", False),
+    ("single_sign_on", "list_providers_get"): ("GET", "/api/auth/saml/config", "accounts.read", False),
+    ("single_sign_on", "put_provider_put"): ("PUT", "/api/auth/saml/config/{provider}", "accounts.manage", True),
+    ("single_sign_on", "delete_provider_delete"): ("DELETE", "/api/auth/saml/config/{provider}", "accounts.manage", True),
+    ("single_sign_on", "try_provider_post"): ("POST", "/api/auth/saml/config/{provider}/test", "accounts.manage", False),
+    ("single_sign_on", "metadata"): ("GET", "/api/auth/saml/metadata/{provider}", "public", False),
+    ("single_sign_on", "start_get"): ("GET", "/api/auth/saml/start", "public", False),
+    ("single_sign_on", "list_sources"): ("GET", "/api/auth/scim/sources", "accounts.read", False),
+    ("single_sign_on", "put_source"): ("PUT", "/api/auth/scim/sources/{name}", "accounts.manage", True),
+    ("single_sign_on", "delete_source"): ("DELETE", "/api/auth/scim/sources/{name}", "accounts.manage", True),
+    ("single_sign_on", "list_users"): ("GET", "/api/auth/scim/sources/{name}/users", "accounts.read", False),
     ("sites", "list_sites"): ("GET", "/api/sites", "apps.read", False),
     ("sites", "create_site"): ("POST", "/api/sites", "apps.manage", False),
     ("sites", "reload_webserver"): ("POST", "/api/sites/reload", "apps.operate", False),
@@ -971,7 +1041,7 @@ class Alerts:
 
 
 class Applications:
-    """Applications: 109 operations."""
+    """Applications: 120 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -1600,7 +1670,7 @@ class Applications:
         Needs: permission `apps.manage`, sudo mode."""
         return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/processes/{quote(str(name), safe='')}/scale", query=None, body=body)
 
-    def promote_release(self, domain: str, body: "PromoteRequest") -> "JobAcceptedResponse":
+    def promote_release(self, domain: str, body: "NoustWebApiAppPromotePromoteRequest") -> "JobAcceptedResponse":
         """POST /api/apps/{domain}/promote
 
         Promote Release
@@ -1656,6 +1726,14 @@ class Applications:
         Needs: permission `apps.manage`, sudo mode."""
         return self._call("PATCH", f"/api/apps/{quote(str(domain), safe='')}/releases/retention", query=None, body=body)
 
+    def stage_release(self, domain: str, body: "StageRequest") -> "JobAcceptedResponse":
+        """POST /api/apps/{domain}/releases/stage
+
+        Stage Release
+
+        Needs: permission `apps.deploy`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/releases/stage", query=None, body=body)
+
     def activate_app_release(self, domain: str, release_id: str, *, schema_changed_ok: Union[bool, None] = None) -> "ReleaseActivationResponse":
         """POST /api/apps/{domain}/releases/{release_id}/activate
 
@@ -1663,6 +1741,14 @@ class Applications:
 
         Needs: permission `apps.deploy`."""
         return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/releases/{quote(str(release_id), safe='')}/activate", query={"schema_changed_ok": schema_changed_ok}, body=None)
+
+    def promote_release_post(self, domain: str, release_id: str, body: "NoustWebApiAppStagedPromoteRequest") -> "JobAcceptedResponse":
+        """POST /api/apps/{domain}/releases/{release_id}/promote
+
+        Promote Release
+
+        Needs: permission `apps.deploy`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/releases/{quote(str(release_id), safe='')}/promote", query=None, body=body)
 
     def get_replicas(self, domain: str) -> "ReplicasResponse":
         """GET /api/apps/{domain}/replicas
@@ -1695,6 +1781,38 @@ class Applications:
 
         Needs: permission `apps.read`."""
         return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/rollback-points", query=None, body=None)
+
+    def get_rollout(self, domain: str) -> "RolloutResponse":
+        """GET /api/apps/{domain}/rollout
+
+        Get Rollout
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/rollout", query=None, body=None)
+
+    def put_rollout(self, domain: str, body: "RolloutRequest") -> "RolloutResponse":
+        """PUT /api/apps/{domain}/rollout
+
+        Put Rollout
+
+        Needs: permission `apps.manage`."""
+        return self._call("PUT", f"/api/apps/{quote(str(domain), safe='')}/rollout", query=None, body=body)
+
+    def pause_deploys(self, domain: str, body: "PauseRequest") -> "RolloutResponse":
+        """POST /api/apps/{domain}/rollout/pause
+
+        Pause Deploys
+
+        Needs: permission `apps.deploy`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/rollout/pause", query=None, body=body)
+
+    def resume_deploys(self, domain: str) -> "ResumeResponse":
+        """POST /api/apps/{domain}/rollout/resume
+
+        Resume Deploys
+
+        Needs: permission `apps.deploy`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/rollout/resume", query=None, body=None)
 
     def get_sandbox(self, domain: str) -> "SandboxResponse":
         """GET /api/apps/{domain}/sandbox
@@ -1776,6 +1894,22 @@ class Applications:
         Needs: permission `apps.manage`."""
         return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}/source-options", query=None, body=None)
 
+    def list_app_sqlite(self, domain: str) -> "SqliteListResponse":
+        """GET /api/apps/{domain}/sqlite
+
+        List App Sqlite
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/sqlite", query=None, body=None)
+
+    def check_app_sqlite(self, domain: str, body: "SqliteCheckRequest") -> "SqliteCheckResponse":
+        """POST /api/apps/{domain}/sqlite/check
+
+        Check App Sqlite
+
+        Needs: permission `apps.operate`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/sqlite/check", query=None, body=body)
+
     def start_app(self, domain: str) -> "AppActionResponse":
         """POST /api/apps/{domain}/start
 
@@ -1791,6 +1925,30 @@ class Applications:
 
         Needs: permission `apps.operate`."""
         return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/stop", query=None, body=None)
+
+    def get_update_schedule(self, domain: str) -> "UpdateScheduleOut":
+        """GET /api/apps/{domain}/update-schedule
+
+        Get Update Schedule
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/update-schedule", query=None, body=None)
+
+    def put_update_schedule(self, domain: str, body: "UpdateScheduleRequest") -> "UpdateScheduleOut":
+        """PUT /api/apps/{domain}/update-schedule
+
+        Put Update Schedule
+
+        Needs: permission `apps.manage`."""
+        return self._call("PUT", f"/api/apps/{quote(str(domain), safe='')}/update-schedule", query=None, body=body)
+
+    def delete_update_schedule(self, domain: str) -> "UpdateScheduleOut":
+        """DELETE /api/apps/{domain}/update-schedule
+
+        Delete Update Schedule
+
+        Needs: permission `apps.manage`."""
+        return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}/update-schedule", query=None, body=None)
 
     def get_zero_downtime(self, domain: str) -> "ZeroDowntimeResponse":
         """GET /api/apps/{domain}/zero-downtime
@@ -1963,7 +2121,7 @@ class Audit:
 
 
 class Authentication:
-    """Authentication: 38 operations."""
+    """Authentication: 39 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -2248,6 +2406,14 @@ class Authentication:
         Needs: permission `self`, sudo mode."""
         return self._call("POST", "/api/auth/tokens", query=None, body=body)
 
+    def restrict_api_token(self, token_id: int | str, body: "ApiTokenNetworks") -> "ApiTokenInfo":
+        """PATCH /api/auth/tokens/{token_id}
+
+        Restrict Api Token
+
+        Needs: permission `self`."""
+        return self._call("PATCH", f"/api/auth/tokens/{quote(str(token_id), safe='')}", query=None, body=body)
+
     def revoke_api_token(self, token_id: int | str) -> "RevokedResponse":
         """DELETE /api/auth/tokens/{token_id}
 
@@ -2275,7 +2441,7 @@ class Authentication:
 
 
 class BackupDestinations:
-    """Backup Destinations: 9 operations."""
+    """Backup Destinations: 10 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -2303,6 +2469,14 @@ class BackupDestinations:
 
         Needs: permission `backups.read`."""
         return self._call("GET", "/api/backup-destinations/backends", query=None, body=None)
+
+    def protect_credentials(self) -> "ProtectCredentialsResponse":
+        """POST /api/backup-destinations/protect
+
+        Protect Credentials
+
+        Needs: permission `backups.manage`, sudo mode."""
+        return self._call("POST", "/api/backup-destinations/protect", query=None, body=None)
 
     def update_destination(self, name: str, body: "UpdateDestinationRequest") -> "DestinationActionResponse":
         """PUT /api/backup-destinations/{name}
@@ -2627,10 +2801,42 @@ class Certificates:
 
 
 class Compliance:
-    """Compliance: 8 operations."""
+    """Compliance: 12 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
+
+    def get_compliance(self) -> "ComplianceState":
+        """GET /api/compliance
+
+        Get Compliance
+
+        Needs: permission `settings.read`."""
+        return self._call("GET", "/api/compliance", query=None, body=None)
+
+    def change_compliance(self, body: "ChangeRequest") -> "ChangeResult":
+        """PUT /api/compliance
+
+        Change Compliance
+
+        Needs: permission `security.manage`."""
+        return self._call("PUT", "/api/compliance", query=None, body=body)
+
+    def check_compliance(self, *, framework: Union[list[str], None] = None) -> "CheckResponse":
+        """GET /api/compliance/check
+
+        Check Compliance
+
+        Needs: permission `compliance.read`."""
+        return self._call("GET", "/api/compliance/check", query={"framework": framework}, body=None)
+
+    def plan_change(self, body: "ChangeRequest") -> "PlanInfo":
+        """POST /api/compliance/plan
+
+        Plan Change
+
+        Needs: permission `security.manage`."""
+        return self._call("POST", "/api/compliance/plan", query=None, body=body)
 
     def ens_access_review(self) -> "AccessReviewResponse":
         """GET /api/ens/access-review
@@ -2715,7 +2921,7 @@ class Compose:
 
 
 class Configuration:
-    """Configuration: 21 operations."""
+    """Configuration: 23 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -2783,6 +2989,22 @@ class Configuration:
 
         Needs: permission `settings.read`."""
         return self._call("GET", "/api/config/defaults", query=None, body=None)
+
+    def get_delivery_config(self) -> "DeliveryConfig":
+        """GET /api/config/delivery
+
+        Get Delivery Config
+
+        Needs: permission `settings.read`."""
+        return self._call("GET", "/api/config/delivery", query=None, body=None)
+
+    def update_delivery_config(self, body: "DeliveryConfig") -> "MessageResponse":
+        """PUT /api/config/delivery
+
+        Update Delivery Config
+
+        Needs: permission `settings.manage`, sudo mode."""
+        return self._call("PUT", "/api/config/delivery", query=None, body=body)
 
     def get_telegram_config(self) -> "TelegramSettingsResponse":
         """GET /api/config/notifications/telegram
@@ -3083,7 +3305,7 @@ class DNS:
 
 
 class Databases:
-    """Databases: 120 operations."""
+    """Databases: 122 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -3567,6 +3789,22 @@ class Databases:
 
         Needs: permission `databases.manage`, sudo mode."""
         return self._call("POST", f"/api/databases/engines/{quote(str(engine), safe='')}/install", query=None, body=body)
+
+    def get_engine_limits(self, engine: str) -> "EngineLimitsResponse":
+        """GET /api/databases/engines/{engine}/limits
+
+        Get Engine Limits
+
+        Needs: permission `databases.read`."""
+        return self._call("GET", f"/api/databases/engines/{quote(str(engine), safe='')}/limits", query=None, body=None)
+
+    def put_engine_limits(self, engine: str, body: "EngineLimitsRequest") -> "EngineLimitsOutcomeResponse":
+        """PUT /api/databases/engines/{engine}/limits
+
+        Put Engine Limits
+
+        Needs: permission `databases.manage`, sudo mode."""
+        return self._call("PUT", f"/api/databases/engines/{quote(str(engine), safe='')}/limits", query=None, body=body)
 
     def get_engine_logs(self, engine: str, *, lines: Union[int, None] = None) -> "EngineLogsResponse":
         """GET /api/databases/engines/{engine}/logs
@@ -4251,7 +4489,7 @@ class Domains:
 
 
 class Fleet:
-    """Fleet: 37 operations."""
+    """Fleet: 46 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -4440,6 +4678,22 @@ class Fleet:
         Needs: permission `fleet.manage`, sudo mode, a second person's approval can be required."""
         return self._call("DELETE", f"/api/fleet/cloud/servers/{quote(str(node), safe='')}", query={"confirm": confirm, "remove_node": remove_node}, body=None)
 
+    def link_machine(self, node: str, body: "LinkBody") -> "NoustWebApiCloudMachineOut":
+        """POST /api/fleet/cloud/servers/{node}/link
+
+        Link Machine
+
+        Needs: permission `fleet.manage`, sudo mode."""
+        return self._call("POST", f"/api/fleet/cloud/servers/{quote(str(node), safe='')}/link", query=None, body=body)
+
+    def unlink_machine(self, node: str) -> Any:
+        """DELETE /api/fleet/cloud/servers/{node}/link
+
+        Unlink Machine
+
+        Needs: permission `fleet.manage`, sudo mode."""
+        return self._call("DELETE", f"/api/fleet/cloud/servers/{quote(str(node), safe='')}/link", query=None, body=None)
+
     def power_on_machine(self, node: str) -> "NoustWebApiCloudMachineOut":
         """POST /api/fleet/cloud/servers/{node}/power-on
 
@@ -4519,6 +4773,62 @@ class Fleet:
 
         Needs: permission `fleet.manage`, sudo mode."""
         return self._call("DELETE", f"/api/fleet/link/invites/{quote(str(name), safe='')}", query=None, body=None)
+
+    def list_placements(self) -> "PlacementListOut":
+        """GET /api/fleet/placements
+
+        List Placements
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", "/api/fleet/placements", query=None, body=None)
+
+    def get_placement(self, domain: str, *, refresh: Union[bool, None] = None) -> "PlacementDetailOut":
+        """GET /api/fleet/placements/{domain}
+
+        Get Placement
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", f"/api/fleet/placements/{quote(str(domain), safe='')}", query={"refresh": refresh}, body=None)
+
+    def save_placement(self, domain: str, body: "PlacementIn") -> "PlacementOut":
+        """PUT /api/fleet/placements/{domain}
+
+        Save Placement
+
+        Needs: permission `fleet.manage`."""
+        return self._call("PUT", f"/api/fleet/placements/{quote(str(domain), safe='')}", query=None, body=body)
+
+    def remove_placement(self, domain: str) -> "PlacementOut":
+        """DELETE /api/fleet/placements/{domain}
+
+        Remove Placement
+
+        Needs: permission `fleet.manage`."""
+        return self._call("DELETE", f"/api/fleet/placements/{quote(str(domain), safe='')}", query=None, body=None)
+
+    def copy_application(self, domain: str, body: "CopyIn") -> "NoustWebApiFleetActionOut":
+        """POST /api/fleet/placements/{domain}/copy
+
+        Copy Application
+
+        Needs: permission `fleet.manage`."""
+        return self._call("POST", f"/api/fleet/placements/{quote(str(domain), safe='')}/copy", query=None, body=body)
+
+    def rollout(self, domain: str, body: "RolloutIn") -> "NoustWebApiFleetActionOut":
+        """POST /api/fleet/placements/{domain}/rollout
+
+        Rollout
+
+        Needs: permission `fleet.manage`."""
+        return self._call("POST", f"/api/fleet/placements/{quote(str(domain), safe='')}/rollout", query=None, body=body)
+
+    def get_upstreams(self, domain: str, *, format: Union[str, None] = None, port: Union[int, None] = None) -> "UpstreamsOut":
+        """GET /api/fleet/placements/{domain}/upstreams
+
+        Get Upstreams
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", f"/api/fleet/placements/{quote(str(domain), safe='')}/upstreams", query={"format": format, "port": port}, body=None)
 
     def fleet_servers(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None) -> "FleetViewOut":
         """GET /api/fleet/servers
@@ -4723,10 +5033,34 @@ class Integrations:
 
 
 class Jobs:
-    """Jobs: 13 operations."""
+    """Jobs: 16 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
+
+    def list_freezes(self, *, include_past: Union[bool, None] = None) -> "FreezesResponse":
+        """GET /api/deploy-freezes
+
+        List Freezes
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/deploy-freezes", query={"include_past": include_past}, body=None)
+
+    def create_freeze(self, body: "FreezeRequest") -> "FreezeOut":
+        """POST /api/deploy-freezes
+
+        Create Freeze
+
+        Needs: permission `apps.deploy`."""
+        return self._call("POST", "/api/deploy-freezes", query=None, body=body)
+
+    def lift_freeze(self, freeze_id: int | str) -> "LiftedResponse":
+        """DELETE /api/deploy-freezes/{freeze_id}
+
+        Lift Freeze
+
+        Needs: permission `apps.deploy`."""
+        return self._call("DELETE", f"/api/deploy-freezes/{quote(str(freeze_id), safe='')}", query=None, body=None)
 
     def list_jobs(self, *, limit: Union[int, None] = None, status: Union[str, None] = None, domain: Union[str, None] = None) -> "JobListResponse":
         """GET /api/jobs
@@ -5107,7 +5441,7 @@ class Monitor:
 
 
 class Nodes:
-    """Nodes: 7 operations."""
+    """Nodes: 11 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -5144,6 +5478,22 @@ class Nodes:
         Needs: permission `fleet.manage`, sudo mode, a second person's approval can be required."""
         return self._call("DELETE", f"/api/nodes/{quote(str(node), safe='')}", query={"revoke": revoke}, body=None)
 
+    def get_node_inventory(self, node: str) -> dict[str, Any]:
+        """GET /api/nodes/{node}/inventory
+
+        Get Node Inventory
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", f"/api/nodes/{quote(str(node), safe='')}/inventory", query=None, body=None)
+
+    def apply_node_inventory(self, node: str, body: "InventoryApplyIn") -> "InventoryReportOut":
+        """POST /api/nodes/{node}/inventory
+
+        Apply Node Inventory
+
+        Needs: permission `fleet.manage`."""
+        return self._call("POST", f"/api/nodes/{quote(str(node), safe='')}/inventory", query=None, body=body)
+
     def get_node_key(self, node: str) -> "NodeKeyResponse":
         """GET /api/nodes/{node}/key
 
@@ -5159,6 +5509,22 @@ class Nodes:
 
         Needs: permission `fleet.manage`."""
         return self._call("PUT", f"/api/nodes/{quote(str(node), safe='')}/monitoring", query=None, body=body)
+
+    def get_node_ssh(self, node: str) -> "SSHOptionsOut":
+        """GET /api/nodes/{node}/ssh
+
+        Get Node Ssh
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", f"/api/nodes/{quote(str(node), safe='')}/ssh", query=None, body=None)
+
+    def set_node_ssh(self, node: str, body: "SSHOptionsIn") -> "SSHOptionsOut":
+        """PUT /api/nodes/{node}/ssh
+
+        Set Node Ssh
+
+        Needs: permission `fleet.manage`, sudo mode."""
+        return self._call("PUT", f"/api/nodes/{quote(str(node), safe='')}/ssh", query=None, body=body)
 
     def test_node(self, node: str) -> dict[str, Any]:
         """POST /api/nodes/{node}/test
@@ -5363,7 +5729,7 @@ class Passkeys:
 
 
 class Previews:
-    """Previews: 14 operations."""
+    """Previews: 16 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -5448,6 +5814,14 @@ class Previews:
         Needs: permission `apps.manage`, sudo mode."""
         return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}/previews/{quote(str(number), safe='')}", query=None, body=None)
 
+    def approve_preview(self, domain: str, number: int | str) -> "PreviewQueuedResponse":
+        """POST /api/apps/{domain}/previews/{number}/approve
+
+        Approve Preview
+
+        Needs: permission `apps.deploy`, sudo mode."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/previews/{quote(str(number), safe='')}/approve", query=None, body=None)
+
     def get_preview_logs(self, domain: str, number: int | str, *, lines: Union[int, None] = None) -> "PreviewLogsResponse":
         """GET /api/apps/{domain}/previews/{number}/logs
 
@@ -5463,6 +5837,14 @@ class Previews:
 
         Needs: permission `apps.deploy`, sudo mode."""
         return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/previews/{quote(str(number), safe='')}/redeploy", query=None, body=None)
+
+    def reject_preview(self, domain: str, number: int | str) -> "NoustWebApiPreviewsPreviewOut":
+        """POST /api/apps/{domain}/previews/{number}/reject
+
+        Reject Preview
+
+        Needs: permission `apps.deploy`, sudo mode."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/previews/{quote(str(number), safe='')}/reject", query=None, body=None)
 
     def start_preview(self, domain: str, number: int | str) -> "NoustWebApiPreviewsPreviewOut":
         """POST /api/apps/{domain}/previews/{number}/start
@@ -5663,6 +6045,134 @@ class Registries:
 
         Needs: permission `apps.manage`, sudo mode."""
         return self._call("POST", f"/api/registries/{quote(str(name), safe='')}/test", query=None, body=None)
+
+
+
+class SCIMProvisioning:
+    """SCIM provisioning: 15 operations."""
+
+    def __init__(self, call: Call) -> None:
+        self._call = call
+
+    def list_groups(self, *, filter: Union[str, None] = None, startIndex: Union[int, None] = None, count: Union[int, None] = None) -> Any:
+        """GET /api/scim/v2/Groups
+
+        List Groups
+
+        Needs: permission `public`."""
+        return self._call("GET", "/api/scim/v2/Groups", query={"filter": filter, "startIndex": startIndex, "count": count}, body=None)
+
+    def create_group(self, body: dict[str, Any]) -> Any:
+        """POST /api/scim/v2/Groups
+
+        Create Group
+
+        Needs: permission `public`."""
+        return self._call("POST", "/api/scim/v2/Groups", query=None, body=body)
+
+    def get_group(self, group_id: str) -> Any:
+        """GET /api/scim/v2/Groups/{group_id}
+
+        Get Group
+
+        Needs: permission `public`."""
+        return self._call("GET", f"/api/scim/v2/Groups/{quote(str(group_id), safe='')}", query=None, body=None)
+
+    def replace_group(self, group_id: str, body: dict[str, Any]) -> Any:
+        """PUT /api/scim/v2/Groups/{group_id}
+
+        Replace Group
+
+        Needs: permission `public`."""
+        return self._call("PUT", f"/api/scim/v2/Groups/{quote(str(group_id), safe='')}", query=None, body=body)
+
+    def patch_group(self, group_id: str, body: dict[str, Any]) -> Any:
+        """PATCH /api/scim/v2/Groups/{group_id}
+
+        Patch Group
+
+        Needs: permission `public`."""
+        return self._call("PATCH", f"/api/scim/v2/Groups/{quote(str(group_id), safe='')}", query=None, body=body)
+
+    def delete_group(self, group_id: str) -> Any:
+        """DELETE /api/scim/v2/Groups/{group_id}
+
+        Delete Group
+
+        Needs: permission `public`."""
+        return self._call("DELETE", f"/api/scim/v2/Groups/{quote(str(group_id), safe='')}", query=None, body=None)
+
+    def resource_types(self) -> Any:
+        """GET /api/scim/v2/ResourceTypes
+
+        Resource Types
+
+        Needs: permission `public`."""
+        return self._call("GET", "/api/scim/v2/ResourceTypes", query=None, body=None)
+
+    def schemas(self) -> Any:
+        """GET /api/scim/v2/Schemas
+
+        Schemas
+
+        Needs: permission `public`."""
+        return self._call("GET", "/api/scim/v2/Schemas", query=None, body=None)
+
+    def service_provider_config(self) -> Any:
+        """GET /api/scim/v2/ServiceProviderConfig
+
+        Service Provider Config
+
+        Needs: permission `public`."""
+        return self._call("GET", "/api/scim/v2/ServiceProviderConfig", query=None, body=None)
+
+    def list_users(self, *, filter: Union[str, None] = None, startIndex: Union[int, None] = None, count: Union[int, None] = None) -> Any:
+        """GET /api/scim/v2/Users
+
+        List Users
+
+        Needs: permission `public`."""
+        return self._call("GET", "/api/scim/v2/Users", query={"filter": filter, "startIndex": startIndex, "count": count}, body=None)
+
+    def create_user(self, body: dict[str, Any]) -> Any:
+        """POST /api/scim/v2/Users
+
+        Create User
+
+        Needs: permission `public`."""
+        return self._call("POST", "/api/scim/v2/Users", query=None, body=body)
+
+    def get_user(self, user_id: str) -> Any:
+        """GET /api/scim/v2/Users/{user_id}
+
+        Get User
+
+        Needs: permission `public`."""
+        return self._call("GET", f"/api/scim/v2/Users/{quote(str(user_id), safe='')}", query=None, body=None)
+
+    def replace_user(self, user_id: str, body: dict[str, Any]) -> Any:
+        """PUT /api/scim/v2/Users/{user_id}
+
+        Replace User
+
+        Needs: permission `public`."""
+        return self._call("PUT", f"/api/scim/v2/Users/{quote(str(user_id), safe='')}", query=None, body=body)
+
+    def patch_user(self, user_id: str, body: dict[str, Any]) -> Any:
+        """PATCH /api/scim/v2/Users/{user_id}
+
+        Patch User
+
+        Needs: permission `public`."""
+        return self._call("PATCH", f"/api/scim/v2/Users/{quote(str(user_id), safe='')}", query=None, body=body)
+
+    def delete_user(self, user_id: str) -> Any:
+        """DELETE /api/scim/v2/Users/{user_id}
+
+        Delete User
+
+        Needs: permission `public`."""
+        return self._call("DELETE", f"/api/scim/v2/Users/{quote(str(user_id), safe='')}", query=None, body=None)
 
 
 
@@ -6395,10 +6905,50 @@ class Services:
 
 
 class SingleSignOn:
-    """Single sign-on: 13 operations."""
+    """Single sign-on: 29 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
+
+    def list_directories(self) -> "DirectoriesResponse":
+        """GET /api/auth/ldap/directories
+
+        List Directories
+
+        Needs: permission `accounts.read`."""
+        return self._call("GET", "/api/auth/ldap/directories", query=None, body=None)
+
+    def put_directory(self, name: str, body: "DirectorySettings") -> "DirectoryInfo":
+        """PUT /api/auth/ldap/directories/{name}
+
+        Put Directory
+
+        Needs: permission `accounts.manage`, sudo mode."""
+        return self._call("PUT", f"/api/auth/ldap/directories/{quote(str(name), safe='')}", query=None, body=body)
+
+    def delete_directory(self, name: str) -> "DirectoryRemoved":
+        """DELETE /api/auth/ldap/directories/{name}
+
+        Delete Directory
+
+        Needs: permission `accounts.manage`, sudo mode."""
+        return self._call("DELETE", f"/api/auth/ldap/directories/{quote(str(name), safe='')}", query=None, body=None)
+
+    def test_directory(self, name: str) -> "TestResponse":
+        """POST /api/auth/ldap/directories/{name}/test
+
+        Test Directory
+
+        Needs: permission `accounts.manage`."""
+        return self._call("POST", f"/api/auth/ldap/directories/{quote(str(name), safe='')}/test", query=None, body=None)
+
+    def login(self, body: "LdapLoginRequest") -> "LoginResponse":
+        """POST /api/auth/ldap/login
+
+        Login
+
+        Needs: permission `public`."""
+        return self._call("POST", "/api/auth/ldap/login", query=None, body=body)
 
     def callback(self, *, code: Union[str, None] = None, state: Union[str, None] = None, error: Union[str, None] = None) -> Any:
         """GET /api/auth/oidc/callback
@@ -6503,6 +7053,94 @@ class SingleSignOn:
 
         Needs: permission `public`."""
         return self._call("GET", "/api/auth/oidc/start", query={"provider": provider, "next": next}, body=None)
+
+    def assertion_consumer_service(self) -> Any:
+        """POST /api/auth/saml/acs
+
+        Assertion Consumer Service
+
+        Needs: permission `public`."""
+        return self._call("POST", "/api/auth/saml/acs", query=None, body=None)
+
+    def list_providers_get(self) -> "SamlProvidersResponse":
+        """GET /api/auth/saml/config
+
+        List Providers
+
+        Needs: permission `accounts.read`."""
+        return self._call("GET", "/api/auth/saml/config", query=None, body=None)
+
+    def put_provider_put(self, provider: str, body: "SamlSettings") -> "SamlProviderInfo":
+        """PUT /api/auth/saml/config/{provider}
+
+        Put Provider
+
+        Needs: permission `accounts.manage`, sudo mode."""
+        return self._call("PUT", f"/api/auth/saml/config/{quote(str(provider), safe='')}", query=None, body=body)
+
+    def delete_provider_delete(self, provider: str) -> "SamlRemoved":
+        """DELETE /api/auth/saml/config/{provider}
+
+        Delete Provider
+
+        Needs: permission `accounts.manage`, sudo mode."""
+        return self._call("DELETE", f"/api/auth/saml/config/{quote(str(provider), safe='')}", query=None, body=None)
+
+    def try_provider_post(self, provider: str) -> "TestResponse":
+        """POST /api/auth/saml/config/{provider}/test
+
+        Try Provider
+
+        Needs: permission `accounts.manage`."""
+        return self._call("POST", f"/api/auth/saml/config/{quote(str(provider), safe='')}/test", query=None, body=None)
+
+    def metadata(self, provider: str) -> Any:
+        """GET /api/auth/saml/metadata/{provider}
+
+        Metadata
+
+        Needs: permission `public`."""
+        return self._call("GET", f"/api/auth/saml/metadata/{quote(str(provider), safe='')}", query=None, body=None)
+
+    def start_get(self, *, provider: str, next: Union[str, None] = None) -> Any:
+        """GET /api/auth/saml/start
+
+        Start
+
+        Needs: permission `public`."""
+        return self._call("GET", "/api/auth/saml/start", query={"provider": provider, "next": next}, body=None)
+
+    def list_sources(self) -> "ScimSourcesResponse":
+        """GET /api/auth/scim/sources
+
+        List Sources
+
+        Needs: permission `accounts.read`."""
+        return self._call("GET", "/api/auth/scim/sources", query=None, body=None)
+
+    def put_source(self, name: str, body: "ScimSourceSettings") -> "ScimSourceSaved":
+        """PUT /api/auth/scim/sources/{name}
+
+        Put Source
+
+        Needs: permission `accounts.manage`, sudo mode."""
+        return self._call("PUT", f"/api/auth/scim/sources/{quote(str(name), safe='')}", query=None, body=body)
+
+    def delete_source(self, name: str) -> "ScimRemoved":
+        """DELETE /api/auth/scim/sources/{name}
+
+        Delete Source
+
+        Needs: permission `accounts.manage`, sudo mode."""
+        return self._call("DELETE", f"/api/auth/scim/sources/{quote(str(name), safe='')}", query=None, body=None)
+
+    def list_users(self, name: str) -> "ScimUsersResponse":
+        """GET /api/auth/scim/sources/{name}/users
+
+        List Users
+
+        Needs: permission `accounts.read`."""
+        return self._call("GET", f"/api/auth/scim/sources/{quote(str(name), safe='')}/users", query=None, body=None)
 
 
 
@@ -7626,6 +8264,7 @@ class Api:
     previews: Previews
     recipes: Recipes
     registries: Registries
+    scim_provisioning: SCIMProvisioning
     self_backup: SelfBackup
     server: Server
     services: Services
@@ -7681,6 +8320,7 @@ class Api:
         self.previews = Previews(call)
         self.recipes = Recipes(call)
         self.registries = Registries(call)
+        self.scim_provisioning = SCIMProvisioning(call)
         self.self_backup = SelfBackup(call)
         self.server = Server(call)
         self.services = Services(call)

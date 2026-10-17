@@ -304,3 +304,41 @@ def test_the_api_demands_a_session(anonymous: TestClient) -> None:
         403,
     )
     assert anonymous.delete("/api/backup-schedules/a.com").status_code in (401, 403)
+
+
+def test_a_schedule_keeps_its_backups_by_size_and_the_listing_says_so(
+    client: TestClient, runner: FakeRunner, systemd_dir: Path
+) -> None:
+    """The size limit is stored in bytes, echoed and listed back in gigabytes (H-04)."""
+    elevate(client)
+    response = client.post(
+        "/api/backup-schedules",
+        json={
+            "domain": "example.com",
+            "schedule": "daily",
+            "retention_gb": 2.5,
+            "destinations": [{"name": "nas", "retention_gb": 40}],
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["schedule"]["retention_gb"] == 2.5
+    assert response.json()["schedule"]["destinations"][0]["retention_gb"] == 40
+    scripted_timer(runner)
+    listed = client.get("/api/backup-schedules").json()["schedules"][0]
+    assert listed["retention_gb"] == 2.5
+    assert listed["destinations"][0]["retention_gb"] == 40
+
+
+@pytest.mark.parametrize("bad", [0, -3, 2_000_000, "lots"])
+def test_a_size_that_is_not_one_is_refused_and_writes_nothing(
+    client: TestClient, runner: FakeRunner, systemd_dir: Path, bad: object
+) -> None:
+    elevate(client)
+    response = client.post(
+        "/api/backup-schedules",
+        json={"domain": "example.com", "schedule": "daily", "retention_gb": bad},
+    )
+
+    assert response.status_code == 422, response.text
+    assert list(systemd_dir.iterdir()) == []

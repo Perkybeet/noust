@@ -126,6 +126,25 @@ class TestTargetsAndPolicies:
         assert deleted.json()["success"] is True
         assert client.get(f"{BASE}/policies/{DOMAIN}").json()["configured"] is False
 
+    def test_a_policy_keeps_its_backups_by_size_too(self, client: TestClient, shop: Path) -> None:
+        elevate(client)
+
+        put = client.put(
+            f"{BASE}/policies/{DOMAIN}",
+            json={
+                "retention_gb": 2.5,
+                "destinations": [{"name": "nas", "retention_count": 3, "retention_gb": 20}],
+            },
+        )
+
+        assert put.status_code == 400, put.text
+        refused = client.put(f"{BASE}/policies/{DOMAIN}", json={"retention_gb": 0})
+        assert refused.status_code == 422
+        again = client.put(f"{BASE}/policies/{DOMAIN}", json={"retention_gb": 2.5})
+        assert again.status_code == 200, again.text
+        assert again.json()["retention_gb"] == 2.5
+        assert client.get(f"{BASE}/policies/{DOMAIN}").json()["retention_gb"] == 2.5
+
     def test_setting_or_removing_a_policy_needs_sudo_mode(
         self, client: TestClient, shop: Path
     ) -> None:

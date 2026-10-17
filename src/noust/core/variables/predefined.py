@@ -6,7 +6,8 @@ The variables Noust gives every application about its own deployment.
 
 ``NOUST_URL`` and ``NOUST_DOMAIN`` say where it answers, ``NOUST_BRANCH`` and
 ``NOUST_COMMIT`` what it was built from, ``NOUST_RELEASE`` which release is
-running. The running process gets them from a file beside the release
+running. A preview is also told which application it copies (``NOUST_PREVIEW_OF``)
+and, when it is for a pull request, which one (``NOUST_PR_NUMBER``). The running process gets them from a file beside the release
 (:data:`RELEASE_ENV_NAME`), so rolling back to an older release also gives the
 process that release's commit. Where the process listens is not here: the unit
 sets ``PORT`` itself (each instance its own, when an update runs without
@@ -36,6 +37,8 @@ ENV_NAMES: dict[str, str] = {
     "BRANCH": "NOUST_BRANCH",
     "COMMIT": "NOUST_COMMIT",
     "RELEASE": "NOUST_RELEASE",
+    "PR_NUMBER": "NOUST_PR_NUMBER",
+    "PREVIEW_OF": "NOUST_PREVIEW_OF",
 }
 
 #: The names an operator cannot give a variable of their own: Noust writes them.
@@ -60,6 +63,10 @@ class Deployment:
         commit: The commit being deployed or running (the short form).
         release: The release id on the release layout.
         port: The port the process listens on.
+        pull_request: The number of the pull request a preview is for; None for
+            anything else, a preview of a branch or a tag included.
+        preview_of: The application a preview is a copy of; None for any
+            application that is not a preview.
     """
 
     domain: str
@@ -68,6 +75,8 @@ class Deployment:
     commit: str | None = None
     release: str | None = None
     port: int | None = None
+    pull_request: int | None = None
+    preview_of: str | None = None
 
     @property
     def url(self) -> str:
@@ -88,6 +97,8 @@ class Deployment:
             "RELEASE": self.release,
             "PORT": None if self.port is None else str(self.port),
             "HOST": LOOPBACK,
+            "PR_NUMBER": None if self.pull_request is None else str(self.pull_request),
+            "PREVIEW_OF": self.preview_of,
         }
         return {name: value for name, value in known.items() if value}
 

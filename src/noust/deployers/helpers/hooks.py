@@ -54,14 +54,22 @@ if TYPE_CHECKING:
     from noust.core.notifications.model import Notification
     from noust.core.store import App, NoustStore
 
-#: The two moments a hook runs at.
-HookPhase = Literal["pre_deploy", "post_deploy"]
+#: The moments a hook runs at: the two of a deployment, and the two of a preview's life.
+HookPhase = Literal["pre_deploy", "post_deploy", "preview_post_create", "preview_pre_destroy"]
 
 #: Where the hooks that apply came from.
 HookSource = Literal["repo", "operator", "none"]
 
 #: The phases, in the order a deployment reaches them.
 PHASES: tuple[HookPhase, ...] = ("pre_deploy", "post_deploy")
+
+#: The phases of a preview's life: once its first deployment serves (seed its data), and
+#: before it is removed (clean up what it made elsewhere). Run by
+#: :mod:`noust.managers.previews` in the preview's own context, never by a deployment.
+PREVIEW_PHASES: tuple[HookPhase, ...] = ("preview_post_create", "preview_pre_destroy")
+
+#: Every phase a document may declare.
+ALL_PHASES: tuple[HookPhase, ...] = (*PHASES, *PREVIEW_PHASES)
 
 #: The first words of the error of a deployment that changed the database's
 #: schema and then failed: going back put the previous code back, never the
@@ -156,26 +164,41 @@ class HookSet:
         post_deploy: Run in order once it passed its health gate.
         source: ``repo`` (``noust.yaml``), ``operator`` (the store) or
             ``none``.
+        preview_post_create: For a preview only: run in order once its first
+            deployment serves, to seed it.
+        preview_pre_destroy: For a preview only: run in order before it is removed.
     """
 
     pre_deploy: tuple[Hook, ...] = ()
     post_deploy: tuple[Hook, ...] = ()
     source: HookSource = "none"
+    preview_post_create: tuple[Hook, ...] = ()
+    preview_pre_destroy: tuple[Hook, ...] = ()
 
     @property
     def declared(self) -> bool:
         """Whether any hook is declared; an empty document declares none."""
-        return bool(self.pre_deploy or self.post_deploy)
+        return bool(
+            self.pre_deploy
+            or self.post_deploy
+            or self.preview_post_create
+            or self.preview_pre_destroy
+        )
 
     def phase(self, phase: HookPhase) -> tuple[Hook, ...]:
         """
         Args:
-            phase: ``pre_deploy`` or ``post_deploy``.
+            phase: One of :data:`ALL_PHASES`.
 
         Returns:
             The hooks of that phase, in order.
         """
-        return self.pre_deploy if phase == "pre_deploy" else self.post_deploy
+        return {
+            "pre_deploy": self.pre_deploy,
+            "post_deploy": self.post_deploy,
+            "preview_post_create": self.preview_post_create,
+            "preview_pre_destroy": self.preview_pre_destroy,
+        }[phase]
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -186,8 +209,7 @@ class HookSet:
         """
         return {
             "source": self.source,
-            "pre_deploy": [hook.to_dict() for hook in self.pre_deploy],
-            "post_deploy": [hook.to_dict() for hook in self.post_deploy],
+            **{phase: [hook.to_dict() for hook in self.phase(phase)] for phase in ALL_PHASES},
         }
 
 

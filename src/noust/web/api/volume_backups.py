@@ -133,11 +133,14 @@ class PolicyDestination(BaseModel):
         retention_count: This server's scheduled backups of a target to keep
             there; null for no limit.
         retention_days: Maximum age in days of those; null for no limit.
+        retention_gb: The most those may weigh together there, in gigabytes; null
+            for no limit. The newest always stays.
     """
 
     name: str
     retention_count: int | None = Field(default=None, ge=1, le=365)
     retention_days: int | None = Field(default=None, ge=1, le=3650)
+    retention_gb: float | None = Field(default=None, gt=0, le=1_000_000)
 
 
 class PolicyDestinationState(PolicyDestination):
@@ -165,6 +168,8 @@ class VolumePolicyResponse(BaseModel):
         extra_paths: Directories added to what it declares.
         retention_count: Scheduled backups kept locally per target.
         retention_days: Days a scheduled backup is kept locally.
+        retention_gb: The most the scheduled backups kept locally per target may
+            weigh together, in gigabytes; null for no limit.
         destinations: Where each backup is sent.
         consistency: ``live``, ``pause`` or ``stop``.
         enabled: Whether the timer exists.
@@ -183,6 +188,7 @@ class VolumePolicyResponse(BaseModel):
     extra_paths: list[str] = Field(default_factory=list)
     retention_count: int | None = None
     retention_days: int | None = None
+    retention_gb: float | None = None
     destinations: list[PolicyDestinationState] = Field(default_factory=list)
     consistency: str = "live"
     enabled: bool = False
@@ -218,6 +224,8 @@ class SetVolumePolicyRequest(BaseModel):
         extra_paths: Data directories to add, relative to where its data lives.
         retention_count: Scheduled backups to keep locally per target.
         retention_days: Days to keep a scheduled backup locally.
+        retention_gb: The most the scheduled backups kept locally per target may
+            weigh together, in gigabytes; the newest always stays.
         destinations: Remote copies, each with its own retention.
         consistency: ``live``, ``pause`` (freeze it for the copy) or ``stop``.
         enabled: Whether the timer runs; a disabled policy keeps its settings.
@@ -228,6 +236,7 @@ class SetVolumePolicyRequest(BaseModel):
     extra_paths: list[str] = Field(default_factory=list)
     retention_count: int | None = Field(default=7, ge=1, le=365)
     retention_days: int | None = Field(default=30, ge=1, le=3650)
+    retention_gb: float | None = Field(default=None, gt=0, le=1_000_000)
     destinations: list[PolicyDestination] = Field(default_factory=list)
     consistency: str = "live"
     enabled: bool = True
@@ -486,6 +495,7 @@ def set_policy(
         extra_paths=request.extra_paths,
         retention_count=request.retention_count,
         retention_days=request.retention_days,
+        retention_gb=request.retention_gb,
         destinations=[dump_model(entry) for entry in request.destinations],
         consistency=request.consistency,
         enabled=request.enabled,

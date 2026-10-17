@@ -401,7 +401,7 @@ def test_schedule_create_accepts_destinations(client: TestClient, master_token: 
 
     assert response.status_code == 201, response.text
     assert response.json()["schedule"]["destinations"] == [
-        {"name": "nas", "retention_count": 3, "retention_days": None}
+        {"name": "nas", "retention_count": 3, "retention_days": None, "retention_gb": None}
     ]
 
 
@@ -430,3 +430,51 @@ def test_schedule_put_domain_mismatch_is_refused(client: TestClient, master_toke
     )
 
     assert response.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Credentials encrypted at rest (H-14)
+# ---------------------------------------------------------------------------
+
+
+def test_a_listed_destination_says_its_credentials_are_encrypted(
+    client: TestClient, master_token: str
+) -> None:
+    elevate(client, master_token)
+    client.post(
+        "/api/backup-destinations",
+        json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS, "encrypted": False},
+    )
+
+    destination = client.get("/api/backup-destinations").json()["destinations"][0]
+
+    assert destination["credentials_protected"] is True
+
+
+def test_protecting_requires_elevation(client: TestClient) -> None:
+    response = client.post("/api/backup-destinations/protect")
+    assert response.status_code == 403
+    assert response.json()["error"] == "elevation_required"
+
+
+def test_protecting_encrypts_the_destinations_made_before_and_names_them(
+    client: TestClient, master_token: str
+) -> None:
+    from noust.core.secrets import SecretStore
+
+    elevate(client, master_token)
+    client.post(
+        "/api/backup-destinations",
+        json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS, "encrypted": False},
+    )
+    SecretStore().write_json("backup-destinations/nas", {"pass": "s3cr3t-password-value"})
+    before = client.get("/api/backup-destinations").json()["destinations"][0]
+    assert before["credentials_protected"] is False
+
+    response = client.post("/api/backup-destinations/protect")
+
+    assert response.status_code == 200, response.text
+    assert response.json() == {"protected": ["nas"]}
+    after = client.get("/api/backup-destinations").json()["destinations"][0]
+    assert after["credentials_protected"] is True
+    assert client.post("/api/backup-destinations/protect").json() == {"protected": []}

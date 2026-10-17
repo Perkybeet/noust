@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { GitBranch, GitPullRequest, Play, RotateCw, ScrollText, Square, Tag } from "lucide-react";
+import { Check, GitBranch, GitPullRequest, Play, RotateCw, ScrollText, Square, Tag, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { request } from "../../../api/client";
@@ -80,6 +80,7 @@ export function PreviewRow({ domain, preview, can, onLogs }: PreviewRowProps) {
   const notifiedRef = useRef<string | null>(null);
   const [removing, setRemoving] = useState(false);
   const [stopping, setStopping] = useState(false);
+  const [approving, setApproving] = useState(false);
   const number = preview.number;
   const name = previewName(preview);
 
@@ -98,6 +99,8 @@ export function PreviewRow({ domain, preview, can, onLogs }: PreviewRowProps) {
   const view = removingNow && preview.status !== "removing" ? previewStatus("removing", t.locale) : previewStatus(preview.status, t.locale);
   const busy = removingNow || preview.status === "pending" || preview.status === "deploying";
   const stopped = preview.status === "stopped";
+  // A pull request from a fork waits for a person; nothing of it has been built, so there is nothing to rebuild.
+  const awaiting = preview.status === "awaiting";
 
   const refresh = (): void => {
     void queryClient.invalidateQueries({ queryKey: previewsKey(domain) });
@@ -128,6 +131,24 @@ export function PreviewRow({ domain, preview, can, onLogs }: PreviewRowProps) {
     },
     onError: (error: unknown) => {
       reportActionError(t("previewHand.list.startFailed", { name }), error);
+    },
+  });
+
+  const approve = useMutation({
+    mutationFn: () => request("post", "/api/apps/{domain}/previews/{number}/approve", { params: { domain, number } }),
+    onSuccess: () => {
+      refresh();
+      announce(t("rollout.previews.approved", { name }));
+    },
+  });
+  const reject = useMutation({
+    mutationFn: () => request("post", "/api/apps/{domain}/previews/{number}/reject", { params: { domain, number } }),
+    onSuccess: () => {
+      refresh();
+      announce(t("rollout.previews.rejected", { name }));
+    },
+    onError: (error: unknown) => {
+      reportActionError(t("rollout.previews.rejectFailed", { name }), error);
     },
   });
 
@@ -176,12 +197,23 @@ export function PreviewRow({ domain, preview, can, onLogs }: PreviewRowProps) {
               <span>{t.rich("previewHand.list.ownDatabase", { names: <Mono>{(preview.databases ?? []).join(", ")}</Mono> })}</span>
             ) : null}
           </p>
+          {awaiting ? <p className="text-12 text-fg-muted">{t.rich("rollout.previews.awaitingNote", { commit: <Mono>{(preview.head_sha ?? "").slice(0, 7)}</Mono> })}</p> : null}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <Button size="sm" variant="ghost" icon={<ScrollText aria-hidden="true" />} aria-label={`${t("previewHand.list.logs")} ${name}`} onClick={() => onLogs(preview)}>
             {t("previewHand.list.logs")}
           </Button>
-          {can.deploy ? (
+          {awaiting && can.deploy ? (
+            <>
+              <Button size="sm" variant="primary" icon={<Check aria-hidden="true" />} aria-label={t("rollout.previews.approveAria", { name })} onClick={() => setApproving(true)}>
+                {t("rollout.previews.approve")}
+              </Button>
+              <Button size="sm" variant="ghost" icon={<X aria-hidden="true" />} loading={reject.isPending} aria-label={t("rollout.previews.rejectAria", { name })} onClick={() => reject.mutate()}>
+                {t("rollout.previews.reject")}
+              </Button>
+            </>
+          ) : null}
+          {can.deploy && !awaiting ? (
             <Button size="sm" variant="ghost" icon={<RotateCw aria-hidden="true" />} loading={redeploy.isPending} disabled={busy} aria-label={`${t("previewHand.list.redeploy")} ${name}`} onClick={() => redeploy.mutate()}>
               {t("previewHand.list.redeploy")}
             </Button>
@@ -225,6 +257,23 @@ export function PreviewRow({ domain, preview, can, onLogs }: PreviewRowProps) {
       ) : null}
       {removalFailed ? <ErrorBlock live compact error={{ detail: job.error ?? t("appSettings.jobFailedSilently") }} title={t("previewHand.list.notRemoved", { name })} /> : null}
 
+      <ConfirmDialog
+        open={approving}
+        onOpenChange={setApproving}
+        friction="simple"
+        destructive={false}
+        server={node}
+        title={t("rollout.previews.approveTitle", { commit: (preview.head_sha ?? "").slice(0, 7), name })}
+        description={t("rollout.previews.approveDescription")}
+        actionLabel={t("rollout.previews.approveAction")}
+        onConfirm={async () => {
+          try {
+            await approve.mutateAsync();
+          } catch (error: unknown) {
+            reportActionError(t("rollout.previews.approveFailed", { name }), error);
+          }
+        }}
+      />
       <ConfirmDialog
         open={stopping}
         onOpenChange={setStopping}

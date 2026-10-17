@@ -83,6 +83,18 @@ export function useDestinationActions() {
     },
   });
 
+  const protect = useMutation({
+    mutationFn: () => request("post", "/api/backup-destinations/protect"),
+    onSuccess: (result) => {
+      if (result.protected.length > 0) toast.success(t("backups.destinations.credentials.done", { names: result.protected.join(", ") }));
+      else toast.info(t("backups.destinations.credentials.nothing"));
+      refreshList();
+    },
+    onError: (error) => {
+      reportActionError(t("backups.destinations.credentials.failed"), error);
+    },
+  });
+
   const test = useMutation({
     mutationFn: (name: string) => request("post", "/api/backup-destinations/{name}/test", { params: { name } }),
   });
@@ -105,5 +117,5 @@ export function useDestinationActions() {
     // No onError: the restore dialog (ConfirmDialog) shows a failure where it was started.
   });
 
-  return { create, update, remove, test, showKey, restoreFromDestination };
+  return { create, update, remove, protect, test, showKey, restoreFromDestination };
 }

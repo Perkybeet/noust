@@ -13,6 +13,7 @@ the delivery log words them the same way (rule 3).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from noust.core import app_source_store, webhook_deliveries
@@ -73,27 +74,42 @@ def why_push_is_declined(app: App, change: PushChange) -> Declined | None:
     return None
 
 
-def why_pull_request_is_declined(app: App, event: PullRequestEvent) -> Declined | None:
+def why_pull_request_is_declined(
+    app: App, event: PullRequestEvent, *, files: Sequence[str] | None = None
+) -> Declined | None:
     """
     Decide whether an application declines to build a preview of a pull request.
 
-    A pull request's file list is not in its payload, so the watch paths are
-    not weighed here (a preview of a monorepo application is built for any
-    request that targets its repository); the title and the head commit are.
+    The title and the head commit are weighed against the skip markers. A pull request's
+    file list is not in its payload, so the watch paths are weighed only when the caller
+    read it from the code host (``files``): a preview of an application that deploys one
+    directory of a monorepo is built for the pull requests that change that directory, and
+    for any when the list could not be read.
 
     Args:
         app: The previewed application.
         event: An opened or updated pull request.
+        files: The paths the whole pull request changes; None when they are not known.
 
     Returns:
         Why it is declined, or None when it is built.
     """
-    if not app_source_store.get_options(app.domain).skip_markers:
-        return None
-    reason = pull_request_skip_reason(event.title, event.head_message)
-    if reason is None:
-        return None
-    return Declined(webhook_deliveries.IGNORED_SKIP, f"no preview: {reason}")
+    options = app_source_store.get_options(app.domain)
+    if options.skip_markers:
+        reason = pull_request_skip_reason(event.title, event.head_message)
+        if reason is not None:
+            return Declined(webhook_deliveries.IGNORED_SKIP, f"no preview: {reason}")
+    if (
+        files is not None
+        and options.watch_paths
+        and not watch_paths_trigger(options.watch_paths, list(files))
+    ):
+        shown = ", ".join(options.watch_paths[:3]) + ("..." if len(options.watch_paths) > 3 else "")
+        return Declined(
+            webhook_deliveries.IGNORED_PATHS,
+            f"no preview: the pull request changes no file under the watch paths ({shown})",
+        )
+    return None
 
 
 __all__ = ["Declined", "why_pull_request_is_declined", "why_push_is_declined"]

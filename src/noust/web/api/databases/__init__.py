@@ -27,6 +27,7 @@ all live below it.
   major version, with a way back.
 - :mod:`.tls`: an instance that serves TLS with a certificate of Noust's own authority.
 - :mod:`.tuning`: what an instance may use (memory, CPUs, swap) and how it is probed.
+- :mod:`.limits`: what an engine on the host may use (memory, CPUs, swap, tasks), proved.
 - :mod:`.query`: the SQL console (history, saved queries, EXPLAIN, export)
   and the connection-string helper.
 - :mod:`.browse`: the data explorer, the row editor and the Redis key browser.
@@ -53,6 +54,7 @@ from noust.web.api.databases import (
     extensions,
     imports,
     instances,
+    limits,
     links,
     metrics,
     migrations,
@@ -81,6 +83,7 @@ AREAS = (
     migrations.router,
     tls.router,
     tuning.router,
+    limits.router,
     instances.router,
     query.router,
     browse.router,

@@ -3,7 +3,7 @@ import { Section } from "../../../components/page/Section";
 import { useT } from "../../../i18n";
 
 /** The order the variables are explained in: where it answers, then what it was built from. */
-const ORDER = ["NOUST_URL", "NOUST_DOMAIN", "NOUST_BRANCH", "NOUST_COMMIT", "NOUST_RELEASE"] as const;
+const ORDER = ["NOUST_URL", "NOUST_DOMAIN", "NOUST_BRANCH", "NOUST_COMMIT", "NOUST_RELEASE", "NOUST_PR_NUMBER", "NOUST_PREVIEW_OF"] as const;
 
 function rank(name: string): number {
   const index = ORDER.indexOf(name as (typeof ORDER)[number]);

@@ -25,7 +25,8 @@ import pytest
 from click.testing import CliRunner
 
 from noust.cli import audit_policy
-from noust.cli.app import Context, NoustGroup, cli
+from noust.cli.app import DEPLOY_VERBS, Context, NoustGroup, cli
+from noust.cli.commands.deploy import cli as deploy_group
 from noust.core.audit import Actor, get_log
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -50,6 +51,11 @@ def _resolve(words: list[str]) -> str | None:
     """The command path a sequence of words names in the real tree, if any."""
     command: click.Command = cli
     path: list[str] = []
+    if len(words) >= 2 and words[0] == "deploy" and words[1] in DEPLOY_VERBS:
+        # The root resolves these to the deploy group, as ``NoustGroup.resolve_command`` does.
+        command = deploy_group
+        path.append("deploy")
+        words = words[1:]
     for word in words:
         if not isinstance(command, click.Group):
             break
@@ -162,7 +168,11 @@ def _every_call() -> list[tuple[str, str, bool]]:
 
 def _leaf(path: str) -> click.Command:
     command: click.Command = cli
-    for word in path.split():
+    words = path.split()
+    for index, word in enumerate(words):
+        if index == 0 and word == "deploy" and words[1:2] and words[1] in DEPLOY_VERBS:
+            command = deploy_group
+            continue
         assert isinstance(command, click.Group)
         found = command.get_command(click.Context(command), word)
         assert found is not None

@@ -47,8 +47,10 @@ Every configuration key and the value it has until you change it. Set one with `
 | `databases.safety_copies_kept` | `5` |
 | `deploy.drain_seconds` | `10` |
 | `deploy.hardening` | `"default"` |
+| `deploy.history_keep` | `20` |
 | `deploy.layout` | `"releases"` |
 | `deploy.max_concurrent_builds` | `2` |
+| `deploy.max_minutes` | `60` |
 | `deploy.queue_limit` | `25` |
 | `deploy.zero_downtime` | `true` |
 | `dns.public_addresses` | `[]` |

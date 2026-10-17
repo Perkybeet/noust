@@ -378,6 +378,7 @@ def test_install_is_refused_without_apt(mysql: MySQLManager, runner) -> None:
         mysql.install()
 
     assert "dnf or zypper" in excinfo.value.details
+    assert "noust db instance create NAME --engine mysql" in excinfo.value.details
     assert runner.calls == []
 
 

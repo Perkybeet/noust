@@ -77,7 +77,50 @@ describe("ScheduleDialog", () => {
       destinations: { name: string; retention_count: number | null; retention_days: number | null }[];
     };
     expect(body.domain).toBe("shop.example.com");
-    expect(body.destinations).toEqual([{ name: "offsite", retention_count: 3, retention_days: null }]);
+    expect(body.destinations).toEqual([{ name: "offsite", retention_count: 3, retention_days: null, retention_gb: null }]);
+  });
+
+  it("keeps the schedule's backups by size, and a destination's too", { timeout: 20_000 }, async () => {
+    const backend = fakeBackend(
+      schedulesRoutes([], {
+        "POST /api/backup-schedules": () => json(201, { success: true, message: "Backup schedule created for shop.example.com" }),
+      }),
+    );
+    const { user } = renderConsole("/backups/schedules");
+    await screen.findByRole("heading", { level: 1, name: "Backups" });
+    await user.click(first(await screen.findAllByRole("button", { name: "New schedule" })));
+    const dialog = await screen.findByRole("dialog", { name: "New backup schedule" });
+    await user.click(within(dialog).getByRole("combobox", { name: "Application" }));
+    await user.click(await screen.findByRole("option", { name: "shop.example.com" }));
+    await user.click(within(dialog).getByRole("combobox", { name: "Add a destination" }));
+    await user.click(await screen.findByRole("option", { name: "offsite" }));
+    await user.click(within(dialog).getByRole("button", { name: "Add" }));
+
+    await user.type(within(dialog).getByLabelText(/^Keep at most/), "2,5");
+    await user.type(within(dialog).getByLabelText("Gigabytes to keep on offsite"), "40");
+    await user.click(within(dialog).getByRole("button", { name: "Create schedule" }));
+
+    await waitFor(() => expect(backend.callsTo("POST /api/backup-schedules")).toHaveLength(1));
+    expect(backend.callsTo("POST /api/backup-schedules")[0]?.body).toMatchObject({
+      retention_gb: 2.5,
+      destinations: [{ name: "offsite", retention_gb: 40 }],
+    });
+  });
+
+  it("refuses a size that is not a number above zero before it is sent", { timeout: 20_000 }, async () => {
+    const backend = fakeBackend(schedulesRoutes([]));
+    const { user } = renderConsole("/backups/schedules");
+    await screen.findByRole("heading", { level: 1, name: "Backups" });
+    await user.click(first(await screen.findAllByRole("button", { name: "New schedule" })));
+    const dialog = await screen.findByRole("dialog", { name: "New backup schedule" });
+    await user.click(within(dialog).getByRole("combobox", { name: "Application" }));
+    await user.click(await screen.findByRole("option", { name: "shop.example.com" }));
+
+    await user.type(within(dialog).getByLabelText(/^Keep at most/), "-3");
+    await user.click(within(dialog).getByRole("button", { name: "Create schedule" }));
+
+    expect(await within(dialog).findByText("A number above zero, up to 100000.")).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/backup-schedules")).toHaveLength(0);
   });
 
   it("edits a schedule through PUT, not another POST", async () => {

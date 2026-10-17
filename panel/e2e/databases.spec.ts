@@ -248,6 +248,20 @@ test("metrics: readings, charts, the biggest tables and the slowest statements",
   await expectNoA11yViolations(page, "a database's metrics");
 });
 
+test("an application's SQLite files are listed and checked without closing them", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, "/apps/pedidos.example.org/database");
+  await expect(page.getByRole("heading", { level: 2, name: "SQLite files" })).toBeVisible();
+  const card = page.getByRole("listitem").filter({ hasText: "storage/orders.db" });
+  await expect(card.getByText("Rollback journal")).toBeVisible();
+  await settle(page);
+  await expectNoA11yViolations(page, "an application's SQLite files");
+  await card.getByRole("button", { name: "Check", exact: true }).click();
+  await expect(card.getByText(/Nothing wrong found in/)).toBeVisible();
+  await card.getByRole("button", { name: "Check every index" }).click();
+  await expect(card.getByText(/Nothing wrong found in/)).toBeVisible();
+  await expectNoA11yViolations(page, "a finished SQLite check");
+});
+
 test("an application's Database tab shows what it uses and offers to create one", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/apps/example.com/database");
   await expect(page.getByRole("link", { name: "example_production" })).toBeVisible();

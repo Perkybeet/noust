@@ -107,6 +107,7 @@ NOT_SECRET: dict[tuple[str, str], str] = {
     ("log_drains", "settings"): "what is not secret of a drain; its token is in the secret store",
     ("node_labels", "key"): "a label's key",
     ("node_links", "link_key"): "the central's public key",
+    ("node_ssh_options", "bastion_host_key"): "a bastion's public host key, pinned",
     ("nodes", "host_key"): "a host's public key",
     ("oidc_flows", "binding_hash"): "a hash of a one-time value, short-lived",
     ("oidc_flows", "state_hash"): "a hash of a one-time value, short-lived",

@@ -61,6 +61,28 @@ def companions_of(names: set[str]) -> set[str]:
     return {f"{name}{suffix}" for name in names for suffix in COMPANION_SUFFIXES}
 
 
+def open_readonly(path: Path, *, timeout: float = 30) -> sqlite3.Connection:
+    """
+    Open a SQLite database that may be in use, without ever writing to it.
+
+    The one place a database found in an application's data is opened (the backups, the
+    listing and the integrity check all come here). The path goes through a ``file:`` URI
+    percent-encoded, because a name holding ``?``, ``#`` or ``%`` would otherwise be read as
+    URI syntax and open another file, or none.
+
+    Args:
+        path: An absolute path to the database.
+        timeout: Seconds to wait for a lock another process holds.
+
+    Returns:
+        A read-only connection; the caller closes it.
+
+    Raises:
+        sqlite3.Error: When it cannot be opened.
+    """
+    return sqlite3.connect(f"{path.absolute().as_uri()}?mode=ro", uri=True, timeout=timeout)
+
+
 def snapshot(source: Path, destination: Path) -> None:
     """
     Copy a live SQLite database consistently, with SQLite's backup API.
@@ -72,7 +94,7 @@ def snapshot(source: Path, destination: Path) -> None:
     Raises:
         sqlite3.Error: When the database cannot be read as one.
     """
-    reader = sqlite3.connect(f"file:{source}?mode=ro", uri=True, timeout=30)
+    reader = open_readonly(source)
     writer = sqlite3.connect(destination)
     try:
         reader.backup(writer)

@@ -317,12 +317,9 @@ server's own test: read it as you would read a site before deploying a repositor
 
 ### Who may do what
 
-Five roles, and the permissions each holds. By default the `admin` holds every permission (the last
-column), so one person running their own servers needs one account; where the `roles_split` control is on
-(ENS, ISO/IEC 27001, SOC 2: see [COMPLIANCE.md](COMPLIANCE.md)) the `admin` is the one in the third column
-and accounts, security settings and the audit trail are the `security` and `auditor` roles'. The master
-token is not a role: while no account exists it holds every permission, afterwards (it is break-glass) all
-but `audit.manage`, and, where a framework asks for it (ENS MEDIA does), only what recovering an account takes.
+Five roles, and the permissions each holds. The master token is not a role: while no account exists it
+holds every permission, afterwards (it is break-glass) all but `audit.manage`, and under the ENS profile
+only what recovering an account takes.
 
 <!-- generated:roles -->
 | Permission | What it allows | viewer | operator | admin (roles split) | security | auditor | admin (default) |
@@ -362,30 +359,30 @@ but `audit.manage`, and, where a framework asks for it (ENS MEDIA does), only wh
 ### The routes
 
 <!-- generated:routes -->
-- **828** API operations. **795** need a permission (`x-noust-permission`) and **33** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **280** operations need sudo mode and **35** can need a second person.
+- **862** API operations. **829** need a permission (`x-noust-permission`) and **33** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **288** operations need sudo mode and **35** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
 |---|---|
 | `accounts.manage` | 30 |
 | `accounts.read` | 12 |
-| `apps.deploy` | 16 |
-| `apps.manage` | 110 |
-| `apps.operate` | 28 |
-| `apps.read` | 105 |
+| `apps.deploy` | 24 |
+| `apps.manage` | 113 |
+| `apps.operate` | 29 |
+| `apps.read` | 109 |
 | `apps.terminal` | 12 |
 | `audit.manage` | 1 |
 | `audit.read` | 9 |
-| `backups.manage` | 21 |
+| `backups.manage` | 22 |
 | `backups.read` | 19 |
 | `backups.run` | 14 |
 | `compliance.read` | 4 |
-| `databases.manage` | 33 |
-| `databases.read` | 55 |
+| `databases.manage` | 34 |
+| `databases.read` | 56 |
 | `databases.write` | 12 |
-| `fleet.manage` | 30 |
-| `fleet.read` | 13 |
+| `fleet.manage` | 38 |
+| `fleet.read` | 18 |
 | `public` | 33 |
 | `root_equivalent` | 15 |
 | `secrets.reveal` | 11 |
@@ -395,8 +392,8 @@ but `audit.manage`, and, where a framework asks for it (ENS MEDIA does), only wh
 | `server.manage` | 43 |
 | `server.read` | 67 |
 | `server.terminal` | 1 |
-| `settings.manage` | 24 |
-| `settings.read` | 20 |
+| `settings.manage` | 25 |
+| `settings.read` | 21 |
 | `teams.manage` | 14 |
 | `teams.read` | 10 |
 <!-- /generated:routes -->
@@ -488,14 +485,14 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **426** events.
+The catalogue holds **444** events.
 
 | Category | Events |
 |---|---|
 | access | 46 |
 | account | 36 |
 | config | 22 |
-| change | 262 |
+| change | 280 |
 | read | 20 |
 | denial | 16 |
 | system | 21 |
@@ -550,8 +547,10 @@ These are the limits, stated before you find them.
 - **A redactor works by value.** It scrubs what Noust knows is a secret and nothing it does not, and it
   leaves values shorter than six characters alone.
 - **A key beside the ciphertext does not protect from a compromised host.** `config.yaml` holds SMTP and
-  destination secrets in clear, `0600`, and the central can be sealed with `noust central seal`; neither
-  helps if the attacker is root on the same machine.
+  notification secrets in clear, `0600`, and the central can be sealed with `noust central seal`; neither
+  helps if the attacker is root on the same machine. What is guaranteed is about the copies: no read of the
+  API, no `noust store export` and no incident package carries a secret value unless it was asked for and is
+  audited ([docs/security.md](security.md#secrets-at-rest)).
 - **`security.profile: ens-medium` is a mapping, not a certification.**
 - **Dated.** The counts of other products' advisories are those of 2026-10-13, read from GitHub's
   published advisories of each repository. Nothing here is a ranking: advisories count attention as
@@ -623,6 +622,9 @@ publishing with attestations, which PyPI shows on the release's page.
 
 A release that fixes a vulnerability is titled *(security release)* on GitHub, and an installation
 that is behind one says so in `noust health`, in its CLI banner and in Settings > About.
+
+The wheel and the source distribution can also be rebuilt from the tag and compared byte for byte
+with the files of the release: [docs/reproducible-builds.md](reproducible-builds.md).
 
 ## How this page is kept true
 

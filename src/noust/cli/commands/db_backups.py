@@ -30,6 +30,7 @@ from typing import Any
 import click
 
 from noust.cli.app import Context, NoustCommand, NoustGroup, json_option, pass_context
+from noust.cli.commands.retention_options import KEEP_GB_HELP, add_size, gigabytes
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.logger import Logger
 from noust.managers.database.backups import DatabaseBackups, DumpView, PolicyView
@@ -190,26 +191,7 @@ def _limit(value: str, option: str) -> int | None:
         raise click.BadParameter(f"{option} takes a whole number or 'none'") from exc
 
 
-def _gigabytes(value: str, option: str) -> float | None:
-    """
-    Read a retention by size: a number of gigabytes, or ``none`` for no limit.
-
-    Args:
-        value: What the operator typed.
-        option: The option's name, for the error.
-
-    Returns:
-        The number, or None for ``none``.
-
-    Raises:
-        click.BadParameter: When it is neither.
-    """
-    if value.strip().lower() in ("none", "off", "no", ""):
-        return None
-    try:
-        return float(value)
-    except ValueError as exc:
-        raise click.BadParameter(f"{option} takes a number of gigabytes or 'none'") from exc
+_gigabytes = gigabytes
 
 
 def _destination(value: str) -> dict[str, Any]:
@@ -237,9 +219,7 @@ def _destination(value: str) -> dict[str, Any]:
     for key, text in (("retention_count", count), ("retention_days", days)):
         if text:
             entry[key] = _limit(text, "--to")
-    if size:
-        entry["retention_gb"] = _gigabytes(size, "--to")
-    return entry
+    return add_size(entry, size)
 
 
 def _database_or_all(database: str | None, everything: bool) -> str:
@@ -325,7 +305,10 @@ def _print_policy(logger: Logger, view: PolicyView) -> None:
     ]
     if left_out:
         click.echo(f"  Leaves out:   {'; '.join(left_out)}")
-    click.echo(f"  Keeps here:   {', '.join(keep) if keep else 'everything'}")
+    if data.get("remote_only"):
+        click.echo("  Keeps here:   nothing once every destination holds the dump")
+    else:
+        click.echo(f"  Keeps here:   {', '.join(keep) if keep else 'everything'}")
     destinations = [_describe_destination(entry) for entry in data["destinations"]]
     click.echo(f"  Destinations: {', '.join(destinations) if destinations else 'none'}")
     click.echo(f"  Restore test: {'each dump' if data['verify_restore'] else 'off'}")
@@ -416,8 +399,7 @@ def backup_schedule() -> None:
     "--keep-gb",
     default="none",
     show_default=True,
-    help="The most the scheduled dumps kept here may weigh together, in gigabytes, or 'none'. "
-    "The newest dump always stays, whatever its size.",
+    help=KEEP_GB_HELP,
 )
 @click.option(
     "--to",
@@ -437,6 +419,12 @@ def backup_schedule() -> None:
     is_flag=True,
     help="Load each dump into a temporary database, and drop it, as proof it restores.",
 )
+@click.option(
+    "--remote-only",
+    is_flag=True,
+    help="Keep no copy on this server: a scheduled dump is deleted once every --to destination "
+    "holds it (for a small disk). A dump that could not be sent everywhere stays.",
+)
 @click.option("--disable", is_flag=True, help="Keep the settings but install no timer.")
 @json_option("Print the policy as JSON.")
 @pass_context
@@ -455,6 +443,7 @@ def set_schedule(
     destinations: tuple[str, ...],
     dump_format: str | None,
     verify_restore: bool,
+    remote_only: bool,
     disable: bool,
 ) -> None:
     """
@@ -485,6 +474,7 @@ def set_schedule(
                 destinations=[_destination(text) for text in destinations],
                 dump_format=dump_format,
                 verify_restore=verify_restore,
+                remote_only=remote_only,
                 enabled=not disable,
             )
     except NoustError as exc:

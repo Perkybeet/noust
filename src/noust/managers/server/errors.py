@@ -32,14 +32,22 @@ class HostBusyError(ServerError):
         holders: Names of the processes or jobs in the way, for the message.
     """
 
-    def __init__(self, message: str, details: str = "", *, holders: list[str] | None = None):
+    def __init__(
+        self,
+        message: str,
+        details: str = "",
+        *,
+        holders: list[str] | None = None,
+        output: str | None = None,
+    ):
         """
         Args:
             message: What is busy.
             details: What to do about it.
             holders: The processes or jobs in the way.
+            output: The refusing tool's own words, when it said any.
         """
-        super().__init__(message, details)
+        super().__init__(message, details, output=output)
         self.holders = holders or []
 
 

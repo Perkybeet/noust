@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import tarfile
 from collections.abc import Iterator
 from pathlib import Path
@@ -267,6 +268,87 @@ class TestADrill:
         )
 
         assert not report.ok and "is not one of other.example.com's" in report.steps[0].detail
+
+
+def keep_orders_in_sqlite(app: Path, *, rows: int = 20, page_size: int | None = None) -> Path:
+    """
+    Make the application keep its data in a SQLite file of its own.
+
+    Returns:
+        The file.
+    """
+    path = app / "data" / "orders.db"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(path)
+    try:
+        if page_size is not None:
+            connection.execute(f"PRAGMA page_size={page_size}")
+        connection.execute("CREATE TABLE orders (id INTEGER PRIMARY KEY, total REAL)")
+        connection.execute("CREATE INDEX orders_total ON orders (total)")
+        connection.executemany(
+            "INSERT INTO orders (total) VALUES (?)", [(n * 1.5,) for n in range(rows)]
+        )
+        connection.commit()
+    finally:
+        connection.close()
+    return path
+
+
+class TestASqliteDatabaseInTheBackup:
+    def test_a_database_that_comes_back_sound_is_a_step_of_its_own(
+        self,
+        manager: BackupManager,
+        engines: Engines,
+        records: NoustStore,
+        monkeypatch: pytest.MonkeyPatch,
+        apps_dir: Path,
+    ) -> None:
+        keep_orders_in_sqlite(apps_dir / "shop-example-com")
+        take(manager, monkeypatch)
+
+        report = drill(manager, engines, records)
+
+        names = [step.name for step in report.steps]
+        assert report.ok
+        assert names[:2] == ["backup", "archive"]
+        [sqlite_step] = [step for step in report.steps if step.name.startswith("sqlite/")]
+        assert sqlite_step.name.endswith("data/orders.db") and sqlite_step.ok
+        assert "quick_check passes" in sqlite_step.detail
+        assert names.index(sqlite_step.name) < names.index("postgresql/shop")
+
+    def test_a_copy_sqlite_cannot_read_fails_the_drill_with_its_own_words(
+        self,
+        manager: BackupManager,
+        engines: Engines,
+        records: NoustStore,
+        monkeypatch: pytest.MonkeyPatch,
+        apps_dir: Path,
+    ) -> None:
+        database = keep_orders_in_sqlite(apps_dir / "shop-example-com", rows=3000, page_size=1024)
+        with database.open("r+b") as handle:
+            handle.seek(1024 * 6)
+            handle.write(b"\xff" * 1024 * 3)
+        take(manager, monkeypatch)
+
+        report = drill(manager, engines, records)
+
+        assert not report.ok
+        [bad] = [step for step in report.steps if step.name.startswith("sqlite/") and not step.ok]
+        assert bad.detail and report.summary.startswith("sqlite/")
+        assert DrillRecords(records).last_good(DOMAIN) is None
+
+    def test_an_application_that_keeps_none_has_no_such_step(
+        self,
+        manager: BackupManager,
+        engines: Engines,
+        records: NoustStore,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        take(manager, monkeypatch)
+
+        report = drill(manager, engines, records)
+
+        assert not [step for step in report.steps if step.name.startswith("sqlite/")]
 
 
 class TestUnpacking:

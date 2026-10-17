@@ -242,9 +242,9 @@ test("a schedule copies to both destinations, each with its own retention", asyn
   await page.getByRole("menuitem", { name: "Edit" }).click();
   const dialog = page.getByRole("dialog", { name: "Edit the schedule for shop.example.net" });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByLabel(`Keep on ${SFTP}`)).toHaveValue("14");
+  await expect(dialog.getByLabel(`Keep on ${SFTP}`, { exact: true })).toHaveValue("14");
   await expect(dialog.getByLabel(`Delete after (days) on ${SFTP}`)).toHaveValue("90");
-  await expect(dialog.getByLabel(`Keep on ${ENCRYPTED}`)).toHaveValue("30");
+  await expect(dialog.getByLabel(`Keep on ${ENCRYPTED}`, { exact: true })).toHaveValue("30");
   await expect(dialog.getByLabel(`Delete after (days) on ${ENCRYPTED}`)).toHaveValue("");
   await settle(page);
   await expectNoA11yViolations(page, "a schedule with destinations");

@@ -171,9 +171,11 @@ class BackupSchedule:
             application.
         retention_days: Maximum age, in days, of a backup this schedule made;
             None for no age limit.
+        retention_bytes: The most the backups this schedule made may weigh together;
+            None for no limit by size.
         tags: Tags attached to the backups this schedule creates.
         destinations: Remote copies to push each scheduled backup to, as
-            ``{"name", "retention_count", "retention_days"}`` per destination
+            ``{"name", "retention_count", "retention_days", "retention_gb"}`` per destination
             - the same shape :attr:`noust.core.store.BackupScheduleRecord.destinations`
             stores.
     """
@@ -184,6 +186,7 @@ class BackupSchedule:
     include_databases: bool = True
     retention_count: int | None = 7
     retention_days: int | None = 30
+    retention_bytes: int | None = None
     tags: list[str] = field(default_factory=lambda: [SCHEDULED_TAG, "auto"])
     destinations: list[dict[str, Any]] = field(default_factory=list)
 
@@ -381,6 +384,7 @@ class BackupScheduler:
             include_databases=schedule.include_databases,
             retention_count=schedule.retention_count,
             retention_days=schedule.retention_days,
+            retention_bytes=schedule.retention_bytes,
             tags=list(schedule.tags),
             destinations=list(schedule.destinations),
         )
@@ -410,6 +414,7 @@ class BackupScheduler:
                 include_databases=checked.include_databases,
                 retention_count=checked.retention_count,
                 retention_days=checked.retention_days,
+                retention_bytes=checked.retention_bytes,
                 destinations=checked.destinations,
             )
         )
@@ -573,6 +578,11 @@ class BackupScheduler:
                 schedule_info["retention_days"] = (
                     str(record.retention_days) if record.retention_days is not None else ""
                 )
+                schedule_info["retention_gb"] = (
+                    f"{record.retention_bytes / 1024**3:g}"
+                    if record.retention_bytes is not None
+                    else ""
+                )
                 schedule_info["include_databases"] = "true" if record.include_databases else "false"
 
             schedules.append(schedule_info)
@@ -665,6 +675,7 @@ class BackupScheduler:
             include_databases=record.include_databases,
             retention_count=record.retention_count,
             retention_days=record.retention_days,
+            retention_bytes=record.retention_bytes,
             destinations=list(record.destinations),
         )
 
@@ -1196,6 +1207,7 @@ def _create_when_free(
                 include_databases=record.include_databases,
                 retention_count=record.retention_count,
                 retention_days=record.retention_days,
+                retention_bytes=record.retention_bytes,
                 tags=[SCHEDULED_TAG, "auto"],
                 retention_tag=SCHEDULED_TAG,
             )
@@ -1437,6 +1449,7 @@ def run_schedule(
                 name,
                 retention_count=destination.get("retention_count"),
                 retention_days=destination.get("retention_days"),
+                retention_gb=destination.get("retention_gb"),
                 backup_manager=backup_manager,
             )
             result["destinations"][name] = {"ok": True, **summary}

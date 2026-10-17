@@ -135,8 +135,8 @@ export const appPages: Catalog<typeof en> = {
     noBackups: "No hay ninguna copia de seguridad de esta aplicación a la que volver. Se toma una antes de cada despliegue, y según las programaciones de Copias de seguridad.",
     noReleases: "No hay ninguna versión anterior en disco. Cada despliegue conserva las anteriores, hasta el número fijado en Ajustes.",
     title: "Volver atrás {domain}",
-    inPlaceDescription: "Esta aplicación está en una carpeta única, así que volver atrás restaura una copia de seguridad y la reinicia. Lo escrito desde la copia se sustituye.",
-    releasesDescription: "La aplicación pasa a la versión que elijas y se reinicia; si no supera su comprobación de arranque, se vuelve a la que está en producción ahora.",
+    inPlaceDescription: "Esta aplicación está en una carpeta única, así que volver atrás restaura una copia de seguridad y la reinicia. Lo escrito desde la copia se sustituye. La base de datos queda como está: volver atrás devuelve el código, nunca los datos.",
+    releasesDescription: "La aplicación pasa a la versión que elijas y se reinicia; si no supera su comprobación de arranque, se vuelve a la que está en producción ahora. La base de datos queda como está: volver atrás devuelve el código, nunca los datos.",
     notStarted: "La vuelta atrás no se inició",
   },
 
@@ -314,9 +314,9 @@ export const appPages: Catalog<typeof en> = {
       rebuildInPlaceWordsNoBranch:
         "Se toma una copia de seguridad de la aplicación, el checkout se coloca en {commit}, y la aplicación se recompila y se reinicia. Los archivos sin seguimiento, como las subidas, se conservan. La próxima actualización vuelve a seguir su rama.",
       rollbackReleasesWords:
-        "Se pasa a la versión {id} en segundos y la aplicación se reinicia; si no supera su comprobación de arranque, se vuelve a la que está en producción ahora. No se recompila nada, y el .env y las carpetas que se conservan quedan como están.",
+        "Se pasa a la versión {id} en segundos y la aplicación se reinicia; si no supera su comprobación de arranque, se vuelve a la que está en producción ahora. No se recompila nada, y el .env y las carpetas que se conservan quedan como están. La base de datos queda como está: volver atrás devuelve el código, nunca los datos.",
       rollbackInPlaceWords:
-        "Los archivos de la aplicación se restauran desde la copia de seguridad {snapshot}, que guarda lo que produjo el despliegue {id}, y luego se recompila y se reinicia. Antes se toma una copia de seguridad del estado actual. Todo lo escrito en la carpeta de la aplicación desde entonces se sustituye.",
+        "Los archivos de la aplicación se restauran desde la copia de seguridad {snapshot}, que guarda lo que produjo el despliegue {id}, y luego se recompila y se reinicia. Antes se toma una copia de seguridad del estado actual. Todo lo escrito en la carpeta de la aplicación desde entonces se sustituye. La base de datos queda como está: volver atrás devuelve el código, nunca los datos.",
       rebuildDialogTitle: "¿Recompilar el commit {commit}?",
       rebuild: "Recompilar",
       rebuildNotStarted: "La recompilación no se inició",
@@ -418,12 +418,12 @@ export const appPages: Catalog<typeof en> = {
       rollbackTitle: "¿Volver a esta versión?",
       activateTitle: "¿Pasar a esta versión?",
       activateDescriptionWithCommit:
-        "{domain} pasa a {id} (commit {commit}) y se reinicia. Si no supera su comprobación de arranque, se vuelve a la versión en producción ahora.",
-      activateDescriptionNoCommit: "{domain} pasa a {id} y se reinicia. Si no supera su comprobación de arranque, se vuelve a la versión en producción ahora.",
+        "{domain} pasa a {id} (commit {commit}) y se reinicia. Si no supera su comprobación de arranque, se vuelve a la versión en producción ahora. La base de datos queda como está: volver atrás devuelve el código, nunca los datos.",
+      activateDescriptionNoCommit: "{domain} pasa a {id} y se reinicia. Si no supera su comprobación de arranque, se vuelve a la versión en producción ahora. La base de datos queda como está: volver atrás devuelve el código, nunca los datos.",
       srBackup: ": copia de seguridad {id}",
       restoreTitle: "¿Volver a esta copia de seguridad?",
       restoreDescription:
-        "{domain} se restaura desde {id} y se reinicia, como una tarea. Antes se toma una copia de seguridad de cómo está ahora. Los archivos escritos desde la copia de seguridad se sustituyen.",
+        "{domain} se restaura desde {id} y se reinicia, como una tarea. Antes se toma una copia de seguridad de cómo está ahora. Los archivos escritos desde la copia de seguridad se sustituyen. La base de datos queda como está: volver atrás devuelve el código, nunca los datos.",
       rollbackPointsTitle: "Copias a las que puedes volver",
       rollbackPointsDescription: "Esta aplicación está en una carpeta única, así que volver atrás restaura una copia de seguridad. {enableReleases} para volver en segundos.",
       enableReleases: "Activa la vuelta atrás instantánea",

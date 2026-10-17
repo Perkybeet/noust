@@ -3532,6 +3532,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/previews/{number}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Preview
+         * @description Approve the commit of a pull request that waits, and build it.
+         *
+         *     Only a pull request from a fork, or from someone not trusted with the repository,
+         *     waits, and only for an application whose previews ask for approvals. The approval is
+         *     of the commit the preview names; a push of another one waits again.
+         *
+         *     Args:
+         *         domain: The application.
+         *         number: The preview's number.
+         *         request: The request, for the audit record.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The preview, pending, and the job that builds it.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application or the preview is unknown.
+         *         ValidationError: It is not waiting for approval (400).
+         */
+        post: operations["approve_preview_api_apps__domain__previews__number__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/previews/{number}/logs": {
         parameters: {
             query?: never;
@@ -3591,6 +3628,39 @@ export interface paths {
          *         ValidationError: It is being built or removed (400).
          */
         post: operations["redeploy_preview_api_apps__domain__previews__number__redeploy_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/previews/{number}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject Preview
+         * @description Turn down the commit of a pull request that waits.
+         *
+         *     Args:
+         *         domain: The application.
+         *         number: The preview's number.
+         *         request: The request, for the audit record.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The preview as it was; it is forgotten, and the pull request is told.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application or the preview is unknown.
+         *         ValidationError: It is not waiting for approval (400).
+         */
+        post: operations["reject_preview_api_apps__domain__previews__number__reject_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4066,6 +4136,40 @@ export interface paths {
         patch: operations["update_release_retention_api_apps__domain__releases_retention_patch"];
         trace?: never;
     };
+    "/api/apps/{domain}/releases/stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stage Release
+         * @description Queue a build that leaves its release waiting instead of serving it.
+         *
+         *     Nothing that serves is touched: ``current`` stays, no hook runs, nothing restarts. The
+         *     release is listed as ``waiting``; ``POST .../releases/{id}/promote`` makes it serve.
+         *
+         *     Args:
+         *         domain: The application.
+         *         body: What to build.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        post: operations["stage_release_api_apps__domain__releases_stage_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/releases/{release_id}/activate": {
         parameters: {
             query?: never;
@@ -4104,6 +4208,44 @@ export interface paths {
          *             details carry the probe's and the journal's own output.
          */
         post: operations["activate_app_release_api_apps__domain__releases__release_id__activate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/releases/{release_id}/promote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Promote Release
+         * @description Queue making a release that was built and is waiting the one that serves.
+         *
+         *     Its hooks and migrations run against the application's database and it is activated
+         *     behind the health gate, which puts back what served when it does not answer. Held by a
+         *     freeze of deploys like an update.
+         *
+         *     Args:
+         *         domain: The application.
+         *         release_id: The release.
+         *         body: What the operator confirms.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 400 for something that is not a release id, 404 for an unknown
+         *             application or a release that does not wait.
+         *         DeploysFrozenError: 409 while a freeze holds it and ``frozen_ok`` was not given.
+         */
+        post: operations["promote_release_api_apps__domain__releases__release_id__promote_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4266,6 +4408,122 @@ export interface paths {
         get: operations["list_rollback_points_api_apps__domain__rollback_points_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/rollout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Rollout
+         * @description Show how an application is delivered: its history, its stop and its pause.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The settings in force.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_rollout_api_apps__domain__rollout_get"];
+        /**
+         * Put Rollout
+         * @description Change some of an application's delivery settings, keeping the others.
+         *
+         *     A stop policy is written into the application's unit now and read by systemd the
+         *     next time it stops; nothing restarts. The history is pruned to its number at the
+         *     next deployment.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The settings to change; ``null`` goes back to the default.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The settings now in force.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: A value is not acceptable (400, with the field), or nothing
+         *             was given.
+         *         DeploymentError: Its unit cannot be given a stop policy (409).
+         */
+        put: operations["put_rollout_api_apps__domain__rollout_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/rollout/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause Deploys
+         * @description Hold what deploys an application by itself: its pushes, its tags and its schedules.
+         *
+         *     An update a person starts, from the console or the command line, still runs.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: Why.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The settings now in force.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        post: operations["pause_deploys_api_apps__domain__rollout_pause_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/rollout/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume Deploys
+         * @description Let an application's pushes, tags and schedules deploy it again.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Whether it was paused, and how many pushes and tags arrived meanwhile and
+         *         were not deployed: the next push deploys the newest, or an update does now.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        post: operations["resume_deploys_api_apps__domain__rollout_resume_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4548,6 +4806,73 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/sqlite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List App Sqlite
+         * @description List the SQLite databases an application keeps. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The databases found in its data directories.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["list_app_sqlite_api_apps__domain__sqlite_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/sqlite/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check App Sqlite
+         * @description Ask SQLite whether one of an application's databases is sound. Changes nothing.
+         *
+         *     The database stays open for the application the whole time. A database over a gigabyte is
+         *     refused here, because the request would wait on the disk: ``noust db sqlite check`` has no
+         *     limit.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The database and the thoroughness.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         What SQLite said.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The path is not a database of this application, or it is too large
+         *             for a request (400).
+         */
+        post: operations["check_app_sqlite_api_apps__domain__sqlite_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/start": {
         parameters: {
             query?: never;
@@ -4679,6 +5004,72 @@ export interface paths {
          */
         post: operations["open_app_terminal_api_apps__domain__terminal_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/update-schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Update Schedule
+         * @description Show when an application updates itself, and how the last run ended.
+         *
+         *     Args:
+         *         domain: The application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The schedule; ``scheduled`` is false when the application does not update itself.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_update_schedule_api_apps__domain__update_schedule_get"];
+        /**
+         * Put Update Schedule
+         * @description Make an application update itself on a schedule, or change the schedule.
+         *
+         *     Writes ``noust-update-<app>.timer``. Each run takes the backup an update needs and
+         *     refuses to update without it (unless asked not to), does nothing when there is nothing
+         *     new, is held by a pause or a freeze of deploys, and passes the health gate.
+         *
+         *     Args:
+         *         domain: The application.
+         *         body: When, and how careful.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The schedule now in force.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The calendar expression is not acceptable, or the application is
+         *             a preview (400).
+         *         BackupError: The timer could not be written.
+         */
+        put: operations["put_update_schedule_api_apps__domain__update_schedule_put"];
+        post?: never;
+        /**
+         * Delete Update Schedule
+         * @description Stop an application updating itself: the timer and the schedule go.
+         *
+         *     Args:
+         *         domain: The application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The schedule, which now says the application does not update itself.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        delete: operations["delete_update_schedule_api_apps__domain__update_schedule_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -7578,6 +7969,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/backup-destinations/protect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Protect Credentials
+         * @description Encrypt the credentials of the destinations that still keep them in clear.
+         *
+         *     Declared before ``/{name}`` so the literal path wins. Idempotent.
+         *
+         *     Args:
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The destinations it encrypted.
+         */
+        post: operations["protect_credentials_api_backup_destinations_protect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/backup-destinations/{name}": {
         parameters: {
             query?: never;
@@ -8771,6 +9190,52 @@ export interface paths {
          */
         get: operations["get_defaults_api_config_defaults_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/config/delivery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Delivery Config
+         * @description Get the limits this server delivers under.
+         *
+         *     Args:
+         *         session: Authenticated session, injected by the dependency.
+         *
+         *     Returns:
+         *         How many builds run at once, how many may wait and how many minutes one
+         *         may take, read the way the queue reads them.
+         */
+        get: operations["get_delivery_config_api_config_delivery_get"];
+        /**
+         * Update Delivery Config
+         * @description Set the limits this server delivers under.
+         *
+         *     The three are written together, and the queue obeys them from the next look
+         *     at it, with no restart: a build that already runs keeps going, and is held
+         *     to the new time limit from then on.
+         *
+         *     Args:
+         *         body: The three limits.
+         *         request: The incoming request, for the audit record.
+         *         session: Authenticated session, injected by the dependency.
+         *
+         *     Returns:
+         *         Confirmation message.
+         *
+         *     Raises:
+         *         HTTPException: If the configuration cannot be written.
+         */
+        put: operations["update_delivery_config_api_config_delivery_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -10936,6 +11401,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/databases/engines/{engine}/limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Engine Limits
+         * @description Read the limits of an engine on the host and whether the kernel holds them. Changes nothing.
+         *
+         *     Args:
+         *         engine: Engine name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         What Noust sets, what systemd holds, what the kernel enforces.
+         */
+        get: operations["get_engine_limits_api_databases_engines__engine__limits_get"];
+        /**
+         * Put Engine Limits
+         * @description Set, change or remove the limits of an engine on the host, with sudo mode.
+         *
+         *     The drop-in is written and systemd applies it without restarting the engine; the limits are
+         *     then proved against systemd and the kernel and the engine must still answer. When any of that
+         *     fails the previous limits are put back and the error carries the engine's journal.
+         *
+         *     Args:
+         *         engine: Engine name.
+         *         request: The limits and the confirmation.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What changed.
+         */
+        put: operations["put_engine_limits_api_databases_engines__engine__limits_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/databases/engines/{engine}/logs": {
         parameters: {
             query?: never;
@@ -12647,6 +13155,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/deploy-freezes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Freezes
+         * @description List the freezes that hold deploys now or start later.
+         *
+         *     A freeze of the whole server is shown to everyone: it explains why a deploy was
+         *     refused. One of an application is shown to whoever sees the application.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         include_past: Also the freezes that ended or were lifted.
+         *
+         *     Returns:
+         *         The freezes, newest first.
+         */
+        get: operations["list_freezes_api_deploy_freezes_get"];
+        put?: never;
+        /**
+         * Create Freeze
+         * @description Freeze deploys.
+         *
+         *     One application with ``domain``, or the whole server without: that one is the
+         *     instance's to decide, not a team's.
+         *
+         *     Args:
+         *         body: The reason, what to freeze and for how long.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The freeze.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown (or another team's), 403
+         *             when a team member freezes the server.
+         *         ValidationError: The reason, a time or the length is not acceptable (400).
+         */
+        post: operations["create_freeze_api_deploy_freezes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/deploy-freezes/{freeze_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Lift Freeze
+         * @description Lift a freeze before it ends.
+         *
+         *     Args:
+         *         freeze_id: The freeze's number.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The freeze that was lifted.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such freeze (or its application is
+         *             another team's); 403 when a team member lifts the server's.
+         */
+        delete: operations["lift_freeze_api_deploy_freezes__freeze_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/deploy-keys": {
         parameters: {
             query?: never;
@@ -13775,6 +14363,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/fleet/cloud/servers/{node}/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Link Machine
+         * @description Link a server of the fleet to its machine at a provider.
+         *
+         *     The provider is asked whether the machine exists and is where the server is; nothing is
+         *     changed at the provider. Afterwards the fleet can show the machine's power state, power
+         *     it on and, with the server's removal, delete it (always asked for apart).
+         *
+         *     Args:
+         *         node: The server's name on this central.
+         *         body: The account and the provider's id for the machine.
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         The record, with the provider's live report.
+         *
+         *     Raises:
+         *         NodeError: 400 when the server is not registered, is linked, the machine is another
+         *             server's, or it is not at the server's address.
+         */
+        post: operations["link_machine_api_fleet_cloud_servers__node__link_post"];
+        /**
+         * Unlink Machine
+         * @description Forget which machine a server runs on. The machine and the server are not touched.
+         *
+         *     Args:
+         *         node: The server's name on this central.
+         *         session: The authenticated session in sudo mode.
+         */
+        delete: operations["unlink_machine_api_fleet_cloud_servers__node__link_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/fleet/cloud/servers/{node}/power-on": {
         parameters: {
             query?: never;
@@ -14060,6 +14692,208 @@ export interface paths {
          *         NodeError: 400 when there is no invitation, or the server already dials in.
          */
         delete: operations["cancel_invite_api_fleet_link_invites__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/placements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Placements
+         * @description List the applications that run on several servers.
+         *
+         *     Asks no server: it is the central's own record. Use the status of one for how it looks.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Every placement, with the servers it runs on now.
+         */
+        get: operations["list_placements_api_fleet_placements_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/placements/{domain}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Placement
+         * @description Show an application across its servers: which commit each serves and who differs.
+         *
+         *     Args:
+         *         domain: The application.
+         *         session: The authenticated session.
+         *         refresh: Ask even the servers whose answer is fresh.
+         *
+         *     Returns:
+         *         ``placement`` and ``status``: the reference commit, whether they are in sync, and a
+         *         row per server.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is not placed.
+         */
+        get: operations["get_placement_api_fleet_placements__domain__get"];
+        /**
+         * Save Placement
+         * @description Record where an application runs, or change it; what is not sent is kept.
+         *
+         *     Touches no server.
+         *
+         *     Args:
+         *         domain: The application.
+         *         body: The servers, the label and the way an update goes out.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The placement as it is now.
+         *
+         *     Raises:
+         *         ValidationError: Nothing says where it runs, or a value is invalid.
+         *         NodeError: A named server is not registered.
+         */
+        put: operations["save_placement_api_fleet_placements__domain__put"];
+        post?: never;
+        /**
+         * Remove Placement
+         * @description Forget where an application runs. Nothing is touched on any server.
+         *
+         *     Args:
+         *         domain: The application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The placement that was forgotten.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is not placed.
+         */
+        delete: operations["remove_placement_api_fleet_placements__domain__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/placements/{domain}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy Application
+         * @description Put the application on servers that do not have it, from one that does.
+         *
+         *     The source's own export (with the secret values unless told not to) is imported on each
+         *     destination, then each is brought to the commit the source serves. The document passes through the
+         *     central and is kept nowhere. Needs sudo mode: an import deploys as root.
+         *
+         *     Args:
+         *         domain: The application.
+         *         request: The request.
+         *         body: The source, the destinations (the members that lack it by default) and options.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan and, unless ``plan``, the job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is not placed.
+         *         ValidationError: There is no server to copy it from or to.
+         */
+        post: operations["copy_application_api_fleet_placements__domain__copy_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/placements/{domain}/rollout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rollout
+         * @description Roll the application out over its servers: one commit everywhere, put back if it stops.
+         *
+         *     The first server goes alone and builds the head of the branch (or the commit or tag asked
+         *     for); the commit it ends on is what the others are asked for. Planned and queued like a
+         *     bulk action: sudo mode when a server's schema asks for it, a job to follow, a record per server.
+         *
+         *     Args:
+         *         domain: The application.
+         *         request: The request.
+         *         body: What to deploy, and how; the placement's own strategy where absent.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan and, unless ``plan``, the job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is not placed.
+         *         ValidationError: A server does not run the application, or a value is invalid.
+         */
+        post: operations["rollout_api_fleet_placements__domain__rollout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/placements/{domain}/upstreams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Upstreams
+         * @description Write the servers an application runs on for the load balancer in front of them.
+         *
+         *     Noust routes no traffic between servers: the balancer is the operator's. This is the list of
+         *     servers to put behind it, with the ones that do not serve right now marked down.
+         *
+         *     Args:
+         *         domain: The application.
+         *         session: The authenticated session.
+         *         format: ``nginx`` (an ``upstream`` block), ``list`` (``address:port`` per line) or ``json``.
+         *         port: The port the servers' web server answers on.
+         *
+         *     Returns:
+         *         The text, and the servers it was written from.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is not placed.
+         *         ValidationError: An unknown format.
+         */
+        get: operations["get_upstreams_api_fleet_placements__domain__upstreams_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -16119,6 +16953,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/nodes/{node}/inventory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Node Inventory
+         * @description Write down what this central knows about a server, so another central can take it over.
+         *
+         *     The document has the labels, the applications placed on the server, the machine it is at a
+         *     provider, whether its monitoring is paused and how this central reaches it. It has no secret:
+         *     not the server's token, not this central's key for it, not an account's API token.
+         *
+         *     Args:
+         *         node: The node's name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The inventory document.
+         */
+        get: operations["get_node_inventory_api_nodes__node__inventory_get"];
+        put?: never;
+        /**
+         * Apply Node Inventory
+         * @description Record, for a server just added here, what the central it came from knew about it.
+         *
+         *     The document is checked whole before anything is written. What cannot be applied here (a
+         *     cloud account this central lacks, a path to the server that may not exist from here) is
+         *     reported with the reason, not dropped.
+         *
+         *     Args:
+         *         node: The node's name, registered on this central.
+         *         body: The inventory, and whether to apply how the other central reached it.
+         *         request: The incoming request, for the audit record.
+         *         session: The authenticated session, of ``admin`` scope.
+         *
+         *     Returns:
+         *         What was applied and what was left out.
+         *
+         *     Raises:
+         *         ValidationError: 400 when the document is not a valid inventory.
+         */
+        post: operations["apply_node_inventory_api_nodes__node__inventory_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/nodes/{node}/key": {
         parameters: {
             query?: never;
@@ -16176,6 +17061,55 @@ export interface paths {
          *         The node, with its monitoring.
          */
         put: operations["set_node_monitoring_api_nodes__node__monitoring_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/nodes/{node}/ssh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Node Ssh
+         * @description Show how the central connects to a node: its wait and its bastion.
+         *
+         *     Args:
+         *         node: The node's name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The options, and the line a bastion's operator authorizes.
+         */
+        get: operations["get_node_ssh_api_nodes__node__ssh_get"];
+        /**
+         * Set Node Ssh
+         * @description Set how the central connects to a node, and prove it before keeping it.
+         *
+         *     The tunnel is closed and opened again through the new options; when the server does
+         *     not answer, the old ones are put back and the error says why. The central never
+         *     learns a bastion's host key on first use: a new bastion needs its key or the
+         *     fingerprint the operator checked on it.
+         *
+         *     Args:
+         *         node: The node's name.
+         *         body: The wait and the bastion, as they should be.
+         *         request: The incoming request, for the audit record.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The options now in force.
+         *
+         *     Raises:
+         *         NodeError: 400 when a value is invalid or the bastion is unknown; 400 too when
+         *             the server did not answer with the new options (they were not kept).
+         */
+        put: operations["set_node_ssh_api_nodes__node__ssh_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -24147,6 +25081,16 @@ export interface components {
              */
             pre_deploy: components["schemas"]["HookModel"][];
             /**
+             * Preview Post Create
+             * @description For its previews: run in order once a preview's first deployment serves
+             */
+            preview_post_create?: components["schemas"]["HookModel"][];
+            /**
+             * Preview Pre Destroy
+             * @description For its previews: run in order before a preview is removed
+             */
+            preview_pre_destroy?: components["schemas"]["HookModel"][];
+            /**
              * Repository Error
              * @description Why the running code's noust.yaml is not valid, when it is not; the next deployment fails with it
              */
@@ -25369,6 +26313,7 @@ export interface components {
          *         retention_days: Days a scheduled dump is kept locally; null for none.
          *         retention_gb: The most the scheduled dumps kept locally may weigh
          *             together, in gigabytes; null for no limit.
+         *         remote_only: The server keeps no copy once every destination holds the dump.
          *         destinations: Where each dump is sent.
          *         dump_format: PostgreSQL's format; null for the engine's default.
          *         verify_restore: Each dump is loaded into a temporary database.
@@ -25417,6 +26362,11 @@ export interface components {
             last_status?: string | null;
             /** Last Success At */
             last_success_at?: string | null;
+            /**
+             * Remote Only
+             * @default false
+             */
+            remote_only: boolean;
             /** Retention Count */
             retention_count?: number | null;
             /** Retention Days */
@@ -25515,6 +26465,8 @@ export interface components {
          *             store row; None when ``backup.max_per_app`` is in charge.
          *         retention_days: Maximum age in days of the schedule's own local
          *             backups, from the store row; None for no limit.
+         *         retention_gb: The most the schedule's own local backups may weigh
+         *             together, in gigabytes; None for no limit.
          *         include_databases: Whether each backup dumps the databases too.
          *         destinations: Remote destinations this schedule pushes to.
          */
@@ -25540,6 +26492,8 @@ export interface components {
             retention_count?: number | null;
             /** Retention Days */
             retention_days?: number | null;
+            /** Retention Gb */
+            retention_gb?: number | null;
             /** Schedule */
             schedule: string;
             /** Timer */
@@ -25639,6 +26593,48 @@ export interface components {
             with_backup_24h: number;
         };
         /**
+         * BastionIn
+         * @description A bastion to reach a server through, as the operator describes it.
+         *
+         *     Attributes:
+         *         address: ``USER@HOST[:PORT]``.
+         *         host_key: The bastion's ed25519 host key line.
+         *         fingerprint: Its ``SHA256:...`` fingerprint, checked by asking the address for its
+         *             key. One of the two is needed for a bastion that is new or at another address:
+         *             the central never learns a host key on first use.
+         */
+        BastionIn: {
+            /** Address */
+            address: string;
+            /** Fingerprint */
+            fingerprint?: string | null;
+            /** Host Key */
+            host_key?: string | null;
+        };
+        /**
+         * BastionOut
+         * @description A bastion, as shown. Its host key is pinned, and is not part of what is shown.
+         *
+         *     Attributes:
+         *         host: Its host name or address.
+         *         port: Its SSH port.
+         *         user: The account the central logs in as there.
+         *         address: ``user@host:port``.
+         *         fingerprint: The pinned key's ``SHA256:...``.
+         */
+        BastionOut: {
+            /** Address */
+            address: string;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Host */
+            host: string;
+            /** Port */
+            port: number;
+            /** User */
+            user: string;
+        };
+        /**
          * BatchDeployRequest
          * @description Several applications at once, with the options they share.
          */
@@ -25659,6 +26655,12 @@ export interface components {
              * @default false
              */
             force: boolean;
+            /**
+             * Frozen Ok
+             * @description Deploy although deploys are frozen for the application: a person's decision, recorded in the audit trail
+             * @default false
+             */
+            frozen_ok: boolean;
             /**
              * Image Tag
              * @description For a container application from a registry image: deploy this tag of the image it already runs
@@ -28118,6 +29120,41 @@ export interface components {
             state: string;
         };
         /**
+         * CopyIn
+         * @description Put the application on servers that do not have it.
+         *
+         *     Attributes:
+         *         from_node: The server to copy it from; a member that serves it, by default.
+         *         to: The servers to copy it to; the members that lack it, by default.
+         *         new_domain: Make the copy under another domain.
+         *         secrets: Carry the secret values with it.
+         *         match_commit: Bring each copy to the commit the source serves.
+         *         plan: Only say what would happen.
+         */
+        CopyIn: {
+            /** From Node */
+            from_node?: string | null;
+            /**
+             * Match Commit
+             * @default true
+             */
+            match_commit: boolean;
+            /** New Domain */
+            new_domain?: string | null;
+            /**
+             * Plan
+             * @default false
+             */
+            plan: boolean;
+            /**
+             * Secrets
+             * @default true
+             */
+            secrets: boolean;
+            /** To */
+            to?: string[] | null;
+        };
+        /**
          * CpuInfo
          * @description CPU count, utilisation and load average.
          */
@@ -28596,6 +29633,11 @@ export interface components {
              * @default 30
              */
             retention_days: number | null;
+            /**
+             * Retention Gb
+             * @description The most the backups this schedule made may weigh together, in gigabytes; null for no limit by size. The newest always stays.
+             */
+            retention_gb?: number | null;
             /**
              * Schedule
              * @description hourly, daily, weekly, monthly or a systemd OnCalendar expression
@@ -29266,6 +30308,30 @@ export interface components {
             name: string;
         };
         /**
+         * DeliveryConfig
+         * @description The limits a server delivers under: how much builds at once, waits, and takes.
+         */
+        DeliveryConfig: {
+            /**
+             * Max Concurrent Builds
+             * @description Applications that build at the same time
+             * @default 2
+             */
+            max_concurrent_builds: number;
+            /**
+             * Max Minutes
+             * @description The longest a deployment may build before it is stopped; 0 is no limit
+             * @default 60
+             */
+            max_minutes: number;
+            /**
+             * Queue Limit
+             * @description Deployments and updates that may wait before one is refused
+             * @default 25
+             */
+            queue_limit: number;
+        };
+        /**
          * DeliveryListResponse
          * @description The record of deliveries.
          *
@@ -29455,6 +30521,12 @@ export interface components {
              */
             force: boolean;
             /**
+             * Frozen Ok
+             * @description Deploy although deploys are frozen for the application: a person's decision, recorded in the audit trail
+             * @default false
+             */
+            frozen_ok: boolean;
+            /**
              * Image Tag
              * @description For a container application from a registry image: deploy this tag of the image it already runs
              */
@@ -29505,7 +30577,7 @@ export interface components {
             job_id?: string | null;
             /**
              * Status
-             * @description queued; joined (an update already waiting will do it); nothing_new; queue_full; not_found; failed
+             * @description queued; joined (an update already waiting will do it); nothing_new; queue_full; frozen (deploys are frozen and frozen_ok was not given); paused (a token's deploy while the application's automatic deploys are paused; force deploys anyway); not_found; failed
              */
             status: string;
         };
@@ -29815,6 +30887,10 @@ export interface components {
          *             stored value. Never the value itself.
          *         encryption_configured: Whether the crypt passphrases exist, when the
          *             destination is encrypted.
+         *         credentials_protected: Whether its credentials are encrypted on this
+         *             server's disk (True), or still stored in clear because the
+         *             destination is from before they were (False); None when it has
+         *             none.
          */
         DestinationInfo: {
             /** Backend */
@@ -29823,6 +30899,8 @@ export interface components {
             configured_secret_fields?: string[];
             /** Created At */
             created_at?: string | null;
+            /** Credentials Protected */
+            credentials_protected?: boolean | null;
             /** Encrypted */
             encrypted: boolean;
             /**
@@ -30916,6 +31994,101 @@ export interface components {
             flavour?: string | null;
             /** Version */
             version?: string | null;
+        };
+        /**
+         * EngineLimitsOutcomeResponse
+         * @description What a change of limits did.
+         *
+         *     Attributes:
+         *         changed: The limits that changed.
+         *         configured: What Noust's drop-in sets now.
+         *         warnings: What the operator should know: a limit the kernel does not enforce.
+         */
+        EngineLimitsOutcomeResponse: {
+            /** Changed */
+            changed: string[];
+            configured: components["schemas"]["LimitValuesResponse"];
+            /** Display Name */
+            display_name: string;
+            /** Engine */
+            engine: string;
+            /** File */
+            file: string;
+            /** Warnings */
+            warnings?: string[];
+        };
+        /**
+         * EngineLimitsRequest
+         * @description A change of an engine's limits. A limit left out (null) is left as it is.
+         *
+         *     Attributes:
+         *         memory_mb: The memory limit, in megabytes.
+         *         cpus: The processors it may use, such as ``1.5``.
+         *         swap_mb: The swap it may use, in megabytes; 0 gives it none.
+         *         tasks: The processes and threads it may have.
+         *         clear: Limits to remove: any of ``memory_mb``, ``cpus``, ``swap_mb`` and ``tasks``.
+         *         confirm: The operator accepts a memory limit below what the engine uses now. Without it
+         *             such a change is refused with ``confirmation_required`` and nothing is changed.
+         */
+        EngineLimitsRequest: {
+            /** Clear */
+            clear?: string[];
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+            /** Cpus */
+            cpus?: number | null;
+            /** Memory Mb */
+            memory_mb?: number | null;
+            /** Swap Mb */
+            swap_mb?: number | null;
+            /** Tasks */
+            tasks?: number | null;
+        };
+        /**
+         * EngineLimitsResponse
+         * @description Response for ``GET /api/databases/engines/{engine}/limits``.
+         *
+         *     Attributes:
+         *         unit: The systemd unit the limits are on.
+         *         file: The drop-in Noust writes.
+         *         configured: What Noust's drop-in sets.
+         *         effective: What systemd holds for the unit, from every source.
+         *         enforced: Per limit, whether the kernel's cgroup holds it: true, false (systemd has it and
+         *             the kernel does not) or null when it cannot be read.
+         *         memory_in_use_mb: What the engine's cgroup holds now, when known.
+         *         server_memory_mb: This server's memory.
+         *         cpus: This server's processors.
+         *         minimum_memory_mb: The least memory the engine runs in.
+         *         elsewhere: Directives another drop-in or the unit itself sets.
+         */
+        EngineLimitsResponse: {
+            configured: components["schemas"]["LimitValuesResponse"];
+            /** Cpus */
+            cpus: number;
+            /** Display Name */
+            display_name: string;
+            effective: components["schemas"]["LimitValuesResponse"];
+            /** Elsewhere */
+            elsewhere?: string[];
+            /** Enforced */
+            enforced: {
+                [key: string]: boolean | null;
+            };
+            /** Engine */
+            engine: string;
+            /** File */
+            file: string;
+            /** Memory In Use Mb */
+            memory_in_use_mb?: number | null;
+            /** Minimum Memory Mb */
+            minimum_memory_mb: number;
+            /** Server Memory Mb */
+            server_memory_mb: number;
+            /** Unit */
+            unit: string;
         };
         /**
          * EngineListResponse
@@ -32743,6 +33916,82 @@ export interface components {
             turns_on: string[];
         };
         /**
+         * FreezeOut
+         * @description A freeze of deploys.
+         */
+        FreezeOut: {
+            /** Created At */
+            created_at: string;
+            /** Created By */
+            created_by: string | null;
+            /** Domain */
+            domain: string | null;
+            /**
+             * Ends At
+             * @description None lasts until somebody lifts it
+             */
+            ends_at: string | null;
+            /** Id */
+            id: number;
+            /** Lifted At */
+            lifted_at: string | null;
+            /** Lifted By */
+            lifted_by: string | null;
+            /** Reason */
+            reason: string;
+            /**
+             * Scope
+             * @description 'server' or the application's domain
+             */
+            scope: string;
+            /** Starts At */
+            starts_at: string;
+            /**
+             * State
+             * @description active, scheduled, ended or lifted
+             */
+            state: string;
+        };
+        /**
+         * FreezeRequest
+         * @description A freeze to make.
+         */
+        FreezeRequest: {
+            /**
+             * Domain
+             * @description Freeze this application alone; omit to freeze the server
+             */
+            domain?: string | null;
+            /**
+             * Ends At
+             * @description When it ends; omit to last until somebody lifts it
+             */
+            ends_at?: string | null;
+            /**
+             * Hours
+             * @description Instead of ends_at: how long from its start
+             */
+            hours?: number | null;
+            /**
+             * Reason
+             * @description Why; whoever tries to deploy meanwhile is told it
+             */
+            reason: string;
+            /**
+             * Starts At
+             * @description When it starts, ISO 8601 (2026-12-24T18:00 or with an offset); now when omitted
+             */
+            starts_at?: string | null;
+        };
+        /**
+         * FreezesResponse
+         * @description The freezes that hold now or start later.
+         */
+        FreezesResponse: {
+            /** Freezes */
+            freezes: components["schemas"]["FreezeOut"][];
+        };
+        /**
          * GitCredentialRequest
          * @description The credential to keep.
          *
@@ -33897,6 +35146,25 @@ export interface components {
             speed_mbps: number;
         };
         /**
+         * InventoryApplyIn
+         * @description Body of ``POST /api/nodes/{node}/inventory``.
+         *
+         *     Attributes:
+         *         document: An inventory another central exported for this server.
+         *         include_ssh: Also apply how that central reached it (its wait, its bastion).
+         */
+        InventoryApplyIn: {
+            /** Document */
+            document: {
+                [key: string]: unknown;
+            };
+            /**
+             * Include Ssh
+             * @default false
+             */
+            include_ssh: boolean;
+        };
+        /**
          * InventoryEntryModel
          * @description One application in the inventory.
          *
@@ -33948,6 +35216,28 @@ export interface components {
             updated_at?: string | null;
             /** Updated By */
             updated_by?: string | null;
+        };
+        /**
+         * InventoryPartOut
+         * @description One part of an inventory, applied or left out.
+         */
+        InventoryPartOut: {
+            /** Detail */
+            detail?: unknown;
+            /** Part */
+            part: string;
+            /** Reason */
+            reason?: string | null;
+        };
+        /**
+         * InventoryReportOut
+         * @description What applying an inventory did.
+         */
+        InventoryReportOut: {
+            /** Applied */
+            applied: components["schemas"]["InventoryPartOut"][];
+            /** Skipped */
+            skipped: components["schemas"]["InventoryPartOut"][];
         };
         /**
          * InventoryResponse
@@ -34653,6 +35943,34 @@ export interface components {
             username: string;
         };
         /**
+         * LiftedResponse
+         * @description What lifting did.
+         */
+        LiftedResponse: {
+            /** Lifted */
+            lifted: components["schemas"]["FreezeOut"][];
+        };
+        /**
+         * LimitValuesResponse
+         * @description The four limits; null is none.
+         *
+         *     Attributes:
+         *         memory_mb: ``MemoryMax``, in megabytes.
+         *         cpus: ``CPUQuota``, in processors (``1.5`` is 150%).
+         *         swap_mb: ``MemorySwapMax``, in megabytes; 0 gives it no swap.
+         *         tasks: ``TasksMax``: processes and threads.
+         */
+        LimitValuesResponse: {
+            /** Cpus */
+            cpus?: number | null;
+            /** Memory Mb */
+            memory_mb?: number | null;
+            /** Swap Mb */
+            swap_mb?: number | null;
+            /** Tasks */
+            tasks?: number | null;
+        };
+        /**
          * LimitsResponse
          * @description The limits an application has now.
          *
@@ -34681,6 +35999,26 @@ export interface components {
             tasks_max?: number | null;
             /** Units */
             units: string[];
+        };
+        /**
+         * LinkBody
+         * @description Link a server of the fleet to its machine at a provider.
+         *
+         *     Attributes:
+         *         account: The cloud account the machine belongs to.
+         *         provider_id: The provider's id for the machine.
+         *         force: Link even when the machine is not at the address the server is reached on.
+         */
+        LinkBody: {
+            /** Account */
+            account: string;
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
+            /** Provider Id */
+            provider_id: string;
         };
         /**
          * LinkEntryOut
@@ -36910,6 +38248,35 @@ export interface components {
             path: string;
         };
         /**
+         * PauseOut
+         * @description What deploys an application by itself is held.
+         */
+        PauseOut: {
+            /**
+             * At
+             * @description When it was paused (UTC)
+             */
+            at: string;
+            /**
+             * By
+             * @description Who paused it; 'rollback' when going back did
+             */
+            by: string | null;
+            /**
+             * Reason
+             * @description Why
+             */
+            reason: string | null;
+        };
+        /**
+         * PauseRequest
+         * @description Why deploys by themselves are paused.
+         */
+        PauseRequest: {
+            /** Reason */
+            reason?: string | null;
+        };
+        /**
          * PendingChangesResponse
          * @description What an application has been told that it does not run with yet.
          */
@@ -37028,6 +38395,113 @@ export interface components {
             hosts: components["schemas"]["PinnedHostResponse"][];
             /** Total */
             total: number;
+        };
+        /**
+         * PlacementDetailOut
+         * @description A placement and how its application looks now.
+         */
+        PlacementDetailOut: {
+            placement: components["schemas"]["PlacementOut"];
+            status: components["schemas"]["PlacementStatusOut"];
+        };
+        /**
+         * PlacementIn
+         * @description Where an application runs, and how an update goes out over its servers.
+         *
+         *     The servers (``nodes`` and ``labels``) are kept when not sent; the way an update goes out is
+         *     what is sent, so a form that shows all of it can also clear a field.
+         *
+         *     Attributes:
+         *         nodes: The servers it is named on; keeps the current ones when absent.
+         *         labels: A label selector: every server carrying all of its pairs is a member too;
+         *             keeps the current one when absent.
+         *         serial: Servers an update goes to at a time (a number or ``"25%"``); one at a time
+         *             when null.
+         *         max_failures: Failures that stop an update (0 stops at the first); the first when null.
+         *         canary: The server that goes first and alone; the first member when null.
+         *         rollback_on_failure: Put the servers already moved back when an update stops.
+         */
+        PlacementIn: {
+            /** Canary */
+            canary?: string | null;
+            /** Labels */
+            labels?: {
+                [key: string]: string;
+            } | null;
+            /** Max Failures */
+            max_failures?: number | null;
+            /** Nodes */
+            nodes?: string[] | null;
+            /**
+             * Rollback On Failure
+             * @default true
+             */
+            rollback_on_failure: boolean;
+            /** Serial */
+            serial?: number | string | null;
+        };
+        /**
+         * PlacementListOut
+         * @description Every placement.
+         */
+        PlacementListOut: {
+            /** Placements */
+            placements: components["schemas"]["PlacementOut"][];
+        };
+        /**
+         * PlacementOut
+         * @description An application placed on several servers.
+         */
+        PlacementOut: {
+            /** Canary */
+            canary?: string | null;
+            /** Created At */
+            created_at: string;
+            /** Created By */
+            created_by?: string | null;
+            /** Domain */
+            domain: string;
+            /** Labels */
+            labels: {
+                [key: string]: string;
+            };
+            /** Max Failures */
+            max_failures?: number | null;
+            /**
+             * Members
+             * @description Every server it runs on now: named, or by label
+             */
+            members: string[];
+            /** Nodes */
+            nodes: string[];
+            /** Rollback On Failure */
+            rollback_on_failure: boolean;
+            /** Serial */
+            serial?: number | string | null;
+            /** Updated At */
+            updated_at: string;
+        };
+        /**
+         * PlacementStatusOut
+         * @description The application compared across its servers.
+         */
+        PlacementStatusOut: {
+            /** Domain */
+            domain: string;
+            /**
+             * In Sync
+             * @description Every server there, answering, running and on the reference
+             */
+            in_sync: boolean;
+            /** Members */
+            members: string[];
+            /**
+             * Reference Commit
+             * @description The commit most servers serve; on a tie, the one deployed last
+             */
+            reference_commit: string | null;
+            /** Servers */
+            servers: components["schemas"]["ServerStatusOut"][];
         };
         /**
          * PlanInfo
@@ -37555,8 +39029,16 @@ export interface components {
          *             the set defined for previews) or ``all`` (every variable less
          *             ``exclude_env``, as before 3.4).
          *         allow_env: The variables an ``allowlist`` preview copies.
-         *         data_mode: ``shared`` (a preview uses the application's databases) or
-         *             ``empty`` (a database of its own).
+         *         data_mode: ``shared`` (a preview uses the application's databases),
+         *             ``empty`` (a database of its own) or ``clone`` (a database of its own
+         *             that starts as a copy of the application's).
+         *         domain_template: How a preview is named, with ``{{pr_id}}``, ``{{random}}``,
+         *             ``{{domain}}``, ``{{name}}`` and ``{{base}}``; null is
+         *             ``pr-<n>-<name>.<base>``.
+         *         noindex: Previews tell search engines to leave them alone.
+         *         fork_policy: ``refuse`` (a pull request from a fork, or from someone not trusted
+         *             with the repository, gets no preview) or ``approve`` (it waits for an
+         *             operator to approve each commit).
          */
         PreviewSettingsOut: {
             /** Allow Bots */
@@ -37572,8 +39054,15 @@ export interface components {
              * @default shared
              */
             data_mode: string;
+            /** Domain Template */
+            domain_template?: string | null;
             /** Exclude Env */
             exclude_env: string[];
+            /**
+             * Fork Policy
+             * @default refuse
+             */
+            fork_policy: string;
             /**
              * Inherit Env
              * @default all
@@ -37581,6 +39070,11 @@ export interface components {
             inherit_env: string;
             /** Max Previews */
             max_previews: number;
+            /**
+             * Noindex
+             * @default true
+             */
+            noindex: boolean;
             /** Ttl Hours */
             ttl_hours: number;
             /** Updated At */
@@ -37604,8 +39098,13 @@ export interface components {
          *             (``allowlist`` for previews turned on now).
          *         allow_env: The variables an ``allowlist`` preview copies; null keeps
          *             the current list (none for previews turned on now).
-         *         data_mode: ``shared`` or ``empty``; null keeps the current
+         *         data_mode: ``shared``, ``empty`` or ``clone``; null keeps the current
          *             way (``empty`` for an application that has a database).
+         *         domain_template: How previews are named; an empty string goes back to the
+         *             default; null keeps the current one.
+         *         noindex: Previews tell search engines to leave them alone; null keeps the
+         *             current choice.
+         *         fork_policy: ``refuse`` or ``approve``; null keeps the current one.
          */
         PreviewSettingsRequest: {
             /** Allow Bots */
@@ -37616,8 +39115,12 @@ export interface components {
             base_domain: string;
             /** Data Mode */
             data_mode?: string | null;
+            /** Domain Template */
+            domain_template?: string | null;
             /** Exclude Env */
             exclude_env?: string[] | null;
+            /** Fork Policy */
+            fork_policy?: string | null;
             /** Inherit Env */
             inherit_env?: string | null;
             /**
@@ -37625,6 +39128,8 @@ export interface components {
              * @default 3
              */
             max_previews: number;
+            /** Noindex */
+            noindex?: boolean | null;
             /**
              * Ttl Hours
              * @default 168
@@ -38074,27 +39579,6 @@ export interface components {
             total: number;
         };
         /**
-         * PromoteRequest
-         * @description Promote a release to another application.
-         *
-         *     Attributes:
-         *         target: The application it goes to.
-         *         release: The release; the one that serves when left out.
-         *         schema_changed_ok: Confirm going back past a deployment of the target
-         *             that changed its database's schema.
-         */
-        PromoteRequest: {
-            /** Release */
-            release?: string | null;
-            /**
-             * Schema Changed Ok
-             * @default false
-             */
-            schema_changed_ok: boolean;
-            /** Target */
-            target: string;
-        };
-        /**
          * PromotionResponse
          * @description What can be promoted from an application, and to where.
          *
@@ -38195,6 +39679,18 @@ export interface components {
              * @description The default it gives; null for a secret or none
              */
             value?: string | null;
+        };
+        /**
+         * ProtectCredentialsResponse
+         * @description What encrypting the credentials of the destinations that kept them in clear did.
+         *
+         *     Attributes:
+         *         protected: The destinations whose credentials it encrypted; empty when
+         *             every one already was.
+         */
+        ProtectCredentialsResponse: {
+            /** Protected */
+            protected: string[];
         };
         /**
          * ProtectedPortOut
@@ -39083,6 +40579,12 @@ export interface components {
              * @description deploy.max_concurrent_builds
              */
             max_concurrent_builds: number;
+            /**
+             * Max Minutes
+             * @description deploy.max_minutes: the longest a build may take before it is stopped; 0 is no limit
+             * @default 60
+             */
+            max_minutes: number;
             /**
              * Queue Limit
              * @description deploy.queue_limit: builds that may wait
@@ -40160,6 +41662,8 @@ export interface components {
          *         active: Whether it is the one serving.
          *         on_disk: Whether it can be activated. A failed release is listed for
          *             a while after its directory was removed.
+         *         waiting: It was built without being activated and has never served;
+         *             promote it (``POST .../releases/{id}/promote``) rather than switching to it.
          */
         ReleaseOut: {
             /** Activated At */
@@ -40176,6 +41680,11 @@ export interface components {
             on_disk: boolean;
             /** Status */
             status: string;
+            /**
+             * Waiting
+             * @default false
+             */
+            waiting: boolean;
         };
         /**
          * ReleasesResponse
@@ -40761,6 +42270,21 @@ export interface components {
             safety_backup: boolean;
         };
         /**
+         * ResumeResponse
+         * @description What resuming did.
+         */
+        ResumeResponse: {
+            /** Domain */
+            domain: string;
+            /**
+             * Held
+             * @description Pushes and tags that were not deployed while it was paused
+             */
+            held: number;
+            /** Was Paused */
+            was_paused: boolean;
+        };
+        /**
          * RetentionResponse
          * @description The retention an application has now.
          *
@@ -40923,6 +42447,119 @@ export interface components {
             items: components["schemas"]["RollbackPointOut"][];
             /** Total */
             total: number;
+        };
+        /**
+         * RolloutIn
+         * @description Roll the application out over its servers.
+         *
+         *     Attributes:
+         *         commit: Deploy exactly this commit everywhere (7 to 40 hex characters).
+         *         tag: Deploy the commit this tag points at.
+         *         image_tag: For an application that runs a registry image: the tag every server pulls.
+         *         force: Rebuild even a server already on it.
+         *         rollback_on_failure: Put the servers already moved back if it stops; the
+         *             placement's own setting when absent.
+         *         serial: Servers at a time; the placement's own when absent.
+         *         max_failures: Failures that stop it; the placement's own when absent.
+         *         canary: The server that goes first; the placement's own when absent.
+         *         plan: Only say what would happen.
+         */
+        RolloutIn: {
+            /** Canary */
+            canary?: string | null;
+            /** Commit */
+            commit?: string | null;
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
+            /** Image Tag */
+            image_tag?: string | null;
+            /** Max Failures */
+            max_failures?: number | null;
+            /**
+             * Plan
+             * @default false
+             */
+            plan: boolean;
+            /** Rollback On Failure */
+            rollback_on_failure?: boolean | null;
+            /** Serial */
+            serial?: number | string | null;
+            /** Tag */
+            tag?: string | null;
+        };
+        /**
+         * RolloutRequest
+         * @description Delivery settings to change. A field left out keeps its value; null goes back to the default.
+         */
+        RolloutRequest: {
+            /** History Keep */
+            history_keep?: number | null;
+            /** Pause On Rollback */
+            pause_on_rollback?: boolean | null;
+            /** Stop Signal */
+            stop_signal?: string | null;
+            /** Stop Timeout */
+            stop_timeout?: number | null;
+        };
+        /**
+         * RolloutResponse
+         * @description An application's delivery settings.
+         */
+        RolloutResponse: {
+            /**
+             * Automatic
+             * @description What can deploy it without anybody asking: webhook, github, tags
+             */
+            automatic: string[];
+            /** Domain */
+            domain: string;
+            /** @description The freeze that holds its deploys now, if any */
+            freeze: components["schemas"]["FreezeOut"] | null;
+            /**
+             * Held
+             * @description Pushes and tags that arrived and were not deployed since it was paused
+             */
+            held: number;
+            /**
+             * History Keep
+             * @description Deployments of its history kept; null follows the server
+             */
+            history_keep: number | null;
+            /**
+             * History Keep Effective
+             * @description The number in force
+             */
+            history_keep_effective: number;
+            /**
+             * History Keep Server
+             * @description The server's number (deploy.history_keep)
+             */
+            history_keep_server: number;
+            /**
+             * Pause On Rollback
+             * @description Going back pauses what deploys it by itself, so the next push does not undo it
+             */
+            pause_on_rollback: boolean;
+            /** @description Set while what deploys it by itself is held */
+            paused: components["schemas"]["PauseOut"] | null;
+            /**
+             * Stop Signal
+             * @description KillSignal; null is SIGTERM
+             */
+            stop_signal: string | null;
+            /**
+             * Stop Supported
+             * @description Whether its unit can be given a stop policy (a Compose stack's containers, a container and a static site have none)
+             */
+            stop_supported: boolean;
+            /**
+             * Stop Timeout
+             * @description TimeoutStopSec in seconds; null is systemd's (90)
+             */
+            stop_timeout: number | null;
         };
         /**
          * RotatePasswordRequest
@@ -41379,6 +43016,52 @@ export interface components {
             use_tls: boolean;
             /** Username */
             username: string;
+        };
+        /**
+         * SSHOptionsIn
+         * @description Body of ``PUT /api/nodes/{node}/ssh``: the whole desired state.
+         *
+         *     Attributes:
+         *         connect_timeout: Seconds to wait for the connection (1 to 300); null for the default.
+         *         bastion: The host the server is reached through; null to connect directly. The
+         *             same address as the current bastion, with no key or fingerprint, keeps its
+         *             pinned key.
+         *         test: Open the tunnel with the new options and keep them only when the server
+         *             answers. False for a server that is down now.
+         */
+        SSHOptionsIn: {
+            bastion?: components["schemas"]["BastionIn"] | null;
+            /** Connect Timeout */
+            connect_timeout?: number | null;
+            /**
+             * Test
+             * @default true
+             */
+            test: boolean;
+        };
+        /**
+         * SSHOptionsOut
+         * @description How the central connects to one server beyond its address.
+         *
+         *     Attributes:
+         *         connect_timeout: Seconds it waits; null is the default.
+         *         effective_timeout: Seconds it waits now.
+         *         default_timeout: The default.
+         *         bastion: The host it goes through; null when direct.
+         *         authorized_key_line: What the bastion's operator adds to the account's
+         *             ``authorized_keys``: one stream to this server, no shell. Null without a
+         *             bastion.
+         */
+        SSHOptionsOut: {
+            /** Authorized Key Line */
+            authorized_key_line?: string | null;
+            bastion?: components["schemas"]["BastionOut"] | null;
+            /** Connect Timeout */
+            connect_timeout?: number | null;
+            /** Default Timeout */
+            default_timeout: number;
+            /** Effective Timeout */
+            effective_timeout: number;
         };
         /**
          * SSLConfig
@@ -41906,6 +43589,11 @@ export interface components {
             retention_count?: number | null;
             /** Retention Days */
             retention_days?: number | null;
+            /**
+             * Retention Gb
+             * @description The most this server's backups of the application may weigh together there, in gigabytes; null for no limit. The newest always stays.
+             */
+            retention_gb?: number | null;
         };
         /**
          * ScheduleListResponse
@@ -41959,6 +43647,8 @@ export interface components {
          *         schedule: The calendar expression.
          *         retention_count: Scheduled bundles kept locally.
          *         retention_days: Days a scheduled bundle is kept locally.
+         *         retention_gb: The most the scheduled bundles kept locally may weigh together,
+         *             in gigabytes; null for no limit.
          *         destinations: Where each bundle is sent, and whether each still exists
          *             and is encrypted.
          *         enabled: Whether the timer exists.
@@ -42007,6 +43697,8 @@ export interface components {
             retention_count?: number | null;
             /** Retention Days */
             retention_days?: number | null;
+            /** Retention Gb */
+            retention_gb?: number | null;
             /** Schedule */
             schedule?: string | null;
             /** Timer */
@@ -42507,6 +44199,42 @@ export interface components {
             reason?: string | null;
         };
         /**
+         * ServerStatusOut
+         * @description How the application looks on one of its servers.
+         */
+        ServerStatusOut: {
+            /** Branch */
+            branch?: string | null;
+            /** Commit */
+            commit?: string | null;
+            /** Deployed At */
+            deployed_at?: string | null;
+            /** Href */
+            href: string;
+            /** Layout */
+            layout?: string | null;
+            /** Message */
+            message?: string | null;
+            /** Node */
+            node: string;
+            /** Present */
+            present: boolean;
+            /** Reachable */
+            reachable: boolean;
+            /**
+             * Stale
+             * @default false
+             */
+            stale: boolean;
+            /** Status */
+            status?: string | null;
+            /**
+             * Sync
+             * @description current, differs, unknown (no deployment to compare), missing or unreachable
+             */
+            sync: string;
+        };
+        /**
          * ServiceActionResponse
          * @description Response for service actions.
          */
@@ -42804,6 +44532,8 @@ export interface components {
          *         retention_days: Days to keep a scheduled dump locally.
          *         retention_gb: The most the scheduled dumps kept locally may weigh
          *             together, in gigabytes; the newest always stays.
+         *         remote_only: Delete each scheduled dump from this server once every
+         *             destination holds it (a small disk). Needs a destination.
          *         destinations: Remote copies, each with its own retention.
          *         dump_format: PostgreSQL's ``custom`` (default), ``plain`` or ``tar``.
          *         verify_restore: Load each dump into a temporary database and drop it
@@ -42831,6 +44561,11 @@ export interface components {
             exclude_schemas?: string[];
             /** Exclude Tables */
             exclude_tables?: string[];
+            /**
+             * Remote Only
+             * @default false
+             */
+            remote_only: boolean;
             /**
              * Retention Count
              * @default 7
@@ -42895,6 +44630,8 @@ export interface components {
          *             ``OnCalendar`` expression.
          *         retention_count: Scheduled bundles to keep locally.
          *         retention_days: Days to keep a scheduled bundle locally.
+         *         retention_gb: The most the scheduled bundles kept locally may weigh together,
+         *             in gigabytes; the newest always stays.
          *         destinations: Remote copies, each with its own retention.
          *         passphrase: What bundles are sealed under; kept in the secret store
          *             for the timer. Required while none is stored, optional after.
@@ -42920,6 +44657,8 @@ export interface components {
              * @default 30
              */
             retention_days: number | null;
+            /** Retention Gb */
+            retention_gb?: number | null;
             /**
              * Schedule
              * @default daily
@@ -42945,6 +44684,8 @@ export interface components {
          *         extra_paths: Data directories to add, relative to where its data lives.
          *         retention_count: Scheduled backups to keep locally per target.
          *         retention_days: Days to keep a scheduled backup locally.
+         *         retention_gb: The most the scheduled backups kept locally per target may
+         *             weigh together, in gigabytes; the newest always stays.
          *         destinations: Remote copies, each with its own retention.
          *         consistency: ``live``, ``pause`` (freeze it for the copy) or ``stop``.
          *         enabled: Whether the timer runs; a disabled policy keeps its settings.
@@ -42974,6 +44715,8 @@ export interface components {
              * @default 30
              */
             retention_days: number | null;
+            /** Retention Gb */
+            retention_gb?: number | null;
             /**
              * Schedule
              * @default daily
@@ -44207,6 +45950,111 @@ export interface components {
             to?: number | null;
         };
         /**
+         * SqliteCheckRequest
+         * @description Which database to check, and how thoroughly.
+         */
+        SqliteCheckRequest: {
+            /**
+             * Full
+             * @description integrity_check, which also checks every index against its table; slower
+             * @default false
+             */
+            full: boolean;
+            /**
+             * Path
+             * @description As the listing gives it, for example data/app.db
+             */
+            path: string;
+        };
+        /**
+         * SqliteCheckResponse
+         * @description What SQLite said about one database.
+         */
+        SqliteCheckResponse: {
+            /**
+             * Complete
+             * @description False when the time allowed ran out first
+             */
+            complete: boolean;
+            /** Full */
+            full: boolean;
+            /**
+             * Ok
+             * @description SQLite found nothing wrong
+             */
+            ok: boolean;
+            /** Path */
+            path: string;
+            /**
+             * Problems
+             * @description What SQLite reported, at most 20
+             */
+            problems: string[];
+            /** Seconds */
+            seconds: number;
+        };
+        /**
+         * SqliteFileModel
+         * @description One SQLite database inside an application's directory.
+         */
+        SqliteFileModel: {
+            /**
+             * Journal Mode
+             * @description wal, or rollback (the rollback journal)
+             */
+            journal_mode: string;
+            /**
+             * Modified
+             * @description When the file last changed, seconds since the epoch
+             */
+            modified: number;
+            /**
+             * Page Size
+             * @description Bytes in a page; 0 when the header does not say
+             */
+            page_size: number;
+            /**
+             * Pages
+             * @description Pages in the file
+             */
+            pages: number;
+            /**
+             * Path
+             * @description Relative to the application's directory, with '/' separators
+             */
+            path: string;
+            /**
+             * Size
+             * @description Bytes in the file itself
+             */
+            size: number;
+            /**
+             * Wal Bytes
+             * @description Bytes committed and still waiting in its write-ahead log
+             */
+            wal_bytes: number;
+        };
+        /**
+         * SqliteListResponse
+         * @description The SQLite databases an application keeps.
+         */
+        SqliteListResponse: {
+            /** Domain */
+            domain: string;
+            /** Files */
+            files: components["schemas"]["SqliteFileModel"][];
+            /**
+             * Searched
+             * @description Where Noust looked, relative to the application
+             */
+            searched: string[];
+            /**
+             * Truncated
+             * @description The search stopped at its limit: there may be more
+             */
+            truncated: boolean;
+        };
+        /**
          * SshSessionOut
          * @description An SSH connection open now.
          */
@@ -44294,6 +46142,28 @@ export interface components {
              * @default false
              */
             socket_active: boolean;
+        };
+        /**
+         * StageRequest
+         * @description What to build.
+         */
+        StageRequest: {
+            /**
+             * Branch
+             * @description Build this branch instead of the one the application follows
+             */
+            branch?: string | null;
+            /**
+             * Commit
+             * @description Build this commit (full or abbreviated) instead of the branch
+             */
+            commit?: string | null;
+            /**
+             * No Cache
+             * @description Build from scratch
+             * @default false
+             */
+            no_cache: boolean;
         };
         /**
          * StateModel
@@ -46456,6 +48326,11 @@ export interface components {
              */
             force: boolean;
             /**
+             * Frozen Ok
+             * @description Deploy although deploys are frozen for this application: a person's decision, recorded in the audit trail
+             */
+            frozen_ok?: boolean | null;
+            /**
              * No Cache
              * @description Build from scratch: no package manager cache, no dependencies taken from the release that serves, no image layer cache. Implies force
              */
@@ -46552,6 +48427,90 @@ export interface components {
             tail?: string[];
             /** Unit */
             unit?: string | null;
+        };
+        /**
+         * UpdateScheduleOut
+         * @description An application's scheduled update.
+         */
+        UpdateScheduleOut: {
+            /**
+             * Aliases
+             * @description Shorthands the calendar accepts
+             */
+            aliases?: {
+                [key: string]: string;
+            };
+            /**
+             * Backup First
+             * @description The update is refused when its backup does not happen
+             * @default true
+             */
+            backup_first: boolean;
+            /**
+             * Calendar
+             * @description The systemd OnCalendar expression
+             */
+            calendar?: string | null;
+            /** Domain */
+            domain: string;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /** Last Deployment Id */
+            last_deployment_id?: number | null;
+            /** Last Detail */
+            last_detail?: string | null;
+            /**
+             * Last Outcome
+             * @description updated, nothing_new, held, backup_failed or failed
+             */
+            last_outcome?: string | null;
+            /** Last Run At */
+            last_run_at?: string | null;
+            /**
+             * Next Run
+             * @description When the timer fires next
+             */
+            next_run?: string | null;
+            /**
+             * Only If New
+             * @description A run with nothing new to deploy does nothing
+             * @default true
+             */
+            only_if_new: boolean;
+            /**
+             * Scheduled
+             * @description Whether the application updates itself at all
+             */
+            scheduled: boolean;
+        };
+        /**
+         * UpdateScheduleRequest
+         * @description What to schedule.
+         */
+        UpdateScheduleRequest: {
+            /**
+             * Backup First
+             * @default true
+             */
+            backup_first: boolean;
+            /**
+             * Calendar
+             * @description daily, weekly or monthly, or a systemd calendar expression
+             */
+            calendar: string;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Only If New
+             * @default true
+             */
+            only_if_new: boolean;
         };
         /**
          * UpdateServiceConfigRequest
@@ -46825,6 +48784,40 @@ export interface components {
         UploadedList: {
             /** Certificates */
             certificates: components["schemas"]["UploadedCertificate"][];
+        };
+        /**
+         * UpstreamServerOut
+         * @description One server, as a load balancer sees it.
+         */
+        UpstreamServerOut: {
+            /** Address */
+            address?: string | null;
+            /** Commit */
+            commit?: string | null;
+            /** Node */
+            node: string;
+            /** Note */
+            note?: string | null;
+            /** Serving */
+            serving: boolean;
+            /** Sync */
+            sync?: string | null;
+        };
+        /**
+         * UpstreamsOut
+         * @description The servers an application runs on, written for the load balancer in front of them.
+         */
+        UpstreamsOut: {
+            /** Domain */
+            domain: string;
+            /** Format */
+            format: string;
+            /** Port */
+            port: number;
+            /** Servers */
+            servers: components["schemas"]["UpstreamServerOut"][];
+            /** Text */
+            text: string;
         };
         /**
          * UsageResponse
@@ -47192,6 +49185,8 @@ export interface components {
          *         extra_paths: Directories added to what it declares.
          *         retention_count: Scheduled backups kept locally per target.
          *         retention_days: Days a scheduled backup is kept locally.
+         *         retention_gb: The most the scheduled backups kept locally per target may
+         *             weigh together, in gigabytes; null for no limit.
          *         destinations: Where each backup is sent.
          *         consistency: ``live``, ``pause`` or ``stop``.
          *         enabled: Whether the timer exists.
@@ -47237,6 +49232,8 @@ export interface components {
             retention_count?: number | null;
             /** Retention Days */
             retention_days?: number | null;
+            /** Retention Gb */
+            retention_gb?: number | null;
             /** Schedule */
             schedule?: string | null;
             /** Targets */
@@ -48050,6 +50047,45 @@ export interface components {
             started_by_noust: boolean;
         };
         /**
+         * PromoteRequest
+         * @description Promote a release to another application.
+         *
+         *     Attributes:
+         *         target: The application it goes to.
+         *         release: The release; the one that serves when left out.
+         *         schema_changed_ok: Confirm going back past a deployment of the target
+         *             that changed its database's schema.
+         */
+        noust__web__api__app_promote__PromoteRequest: {
+            /** Release */
+            release?: string | null;
+            /**
+             * Schema Changed Ok
+             * @default false
+             */
+            schema_changed_ok: boolean;
+            /** Target */
+            target: string;
+        };
+        /**
+         * PromoteRequest
+         * @description What to confirm when a built release is made to serve.
+         */
+        noust__web__api__app_staged__PromoteRequest: {
+            /**
+             * Frozen Ok
+             * @description Switch although deploys are frozen for the application: a person's decision, recorded in the audit trail
+             * @default false
+             */
+            frozen_ok: boolean;
+            /**
+             * Schema Changed Ok
+             * @description Switch although later deployments changed the database's schema
+             * @default false
+             */
+            schema_changed_ok: boolean;
+        };
+        /**
          * MigrateRequest
          * @description Request to migrate an application to the release layout.
          */
@@ -48106,6 +50142,11 @@ export interface components {
             retention_count?: number | null;
             /** Retention Days */
             retention_days?: number | null;
+            /**
+             * Retention Gb
+             * @description The most this server's backups of the application may weigh together there, in gigabytes; null for no limit. The newest always stays.
+             */
+            retention_gb?: number | null;
         };
         /**
          * BackupListResponse
@@ -49073,8 +51114,8 @@ export interface components {
          *         head_sha: The commit last deployed or asked for.
          *         provider: ``github``, ``gitlab``, ``gitea`` or ``bitbucket``.
          *         repository: ``owner/repo``.
-         *         status: ``pending``, ``deploying``, ``ready``, ``failed`` or
-         *             ``removing``.
+         *         status: ``pending``, ``deploying``, ``ready``, ``failed``, ``stopped``,
+         *             ``removing`` or ``awaiting`` (an operator has to approve its commit).
          *         error: Why the last build failed.
          *         expires_at: When it is removed unless pushed to again.
          *         kind: ``pr`` (a pull request), ``branch`` or ``tag`` (made by hand).
@@ -49240,6 +51281,8 @@ export interface components {
          *         name: A destination created under ``/api/backup-destinations``.
          *         retention_count: This server's scheduled bundles to keep there.
          *         retention_days: Maximum age in days of those.
+         *         retention_gb: The most those may weigh together there, in gigabytes; null
+         *             for no limit. The newest always stays.
          */
         noust__web__api__self_backup__ScheduleDestination: {
             /** Name */
@@ -49248,6 +51291,8 @@ export interface components {
             retention_count?: number | null;
             /** Retention Days */
             retention_days?: number | null;
+            /** Retention Gb */
+            retention_gb?: number | null;
         };
         /**
          * CheckOut
@@ -49395,6 +51440,8 @@ export interface components {
          *         retention_count: This server's scheduled backups of a target to keep
          *             there; null for no limit.
          *         retention_days: Maximum age in days of those; null for no limit.
+         *         retention_gb: The most those may weigh together there, in gigabytes; null
+         *             for no limit. The newest always stays.
          */
         noust__web__api__volume_backups__PolicyDestination: {
             /** Name */
@@ -49403,6 +51450,8 @@ export interface components {
             retention_count?: number | null;
             /** Retention Days */
             retention_days?: number | null;
+            /** Retention Gb */
+            retention_gb?: number | null;
         };
         /**
          * PolicyDestinationState
@@ -49429,6 +51478,8 @@ export interface components {
             retention_count?: number | null;
             /** Retention Days */
             retention_days?: number | null;
+            /** Retention Gb */
+            retention_gb?: number | null;
         };
         /**
          * RestoreRemoteRequest
@@ -53558,6 +55609,38 @@ export interface operations {
             };
         };
     };
+    approve_preview_api_apps__domain__previews__number__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewQueuedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_preview_logs_api_apps__domain__previews__number__logs_get: {
         parameters: {
             query?: {
@@ -53611,6 +55694,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PreviewQueuedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_preview_api_apps__domain__previews__number__reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__previews__PreviewOut"];
                 };
             };
             /** @description Validation Error */
@@ -53899,7 +56014,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PromoteRequest"];
+                "application/json": components["schemas"]["noust__web__api__app_promote__PromoteRequest"];
             };
         };
         responses: {
@@ -54130,6 +56245,41 @@ export interface operations {
             };
         };
     };
+    stage_release_api_apps__domain__releases_stage_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     activate_app_release_api_apps__domain__releases__release_id__activate_post: {
         parameters: {
             query?: {
@@ -54152,6 +56302,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReleaseActivationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    promote_release_api_apps__domain__releases__release_id__promote_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                release_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["noust__web__api__app_staged__PromoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -54348,6 +56534,138 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RollbackPointsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_rollout_api_apps__domain__rollout_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RolloutResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_rollout_api_apps__domain__rollout_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RolloutRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RolloutResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pause_deploys_api_apps__domain__rollout_pause_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PauseRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RolloutResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_deploys_api_apps__domain__rollout_resume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeResponse"];
                 };
             };
             /** @description Validation Error */
@@ -54693,6 +57011,72 @@ export interface operations {
             };
         };
     };
+    list_app_sqlite_api_apps__domain__sqlite_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SqliteListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_app_sqlite_api_apps__domain__sqlite_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SqliteCheckRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SqliteCheckResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     start_app_api_apps__domain__start_post: {
         parameters: {
             query?: never;
@@ -54843,6 +57227,103 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TerminalTicketResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_update_schedule_api_apps__domain__update_schedule_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateScheduleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_update_schedule_api_apps__domain__update_schedule_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateScheduleRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateScheduleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_update_schedule_api_apps__domain__update_schedule_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateScheduleOut"];
                 };
             };
             /** @description Validation Error */
@@ -57599,6 +60080,26 @@ export interface operations {
             };
         };
     };
+    protect_credentials_api_backup_destinations_protect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProtectCredentialsResponse"];
+                };
+            };
+        };
+    };
     update_destination_api_backup_destinations__name__put: {
         parameters: {
             query?: never;
@@ -58934,6 +61435,59 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    get_delivery_config_api_config_delivery_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryConfig"];
+                };
+            };
+        };
+    };
+    update_delivery_config_api_config_delivery_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeliveryConfig"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -61514,6 +64068,72 @@ export interface operations {
             };
         };
     };
+    get_engine_limits_api_databases_engines__engine__limits_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EngineLimitsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_engine_limits_api_databases_engines__engine__limits_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EngineLimitsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EngineLimitsOutcomeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_engine_logs_api_databases_engines__engine__logs_get: {
         parameters: {
             query?: {
@@ -63418,6 +66038,102 @@ export interface operations {
             };
         };
     };
+    list_freezes_api_deploy_freezes_get: {
+        parameters: {
+            query?: {
+                /** @description Also the ones that ended or were lifted */
+                include_past?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FreezesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_freeze_api_deploy_freezes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FreezeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FreezeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    lift_freeze_api_deploy_freezes__freeze_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                freeze_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiftedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_deploy_keys_api_deploy_keys_get: {
         parameters: {
             query?: never;
@@ -64742,6 +67458,70 @@ export interface operations {
             };
         };
     };
+    link_machine_api_fleet_cloud_servers__node__link_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__cloud__MachineOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unlink_machine_api_fleet_cloud_servers__node__link_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     power_on_machine_api_fleet_cloud_servers__node__power_on_post: {
         parameters: {
             query?: never;
@@ -65038,6 +67818,232 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_placements_api_fleet_placements_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlacementListOut"];
+                };
+            };
+        };
+    };
+    get_placement_api_fleet_placements__domain__get: {
+        parameters: {
+            query?: {
+                /** @description Ask the servers again */
+                refresh?: boolean;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlacementDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_placement_api_fleet_placements__domain__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlacementIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlacementOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_placement_api_fleet_placements__domain__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlacementOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    copy_application_api_fleet_placements__domain__copy_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CopyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__fleet__ActionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rollout_api_fleet_placements__domain__rollout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RolloutIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__fleet__ActionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_upstreams_api_fleet_placements__domain__upstreams_get: {
+        parameters: {
+            query?: {
+                /** @description nginx, list or json */
+                format?: string;
+                /** @description The servers' web port */
+                port?: number;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpstreamsOut"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -67071,6 +70077,74 @@ export interface operations {
             };
         };
     };
+    get_node_inventory_api_nodes__node__inventory_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_node_inventory_api_nodes__node__inventory_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InventoryApplyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryReportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_node_key_api_nodes__node__key_get: {
         parameters: {
             query?: never;
@@ -67124,6 +70198,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NodeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_node_ssh_api_nodes__node__ssh_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSHOptionsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_node_ssh_api_nodes__node__ssh_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SSHOptionsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSHOptionsOut"];
                 };
             };
             /** @description Validation Error */

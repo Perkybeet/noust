@@ -67,14 +67,15 @@ describe("the policy form", () => {
     const stored = policy("shop.example.com", { targets: ["path:uploads", "volume:shop_pgdata"], extra_paths: ["media"], consistency: "pause", retention_days: null });
     const form = formOf("shop.example.com", stored);
     expect(form.everything).toBe(false);
-    expect(form.sends).toEqual([{ name: "nas", count: "14", days: "" }]);
+    expect(form.sends).toEqual([{ name: "nas", count: "14", days: "", gb: "" }]);
     expect(bodyOf(form)).toEqual({
       schedule: "*-*-* 02:00:00",
       targets: ["path:uploads", "volume:shop_pgdata"],
       extra_paths: ["media"],
       retention_count: 7,
       retention_days: null,
-      destinations: [{ name: "nas", retention_count: 14, retention_days: null }],
+      retention_gb: null,
+      destinations: [{ name: "nas", retention_count: 14, retention_days: null, retention_gb: null }],
       consistency: "pause",
       enabled: true,
     });
@@ -101,5 +102,22 @@ describe("the folders added to what an application declares", () => {
     expect(validPath("../secrets")).toBe(false);
     expect(validPath("a/../b")).toBe(false);
     expect(validPath("~root")).toBe(false);
+  });
+});
+
+describe("the size a policy's backups may weigh", () => {
+  it("is read from a stored policy and sent as gigabytes, empty meaning no limit", () => {
+    const stored = policy("shop.example.com", { retention_gb: 4, destinations: [{ name: "nas", retention_count: null, retention_days: null, retention_gb: 20, exists: true, encrypted: false }] });
+    const form = formOf("shop.example.com", stored);
+    expect(form.gb).toBe("4");
+    expect(form.sends).toEqual([{ name: "nas", count: "", days: "", gb: "20" }]);
+    expect(bodyOf(form)).toMatchObject({ retention_gb: 4, destinations: [{ name: "nas", retention_gb: 20 }] });
+    expect(bodyOf({ ...form, gb: "2,5" }).retention_gb).toBe(2.5);
+    expect(bodyOf({ ...form, gb: "" }).retention_gb).toBeNull();
+  });
+
+  it("starts a new policy with no limit by size", () => {
+    expect(formOf("a", null).gb).toBe("");
+    expect(bodyOf(formOf("a", null)).retention_gb).toBeNull();
   });
 });
