@@ -327,6 +327,19 @@ default; only its digest is stored), which is also how a person who lost their a
 gets back in. Disabling an account ends its sessions and tokens at once. Each account's TOTP
 secret is encrypted at rest under a key kept beside the store, never in it.
 
+**By mail.** When the server can send mail (`monitor.smtp.*` or `monitor.email_api.*`) and the console has a
+public address (`web.public_url`), two things are mailed to an account's address (`noust user set-email`,
+or the account's page): an **invitation** (`noust user invite NAME --email ADDRESS`, or the address field
+of the invitation dialog) and a **link to choose a new password** ("Forgot your password?" on the sign-in
+page). The link carries its code after the `#`, which a browser never sends to a server, so no access
+log holds it. A reset link is good once and for 60 minutes, only its SHA-256 is stored, a new request
+spends the one before it, an account is sent at most three an hour, and it is issued only to an active
+account that has a password, an address and a second factor. Using it needs a code of that second factor
+as well, so an inbox alone is not an account, and it changes the password and leaves the authenticator
+as it was; it signs the account's other sessions out. The request is answered the same whether the
+account exists, and the mail is sent after the answer. The address is never a way to sign in. Under the
+ENS profile accounts are recovered by a security officer's invitation, and password reset by mail is off.
+
 **Passkeys.** WebAuthn with attestation `none`, ES256 and RS256 (and EdDSA when the installed
 `cryptography` supports it), resident keys and user verification required, several per account,
 a random user handle per server. A passkey signs in on its own and confirms sudo mode. The first

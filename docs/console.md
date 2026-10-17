@@ -164,7 +164,8 @@ in and how many attempts failed since.
 the first account**: an administrator, and (recommended) a security officer for another person.
 Once an account exists, the access token is emergency access: it still signs in, and each use is
 recorded. An invited person opens the invitation link, chooses a password and sets up a second
-factor. Every account sets up a second factor, an authenticator app or a passkey, at its first
+factor; where the server can send mail the invitation dialog also mails the link, and the sign-in
+page offers "Forgot your password?", which mails a link that needs the authenticator as well. Every account sets up a second factor, an authenticator app or a passkey, at its first
 sign-in, before it can do anything else. When `auth.notice.text` is set, a notice of rights and
 obligations is shown and must be accepted.
 

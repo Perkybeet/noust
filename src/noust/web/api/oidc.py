@@ -125,10 +125,14 @@ class ProviderChoices(BaseModel):
             False once single sign-on replaced them (I-23): the sign-in page
             then offers the providers and, behind a link, the way an exempt
             account still signs in.
+        password_reset: Whether the sign-in page offers "forgot your password": the
+            server can send mail, the console has a public address for the link, local
+            sign-in exists and the ENS profile is not in force.
     """
 
     providers: list[ProviderChoice]
     local_login: bool = True
+    password_reset: bool = False
 
 
 @router.get("/providers", response_model=ProviderChoices)
@@ -142,6 +146,8 @@ def list_choices(response: Response) -> ProviderChoices:
     Returns:
         The name and label of each enabled provider, nothing else of them.
     """
+    from noust.web.api.auth_accounts import password_reset_offered
+
     response.headers["Cache-Control"] = "no-store"
     return ProviderChoices(
         providers=[
@@ -156,6 +162,7 @@ def list_choices(response: Response) -> ProviderChoices:
             ),
         ],
         local_login=load_local_login().enabled,
+        password_reset=password_reset_offered(),
     )
 
 

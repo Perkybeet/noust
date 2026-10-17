@@ -49,6 +49,11 @@ PUBLIC_API_PATHS = frozenset(
         # The invitation code is the credential; a wrong one is counted.
         "/api/auth/invitations/open",
         "/api/auth/invitations/accept",
+        # The mailed link and a code of the second factor are the credential; a wrong one is
+        # counted. Asking for a link is answered the same whoever asks and sends mail only to
+        # the address on the account.
+        "/api/auth/password-reset/request",
+        "/api/auth/password-reset/confirm",
         # The passkey is the credential; a refused assertion is counted.
         "/api/auth/passkeys/login/options",
         "/api/auth/passkeys/login",
@@ -104,6 +109,11 @@ PUBLIC_PATHS = frozenset(
         "/api/auth/session",
         "/api/auth/invitations/open",
         "/api/auth/invitations/accept",
+        # The mailed link and a code of the second factor are the credential; a wrong one is
+        # counted. Asking for a link is answered the same whoever asks and sends mail only to
+        # the address on the account.
+        "/api/auth/password-reset/request",
+        "/api/auth/password-reset/confirm",
         "/api/auth/passkeys/login/options",
         "/api/auth/passkeys/login",
         # The identity provider's answer is the credential; a guess at it is counted.

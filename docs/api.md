@@ -165,6 +165,15 @@ Accounts are managed under `/api/auth/accounts`, invitations under `/api/auth/in
 (accepted at `/api/auth/invitations/open` and `/accept`, without a credential), passkeys under
 `/api/auth/passkeys`, and an account changes its own password with `POST /api/auth/password`.
 
+An account has an `email` (`PATCH /api/auth/accounts/{username}`), where mail goes and nothing else. An
+invitation with `email` is also mailed (`emailed`, and `email_error` when the mail failed and the code is
+to be handed over), and refused before anything is made when the server cannot send mail. A person who
+forgot the password asks for a link at `POST /api/auth/password-reset/request` (`identifier`: the name or
+the address; always `202`, the same whoever asks) and finishes at `POST /api/auth/password-reset/confirm`
+(`code`, `password`, `second_factor`), both without a credential. They answer `404 reset_unavailable`
+when the server has no mail channel or runs the ENS profile; `GET /api/auth/oidc/providers` says
+whether the sign-in page offers it (`password_reset`).
+
 Since 3.4 a person can also sign in through an identity provider (OpenID Connect), under
 `/api/auth/oidc` ([sso.md](sso.md)). `GET /api/auth/oidc/providers` lists the buttons the sign-in page
 shows (anonymous); `GET /start` and `GET /callback` are the browser's two redirects; `POST /complete`

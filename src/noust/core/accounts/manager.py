@@ -44,6 +44,7 @@ from noust.core.accounts.model import (
     LoginRecord,
     SodException,
     clean_display_name,
+    clean_email,
     clean_person_ref,
     incompatible_roles,
     validate_role,
@@ -84,7 +85,7 @@ _COLUMNS = (
     "password_changed_at, totp_secret, totp_pending_secret, backup_codes, "
     "last_login_at, last_login_ip, failures_since_login, last_failed_at, last_failed_ip, "
     "locked_until, locked_reason, notice_version, notice_accepted_at, created_at, "
-    "created_by, updated_at, disabled_at, disabled_reason, "
+    "created_by, updated_at, disabled_at, disabled_reason, email, "
     # Passkeys count as a second factor (noust.core.accounts.passkeys).
     "(SELECT COUNT(*) FROM account_passkeys WHERE account_passkeys.account_id = accounts.id) "
     "AS passkey_count, "
@@ -165,6 +166,7 @@ def _account(row: sqlite3.Row) -> Account:
         disabled_reason=row["disabled_reason"],
         passkeys=int(row["passkey_count"] or 0),
         identities=int(row["identity_count"] or 0),
+        email=row["email"],
     )
 
 
@@ -441,6 +443,7 @@ class AccountManager:
         person_ref: str | None = None,
         created_by: str | None = None,
         join_default_team: bool = True,
+        email: str | None = None,
     ) -> Account:
         """
         Create an active account with a password.
@@ -458,6 +461,7 @@ class AccountManager:
             join_default_team: Make the account a member of the default team
                 (what every account was before teams existed). A caller that
                 puts the account in a team of its own passes False.
+            email: Where its invitations and password resets are mailed.
 
         Returns:
             The account.
@@ -486,6 +490,7 @@ class AccountManager:
             person_ref=clean_person_ref(person_ref),
             created_by=created_by,
             join_default_team=join_default_team,
+            email=clean_email(email),
         )
 
     def _insert(
@@ -500,6 +505,7 @@ class AccountManager:
         created_by: str | None,
         join_default_team: bool = True,
         membership: tuple[int, str] | None = None,
+        email: str | None = None,
     ) -> Account:
         """
         Write a new account row after the separation-of-duties check.
@@ -516,6 +522,7 @@ class AccountManager:
                 in the same transaction that creates it.
             membership: A team id and the team role to join it with, in the
                 same transaction; for an account made for one team only.
+            email: Cleaned address, or None.
 
         Returns:
             The account.
@@ -529,8 +536,8 @@ class AccountManager:
             with self._write() as cursor:
                 cursor.execute(
                     "INSERT INTO accounts (username, display_name, role, status, person_ref, "
-                    "password_hash, password_changed_at, created_at, created_by, updated_at) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    "password_hash, password_changed_at, created_at, created_by, updated_at, email) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         username,
                         display_name,
@@ -542,6 +549,7 @@ class AccountManager:
                         now,
                         created_by,
                         now,
+                        email,
                     ),
                 )
                 account_id = int(cursor.lastrowid or 0)
@@ -588,6 +596,7 @@ class AccountManager:
                 updated_at=now,
                 disabled_at=None,
                 disabled_reason=None,
+                email=email,
             )
         return account
 
@@ -601,6 +610,7 @@ class AccountManager:
         created_by: str | None = None,
         expires_hours: float = DEFAULT_INVITATION_HOURS,
         join_default_team: bool = True,
+        email: str | None = None,
     ) -> tuple[Account, str]:
         """
         Issue a single-use invitation: the person sets their own password.
@@ -621,6 +631,8 @@ class AccountManager:
             expires_hours: Life of the invitation, at most two weeks.
             join_default_team: Whether a new account joins the default team;
                 an invitation to a team passes False and adds the team itself.
+            email: Where the invitation is mailed; kept on a new account, and on an
+                existing one that has none.
 
         Returns:
             The account and the invitation code, in clear, exactly once.
@@ -652,6 +664,7 @@ class AccountManager:
                 person_ref=clean_person_ref(person_ref),
                 created_by=created_by,
                 join_default_team=join_default_team,
+                email=clean_email(email),
             )
         elif existing.status == STATUS_DISABLED:
             raise AccountError(
@@ -664,6 +677,10 @@ class AccountManager:
             # separation of duties as granting it (an exception may have ended).
             self._check_separation(existing.person_ref, existing.role, exclude_id=existing.id)
             account = existing
+            address = clean_email(email)
+            if address is not None and existing.email is None:
+                self._update(existing.id, email=address)
+                account = self.require(existing.username)
 
         code = f"{INVITATION_PREFIX}{secrets.token_urlsafe(32)}"
         now = self.now()
@@ -1027,6 +1044,50 @@ class AccountManager:
             self._update(int(row["id"]), **changes)
         return self.require(username)
 
+    def set_email(self, username: str, email: str | None) -> Account:
+        """
+        Set the address an account's invitations and password resets are mailed to.
+
+        It is never a way in: no sign-in looks an account up by it, and an identity
+        provider's address is judged by the provider, not by this one.
+
+        Args:
+            username: The account's name.
+            email: The address, or an empty string to forget it.
+
+        Returns:
+            The account after the change.
+
+        Raises:
+            AccountNotFoundError: When no account has that name.
+            ValidationError: When the address is not one.
+        """
+        row = self._require(username)
+        self._update(int(row["id"]), email=clean_email(email))
+        return self.require(username)
+
+    def find_by_email(self, email: str) -> list[Account]:
+        """
+        Find the accounts that are mailed at an address.
+
+        Args:
+            email: An address, in any case.
+
+        Returns:
+            Their accounts, by username; empty when the text is not an address.
+        """
+        try:
+            address = clean_email(email)
+        except ValidationError:
+            return []
+        if address is None:
+            return []
+        rows = self._rows(
+            f"SELECT {_COLUMNS} FROM accounts WHERE email = ? ORDER BY username",  # noqa: S608 - fixed columns
+            (address,),
+        )
+        return [_account(row) for row in rows]
+
     def disable(self, username: str, reason: str | None = None) -> Account:
         """
         Disable an account: its sessions and tokens stop working at once.
@@ -1136,6 +1197,21 @@ class AccountManager:
             cursor.execute("DELETE FROM account_passkeys WHERE account_id = ?", (int(row["id"]),))
         return self.require(username)
 
+    def check_password(self, username: str, password: str) -> None:
+        """
+        Judge a password against the policy without setting it.
+
+        Args:
+            username: The account it would be for (a password may not contain it).
+            password: The candidate.
+
+        Raises:
+            ValidationError: When the policy refuses it.
+        """
+        passwords.check_password_policy(
+            password, username=username, min_length=self.policy().password_min_length
+        )
+
     def set_password(self, username: str, password: str) -> Account:
         """
         Set an account's password, from the root CLI.
@@ -1152,9 +1228,7 @@ class AccountManager:
             ValidationError: When the password is refused.
         """
         row = self._require(username)
-        passwords.check_password_policy(
-            password, username=str(row["username"]), min_length=self.policy().password_min_length
-        )
+        self.check_password(str(row["username"]), password)
         changes: dict[str, Any] = {
             "password_hash": passwords.hash_password(password),
             "password_changed_at": self.now(),
