@@ -235,6 +235,11 @@ the source of a container application like any other. The build context holds no
 base image that has the program). Put anything larger in an archive or a repository. The text is at
 most 256 KiB, must have a `FROM`, and is stored, removed and audited like an uploaded archive.
 
+A container application keeps the text it was made from: `noust update` rebuilds that text (and keeps
+the previous image to go back to), and a different Dockerfile is another application, because the
+source of a container application is not changed in place (`noust app source change` refuses it and
+says so).
+
 ## Changing where the code comes from
 
 A repository moves to another organisation, a team leaves one code host for another, an application
