@@ -258,8 +258,8 @@ def _ship_prepare(
     if built_as.get("layout") != "releases":
         raise ValidationError(
             f"{domain} is not on the release layout on {named}",
-            details=f"Only an application that builds releases can be built for others: "
-            f"noust node run {named} -- noust app migrate {domain}",
+            details="Only an application that builds releases can be built for others. On "
+            f"{named} itself: noust app migrate {domain}",
             field="builder",
         )
     kind = built_as.get("app_type")
