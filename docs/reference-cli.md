@@ -654,7 +654,40 @@ The compose file, profiles and extra arguments of a Docker Compose stack.
 noust app compose [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`reset`](#noust-app-compose-reset), [`set`](#noust-app-compose-set), [`show`](#noust-app-compose-show), [`variables`](#noust-app-compose-variables)
+Subcommands: [`document`](#noust-app-compose-document), [`replace`](#noust-app-compose-replace), [`reset`](#noust-app-compose-reset), [`set`](#noust-app-compose-set), [`show`](#noust-app-compose-show), [`variables`](#noust-app-compose-variables)
+
+### noust app compose document
+
+Print the Compose document a stack runs from.
+
+```
+noust app compose document [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the document and where Noust keeps it as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust app compose replace
+
+Replace the Compose document a stack runs from.
+
+```
+noust app compose replace [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--from` | The new document; - reads standard input. |  |
+| `--check` | Only judge it: write nothing and run nothing. |  |
+| `--apply` | Update the stack to run it now, behind the health gate; without it the stack runs it at its next update. |  |
+| `--json` | Print the outcome as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust app compose reset
 
@@ -730,7 +763,22 @@ How a container application is built and run: see it, change it.
 noust app container [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`set`](#noust-app-container-set), [`show`](#noust-app-container-show)
+Subcommands: [`check`](#noust-app-container-check), [`set`](#noust-app-container-set), [`show`](#noust-app-container-show)
+
+### noust app container check
+
+Ask the registry whether the tag of an image application points at a new image.
+
+```
+noust app container check [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the finding as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust app container set
 
@@ -754,6 +802,8 @@ Arguments: `domain`
 | `--container-port` | Where the process listens inside the container. Default: what the Dockerfile or the image exposes. |  |
 | `--volume` | A path in the container whose data survives every deployment, such as /data. Repeat for several. |  |
 | `--restart` | Docker's restart policy: no, always, unless-stopped (default) or on-failure. |  |
+| `--entrypoint` | Run this program instead of the image's ENTRYPOINT: the line is split into words the way a shell would, and no shell runs it. An empty line clears the image's entrypoint (its CMD is then the program). Setting one drops the image's CMD: give --command too if it should still apply. |  |
+| `--command` | Give the entrypoint these arguments instead of the image's CMD (split into words, no shell). Docker cannot clear a CMD: an empty line is refused; --clear command goes back to the image's. |  |
 | `--registry-server` | The registry the account is for. Default: the image's own. |  |
 | `--registry-user` | The account of a private registry. |  |
 | `--registry-password-stdin` | Read the account's password from standard input. |  |
@@ -2757,7 +2807,7 @@ The deploy webhook of an application: a push to its repository deploys it.
 noust app webhook [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`deliveries`](#noust-app-webhook-deliveries), [`disable`](#noust-app-webhook-disable), [`rotate`](#noust-app-webhook-rotate), [`show`](#noust-app-webhook-show)
+Subcommands: [`deliveries`](#noust-app-webhook-deliveries), [`disable`](#noust-app-webhook-disable), [`registry`](#noust-app-webhook-registry), [`rotate`](#noust-app-webhook-rotate), [`show`](#noust-app-webhook-show)
 
 ### noust app webhook deliveries
 
@@ -2793,6 +2843,25 @@ Arguments: `domain`
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust app webhook registry
+
+Say what to give a container registry so a push of the image deploys the application.
+
+```
+noust app webhook registry [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reveal` | Print the token of Docker Hub's address too (it is a credential, never shown otherwise). |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the addresses as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust app webhook rotate
@@ -5319,6 +5388,8 @@ noust create [OPTIONS]
 | `--container-port` | Where the process listens inside the container. Default: what the Dockerfile or the image exposes. |  |
 | `--volume` | A path in the container whose data survives every deployment, such as /data. Repeat for several. |  |
 | `--restart` | Docker's restart policy: no, always, unless-stopped (default) or on-failure. |  |
+| `--entrypoint` | Run this program instead of the image's ENTRYPOINT: the line is split into words the way a shell would, and no shell runs it. An empty line clears the image's entrypoint (its CMD is then the program). Setting one drops the image's CMD: give --command too if it should still apply. |  |
+| `--command` | Give the entrypoint these arguments instead of the image's CMD (split into words, no shell). Docker cannot clear a CMD: an empty line is refused; --clear command goes back to the image's. |  |
 | `--registry-server` | The registry the account is for. Default: the image's own. |  |
 | `--registry-user` | The account of a private registry. |  |
 | `--registry-password-stdin` | Read the account's password from standard input. |  |
@@ -7497,6 +7568,9 @@ Arguments: `domain`
 |---|---|---|
 | `-f`, `-y`, `--force` | Delete without asking for confirmation. |  |
 | `--keep-files` | Leave the application directory on disk. |  |
+| `--keep-certificate` | Leave the domain's certificate in place (it is removed with the application otherwise). |  |
+| `--remove-volumes` | Also remove the Docker volumes of a Compose stack or a container application: they hold its data, so they are never removed unless asked for. |  |
+| `--remove-databases` | Also drop the databases that belong to the application and that no other application uses, each after a last dump. Never unless asked for; one it merely uses is kept. |  |
 | `--remove-adopted-directory` | Also remove the application's directory when it is outside Noust's apps directory (an adopted stack). Name it exactly; without this it is kept. |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
@@ -7967,7 +8041,7 @@ Read and set the environment variables of a deployed application.
 noust env [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`audience`](#noust-env-audience), [`comment`](#noust-env-comment), [`configure`](#noust-env-configure), [`export`](#noust-env-export), [`mark`](#noust-env-mark), [`migrate`](#noust-env-migrate), [`resolve`](#noust-env-resolve), [`set`](#noust-env-set), [`show`](#noust-env-show), [`unset`](#noust-env-unset)
+Subcommands: [`audience`](#noust-env-audience), [`comment`](#noust-env-comment), [`configure`](#noust-env-configure), [`export`](#noust-env-export), [`mark`](#noust-env-mark), [`migrate`](#noust-env-migrate), [`resolve`](#noust-env-resolve), [`set`](#noust-env-set), [`show`](#noust-env-show), [`sync`](#noust-env-sync), [`unset`](#noust-env-unset)
 
 ### noust env audience
 
@@ -8109,6 +8183,26 @@ Arguments: `domain`
 |---|---|---|
 | `--unmask` | Print secret values in clear instead of hiding them. |  |
 | `--json` | Print the variables as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust env sync
+
+Bring a real .env file into an application's variables.
+
+```
+noust env sync [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--file`, `-f` | The .env file to bring in; - reads it from standard input. |  |
+| `--prune` | Also remove the variables the file does not hold. Without it nothing is deleted. |  |
+| `--build-only` | Only the install and the build. |  |
+| `--runtime-only` | Not the install or the build. |  |
+| `--both` | The build and the running application. |  |
+| `--json` | Print what changed (names, never values) as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust env unset
@@ -8928,6 +9022,7 @@ Arguments: `domain`
 | `--tag` | Deploy the commit this tag points at. |  |
 | `--image-tag` | For an application that runs a registry image: the tag every server pulls (build it once, push it, roll it out). |  |
 | `--force` | Rebuild even a server already on it. |  |
+| `--build-on-each` | Build on every server even though DOMAIN has a build server (noust fleet builder). |  |
 | `--canary` | The server that goes first and alone. |  |
 | `--rollback`, `--no-rollback` | Put the servers already moved back if it stops (the placement's own by default). |  |
 | `--serial` | Servers at a time: 2 or 25%. |  |

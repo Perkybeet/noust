@@ -447,16 +447,20 @@ AppEnvUpdateResponse = TypedDict("AppEnvUpdateResponse", {
 AppExportDocument = TypedDict("AppExportDocument", {
     "app": Required["ExportApp"],
     "backup": NotRequired[Union["ExportBackup", None]],
+    "container": NotRequired[Union["ExportContainer", None]],
     "cron": NotRequired[list["ExportCronJob"]],
     "databases": NotRequired[list["ExportDatabase"]],
+    "delivery": NotRequired[dict[str, Any]],
     "domains": NotRequired["ExportDomains"],
     "env": NotRequired[dict[str, "ExportEnvEntry"]],
     "env_secret_marks": NotRequired[dict[str, bool]],
     "exported_at": NotRequired[Union[str, None]],
     "format": Required[str],
     "github": NotRequired["ExportGitHub"],
+    "mounts": NotRequired[list["ExportMount"]],
     "previews": NotRequired[Union["ExportPreviews", None]],
     "secrets_included": NotRequired[bool],
+    "source_options": NotRequired[dict[str, Any]],
     "version": Required[int],
     "wasm_version": NotRequired[Union[str, None]],
 })
@@ -1706,6 +1710,34 @@ ComposeAnalyzeRequest = TypedDict("ComposeAnalyzeRequest", {
     "document": Required[str],
 })
 
+ComposeDocumentCheckResponse = TypedDict("ComposeDocumentCheckResponse", {
+    "analysis": Required["ComposeAnalysisOut"],
+    "changed": Required[bool],
+    "deployable": Required[bool],
+    "domain": Required[str],
+    "missing": Required[list[str]],
+})
+
+ComposeDocumentRequest = TypedDict("ComposeDocumentRequest", {
+    "document": Required[str],
+})
+
+ComposeDocumentResponse = TypedDict("ComposeDocumentResponse", {
+    "document": NotRequired[Union[str, None]],
+    "domain": Required[str],
+    "editable": Required[bool],
+    "path": NotRequired[Union[str, None]],
+    "reason": NotRequired[Union[str, None]],
+})
+
+ComposeDocumentSavedResponse = TypedDict("ComposeDocumentSavedResponse", {
+    "applies": Required[str],
+    "changed": Required[bool],
+    "domain": Required[str],
+    "services": Required[list[str]],
+    "warnings": Required[list[str]],
+})
+
 ComposeExceptionModel = TypedDict("ComposeExceptionModel", {
     "allowed_at": Required[str],
     "allowed_by": Required[str],
@@ -1879,9 +1911,11 @@ ContainerSettingsRequest = TypedDict("ContainerSettingsRequest", {
     "build_secrets": NotRequired[Union[dict[str, Union[str, None]], None]],
     "clear": NotRequired[list[str]],
     "clear_registry": NotRequired[bool],
+    "command": NotRequired[Union[list[str], None]],
     "container_port": NotRequired[Union[int, None]],
     "context": NotRequired[Union[str, None]],
     "dockerfile": NotRequired[Union[str, None]],
+    "entrypoint": NotRequired[Union[list[str], None]],
     "image": NotRequired[Union[str, None]],
     "method": NotRequired[Union[str, None]],
     "registry_password": NotRequired[Union[str, None]],
@@ -1895,11 +1929,13 @@ ContainerSettingsRequest = TypedDict("ContainerSettingsRequest", {
 ContainerSettingsResponse = TypedDict("ContainerSettingsResponse", {
     "build_args": Required[dict[str, str]],
     "build_secrets": Required[list[str]],
+    "command": NotRequired[Union[list[str], None]],
     "container_port": Required[int],
     "context": Required[str],
     "digest": NotRequired[Union[str, None]],
     "dockerfile": NotRequired[Union[str, None]],
     "domain": Required[str],
+    "entrypoint": NotRequired[Union[list[str], None]],
     "image": NotRequired[Union[str, None]],
     "method": Required[str],
     "registry_password_set": Required[bool],
@@ -2314,6 +2350,22 @@ DeletedOut = TypedDict("DeletedOut", {
 DeletedResponse = TypedDict("DeletedResponse", {
     "applications": NotRequired[list[str]],
     "name": Required[str],
+})
+
+DeletionDatabaseOut = TypedDict("DeletionDatabaseOut", {
+    "engine": Required[str],
+    "name": Required[str],
+    "owned": Required[bool],
+    "shared_with": Required[list[str]],
+    "will_drop": Required[bool],
+})
+
+DeletionPlanResponse = TypedDict("DeletionPlanResponse", {
+    "databases": Required[list["DeletionDatabaseOut"]],
+    "domain": Required[str],
+    "has_volumes": Required[bool],
+    "keeps_directory": Required[bool],
+    "path": Required[str],
 })
 
 DeliveryConfig = TypedDict("DeliveryConfig", {
@@ -3232,6 +3284,7 @@ ExplainResponse = TypedDict("ExplainResponse", {
 ExportApp = TypedDict("ExportApp", {
     "app_type": Required[str],
     "branch": NotRequired[Union[str, None]],
+    "build": NotRequired[Union[str, None]],
     "domain": Required[str],
     "health": NotRequired["ExportHealth"],
     "include_www": NotRequired[bool],
@@ -3258,6 +3311,23 @@ ExportBackupDestination = TypedDict("ExportBackupDestination", {
     "name": Required[str],
     "retention_count": NotRequired[Union[int, None]],
     "retention_days": NotRequired[Union[int, None]],
+})
+
+ExportContainer = TypedDict("ExportContainer", {
+    "build_args": NotRequired[dict[str, str]],
+    "build_secrets": NotRequired[list[str]],
+    "command": NotRequired[Union[list[str], None]],
+    "container_port": NotRequired[Union[int, None]],
+    "context": NotRequired[str],
+    "dockerfile": NotRequired[Union[str, None]],
+    "entrypoint": NotRequired[Union[list[str], None]],
+    "image": NotRequired[Union[str, None]],
+    "method": NotRequired[str],
+    "registry_server": NotRequired[Union[str, None]],
+    "registry_username": NotRequired[Union[str, None]],
+    "restart_policy": NotRequired[str],
+    "target": NotRequired[Union[str, None]],
+    "volumes": NotRequired[list[str]],
 })
 
 ExportCronJob = TypedDict("ExportCronJob", {
@@ -3298,6 +3368,17 @@ ExportLimits = TypedDict("ExportLimits", {
     "cpu_quota_percent": NotRequired[Union[int, None]],
     "memory_max_mb": NotRequired[Union[int, None]],
     "tasks_max": NotRequired[Union[int, None]],
+})
+
+ExportMount = TypedDict("ExportMount", {
+    "content": NotRequired[Union[str, None]],
+    "kind": Required[str],
+    "mode": NotRequired[Union[str, None]],
+    "note": NotRequired[Union[str, None]],
+    "read_only": NotRequired[bool],
+    "secret": NotRequired[bool],
+    "source": NotRequired[Union[str, None]],
+    "target": Required[str],
 })
 
 ExportPreviews = TypedDict("ExportPreviews", {
@@ -3914,6 +3995,15 @@ IdentityResponse = TypedDict("IdentityResponse", {
     "own": Required[bool],
     "proposed": NotRequired[Union[str, None]],
     "reason": NotRequired[Union[str, None]],
+})
+
+ImageCheckResponse = TypedDict("ImageCheckResponse", {
+    "changed": Required[bool],
+    "current": NotRequired[Union[str, None]],
+    "deployed": NotRequired[Union[str, None]],
+    "domain": Required[str],
+    "image": Required[str],
+    "reason": Required[str],
 })
 
 ImportAppRequest = TypedDict("ImportAppRequest", {
@@ -6562,6 +6652,19 @@ RefusedRestartOut = TypedDict("RefusedRestartOut", {
     "unit": Required[str],
 })
 
+RegistryHookResponse = TypedDict("RegistryHookResponse", {
+    "dockerhub_url": NotRequired[Union[str, None]],
+    "domain": Required[str],
+    "enabled": NotRequired[bool],
+    "ghcr_events": Required[list[str]],
+    "ghcr_url": NotRequired[Union[str, None]],
+    "image": NotRequired[Union[str, None]],
+    "pinned": NotRequired[bool],
+    "public": NotRequired[bool],
+    "reason": NotRequired[Union[str, None]],
+    "supported": Required[bool],
+})
+
 RegistryLoginChange = TypedDict("RegistryLoginChange", {
     "kind": NotRequired[Union[str, None]],
     "password": NotRequired[Union[str, None]],
@@ -6947,6 +7050,7 @@ RollbackPointsResponse = TypedDict("RollbackPointsResponse", {
 })
 
 RolloutIn = TypedDict("RolloutIn", {
+    "build_on_each": NotRequired[bool],
     "canary": NotRequired[Union[str, None]],
     "commit": NotRequired[Union[str, None]],
     "force": NotRequired[bool],
@@ -8440,6 +8544,25 @@ SweepResponse = TypedDict("SweepResponse", {
 
 SweepResult = TypedDict("SweepResult", {
     "released": Required[list[dict[str, str]]],
+})
+
+SyncAppEnvRequest = TypedDict("SyncAppEnvRequest", {
+    "audience": NotRequired[Union[Literal["both", "build", "runtime"], None]],
+    "content": Required[str],
+    "dry_run": NotRequired[bool],
+    "prune": NotRequired[bool],
+})
+
+SyncAppEnvResponse = TypedDict("SyncAppEnvResponse", {
+    "created": Required[list[str]],
+    "domain": Required[str],
+    "dry_run": Required[bool],
+    "duplicates": Required[list[str]],
+    "removed": Required[list[str]],
+    "restart_required": Required[bool],
+    "skipped": Required[dict[str, str]],
+    "unchanged": Required[list[str]],
+    "updated": Required[list[str]],
 })
 
 SystemHealthOut = TypedDict("SystemHealthOut", {

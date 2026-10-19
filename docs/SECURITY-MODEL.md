@@ -359,18 +359,18 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **985** API operations. **947** need a permission (`x-noust-permission`) and **38** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **325** operations need sudo mode and **38** can need a second person.
+- **996** API operations. **956** need a permission (`x-noust-permission`) and **40** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **328** operations need sudo mode and **38** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
 |---|---|
 | `accounts.manage` | 30 |
 | `accounts.read` | 12 |
-| `apps.deploy` | 35 |
-| `apps.manage` | 139 |
+| `apps.deploy` | 36 |
+| `apps.manage` | 142 |
 | `apps.operate` | 32 |
-| `apps.read` | 136 |
+| `apps.read` | 139 |
 | `apps.terminal` | 12 |
 | `audit.manage` | 1 |
 | `audit.read` | 9 |
@@ -383,9 +383,9 @@ only what recovering an account takes.
 | `databases.write` | 12 |
 | `fleet.manage` | 41 |
 | `fleet.read` | 22 |
-| `public` | 38 |
+| `public` | 40 |
 | `root_equivalent` | 18 |
-| `secrets.reveal` | 13 |
+| `secrets.reveal` | 15 |
 | `security.manage` | 8 |
 | `self` | 41 |
 | `server.host_access` | 21 |
@@ -485,14 +485,14 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **488** events.
+The catalogue holds **490** events.
 
 | Category | Events |
 |---|---|
 | access | 46 |
 | account | 36 |
 | config | 29 |
-| change | 317 |
+| change | 319 |
 | read | 20 |
 | denial | 16 |
 | system | 21 |

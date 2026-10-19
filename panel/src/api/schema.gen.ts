@@ -839,6 +839,8 @@ export interface paths {
          *         domain: Domain of the application.
          *         remove_files: Also delete the application directory.
          *         remove_ssl: Also delete the certificate.
+         *         remove_volumes: Also remove its Docker volumes.
+         *         remove_databases: Also drop its own databases (after a last dump each).
          *         remove_adopted_directory: The directory named for removal when it is
          *             outside the apps directory.
          *         session: The authenticated session.
@@ -1413,6 +1415,100 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/compose/document": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Compose Document
+         * @description Read the Compose document a stack runs from.
+         *
+         *     A stack deployed from a document (pasted, or converted from a template) keeps it as its
+         *     source; one from a repository, one adopted where it runs and a recipe's have none, and say
+         *     where their file is edited instead.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session; reading asks to reveal secrets, because a document
+         *             can hold a value typed into it.
+         *
+         *     Returns:
+         *         The document and where it is, or why there is none.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_compose_document_api_apps__domain__compose_document_get"];
+        /**
+         * Put Compose Document
+         * @description Keep a new Compose document as the one this stack runs from.
+         *
+         *     Nothing is rebuilt: the stack runs the document at its next update (``POST
+         *     /api/apps/{domain}/update``), and until then its pending changes say it is not running it.
+         *     The guard of a creation refuses what it refuses, and so does a variable the document requires
+         *     that the stack has no value for.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The document.
+         *         session: An elevated session: the document decides what runs as root's containers.
+         *
+         *     Returns:
+         *         The services of the document and what is worth knowing about it.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The stack has no document Noust keeps, or the document is refused (400,
+         *             the details name each reason).
+         *         DeploymentError: The document requires a variable the stack has no value for.
+         */
+        put: operations["put_compose_document_api_apps__domain__compose_document_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/compose/document/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Compose Document
+         * @description Judge a document for this stack without writing it.
+         *
+         *     Runs the guard a creation runs and says which variables the document requires that the stack
+         *     has no value for. Nothing is written or run.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The candidate document.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         What it is, what refuses or warns about it, and what the stack lacks to run it.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The stack has no document Noust keeps, or the text is not a Compose
+         *             document at all (400).
+         */
+        post: operations["check_compose_document_api_apps__domain__compose_document_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/compose/variables": {
         parameters: {
             query?: never;
@@ -1494,6 +1590,40 @@ export interface paths {
          */
         put: operations["put_app_container_api_apps__domain__container_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/container/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check App Image
+         * @description Ask the registry whether the tag an application runs points at a new image.
+         *
+         *     Pulls the tag (one request when the host has it, the layers when it moved) and compares the
+         *     digest with the one that runs. Deploys nothing: ``POST /api/apps/{domain}/update`` does.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         What was found.
+         *
+         *     Raises:
+         *         ValidationError: It does not run a registry image (400).
+         *         DockerError: The registry refused the account or did not answer.
+         */
+        post: operations["check_app_image_api_apps__domain__container_check_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1662,6 +1792,40 @@ export interface paths {
          *         HTTPException: 403 below admin scope; 404 when the application is unknown.
          */
         get: operations["get_declaration_api_apps__domain__declaration_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Deletion Plan
+         * @description Say what deleting an application would touch. Changes nothing.
+         *
+         *     The volumes and the databases hold data, so the dialog that confirms a deletion shows them
+         *     and lets the operator choose; this is what it shows: the same list the deletion walks.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The directory, whether it has Docker volumes, and each database with what would become
+         *         of it.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_deletion_plan_api_apps__domain__deletion_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2435,6 +2599,46 @@ export interface paths {
         patch: operations["merge_app_env_api_apps__domain__env_patch"];
         trace?: never;
     };
+    "/api/apps/{domain}/env/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get App Env File
+         * @description Read an application's ``.env`` as the text of a file, to look at or to save.
+         *
+         *     The same file ``GET .../env`` reads, drawn as the text it is (comments above their variables,
+         *     sorted by name), for a viewer with a search box and a download. Secrets are masked, as in the
+         *     table; asking for them in clear needs an admin credential and sudo mode and is audited, like
+         *     ``unmask`` on ``GET .../env``. What only the build is given is in no file: it is named in a
+         *     comment at the end, with no value.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         request: The incoming request, for the audit record.
+         *         session: The authenticated session.
+         *         unmask: Put the values in clear.
+         *         download: Send it with a file name so a browser saves it.
+         *
+         *     Returns:
+         *         The text, ``text/plain``, never cached.
+         *
+         *     Raises:
+         *         HTTPException: 403 when unmasking with less than an admin credential, 404 when the
+         *             application is unknown.
+         */
+        get: operations["get_app_env_file_api_apps__domain__env_file_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/env/marks": {
         parameters: {
             query?: never;
@@ -2511,6 +2715,46 @@ export interface paths {
          *         SecretProviderError: A secret manager could not give a value (502).
          */
         post: operations["resolve_app_env_api_apps__domain__env_resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/env/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync App Env
+         * @description Bring a ``.env`` file into an application's variables, creating and updating, never deleting.
+         *
+         *     What ``noust env sync --file`` does: quotes, ``export``, comments and values of several lines
+         *     are read as the application's own ``.env`` is; every variable the file sets is created or
+         *     updated and the others are kept unless ``prune``; ``PORT`` and ``NODE_ENV`` (the unit sets
+         *     them) and the ``NOUST_*`` names are skipped with the reason rather than refusing the file. With
+         *     ``dry_run`` it says what would change and writes nothing; the comparison needs the same sudo
+         *     mode a write does, because "same" or "different" about a secret is a way to guess it.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The file and what to do with it.
+         *         request: The incoming request, for the audit record.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The names in each group.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown, 422 when the text is not a ``.env``
+         *             or a name or a value is not safe to write into a systemd unit.
+         */
+        post: operations["sync_app_env_api_apps__domain__env_sync_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6575,6 +6819,71 @@ export interface paths {
         get: operations["webhook_received_api_apps__domain__webhook_received_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/webhook/registry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Registry Hook State
+         * @description Say what to give a container registry so a push of the image deploys the application.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         request: The incoming request.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The addresses; Docker Hub's carries ``<token>`` in place of its token.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["registry_hook_state_api_apps__domain__webhook_registry_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/webhook/registry/reveal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reveal Registry Hook
+         * @description Show the address Docker Hub is given, token included.
+         *
+         *     The token is made from the application's webhook secret and is a credential of the same
+         *     kind: sudo mode, the permission to reveal secrets, and an audit record.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         request: The incoming request, for the audit record.
+         *         session: An elevated session.
+         *
+         *     Returns:
+         *         The addresses, with the real token.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        post: operations["reveal_registry_hook_api_apps__domain__webhook_registry_reveal_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -16981,8 +17290,12 @@ export interface paths {
          * @description Roll the application out over its servers: one commit everywhere, put back if it stops.
          *
          *     The first server goes alone and builds the head of the branch (or the commit or tag asked
-         *     for); the commit it ends on is what the others are asked for. Planned and queued like a
-         *     bulk action: sudo mode when a server's schema asks for it, a job to follow, a record per server.
+         *     for); the commit it ends on is what the others are asked for. An application with a build
+         *     server (``/api/fleet/builders``) is built there once and the release is sent to the servers,
+         *     exactly as ``.../ship`` does (the plan's ``action`` says which); ``build_on_each`` builds on
+         *     every server instead, and a tag or an image tag, which a build server does not build, is rolled
+         *     out the ordinary way with the reason in the plan notes. Planned and queued like a bulk action:
+         *     sudo mode when a server's schema asks for it, a job to follow, a record per server.
          *
          *     Args:
          *         domain: The application.
@@ -27141,6 +27454,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/hooks/registry/{domain}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deliver Registry
+         * @description Accept a registry's notification that an image was pushed and queue the update it asks for.
+         *
+         *     Async because the raw body has to be awaited before anything can be verified: GitHub's HMAC
+         *     covers the bytes on the wire.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         request: The incoming delivery.
+         *         token: The token of the address Docker Hub is given; GitHub's deliveries carry a signature
+         *             instead.
+         *
+         *     Returns:
+         *         202 with the queued job's id; 200 when the delivery is authentic but there is nothing to
+         *         do (a ping, another image, another tag, a digest that already runs, an application
+         *         that does not run a registry image).
+         *
+         *     Raises:
+         *         HTTPException: A generic 404 when the domain has no webhook configured or does not
+         *             exist, and 401 with no details when no credential verifies.
+         */
+        post: operations["deliver_registry_hooks_registry__domain__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/hooks/registry/{domain}/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deliver Registry
+         * @description Accept a registry's notification that an image was pushed and queue the update it asks for.
+         *
+         *     Async because the raw body has to be awaited before anything can be verified: GitHub's HMAC
+         *     covers the bytes on the wire.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         request: The incoming delivery.
+         *         token: The token of the address Docker Hub is given; GitHub's deliveries carry a signature
+         *             instead.
+         *
+         *     Returns:
+         *         202 with the queued job's id; 200 when the delivery is authentic but there is nothing to
+         *         do (a ping, another image, another tag, a digest that already runs, an application
+         *         that does not run a registry image).
+         *
+         *     Raises:
+         *         HTTPException: A generic 404 when the domain has no webhook configured or does not
+         *             exist, and 401 with no details when no credential verifies.
+         */
+        post: operations["deliver_registry_hooks_registry__domain___token__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -28529,10 +28918,18 @@ export interface components {
         AppExportDocument: {
             app: components["schemas"]["ExportApp"];
             backup?: components["schemas"]["ExportBackup"] | null;
+            container?: components["schemas"]["ExportContainer"] | null;
             /** Cron */
             cron?: components["schemas"]["ExportCronJob"][];
             /** Databases */
             databases?: components["schemas"]["ExportDatabase"][];
+            /**
+             * Delivery
+             * @description History, stop policy, rollback pause and update schedule
+             */
+            delivery?: {
+                [key: string]: unknown;
+            };
             domains?: components["schemas"]["ExportDomains"];
             /** Env */
             env?: {
@@ -28550,12 +28947,21 @@ export interface components {
              */
             format: string;
             github?: components["schemas"]["ExportGitHub"];
+            /** Mounts */
+            mounts?: components["schemas"]["ExportMount"][];
             previews?: components["schemas"]["ExportPreviews"] | null;
             /**
              * Secrets Included
              * @default false
              */
             secrets_included: boolean;
+            /**
+             * Source Options
+             * @description How the repository is fetched (submodules, lfs, ...)
+             */
+            source_options?: {
+                [key: string]: unknown;
+            };
             /**
              * Version
              * @description Shape of the document; this release writes 1
@@ -32418,6 +32824,88 @@ export interface components {
             document: string;
         };
         /**
+         * ComposeDocumentCheckResponse
+         * @description What a document would do to a stack, judged and not written.
+         */
+        ComposeDocumentCheckResponse: {
+            analysis: components["schemas"]["ComposeAnalysisOut"];
+            /**
+             * Changed
+             * @description Whether it differs from the document the stack has
+             */
+            changed: boolean;
+            /**
+             * Deployable
+             * @description Whether nothing refuses it and nothing is missing
+             */
+            deployable: boolean;
+            /** Domain */
+            domain: string;
+            /**
+             * Missing
+             * @description Variables it requires that the stack has no value for
+             */
+            missing: string[];
+        };
+        /**
+         * ComposeDocumentRequest
+         * @description A Compose document to check or to keep.
+         */
+        ComposeDocumentRequest: {
+            /** Document */
+            document: string;
+        };
+        /**
+         * ComposeDocumentResponse
+         * @description The Compose document a stack runs from, when Noust keeps one.
+         */
+        ComposeDocumentResponse: {
+            /**
+             * Document
+             * @description The document; null when not editable
+             */
+            document?: string | null;
+            /** Domain */
+            domain: string;
+            /**
+             * Editable
+             * @description Whether the stack has a document Noust keeps
+             */
+            editable: boolean;
+            /**
+             * Path
+             * @description Where Noust keeps it
+             */
+            path?: string | null;
+            /**
+             * Reason
+             * @description Why not, and where its compose file is edited instead
+             */
+            reason?: string | null;
+        };
+        /**
+         * ComposeDocumentSavedResponse
+         * @description A document, kept.
+         */
+        ComposeDocumentSavedResponse: {
+            /**
+             * Applies
+             * @description How the stack starts running it
+             */
+            applies: string;
+            /**
+             * Changed
+             * @description False when the stack already had this document
+             */
+            changed: boolean;
+            /** Domain */
+            domain: string;
+            /** Services */
+            services: string[];
+            /** Warnings */
+            warnings: string[];
+        };
+        /**
          * ComposeExceptionModel
          * @description A compose stack allowed privileged containers and the Docker socket.
          */
@@ -32919,7 +33407,7 @@ export interface components {
             } | null;
             /**
              * Clear
-             * @description Settings to reset: dockerfile, target, container_port, registry_server
+             * @description Settings to reset: dockerfile, target, container_port, registry_server, command, entrypoint
              */
             clear?: string[];
             /**
@@ -32928,6 +33416,11 @@ export interface components {
              * @default false
              */
             clear_registry: boolean;
+            /**
+             * Command
+             * @description Replaces the image's CMD: the entrypoint's arguments, one word each, run without a shell. An empty list is refused (Docker cannot clear a CMD); use clear to go back to the image's
+             */
+            command?: string[] | null;
             /** Container Port */
             container_port?: number | null;
             /**
@@ -32940,6 +33433,11 @@ export interface components {
              * @description Relative to the repository
              */
             dockerfile?: string | null;
+            /**
+             * Entrypoint
+             * @description Replaces the image's ENTRYPOINT: the program and its arguments, one word each, run without a shell. An empty list clears the image's own
+             */
+            entrypoint?: string[] | null;
             /**
              * Image
              * @description name[:tag][@sha256:digest]
@@ -32987,6 +33485,11 @@ export interface components {
              */
             build_secrets: string[];
             /**
+             * Command
+             * @description The words that replace the image's CMD (the entrypoint's arguments); null keeps the image's. Never empty: Docker cannot clear a CMD
+             */
+            command?: string[] | null;
+            /**
              * Container Port
              * @description Where the process listens inside the container
              */
@@ -33008,6 +33511,11 @@ export interface components {
             dockerfile?: string | null;
             /** Domain */
             domain: string;
+            /**
+             * Entrypoint
+             * @description The words that replace the image's ENTRYPOINT; null keeps the image's, an empty list clears it
+             */
+            entrypoint?: string[] | null;
             /**
              * Image
              * @description The registry reference, for image
@@ -34449,6 +34957,54 @@ export interface components {
             applications?: string[];
             /** Name */
             name: string;
+        };
+        /**
+         * DeletionDatabaseOut
+         * @description A database that deleting an application has to decide about.
+         *
+         *     Attributes:
+         *         engine: The engine it is on.
+         *         name: The database.
+         *         owned: Whether it belongs to the application.
+         *         shared_with: The other applications that use it.
+         *         will_drop: Whether ``remove_databases`` drops it: it is the application's and nothing
+         *             else uses it.
+         */
+        DeletionDatabaseOut: {
+            /** Engine */
+            engine: string;
+            /** Name */
+            name: string;
+            /** Owned */
+            owned: boolean;
+            /** Shared With */
+            shared_with: string[];
+            /** Will Drop */
+            will_drop: boolean;
+        };
+        /**
+         * DeletionPlanResponse
+         * @description What deleting an application would touch, for a confirmation dialog.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         path: Its directory.
+         *         keeps_directory: Whether the directory is outside Noust's apps directory (an adopted
+         *             stack) and is kept unless it is named.
+         *         has_volumes: Whether it runs in Docker, so it has volumes ``remove_volumes`` would remove.
+         *         databases: The databases it owns or uses, and what would become of each.
+         */
+        DeletionPlanResponse: {
+            /** Databases */
+            databases: components["schemas"]["DeletionDatabaseOut"][];
+            /** Domain */
+            domain: string;
+            /** Has Volumes */
+            has_volumes: boolean;
+            /** Keeps Directory */
+            keeps_directory: boolean;
+            /** Path */
+            path: string;
         };
         /**
          * DeliveryConfig
@@ -37239,6 +37795,11 @@ export interface components {
             app_type: string;
             /** Branch */
             branch?: string | null;
+            /**
+             * Build
+             * @description The operator's build block, as YAML; null for the repository's
+             */
+            build?: string | null;
             /** Domain */
             domain: string;
             health?: components["schemas"]["ExportHealth"];
@@ -37306,6 +37867,54 @@ export interface components {
             retention_count?: number | null;
             /** Retention Days */
             retention_days?: number | null;
+        };
+        /**
+         * ExportContainer
+         * @description How a container application is built and run; its registry password never is.
+         */
+        ExportContainer: {
+            /** Build Args */
+            build_args?: {
+                [key: string]: string;
+            };
+            /**
+             * Build Secrets
+             * @description Ids only: their values are not exported
+             */
+            build_secrets?: string[];
+            /** Command */
+            command?: string[] | null;
+            /** Container Port */
+            container_port?: number | null;
+            /**
+             * Context
+             * @default .
+             */
+            context: string;
+            /** Dockerfile */
+            dockerfile?: string | null;
+            /** Entrypoint */
+            entrypoint?: string[] | null;
+            /** Image */
+            image?: string | null;
+            /**
+             * Method
+             * @default dockerfile
+             */
+            method: string;
+            /** Registry Server */
+            registry_server?: string | null;
+            /** Registry Username */
+            registry_username?: string | null;
+            /**
+             * Restart Policy
+             * @default unless-stopped
+             */
+            restart_policy: string;
+            /** Target */
+            target?: string | null;
+            /** Volumes */
+            volumes?: string[];
         };
         /**
          * ExportCronJob
@@ -37398,6 +38007,53 @@ export interface components {
             memory_max_mb?: number | null;
             /** Tasks Max */
             tasks_max?: number | null;
+        };
+        /**
+         * ExportMount
+         * @description A file Noust keeps for the application, or a path of the server bound into a container.
+         */
+        ExportMount: {
+            /**
+             * Content
+             * @description A file's text; null unless secrets were included (or it could not travel)
+             */
+            content?: string | null;
+            /**
+             * Kind
+             * @description file or path
+             */
+            kind: string;
+            /**
+             * Mode
+             * @description A file's permissions, in octal
+             */
+            mode?: string | null;
+            /**
+             * Note
+             * @description Why a file's text is not here
+             */
+            note?: string | null;
+            /**
+             * Read Only
+             * @default true
+             */
+            read_only: boolean;
+            /**
+             * Secret
+             * @description A file's text may hold a secret
+             * @default false
+             */
+            secret: boolean;
+            /**
+             * Source
+             * @description A path's location on the server
+             */
+            source?: string | null;
+            /**
+             * Target
+             * @description Where the application sees it
+             */
+            target: string;
         };
         /**
          * ExportPreviews
@@ -39263,6 +39919,32 @@ export interface components {
              * @description Why it cannot have its own account, when it cannot
              */
             reason?: string | null;
+        };
+        /**
+         * ImageCheckResponse
+         * @description What looking at the tag of a registry image found.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         image: The image it runs, as recorded.
+         *         deployed: The digest the last deployment resolved; null when none is recorded.
+         *         current: The digest the tag is now; null when it is pinned or the registry gave none.
+         *         changed: Whether an update would run something new.
+         *         reason: One sentence saying why.
+         */
+        ImageCheckResponse: {
+            /** Changed */
+            changed: boolean;
+            /** Current */
+            current?: string | null;
+            /** Deployed */
+            deployed?: string | null;
+            /** Domain */
+            domain: string;
+            /** Image */
+            image: string;
+            /** Reason */
+            reason: string;
         };
         /**
          * ImportAppRequest
@@ -47358,6 +48040,54 @@ export interface components {
             unit: string;
         };
         /**
+         * RegistryHookResponse
+         * @description Where a container registry delivers for one application.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         supported: Whether it runs an image from a registry; nothing else follows a tag.
+         *         reason: Why not, when it does not.
+         *         image: The image it runs.
+         *         pinned: Whether the image is pinned by digest, which a push never changes.
+         *         enabled: Whether the application has a webhook secret.
+         *         ghcr_url: Where GitHub Container Registry's ``registry_package`` event is sent.
+         *         ghcr_events: The events to enable on the GitHub repository's webhook.
+         *         dockerhub_url: Where Docker Hub's webhook is pointed. Its token is masked
+         *             (``<token>``) until ``POST .../webhook/registry/reveal`` returns it.
+         *         public: Whether the addresses are ones a registry can reach.
+         */
+        RegistryHookResponse: {
+            /** Dockerhub Url */
+            dockerhub_url?: string | null;
+            /** Domain */
+            domain: string;
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /** Ghcr Events */
+            ghcr_events: string[];
+            /** Ghcr Url */
+            ghcr_url?: string | null;
+            /** Image */
+            image?: string | null;
+            /**
+             * Pinned
+             * @default false
+             */
+            pinned: boolean;
+            /**
+             * Public
+             * @default false
+             */
+            public: boolean;
+            /** Reason */
+            reason?: string | null;
+            /** Supported */
+            supported: boolean;
+        };
+        /**
          * RegistryLoginChange
          * @description What to change about an account. A field left out keeps its value.
          */
@@ -48464,6 +49194,7 @@ export interface components {
          *         tag: Deploy the commit this tag points at.
          *         image_tag: For an application that runs a registry image: the tag every server pulls.
          *         force: Rebuild even a server already on it.
+         *         build_on_each: Build on every server even though the application has a build server.
          *         rollback_on_failure: Put the servers already moved back if it stops; the
          *             placement's own setting when absent.
          *         serial: Servers at a time; the placement's own when absent.
@@ -48472,6 +49203,11 @@ export interface components {
          *         plan: Only say what would happen.
          */
         RolloutIn: {
+            /**
+             * Build On Each
+             * @default false
+             */
+            build_on_each: boolean;
             /** Canary */
             canary?: string | null;
             /** Commit */
@@ -53168,6 +53904,75 @@ export interface components {
             released: {
                 [key: string]: string;
             }[];
+        };
+        /**
+         * SyncAppEnvRequest
+         * @description The text of a ``.env`` file to bring into an application's variables.
+         *
+         *     Attributes:
+         *         content: The file's text.
+         *         prune: Also remove the variables the file does not hold.
+         *         audience: ``both``, ``build`` or ``runtime`` for the variables the file sets; omitted keeps
+         *             each one's.
+         *         dry_run: Say what would change and write nothing.
+         */
+        SyncAppEnvRequest: {
+            /** Audience */
+            audience?: ("both" | "build" | "runtime") | null;
+            /**
+             * Content
+             * @description The text of a .env file
+             */
+            content: string;
+            /**
+             * Dry Run
+             * @description Only say what would change
+             * @default false
+             */
+            dry_run: boolean;
+            /**
+             * Prune
+             * @description Also remove what the file does not hold
+             * @default false
+             */
+            prune: boolean;
+        };
+        /**
+         * SyncAppEnvResponse
+         * @description What bringing a ``.env`` in changed, or would change. Names only, never a value.
+         *
+         *     Attributes:
+         *         domain: Domain of the application.
+         *         created: Names the application did not have.
+         *         updated: Names whose value changed.
+         *         unchanged: Names the file sets to what they already are.
+         *         removed: Names taken out (only with ``prune``).
+         *         skipped: Names the file holds that Noust sets itself, with the reason.
+         *         duplicates: Names the file sets more than once (the last counts).
+         *         restart_required: Whether the running process needs a restart to pick the change up.
+         *         dry_run: Whether nothing was written.
+         */
+        SyncAppEnvResponse: {
+            /** Created */
+            created: string[];
+            /** Domain */
+            domain: string;
+            /** Dry Run */
+            dry_run: boolean;
+            /** Duplicates */
+            duplicates: string[];
+            /** Removed */
+            removed: string[];
+            /** Restart Required */
+            restart_required: boolean;
+            /** Skipped */
+            skipped: {
+                [key: string]: string;
+            };
+            /** Unchanged */
+            unchanged: string[];
+            /** Updated */
+            updated: string[];
         };
         /**
          * SystemHealthOut
@@ -59658,6 +60463,10 @@ export interface operations {
             query?: {
                 remove_files?: boolean;
                 remove_ssl?: boolean;
+                /** @description Also remove the Docker volumes of a Compose stack or a container application, which hold its data. Never unless asked for */
+                remove_volumes?: boolean;
+                /** @description Also drop the databases that belong to the application and that no other application uses, each after a last dump. Never unless asked for */
+                remove_databases?: boolean;
                 /** @description The application's directory, named exactly, when it is outside Noust's apps directory (an adopted stack): only then is it removed with the files */
                 remove_adopted_directory?: string | null;
             };
@@ -60377,6 +61186,107 @@ export interface operations {
             };
         };
     };
+    get_compose_document_api_apps__domain__compose_document_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComposeDocumentResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_compose_document_api_apps__domain__compose_document_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ComposeDocumentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComposeDocumentSavedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_compose_document_api_apps__domain__compose_document_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ComposeDocumentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComposeDocumentCheckResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_compose_variables_api_apps__domain__compose_variables_get: {
         parameters: {
             query?: never;
@@ -60461,6 +61371,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ContainerSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_app_image_api_apps__domain__container_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageCheckResponse"];
                 };
             };
             /** @description Validation Error */
@@ -60664,6 +61605,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeclarationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_deletion_plan_api_apps__domain__deletion_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeletionPlanResponse"];
                 };
             };
             /** @description Validation Error */
@@ -61538,6 +62510,41 @@ export interface operations {
             };
         };
     };
+    get_app_env_file_api_apps__domain__env_file_get: {
+        parameters: {
+            query?: {
+                unmask?: boolean;
+                /** @description Offer it as a file to save */
+                download?: boolean;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     update_app_env_marks_api_apps__domain__env_marks_put: {
         parameters: {
             query?: never;
@@ -61591,6 +62598,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResolveEnvResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_app_env_api_apps__domain__env_sync_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SyncAppEnvRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncAppEnvResponse"];
                 };
             };
             /** @description Validation Error */
@@ -66317,6 +67359,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WebhookReceivedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    registry_hook_state_api_apps__domain__webhook_registry_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistryHookResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reveal_registry_hook_api_apps__domain__webhook_registry_reveal_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistryHookResponse"];
                 };
             };
             /** @description Validation Error */
@@ -88670,6 +89774,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    deliver_registry_hooks_registry__domain__post: {
+        parameters: {
+            query?: {
+                token?: string | null;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deliver_registry_hooks_registry__domain___token__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                token: string | null;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

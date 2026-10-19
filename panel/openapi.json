@@ -2732,6 +2732,16 @@
               }
             ]
           },
+          "container": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExportContainer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "cron": {
             "items": {
               "$ref": "#/components/schemas/ExportCronJob"
@@ -2745,6 +2755,12 @@
             },
             "title": "Databases",
             "type": "array"
+          },
+          "delivery": {
+            "additionalProperties": true,
+            "description": "History, stop policy, rollback pause and update schedule",
+            "title": "Delivery",
+            "type": "object"
           },
           "domains": {
             "$ref": "#/components/schemas/ExportDomains"
@@ -2782,6 +2798,13 @@
           "github": {
             "$ref": "#/components/schemas/ExportGitHub"
           },
+          "mounts": {
+            "items": {
+              "$ref": "#/components/schemas/ExportMount"
+            },
+            "title": "Mounts",
+            "type": "array"
+          },
           "previews": {
             "anyOf": [
               {
@@ -2796,6 +2819,12 @@
             "default": false,
             "title": "Secrets Included",
             "type": "boolean"
+          },
+          "source_options": {
+            "additionalProperties": true,
+            "description": "How the repository is fetched (submodules, lfs, ...)",
+            "title": "Source Options",
+            "type": "object"
           },
           "version": {
             "description": "Shape of the document; this release writes 1",
@@ -9873,6 +9902,158 @@
         "title": "ComposeAnalyzeRequest",
         "type": "object"
       },
+      "ComposeDocumentCheckResponse": {
+        "description": "What a document would do to a stack, judged and not written.",
+        "properties": {
+          "analysis": {
+            "$ref": "#/components/schemas/ComposeAnalysisOut"
+          },
+          "changed": {
+            "description": "Whether it differs from the document the stack has",
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "deployable": {
+            "description": "Whether nothing refuses it and nothing is missing",
+            "title": "Deployable",
+            "type": "boolean"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "missing": {
+            "description": "Variables it requires that the stack has no value for",
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          }
+        },
+        "required": [
+          "domain",
+          "changed",
+          "deployable",
+          "missing",
+          "analysis"
+        ],
+        "title": "ComposeDocumentCheckResponse",
+        "type": "object"
+      },
+      "ComposeDocumentRequest": {
+        "description": "A Compose document to check or to keep.",
+        "properties": {
+          "document": {
+            "maxLength": 262144,
+            "title": "Document",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "ComposeDocumentRequest",
+        "type": "object"
+      },
+      "ComposeDocumentResponse": {
+        "description": "The Compose document a stack runs from, when Noust keeps one.",
+        "properties": {
+          "document": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The document; null when not editable",
+            "title": "Document"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "editable": {
+            "description": "Whether the stack has a document Noust keeps",
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where Noust keeps it",
+            "title": "Path"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why not, and where its compose file is edited instead",
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "domain",
+          "editable"
+        ],
+        "title": "ComposeDocumentResponse",
+        "type": "object"
+      },
+      "ComposeDocumentSavedResponse": {
+        "description": "A document, kept.",
+        "properties": {
+          "applies": {
+            "description": "How the stack starts running it",
+            "title": "Applies",
+            "type": "string"
+          },
+          "changed": {
+            "description": "False when the stack already had this document",
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "services": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Services",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "domain",
+          "changed",
+          "services",
+          "warnings",
+          "applies"
+        ],
+        "title": "ComposeDocumentSavedResponse",
+        "type": "object"
+      },
       "ComposeExceptionModel": {
         "description": "A compose stack allowed privileged containers and the Docker socket.",
         "properties": {
@@ -10825,7 +11006,7 @@
             "title": "Build Secrets"
           },
           "clear": {
-            "description": "Settings to reset: dockerfile, target, container_port, registry_server",
+            "description": "Settings to reset: dockerfile, target, container_port, registry_server, command, entrypoint",
             "items": {
               "type": "string"
             },
@@ -10837,6 +11018,21 @@
             "description": "Remove the registry account",
             "title": "Clear Registry",
             "type": "boolean"
+          },
+          "command": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Replaces the image's CMD: the entrypoint's arguments, one word each, run without a shell. An empty list is refused (Docker cannot clear a CMD); use clear to go back to the image's",
+            "title": "Command"
           },
           "container_port": {
             "anyOf": [
@@ -10872,6 +11068,21 @@
             ],
             "description": "Relative to the repository",
             "title": "Dockerfile"
+          },
+          "entrypoint": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Replaces the image's ENTRYPOINT: the program and its arguments, one word each, run without a shell. An empty list clears the image's own",
+            "title": "Entrypoint"
           },
           "image": {
             "anyOf": [
@@ -10991,6 +11202,21 @@
             "title": "Build Secrets",
             "type": "array"
           },
+          "command": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The words that replace the image's CMD (the entrypoint's arguments); null keeps the image's. Never empty: Docker cannot clear a CMD",
+            "title": "Command"
+          },
           "container_port": {
             "description": "Where the process listens inside the container",
             "title": "Container Port",
@@ -11028,6 +11254,21 @@
           "domain": {
             "title": "Domain",
             "type": "string"
+          },
+          "entrypoint": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The words that replace the image's ENTRYPOINT; null keeps the image's, an empty list clears it",
+            "title": "Entrypoint"
           },
           "image": {
             "anyOf": [
@@ -13661,6 +13902,80 @@
           "name"
         ],
         "title": "DeletedResponse",
+        "type": "object"
+      },
+      "DeletionDatabaseOut": {
+        "description": "A database that deleting an application has to decide about.\n\nAttributes:\n    engine: The engine it is on.\n    name: The database.\n    owned: Whether it belongs to the application.\n    shared_with: The other applications that use it.\n    will_drop: Whether ``remove_databases`` drops it: it is the application's and nothing\n        else uses it.",
+        "properties": {
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owned": {
+            "title": "Owned",
+            "type": "boolean"
+          },
+          "shared_with": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Shared With",
+            "type": "array"
+          },
+          "will_drop": {
+            "title": "Will Drop",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "engine",
+          "name",
+          "owned",
+          "shared_with",
+          "will_drop"
+        ],
+        "title": "DeletionDatabaseOut",
+        "type": "object"
+      },
+      "DeletionPlanResponse": {
+        "description": "What deleting an application would touch, for a confirmation dialog.\n\nAttributes:\n    domain: The application.\n    path: Its directory.\n    keeps_directory: Whether the directory is outside Noust's apps directory (an adopted\n        stack) and is kept unless it is named.\n    has_volumes: Whether it runs in Docker, so it has volumes ``remove_volumes`` would remove.\n    databases: The databases it owns or uses, and what would become of each.",
+        "properties": {
+          "databases": {
+            "items": {
+              "$ref": "#/components/schemas/DeletionDatabaseOut"
+            },
+            "title": "Databases",
+            "type": "array"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "has_volumes": {
+            "title": "Has Volumes",
+            "type": "boolean"
+          },
+          "keeps_directory": {
+            "title": "Keeps Directory",
+            "type": "boolean"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "path",
+          "keeps_directory",
+          "has_volumes",
+          "databases"
+        ],
+        "title": "DeletionPlanResponse",
         "type": "object"
       },
       "DeliveryConfig": {
@@ -18994,6 +19309,18 @@
             ],
             "title": "Branch"
           },
+          "build": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The operator's build block, as YAML; null for the repository's",
+            "title": "Build"
+          },
           "domain": {
             "title": "Domain",
             "type": "string"
@@ -19172,6 +19499,144 @@
           "name"
         ],
         "title": "ExportBackupDestination",
+        "type": "object"
+      },
+      "ExportContainer": {
+        "description": "How a container application is built and run; its registry password never is.",
+        "properties": {
+          "build_args": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Build Args",
+            "type": "object"
+          },
+          "build_secrets": {
+            "description": "Ids only: their values are not exported",
+            "items": {
+              "type": "string"
+            },
+            "title": "Build Secrets",
+            "type": "array"
+          },
+          "command": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Command"
+          },
+          "container_port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Container Port"
+          },
+          "context": {
+            "default": ".",
+            "title": "Context",
+            "type": "string"
+          },
+          "dockerfile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dockerfile"
+          },
+          "entrypoint": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entrypoint"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          },
+          "method": {
+            "default": "dockerfile",
+            "title": "Method",
+            "type": "string"
+          },
+          "registry_server": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registry Server"
+          },
+          "registry_username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registry Username"
+          },
+          "restart_policy": {
+            "default": "unless-stopped",
+            "title": "Restart Policy",
+            "type": "string"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          },
+          "volumes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Volumes",
+            "type": "array"
+          }
+        },
+        "title": "ExportContainer",
         "type": "object"
       },
       "ExportCronJob": {
@@ -19385,6 +19850,86 @@
           }
         },
         "title": "ExportLimits",
+        "type": "object"
+      },
+      "ExportMount": {
+        "description": "A file Noust keeps for the application, or a path of the server bound into a container.",
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A file's text; null unless secrets were included (or it could not travel)",
+            "title": "Content"
+          },
+          "kind": {
+            "description": "file or path",
+            "title": "Kind",
+            "type": "string"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A file's permissions, in octal",
+            "title": "Mode"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why a file's text is not here",
+            "title": "Note"
+          },
+          "read_only": {
+            "default": true,
+            "title": "Read Only",
+            "type": "boolean"
+          },
+          "secret": {
+            "default": false,
+            "description": "A file's text may hold a secret",
+            "title": "Secret",
+            "type": "boolean"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A path's location on the server",
+            "title": "Source"
+          },
+          "target": {
+            "description": "Where the application sees it",
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "target"
+        ],
+        "title": "ExportMount",
         "type": "object"
       },
       "ExportPreviews": {
@@ -22853,6 +23398,57 @@
           "eligible"
         ],
         "title": "IdentityResponse",
+        "type": "object"
+      },
+      "ImageCheckResponse": {
+        "description": "What looking at the tag of a registry image found.\n\nAttributes:\n    domain: The application.\n    image: The image it runs, as recorded.\n    deployed: The digest the last deployment resolved; null when none is recorded.\n    current: The digest the tag is now; null when it is pinned or the registry gave none.\n    changed: Whether an update would run something new.\n    reason: One sentence saying why.",
+        "properties": {
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "current": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current"
+          },
+          "deployed": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployed"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "image": {
+            "title": "Image",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "image",
+          "changed",
+          "reason"
+        ],
+        "title": "ImageCheckResponse",
         "type": "object"
       },
       "ImportAppRequest": {
@@ -38128,6 +38724,92 @@
         "title": "RefusedRestartOut",
         "type": "object"
       },
+      "RegistryHookResponse": {
+        "description": "Where a container registry delivers for one application.\n\nAttributes:\n    domain: The application.\n    supported: Whether it runs an image from a registry; nothing else follows a tag.\n    reason: Why not, when it does not.\n    image: The image it runs.\n    pinned: Whether the image is pinned by digest, which a push never changes.\n    enabled: Whether the application has a webhook secret.\n    ghcr_url: Where GitHub Container Registry's ``registry_package`` event is sent.\n    ghcr_events: The events to enable on the GitHub repository's webhook.\n    dockerhub_url: Where Docker Hub's webhook is pointed. Its token is masked\n        (``<token>``) until ``POST .../webhook/registry/reveal`` returns it.\n    public: Whether the addresses are ones a registry can reach.",
+        "properties": {
+          "dockerhub_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dockerhub Url"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "ghcr_events": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ghcr Events",
+            "type": "array"
+          },
+          "ghcr_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ghcr Url"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          },
+          "pinned": {
+            "default": false,
+            "title": "Pinned",
+            "type": "boolean"
+          },
+          "public": {
+            "default": false,
+            "title": "Public",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "supported": {
+            "title": "Supported",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "domain",
+          "supported",
+          "ghcr_events"
+        ],
+        "title": "RegistryHookResponse",
+        "type": "object"
+      },
       "RegistryLoginChange": {
         "description": "What to change about an account. A field left out keeps its value.",
         "properties": {
@@ -40170,8 +40852,13 @@
         "type": "object"
       },
       "RolloutIn": {
-        "description": "Roll the application out over its servers.\n\nAttributes:\n    commit: Deploy exactly this commit everywhere (7 to 40 hex characters).\n    tag: Deploy the commit this tag points at.\n    image_tag: For an application that runs a registry image: the tag every server pulls.\n    force: Rebuild even a server already on it.\n    rollback_on_failure: Put the servers already moved back if it stops; the\n        placement's own setting when absent.\n    serial: Servers at a time; the placement's own when absent.\n    max_failures: Failures that stop it; the placement's own when absent.\n    canary: The server that goes first; the placement's own when absent.\n    plan: Only say what would happen.",
+        "description": "Roll the application out over its servers.\n\nAttributes:\n    commit: Deploy exactly this commit everywhere (7 to 40 hex characters).\n    tag: Deploy the commit this tag points at.\n    image_tag: For an application that runs a registry image: the tag every server pulls.\n    force: Rebuild even a server already on it.\n    build_on_each: Build on every server even though the application has a build server.\n    rollback_on_failure: Put the servers already moved back if it stops; the\n        placement's own setting when absent.\n    serial: Servers at a time; the placement's own when absent.\n    max_failures: Failures that stop it; the placement's own when absent.\n    canary: The server that goes first; the placement's own when absent.\n    plan: Only say what would happen.",
         "properties": {
+          "build_on_each": {
+            "default": false,
+            "title": "Build On Each",
+            "type": "boolean"
+          },
           "canary": {
             "anyOf": [
               {
@@ -49201,6 +49888,122 @@
           "released"
         ],
         "title": "SweepResult",
+        "type": "object"
+      },
+      "SyncAppEnvRequest": {
+        "description": "The text of a ``.env`` file to bring into an application's variables.\n\nAttributes:\n    content: The file's text.\n    prune: Also remove the variables the file does not hold.\n    audience: ``both``, ``build`` or ``runtime`` for the variables the file sets; omitted keeps\n        each one's.\n    dry_run: Say what would change and write nothing.",
+        "properties": {
+          "audience": {
+            "anyOf": [
+              {
+                "enum": [
+                  "both",
+                  "build",
+                  "runtime"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audience"
+          },
+          "content": {
+            "description": "The text of a .env file",
+            "maxLength": 262144,
+            "title": "Content",
+            "type": "string"
+          },
+          "dry_run": {
+            "default": false,
+            "description": "Only say what would change",
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "prune": {
+            "default": false,
+            "description": "Also remove what the file does not hold",
+            "title": "Prune",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "SyncAppEnvRequest",
+        "type": "object"
+      },
+      "SyncAppEnvResponse": {
+        "description": "What bringing a ``.env`` in changed, or would change. Names only, never a value.\n\nAttributes:\n    domain: Domain of the application.\n    created: Names the application did not have.\n    updated: Names whose value changed.\n    unchanged: Names the file sets to what they already are.\n    removed: Names taken out (only with ``prune``).\n    skipped: Names the file holds that Noust sets itself, with the reason.\n    duplicates: Names the file sets more than once (the last counts).\n    restart_required: Whether the running process needs a restart to pick the change up.\n    dry_run: Whether nothing was written.",
+        "properties": {
+          "created": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Created",
+            "type": "array"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "dry_run": {
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "duplicates": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Duplicates",
+            "type": "array"
+          },
+          "removed": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Removed",
+            "type": "array"
+          },
+          "restart_required": {
+            "title": "Restart Required",
+            "type": "boolean"
+          },
+          "skipped": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Skipped",
+            "type": "object"
+          },
+          "unchanged": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unchanged",
+            "type": "array"
+          },
+          "updated": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Updated",
+            "type": "array"
+          }
+        },
+        "required": [
+          "domain",
+          "created",
+          "updated",
+          "unchanged",
+          "removed",
+          "skipped",
+          "duplicates",
+          "restart_required",
+          "dry_run"
+        ],
+        "title": "SyncAppEnvResponse",
         "type": "object"
       },
       "SystemHealthOut": {
@@ -61047,7 +61850,7 @@
     },
     "/api/apps/{domain}": {
       "delete": {
-        "description": "Queue the removal of an application.\n\nDeletion stops a unit, rewrites the web server configuration, may call\ncertbot and may delete a large directory, so it runs as a job rather than\non the request path. A directory outside Noust's apps directory (an\nadopted stack's) is kept, files or not, unless it is named.\n\nArgs:\n    domain: Domain of the application.\n    remove_files: Also delete the application directory.\n    remove_ssl: Also delete the certificate.\n    remove_adopted_directory: The directory named for removal when it is\n        outside the apps directory.\n    session: The authenticated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: The directory named is not the application's (400).",
+        "description": "Queue the removal of an application.\n\nDeletion stops a unit, rewrites the web server configuration, may call\ncertbot and may delete a large directory, so it runs as a job rather than\non the request path. A directory outside Noust's apps directory (an\nadopted stack's) is kept, files or not, unless it is named.\n\nArgs:\n    domain: Domain of the application.\n    remove_files: Also delete the application directory.\n    remove_ssl: Also delete the certificate.\n    remove_volumes: Also remove its Docker volumes.\n    remove_databases: Also drop its own databases (after a last dump each).\n    remove_adopted_directory: The directory named for removal when it is\n        outside the apps directory.\n    session: The authenticated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: The directory named is not the application's (400).",
         "operationId": "delete_app_api_apps__domain__delete",
         "parameters": [
           {
@@ -61076,6 +61879,30 @@
             "schema": {
               "default": false,
               "title": "Remove Ssl",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Also remove the Docker volumes of a Compose stack or a container application, which hold its data. Never unless asked for",
+            "in": "query",
+            "name": "remove_volumes",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Also remove the Docker volumes of a Compose stack or a container application, which hold its data. Never unless asked for",
+              "title": "Remove Volumes",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Also drop the databases that belong to the application and that no other application uses, each after a last dump. Never unless asked for",
+            "in": "query",
+            "name": "remove_databases",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Also drop the databases that belong to the application and that no other application uses, each after a last dump. Never unless asked for",
+              "title": "Remove Databases",
               "type": "boolean"
             }
           },
@@ -62200,6 +63027,157 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/apps/{domain}/compose/document": {
+      "get": {
+        "description": "Read the Compose document a stack runs from.\n\nA stack deployed from a document (pasted, or converted from a template) keeps it as its\nsource; one from a repository, one adopted where it runs and a recipe's have none, and say\nwhere their file is edited instead.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session; reading asks to reveal secrets, because a document\n        can hold a value typed into it.\n\nReturns:\n    The document and where it is, or why there is none.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "get_compose_document_api_apps__domain__compose_document_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComposeDocumentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Compose Document",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "secrets.reveal"
+      },
+      "put": {
+        "description": "Keep a new Compose document as the one this stack runs from.\n\nNothing is rebuilt: the stack runs the document at its next update (``POST\n/api/apps/{domain}/update``), and until then its pending changes say it is not running it.\nThe guard of a creation refuses what it refuses, and so does a variable the document requires\nthat the stack has no value for.\n\nArgs:\n    domain: Domain of the application.\n    body: The document.\n    session: An elevated session: the document decides what runs as root's containers.\n\nReturns:\n    The services of the document and what is worth knowing about it.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: The stack has no document Noust keeps, or the document is refused (400,\n        the details name each reason).\n    DeploymentError: The document requires a variable the stack has no value for.",
+        "operationId": "put_compose_document_api_apps__domain__compose_document_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComposeDocumentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComposeDocumentSavedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Compose Document",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/compose/document/check": {
+      "post": {
+        "description": "Judge a document for this stack without writing it.\n\nRuns the guard a creation runs and says which variables the document requires that the stack\nhas no value for. Nothing is written or run.\n\nArgs:\n    domain: Domain of the application.\n    body: The candidate document.\n    session: The authenticated session.\n\nReturns:\n    What it is, what refuses or warns about it, and what the stack lacks to run it.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: The stack has no document Noust keeps, or the text is not a Compose\n        document at all (400).",
+        "operationId": "check_compose_document_api_apps__domain__compose_document_check_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComposeDocumentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComposeDocumentCheckResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Compose Document",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
+      }
+    },
     "/api/apps/{domain}/compose/variables": {
       "get": {
         "description": "Show the variables a stack's compose file asks for and which of them it has.\n\nReads the file and the ``.env`` and runs nothing; a value is never part of the answer, only\nwhether there is one. Edit them with ``PUT /api/apps/{domain}/env``.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    Every variable with its state, and the ones a deploy would refuse over.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: It is not a Compose stack (400).\n    DeploymentError: Its compose file cannot be found or read.",
@@ -62338,6 +63316,50 @@
           "Applications"
         ],
         "x-noust-permission": "apps.manage"
+      }
+    },
+    "/api/apps/{domain}/container/check": {
+      "post": {
+        "description": "Ask the registry whether the tag an application runs points at a new image.\n\nPulls the tag (one request when the host has it, the layers when it moved) and compares the\ndigest with the one that runs. Deploys nothing: ``POST /api/apps/{domain}/update`` does.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    What was found.\n\nRaises:\n    ValidationError: It does not run a registry image (400).\n    DockerError: The registry refused the account or did not answer.",
+        "operationId": "check_app_image_api_apps__domain__container_check_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageCheckResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check App Image",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.deploy"
       }
     },
     "/api/apps/{domain}/databases": {
@@ -62681,6 +63703,50 @@
           "Applications"
         ],
         "x-noust-permission": "secrets.reveal"
+      }
+    },
+    "/api/apps/{domain}/deletion": {
+      "get": {
+        "description": "Say what deleting an application would touch. Changes nothing.\n\nThe volumes and the databases hold data, so the dialog that confirms a deletion shows them\nand lets the operator choose; this is what it shows: the same list the deletion walks.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The directory, whether it has Docker volumes, and each database with what would become\n    of it.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "get_deletion_plan_api_apps__domain__deletion_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletionPlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Deletion Plan",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/apps/{domain}/deploy": {
@@ -64006,6 +65072,72 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/apps/{domain}/env/file": {
+      "get": {
+        "description": "Read an application's ``.env`` as the text of a file, to look at or to save.\n\nThe same file ``GET .../env`` reads, drawn as the text it is (comments above their variables,\nsorted by name), for a viewer with a search box and a download. Secrets are masked, as in the\ntable; asking for them in clear needs an admin credential and sudo mode and is audited, like\n``unmask`` on ``GET .../env``. What only the build is given is in no file: it is named in a\ncomment at the end, with no value.\n\nArgs:\n    domain: Domain of the application.\n    request: The incoming request, for the audit record.\n    session: The authenticated session.\n    unmask: Put the values in clear.\n    download: Send it with a file name so a browser saves it.\n\nReturns:\n    The text, ``text/plain``, never cached.\n\nRaises:\n    HTTPException: 403 when unmasking with less than an admin credential, 404 when the\n        application is unknown.",
+        "operationId": "get_app_env_file_api_apps__domain__env_file_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "unmask",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Unmask",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Offer it as a file to save",
+            "in": "query",
+            "name": "download",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Offer it as a file to save",
+              "title": "Download",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get App Env File",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
     "/api/apps/{domain}/env/marks": {
       "put": {
         "description": "Set or clear operator overrides on an application's environment variables.\n\nA mark always wins over the automatic classification, in both\ndirections: it is how an operator corrects a false positive (``KEYBOARD_LAYOUT``\nis not a secret) or a false negative (``SESSION`` holding a value nothing\nabout its name suggests is one). Marks merge with what is already\nstored - a request need only name the variables it changes - and a\n``null`` removes a mark rather than setting one, going back to the\nautomatic classification. Needs sudo mode, like writing the environment\nitself: it changes what the console and the audit log will treat as\nsafe to display.\n\nArgs:\n    domain: Domain of the application.\n    body: The marks to set or clear.\n    request: The incoming request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The application's full secrecy classification after the change.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: A variable name is not a valid environment variable\n        name (400).",
@@ -64099,6 +65231,61 @@
           }
         },
         "summary": "Resolve App Env",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/env/sync": {
+      "post": {
+        "description": "Bring a ``.env`` file into an application's variables, creating and updating, never deleting.\n\nWhat ``noust env sync --file`` does: quotes, ``export``, comments and values of several lines\nare read as the application's own ``.env`` is; every variable the file sets is created or\nupdated and the others are kept unless ``prune``; ``PORT`` and ``NODE_ENV`` (the unit sets\nthem) and the ``NOUST_*`` names are skipped with the reason rather than refusing the file. With\n``dry_run`` it says what would change and writes nothing; the comparison needs the same sudo\nmode a write does, because \"same\" or \"different\" about a secret is a way to guess it.\n\nArgs:\n    domain: Domain of the application.\n    body: The file and what to do with it.\n    request: The incoming request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The names in each group.\n\nRaises:\n    HTTPException: 404 when the application is unknown, 422 when the text is not a ``.env``\n        or a name or a value is not safe to write into a systemd unit.",
+        "operationId": "sync_app_env_api_apps__domain__env_sync_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncAppEnvRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncAppEnvResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sync App Env",
         "tags": [
           "Applications"
         ],
@@ -71547,6 +72734,95 @@
           "Webhooks"
         ],
         "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/apps/{domain}/webhook/registry": {
+      "get": {
+        "description": "Say what to give a container registry so a push of the image deploys the application.\n\nArgs:\n    domain: Domain of the application.\n    request: The incoming request.\n    session: The authenticated session.\n\nReturns:\n    The addresses; Docker Hub's carries ``<token>`` in place of its token.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "registry_hook_state_api_apps__domain__webhook_registry_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryHookResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Registry Hook State",
+        "tags": [
+          "Webhooks"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/apps/{domain}/webhook/registry/reveal": {
+      "post": {
+        "description": "Show the address Docker Hub is given, token included.\n\nThe token is made from the application's webhook secret and is a credential of the same\nkind: sudo mode, the permission to reveal secrets, and an audit record.\n\nArgs:\n    domain: Domain of the application.\n    request: The incoming request, for the audit record.\n    session: An elevated session.\n\nReturns:\n    The addresses, with the real token.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "reveal_registry_hook_api_apps__domain__webhook_registry_reveal_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryHookResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reveal Registry Hook",
+        "tags": [
+          "Webhooks"
+        ],
+        "x-noust-permission": "secrets.reveal",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/apps/{domain}/webhook/reveal": {
@@ -88888,7 +90164,7 @@
     },
     "/api/fleet/placements/{domain}/rollout": {
       "post": {
-        "description": "Roll the application out over its servers: one commit everywhere, put back if it stops.\n\nThe first server goes alone and builds the head of the branch (or the commit or tag asked\nfor); the commit it ends on is what the others are asked for. Planned and queued like a\nbulk action: sudo mode when a server's schema asks for it, a job to follow, a record per server.\n\nArgs:\n    domain: The application.\n    request: The request.\n    body: What to deploy, and how; the placement's own strategy where absent.\n    session: The authenticated session.\n\nReturns:\n    The plan and, unless ``plan``, the job.\n\nRaises:\n    HTTPException: 404 when the application is not placed.\n    ValidationError: A server does not run the application, or a value is invalid.",
+        "description": "Roll the application out over its servers: one commit everywhere, put back if it stops.\n\nThe first server goes alone and builds the head of the branch (or the commit or tag asked\nfor); the commit it ends on is what the others are asked for. An application with a build\nserver (``/api/fleet/builders``) is built there once and the release is sent to the servers,\nexactly as ``.../ship`` does (the plan's ``action`` says which); ``build_on_each`` builds on\nevery server instead, and a tag or an image tag, which a build server does not build, is rolled\nout the ordinary way with the reason in the plan notes. Planned and queued like a bulk action:\nsudo mode when a server's schema asks for it, a job to follow, a record per server.\n\nArgs:\n    domain: The application.\n    request: The request.\n    body: What to deploy, and how; the placement's own strategy where absent.\n    session: The authenticated session.\n\nReturns:\n    The plan and, unless ``plan``, the job.\n\nRaises:\n    HTTPException: 404 when the application is not placed.\n    ValidationError: A server does not run the application, or a value is invalid.",
         "operationId": "rollout_api_fleet_placements__domain__rollout_post",
         "parameters": [
           {
@@ -105625,6 +106901,122 @@
           }
         },
         "summary": "Deliver",
+        "tags": [
+          "Webhooks"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/hooks/registry/{domain}": {
+      "post": {
+        "description": "Accept a registry's notification that an image was pushed and queue the update it asks for.\n\nAsync because the raw body has to be awaited before anything can be verified: GitHub's HMAC\ncovers the bytes on the wire.\n\nArgs:\n    domain: Domain of the application.\n    request: The incoming delivery.\n    token: The token of the address Docker Hub is given; GitHub's deliveries carry a signature\n        instead.\n\nReturns:\n    202 with the queued job's id; 200 when the delivery is authentic but there is nothing to\n    do (a ping, another image, another tag, a digest that already runs, an application\n    that does not run a registry image).\n\nRaises:\n    HTTPException: A generic 404 when the domain has no webhook configured or does not\n        exist, and 401 with no details when no credential verifies.",
+        "operationId": "deliver_registry_hooks_registry__domain__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Deliver Registry",
+        "tags": [
+          "Webhooks"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/hooks/registry/{domain}/{token}": {
+      "post": {
+        "description": "Accept a registry's notification that an image was pushed and queue the update it asks for.\n\nAsync because the raw body has to be awaited before anything can be verified: GitHub's HMAC\ncovers the bytes on the wire.\n\nArgs:\n    domain: Domain of the application.\n    request: The incoming delivery.\n    token: The token of the address Docker Hub is given; GitHub's deliveries carry a signature\n        instead.\n\nReturns:\n    202 with the queued job's id; 200 when the delivery is authentic but there is nothing to\n    do (a ping, another image, another tag, a digest that already runs, an application\n    that does not run a registry image).\n\nRaises:\n    HTTPException: A generic 404 when the domain has no webhook configured or does not\n        exist, and 401 with no details when no credential verifies.",
+        "operationId": "deliver_registry_hooks_registry__domain___token__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Deliver Registry",
         "tags": [
           "Webhooks"
         ],

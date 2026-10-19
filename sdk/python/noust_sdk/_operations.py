@@ -75,10 +75,15 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("applications", "get_compose_settings"): ("GET", "/api/apps/{domain}/compose", "apps.read", False),
     ("applications", "put_compose_settings"): ("PUT", "/api/apps/{domain}/compose", "apps.manage", True),
     ("applications", "delete_compose_settings"): ("DELETE", "/api/apps/{domain}/compose", "apps.manage", True),
+    ("applications", "get_compose_document"): ("GET", "/api/apps/{domain}/compose/document", "secrets.reveal", False),
+    ("applications", "put_compose_document"): ("PUT", "/api/apps/{domain}/compose/document", "apps.manage", True),
+    ("applications", "check_compose_document"): ("POST", "/api/apps/{domain}/compose/document/check", "apps.manage", False),
     ("applications", "get_compose_variables"): ("GET", "/api/apps/{domain}/compose/variables", "apps.read", False),
     ("applications", "get_app_container"): ("GET", "/api/apps/{domain}/container", "apps.read", False),
     ("applications", "put_app_container"): ("PUT", "/api/apps/{domain}/container", "apps.manage", False),
+    ("applications", "check_app_image"): ("POST", "/api/apps/{domain}/container/check", "apps.deploy", False),
     ("applications", "get_declaration"): ("GET", "/api/apps/{domain}/declaration", "secrets.reveal", False),
+    ("applications", "get_deletion_plan"): ("GET", "/api/apps/{domain}/deletion", "apps.read", False),
     ("applications", "deploy_app"): ("POST", "/api/apps/{domain}/deploy", "apps.deploy", False),
     ("applications", "get_deploy_key"): ("GET", "/api/apps/{domain}/deploy-key", "apps.read", False),
     ("applications", "create_deploy_key"): ("POST", "/api/apps/{domain}/deploy-key", "apps.manage", False),
@@ -95,8 +100,10 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("applications", "get_app_env"): ("GET", "/api/apps/{domain}/env", "apps.read", False),
     ("applications", "update_app_env"): ("PUT", "/api/apps/{domain}/env", "apps.manage", True),
     ("applications", "merge_app_env"): ("PATCH", "/api/apps/{domain}/env", "apps.manage", True),
+    ("applications", "get_app_env_file"): ("GET", "/api/apps/{domain}/env/file", "apps.read", False),
     ("applications", "update_app_env_marks"): ("PUT", "/api/apps/{domain}/env/marks", "apps.manage", True),
     ("applications", "resolve_app_env"): ("POST", "/api/apps/{domain}/env/resolve", "apps.manage", True),
+    ("applications", "sync_app_env"): ("POST", "/api/apps/{domain}/env/sync", "apps.manage", True),
     ("applications", "get_app_export"): ("GET", "/api/apps/{domain}/export", "secrets.reveal", False),
     ("applications", "list_files"): ("GET", "/api/apps/{domain}/files", "apps.terminal", False),
     ("applications", "delete_file"): ("DELETE", "/api/apps/{domain}/files", "apps.terminal", True),
@@ -1014,9 +1021,13 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("webhooks", "delete_webhook_secret"): ("DELETE", "/api/apps/{domain}/webhook-secret", "apps.manage", True),
     ("webhooks", "webhook_deliveries"): ("GET", "/api/apps/{domain}/webhook/deliveries", "apps.read", False),
     ("webhooks", "webhook_received"): ("GET", "/api/apps/{domain}/webhook/received", "apps.read", False),
+    ("webhooks", "registry_hook_state"): ("GET", "/api/apps/{domain}/webhook/registry", "apps.read", False),
+    ("webhooks", "reveal_registry_hook"): ("POST", "/api/apps/{domain}/webhook/registry/reveal", "secrets.reveal", True),
     ("webhooks", "reveal_webhook_secret"): ("POST", "/api/apps/{domain}/webhook/reveal", "secrets.reveal", True),
     ("webhooks", "deliver"): ("POST", "/hooks/deploy/{domain}", "public", False),
     ("webhooks", "deliver_post"): ("POST", "/hooks/github", "public", False),
+    ("webhooks", "deliver_registry"): ("POST", "/hooks/registry/{domain}", "public", False),
+    ("webhooks", "deliver_registry_post"): ("POST", "/hooks/registry/{domain}/{token}", "public", False),
 }
 
 class Access:
@@ -1180,7 +1191,7 @@ class Alerts:
 
 
 class Applications:
-    """Applications: 161 operations."""
+    """Applications: 168 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -1257,13 +1268,13 @@ class Applications:
         Needs: permission `apps.read`."""
         return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}", query=None, body=None)
 
-    def delete_app(self, domain: str, *, remove_files: Union[bool, None] = None, remove_ssl: Union[bool, None] = None, remove_adopted_directory: Union[str, None] = None) -> "JobAcceptedResponse":
+    def delete_app(self, domain: str, *, remove_files: Union[bool, None] = None, remove_ssl: Union[bool, None] = None, remove_volumes: Union[bool, None] = None, remove_databases: Union[bool, None] = None, remove_adopted_directory: Union[str, None] = None) -> "JobAcceptedResponse":
         """DELETE /api/apps/{domain}
 
         Delete App
 
         Needs: permission `apps.manage`, sudo mode."""
-        return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}", query={"remove_files": remove_files, "remove_ssl": remove_ssl, "remove_adopted_directory": remove_adopted_directory}, body=None)
+        return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}", query={"remove_files": remove_files, "remove_ssl": remove_ssl, "remove_volumes": remove_volumes, "remove_databases": remove_databases, "remove_adopted_directory": remove_adopted_directory}, body=None)
 
     def get_adoption(self, domain: str) -> "AdoptionResponse":
         """GET /api/apps/{domain}/adoption
@@ -1385,6 +1396,30 @@ class Applications:
         Needs: permission `apps.manage`, sudo mode."""
         return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}/compose", query=None, body=None)
 
+    def get_compose_document(self, domain: str) -> "ComposeDocumentResponse":
+        """GET /api/apps/{domain}/compose/document
+
+        Get Compose Document
+
+        Needs: permission `secrets.reveal`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/compose/document", query=None, body=None)
+
+    def put_compose_document(self, domain: str, body: "ComposeDocumentRequest") -> "ComposeDocumentSavedResponse":
+        """PUT /api/apps/{domain}/compose/document
+
+        Put Compose Document
+
+        Needs: permission `apps.manage`, sudo mode."""
+        return self._call("PUT", f"/api/apps/{quote(str(domain), safe='')}/compose/document", query=None, body=body)
+
+    def check_compose_document(self, domain: str, body: "ComposeDocumentRequest") -> "ComposeDocumentCheckResponse":
+        """POST /api/apps/{domain}/compose/document/check
+
+        Check Compose Document
+
+        Needs: permission `apps.manage`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/compose/document/check", query=None, body=body)
+
     def get_compose_variables(self, domain: str) -> "ComposeVariablesResponse":
         """GET /api/apps/{domain}/compose/variables
 
@@ -1409,6 +1444,14 @@ class Applications:
         Needs: permission `apps.manage`."""
         return self._call("PUT", f"/api/apps/{quote(str(domain), safe='')}/container", query=None, body=body)
 
+    def check_app_image(self, domain: str) -> "ImageCheckResponse":
+        """POST /api/apps/{domain}/container/check
+
+        Check App Image
+
+        Needs: permission `apps.deploy`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/container/check", query=None, body=None)
+
     def get_declaration(self, domain: str) -> "DeclarationResponse":
         """GET /api/apps/{domain}/declaration
 
@@ -1416,6 +1459,14 @@ class Applications:
 
         Needs: permission `secrets.reveal`."""
         return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/declaration", query=None, body=None)
+
+    def get_deletion_plan(self, domain: str) -> "DeletionPlanResponse":
+        """GET /api/apps/{domain}/deletion
+
+        Get Deletion Plan
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/deletion", query=None, body=None)
 
     def deploy_app(self, domain: str, *, body: Union["DeployOptions", None] = None) -> "DeployResponse":
         """POST /api/apps/{domain}/deploy
@@ -1545,6 +1596,14 @@ class Applications:
         Needs: permission `apps.manage`, sudo mode."""
         return self._call("PATCH", f"/api/apps/{quote(str(domain), safe='')}/env", query=None, body=body)
 
+    def get_app_env_file(self, domain: str, *, unmask: Union[bool, None] = None, download: Union[bool, None] = None) -> bytes:
+        """GET /api/apps/{domain}/env/file
+
+        Get App Env File
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/env/file", query={"unmask": unmask, "download": download}, body=None, binary=True)
+
     def update_app_env_marks(self, domain: str, body: "UpdateEnvMarksRequest") -> "AppEnvSecretsResponse":
         """PUT /api/apps/{domain}/env/marks
 
@@ -1560,6 +1619,14 @@ class Applications:
 
         Needs: permission `apps.manage`, sudo mode."""
         return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/env/resolve", query=None, body=None)
+
+    def sync_app_env(self, domain: str, body: "SyncAppEnvRequest") -> "SyncAppEnvResponse":
+        """POST /api/apps/{domain}/env/sync
+
+        Sync App Env
+
+        Needs: permission `apps.manage`, sudo mode."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/env/sync", query=None, body=body)
 
     def get_app_export(self, domain: str, *, with_secrets: Union[bool, None] = None) -> "AppExportDocument":
         """GET /api/apps/{domain}/export
@@ -9292,7 +9359,7 @@ class VolumeBackups:
 
 
 class Webhooks:
-    """Webhooks: 8 operations."""
+    """Webhooks: 12 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -9337,6 +9404,22 @@ class Webhooks:
         Needs: permission `apps.read`."""
         return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/webhook/received", query={"limit": limit}, body=None)
 
+    def registry_hook_state(self, domain: str) -> "RegistryHookResponse":
+        """GET /api/apps/{domain}/webhook/registry
+
+        Registry Hook State
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/webhook/registry", query=None, body=None)
+
+    def reveal_registry_hook(self, domain: str) -> "RegistryHookResponse":
+        """POST /api/apps/{domain}/webhook/registry/reveal
+
+        Reveal Registry Hook
+
+        Needs: permission `secrets.reveal`, sudo mode."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/webhook/registry/reveal", query=None, body=None)
+
     def reveal_webhook_secret(self, domain: str) -> "WebhookSecretResponse":
         """POST /api/apps/{domain}/webhook/reveal
 
@@ -9360,6 +9443,22 @@ class Webhooks:
 
         Needs: permission `public`."""
         return self._call("POST", "/hooks/github", query=None, body=None)
+
+    def deliver_registry(self, domain: str, *, token: Union[str, None] = None) -> Any:
+        """POST /hooks/registry/{domain}
+
+        Deliver Registry
+
+        Needs: permission `public`."""
+        return self._call("POST", f"/hooks/registry/{quote(str(domain), safe='')}", query={"token": token}, body=None)
+
+    def deliver_registry_post(self, domain: str, token: Union[str, None]) -> Any:
+        """POST /hooks/registry/{domain}/{token}
+
+        Deliver Registry
+
+        Needs: permission `public`."""
+        return self._call("POST", f"/hooks/registry/{quote(str(domain), safe='')}/{quote(str(token), safe='')}", query=None, body=None)
 
 
 class Api:
