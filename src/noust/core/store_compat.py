@@ -22,6 +22,7 @@ copies. ``noust store compat`` prints it; ``docs/downgrading.md`` explains it.
 from __future__ import annotations
 
 import re
+import shlex
 import sqlite3
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -248,13 +249,34 @@ def plan(
             f"schema {usable.schema}, taken {usable.taken_at:%Y-%m-%d %H:%M} UTC.",
             "Stop the console and the monitor: systemctl stop noust-web noust-monitor",
             "Keep the current store aside, with its write-ahead log (a missing -wal or -shm is "
-            f"fine): mkdir -p {db_path.parent}/before-downgrade && "
-            f"mv {db_path} {db_path}-wal {db_path}-shm {db_path.parent}/before-downgrade/",
-            f"Put the copy in its place: cp {usable.path} {db_path} && chmod 600 {db_path}",
+            f"fine): {_keep_aside_command(db_path)}",
+            f"Put the copy in its place: cp {shlex.quote(str(usable.path))} "
+            f"{shlex.quote(str(db_path))} && chmod 600 {shlex.quote(str(db_path))}",
             f"Install Noust {target}, then start the console again.",
             "Whatever changed in Noust since that copy was taken (applications, accounts, "
             "settings) is not in it.",
         ),
+    )
+
+
+def _keep_aside_command(db_path: Path) -> str:
+    """
+    Spell the command that moves the store, and what SQLite keeps beside it, out of the way.
+
+    A store that was closed cleanly has no write-ahead log, and ``mv`` of a file that is not there
+    exits 1: the command tests each file, so it succeeds whichever of them exist and can be chained
+    with the next step. Paths are quoted, because a data directory may have a space in it.
+
+    Args:
+        db_path: The store file.
+
+    Returns:
+        A shell command.
+    """
+    aside = shlex.quote(str(db_path.parent / "before-downgrade"))
+    files = " ".join(shlex.quote(f"{db_path}{suffix}") for suffix in ("", "-wal", "-shm"))
+    return (
+        f'mkdir -p {aside} && for f in {files}; do if [ -e "$f" ]; then mv "$f" {aside}/; fi; done'
     )
 
 

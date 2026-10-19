@@ -81,7 +81,10 @@ schema means going back to that copy, **and losing what changed in Noust since i
 (applications created, accounts, settings). Applications' own data, their units and sites, are
 unaffected.
 
-`noust store compat --to RELEASE` gives the exact steps for your server. In outline:
+`noust store compat --to RELEASE` gives the exact steps for your server, with your paths, and each
+one is a command you can paste: the step that keeps the current store aside tests each file, so it
+works whether or not SQLite left a write-ahead log (a store that was closed cleanly has none), and
+quotes a data directory with a space in it. In outline:
 
 1. Stop the console and the monitor: `systemctl stop noust-web noust-monitor`.
 2. Keep the current store aside, with its write-ahead log (`noust.db`, `noust.db-wal`,
@@ -89,6 +92,27 @@ unaffected.
 3. Put the copy in the store's place: `cp noust.db.v13-... noust.db && chmod 600 noust.db`.
 4. Install the earlier release (above).
 5. Start the console: `systemctl start noust-web noust-monitor`.
+
+An earlier release that is started on the new store refuses it in its own words, before it
+writes anything, and names the copy:
+
+```
+The Noust database at /var/lib/noust/noust.db was written by a newer Noust (schema v14; this version understands up to v13)
+Downgrading Noust is not supported: install the newer version again. To go back regardless, restore the copy the
+upgrade kept beside it (noust.db.v<old version>-*.bak) over noust.db; whatever changed since the upgrade is lost.
+```
+
+Meanwhile nothing stops serving: the applications, their units and their sites are not part of the
+release, and they answer the same before, during and after (the rehearsal that proves this is
+`python tests/integration/run.py --downgrade-to-3.3`: a real 3.3.1 server is upgraded, goes back by
+these steps, and goes forward again).
+
+**What comes back and what does not.** The store holds the applications, the sites, the databases,
+the schedules, the destinations, the settings and **the accounts**: what was created on the newer
+release after the copy was taken is gone with it (an application created then keeps serving on its
+unit and its site, but the older Noust does not know it; deploy it again there if you want it managed).
+**API tokens and console sessions are in a database of their own in the state directory** and are
+not rolled back: a token made after the upgrade is still there afterwards.
 
 If no copy was kept (a store from before copies were made), the way back is a self-backup taken
 before the upgrade: `noust self-backup list`, then `noust self-backup restore`
