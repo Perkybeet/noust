@@ -30,8 +30,7 @@ from pathlib import Path
 from typing import Any
 
 #: The first release that writes each schema version. A release understands every schema up to
-#: the highest one at or before it in this table. Releases before 2.0.0 are not listed: nothing
-#: before the WASM 2 line is supported (SECURITY.md).
+#: the highest one at or before it in this table. Releases before 2.0.0 are not listed.
 SCHEMA_RELEASES: dict[int, str] = {
     8: "2.0.0",
     9: "2.1.0",

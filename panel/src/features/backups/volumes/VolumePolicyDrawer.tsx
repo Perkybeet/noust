@@ -23,6 +23,7 @@ import { validTime } from "../../databases/backups/schedule";
 import { KeepFields } from "../policy/KeepFields";
 import { GbField } from "../policy/GbField";
 import { MAX_COUNT, MAX_DAYS, destinationsValid, validGb, validLimit } from "../policy/limits";
+import { RemoteOnlyField } from "../policy/RemoteOnlyField";
 import { ScheduleFields } from "../policy/ScheduleFields";
 import { SendToFields } from "../policy/SendToFields";
 import { bodyOf, formOf, parsePaths, validPath } from "./data";
@@ -205,6 +206,16 @@ export function VolumePolicyDrawer({ domain: fixed, policy, taken, open, onOpenC
           value={form.sends}
           onChange={(sends) => set({ sends })}
           error={errors.destinations}
+        />
+        <RemoteOnlyField
+          words={{
+            label: t("volumeBackups.form.remoteOnly"),
+            help: t("volumeBackups.form.remoteOnlyHelp"),
+            needsDestination: t("volumeBackups.form.remoteOnlyNeedsDestination"),
+          }}
+          value={form.remoteOnly}
+          onChange={(remoteOnly) => set({ remoteOnly })}
+          destinations={form.sends.length}
         />
 
         <ChoiceCards<Consistency>

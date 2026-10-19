@@ -166,9 +166,9 @@ def cli_page() -> str:
         "",
         NOTICE.format(source="the Click command tree").rstrip(),
         "",
-        "Every command of `noust`, with its options. `wasm` is the same program under its old name "
-        "(an alias for the whole 3.x series). Global options (`--verbose`, `--dry-run`, `--json`, "
-        "`--no-color`, `--reason`) go before or after the command name. `noust COMMAND --help` "
+        "Every command of `noust`, with its options. Global options (`--verbose`, `--dry-run`, "
+        "`--json`, `--no-color`, `--reason`) go before or after the command name. "
+        "`noust COMMAND --help` "
         "prints the same text, and `man noust` is generated from the same tree.",
         "",
     ]

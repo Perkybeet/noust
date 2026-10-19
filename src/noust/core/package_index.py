@@ -59,22 +59,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-#: Package names on each channel: ``noust`` everywhere from 3.0
-#: (obs/debian.control, rpm/noust.spec, pyproject.toml). What is published is
-#: looked up under these names.
+#: Package names on each channel (obs/debian.control, rpm/noust.spec,
+#: pyproject.toml). What is published is looked up under these names.
 DEB_PACKAGE = "noust"
 RPM_PACKAGE = "noust"
 PYPI_PACKAGE = "noust"
-#: The names WASM was published under: ``wasm`` (Debian) and ``wasm-cli`` (RPM,
-#: PyPI). An installation under one of them is still recognised, so the
-#: upgrade command shown is the channel's own.
-LEGACY_DEB_PACKAGE = "wasm"
-LEGACY_RPM_PACKAGE = "wasm-cli"
-LEGACY_PYPI_PACKAGE = "wasm-cli"
-DEB_PACKAGES: tuple[str, ...] = (DEB_PACKAGE, LEGACY_DEB_PACKAGE)
-RPM_PACKAGES: tuple[str, ...] = (RPM_PACKAGE, LEGACY_RPM_PACKAGE)
-#: Every name the Python distribution may be installed under.
-PYPI_DISTRIBUTIONS: tuple[str, ...] = (PYPI_PACKAGE, LEGACY_PYPI_PACKAGE)
 
 GITHUB_LATEST = "https://api.github.com/repos/Perkybeet/noust/releases/latest"
 #: The recent releases, newest first: where a security release is told apart.
@@ -929,8 +918,7 @@ def rpm_index_latest(base_url: str, package: str = RPM_PACKAGE) -> str | None:
 
     Args:
         base_url: The repository base, where ``repodata/`` lives.
-        package: The package to look for; ``noust`` unless the caller is
-            asking after the transitional one (``wasm-cli``).
+        package: The package to look for.
 
     Returns:
         The version, or None when the repository cannot be read.

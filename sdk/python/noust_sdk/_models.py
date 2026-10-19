@@ -7603,7 +7603,6 @@ SessionInfo = TypedDict("SessionInfo", {
     "mfa_required": NotRequired[bool],
     "notice": NotRequired[Union["NoticeInfo", None]],
     "permissions": NotRequired[list[str]],
-    "renamed_from_wasm": NotRequired[bool],
     "role": NotRequired[Union[str, None]],
     "scope": NotRequired[Union[str, None]],
     "security_profile": NotRequired[Union[str, None]],

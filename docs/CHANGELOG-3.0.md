@@ -16,7 +16,6 @@ noust, your applications the boats.
   zypper. `wasm` (Debian, Ubuntu) and `wasm-cli` (Fedora, openSUSE, PyPI) are empty
   transitional packages that depend on `noust`, so the usual upgrade command brings it in.
   The default configuration ships as a reference at `/usr/share/noust/config.example.yaml`.
-  See [RENAME.md](RENAME.md).
 - **Paths**: `/etc/noust`, `/var/lib/noust` (the store is now `noust.db`),
   `/var/backups/noust`, `/etc/nginx/noust-upstreams` and `~/.local/share/noust`. Noust's own
   logs go to `/var/log/noust`; `/var/log/wasm` is left as it was.

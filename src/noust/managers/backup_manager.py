@@ -757,7 +757,7 @@ class BackupManager:
     DEFAULT_BACKUP_DIR = _DEFAULT_BACKUP_DIR
 
     #: Where backups ended up while ``backup.directory: ''`` meant the working
-    #: directory: root's home, where an operator runs wasm, and ``/``, the
+    #: directory: root's home, where an operator runs noust, and ``/``, the
     #: working directory of every systemd unit - the backup timers and the
     #: console among them. :meth:`find_misplaced_backups` looks there.
     MISPLACED_BACKUP_ROOTS: ClassVar[tuple[Path, ...]] = (Path("/root"), Path("/"))

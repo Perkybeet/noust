@@ -1888,7 +1888,7 @@ def not_root(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     monkeypatch.setattr(web, "check_root", lambda: False)
     monkeypatch.delenv("NOUST_WEB_STATE_DIR", raising=False)
-    monkeypatch.delenv("WASM_WEB_STATE_DIR", raising=False)
+    monkeypatch.delenv("NOUST_WEB_STATE_DIR", raising=False)
     monkeypatch.setattr(web.paths, "DATA_DIR", None)
 
 

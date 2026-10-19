@@ -14,6 +14,7 @@ import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import { describeError } from "../../lib/errors";
 import { reportActionError } from "../apps/useAppActions";
+import { remoteOnlyBody } from "./policy/limits";
 
 export interface CreateBackupInput {
   domain: string;
@@ -54,6 +55,8 @@ export interface CreateScheduleInput {
   /** The most the schedule's own local backups may weigh together, in gigabytes; null for no limit. */
   retentionGb: number | null;
   includeDatabases: boolean;
+  /** Keep nothing on this server: each backup is deleted here once every destination holds it. */
+  remoteOnly: boolean;
   destinations: ScheduleDestinationInput[];
 }
 
@@ -168,6 +171,7 @@ export function useBackupActions() {
     retention_days: input.retentionDays,
     retention_gb: input.retentionGb,
     include_databases: input.includeDatabases,
+    remote_only: remoteOnlyBody(input.remoteOnly, input.destinations.length),
     destinations: input.destinations.map((destination) => ({
       name: destination.name,
       retention_count: destination.retentionCount ?? null,

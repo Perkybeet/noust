@@ -158,9 +158,10 @@ def _noust_roots() -> tuple[PurePosixPath, ...]:
     List the directories where Noust keeps what must not leave the host.
 
     Returns:
-        The configuration, the store, the backups and their WASM-era names.
+        The configuration, the store and the backups, under their names and under the
+        old ones a link may still stand at.
     """
-    from noust.core import paths
+    from noust.core import paths, retired_names
 
     return tuple(
         PurePosixPath(str(directory))
@@ -168,9 +169,7 @@ def _noust_roots() -> tuple[PurePosixPath, ...]:
             paths.config_dir(),
             paths.state_dir(),
             paths.backup_dir(),
-            paths.LEGACY_CONFIG_DIR,
-            paths.LEGACY_STATE_DIR,
-            paths.LEGACY_BACKUP_DIR,
+            *retired_names.old_data_roots(),
         )
     )
 

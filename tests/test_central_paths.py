@@ -103,16 +103,10 @@ class TestPrecedence:
         assert module.BACKUP_DIR == tmp_path / "backups"
         assert module.LOG_DIR == tmp_path / "log"
 
-    def test_an_explicit_data_dir_wins_over_a_legacy_directory(
+    def test_the_resolvers_answer_the_data_directory(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
-        # Without a data dir, a real /etc/wasm wins over /etc/noust. With one,
-        # the operator named where Noust lives, and the resolvers answer it.
-        legacy = tmp_path / "etc-wasm"
-        legacy.mkdir()
         module = load_paths(monkeypatch, NOUST_DATA_DIR=str(tmp_path / "data"))
-        monkeypatch.setattr(module, "LEGACY_CONFIG_DIR", legacy)
-        monkeypatch.setattr(module, "LEGACY_STATE_DIR", legacy)
         assert module.config_dir() == tmp_path / "data" / "config"
         assert module.state_dir() == tmp_path / "data" / "state"
         assert module.backup_dir() == tmp_path / "data" / "backups"

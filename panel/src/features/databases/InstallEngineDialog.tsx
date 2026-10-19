@@ -32,6 +32,16 @@ function flavourLabel(t: T, flavour: FlavourChoice): string {
   return flavour.installed ? t("databases.install.flavourInstalled", { engine: flavour.display_name }) : t("databases.install.flavourBlocked", { engine: flavour.display_name });
 }
 
+/**
+ * Which distribution the choices are for and the package manager that installs them (apt, dnf,
+ * zypper), as the server names it. "none" is its word for a distribution Noust drives no package
+ * manager on, and then there is none to name.
+ */
+function installSource(t: T, distribution: string, packageManager: string): string {
+  if (!packageManager || packageManager === "none") return t("databases.install.distribution", { distribution });
+  return t("databases.install.distributionManager", { distribution, manager: packageManager });
+}
+
 /** A version as an option: where it comes from, and whether it is the one installed by default. */
 function versionLabel(t: T, version: VersionChoice): string {
   const values = { version: version.version };
@@ -106,7 +116,7 @@ export function InstallEngineDialog({ open, onOpenChange, engine: preset, onQueu
         </LoadingRegion>
       ) : (
         <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-5">
-          <p className="text-13 text-fg-muted">{t("databases.install.distribution", { distribution: catalog.data.distribution.name })}</p>
+          <p className="text-13 text-fg-muted">{installSource(t, catalog.data.distribution.name, catalog.data.package_manager)}</p>
           {chosen === undefined ? (
             <Notice title={t("databases.install.nothingTitle")}>{t("databases.install.nothing")}</Notice>
           ) : (

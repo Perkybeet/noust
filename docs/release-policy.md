@@ -42,7 +42,7 @@ What this means in practice:
   headers on every response, and is removed in a release after its sunset, never before
   ([api.md](api.md#deprecation)).
 - **The command line keeps what it had.** A command, a flag or an alias that existed is not removed
-  within a major version (`wasm` is the same program as `noust` for the whole 3.x series), and a
+  within a major version, and a
   test compares the command tree with a frozen contract (`scripts/cli_parity.py`).
 - **Names on disk stay.** Some `wasm` names are kept on purpose because data and clients already
   use them (the cookies, the `.wasm/` folder of an application, the `wasm_ro_` database roles...);
@@ -62,8 +62,7 @@ What this means in practice:
    GitHub release, with the installer and its signed checksums ([platforms.md](PLATFORMS.md)).
 3. **Announced only when it is real.** The GitHub release is created as a pre-release, which servers'
    update checks and the installer's `latest` link do not see. The release workflow then waits until
-   **every supported distribution's repository serves the new version** (both `noust` and the
-   transitional package), and only then makes it the latest. Until then a server's update check says
+   **every supported distribution's repository serves the new version**, and only then makes it the latest. Until then a server's update check says
    "on the way" instead of offering an upgrade that would do nothing. `python scripts/obs_published.py
    vX.Y.Z` shows who is behind.
 4. **Your fleet is the canary.** To update a fleet, update one server first and let the rest follow
@@ -119,8 +118,7 @@ releasing a new minor adds its line, keeps the previous one until the minor afte
 and retires the line before that. CI fails when the table does not list the version being released as
 supported.
 
-Releases before the WASM 2 line are not supported at all; WASM 2.x is supported only as far as
-upgrading it: [upgrading-3.0.md](UPGRADING-3.0.md).
+A WASM 2.x server upgrades to 3.3.x first: [upgrading-3.0.md](UPGRADING-3.0.md).
 
 ## Where to read what changed
 

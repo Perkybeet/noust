@@ -17,6 +17,7 @@ import { validTime } from "../../databases/backups/schedule";
 import { KeepFields } from "../policy/KeepFields";
 import { GbField } from "../policy/GbField";
 import { MAX_COUNT, MAX_DAYS, destinationsValid, validGb, validLimit } from "../policy/limits";
+import { RemoteOnlyField } from "../policy/RemoteOnlyField";
 import { ScheduleFields } from "../policy/ScheduleFields";
 import { SendToFields } from "../policy/SendToFields";
 import { bodyOf, formOf, passphraseKnown, passphraseProblem } from "./data";
@@ -137,6 +138,16 @@ export function ScheduleDrawer({ schedule, open, onOpenChange }: ScheduleDrawerP
           value={form.sends}
           onChange={(sends) => set({ sends })}
           error={errors.destinations}
+        />
+        <RemoteOnlyField
+          words={{
+            label: t("selfBackup.schedule.remoteOnly"),
+            help: t("selfBackup.schedule.remoteOnlyHelp"),
+            needsDestination: t("selfBackup.schedule.remoteOnlyNeedsDestination"),
+          }}
+          value={form.remoteOnly}
+          onChange={(remoteOnly) => set({ remoteOnly })}
+          destinations={form.sends.length}
         />
 
         <fieldset className="flex min-w-0 flex-col gap-4">

@@ -366,9 +366,9 @@ def isolated_store_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Ite
     ``USER_DB_PATH`` is computed from ``Path.home()`` when the module is
     imported, so redirecting ``HOME`` inside a test is too late: a test that
     reached ``get_store()`` without a store fixture opened the developer's real
-    ``~/.local/share/wasm/wasm.db`` - and, on a machine that also ran a newer
-    WASM, failed on its schema. The system location is redirected too, so a
-    test run as root can never touch ``/var/lib/wasm``. Tests that pin their
+    ``~/.local/share/noust/noust.db`` - and, on a machine that also ran a newer
+    Noust, failed on its schema. The system location is redirected too, so a
+    test run as root can never touch ``/var/lib/noust``. Tests that pin their
     own paths still do; their monkeypatch runs after this one.
 
     Args:
@@ -379,14 +379,6 @@ def isolated_store_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Ite
 
     monkeypatch.setattr(store_module, "USER_DB_PATH", tmp_path / "user-store" / "noust.db")
     monkeypatch.setattr(store_module, "DEFAULT_DB_PATH", tmp_path / "system-store" / "noust.db")
-    # WASM's locations, read before the migration moves them, are redirected
-    # just as much: a test must never find the developer's real 2.x store.
-    monkeypatch.setattr(
-        store_module, "LEGACY_USER_DB_PATH", tmp_path / "legacy-user-store" / "wasm.db"
-    )
-    monkeypatch.setattr(
-        store_module, "LEGACY_DB_PATH", tmp_path / "legacy-system-store" / "wasm.db"
-    )
     # The class itself: a test may replace the name with a fake for its own
     # duration, and that fake is still in place when this teardown runs.
     store_class = store_module.NoustStore

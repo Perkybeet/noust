@@ -8,8 +8,8 @@ is still building). A release is announced only when this passes: nothing is
 announced while some supported distribution still offers the previous version
 (checklist N-30, owner items 80 and 81).
 
-It reads the published indexes the package managers read, for the product and for
-the transitional package, through ``noust.managers.server.publication``; the list of
+It reads the published indexes the package managers read, through
+``noust.managers.server.publication``; the list of
 distributions is ``noust.managers.server.platforms.TARGETS``, so a new release added
 to the table is gated from the day it is added.
 
