@@ -3409,6 +3409,173 @@ def scenario_import_cluster_mariadb(sc: Any) -> None:
     noust(sc, "db uninstall mysql --purge -f", timeout=900)
 
 
+@engines_scenario("custom_image_instance")
+def scenario_custom_image_instance(sc: Any) -> None:
+    """
+    An instance on an image, a command and arguments of the operator's own, run for real.
+
+    The image comes from a private registry the scenario runs in the machine's own Docker, under a name
+    no table of Noust knows (``localhost:5000/acme/pg-own``), so the instance can only be found again by
+    what Noust wrote on the container. Without a digest the image is refused, ``--yes`` alone does not
+    accept the price, the engine starts with the operator's argument (``max_connections``) and the
+    instance is listed, bound and dumped like any other; an upgrade does not look for a newer image of
+    one the operator pinned; an argument the engine rejects is put back with the engine's own words and
+    the data intact; taking the words back restores the engine's default.
+    """
+    name = "w6d-own"
+    box = f"noust-db-{name}"
+    key = f"postgresql@{name}"
+    registry = "noust-test-w6d-registry"
+    pull(sc, "postgres:17")
+    pull(sc, "registry:2")
+    noust(sc, f"db instance remove {name} --yes", check=False, timeout=300)
+    sc.run(f"docker rm -f {registry}", check=False)
+
+    # --- a registry of our own, and an image in it that no table of Noust knows by name
+    sc.run(
+        f"docker run -d --name {registry} -p 127.0.0.1:5000:5000 registry:2",
+        label="a private registry in the machine's own Docker",
+    )
+    sc.run(
+        "for i in $(seq 1 30); do curl -sf http://127.0.0.1:5000/v2/ >/dev/null && exit 0; "
+        "sleep 1; done; exit 1",
+        label="wait for the registry",
+    )
+    sc.run("docker tag postgres:17 localhost:5000/acme/pg-own:17")
+    pushed = sc.run("docker push localhost:5000/acme/pg-own:17", timeout=300)
+    found = re.search(r"digest: (sha256:[0-9a-f]{64})", pushed.stdout)
+    sc.check(found is not None, f"the push should print the digest: {pushed.stdout[-300:]!r}")
+    digest = found.group(1) if found else ""
+    sc.run("docker rmi localhost:5000/acme/pg-own:17", check=False)
+    reference = f"localhost:5000/acme/pg-own:17@{digest}"
+    create = f"db instance create {name} -e postgresql --version 17 --memory 1g"
+
+    # --- what is refused before anything is made
+    bare = noust(
+        sc,
+        f"{create} --image localhost:5000/acme/pg-own:17 --yes --accept-untested",
+        check=False,
+    )
+    sc.check(
+        bare.returncode != 0 and "digest" in (bare.stdout + bare.stderr).lower(),
+        f"an image without a digest must be refused, saying why: {bare.stdout + bare.stderr!r}",
+    )
+    alone = noust(sc, f"{create} --image {reference} --yes", check=False)
+    sc.check(
+        alone.returncode != 0 and "--accept-untested" in (alone.stdout + alone.stderr),
+        f"--yes alone must not accept the price: {alone.stdout + alone.stderr!r}",
+    )
+    listed = json_of(noust(sc, "db instance list --json"), "list")
+    sc.check(
+        all(item["name"] != name for item in listed["instances"]),
+        "nothing should have been made by a refusal",
+    )
+    leaking = noust(
+        sc,
+        f'{create} --image {reference} --args "--requirepass x" --yes --accept-untested',
+        check=False,
+    )
+    sc.check(leaking.returncode != 0, "a password in the arguments must be refused")
+
+    # --- the instance, with an argument of ours
+    noust(
+        sc,
+        f'{create} --image {reference} --args "-c max_connections=77" --yes --accept-untested',
+        timeout=1200,
+    )
+    shown = json_of(noust(sc, f"db instance show {name} --json"), "show")
+    sc.check(
+        shown["state"] == "ready"
+        and shown["custom_image"] is True
+        and shown["reference"] == reference,
+        f"the instance should run exactly the pinned reference: {shown}",
+    )
+    sc.check(shown["args"] == ["-c", "max_connections=77"], f"the arguments are the row's: {shown}")
+
+    def sql(text: str, database: str = "postgres") -> str:
+        return in_container(
+            sc,
+            box,
+            'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U postgres '
+            f"-d {database} -tA -c {shlex.quote(text)}",
+        ).stdout.strip()
+
+    sc.check(
+        sql("show max_connections") == "77", "the engine should run with the operator's argument"
+    )
+    inspected = sc.run(f"docker inspect {box} --format '{{{{.Config.Image}}}}'").stdout.strip()
+    sc.check(
+        inspected == reference,
+        f"the container should run the digest the operator pinned: {inspected!r}",
+    )
+
+    # --- found again by what Noust wrote on it, bound and managed like any other
+    noust(sc, f"db create shop --engine {key}")
+    sql("create table orders(id int)", "shop")
+    sql("insert into orders select generate_series(1, 40)", "shop")
+    databases = json_of(noust(sc, f"db list --engine {key} --json"), "list")
+    names = {
+        item["name"]
+        for item in (databases["databases"] if isinstance(databases, dict) else databases)
+    }
+    sc.check("shop" in names, f"the image has no name Noust knows: the label must find it: {names}")
+    noust(sc, f"db backup shop --engine {key}", timeout=600)
+    dumps = sc.run("ls -1 /var/backups/noust/databases/postgresql*shop* | head -1").stdout.strip()
+    sc.check(bool(dumps), "a dump through the engine's own client inside the image should exist")
+
+    # --- no newer image of one the operator pinned
+    refused = noust(sc, f"db instance upgrade {name} --no-backup", check=False)
+    sc.check(
+        refused.returncode != 0 and "--image" in (refused.stdout + refused.stderr),
+        f"an upgrade must ask for the next image by name: {refused.stdout + refused.stderr!r}",
+    )
+
+    # --- an argument the engine rejects: put back, with the engine's own words, data intact
+    bad = noust(
+        sc,
+        f'db instance launch {name} --args "-c max_connections=77 -c bogus_setting=1" --yes --accept-untested',
+        check=False,
+        timeout=900,
+    )
+    said = bad.stdout + bad.stderr
+    sc.check(bad.returncode != 0, f"a rejected argument must fail the change: {said[-400:]!r}")
+    sc.check(
+        "bogus_setting" in said, f"the engine's own words should be in the error: {said[-600:]!r}"
+    )
+    after = json_of(noust(sc, f"db instance show {name} --json"), "show")
+    sc.check(
+        after["state"] == "ready" and after["args"] == ["-c", "max_connections=77"],
+        f"the previous words should be back: {after}",
+    )
+    sc.check(
+        sql("show max_connections") == "77", "the engine should run on the previous words again"
+    )
+    rows = sql("select count(*) from orders", "shop")
+    sc.check(rows == "40", f"the data must be untouched by the failed change: {rows!r}")
+
+    # --- changed, then taken back
+    noust(
+        sc,
+        f'db instance launch {name} --args "-c max_connections=55" --yes --accept-untested',
+        timeout=900,
+    )
+    sc.check(sql("show max_connections") == "55", "the new word should reach the engine")
+    noust(sc, f"db instance launch {name} --reset --yes", timeout=900)
+    sc.check(
+        sql("show max_connections") == "100", "taking the words back should restore the default"
+    )
+    reset = json_of(noust(sc, f"db instance launch {name} --json"), "launch")
+    sc.check(
+        reset["customised"] is True and reset["custom_image"] is True,
+        "the image stays the operator's",
+    )
+
+    noust(sc, f"db drop shop --engine {key} -f", check=False)
+    noust(sc, f"db instance remove {name} --yes", timeout=300)
+    sc.run(f"docker rm -f {registry}", check=False)
+    sc.run("docker rmi localhost:5000/acme/pg-own", check=False)
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------

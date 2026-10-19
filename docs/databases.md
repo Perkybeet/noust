@@ -312,6 +312,54 @@ on `POST /api/databases/instances` and its `/plan`, and the console's *New insta
 *Initialization script* box for the engines that run one. The engine's own free configuration file is not
 offered: an engine's settings stay the closed set Noust sizes to the instance's memory.
 
+**An image, a command or arguments of your own.** The catalog's images are the engines' official ones, pinned
+by digest by Noust. When you need another (your own build with an extension, a vendor's, a flag the engine needs),
+an instance can run it, with the price said and accepted first:
+
+```bash
+# Your own image, pinned by digest (docker buildx imagetools inspect ghcr.io/acme/pg-timescale:17.2 prints it)
+noust db instance create ts --engine postgresql --version 17 --memory 2g \
+    --image ghcr.io/acme/pg-timescale:17.2@sha256:4f1c...e9
+# The catalog's image with arguments of yours after the ones Noust passes the engine
+noust db instance create pg --engine postgresql --version 17 --memory 1g --args "-c max_connections=200"
+noust db instance launch pg                              # what its container is started with
+noust db instance launch pg --args "-c work_mem=16MB" --plan
+noust db instance launch pg --args "-c work_mem=16MB"    # asks, restarts the engine
+noust db instance launch pg --reset                      # back to what Noust passes; asks for nothing
+noust db instance upgrade ts --image ghcr.io/acme/pg-timescale:17.3@sha256:77a0...12
+```
+
+- **The image is pinned by you.** A reference without a digest is refused, saying how to read one: a tag is a
+  promise and a digest is a file. `--version` is mandatory with `--image` because Noust cannot read it from an
+  image it did not choose, and it decides where the data lives, what TLS the engine can serve and when its
+  support ends. An image and a `--variant` are two answers to one question. Noust never looks for a newer image
+  of one you pinned: `noust db instance upgrade NAME --image ...` names the next, and accepts again.
+- **Noust manages it as it manages an official one:** the data where the official image keeps it, the engine's
+  own port, the superuser's password in the variable the official image reads, the health probe, and dumps and
+  restores through the engine's own client inside the container. An image that does any of that differently will
+  not come up, or will not be managed correctly, and the plan says so. A private registry needs `docker login` on
+  the server.
+- **Arguments follow Noust's** (`postgres -c shared_buffers=... YOURS`), so where the engine lets the last flag
+  win, yours win. A **command** is the container's whole command: Noust adds nothing to it (the memory share it
+  sizes the engine with, the TLS arguments), so it replaces arguments and arguments replace it, and it is refused
+  for an instance that serves TLS. Words are an argument vector, split like a shell would and never given to one;
+  a quote that never closes is a usage error. None can carry a secret: `--requirepass` and its kin are refused,
+  because a command line is visible to every local user and the instance's password is in a file only root reads.
+- **The price is accepted in words.** A plan carries the warning, and making one without accepting it is refused
+  with every warning (interactively, saying yes to the question is accepting it; `--yes` and `--json` alone are
+  not, a script says `--accept-untested`; the API takes `accept_untested` and answers a 400
+  `confirmation_required` carrying the warnings). Taking the words back (`launch --reset`) asks for nothing.
+- **A change is a restart behind the same readiness gate** a creation and a change of limits pass: when the
+  engine does not come up on the new words, the previous ones are put back, the engine is started on them and the
+  error carries the container's log. The words are the instance's row, never an edited file; the audit trail
+  records `db.instance.create` with variant `custom` and `db.instance.launch` with what changed, never the words.
+- **Discovery.** A container is a database by what Noust wrote on it (`io.noust.managed`, `io.noust.db-instance`
+  and `io.noust.db-flavour` together) and not only by the name of its image, so an image of yours with any name is
+  listed, bound and managed like the rest. A major-version move (`noust db instance migrate`) refuses an instance
+  on an image of yours and says how to do it by hand (make a new instance from the newer image and `noust db
+  move` the databases to it); it makes the new instance without your arguments and says so, because a flag one
+  version takes another may not.
+
 **Limits and health.** An instance is held to a memory limit from the day it is made, and the other
 two limits a container can have are settings too, as is the probe that decides whether the engine is
 well:
@@ -353,14 +401,18 @@ application is given a database on it. `noust db instance remove NAME` cleans on
 refused, an instance's included.
 
 **What it does not do yet.** The engine's own settings are the ones above (`noust db settings` is for
-the host's engines, and says so for an instance). An instance can serve TLS ([below](#tls-for-an-instance-and-for-a-link)); Redis and Valkey
-cannot yet.
+the host's engines, and says so for an instance). An instance can serve TLS ([below](#tls-for-an-instance-and-for-a-link)); Redis, Valkey and KeyDB
+serve it as `required` only, and ClickHouse cannot yet.
 
 The API is under `/api/databases/instances`: `GET` the list, `GET .../catalog`, `POST .../plan` (what a
 creation would do, changing nothing), `POST` to make one (sudo mode, a job), `GET .../{name}`,
 `POST .../{name}/start` (a job), `POST .../{name}/stop`, `POST .../{name}/upgrade` (sudo mode, a job),
 `GET .../{name}/remove-plan` and `DELETE .../{name}?confirm=true` (sudo mode, a job),
-`GET .../{name}/tuning`, `POST .../{name}/tuning/plan` and `PUT .../{name}/tuning` (sudo mode, a job). They need
+`GET .../{name}/tuning`, `POST .../{name}/tuning/plan` and `PUT .../{name}/tuning` (sudo mode, a job),
+`GET .../{name}/launch`, `POST .../{name}/launch/plan` and `PUT .../{name}/launch` (sudo mode, a job; `command`,
+`args` as lists of words, `reset`, `accept_untested`). `image`, `command`, `args` and `accept_untested` are also
+fields of `POST .../plan` and `POST` to make one, and `POST .../{name}/upgrade` takes a body with `image` and
+`accept_untested` for an instance on an image of yours. They need
 `databases.read`, `databases.manage` (and `apps.operate` for start and stop), and are the server's: a
 team member does not see them, but picks one for its application's database through
 `GET /api/databases/provisioning/choices`.
@@ -512,7 +564,7 @@ noust db instance rollback 3                                  # the applications
 
 **One database (`noust db move`).** It dumps the database, makes its accounts on the target with the
 passwords Noust keeps (an account whose password Noust never knew is made with a new one, named in the
-output and revealed with `noust db user-password --show`), loads the dump, gives each account its
+output and revealed in the console with sudo mode, or rotated with `noust db user-password`), loads the dump, gives each account its
 profile again, and points every application that uses it at the target, behind that application's
 health gate. The accounts arrive before the data, so an application's connection string changes in its
 host and port only. A backup policy follows the database. When an application does not come up on the
