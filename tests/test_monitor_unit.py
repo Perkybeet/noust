@@ -41,7 +41,7 @@ def unit(runner: FakeRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     """
     Render the unit the monitor would install.
 
-    The rendering looks the wasm executable up on PATH, because systemd has no
+    The rendering looks the noust executable up on PATH, because systemd has no
     PATH of its own; a bin directory is planted so the test does not depend on
     WASM being installed system-wide on the machine running it.
 
@@ -53,7 +53,7 @@ def unit(runner: FakeRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     Returns:
         The unit file body.
     """
-    binary = tmp_path / "bin" / "wasm"
+    binary = tmp_path / "bin" / "noust"
     binary.parent.mkdir(parents=True)
     binary.write_text("#!/bin/sh\n")
     binary.chmod(0o755)

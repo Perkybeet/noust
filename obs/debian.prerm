@@ -6,21 +6,15 @@ case "$1" in
         # 'noust monitor install' and 'noust web enable' write and enable
         # these units at runtime; the package itself never ships them, so dpkg
         # has no unit of its own to stop here and the daemons kept running
-        # under a binary that had just been deleted. Both names: the wasm-*
-        # ones are what a server keeps until noust first runs as root and
-        # renames them. Data (the configuration, /var/lib/noust, deployed
-        # applications) is untouched: this only stops and disables units,
-        # never on "upgrade" below, where they are meant to survive the version
-        # bump.
+        # under a binary that had just been deleted. Data (the configuration,
+        # /var/lib/noust, deployed applications) is untouched: this only stops
+        # and disables units, never on "upgrade" below, where they are meant to
+        # survive the version bump.
         systemctl stop noust-monitor.service >/dev/null 2>&1 || true
         systemctl disable noust-monitor.service >/dev/null 2>&1 || true
-        systemctl stop wasm-monitor.service >/dev/null 2>&1 || true
-        systemctl disable wasm-monitor.service >/dev/null 2>&1 || true
 
         systemctl stop noust-web.service >/dev/null 2>&1 || true
         systemctl disable noust-web.service >/dev/null 2>&1 || true
-        systemctl stop wasm-web.service >/dev/null 2>&1 || true
-        systemctl disable wasm-web.service >/dev/null 2>&1 || true
 
         # Without 'noust web enable' the console runs as a daemon (noust web
         # start -d), not as a unit; stop it while its binary still exists.

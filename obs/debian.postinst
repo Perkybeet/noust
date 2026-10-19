@@ -10,17 +10,6 @@ case "$1" in
         # Debian and Ubuntu, is refused by PEP 668 unless overridden, which is
         # what --break-system-packages was silently forcing on every upgrade.
 
-        # Coming from WASM 2.x, the transitional 'wasm' package's preinst moved
-        # /etc/wasm/config.yaml aside so dpkg would forget it as a conffile of
-        # 'wasm' (otherwise purging that package later deletes it, through the
-        # /etc/wasm -> /etc/noust link, from /etc/noust). It is put back here,
-        # before noust first runs, and again in wasm's own postinst, whichever
-        # dpkg configures first. mv -f: the kept file is the operator's, and
-        # anything at the name now can only be a default written meanwhile.
-        if [ -f /etc/wasm/config.yaml.noust-keep ]; then
-            mv -f /etc/wasm/config.yaml.noust-keep /etc/wasm/config.yaml
-        fi
-
         # noust group: kept for the log directory below, which predates this
         # file and is unrelated to config.yaml. It must not be used to grant
         # group read access to config.yaml, which holds credentials.
@@ -45,8 +34,7 @@ case "$1" in
         # when the console is used, its signing key and token hash
         # (noust.web.auth). Both must stay owner-only on every install and
         # upgrade: tighten unconditionally rather than only when loose, so this
-        # can never widen either one. The /etc/wasm lines cover a server noust
-        # has not yet moved to /etc/noust.
+        # can never widen either one.
         if [ -d /etc/noust ] && [ ! -L /etc/noust ]; then
             chown root:root /etc/noust
             chmod 0700 /etc/noust
@@ -55,35 +43,17 @@ case "$1" in
             chown root:root /etc/noust/config.yaml
             chmod 0600 /etc/noust/config.yaml
         fi
-        if [ -d /etc/wasm ] && [ ! -L /etc/wasm ]; then
-            chown root:root /etc/wasm
-            chmod 0700 /etc/wasm
-        fi
-        if [ -f /etc/wasm/config.yaml ] && [ ! -L /etc/wasm/config.yaml ]; then
-            chown root:root /etc/wasm/config.yaml
-            chmod 0600 /etc/wasm/config.yaml
-        fi
 
-        # A server coming from WASM 2.x moves onto Noust's names here: /etc,
-        # /var/lib and /var/backups renamed (links left at the old names) and
-        # wasm-web, wasm-monitor, wasm-cron-*, wasm-backup-* replaced by the
-        # same units named noust-*, in the same state. Explicitly, because the
-        # automatic migration on a first privileged run is skipped inside a
-        # systemd unit, which is where unattended-upgrades runs this script.
-        # A migration that does not finish must not fail the package: noust
-        # keeps reading the old locations, and says so, until it is re-run.
-        if { [ -d /etc/wasm ] && [ ! -L /etc/wasm ]; } \
-                || { [ -d /var/lib/wasm ] && [ ! -L /var/lib/wasm ]; } \
-                || { [ -d /var/backups/wasm ] && [ ! -L /var/backups/wasm ]; } \
-                || [ -e /etc/systemd/system/wasm-web.service ] \
-                || [ -e /etc/systemd/system/wasm-monitor.service ]; then
-            echo "Moving this server from WASM's names to Noust's..."
-            noust migrate-from-wasm --reason "package upgrade" || echo "noust: the migration from wasm did not finish; run 'noust migrate-from-wasm' (see /usr/share/doc/noust/UPGRADING-3.0.md)" >&2
-        fi
+        # Retire the links 3.x left beside /etc/noust, /var/lib/noust and
+        # /var/backups/noust when the migration moved a server onto Noust's
+        # names (noust setup retire-links says what it keeps and why). It
+        # removes only a link that points exactly where 3.x pointed it and that
+        # nothing uses, never a real file, and it must not fail the package.
+        noust setup retire-links --reason "package upgrade" >/dev/null 2>&1 || true
 
         # Add new defaults to an existing configuration (user values are
         # kept).
-        if [ -f /etc/noust/config.yaml ] || [ -f /etc/wasm/config.yaml ]; then
+        if [ -f /etc/noust/config.yaml ]; then
             echo "Upgrading configuration with new defaults..."
             noust config upgrade --reason "package upgrade" --quiet 2>/dev/null || true
             # Remove the settings no version reads any more (the old AI
@@ -93,17 +63,12 @@ case "$1" in
             noust config clean --reason "package upgrade" --quiet 2>/dev/null || true
         fi
 
-        # Rewrite the monitor unit for this version if it is enabled. Only
-        # under its own name: 'noust monitor install' refuses while
-        # wasm-monitor.service exists, which after the migration above means
-        # the migration did not finish, and it says so already.
+        # Rewrite the monitor unit for this version if it is enabled.
         if systemctl is-enabled noust-monitor.service >/dev/null 2>&1; then
             echo "Updating noust-monitor.service..."
             noust monitor install --reason "package upgrade" >/dev/null 2>&1 || true
             systemctl daemon-reload
             systemctl try-restart noust-monitor.service || true
-        elif systemctl is-enabled wasm-monitor.service >/dev/null 2>&1; then
-            systemctl try-restart wasm-monitor.service || true
         fi
 
         # The charts' history is recorded by the monitor, so a server gets it
@@ -117,8 +82,8 @@ case "$1" in
             noust monitor autoenable --reason "package upgrade" >/dev/null 2>&1 || true
         fi
 
-        # 'noust web enable' runs the console as a unit (wasm-web.service
-        # until noust renames it). prerm leaves it running across an upgrade,
+        # 'noust web enable' runs the console as a unit (noust-web.service).
+        # prerm leaves it running across an upgrade,
         # so it is still serving the code this upgrade replaced: restart it
         # onto the new one. Only a unit that exists and is running - a console
         # the operator stopped stays stopped, and on a first install there is
@@ -135,12 +100,6 @@ case "$1" in
             echo "Restarting the console (noust-web.service) on the new version..."
             systemctl restart noust-web.service || \
                 echo "noust-web.service did not restart: journalctl -u noust-web -n 50" >&2
-        fi
-        if [ -f /etc/systemd/system/wasm-web.service ] && \
-                systemctl is-active --quiet wasm-web.service 2>/dev/null; then
-            echo "Restarting the console (wasm-web.service) on the new version..."
-            systemctl restart wasm-web.service || \
-                echo "wasm-web.service did not restart: journalctl -u wasm-web -n 50" >&2
         fi
         ;;
 

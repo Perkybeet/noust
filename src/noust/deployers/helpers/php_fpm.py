@@ -61,11 +61,6 @@ PHP_FPM_TYPE = "php-fpm"
 #: Every pool and socket Noust writes carries this prefix, so one never
 #: collides with the distribution's own ``www`` pool or another tool's.
 POOL_PREFIX = paths.PHP_POOL_PREFIX
-#: The prefix WASM gave them. A pool written before 3.0 keeps its names (file,
-#: pool, socket, and the socket its site passes requests to) until the
-#: migration from WASM renames all four together; until then every lookup
-#: below finds it under the old prefix.
-LEGACY_POOL_PREFIX = paths.LEGACY_PHP_POOL_PREFIX
 
 #: What a stopped application's pool file is renamed with: every
 #: distribution's FPM includes ``*.conf`` from the pool directory only, so the
@@ -159,22 +154,17 @@ class FpmInstallation:
     socket_dir: Path
     version: str | None = None
 
-    def prefix(self, app_name: str) -> str:
+    def pool_name(self, app_name: str) -> str:
         """
-        Say which prefix an application's pool carries.
+        Say how an application's pool is called.
 
         Args:
             app_name: The application name.
 
         Returns:
-            :data:`LEGACY_POOL_PREFIX` when only a pool WASM wrote exists
-            (enabled or stopped), else :data:`POOL_PREFIX`.
+            ``noust-<app_name>``: the pool section, the file and the socket share it.
         """
-        for prefix in (POOL_PREFIX, LEGACY_POOL_PREFIX):
-            pool = self.pool_dir / f"{prefix}{app_name}.conf"
-            if pool.is_file() or _disabled(pool).is_file():
-                return prefix
-        return POOL_PREFIX
+        return f"{POOL_PREFIX}{app_name}"
 
     def pool_file(self, app_name: str) -> Path:
         """
@@ -184,10 +174,9 @@ class FpmInstallation:
             app_name: The application name.
 
         Returns:
-            ``<pool_dir>/noust-<app_name>.conf`` (``wasm-`` for a pool Noust
-            wrote and the migration has not renamed).
+            ``<pool_dir>/noust-<app_name>.conf``.
         """
-        return self.pool_dir / f"{self.prefix(app_name)}{app_name}.conf"
+        return self.pool_dir / f"{self.pool_name(app_name)}.conf"
 
     def disabled_pool_file(self, app_name: str) -> Path:
         """
@@ -210,10 +199,9 @@ class FpmInstallation:
             app_name: The application name.
 
         Returns:
-            ``<socket_dir>/noust-<app_name>.sock`` (or ``wasm-``, as
-            :meth:`pool_file`).
+            ``<socket_dir>/noust-<app_name>.sock``.
         """
-        return self.socket_dir / f"{self.prefix(app_name)}{app_name}.sock"
+        return self.socket_dir / f"{self.pool_name(app_name)}.sock"
 
     def holds(self, app_name: str) -> bool:
         """
@@ -226,11 +214,8 @@ class FpmInstallation:
             True when its pool file, enabled or moved aside, is in this
             installation's pool directory.
         """
-        for prefix in (POOL_PREFIX, LEGACY_POOL_PREFIX):
-            pool = self.pool_dir / f"{prefix}{app_name}.conf"
-            if pool.is_file() or _disabled(pool).is_file():
-                return True
-        return False
+        pool = self.pool_file(app_name)
+        return pool.is_file() or _disabled(pool).is_file()
 
 
 def is_php_fpm(app: object) -> bool:

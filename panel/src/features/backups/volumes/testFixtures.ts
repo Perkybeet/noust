@@ -12,6 +12,7 @@ export function policy(domain: string, extra: Partial<VolumePolicy> = {}): Volum
     retention_count: 7,
     retention_days: 30,
     destinations: [{ name: "nas", retention_count: 14, retention_days: null, exists: true, encrypted: false }],
+    remote_only: false,
     consistency: "live",
     enabled: true,
     timer: { installed: true, next_run: "Wed 2026-10-07 02:00:00 UTC" },

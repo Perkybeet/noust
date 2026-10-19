@@ -174,7 +174,7 @@ class FileSystem(ABC):
         Unlike :meth:`move`, which falls back to copying and deleting when the
         two paths are on different filesystems, this fails instead: a copy
         interrupted halfway leaves two partial trees, and the callers that
-        need a rename (the migration from WASM's paths) must be able to say
+        need a rename (a directory swapped in place) must be able to say
         "this was not done" rather than "this was half done".
 
         Args:

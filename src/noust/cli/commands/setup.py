@@ -42,7 +42,7 @@ from typing import TYPE_CHECKING, Any, NoReturn
 import click
 
 from noust.cli.app import Context, NoustGroup, global_flags, pass_context
-from noust.core import paths
+from noust.core import paths, retired_names
 from noust.core.config import (
     DEFAULT_APPS_DIR,
     DEFAULT_CONFIG_PATH,
@@ -1582,6 +1582,47 @@ def rename(ctx: Context) -> None:
     Safe to repeat.
     """
     _exit(_run_rename(ctx.logger))
+
+
+def _run_retire_links(logger: Logger, *, rehearsal: bool) -> int:
+    """
+    Retire the links the 3.x upgrade left under the product's old names.
+
+    Args:
+        logger: Where to report.
+        rehearsal: Whether this is a ``--dry-run``: say what would go, remove nothing.
+
+    Returns:
+        0: a link that stays, and why, is a result and not a failure.
+    """
+    outcomes = retired_names.retire_links()
+    if not outcomes:
+        logger.info("Nothing to retire: 3.x left no link under the old names on this server.")
+        return 0
+    for outcome in outcomes:
+        if outcome.retired:
+            label = "would retire" if rehearsal else "retired"
+            logger.check(label, f"{outcome.link}: {outcome.reason}", "ok")
+        else:
+            logger.check("kept", f"{outcome.link}: {outcome.reason}", "info")
+    return 0
+
+
+@cli.command("retire-links")
+@global_flags
+@pass_context
+def retire_links(ctx: Context) -> None:
+    """
+    Remove the links an upgrade to 3.0 left under the product's old names.
+
+    Only a link that points exactly where 3.x pointed it, whose target is there and
+    that neither the configuration, an nginx site nor the store names is removed.
+    A real file or directory is never touched, and each link that stays says why.
+    Package upgrades run this by themselves; run it by hand after a pip install.
+
+    With --dry-run it only says what it would do.
+    """
+    _exit(_run_retire_links(ctx.logger, rehearsal=ctx.dry_run))
 
 
 @cli.command("railpack")

@@ -252,13 +252,6 @@ def test_a_monitor_removed_before_the_marker_existed_is_not_brought_back(
     assert not any(call[:2] == ("systemctl", "enable") for call in machine.runner.calls)
 
 
-def test_wasms_monitor_in_the_journal_counts_too(machine: types.SimpleNamespace) -> None:
-    """A 2.x server that removed wasm-monitor and then moved onto Noust's names."""
-    machine.runner.script(["journalctl", "--unit", "wasm-monitor.service"], stdout="started\n")
-
-    assert monitor(machine).install_by_default() == "removed"
-
-
 def test_observations_recorded_here_before_count_as_a_monitor_that_ran(
     machine: types.SimpleNamespace, tmp_path: Path
 ) -> None:
@@ -292,16 +285,6 @@ def test_turning_it_on_again_forgets_the_refusal(machine: types.SimpleNamespace)
     daemon.enable_service()
 
     assert not machine.declined.exists()
-
-
-def test_a_server_still_on_wasms_names_is_left_to_its_migration(
-    machine: types.SimpleNamespace,
-) -> None:
-    """Writing noust-monitor beside wasm-monitor would run two monitors."""
-    (machine.unit_dir / "wasm-monitor.service").write_text("[Service]\n")
-
-    assert monitor(machine).install_by_default() == "legacy"
-    assert not (machine.unit_dir / "noust-monitor.service").exists()
 
 
 def test_a_machine_without_systemd_has_nothing_to_install_into(

@@ -62,23 +62,20 @@ def check(report: PreflightReport, name: str) -> PreflightCheck:
                 "install",
                 "--only-upgrade",
                 "noust",
-                "wasm",
             ],
         ),
         (
             "dnf",
-            ["dnf", "-y", "upgrade", "--refresh", "--setopt=tsflags=test", "noust", "wasm-cli"],
+            ["dnf", "-y", "upgrade", "--refresh", "--setopt=tsflags=test", "noust"],
         ),
-        ("yum", ["yum", "-y", "update", "--setopt=tsflags=test", "noust", "wasm-cli"]),
-        ("zypper", ["zypper", "--non-interactive", "update", "--dry-run", "noust", "wasm-cli"]),
+        ("yum", ["yum", "-y", "update", "--setopt=tsflags=test", "noust"]),
+        ("zypper", ["zypper", "--non-interactive", "update", "--dry-run", "noust"]),
     ],
 )
 def test_each_package_manager_rehearses_the_update_without_changing_anything(
     method: str, argv: list[str]
 ) -> None:
-    names = ("noust", "wasm") if method == "apt" else ("noust", "wasm-cli")
-
-    assert simulation_argv(method, names) == argv
+    assert simulation_argv(method, ("noust",)) == argv
 
 
 @pytest.mark.parametrize("method", ["pip", "pipx", "source", "unknown"])

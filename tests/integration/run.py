@@ -4,8 +4,7 @@ Real-machine integration harness for Noust.
 
 Builds the wheel from the working tree, builds a systemd-under-Docker image,
 starts a privileged container, installs Noust into it from the wheel exactly
-as an operator would (``noust``, with ``wasm`` symlinked alongside it as the
-3.x alias), and runs a set of scenarios over the real CLI against real nginx,
+as an operator would (``noust`` on the PATH), and runs a set of scenarios over the real CLI against real nginx,
 real systemd and a real SQLite store.
 
 This file is intentionally excluded from pytest's default collection: it
@@ -36,7 +35,6 @@ from __future__ import annotations
 import argparse
 import base64
 import contextlib
-import difflib
 import hashlib
 import hmac
 import importlib
@@ -119,35 +117,9 @@ RELEASE_ROOT = "/var/www/apps/rel-test"
 #: The store, wherever this install put it. `core/store.py:_resolve_db_path`
 #: only prefers the system directory (/var/lib/noust) when it already exists
 #: and is writable; nothing in a plain `pip install` creates it, so a fresh
-#: container with no legacy WASM directory still gets the per-user path.
+#: container still gets the per-user path.
 NOUST_DB = "$(ls /var/lib/noust/noust.db /root/.local/share/noust/noust.db 2>/dev/null | head -1)"
 
-#: The released version the upgrade rehearsal (--upgrade) starts from: the
-#: last release published under the WASM name, before the 3.0.0 rename. This
-#: is the most important pre-release scenario for 3.0: a real WASM 2.x
-#: server, with real applications, a webhook token and a scheduled backup,
-#: upgraded to Noust with nothing but `pip install` over the same venv,
-#: exactly as docs/UPGRADING-3.0.md and docs/RENAME.md describe.
-UPGRADE_FROM_VERSION = "2.3.0"
-
-UPGRADE_NODE_DOMAIN = "upg-node.test"
-UPGRADE_NODE_APP = "upg-node-test"
-UPGRADE_NODE_ROOT = f"/var/www/apps/{UPGRADE_NODE_APP}"
-
-UPGRADE_STATIC_DOMAIN = "upg-static.test"
-UPGRADE_STATIC_APP = "upg-static-test"
-UPGRADE_STATIC_ROOT = f"/var/www/apps/{UPGRADE_STATIC_APP}"
-
-#: The cron job and backup schedule the upgrade rehearsal creates on WASM 2.3,
-#: and expects renamed (not recreated) after the upgrade.
-UPGRADE_CRON_NAME = "upg-nightly"
-UPGRADE_TOKEN_NAME = "upg-admin-token"
-
-#: The store before the migration: a fresh WASM 2.3 install with nothing of
-#: Noust's ever having run, so this is the one and only location.
-UPGRADE_OLD_DB = "/var/lib/wasm/wasm.db"
-
-#: The query behind :func:`_store_apps_snapshot`: columns that exist in both
 #: The schema the working tree's store migrates to, read from its source rather than imported:
 #: the harness runs on the host and never imports the package it tests.
 SCHEMA_VERSION = int(
@@ -156,16 +128,6 @@ SCHEMA_VERSION = int(
         (Path(__file__).resolve().parents[2] / "src/noust/core/store.py").read_text(),
         re.MULTILINE,
     ).group(1)  # type: ignore[union-attr]
-)
-
-#: the WASM 2.3 and Noust 3.0 apps table, in a stable order, so the row for
-#: each application can be compared byte-for-byte across the upgrade. A plain
-#: literal - not built with an f-string - like every other query in this
-#: file, so ruff's hardcoded-sql check (S608, which cannot tell a literal
-#: from an injection) has nothing to flag.
-APPS_SNAPSHOT_QUERY = (
-    "SELECT domain, app_type, source, branch, port, webserver, ssl_enabled, status, "
-    "is_static, created_at, deployed_at FROM apps ORDER BY domain"
 )
 
 
@@ -241,9 +203,7 @@ def build_wheel(workdir: Path) -> Path:
         timeout=180,
     )
     # Named for the current distribution only: `outdir` accumulates wheels
-    # across runs (and, for anyone who worked on this tree before 3.0,
-    # WASM-era `wasm_cli-*.whl` files too), and "wasm_cli" sorts after
-    # "noust" - a bare `*.whl` glob picked up a stale pre-rename wheel here.
+    # across runs, and a bare `*.whl` glob picked up a stale pre-rename wheel here.
     wheels = sorted(outdir.glob("noust-*.whl"))
     if not wheels:
         raise HarnessError(f"`python -m build` produced no noust-*.whl wheel in {outdir}")
@@ -351,8 +311,7 @@ def wait_for_systemd(name: str, timeout: int = SYSTEMD_READY_TIMEOUT) -> str:
 def install_noust(name: str, wheel: Path) -> None:
     """Install Noust into a dedicated venv, exactly as documented for operators.
 
-    Symlinks both ``noust`` and its 3.x alias ``wasm`` onto ``/usr/local/bin``
-    from the same venv, so scenarios can exercise either name.
+    Symlinks ``noust`` onto ``/usr/local/bin`` from the venv.
 
     Args:
         name: Container name.
@@ -370,13 +329,9 @@ def install_noust(name: str, wheel: Path) -> None:
         timeout=PIP_INSTALL_TIMEOUT,
     )
     docker_exec(name, "ln -sf /opt/noust/bin/noust /usr/local/bin/noust", timeout=15)
-    docker_exec(name, "ln -sf /opt/noust/bin/wasm /usr/local/bin/wasm", timeout=15)
     result = docker_exec(name, "noust --help", timeout=30)
     print("[setup] noust --help:")
     print(result.stdout)
-    alias = docker_exec(name, "wasm --help", timeout=30)
-    print("[setup] wasm --help (the 3.x alias):")
-    print(alias.stdout)
 
 
 def install_fixtures(name: str) -> None:
@@ -440,153 +395,11 @@ def install_fixtures(name: str) -> None:
     print(f"[setup] {RELEASE_REPO} is served at {RELEASE_URL}")
 
 
-def build_transitional_wheel(workdir: Path) -> Path:
-    """Build the transitional ``wasm-cli`` wheel from ``packaging/transitional/wasm-cli``.
-
-    This is the empty PyPI package a real 3.x release publishes so that an
-    operator's ``pip install -U wasm-cli`` keeps working and brings in
-    ``noust`` (see ``docs/RENAME.md``). Building it locally, the same way
-    :func:`build_wheel` builds the real package, is what lets the upgrade
-    rehearsal exercise that exact command against a pre-release tree, without
-    a network round trip to a project that has not published 3.0.0 yet.
-
-    Args:
-        workdir: Where the harness keeps its build output.
-
-    Returns:
-        Path to the built wheel, on the host.
-    """
-    python = VENV_PYTHON if VENV_PYTHON.exists() else Path(sys.executable)
-    outdir = workdir / "dist-transitional"
-    outdir.mkdir(parents=True, exist_ok=True)
-    sh(
-        [
-            str(python),
-            "-m",
-            "build",
-            "--wheel",
-            "--outdir",
-            str(outdir),
-            str(REPO_ROOT / "packaging" / "transitional" / "wasm-cli"),
-        ],
-        timeout=120,
-    )
-    wheels = sorted(outdir.glob("wasm_cli-*.whl"))
-    if not wheels:
-        raise HarnessError(f"`python -m build` produced no wasm_cli-*.whl wheel in {outdir}")
-    wheel = wheels[-1]
-    print(f"[setup] built the transitional {wheel.name}")
-    return wheel
-
-
-def install_wasm_cli(name: str, version: str) -> None:
-    """Install the real, released WASM from PyPI: the upgrade rehearsal's starting point.
-
-    Mirrors :func:`install_noust`, but pulls the package straight from the
-    index under its old name, because the point of ``--upgrade`` is to start
-    from what an operator running a WASM 2.x server actually has installed
-    today.
-
-    Args:
-        name: Container name.
-        version: The exact ``wasm-cli`` version to install, e.g. "2.3.0".
-    """
-    print(f"[setup] creating /opt/wasm venv and installing wasm-cli=={version} from PyPI")
-    docker_exec(name, "python3 -m venv /opt/wasm", timeout=60)
-    docker_exec(name, "/opt/wasm/bin/pip install --quiet --upgrade pip", timeout=120)
-    docker_exec(
-        name,
-        f"/opt/wasm/bin/pip install --quiet 'wasm-cli[all]=={version}'",
-        timeout=PIP_INSTALL_TIMEOUT,
-    )
-    docker_exec(name, "ln -sf /opt/wasm/bin/wasm /usr/local/bin/wasm", timeout=15)
-    result = docker_exec(name, "wasm --version", timeout=30)
-    print(f"[setup] installed {result.stdout.strip()}")
-
-
-def upgrade_to_noust(name: str, wheel: Path, transitional_wheel: Path) -> None:
-    """Upgrade the venv in place to Noust, the way ``docs/RENAME.md`` tells a pip user to.
-
-    A real operator runs a single ``pip install -U wasm-cli``: the
-    transitional package (built by :func:`build_transitional_wheel`) depends
-    on ``noust==<same version>``, so pip installs ``noust`` and only then
-    removes the real ``wasm-cli`` 2.x, whose file list includes ``bin/wasm``
-    (the comment in ``packaging/transitional/wasm-cli/pyproject.toml``
-    explains why the transitional package declares that entry point itself).
-
-    This working tree's ``pyproject.toml`` has not been bumped past
-    :data:`UPGRADE_FROM_VERSION` yet (see the final report), so the
-    transitional wheel built from it carries the *same* version number as
-    the real ``wasm-cli`` already installed, and pip's dependency resolver
-    treats identical-version requirements as already satisfied - a single
-    ``pip install --upgrade`` would do nothing, silently turning this whole
-    rehearsal into a no-op. Splitting the one command into two sidesteps it
-    without a ``--force-reinstall`` that would also be applied to every one
-    of ``noust``'s already-installed dependencies (click, fastapi, ...),
-    which ``--no-index`` (deliberate: this is a pre-release tree, and PyPI
-    has no matching ``noust`` to resolve against) would then fail to find:
-
-    1. Install ``noust[all]==<version>`` from the two wheels given, with
-       nothing forced: its dependencies are already on the venv from the
-       ``wasm-cli[all]`` install below, and pip leaves a satisfied
-       requirement alone.
-    2. Force-reinstall (``--no-deps``, since ``noust`` is already there and
-       correct) the empty transitional ``wasm-cli`` over the real one, which
-       removes the real package's code and puts back ``bin/wasm`` pointing at
-       ``noust``.
-
-    Args:
-        name: Container name.
-        wheel: Path to the ``noust`` wheel built from the working tree, on
-            the host.
-        transitional_wheel: Path to the transitional ``wasm-cli`` wheel built
-            by :func:`build_transitional_wheel`, on the host.
-    """
-    print(f"[setup] copying {wheel.name} and {transitional_wheel.name} into the container")
-    docker_exec(name, "mkdir -p /tmp/noust-upgrade-wheels", timeout=15)
-    for path in (wheel, transitional_wheel):
-        sh(["docker", "cp", str(path), f"{name}:/tmp/noust-upgrade-wheels/{path.name}"], timeout=60)
-    docker_exec(
-        name,
-        # The wheel by path, and its dependencies from the index: 3.1 added one
-        # (cryptography, for passkeys) that WASM 2.3 never installed, which a
-        # real `pip install -U wasm-cli` fetches. Pinning by name instead would
-        # let the index's own noust of the same version win over this tree's.
-        f"/opt/wasm/bin/pip install --quiet '/tmp/noust-upgrade-wheels/{wheel.name}[all]'",
-        timeout=PIP_INSTALL_TIMEOUT,
-    )
-    docker_exec(
-        name,
-        "/opt/wasm/bin/pip install --quiet --no-index --find-links=/tmp/noust-upgrade-wheels "
-        "--force-reinstall --no-deps wasm-cli",
-        timeout=PIP_INSTALL_TIMEOUT,
-    )
-    # A real operator's `pip install -U wasm-cli` runs inside a venv whose
-    # bin/ is already on PATH (or is the system interpreter); /opt/wasm/bin
-    # is exposed the same way install_wasm_cli set it up for `wasm`, so
-    # `noust` gets the same treatment now that pip has put it there too.
-    docker_exec(name, "ln -sf /opt/wasm/bin/noust /usr/local/bin/noust", timeout=15)
-    docker_exec(name, "ln -sf /opt/wasm/bin/wasm /usr/local/bin/wasm", timeout=15)
-    # Never `noust --version` to check this: cli/app.py's entrypoint() runs
-    # the automatic migration before main() ever looks at argv, for every
-    # invocation, --version included (should_run_automatically() only skips
-    # it for --dry-run, migrate-from-wasm, or a non-root euid). Checking the
-    # upgrade with the real CLI would silently perform the very migration
-    # run_upgrade_rehearsal means to observe on its own first command, below.
-    # Reading noust.__version__ confirms what pip installed without invoking
-    # the CLI at all.
-    result = docker_exec(
-        name, "/opt/wasm/bin/python3 -c 'import noust; print(noust.__version__)'", timeout=30
-    )
-    print(f"[setup] upgraded to {result.stdout.strip()}")
-
-
 def wheel_version(wheel: Path) -> str:
     """The version a wheel carries, from its file name (``noust-3.1.0-py3-none-any.whl``).
 
-    The upgrade steps pin ``noust`` to the working tree's version: pinning it to
-    :data:`UPGRADE_FROM_VERSION` only held while the tree was still at 2.3.0, and
-    against any later tree ``--no-index`` finds nothing to install.
+    The upgrade steps pin ``noust`` to the working tree's version, so that
+    ``--no-index`` finds the wheel it was given.
     """
     return wheel.name.split("-")[1]
 
@@ -1291,9 +1104,7 @@ def scenario_release_rollback(sc: Scenario) -> None:
 def scenario_status_and_list(sc: Scenario) -> None:
     """`noust status` and `noust list` succeed and mention the deployed apps.
 
-    Also where the ``wasm`` alias (kept for the whole 3.x series) is
-    exercised: it must behave identically, including under ``--json``, where
-    nothing but the JSON itself may be on stdout.
+    Also under ``--json``, where nothing but the JSON itself may be on stdout.
     """
     status = sc.run("noust status node.test", timeout=30, label="noust status node.test")
     sc.check(status.returncode == 0, "noust status node.test failed")
@@ -1305,16 +1116,8 @@ def scenario_status_and_list(sc: Scenario) -> None:
         f"noust list did not mention both deployed apps: {listing.stdout!r}",
     )
 
-    alias_status = sc.run("wasm status node.test", timeout=30, label="wasm status node.test")
-    sc.check(alias_status.returncode == 0, "the `wasm` alias failed a command `noust` accepts")
-
     noust_json = sc.run("noust list --json", timeout=30, label="noust list --json").stdout
-    wasm_json = sc.run("wasm list --json", timeout=30, label="wasm list --json").stdout
-    sc.check(
-        wasm_json == noust_json,
-        f"`wasm list --json` differs from `noust list --json`:\n{wasm_json!r}\n{noust_json!r}",
-    )
-    json.loads(wasm_json)  # raises if the alias printed anything besides the JSON
+    json.loads(noust_json)  # raises if anything besides the JSON was printed
 
 
 #: The strict policy the console is served under (plan, Global Constraints).
@@ -3816,23 +3619,6 @@ def _export_import(sc: Scenario) -> None:
     sc.check(f"APP_SECRET={EXPORT_SECRET}" in env_file, "the exported secret did not come back")
 
 
-@dataclass
-class UpgradeApp:
-    """One application the upgrade rehearsal deploys with WASM 2.3 and re-checks under Noust."""
-
-    label: str
-    domain: str
-    app_name: str
-    root: str
-    #: Static sites have no process and therefore no systemd unit
-    #: (deployers/static.py: create_service "No service needed").
-    has_unit: bool = True
-
-    @property
-    def unit(self) -> str:
-        return self.app_name
-
-
 #: The build sandbox scenario: its repository (tests/integration/fixtures/
 #: evil-postinstall, whose postinstall attacks the server), its two
 #: applications, and what the postinstall tries to leave on the host.
@@ -4243,556 +4029,6 @@ def scenario_sandbox_runner(sc: Scenario) -> None:
         sc.check("MemoryMax=64M" in words, f"the memory kill is not named: {words!r}")
 
 
-def _app_tree_checksums(sc: Scenario, root: str, label: str) -> str:
-    """Sorted sha256sum of every regular file under root, node_modules and .git excluded."""
-    return sc.run(
-        f"find {root} -type f -not -path '*/node_modules/*' -not -path '*/node_modules' "
-        "-not -path '*/.git/*' -not -path '*/.git' "
-        "-print0 | sort -z | xargs -0 sha256sum",
-        timeout=60,
-        label=label,
-    ).stdout
-
-
-def _app_tree_ownership(sc: Scenario, root: str, label: str) -> str:
-    """user:group:mode for every entry under root, node_modules and .git excluded."""
-    return sc.run(
-        f"find {root} -not -path '*/node_modules/*' -not -path '*/node_modules' "
-        "-not -path '*/.git/*' -not -path '*/.git' "
-        "-printf '%u:%g:%m %P\\n' | sort",
-        timeout=30,
-        label=label,
-    ).stdout
-
-
-def _unified_diff(before: str, after: str, label: str) -> str:
-    """A unified diff between two snapshots, or an explicit statement that there is none."""
-    diff = "".join(
-        difflib.unified_diff(
-            before.splitlines(keepends=True),
-            after.splitlines(keepends=True),
-            fromfile=f"wasm-2.3/{label}",
-            tofile=f"noust-3.0/{label}",
-        )
-    )
-    return diff if diff else f"(no differences: {label})"
-
-
-def _snapshot_app(sc: Scenario, app: UpgradeApp, when: str) -> dict[str, str]:
-    """Capture the nginx site, the unit (if any), ownership and checksums of one app."""
-    nginx = sc.run(
-        f"cat /etc/nginx/sites-available/{app.domain}",
-        timeout=15,
-        label=f"[{when}] cat /etc/nginx/sites-available/{app.domain}",
-    ).stdout
-    unit = ""
-    if app.has_unit:
-        unit = sc.run(
-            f"systemctl cat {app.unit}",
-            timeout=15,
-            label=f"[{when}] systemctl cat {app.unit}",
-        ).stdout
-    ownership = _app_tree_ownership(sc, app.root, f"[{when}] ownership of {app.root}")
-    checksums = _app_tree_checksums(
-        sc, app.root, f"[{when}] sha256sum of {app.root} (node_modules excluded)"
-    )
-    return {"nginx": nginx, "unit": unit, "ownership": ownership, "checksums": checksums}
-
-
-def _store_apps_snapshot(sc: Scenario, db: str, label: str) -> str:
-    """A dump of every app row's shared columns, from whichever store file holds them now."""
-    return sc.run(store_query_at(db, APPS_SNAPSHOT_QUERY), timeout=15, label=label).stdout
-
-
-def _unit_state(sc: Scenario, unit: str, label: str) -> tuple[str, str]:
-    """(is-enabled, is-active) of a unit; "unknown" rather than failing when it is absent."""
-    proc = sc.run(
-        f"systemctl is-enabled {unit} 2>/dev/null || echo unknown; "
-        f"systemctl is-active {unit} 2>/dev/null || echo unknown",
-        timeout=15,
-        check=False,
-        label=label,
-    )
-    enabled, _, active = proc.stdout.strip().partition("\n")
-    return enabled.strip(), active.strip()
-
-
-def run_upgrade_rehearsal(sc: Scenario, wheel: Path, transitional_wheel: Path) -> None:
-    """Deploy with the real, released WASM 2.3, upgrade to Noust, and check every promise.
-
-    Deploys a Node app on the release layout with an upload persisted in
-    ``shared/``, a static site, a cron job and a scheduled local backup (run
-    once, so a real archive exists), and enables the console as a systemd
-    service with an admin API token - all with the real ``wasm-cli==2.3.0``
-    from PyPI, the last release published under the WASM name. Before the
-    package is ever touched, the backups directory is put into the exact
-    on-disk state a migration crashing between renaming it and leaving its
-    symlink in place would leave (see the comment where that happens), so
-    that the upgrade below both migrates the server normally and resumes
-    that one interrupted step in the same run.
-
-    Upgrades the very same venv to Noust the way ``docs/RENAME.md`` tells an
-    operator to (see :func:`upgrade_to_noust`), then runs ``noust status`` -
-    an operator's first privileged command - and checks, with real commands
-    against real nginx, real systemd and the real store: the migration it
-    triggers on its own moves every directory, the store and WASM's own
-    units without losing a row or leaving an empty store; the applications'
-    own units, sites and trees are byte-for-byte unchanged; the admin token
-    still authenticates against the console, now running as
-    ``noust-web.service``; and running the migration, or the first command,
-    again is a no-op. Finally it exercises the ``wasm`` alias one last time,
-    against the upgraded install.
-
-    Args:
-        sc: Scenario the rehearsal runs its commands and checks through.
-        wheel: Path to the ``noust`` wheel built from the working tree, on
-            the host.
-        transitional_wheel: Path to the transitional ``wasm-cli`` wheel, on
-            the host.
-    """
-    container = sc.container
-    apps = [
-        UpgradeApp("node", UPGRADE_NODE_DOMAIN, UPGRADE_NODE_APP, UPGRADE_NODE_ROOT),
-        UpgradeApp(
-            "static", UPGRADE_STATIC_DOMAIN, UPGRADE_STATIC_APP, UPGRADE_STATIC_ROOT, has_unit=False
-        ),
-    ]
-    legacy_cron_timer = f"wasm-cron-{UPGRADE_CRON_NAME}.timer"
-    legacy_backup_timer = f"wasm-backup-{UPGRADE_STATIC_APP}.timer"
-    noust_cron_timer = f"noust-cron-{UPGRADE_CRON_NAME}.timer"
-    noust_backup_timer = f"noust-backup-{UPGRADE_STATIC_APP}.timer"
-
-    # --- Enable the monitor first: on a real server (systemd's own
-    # --- StateDirectory=wasm on its unit, not the package) this is what
-    # --- gives /var/lib/wasm a real directory before anything touches the
-    # --- store; a bare `pip install` here has nothing else that would (see
-    # --- core/store.py:_resolve_db_path and rpm/noust.spec's changelog for
-    # --- the exact regression this order avoids: the store falling back to
-    # --- ~/.local/share/wasm and the migration having nothing at
-    # --- /var/lib/wasm to move).
-
-    sc.run("wasm monitor enable", timeout=60, label="[wasm 2.3] wasm monitor enable")
-    sc.check(
-        sc.run(
-            "test -d /var/lib/wasm && echo present",
-            timeout=15,
-            check=False,
-            label="[wasm 2.3] test -d /var/lib/wasm (systemd's StateDirectory=wasm)",
-        ).stdout.strip()
-        == "present",
-        "/var/lib/wasm was not created by enabling the monitor",
-    )
-
-    # --- Deploy every application with the real, released WASM 2.3 CLI ------
-
-    sc.run(
-        f"wasm create -d {UPGRADE_NODE_DOMAIN} -s /root/fixtures/node-app -t nodejs --no-ssl "
-        "--layout releases --persist uploads",
-        timeout=DEPLOY_TIMEOUT,
-        label=f"[wasm 2.3] wasm create -d {UPGRADE_NODE_DOMAIN} -s /root/fixtures/node-app "
-        "-t nodejs --no-ssl --layout releases --persist uploads",
-    )
-    page = sc.run(
-        f"curl -sS -H 'Host: {UPGRADE_NODE_DOMAIN}' http://127.0.0.1/",
-        timeout=30,
-        label=f"[wasm 2.3] curl -H 'Host: {UPGRADE_NODE_DOMAIN}' http://127.0.0.1/",
-    )
-    sc.check(page.stdout.strip() == "ok 1", f"expected 'ok 1', got {page.stdout!r}")
-    upload = sc.run(
-        f"curl -sS -H 'Host: {UPGRADE_NODE_DOMAIN}' --data-binary 'pre-upgrade-upload' "
-        "http://127.0.0.1/upload",
-        timeout=30,
-        label=f"[wasm 2.3] curl -H 'Host: {UPGRADE_NODE_DOMAIN}' --data-binary ... /upload",
-    )
-    sc.check("uploaded" in upload.stdout, f"upload did not succeed: {upload.stdout!r}")
-    shared_upload = sc.run(
-        f"cat {UPGRADE_NODE_ROOT}/shared/uploads/upload.txt",
-        timeout=15,
-        label="[wasm 2.3] cat shared/uploads/upload.txt (the release layout keeps it in shared/)",
-    )
-    sc.check(
-        "pre-upgrade-upload" in shared_upload.stdout,
-        "the upload did not land in shared/ on the release layout",
-    )
-
-    sc.run(
-        f"wasm create -d {UPGRADE_STATIC_DOMAIN} -s /root/fixtures/static-site -t static --no-ssl",
-        timeout=DEPLOY_TIMEOUT,
-        label=f"[wasm 2.3] wasm create -d {UPGRADE_STATIC_DOMAIN} -s /root/fixtures/static-site "
-        "-t static --no-ssl",
-    )
-    apex = sc.run(
-        f"curl -sS -H 'Host: {UPGRADE_STATIC_DOMAIN}' http://127.0.0.1/",
-        timeout=30,
-        label=f"[wasm 2.3] curl -H 'Host: {UPGRADE_STATIC_DOMAIN}' http://127.0.0.1/",
-    )
-    sc.check(
-        "Noust Integration Static Fixture" in apex.stdout,
-        f"the static site did not serve the fixture: {apex.stdout!r}",
-    )
-
-    sc.run(
-        f"wasm cron create {UPGRADE_CRON_NAME} '/bin/true' --schedule daily "
-        f"--app {UPGRADE_NODE_DOMAIN}",
-        timeout=60,
-        label=f"[wasm 2.3] wasm cron create {UPGRADE_CRON_NAME} '/bin/true' --schedule daily "
-        f"--app {UPGRADE_NODE_DOMAIN}",
-    )
-    sc.run(
-        f"wasm backup schedule create {UPGRADE_STATIC_DOMAIN} --schedule daily --retention-count 2",
-        timeout=60,
-        label=f"[wasm 2.3] wasm backup schedule create {UPGRADE_STATIC_DOMAIN} --schedule daily "
-        "--retention-count 2",
-    )
-    sc.run(
-        f"wasm backup run-schedule {UPGRADE_STATIC_DOMAIN}",
-        timeout=300,
-        label=f"[wasm 2.3] wasm backup run-schedule {UPGRADE_STATIC_DOMAIN} (one real archive, "
-        "for the interrupted-migration rehearsal below)",
-    )
-    old_backup = sc.run(
-        f"ls /var/backups/wasm/{UPGRADE_STATIC_APP}/{UPGRADE_STATIC_APP}_*.tar.gz",
-        timeout=15,
-        label="[wasm 2.3] the local backup archive run-schedule just took",
-    ).stdout.strip()
-    sc.check(bool(old_backup), "no local backup archive was created")
-
-    sc.run("wasm web enable", timeout=60, label="[wasm 2.3] wasm web enable")
-    health: subprocess.CompletedProcess[str] | None = None
-    deadline = time.time() + 30
-    while time.time() < deadline:
-        health = sc.run(
-            f"curl -sS -o /dev/null -w '%{{http_code}}' {PANEL_URL}/health",
-            timeout=15,
-            check=False,
-            label=f"[wasm 2.3] curl -o /dev/null -w '%{{http_code}}' {PANEL_URL}/health",
-        )
-        if health.stdout.strip() == "200":
-            break
-        time.sleep(1)
-    sc.check(
-        health is not None and health.stdout.strip() == "200",
-        f"the WASM 2.3 console did not answer /health: {health.stdout if health else None!r}",
-    )
-    issued = sc.run(
-        f"wasm token create {UPGRADE_TOKEN_NAME} --scope admin",
-        timeout=30,
-        label=f"[wasm 2.3] wasm token create {UPGRADE_TOKEN_NAME} --scope admin",
-    )
-    token_match = re.search(r"Token:\s*(\S+)", issued.stdout)
-    sc.check(token_match is not None, "wasm token create printed no token")
-    token = token_match.group(1) if token_match else ""
-    sc.evidence[-1] = sc.evidence[-1].replace(token, "<token>")
-    code, session = api(sc, token, "GET", "/api/auth/session", "[wasm 2.3] GET /api/auth/session")
-    sc.check(
-        code == 200 and session.get("authenticated") is True,
-        f"the token does not authenticate against the WASM 2.3 console: {code} {session!r}",
-    )
-
-    # --- Simulate a migration interrupted between renaming a directory and --
-    # --- putting its symlink back, before anything is ever migrated ---------
-    #
-    # Migrator._move_directory (core/migrate_from_wasm.py) builds a pending
-    # symlink, renames the legacy directory onto the new name, and only then
-    # renames the pending link over the legacy name; a crash in that last
-    # step leaves exactly this on disk, and the module promises that running
-    # again finishes it - the same promise
-    # tests/test_migrate_from_wasm.py::test_a_run_that_crashed_mid_way_is_completed
-    # proves against a fake filesystem. Reproducing the on-disk state by hand
-    # here, on the backups directory alone, means the very first
-    # `noust status` below both migrates the server normally *and* resumes
-    # this one interrupted step, in the same run.
-    sc.run(
-        f"test -d /var/backups/wasm && test -f {old_backup} && "
-        "ln -s /var/backups/noust /var/backups/.wasm.noust-migration && "
-        "mv /var/backups/wasm /var/backups/noust",
-        timeout=15,
-        label="simulate a migration interrupted right after /var/backups/wasm was renamed, "
-        "before the symlink was put back in its place",
-    )
-
-    # --- Snapshot everything before the package is ever touched -------------
-
-    before_snapshots = {app.label: _snapshot_app(sc, app, "wasm-2.3") for app in apps}
-    before_apps_rows = _store_apps_snapshot(
-        sc, UPGRADE_OLD_DB, "[wasm 2.3] SELECT every app row's shared columns"
-    )
-    before_app_count = sc.run(
-        store_query_at(UPGRADE_OLD_DB, "SELECT COUNT(*) FROM apps"),
-        timeout=15,
-        label="[wasm 2.3] SELECT COUNT(*) FROM apps",
-    ).stdout.strip()
-    sc.check(before_app_count == "2", f"expected 2 apps before the upgrade: {before_app_count!r}")
-
-    cron_before = _unit_state(sc, legacy_cron_timer, f"[wasm 2.3] the state of {legacy_cron_timer}")
-    backup_before = _unit_state(
-        sc, legacy_backup_timer, f"[wasm 2.3] the state of {legacy_backup_timer}"
-    )
-    web_before = _unit_state(sc, "wasm-web.service", "[wasm 2.3] the state of wasm-web.service")
-    monitor_before = _unit_state(
-        sc, "wasm-monitor.service", "[wasm 2.3] the state of wasm-monitor.service"
-    )
-    for what, state in (
-        ("cron", cron_before),
-        ("backup", backup_before),
-        ("console", web_before),
-        ("monitor", monitor_before),
-    ):
-        sc.check(
-            state == ("enabled", "active"),
-            f"the WASM 2.3 {what} unit is not enabled and active before the upgrade: {state!r}",
-        )
-
-    # --- Upgrade: `pip install -U wasm-cli`, the way docs/RENAME.md tells an -
-    # --- operator to (see upgrade_to_noust's docstring for the two-step -----
-    # --- workaround this same-version pre-release tree needs) ---------------
-
-    upgrade_to_noust(container, wheel, transitional_wheel)
-
-    # --- The first root command: `noust status` migrates on its own ---------
-
-    first_root = sc.run(
-        f"noust status {UPGRADE_NODE_DOMAIN}",
-        timeout=30,
-        label=f"[noust] noust status {UPGRADE_NODE_DOMAIN} (the first root command)",
-    )
-    sc.check(first_root.returncode == 0, f"noust status failed:\n{first_root.stdout}")
-    sc.check(
-        "migrating this server from WASM to Noust's names" in first_root.stderr,
-        f"the first root command did not announce the migration: {first_root.stderr!r}",
-    )
-    sc.check(
-        "linked /var/backups/wasm to /var/backups/noust" in first_root.stderr,
-        "the interrupted backups migration was not resumed as a `finish linking` step: "
-        f"{first_root.stderr!r}",
-    )
-
-    # --- The store: no empty one was created, every app row survived --------
-
-    after_app_count = sc.run(
-        store_query("SELECT COUNT(*) FROM apps"),
-        timeout=15,
-        label="[noust] SELECT COUNT(*) FROM apps",
-    ).stdout.strip()
-    sc.check(
-        after_app_count == before_app_count,
-        f"expected {before_app_count} apps after the upgrade, found {after_app_count}: "
-        "an empty store may have been created instead of the migrated one",
-    )
-    after_apps_rows = _store_apps_snapshot(sc, NOUST_DB, "[noust] SELECT every app row's columns")
-    sc.check(
-        after_apps_rows == before_apps_rows,
-        "app rows changed across the upgrade in a column shared by both:\n"
-        f"before:\n{before_apps_rows}\nafter:\n{after_apps_rows}",
-    )
-    schema = sc.run(
-        store_query("SELECT MAX(version) FROM schema_version"),
-        timeout=15,
-        label="[noust] SELECT MAX(version) FROM schema_version",
-    )
-    sc.check(
-        schema.stdout.strip() == str(SCHEMA_VERSION),
-        f"the store did not migrate to schema v{SCHEMA_VERSION}: {schema.stdout!r}",
-    )
-
-    # --- /var/lib/wasm and /etc/wasm are symlinks to the new directories -----
-
-    links = sc.run(
-        "readlink /var/lib/wasm; readlink /etc/wasm; readlink /var/backups/wasm",
-        timeout=15,
-        label="[noust] readlink /var/lib/wasm /etc/wasm /var/backups/wasm",
-    ).stdout.split()
-    sc.check(
-        links == ["/var/lib/noust", "/etc/noust", "/var/backups/noust"],
-        f"the legacy directories are not links to their Noust names: {links!r}",
-    )
-    kept_backup = sc.run(
-        f"ls /var/backups/noust/{UPGRADE_STATIC_APP}/{UPGRADE_STATIC_APP}_*.tar.gz",
-        timeout=15,
-        label="[noust] the backup archive, through the migrated directory",
-    ).stdout.strip()
-    sc.check(bool(kept_backup), "the backup archive did not survive the interrupted migration")
-
-    # --- WASM's own units were replaced by noust-*, enabled and active ------
-
-    web_after = _unit_state(sc, "noust-web.service", "[noust] the state of noust-web.service")
-    cron_after = _unit_state(sc, noust_cron_timer, f"[noust] the state of {noust_cron_timer}")
-    backup_after = _unit_state(sc, noust_backup_timer, f"[noust] the state of {noust_backup_timer}")
-    monitor_after = _unit_state(
-        sc, "noust-monitor.service", "[noust] the state of noust-monitor.service"
-    )
-    for what, state in (
-        ("console", web_after),
-        ("cron", cron_after),
-        ("backup", backup_after),
-        ("monitor", monitor_after),
-    ):
-        sc.check(
-            state == ("enabled", "active"),
-            f"the noust-* {what} unit is not enabled and active after the upgrade: {state!r}",
-        )
-    gone = sc.run(
-        f"test -e /etc/systemd/system/wasm-web.service && echo present; "
-        f"test -e /etc/systemd/system/wasm-monitor.service && echo present; "
-        f"test -e /etc/systemd/system/{legacy_cron_timer} && echo present; "
-        f"test -e /etc/systemd/system/{legacy_backup_timer} && echo present; "
-        "true",
-        timeout=15,
-        label="[noust] the old wasm-web/wasm-monitor/wasm-cron/wasm-backup unit files",
-    ).stdout
-    sc.check(gone.strip() == "", f"a legacy unit file was not removed:\n{gone}")
-
-    # --- The applications' own units, sites and trees are untouched ---------
-
-    after_snapshots = {app.label: _snapshot_app(sc, app, "noust-3.0") for app in apps}
-    for app in apps:
-        before = before_snapshots[app.label]
-        after = after_snapshots[app.label]
-        for key in ("nginx", "unit", "ownership", "checksums"):
-            if key == "unit" and not app.has_unit:
-                continue
-            diff = _unified_diff(before[key], after[key], f"{app.label}/{key}")
-            sc.evidence.append(f"$ diff {app.label}/{key} (wasm-2.3 vs noust-3.0)\n{diff}")
-            sc.check(
-                not diff.startswith("---"),
-                f"{app.label}'s {key} changed across the upgrade:\n{diff}",
-            )
-
-    page = sc.run(
-        f"curl -sS -H 'Host: {UPGRADE_NODE_DOMAIN}' http://127.0.0.1/",
-        timeout=30,
-        label=f"[noust] curl -H 'Host: {UPGRADE_NODE_DOMAIN}' http://127.0.0.1/",
-    )
-    sc.check(page.stdout.strip() == "ok 1", f"the node app stopped serving: {page.stdout!r}")
-    apex = sc.run(
-        f"curl -sS -H 'Host: {UPGRADE_STATIC_DOMAIN}' http://127.0.0.1/",
-        timeout=30,
-        label=f"[noust] curl -H 'Host: {UPGRADE_STATIC_DOMAIN}' http://127.0.0.1/",
-    )
-    sc.check(
-        "Noust Integration Static Fixture" in apex.stdout,
-        f"the static site stopped serving: {apex.stdout!r}",
-    )
-    upload_after = sc.run(
-        f"cat {UPGRADE_NODE_ROOT}/shared/uploads/upload.txt",
-        timeout=15,
-        check=False,
-        label="[noust] cat shared/uploads/upload.txt",
-    )
-    sc.check(
-        upload_after.returncode == 0 and "pre-upgrade-upload" in upload_after.stdout,
-        "the pre-upgrade upload did not survive the migration",
-    )
-
-    # --- The token still authenticates, against the console running as ------
-    # --- noust-web.service (the migration started it under its new name) ----
-
-    code, session = api(sc, token, "GET", "/api/auth/session", "[noust] GET /api/auth/session")
-    sc.check(
-        code == 200 and session.get("authenticated") is True,
-        f"the pre-upgrade token no longer authenticates: {code} {session!r}",
-    )
-
-    # --- Running the migration, or the first command, again is a no-op ------
-
-    again = sc.run(
-        "noust migrate-from-wasm --json",
-        timeout=30,
-        label="[noust] noust migrate-from-wasm --json (run again)",
-    )
-    report = json.loads(again.stdout)
-    sc.check(
-        again.returncode == 0 and report.get("steps") == [],
-        f"a second `noust migrate-from-wasm` still had something to do: {report!r}",
-    )
-    second_root = sc.run(
-        f"noust status {UPGRADE_NODE_DOMAIN}",
-        timeout=30,
-        label=f"[noust] noust status {UPGRADE_NODE_DOMAIN} (a second time)",
-    )
-    sc.check(
-        "migrating this server from WASM" not in second_root.stderr,
-        f"a fully migrated server announced another migration: {second_root.stderr!r}",
-    )
-
-    # --- The `wasm` alias, one last time, against the upgraded install ------
-
-    alias_status = sc.run(
-        f"wasm status {UPGRADE_NODE_DOMAIN}",
-        timeout=30,
-        label=f"[noust] wasm status {UPGRADE_NODE_DOMAIN} (the alias, after the upgrade)",
-    )
-    sc.check(alias_status.returncode == 0, "the `wasm` alias failed after the upgrade to Noust")
-
-    version_after = sc.run("noust --version", timeout=30, label="[noust] noust --version").stdout
-    sc.evidence.append(
-        f"NOTE: `noust --version` after the upgrade: {version_after.strip()!r}. This working "
-        f"tree's pyproject.toml is still at {UPGRADE_FROM_VERSION} (not yet bumped for the 3.0.0 "
-        "release - see scripts/release.py and the Releasing section of CONTRIBUTING.md); "
-        "upgrade_to_noust's docstring explains how the upgrade step compensates for the two "
-        "packages (the real wasm-cli and this tree's noust) sharing that version number."
-    )
-
-
-def run_upgrade_mode(wheel: Path, transitional_wheel: Path, *, keep: bool) -> int:
-    """Run the WASM 2.3 -> Noust 3.0 upgrade rehearsal (:func:`run_upgrade_rehearsal`) end to end.
-
-    Args:
-        wheel: Path to the ``noust`` wheel built from the working tree, on the host.
-        transitional_wheel: Path to the transitional ``wasm-cli`` wheel, on the host.
-        keep: Do not remove the container when done.
-
-    Returns:
-        0 if the rehearsal passed, 1 otherwise.
-    """
-    started_at = time.monotonic()
-    name = random_container_name()
-    sc = Scenario(container=name)
-    failed = False
-    error: str | None = None
-    setup_error: str | None = None
-
-    try:
-        try:
-            start_container(name)
-            wait_for_systemd(name)
-            install_fixtures(name)
-            install_wasm_cli(name, UPGRADE_FROM_VERSION)
-        except HarnessError as exc:
-            setup_error = str(exc)
-        else:
-            print("\n=== upgrade_wasm_2_3_to_noust_3_0 ===")
-            try:
-                run_upgrade_rehearsal(sc, wheel, transitional_wheel)
-            except AssertionError as exc:
-                failed = True
-                error = str(exc)
-            except HarnessError as exc:
-                failed = True
-                error = str(exc)
-            else:
-                print("PASS: upgrade_wasm_2_3_to_noust_3_0")
-    finally:
-        if sc.evidence:
-            print("--- evidence ---")
-            print("\n\n".join(sc.evidence))
-        if keep:
-            print(f"\n[teardown] --keep given, leaving container {name} running")
-        else:
-            print(f"\n[teardown] removing container {name}")
-            remove_container(name)
-
-    elapsed = time.monotonic() - started_at
-    if setup_error is not None:
-        print(f"\n[setup] FAILED before the rehearsal ran: {setup_error}")
-        print(f"\n[summary] 0/0 scenario(s) run, setup failed, {elapsed:.1f}s total")
-        return 1
-    if failed:
-        print(f"FAIL: upgrade_wasm_2_3_to_noust_3_0: {error}")
-    print(f"\n[summary] 1 scenario(s) run, {1 if failed else 0} failure(s), {elapsed:.1f}s total")
-    return 1 if failed else 0
-
-
 # ---------------------------------------------------------------------------
 # Upgrade rehearsal: Noust 3.0 -> 3.1 (--upgrade-from-3.0; not in the default suite)
 # ---------------------------------------------------------------------------
@@ -4838,7 +4074,6 @@ def install_noust_release(name: str, version: str) -> None:
         timeout=PIP_INSTALL_TIMEOUT,
     )
     docker_exec(name, "ln -sf /opt/noust/bin/noust /usr/local/bin/noust", timeout=15)
-    docker_exec(name, "ln -sf /opt/noust/bin/wasm /usr/local/bin/wasm", timeout=15)
     result = docker_exec(name, "noust --version", timeout=30)
     print(f"[setup] installed {result.stdout.strip()}")
 
@@ -8814,14 +8049,6 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
-        "--upgrade",
-        action="store_true",
-        help=(
-            "Run only the WASM 2.3 -> Noust 3.0 upgrade rehearsal, in its own container, "
-            "instead of the regular scenario suite. --scenario is ignored when this is given."
-        ),
-    )
-    parser.add_argument(
         "--upgrade-from-3.0",
         dest="upgrade_from_30",
         action="store_true",
@@ -9693,10 +8920,6 @@ def main() -> int:
         import scenarios_fleet_mixed
 
         return scenarios_fleet_mixed.run_mixed_fleet_mode(wheel, keep=args.keep)
-
-    if args.upgrade:
-        transitional_wheel = build_transitional_wheel(workdir)
-        return run_upgrade_mode(wheel, transitional_wheel, keep=args.keep)
 
     name = args.reuse or random_container_name()
     failures = 0

@@ -89,12 +89,9 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-# PID file location. A console started by WASM before 3.0 wrote the legacy
-# name, which is still read so it can be stopped after the upgrade.
+# PID file location.
 PID_FILE = paths.WEB_PID_FILE
-LEGACY_PID_FILE = paths.LEGACY_WEB_PID_FILE
 PID_FILE_USER = Path.home() / f".{paths.NAME}" / "web.pid"
-LEGACY_PID_FILE_USER = Path.home() / f".{paths.LEGACY_NAME}" / "web.pid"
 
 #: Where the pair minted by ``--self-signed`` lives. A fixed place, so the
 #: pair is reused across restarts and an operator can point a monitoring
@@ -125,9 +122,6 @@ PORT_SUGGESTION_SPAN = 20
 #: marks Noust's own units, next to ``noust-monitor``.
 WEB_UNIT = paths.WEB_UNIT
 WEB_UNIT_FILE = f"{WEB_UNIT}.service"
-#: What WASM called it. Until the migration renames it, a 2.x server's console
-#: still runs under this name, and status, stop and disable find it there.
-LEGACY_WEB_UNIT = paths.LEGACY_WEB_UNIT
 
 #: The template it is rendered from, under ``templates/systemd``.
 WEB_UNIT_TEMPLATE = "noust-web"
@@ -160,16 +154,9 @@ def get_pid_file() -> Path:
     Return the PID file this process may write.
 
     Returns:
-        ``/run/noust-web.pid`` for root, a path under ``~/.noust`` otherwise;
-        the WASM name instead while only it exists, which is a console a 2.x
-        release started and this one must still be able to stop.
+        ``/run/noust-web.pid`` for root, a path under ``~/.noust`` otherwise.
     """
-    current, legacy = (
-        (PID_FILE, LEGACY_PID_FILE) if os.geteuid() == 0 else (PID_FILE_USER, LEGACY_PID_FILE_USER)
-    )
-    if not current.exists() and legacy.is_file():
-        return legacy
-    return current
+    return PID_FILE if os.geteuid() == 0 else PID_FILE_USER
 
 
 def _exit(code: int) -> NoReturn:
@@ -808,13 +795,12 @@ def _is_console_process(cmdline: Sequence[str], cgroup: str) -> bool:
 
     Returns:
         True for a process in the console's unit, whichever name the unit
-        has, and for a ``noust web start`` (or ``wasm web start``) anywhere.
+        has, and for a ``noust web start`` anywhere.
     """
-    units = (f"/{WEB_UNIT_FILE}", f"/{LEGACY_WEB_UNIT}.service")
-    if any(line.rstrip().endswith(units) for line in cgroup.splitlines()):
+    if any(line.rstrip().endswith(f"/{WEB_UNIT_FILE}") for line in cgroup.splitlines()):
         return True
     programs = {Path(arg).name for arg in cmdline[:2]}
-    if not programs & {"noust", "wasm"}:
+    if "noust" not in programs:
         return False
     rest = list(cmdline)
     return any(rest[i : i + 2] == ["web", "start"] for i in range(len(rest) - 1))
@@ -1216,40 +1202,16 @@ def _service_manager(verbose: bool) -> Any:
     return ServiceManager(verbose=verbose)
 
 
-def _installed_web_unit() -> str:
-    """
-    Name the console's installed unit: ``noust-web``, or WASM's ``wasm-web``.
-
-    A 2.x server keeps running ``wasm-web.service`` until the migration from
-    WASM renames it; until then status, stop and disable must act on that one
-    rather than report that no console is installed.
-
-    Returns:
-        ``noust-web`` when its file exists or neither does; ``wasm-web`` when
-        only the WASM unit is installed.
-    """
-    from noust.managers.service_manager import ServiceManager
-
-    directory = Path(ServiceManager.SYSTEMD_DIR)
-    if (directory / WEB_UNIT_FILE).exists():
-        return WEB_UNIT
-    if (directory / f"{LEGACY_WEB_UNIT}.service").exists():
-        return LEGACY_WEB_UNIT
-    return WEB_UNIT
-
-
 def _service_unit_path() -> Path:
     """
-    Where the console's unit is: the one ``noust web enable`` writes, or the
-    one WASM wrote on a server not migrated yet.
+    Where the console's unit is: the one ``noust web enable`` writes.
 
     Returns:
-        ``noust-web.service`` (or ``wasm-web.service``) in the directory
-        ServiceManager manages.
+        ``noust-web.service`` in the directory ServiceManager manages.
     """
     from noust.managers.service_manager import ServiceManager
 
-    return Path(ServiceManager.SYSTEMD_DIR) / f"{_installed_web_unit()}.service"
+    return Path(ServiceManager.SYSTEMD_DIR) / WEB_UNIT_FILE
 
 
 def _service_status(verbose: bool) -> dict[str, Any] | None:
@@ -1269,7 +1231,7 @@ def _service_status(verbose: bool) -> dict[str, Any] | None:
     """
     if not _service_unit_path().exists():
         return None
-    status: dict[str, Any] = _service_manager(verbose).get_status(_installed_web_unit())
+    status: dict[str, Any] = _service_manager(verbose).get_status(WEB_UNIT)
     return status
 
 
@@ -2213,9 +2175,9 @@ def enable_loopback_service(
         The service, or None under a rehearsal.
 
     Raises:
-        ServiceError: When the console's dependencies are missing, it still
-            runs as WASM's unit, a background console holds the port or
-            something else does, or the service does not come up.
+        ServiceError: When the console's dependencies are missing, a background
+            console holds the port or something else does, or the service does
+            not come up.
     """
     options = StartOptions(host="127.0.0.1", port=port)
     all_installed, missing_apt, _ = _check_dependencies()
@@ -2223,12 +2185,6 @@ def enable_loopback_service(
         raise ServiceError(
             "The console's packages are not installed",
             details=f"Missing: {', '.join(missing_apt)}. Run 'noust web install', then again.",
-        )
-    if _installed_web_unit() == LEGACY_WEB_UNIT:
-        raise ServiceError(
-            f"The console still runs as WASM's {LEGACY_WEB_UNIT}.service",
-            details="Move this server onto Noust's names first: noust migrate-from-wasm. "
-            "It renames the unit and keeps the console running; then run this again.",
         )
     config = _build_security_config(options)
     running = _running_daemon_pid()
@@ -2288,14 +2244,8 @@ def change_trusted_proxies(
 
     Raises:
         ServiceError: When the console is not a service of Noust's (a background
-            console, or WASM's unit that has not been migrated), or its unit has no
-            ``ExecStart``.
+            console), or its unit has no ``ExecStart``.
     """
-    if _installed_web_unit() == LEGACY_WEB_UNIT:
-        raise ServiceError(
-            f"The console still runs as WASM's {LEGACY_WEB_UNIT}.service",
-            details="Move this server onto Noust's names first: noust migrate-from-wasm.",
-        )
     unit = _service_unit_path()
     if not unit.is_file():
         raise ServiceError(
@@ -2344,7 +2294,7 @@ def restart_console_service(verbose: bool = False) -> None:
     exec_start = _unit_exec_start(unit.read_text(encoding="utf-8"))
     options = options_from_argv(shlex.split(exec_start or ""))
     manager = _service_manager(verbose)
-    manager.restart(_installed_web_unit())
+    manager.restart(WEB_UNIT)
     _wait_until_serving(manager, normalize_host(options.host), options.port)
 
 
@@ -2555,16 +2505,6 @@ def _enable(options: StartOptions, verbose: bool, *, dry_run: bool = False) -> i
     if not _dependencies_ready(logger, verbose, dry_run=dry_run):
         return 1
 
-    if _installed_web_unit() == LEGACY_WEB_UNIT:
-        # Writing noust-web next to Noust's running noust-web would start a
-        # second console on the same port; the migration renames the unit
-        # (and keeps it running) instead.
-        raise ServiceError(
-            f"The console still runs as WASM's {LEGACY_WEB_UNIT}.service",
-            details="Move this server onto Noust's names first: noust migrate-from-wasm. "
-            "It renames the unit and keeps the console running; then run this again.",
-        )
-
     config = _build_security_config(options)
     host = config.host
 
@@ -2630,14 +2570,13 @@ def _disable(verbose: bool, *, dry_run: bool = False) -> int:
         logger.info(f"The console is not installed as a service ({WEB_UNIT_FILE})")
         return 0
 
-    unit = _installed_web_unit()
-    _service_manager(verbose).delete_service(unit)
+    _service_manager(verbose).delete_service(WEB_UNIT)
 
     if dry_run:
-        logger.info(f"would stop, disable and remove {unit}.service")
+        logger.info(f"would stop, disable and remove {WEB_UNIT_FILE}")
         return 0
 
-    logger.success(f"{unit}.service stopped, disabled and removed")
+    logger.success(f"{WEB_UNIT_FILE} stopped, disabled and removed")
     logger.info(
         "Start the console by hand with 'noust web start', or again at boot with 'noust web enable'."
     )

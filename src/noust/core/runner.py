@@ -132,7 +132,7 @@ class CommandCancelled(NoustError):
 #: issued. Threading an argument through each of them is a rule with as many
 #: holes as there are callers.
 _cancel_event: contextvars.ContextVar[threading.Event | None] = contextvars.ContextVar(
-    "wasm_cancel_event", default=None
+    "noust_cancel_event", default=None
 )
 
 

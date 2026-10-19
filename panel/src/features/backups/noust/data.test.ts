@@ -9,6 +9,7 @@ const SCHEDULE: SelfSchedule = {
   retention_count: 7,
   retention_days: 30,
   destinations: [{ name: "nas", retention_count: 14, retention_days: null, exists: true, encrypted: true }],
+  remote_only: false,
   enabled: true,
   passphrase_stored: true,
   timer: { installed: true },
@@ -77,9 +78,26 @@ describe("the schedule form", () => {
       retention_days: 30,
       retention_gb: null,
       destinations: [{ name: "nas", retention_count: 14, retention_days: null, retention_gb: null }],
+      remote_only: false,
       passphrase: null,
       enabled: true,
     });
+  });
+
+  it("reads whether the bundles are kept nowhere but the destinations, and sends it back as it was", () => {
+    expect(formOf(SCHEDULE).remoteOnly).toBe(false);
+    expect(bodyOf(formOf(SCHEDULE)).remote_only).toBe(false);
+    const remote = formOf({ ...SCHEDULE, remote_only: true });
+    expect(remote.remoteOnly).toBe(true);
+    expect(bodyOf(remote).remote_only).toBe(true);
+    expect(bodyOf({ ...remote, remoteOnly: false }).remote_only).toBe(false);
+    expect(formOf(undefined).remoteOnly).toBe(false);
+  });
+
+  it("never asks to keep nothing here without a destination, which the server refuses", () => {
+    const remote = formOf({ ...SCHEDULE, remote_only: true });
+    expect(bodyOf({ ...remote, sends: [] })).toMatchObject({ remote_only: false, destinations: [] });
+    expect(bodyOf({ ...formOf(undefined), remoteOnly: true }).remote_only).toBe(false);
   });
 
   it("sends the passphrase only when one is typed", () => {

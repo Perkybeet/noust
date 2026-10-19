@@ -143,6 +143,9 @@ export const selfBackup: Catalog<typeof en> = {
     destinationCount: "Paquetes que guardar en {destination}",
     destinationDays: "Días que guardar en {destination}",
     destinationGb: "Gigabytes que guardar en {destination}",
+    remoteOnly: "No guardar nada en este servidor",
+    remoteOnlyHelp: "Cada paquete programado se borra de aquí cuando todos los destinos lo tienen y se comprobó su subida, y el que no se pudo enviar se queda.",
+    remoteOnlyNeedsDestination: "Añade al menos un destino para activarlo; sin ninguno, los paquetes se quedan en este servidor.",
     passphraseTitle: "Frase de paso",
     passphraseNew:
       "Una copia programada corre sola, así que la frase de paso se guarda en el almacén de secretos de este servidor para su temporizador. Guarda una copia fuera de este servidor: es lo único que un paquete no lleva.",

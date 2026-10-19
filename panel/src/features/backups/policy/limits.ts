@@ -69,6 +69,16 @@ export function destinationBody(
   }));
 }
 
+/**
+ * What a policy sends as "keep nothing on this server". The server refuses it without a
+ * destination (there would be nowhere left to keep the copies), so a policy whose last destination
+ * was taken off is sent as keeping its copies here: the form read the stored value and gives it
+ * back, and only a choice the operator can see changes it.
+ */
+export function remoteOnlyBody(remoteOnly: boolean, destinations: number): boolean {
+  return remoteOnly && destinations > 0;
+}
+
 /** Whether every destination's limits are valid. */
 export function destinationsValid(sends: readonly DestinationDraft[]): boolean {
   return sends.every((item) => validLimit(item.count, MAX_COUNT) && validLimit(item.days, MAX_DAYS) && validGb(item.gb ?? ""));

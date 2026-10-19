@@ -76,6 +76,7 @@ describe("the policy form", () => {
       retention_days: null,
       retention_gb: null,
       destinations: [{ name: "nas", retention_count: 14, retention_days: null, retention_gb: null }],
+      remote_only: false,
       consistency: "pause",
       enabled: true,
     });
@@ -84,6 +85,22 @@ describe("the policy form", () => {
   it("sends no keys when everything is asked for, whatever was ticked before", () => {
     const form = { ...formOf("a", policy("a", { targets: ["path:x"] })), everything: true };
     expect(bodyOf(form).targets).toEqual([]);
+  });
+
+  it("reads whether the backups are kept nowhere but the destinations, and sends it back as it was", () => {
+    expect(formOf("a", policy("a")).remoteOnly).toBe(false);
+    expect(bodyOf(formOf("a", policy("a"))).remote_only).toBe(false);
+    const remote = formOf("a", policy("a", { remote_only: true }));
+    expect(remote.remoteOnly).toBe(true);
+    expect(bodyOf(remote).remote_only).toBe(true);
+    expect(bodyOf({ ...remote, remoteOnly: false }).remote_only).toBe(false);
+    expect(formOf("a", null).remoteOnly).toBe(false);
+  });
+
+  it("never asks to keep nothing here without a destination, which the server refuses", () => {
+    const remote = formOf("a", policy("a", { remote_only: true }));
+    expect(bodyOf({ ...remote, sends: [] })).toMatchObject({ remote_only: false, destinations: [] });
+    expect(bodyOf({ ...formOf("a", null), remoteOnly: true }).remote_only).toBe(false);
   });
 
   it("reads an unknown consistency as live", () => {

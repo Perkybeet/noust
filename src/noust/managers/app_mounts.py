@@ -37,7 +37,7 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from noust.core import app_mount_store, audit, paths
+from noust.core import app_mount_store, audit, paths, retired_names
 from noust.core.app_mount_store import DEFAULT_MODE, KIND_FILE, KIND_PATH, MountRecord
 from noust.core.applock import app_lock
 from noust.core.exceptions import DeploymentError, NoustError, ServiceError, ValidationError
@@ -68,14 +68,11 @@ _FORBIDDEN_SOURCES = (
     "/sys",
     "/root",
     "/etc/noust",
-    "/etc/wasm",
     "/etc/shadow",
     "/etc/sudoers",
     "/etc/ssh",
     "/var/lib/noust",
-    "/var/lib/wasm",
     "/var/backups/noust",
-    "/var/backups/wasm",
     "/var/run/docker.sock",
     "/run/docker.sock",
 )
@@ -231,6 +228,7 @@ def clean_source(raw: str) -> str:
         raise ValidationError("A path cannot climb with ..", details=how, field="source")
     protected = (
         *_FORBIDDEN_SOURCES,
+        *(str(old) for old in retired_names.old_data_roots()),
         str(paths.config_dir()),
         str(paths.state_dir()),
         str(paths.backup_dir()),

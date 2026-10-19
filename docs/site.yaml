@@ -195,13 +195,10 @@ sections:
         summary: Upgrading a 3.0 server or fleet to 3.1, and rolling back.
       - source: docs/UPGRADING-3.0.md
         slug: upgrading-3.0
-        summary: Upgrading a WASM 2.x server to Noust 3.0.
+        summary: From WASM 2.x, upgrade to 3.3.x first.
       - source: docs/UPGRADING-2.0.md
         slug: upgrading-2.0
         summary: Upgrading WASM from 1.6, and between 2.x releases.
-      - source: docs/RENAME.md
-        slug: rename
-        summary: WASM is now Noust, and what each distribution channel publishes.
 
   - title: Changelog
     pages:
