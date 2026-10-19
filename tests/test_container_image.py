@@ -650,6 +650,31 @@ class TestRailpack:
         assert "no start command could be found" in caught.value.details
         assert not any(call[:2] == ("docker", "build") for call in runner.calls)
 
+    def test_a_daemon_without_the_containerd_image_store_is_told_how_to_get_it(
+        self, tree, secrets, tmp_path
+    ):
+        """
+        Railpack's BuildKit frontend merges layers, which Docker allows with the containerd
+        image store only. The real-machine harness (Docker 29 with overlay2) printed BuildKit's
+        sentence and nothing about what to change, and a server that upgraded Docker keeps the
+        classic store it already had.
+        """
+        runner = self.railpack_runner().script(
+            ["docker", "build"],
+            exit_code=1,
+            stderr="ERROR: failed to solve: requested experimental feature mergeop has been "
+            "disabled on the build server: only enabled with containerd image store backend",
+        )
+
+        with pytest.raises(DockerError) as caught:
+            builder(runner, tree, secrets, tmp_path).build(
+                ContainerSettings(method="railpack"), TAG
+            )
+
+        assert "only enabled with containerd image store backend" in caught.value.details
+        assert "containerd-snapshotter" in caught.value.details
+        assert "/etc/docker/daemon.json" in caught.value.details
+
     def test_the_plan_is_removed_afterwards(self, tree, secrets, tmp_path):
         runner = self.railpack_runner()
 

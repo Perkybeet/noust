@@ -176,6 +176,7 @@ class FakeEngine(BaseDatabaseManager):
 
     def backup(self, database, output_path=None, compress=True, **kwargs):
         self._calls("backup", database)
+        self.state.setdefault("compress", []).append(compress)
         self.state["dumps"] += 1
         path = output_path or (
             self.BACKUP_DIR / f"postgresql-{database}-20260101_12000{self.state['dumps']}.dump"
@@ -392,6 +393,32 @@ def test_an_unknown_engine_is_refused_by_name(service) -> None:
 
 
 # ============================================================ restore
+
+
+@pytest.mark.parametrize(
+    ("name", "gzipped"),
+    [("shop.dump", False), ("shop.sql", False), ("shop.sql.gz", True), ("shop.dump.gz", True)],
+)
+def test_a_dump_written_to_a_chosen_name_is_gzipped_only_when_the_name_says_so(
+    service, state, tmp_path, name, gzipped
+) -> None:
+    """
+    Everything that lists, verifies or restores a dump reads the name to know whether it is gzip.
+
+    The real-machine harness took ``noust db backup --output shop.dump`` and could not restore
+    it: the file held gzip and said ``.dump``, so the restore read it as a custom-format dump
+    (PostgreSQL) or as SQL with a ``\\x8b`` in it (MariaDB).
+    """
+    service.dump("postgresql", "shop_db", output=tmp_path / name)
+
+    assert state["compress"][-1] is gzipped
+
+
+def test_a_dump_in_the_backup_directory_is_gzipped_as_asked(service, state) -> None:
+    service.dump("postgresql", "shop_db", compress=True)
+    service.dump("postgresql", "shop_db", compress=False)
+
+    assert state["compress"] == [True, False]
 
 
 def test_restore_replacing_takes_a_safety_copy_first(service, state, tmp_path) -> None:

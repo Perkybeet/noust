@@ -748,7 +748,7 @@ class PlanBuilder:
             )
         properties = mine.get("properties", {})
         control_group = properties.get("ControlGroup", "").strip()
-        pool = f"{installation.prefix(app_root(app).name)}{app_root(app).name}"
+        pool = installation.pool_name(app_root(app).name)
         target = Target(
             name=installation.service,
             cgroup=self.cgroup_mount / control_group.lstrip("/") if control_group else None,

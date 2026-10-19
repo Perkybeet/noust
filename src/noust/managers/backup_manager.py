@@ -76,6 +76,7 @@ from typing import Any, ClassVar, Protocol, runtime_checkable
 from noust.central import require_server_role
 from noust.core.applock import app_lock
 from noust.core.audit import record as audit_record
+from noust.core.backup_files import open_backup, seal_in_place, sealing_suspended
 from noust.core.config import DEFAULT_BACKUP_DIR as _DEFAULT_BACKUP_DIR
 from noust.core.config import Config, resolve_backup_directory
 from noust.core.exceptions import (
@@ -110,7 +111,7 @@ from noust.deployers.releases import (
     SHARED_DIR,
     ReleaseManager,
 )
-from noust.managers.app_identity import service_account_for
+from noust.managers.app_identity import ensure_service_account
 from noust.managers.docker_volumes import docker_archive_argv
 from noust.managers.retention import select_expired
 from noust.managers.service_manager import ServiceManager
@@ -756,7 +757,7 @@ class BackupManager:
     DEFAULT_BACKUP_DIR = _DEFAULT_BACKUP_DIR
 
     #: Where backups ended up while ``backup.directory: ''`` meant the working
-    #: directory: root's home, where an operator runs wasm, and ``/``, the
+    #: directory: root's home, where an operator runs noust, and ``/``, the
     #: working directory of every systemd unit - the backup timers and the
     #: console among them. :meth:`find_misplaced_backups` looks there.
     MISPLACED_BACKUP_ROOTS: ClassVar[tuple[Path, ...]] = (Path("/root"), Path("/"))
@@ -1625,35 +1626,40 @@ class BackupManager:
             payload_dir = staging_path / PAYLOAD_DIR
             self.fs.make_dir(payload_dir, mode=SECRET_DIR_MODE)
 
-            database_backups: list[dict[str, Any]] = []
-            stack_backups: list[dict[str, Any]] = []
-            if include_stack_databases or include_databases:
-                stack_backups = self._dump_stack_databases(
-                    domain,
-                    app_path,
-                    payload_dir / DATABASES_DIR,
-                    explicit=include_databases,
-                )
-            if include_databases:
-                # Taken after the stack's copy, so a database it holds is not
-                # dumped a second time through its store row.
-                database_backups = self._dump_databases(
-                    domain,
-                    payload_dir / DATABASES_DIR,
-                    redis_method=redis_method,
-                    covered=_stack_copies(stack_backups),
-                )
-            database_backups += stack_backups
-            if include_databases and not database_backups:
-                self.logger.warning(
-                    f"No database was backed up for {domain}: the archive contains files only"
-                )
+            # The dumps are staged in clear: the archive that carries them is sealed whole, and
+            # encrypting them first would do it twice and make the archive incompressible.
+            with sealing_suspended():
+                database_backups: list[dict[str, Any]] = []
+                stack_backups: list[dict[str, Any]] = []
+                if include_stack_databases or include_databases:
+                    stack_backups = self._dump_stack_databases(
+                        domain,
+                        app_path,
+                        payload_dir / DATABASES_DIR,
+                        explicit=include_databases,
+                    )
+                if include_databases:
+                    # Taken after the stack's copy, so a database it holds is not
+                    # dumped a second time through its store row.
+                    database_backups = self._dump_databases(
+                        domain,
+                        payload_dir / DATABASES_DIR,
+                        redis_method=redis_method,
+                        covered=_stack_copies(stack_backups),
+                    )
+                database_backups += stack_backups
+                if include_databases and not database_backups:
+                    self.logger.warning(
+                        f"No database was backed up for {domain}: the archive contains files only"
+                    )
 
-            volume_backups: list[dict[str, Any]] = []
-            if include_docker_volumes:
-                volumes = self._discover_docker_volumes(app_path, domain)
-                if volumes:
-                    volume_backups = self._dump_docker_volumes(volumes, payload_dir / VOLUMES_DIR)
+                volume_backups: list[dict[str, Any]] = []
+                if include_docker_volumes:
+                    volumes = self._discover_docker_volumes(app_path, domain)
+                    if volumes:
+                        volume_backups = self._dump_docker_volumes(
+                            volumes, payload_dir / VOLUMES_DIR
+                        )
 
             created_at = datetime.now().isoformat()
             manifest: dict[str, Any] = {
@@ -1675,6 +1681,9 @@ class BackupManager:
 
             staged_archive = staging_path / "archive.tar.gz"
             self._write_archive(staged_archive, app_path, app_name, payload_dir, excludes)
+            # Sealed before it is measured: the size and the checksum the sidecar records, and
+            # that its MAC authenticates, are those of the file that stays on the disk.
+            seal_in_place(staged_archive, fs=self.fs)
 
             size_bytes = staged_archive.stat().st_size
             checksum = self._calculate_checksum(staged_archive)
@@ -2174,48 +2183,51 @@ class BackupManager:
                 details="Pass the path of a .tar.gz written by 'noust backup create'.",
             )
 
-        if expected_checksum:
-            self.logger.debug("Verifying backup checksum")
-            if self._calculate_checksum(archive) != expected_checksum:
-                raise BackupError(
-                    f"Backup checksum mismatch: {archive.name}",
-                    details="The archive does not match the checksum recorded when it was "
-                    "created. Restoring it would restore corrupted data.",
+        # One decrypted copy for the whole restore when the archive is sealed: the checks below
+        # and the extraction each look inside it, and the checksum is of the file as stored.
+        with open_backup(archive):
+            if expected_checksum:
+                self.logger.debug("Verifying backup checksum")
+                if self._calculate_checksum(archive) != expected_checksum:
+                    raise BackupError(
+                        f"Backup checksum mismatch: {archive.name}",
+                        details="The archive does not match the checksum recorded when it was "
+                        "created. Restoring it would restore corrupted data.",
+                    )
+
+            # Resolved before the lock, which is keyed on it, and before anything
+            # on disk changes. A caller that already knows the domain (restore(),
+            # by id) never opens the archive twice; one that only has a file reads
+            # its manifest without extracting anything, exactly as a rehearsal
+            # does.
+            domain = target_domain or self._manifest_domain(
+                self._read_manifest_in_place(archive), fallback
+            )
+
+            with app_lock(domain, "restore"):
+                # Under the lock, so no deployment lands between the answer and
+                # the restore; before the rehearsal, which is asked the same.
+                self.require_restore_confirmed(
+                    domain,
+                    source=fallback,
+                    archive=archive,
+                    stack_databases=stack_databases,
+                    schema_changed_ok=schema_changed_ok,
                 )
+                if self._rehearsing:
+                    return self._rehearse_restore(archive, target_domain, fallback)
 
-        # Resolved before the lock, which is keyed on it, and before anything
-        # on disk changes. A caller that already knows the domain (restore(),
-        # by id) never opens the archive twice; one that only has a file reads
-        # its manifest without extracting anything, exactly as a rehearsal
-        # does.
-        domain = target_domain or self._manifest_domain(
-            self._read_manifest_in_place(archive), fallback
-        )
-
-        with app_lock(domain, "restore"):
-            # Under the lock, so no deployment lands between the answer and
-            # the restore; before the rehearsal, which is asked the same.
-            self.require_restore_confirmed(
-                domain,
-                source=fallback,
-                archive=archive,
-                stack_databases=stack_databases,
-                schema_changed_ok=schema_changed_ok,
-            )
-            if self._rehearsing:
-                return self._rehearse_restore(archive, target_domain, fallback)
-
-            return self._restore_locked(
-                archive,
-                domain=domain,
-                restore_env=restore_env,
-                stop_service=stop_service,
-                fallback=fallback,
-                pre_restore_hook=pre_restore_hook,
-                post_restore_hook=post_restore_hook,
-                keep=keep,
-                stack_databases=stack_databases,
-            )
+                return self._restore_locked(
+                    archive,
+                    domain=domain,
+                    restore_env=restore_env,
+                    stop_service=stop_service,
+                    fallback=fallback,
+                    pre_restore_hook=pre_restore_hook,
+                    post_restore_hook=post_restore_hook,
+                    keep=keep,
+                    stack_databases=stack_databases,
+                )
 
     def _restore_locked(
         self,
@@ -2283,6 +2295,14 @@ class BackupManager:
                     f"itself; if it was asked not to, stop it first: noust stop {domain}",
                 )
 
+        # Before anything is unpacked or replaced, so a refusal leaves the application as it was:
+        # on a machine the application never ran on (or after it was deleted, which removes its
+        # account) the account the store names is not there to hand the files over to.
+        is_stack = self._is_docker_compose_app(domain)
+        account, group = (
+            ("", "") if is_stack else ensure_service_account(domain, self.runner, self.config)
+        )
+
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         workspace = app_path.parent / f".wasm-restore-{app_path.name}-{stamp}"
         try:
@@ -2298,13 +2318,14 @@ class BackupManager:
         try:
             extracted = workspace / "extracted"
             try:
-                extract_archive(
-                    archive,
-                    extracted,
-                    archive_format="tar.gz",
-                    max_entries=self.max_entries,
-                    max_total_bytes=self.max_bytes,
-                )
+                with open_backup(archive) as readable:
+                    extract_archive(
+                        readable,
+                        extracted,
+                        archive_format="tar.gz",
+                        max_entries=self.max_entries,
+                        max_total_bytes=self.max_bytes,
+                    )
             except SourceError as exc:
                 raise BackupError(
                     f"Refusing to restore {archive.name}",
@@ -2362,7 +2383,7 @@ class BackupManager:
             # so the tree already comes back exactly as a fresh `docker
             # compose up` would first see it, and the containers are left to
             # take ownership of their own data the way they always do.
-            if self._is_docker_compose_app(domain):
+            if is_stack:
                 self.logger.info(
                     f"{domain} is a Docker Compose app: ownership was kept as extracted, "
                     "not handed to the service account, so its volumes and bind mounts "
@@ -2372,8 +2393,8 @@ class BackupManager:
                 for tree in self._service_trees(app_path, layout):
                     hand_over_tree(
                         tree,
-                        user=service_account_for(domain, self.config)[0],
-                        group=service_account_for(domain, self.config)[1],
+                        user=account,
+                        group=group,
                         runner=self.runner,
                         fs=self.fs,
                         logger=self.logger,
@@ -2790,7 +2811,7 @@ class BackupManager:
                 a JSON object.
         """
         try:
-            with tarfile.open(archive, "r:gz") as tar:
+            with open_backup(archive) as readable, tarfile.open(readable, "r:gz") as tar:
                 try:
                     member = tar.getmember(f"{PAYLOAD_DIR}/{MANIFEST_NAME}")
                 except KeyError:
@@ -3992,44 +4013,59 @@ class BackupManager:
         else:
             warnings.append("No checksum stored in metadata")
 
-        try:
-            with tarfile.open(backup_file, "r:gz") as archive:
-                members = archive.getmembers()
-            names = [member.name for member in members]
-            declared_bytes = sum(member.size for member in members if member.isfile())
-        except (tarfile.TarError, OSError, EOFError) as exc:
-            results["valid"] = False
-            errors.append(f"Archive is corrupted: {exc}")
+        # A sealed archive is decrypted once for the reading and the unpacking below; its
+        # checksum, checked above, is that of the file as stored.
+        with contextlib.ExitStack() as opened:
+            try:
+                opened.enter_context(open_backup(backup_file))
+            except BackupError as exc:
+                # A verdict is the answer, not an exception: an archive that does not open
+                # (its key is gone, or it was altered) is exactly what verifying is for.
+                results["valid"] = False
+                errors.append(f"{exc.message}. {exc.details or ''}".strip())
+                results["message"] = "; ".join(errors)
+                return results
+            try:
+                with (
+                    open_backup(backup_file) as readable,
+                    tarfile.open(readable, "r:gz") as archive,
+                ):
+                    members = archive.getmembers()
+                names = [member.name for member in members]
+                declared_bytes = sum(member.size for member in members if member.isfile())
+            except (tarfile.TarError, OSError, EOFError) as exc:
+                results["valid"] = False
+                errors.append(f"Archive is corrupted: {exc}")
+                return results
+
+            results["files_ok"] = True
+            results["file_count"] = len(names)
+
+            if deep:
+                self._verify_extractable(backup_file, declared_bytes, results, errors, warnings)
+
+            member_names = set(names)
+            if metadata.includes_databases:
+                expected = [
+                    entry.get("archive_path")
+                    for entry in metadata.database_backups
+                    if entry.get("archive_path")
+                ]
+                if not expected:
+                    warnings.append(
+                        "This backup predates self-contained archives: its database dumps live "
+                        "outside the archive and will not travel with it"
+                    )
+                for path in expected:
+                    if path not in member_names:
+                        results["valid"] = False
+                        errors.append(f"Archive claims a database dump it does not carry: {path}")
+
+            if metadata.size_bytes and backup_file.stat().st_size != metadata.size_bytes:
+                warnings.append("Archive size differs from the size recorded in the metadata")
+
+            results["message"] = "Backup is valid" if results["valid"] else "; ".join(errors)
             return results
-
-        results["files_ok"] = True
-        results["file_count"] = len(names)
-
-        if deep:
-            self._verify_extractable(backup_file, declared_bytes, results, errors, warnings)
-
-        member_names = set(names)
-        if metadata.includes_databases:
-            expected = [
-                entry.get("archive_path")
-                for entry in metadata.database_backups
-                if entry.get("archive_path")
-            ]
-            if not expected:
-                warnings.append(
-                    "This backup predates self-contained archives: its database dumps live "
-                    "outside the archive and will not travel with it"
-                )
-            for path in expected:
-                if path not in member_names:
-                    results["valid"] = False
-                    errors.append(f"Archive claims a database dump it does not carry: {path}")
-
-        if metadata.size_bytes and backup_file.stat().st_size != metadata.size_bytes:
-            warnings.append("Archive size differs from the size recorded in the metadata")
-
-        results["message"] = "Backup is valid" if results["valid"] else "; ".join(errors)
-        return results
 
     def _verify_extractable(
         self,
@@ -4079,9 +4115,12 @@ class BackupManager:
             return
 
         try:
-            with tempfile.TemporaryDirectory(prefix="wasm-verify-") as tmp_dir:
+            with (
+                tempfile.TemporaryDirectory(prefix="wasm-verify-") as tmp_dir,
+                open_backup(backup_file) as readable,
+            ):
                 extract_archive(
-                    backup_file,
+                    readable,
                     Path(tmp_dir) / "extracted",
                     archive_format="tar.gz",
                     max_entries=self.max_entries,
@@ -4130,7 +4169,7 @@ class BackupManager:
         if not archive.is_file():
             raise BackupError(f"Backup file not found: {archive}")
         try:
-            with tarfile.open(archive, "r:gz") as handle:
+            with open_backup(archive) as readable, tarfile.open(readable, "r:gz") as handle:
                 declared = sum(member.size for member in handle.getmembers() if member.isfile())
         except (tarfile.TarError, OSError, EOFError) as exc:
             raise BackupError(f"Archive is corrupted: {exc}") from exc
@@ -4145,13 +4184,14 @@ class BackupManager:
         with tempfile.TemporaryDirectory(prefix="noust-drill-") as scratch:
             extracted = Path(scratch) / "extracted"
             try:
-                extract_archive(
-                    archive,
-                    extracted,
-                    archive_format="tar.gz",
-                    max_entries=self.max_entries,
-                    max_total_bytes=self.max_bytes,
-                )
+                with open_backup(archive) as readable:
+                    extract_archive(
+                        readable,
+                        extracted,
+                        archive_format="tar.gz",
+                        max_entries=self.max_entries,
+                        max_total_bytes=self.max_bytes,
+                    )
             except SourceError as exc:
                 raise BackupError(
                     f"Archive cannot be restored: {exc}",
@@ -5001,10 +5041,11 @@ class RollbackManager:
         if strict:
             # The install and the build ran as root; the service writes into
             # what they produced.
+            account, group = ensure_service_account(domain, self.backup_manager.runner, self.config)
             hand_over_tree(
                 app_path,
-                user=service_account_for(domain, self.config)[0],
-                group=service_account_for(domain, self.config)[1],
+                user=account,
+                group=group,
                 runner=self.backup_manager.runner,
                 fs=self.backup_manager.fs,
                 logger=self.logger,

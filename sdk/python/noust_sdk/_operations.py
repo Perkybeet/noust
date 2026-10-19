@@ -476,6 +476,15 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("databases", "upgrade_instance"): ("POST", "/api/databases/instances/{name}/upgrade", "databases.manage", True),
     ("databases", "move_database"): ("POST", "/api/databases/moves", "databases.manage", True),
     ("databases", "plan_move"): ("POST", "/api/databases/moves/plan", "databases.read", False),
+    ("databases", "get_status"): ("GET", "/api/databases/pitr", "databases.read", False),
+    ("databases", "take_base"): ("POST", "/api/databases/pitr/base", "databases.manage", True),
+    ("databases", "disable"): ("POST", "/api/databases/pitr/disable", "databases.manage", True),
+    ("databases", "enable"): ("POST", "/api/databases/pitr/enable", "databases.manage", True),
+    ("databases", "plan_enable"): ("POST", "/api/databases/pitr/enable/plan", "databases.read", False),
+    ("databases", "fetch"): ("POST", "/api/databases/pitr/fetch", "databases.manage", True),
+    ("databases", "restore"): ("POST", "/api/databases/pitr/restore", "databases.manage", True),
+    ("databases", "plan_restore"): ("POST", "/api/databases/pitr/restore/plan", "databases.read", False),
+    ("databases", "sync"): ("POST", "/api/databases/pitr/sync", "databases.manage", True),
     ("databases", "provisioning_choices"): ("GET", "/api/databases/provisioning/choices", "databases.read", False),
     ("databases", "provisioning_plan"): ("GET", "/api/databases/provisioning/plan", "databases.read", False),
     ("databases", "list_public"): ("GET", "/api/databases/public", "databases.read", False),
@@ -3867,7 +3876,7 @@ class DNS:
 
 
 class Databases:
-    """Databases: 122 operations."""
+    """Databases: 131 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -4703,6 +4712,78 @@ class Databases:
 
         Needs: permission `databases.read`."""
         return self._call("POST", "/api/databases/moves/plan", query=None, body=body)
+
+    def get_status(self) -> "PitrStatusResponse":
+        """GET /api/databases/pitr
+
+        Get Status
+
+        Needs: permission `databases.read`."""
+        return self._call("GET", "/api/databases/pitr", query=None, body=None)
+
+    def take_base(self) -> "JobAcceptedResponse":
+        """POST /api/databases/pitr/base
+
+        Take Base
+
+        Needs: permission `databases.manage`, sudo mode."""
+        return self._call("POST", "/api/databases/pitr/base", query=None, body=None)
+
+    def disable(self, body: "PitrDisableRequest") -> "JobAcceptedResponse":
+        """POST /api/databases/pitr/disable
+
+        Disable
+
+        Needs: permission `databases.manage`, sudo mode."""
+        return self._call("POST", "/api/databases/pitr/disable", query=None, body=body)
+
+    def enable(self, body: "PitrEnableRequest") -> "JobAcceptedResponse":
+        """POST /api/databases/pitr/enable
+
+        Enable
+
+        Needs: permission `databases.manage`, sudo mode."""
+        return self._call("POST", "/api/databases/pitr/enable", query=None, body=body)
+
+    def plan_enable(self, body: "PitrEnableRequest") -> "PitrEnablePlanResponse":
+        """POST /api/databases/pitr/enable/plan
+
+        Plan Enable
+
+        Needs: permission `databases.read`."""
+        return self._call("POST", "/api/databases/pitr/enable/plan", query=None, body=body)
+
+    def fetch(self, body: "PitrFetchRequest") -> "JobAcceptedResponse":
+        """POST /api/databases/pitr/fetch
+
+        Fetch
+
+        Needs: permission `databases.manage`, sudo mode."""
+        return self._call("POST", "/api/databases/pitr/fetch", query=None, body=body)
+
+    def restore(self, body: "PitrRestoreRequest") -> "JobAcceptedResponse":
+        """POST /api/databases/pitr/restore
+
+        Restore
+
+        Needs: permission `databases.manage`, sudo mode."""
+        return self._call("POST", "/api/databases/pitr/restore", query=None, body=body)
+
+    def plan_restore(self, body: "PitrRestoreRequest") -> "PitrRestorePlanResponse":
+        """POST /api/databases/pitr/restore/plan
+
+        Plan Restore
+
+        Needs: permission `databases.read`."""
+        return self._call("POST", "/api/databases/pitr/restore/plan", query=None, body=body)
+
+    def sync(self) -> "JobAcceptedResponse":
+        """POST /api/databases/pitr/sync
+
+        Sync
+
+        Needs: permission `databases.manage`, sudo mode."""
+        return self._call("POST", "/api/databases/pitr/sync", query=None, body=None)
 
     def provisioning_choices(self) -> "EngineChoicesResponse":
         """GET /api/databases/provisioning/choices

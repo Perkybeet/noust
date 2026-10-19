@@ -161,6 +161,10 @@ FROM_COMMON_NAMES = "common"
 #: ``current`` does not, and is how the release layout runs them.
 _VENV_SCRIPTS = ("gunicorn", "uvicorn")
 
+#: A unit line that names where the unit may write (the hardening profile's ``ReadWritePaths=``):
+#: :func:`relocate` leaves it as written.
+_WRITABLE_PATHS = re.compile(r"\s*ReadWritePaths=")
+
 #: Mode of the directories the migration creates. Readable by the web server,
 #: which serves static builds straight out of the release.
 _DIR_MODE = 0o755
@@ -869,13 +873,21 @@ def relocate(text: str, root: Path) -> str:
         The rewritten file.
     """
     current = root / CURRENT_LINK
+    pattern = _path_pattern(root)
 
     def replacement(match: re.Match[str]) -> str:
         if match.group("venv"):
             return f"{current}/{match.group('venv')}/bin/python -m {match.group('script')}"
         return str(current)
 
-    return _path_pattern(root).sub(replacement, text)
+    # ``ReadWritePaths=`` says where the unit may write, and on the release layout that is the
+    # application directory as a whole: ``shared/`` (the uploads, the ``.env``) and ``releases/``
+    # sit beside ``current``, not under it. Pointing it at ``current`` leaves the uploads on a
+    # read-only file system (EROFS) the day the unit is restarted.
+    return "".join(
+        line if _WRITABLE_PATHS.match(line) else pattern.sub(replacement, line)
+        for line in text.splitlines(keepends=True)
+    )
 
 
 def count_tree(root: Path) -> TreeCount:

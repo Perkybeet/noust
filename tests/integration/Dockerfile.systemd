@@ -117,6 +117,20 @@ RUN mkdir -p /etc/docker \
 # container's own, with its own data directory.
 RUN systemctl enable docker.socket docker.service containerd.service
 
+# sshd, for the scenarios that make an SSH account of their own: `noust push setup` (deploy by
+# git push) writes a Match block for its account in sshd's configuration and logs in through it.
+# A last layer, so adding it does not invalidate the ones above. The host keys are generated at
+# the first boot by the package's own unit.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        openssh-server \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# pnpm, which the Umami recipe lists among what the host must have (its `needs`): Noust installs
+# runtimes and database engines on request and never a package manager, and refuses a project
+# whose lock file is pnpm's when pnpm is not there. The distribution's Node is 18, which pnpm 9 supports.
+RUN npm install -g pnpm@9
+
 STOPSIGNAL SIGRTMIN+3
 
 CMD ["/sbin/init"]

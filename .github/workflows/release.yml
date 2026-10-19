@@ -2,19 +2,13 @@ name: Release
 
 # What a v* tag publishes, once every gate below has passed:
 #
-#   PyPI   noust (the product) and wasm-cli (transitional: no code, requires
-#          noust at the same version)
-#   OBS    home:Perkybeet/noust (the product, deb and rpm) and
-#          home:Perkybeet/wasm (transitional: an empty wasm deb and wasm-cli
-#          rpm that depend on noust, so `apt upgrade` and `dnf upgrade` bring
-#          it in)
+#   PyPI   noust
+#   OBS    home:Perkybeet/noust (deb and rpm)
 #   GHCR   ghcr.io/perkybeet/noust, the central for a NAS, amd64 and arm64,
 #          signed by digest and attested (provenance and SBOM)
 #   GitHub the release, with the sdist, wheels and debs attached, their signed
 #          checksums and their attestations (docs/SECURITY-MODEL.md says how to
 #          verify them)
-#
-# docs/RENAME.md says what each channel means for someone upgrading from WASM.
 
 on:
   push:
@@ -66,7 +60,7 @@ jobs:
 
       # A tag whose version does not match the files is a release nobody can
       # reproduce, and the distribution packages would carry the wrong number.
-      # This covers the transitional packages and the container image too.
+      # This covers the container image too.
       - name: Check version consistency
         run: python scripts/release.py --check
 
@@ -128,8 +122,7 @@ jobs:
         run: |
           pip install build twine
           python -m build --outdir dist/noust
-          python -m build packaging/transitional/wasm-cli --outdir dist/wasm-cli
-          twine check dist/noust/* dist/wasm-cli/*
+          twine check dist/noust/*
           pip install "$(ls dist/noust/*.whl)[all]"
 
       - name: Exercise it outside the source tree
@@ -137,11 +130,8 @@ jobs:
         run: |
           noust --version
           noust --help
-          wasm --version
-          wasm --help
           for group in backup cert db env monitor service setup site store web; do
             noust "$group" --help > /dev/null
-            wasm "$group" --help > /dev/null
           done
           python - <<'PY'
           import importlib, pkgutil, sys
@@ -160,20 +150,6 @@ jobs:
               sys.exit(1)
           print("Every module imports from the installed package")
           PY
-
-      # The transitional wasm-cli must leave both commands working. pip
-      # installs noust before it removes wasm-cli 2.x, whose file list holds
-      # bin/wasm; without its own entry point the upgrade deleted the alias
-      # noust had just installed.
-      - name: Upgrade a pip install of wasm-cli 2.x through the transitional package
-        working-directory: /tmp
-        run: |
-          python -m venv /tmp/upgrade
-          /tmp/upgrade/bin/pip install "wasm-cli<3"
-          /tmp/upgrade/bin/pip install --find-links "$GITHUB_WORKSPACE/dist/noust" \
-            --find-links "$GITHUB_WORKSPACE/dist/wasm-cli" -U wasm-cli
-          /tmp/upgrade/bin/noust --version
-          /tmp/upgrade/bin/wasm --version
 
   # Builds the .debs the way OBS does: from exactly the files the OBS job
   # uploads (packaging/obs/stage.sh), with debian/ made only from the debian.*
@@ -210,32 +186,24 @@ jobs:
         run: |
           git config --global --add safe.directory "$PWD"
           packaging/obs/stage.sh noust /tmp/obs/noust
-          packaging/obs/stage.sh wasm /tmp/obs/wasm
 
-      # Installs exactly what each debian.control declares, and nothing else.
+      # Installs exactly what debian.control declares, and nothing else.
       # A missing Build-Depends fails here rather than on somebody's server.
       - name: Install the declared build dependencies
         run: |
-          for package in noust wasm; do
-            mk-build-deps --install --remove --tool "apt-get -y --no-install-recommends" \
-              "/tmp/obs/$package/debian.control"
-          done
+          mk-build-deps --install --remove --tool "apt-get -y --no-install-recommends" \
+            /tmp/obs/noust/debian.control
 
       - name: Build
-        run: |
-          packaging/obs/build.sh deb /tmp/obs/noust /tmp/debs
-          packaging/obs/build.sh deb /tmp/obs/wasm /tmp/debs
+        run: packaging/obs/build.sh deb /tmp/obs/noust /tmp/debs
 
       - name: Check the packages hold what they should
         run: |
           dpkg-deb -c /tmp/debs/noust_*.deb > contents.txt
           for path in \
             usr/bin/noust \
-            usr/bin/wasm \
             usr/share/bash-completion/completions/noust \
-            usr/share/bash-completion/completions/wasm \
             usr/share/man/man1/noust.1.gz \
-            usr/share/man/man1/wasm.1.gz \
             usr/share/noust/config.example.yaml \
             noust/changelog.json \
             web/static/index.html \
@@ -244,44 +212,30 @@ jobs:
           do
             grep -q "$path" contents.txt || { echo "MISSING from noust: $path"; exit 1; }
           done
-          # noust moves /etc/wasm to /etc/noust on its first run as root, and
-          # that rename is atomic only while /etc/noust does not exist.
+          # noust writes /etc/noust/config.yaml itself, 0600 in a 0700 directory.
           if grep -q ' \./etc/' contents.txt; then
             echo "noust must install nothing under /etc:"; grep ' \./etc/' contents.txt; exit 1
           fi
           echo "Every expected file is in noust"
 
-          transitional=$(ls /tmp/debs/wasm_*.deb)
-          dpkg-deb -f "$transitional" Depends | grep -q noust \
-            || { echo "The transitional wasm does not depend on noust"; exit 1; }
-          [ "$(dpkg-deb -f "$transitional" Section)" = oldlibs ] \
-            || { echo "The transitional wasm must be in section oldlibs, or apt autoremove takes noust"; exit 1; }
-          if dpkg-deb -c "$transitional" | grep '^-' | grep -v ' \./usr/share/doc/'; then
-            echo "The transitional wasm must ship nothing but its documentation"; exit 1
-          fi
-          echo "The transitional wasm is empty and depends on noust"
-
       # Building and installing are different claims. Debian 12 and Ubuntu
       # 22.04 built a package apt would not install, because it depended on
       # python3-questionary and those two releases do not have it. Listing the
       # contents said nothing about that.
-      - name: Install them and run both commands
+      - name: Install it and run the command
         run: |
           export DEBIAN_FRONTEND=noninteractive
-          apt-get install -y /tmp/debs/noust_*.deb /tmp/debs/wasm_*.deb
+          apt-get install -y /tmp/debs/noust_*.deb
           noust --version
           noust --help > /dev/null
           noust list --help > /dev/null
-          wasm --version
-          wasm --help > /dev/null
-          wasm list --help > /dev/null
-          echo "The packages install and both commands run"
+          echo "The package installs and the command runs"
 
       # The panel must import against the pydantic this distribution actually
       # packages, not the one pip installs. Ubuntu 24.04 ships pydantic 1.10
       # while pip, and therefore every other job in CI, runs pydantic 2:
       # v1.5.0 imported `field_validator`, a pydantic-2-only name, and
-      # `wasm web start` died with ImportError on every Ubuntu 24.04 install
+      # `noust web start` died with ImportError on every Ubuntu 24.04 install
       # while the whole test suite stayed green. The web stack is a
       # Recommends, so this installs it exactly as `apt install noust` would
       # and then imports the real web layer.
@@ -375,12 +329,9 @@ jobs:
           fi
           git config --global --add safe.directory "$PWD"
           packaging/obs/stage.sh noust /tmp/obs/noust
-          packaging/obs/stage.sh wasm /tmp/obs/wasm
 
       - name: Build
-        run: |
-          packaging/obs/build.sh rpm /tmp/obs/noust /tmp/rpms
-          packaging/obs/build.sh rpm /tmp/obs/wasm /tmp/rpms
+        run: packaging/obs/build.sh rpm /tmp/obs/noust /tmp/rpms
 
       - name: Check the packages hold what they should
         run: |
@@ -388,11 +339,8 @@ jobs:
           rpm -qlp "$noust" > contents.txt
           for path in \
             /usr/bin/noust \
-            /usr/bin/wasm \
             share/bash-completion/completions/noust \
-            share/bash-completion/completions/wasm \
             share/man/man1/noust.1 \
-            share/man/man1/wasm.1 \
             share/noust/config.example.yaml \
             noust/changelog.json \
             web/static/index.html \
@@ -401,42 +349,30 @@ jobs:
           do
             grep -q "$path" contents.txt || { echo "MISSING from noust: $path"; exit 1; }
           done
-          # noust moves /etc/wasm to /etc/noust on its first run as root, and
-          # that rename is atomic only while /etc/noust does not exist.
+          # noust writes /etc/noust/config.yaml itself, 0600 in a 0700 directory.
           if grep -q '^/etc/' contents.txt; then
             echo "noust must install nothing under /etc:"; grep '^/etc/' contents.txt; exit 1
           fi
           echo "Every expected file is in noust"
 
-          transitional=$(ls /tmp/rpms/wasm-cli-[0-9]*.noarch.rpm)
-          rpm -qRp "$transitional" | grep -q '^noust' \
-            || { echo "The transitional wasm-cli does not require noust"; exit 1; }
-          if rpm -qlp "$transitional" | grep -v '^/usr/share/\(doc\|licenses\)/'; then
-            echo "The transitional wasm-cli must ship nothing but its documentation"; exit 1
-          fi
-          echo "The transitional wasm-cli is empty and requires noust"
-
       # The spec only Suggests the web stack, so this installs noust without
       # FastAPI, exactly as `dnf install noust` does. v2.0.0's first tag failed
       # here: commands that imported the web layer at module level broke the
       # whole CLI on a machine without it.
-      - name: Install them and run both commands
+      - name: Install it and run the command
         run: |
           if command -v dnf > /dev/null; then
-            dnf install -y --nogpgcheck /tmp/rpms/noust-[0-9]*.noarch.rpm /tmp/rpms/wasm-cli-[0-9]*.noarch.rpm
+            dnf install -y --nogpgcheck /tmp/rpms/noust-[0-9]*.noarch.rpm
           else
             # 106 is "a repository could not be refreshed, the operation
             # completed"; the noust --version below proves the install happened.
             zypper --non-interactive install --allow-unsigned-rpm -y \
-              /tmp/rpms/noust-[0-9]*.noarch.rpm /tmp/rpms/wasm-cli-[0-9]*.noarch.rpm || [ $? -eq 106 ]
+              /tmp/rpms/noust-[0-9]*.noarch.rpm || [ $? -eq 106 ]
           fi
           noust --version
           noust --help > /dev/null
           noust list --help > /dev/null
-          wasm --version
-          wasm --help > /dev/null
-          wasm list --help > /dev/null
-          echo "The packages install and both commands run"
+          echo "The package installs and the command runs"
 
       # The same claim the deb job makes: the panel imports against the
       # pydantic this distribution packages, which on the RPM side is 2.x and
@@ -470,36 +406,6 @@ jobs:
           # Passkeys verify signatures with the distribution's own cryptography
           # (3.4 on Ubuntu 22.04): load it and list what it can verify.
           python3 -c "from noust.core.accounts.webauthn import supported_algorithms as a; print('Passkey algorithms:', a())"
-
-  # A server running WASM 2.x from the OBS repository, upgraded the way its
-  # operator would (`apt upgrade`, `dnf upgrade`) to the packages this tag
-  # builds, on a container with systemd as PID 1 so the units are part of it.
-  # The rename is the one release where getting this wrong loses somebody's
-  # configuration or console: rpm renames a modified config file to .rpmsave
-  # when it erases the old package, dpkg would delete it on a purge of the
-  # transitional one, and the automatic migration stands aside inside a
-  # systemd unit, which is where unattended upgrades run.
-  # packaging/obs/upgrade-test.sh says exactly what it checks. Once OBS serves
-  # 3.x there is no 2.x left to upgrade from, and the job says so as a warning
-  # instead of failing.
-  upgrade-from-2x:
-    name: Upgrade a 2.x server (${{ matrix.kind }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - kind: deb
-            repository: "https://download.opensuse.org/repositories/home:/Perkybeet/Debian_12"
-          - kind: rpm
-            repository: "https://download.opensuse.org/repositories/home:/Perkybeet/Fedora_43"
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.tag || github.ref }}
-
-      - name: Upgrade from the published 2.x
-        run: packaging/obs/upgrade-in-systemd.sh ${{ matrix.kind }} "${{ matrix.repository }}"
 
   # The central's image, built and started the way the publish job will build
   # it, before anything is published: /health must answer over TLS as the
@@ -588,8 +494,7 @@ jobs:
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
 
-      # The entry for this version, up to the next entry of any package name:
-      # the history below 3.0.0 is under the old name, wasm.
+      # The entry for this version, up to the next entry.
       - name: Extract changelog
         id: changelog
         run: |
@@ -651,8 +556,6 @@ jobs:
             sha256sum -c --ignore-missing SHA256SUMS && sh install.sh
             ```
             `SHA256SUMS` is signed (`SHA256SUMS.sig`, `SHA256SUMS.pem`, keyless, by this workflow): see [docs/PLATFORMS.md](https://github.com/Perkybeet/noust/blob/main/docs/PLATFORMS.md#verifying-the-installer). The platforms it supports are listed there too.
-
-            Noust was called WASM until 3.0.0. `wasm` remains a command alias for the whole 3.x series, and existing installations upgrade in place: see [docs/RENAME.md](https://github.com/Perkybeet/noust/blob/main/docs/RENAME.md).
 
             ### Ubuntu/Debian
             ```bash
@@ -805,9 +708,7 @@ jobs:
       - name: Build the packages OBS builds
         run: |
           packaging/obs/stage.sh noust /tmp/obs/noust
-          packaging/obs/stage.sh wasm /tmp/obs/wasm
           packaging/obs/build.sh deb /tmp/obs/noust dist-deb
-          packaging/obs/build.sh deb /tmp/obs/wasm dist-deb
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v3
@@ -905,12 +806,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Both projects publish through trusted publishing from this job, in the
-  # pypi environment: noust through the publisher registered for it, wasm-cli
-  # through the one it has had since before the rename. That one may still
-  # name the repository "wasm"; if so its upload is refused, the job warns and
-  # the release stands (noust is out). The fix is on PyPI, not here: see the
-  # warning below and docs/RENAME.md.
+  # noust publishes through trusted publishing from this job, in the pypi
+  # environment.
   publish-pypi:
     name: Publish to PyPI
     runs-on: ubuntu-latest
@@ -932,15 +829,13 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Build both distributions
+      - name: Build the distribution
         run: |
           pip install "build==1.6.1" "setuptools==84.0.0" "wheel==0.48.0" twine
           python scripts/reproducible_build.py build --ref HEAD --output dist/noust
-          python -m build packaging/transitional/wasm-cli --outdir dist/wasm-cli
-          twine check dist/noust/* dist/wasm-cli/*
+          twine check dist/noust/*
 
-      # skip-existing: re-running this job after fixing the wasm-cli publisher
-      # must not fail on the noust files already uploaded.
+      # skip-existing: re-running this job must not fail on files already uploaded.
       - name: Publish noust
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
@@ -949,19 +844,6 @@ jobs:
           # PEP 740 attestations, made from this job's identity: pip and uv
           # can check that the files on PyPI were built by this workflow.
           attestations: true
-
-      - name: Publish the transitional wasm-cli
-        id: transitional
-        continue-on-error: true
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: dist/wasm-cli/
-          skip-existing: true
-
-      - name: Explain a refused wasm-cli upload
-        if: steps.transitional.outcome == 'failure'
-        run: |
-          echo "::warning title=wasm-cli ${{ needs.release.outputs.version }} was not published::noust is on PyPI; the transitional wasm-cli was refused, most likely because its trusted publisher still names the repository 'wasm'. On https://pypi.org/manage/project/wasm-cli/settings/publishing/ edit (or add) the GitHub publisher: owner Perkybeet, repository noust, workflow release.yml, environment pypi. Then open this job (Publish to PyPI) in the run and use Re-run this job: noust is skipped as already uploaded and wasm-cli goes out. Until then, pip install -U wasm-cli stays on 2.x."
 
   publish-obs:
     name: Publish to OBS
@@ -973,8 +855,7 @@ jobs:
 
   # The barrier before the release is announced. OBS builds a repository per distribution and
   # publishes each when its own build ends; this reads the published indexes the package managers
-  # read (the product and the transitional package, every supported release of
-  # noust.managers.server.platforms) and fails the run while any still serves the previous
+  # read (every supported release of noust.managers.server.platforms) and fails the run while any still serves the previous
   # version. It can be re-run alone from the run's page once OBS has caught up.
   obs-published:
     name: Wait for every distribution to serve it

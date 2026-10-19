@@ -88,7 +88,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from noust.core import compliance, paths
+from noust.core import compliance, paths, retired_names
 from noust.core.exceptions import BuildError, ConfigError, NoustError, ValidationError
 from noust.core.fs import FileSystem, get_fs, is_rehearsal
 from noust.core.logger import Logger
@@ -1185,23 +1185,21 @@ def protected_paths(extra: Iterable[Path] = ()) -> tuple[Path, ...]:
             applications directory.
 
     Returns:
-        Noust's configuration, state, backups and logs (new and legacy
-        names), the Docker socket, and ``extra``.
+        Noust's configuration, state, backups and logs (under their names and the
+        old ones a link may still stand at), the Docker socket, and ``extra``.
     """
     found: list[Path] = []
     for path in (
         paths.config_dir(),
         paths.CONFIG_DIR,
-        paths.LEGACY_CONFIG_DIR,
         paths.state_dir(),
         paths.STATE_DIR,
-        paths.LEGACY_STATE_DIR,
         paths.backup_dir(),
         paths.BACKUP_DIR,
-        paths.LEGACY_BACKUP_DIR,
         paths.log_dir(),
         paths.LOG_DIR,
-        paths.LEGACY_LOG_DIR,
+        *retired_names.old_data_roots(),
+        retired_names.old_log_dir(),
         Path("/run/docker.sock"),
         *extra,
     ):

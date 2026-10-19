@@ -69,6 +69,7 @@ from typing import Any
 from noust.central import require_server_role
 from noust.core import audit
 from noust.core.applock import AppBusyError, app_lock
+from noust.core.backup_files import open_backup, seal_in_place
 from noust.core.config import Config, resolve_backup_directory
 from noust.core.exceptions import (
     BackupError,
@@ -202,14 +203,14 @@ def database_in_archive(archive: Path) -> str | None:
         here says nothing.
     """
     try:
-        with tarfile.open(archive, "r:gz") as handle:
+        with open_backup(archive) as readable, tarfile.open(readable, "r:gz") as handle:
             for count, member in enumerate(handle):
                 if count >= _MARKER_SCAN:
                     break
                 engine = _DATABASE_MARKERS.get(PurePosixPath(member.name).name)
                 if engine is not None:
                     return engine
-    except (tarfile.TarError, OSError, EOFError):
+    except (tarfile.TarError, OSError, EOFError, BackupError):
         return None
     return None
 
@@ -729,6 +730,7 @@ class VolumeBackupManager:
         consistency: str = "live",
         enabled: bool = True,
         retention_gb: float | None = None,
+        remote_only: bool = False,
     ) -> VolumePolicyView:
         """
         Create or replace an application's data backup policy, and its timer.
@@ -752,6 +754,8 @@ class VolumeBackupManager:
             retention_gb: The most the scheduled backups kept locally per target may
                 weigh together, in gigabytes (the newest always stays); None for no
                 limit by size.
+            remote_only: Delete each scheduled backup from this server once every
+                destination holds it and its upload was checked. It needs a destination.
 
         Returns:
             The policy as stored, with its timer.
@@ -782,6 +786,13 @@ class VolumeBackupManager:
                 field="targets",
             )
         checked = self._validated_destinations(destinations)
+        if remote_only and not checked:
+            raise ValidationError(
+                "A policy that keeps nothing on this server needs a destination",
+                details="Name at least one destination to send the backups to (--to NAME), or "
+                "keep the backups here.",
+                field="remote_only",
+            )
         if enabled:
             self.scheduler.install_volume_timer(domain, calendar)
         else:
@@ -795,6 +806,7 @@ class VolumeBackupManager:
                 retention_count=count,
                 retention_days=days,
                 retention_bytes=gigabytes_to_bytes(budget),
+                remote_only=remote_only,
                 destinations=checked,
                 consistency=consistency,
                 enabled=enabled,
@@ -810,6 +822,7 @@ class VolumeBackupManager:
             retention_count=count,
             retention_days=days,
             retention_gb=budget,
+            remote_only=remote_only,
             enabled=enabled,
         )
         return self.get_policy(domain)
@@ -1379,6 +1392,9 @@ class VolumeBackupManager:
                         target.host_path, archive, Path(scratch)
                     )
             self.fs.chmod(archive, SECRET_MODE)
+            # Sealed before it is measured: the size and the checksum recorded, and the sidecar's
+            # MAC over them, are those of the file that stays on the disk.
+            seal_in_place(archive, fs=self.fs)
             size = archive.stat().st_size
             checksum = file_sha256(archive)
         except (BackupError, OSError):
@@ -1576,18 +1592,23 @@ class VolumeBackupManager:
             errors.append(f"The archive's SHA-256 is {digest}; it was {metadata.checksum}")
         if not errors:
             try:
-                with tarfile.open(archive, "r:gz") as tar:
+                with open_backup(archive) as readable, tarfile.open(readable, "r:gz") as tar:
                     for _ in tar:
                         pass
+            except BackupError as exc:
+                errors.append(f"{exc.message}. {exc.details or ''}".strip())
             except (tarfile.TarError, EOFError, OSError) as exc:
                 errors.append(f"The archive does not read through: {exc}")
         if deep and not errors:
-            with tempfile.TemporaryDirectory(
-                prefix="noust-volume-verify-", dir=self._directory(metadata.app_name)
-            ) as scratch:
+            with (
+                tempfile.TemporaryDirectory(
+                    prefix="noust-volume-verify-", dir=self._directory(metadata.app_name)
+                ) as scratch,
+                open_backup(archive) as readable,
+            ):
                 try:
                     extract_archive(
-                        archive,
+                        readable,
                         Path(scratch) / "extracted",
                         archive_format="tar.gz",
                         max_entries=MAX_ENTRIES,
@@ -2122,13 +2143,14 @@ class VolumeBackupManager:
         swapped = False
         try:
             try:
-                extract_archive(
-                    archive,
-                    extracted,
-                    archive_format="tar.gz",
-                    max_entries=MAX_ENTRIES,
-                    max_total_bytes=MAX_BYTES,
-                )
+                with open_backup(archive) as readable:
+                    extract_archive(
+                        readable,
+                        extracted,
+                        archive_format="tar.gz",
+                        max_entries=MAX_ENTRIES,
+                        max_total_bytes=MAX_BYTES,
+                    )
             except SourceError as exc:
                 raise BackupError(f"Refusing to restore {archive.name}", details=str(exc)) from exc
             new_data = extracted / destination.name if metadata.is_file else extracted
@@ -2343,6 +2365,7 @@ class VolumeBackupManager:
             "backups": [],
             "destinations": {},
             "local_deleted": [],
+            "removed_after_sending": [],
         }
         try:
             step(f"Backing up the data of {domain}")
@@ -2397,6 +2420,14 @@ class VolumeBackupManager:
                 retention_days=policy.retention_days,
                 retention_bytes=policy.retention_bytes,
             )
+            if policy.remote_only and policy.destinations and not failures:
+                # Every destination holds each archive and checked it on arrival, and the
+                # verification above read the local file: the copy a small disk cannot afford
+                # goes. A run that did not reach every destination keeps what it took.
+                for entry in taken:
+                    step(f"Removing {entry.id} from this server: every destination holds it")
+                    self._remove(entry, reason="remote_only")
+                    result["removed_after_sending"].append(entry.id)
         last = taken[-1].id if taken else None
         if failures:
             error = BackupError(

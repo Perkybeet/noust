@@ -2780,7 +2780,8 @@ def choices(ctx: Context) -> None:
     "--output",
     "-o",
     type=click.Path(dir_okay=False, path_type=Path),
-    help="Where to write the file. Defaults to the engine's backup directory.",
+    help="Where to write the file. Defaults to the engine's backup directory. A name "
+    "ending in .gz is gzipped; any other is written as the engine dumps it.",
 )
 @click.option("--no-compress", is_flag=True, help="Write the dump without gzip.")
 @click.option(
@@ -3098,3 +3099,48 @@ def _attach_limits_command() -> None:
 
 
 _attach_limits_command()
+
+
+def _attach_pitr_commands() -> None:
+    """
+    Add ``pitr``: recover PostgreSQL to an instant.
+
+    It lives in :mod:`noust.cli.commands.db_pitr`, which imports this module only at call
+    time, like the other command modules.
+    """
+    from noust.cli.commands import db_pitr
+
+    db_pitr.register(cli)
+
+
+_attach_pitr_commands()
+
+
+def _attach_tls_commands() -> None:
+    """
+    Add ``tls``: a host engine that serves a certificate clients can verify.
+
+    It lives in :mod:`noust.cli.commands.db_tls`, which imports this module only at call time,
+    like the other command modules.
+    """
+    from noust.cli.commands import db_tls
+
+    db_tls.register(cli)
+
+
+_attach_tls_commands()
+
+
+def _attach_replica_commands() -> None:
+    """
+    Add ``replica``: read replicas of the host's PostgreSQL, over TLS.
+
+    It lives in :mod:`noust.cli.commands.db_replica`, which imports this module only at call
+    time, like the other command modules.
+    """
+    from noust.cli.commands import db_replica
+
+    db_replica.register(cli)
+
+
+_attach_replica_commands()

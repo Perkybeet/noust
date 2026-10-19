@@ -38,7 +38,7 @@ import secrets
 import stat
 import tempfile
 import time
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
@@ -56,11 +56,12 @@ from noust.core.exceptions import (
 )
 from noust.core.fs import FileSystem, is_rehearsal
 from noust.core.runner import CommandResult, CommandRunner, runuser_prefix
-from noust.managers.database import pg_hba
+from noust.managers.database import flavours, pg_hba
 from noust.managers.database.base import (
     DEFAULT_STRUCTURED_ROW_CAP,
     PROFILES,
     QUERY_TIMEOUT,
+    SERVICE_TIMEOUT,
     AccessEntry,
     BackupInfo,
     BaseDatabaseManager,
@@ -392,7 +393,7 @@ class PostgresManager(BaseDatabaseManager):
     CLIENT_BINARY = "psql"
     VERSION_ARGV = ("psql", "--version")
     VERSION_PATTERN = r"(\d+\.\d+)"
-    PURGE_PATHS = ("/var/lib/postgresql", "/etc/postgresql")
+    PURGE_PATHS = ("/var/lib/postgresql", "/etc/postgresql", "/var/lib/pgsql")
     MAX_DATABASE_NAME_LENGTH = 63
     MAX_USER_NAME_LENGTH = 63
     VALID_PRIVILEGES = DATABASE_PRIVILEGES | TABLE_PRIVILEGES
@@ -427,6 +428,67 @@ class PostgresManager(BaseDatabaseManager):
         super().__init__(verbose=verbose, runner=runner, fs=fs)
         # The port and where it came from, once known; see server_port().
         self._port: tuple[int, str] | None = None
+
+    # ==================== Removal ====================
+
+    def _removal_sets(self) -> tuple[list[str], ...]:
+        """
+        Return what an apt removal takes out: the meta packages and the majors they pulled in.
+
+        ``postgresql`` and ``postgresql-contrib`` only depend on the server and the client of
+        a major (``postgresql-16``, ``postgresql-client-16``), so removing them alone leaves
+        the server installed with no cluster once the data directories are purged; the next
+        ``noust db install`` then installs nothing and creates no cluster.
+
+        Returns:
+            One set: the meta packages and every installed major's server and client.
+        """
+        listed = self._exec(
+            [
+                "dpkg-query",
+                "-W",
+                "-f",
+                "${Package}\\n",
+                "postgresql-[0-9]*",
+                "postgresql-client-[0-9]*",
+            ],
+            timeout=SERVICE_TIMEOUT,
+        )
+        majors = sorted(
+            {
+                line.strip()
+                for line in listed.stdout.splitlines()
+                if re.fullmatch(r"postgresql(?:-client)?-\d+", line.strip())
+            }
+        )
+        # The wrappers that pick a cluster go too: left behind, they keep ``psql`` on the path,
+        # and an engine with no server would be reported installed (and a reinstall a no-op).
+        return ([*self.PACKAGE_NAMES, *majors, "postgresql-common", "postgresql-client-common"],)
+
+    # ==================== The unit ====================
+
+    def service_unit(self) -> str:
+        """
+        Name the systemd unit this engine runs as on this server.
+
+        Every package set brings ``postgresql``, except PGDG's for the RHEL family, which
+        names the unit after the major (``postgresql-17``). That is read from the unit
+        files (no process is run for it), and only when there is no ``postgresql`` unit.
+
+        Returns:
+            The unit name; for a container, the container's name.
+        """
+        if self.instance is None and not getattr(self, "_unit_detected", False):
+            self._unit_detected = True
+            units = flavours.HOST.at("/usr/lib/systemd/system")
+            if not (units / "postgresql.service").exists():
+                versioned = sorted(
+                    units.glob("postgresql-[0-9]*.service"),
+                    key=lambda path: flavours.version_key(path.stem.removeprefix("postgresql-")),
+                )
+                if versioned:
+                    self.SERVICE_NAME = versioned[-1].stem
+        return super().service_unit()
 
     # ==================== SQL text ====================
 
@@ -1398,10 +1460,13 @@ class PostgresManager(BaseDatabaseManager):
         """
         Prepare a dump for psql or pg_restore, before anything is dropped.
 
-        On the host they open the file themselves, as the postgres account,
-        so the 0600 root-owned backup is staged for that account. Inside a
-        container the dump is their stdin: a plain file is used where it is
-        and a gzipped one decompressed on the host.
+        The dump is the loader's stdin, on the host and inside a container alike: the
+        runner opens the 0600 root-owned file and hands it over, so a plain file is used
+        where it is and a gzipped one is decompressed on the host. (Until 3.4 the host's
+        psql and pg_restore opened a copy of their own, staged for the postgres account in
+        a directory under the backups, which that account could not reach whenever
+        ``/var/backups/noust`` was not world-traversable: a restore on a fresh Ubuntu
+        failed with "Permission denied".)
 
         Args:
             database: The database it will be loaded into.
@@ -1418,7 +1483,7 @@ class PostgresManager(BaseDatabaseManager):
         staged_name = (
             f"{storage_name(self.ENGINE_NAME)}-restore-{database}{DUMP_SUFFIXES[dump_format]}"
         )
-        owner = None if self.instance is not None else self.SUPERUSER
+        owner = None
         if dump_format == "plain" and kwargs.get("keep_owners") is False:
             # Owners and privileges named in a plain dump are the roles of the
             # server it came from; they are taken out before the file is staged.
@@ -1478,28 +1543,14 @@ class PostgresManager(BaseDatabaseManager):
             if kwargs.get("owner_role"):
                 # Objects are created as the database's owner, not as whoever loads them.
                 ownerless.append(f"--role={kwargs['owner_role']}")
-        if self.instance is not None:
-            # A client inside a container cannot open a file on the host: the
-            # dump is its stdin, which psql (-f -) and pg_restore (no file)
-            # both read.
-            if dump_format == "plain":
-                argv = self._psql_argv(database, "-f", "-")
-            else:
-                argv = ["pg_restore", "--no-password", *ownerless, "-d", database]
-            result = self._exec(argv, stdin_path=backup_path, timeout=timeout, user=self.SUPERUSER)
+        # The dump is the client's stdin, which psql (-f -) and pg_restore (no file) both
+        # read: a client inside a container cannot open a file on the host, and the host's,
+        # running as the postgres account, could not open one it cannot reach.
+        if dump_format == "plain":
+            argv = self._psql_argv(database, "-f", "-")
         else:
-            if dump_format == "plain":
-                argv = self._psql_argv(database, "-f", str(backup_path))
-            else:
-                argv = [
-                    "pg_restore",
-                    "--no-password",
-                    *ownerless,
-                    "-d",
-                    database,
-                    str(backup_path),
-                ]
-            result = self._exec(argv, timeout=timeout, user=self.SUPERUSER)
+            argv = ["pg_restore", "--no-password", *ownerless, "-d", database]
+        result = self._exec(argv, stdin_path=backup_path, timeout=timeout, user=self.SUPERUSER)
 
         if not result.success:
             raise load_failure(database, result, "The dump may be truncated or in another format.")
@@ -2504,6 +2555,38 @@ class PostgresManager(BaseDatabaseManager):
         except OSError as exc:
             self.logger.warning(f"Could not remove the password file of {role}: {exc}")
 
+    def _create_for_restore(self, database: str, owner: str | None) -> None:
+        """
+        Create the empty database a dump is loaded into, and the role its grants name.
+
+        A dump of a database that the read-only console was used on grants
+        ``SELECT`` to ``wasm_ro_<database>``. The role is the cluster's, not the
+        database's, so another server, or another instance a database is moved
+        to, lacks it, and ``pg_restore`` fails at the first of those grants
+        (``role "wasm_ro_shop" does not exist``): a move to PostgreSQL 17 did
+        on the real engine, and so would a restore on a fresh server. The role
+        is made with no way to sign in; the next read gives it its login, its
+        password and its grants again, as it does for a role it finds.
+
+        Args:
+            database: The database.
+            owner: The owner it had before, if any.
+
+        Raises:
+            DatabaseError: When the database cannot be created.
+        """
+        super()._create_for_restore(database, owner)
+        role = _read_only_role_name(database)
+        literal = self._escape_literal(role)
+        success, output = self._execute_sql(
+            "DO $noust$ BEGIN "
+            f"IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = {literal}) THEN "
+            f"CREATE ROLE {self._escape_identifier(role)} NOLOGIN; END IF; END $noust$;"
+        )
+        if not success:
+            # The restore may still work: it says so itself if a grant names the role.
+            self.logger.warning(f"Could not make the read-only role {role}: {output.strip()}")
+
     def access_hint(self) -> str:
         """
         Say how Noust signs in, since there is no password to store.
@@ -2569,10 +2652,37 @@ class PostgresManager(BaseDatabaseManager):
                 PostgreSQL does not accept what was written (the file is back
                 as it was).
         """
-        if is_rehearsal():
-            return
         self.validate_user_name(username)
         self.validate_database_name(database)
+        self.edit_hba(
+            lambda text: (
+                pg_hba.with_block(text, database, username)
+                if required
+                else pg_hba.without_block(text, username)
+            )
+        )
+
+    def edit_hba(self, update: Callable[[str], str]) -> bool:
+        """
+        Change ``pg_hba.conf`` the one safe way: checked by the server, reloaded, put back on error.
+
+        The file is rewritten, PostgreSQL itself reads it back (``pg_hba_file_rules``) and only a
+        file it accepts is loaded; a file it finds an error in is put back as it was, so a
+        mistake here can never lock every client out.
+
+        Args:
+            update: Text in, text out: the new content of the file (see
+                :mod:`noust.managers.database.pg_hba`).
+
+        Returns:
+            Whether the file changed.
+
+        Raises:
+            DatabaseUserError: When the file cannot be read or written, or PostgreSQL does not
+                accept what was written (the file is back as it was).
+        """
+        if is_rehearsal():
+            return False
         located = self._show("hba_file")
         if not located:
             raise DatabaseUserError(
@@ -2584,13 +2694,9 @@ class PostgresManager(BaseDatabaseManager):
             before = read_config_file(path)
             if before is None:
                 raise DatabaseUserError(f"{path} does not exist")
-            after = (
-                pg_hba.with_block(before, database, username)
-                if required
-                else pg_hba.without_block(before, username)
-            )
+            after = update(before)
             if after == before:
-                return
+                return False
             write_config_file(self.fs, path, after, preserve=True)
         except DatabaseEngineError as exc:
             raise DatabaseUserError(exc.message, details=exc.details) from exc
@@ -2612,6 +2718,7 @@ class PostgresManager(BaseDatabaseManager):
             raise DatabaseUserError(
                 "PostgreSQL did not reload pg_hba.conf, so it was put back", details=output.strip()
             )
+        return True
 
     def _put_back_hba(self, path: Path, text: str, *, reload: bool) -> None:
         """

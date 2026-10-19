@@ -85,6 +85,7 @@ describe("the Volumes tab", () => {
       retention_days: 30,
       retention_gb: null,
       destinations: [{ name: "nas", retention_count: null, retention_days: null }],
+      remote_only: false,
       consistency: "pause",
       enabled: true,
     });
@@ -183,6 +184,50 @@ describe("the Volumes tab", () => {
     await user.type(within(confirm).getByRole("textbox"), id);
     await user.click(within(confirm).getByRole("button", { name: "Delete backup" }));
     await waitFor(() => expect(backend.callsTo(`DELETE /api/volume-backups/${id}`)).toHaveLength(1));
+  });
+
+  it("gives back a policy that keeps nothing on this server, as the server reported it", async () => {
+    const stored = policy(SHOP, { remote_only: true });
+    const { user, backend } = await volumesAt("/backups/volumes", { [`PUT /api/volume-backups/policies/${SHOP}`]: (call) => json(200, { ...stored, ...(call.body as object) }) }, { policies: [stored] });
+    await user.click(await screen.findByRole("button", { name: `Actions for ${SHOP}` }));
+    await user.click(await screen.findByRole("menuitem", { name: "Edit the policy" }));
+    const drawer = await screen.findByRole("dialog", { name: `Edit the data policy of ${SHOP}` });
+    expect(within(drawer).getByRole("checkbox", { name: "Keep nothing on this server" })).toBeChecked();
+    await user.click(within(drawer).getByRole("button", { name: "Save policy" }));
+    await waitFor(() => expect(backend.callsTo(`PUT /api/volume-backups/policies/${SHOP}`)).toHaveLength(1));
+    expect(backend.callsTo(`PUT /api/volume-backups/policies/${SHOP}`)[0]?.body).toMatchObject({ remote_only: true, destinations: [{ name: "nas" }] });
+  });
+
+  it("sends true once the box of a policy that keeps its backups here is ticked", async () => {
+    const { user, backend } = await volumesAt("/backups/volumes", { [`PUT /api/volume-backups/policies/${SHOP}`]: (call) => json(200, { ...policy(SHOP), ...(call.body as object) }) });
+    await user.click(await screen.findByRole("button", { name: `Actions for ${SHOP}` }));
+    await user.click(await screen.findByRole("menuitem", { name: "Edit the policy" }));
+    const drawer = await screen.findByRole("dialog", { name: `Edit the data policy of ${SHOP}` });
+    const box = within(drawer).getByRole("checkbox", { name: "Keep nothing on this server" });
+    expect(box).not.toBeChecked();
+    await user.click(box);
+    await expectNoAxeViolations(drawer);
+    await user.click(within(drawer).getByRole("button", { name: "Save policy" }));
+    await waitFor(() => expect(backend.callsTo(`PUT /api/volume-backups/policies/${SHOP}`)).toHaveLength(1));
+    expect(backend.callsTo(`PUT /api/volume-backups/policies/${SHOP}`)[0]?.body).toMatchObject({ remote_only: true });
+  });
+
+  it("shows the box off and disabled, with the reason, while there is no destination", async () => {
+    const stored = policy(SHOP, { remote_only: true });
+    const { user, backend } = await volumesAt("/backups/volumes", { [`PUT /api/volume-backups/policies/${SHOP}`]: (call) => json(200, { ...stored, ...(call.body as object) }) }, { policies: [stored] });
+    await user.click(await screen.findByRole("button", { name: `Actions for ${SHOP}` }));
+    await user.click(await screen.findByRole("menuitem", { name: "Edit the policy" }));
+    const drawer = await screen.findByRole("dialog", { name: `Edit the data policy of ${SHOP}` });
+    const box = within(drawer).getByRole("checkbox", { name: "Keep nothing on this server" });
+    expect(box).toBeChecked();
+    await user.click(within(drawer).getByRole("checkbox", { name: "nas" }));
+    expect(box).not.toBeChecked();
+    expect(box).toHaveAttribute("aria-disabled", "true");
+    expect(within(drawer).getByText("Add at least one destination to turn this on; with none, the backups stay on this server.")).toBeInTheDocument();
+    await expectNoAxeViolations(drawer);
+    await user.click(within(drawer).getByRole("button", { name: "Save policy" }));
+    await waitFor(() => expect(backend.callsTo(`PUT /api/volume-backups/policies/${SHOP}`)).toHaveLength(1));
+    expect(backend.callsTo(`PUT /api/volume-backups/policies/${SHOP}`)[0]?.body).toMatchObject({ remote_only: false, destinations: [] });
   });
 
   it("shows the server's refusal of a policy under the schedule it is about", async () => {

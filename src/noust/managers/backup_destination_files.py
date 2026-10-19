@@ -31,6 +31,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -284,6 +285,200 @@ class DestinationFileManager(BackupDestinationManager):
             "verified_by": verified_by,
             "retention_deleted": deleted,
         }
+
+    def push_batch(
+        self, files: Sequence[Path], destination_name: str, folder: str
+    ) -> dict[str, Any]:
+        """
+        Send the files of a folder the destination lacks, listing it twice rather than once per file.
+
+        For a folder that grows by a file every minute (the write-ahead log archive),
+        :meth:`push_file` listing the whole folder after each upload would cost more than the
+        uploads. Here the folder is listed before, only the missing or differently sized files
+        go, and one listing after checks them all by size. A file keeps no sidecar: the engine
+        checks every segment it replays, and a sidecar per file would double the objects.
+
+        Args:
+            files: The local files to keep on the destination.
+            destination_name: Destination to send them to.
+            folder: The folder under the destination's path.
+
+        Returns:
+            ``destination``, ``folder``, ``uploaded`` (the names) and ``present`` (how many the
+            folder holds of these files now).
+
+        Raises:
+            DependencyError: When rclone is not installed.
+            BackupError: When an upload fails, or a file is not on the destination at the size
+                it was sent (that copy is removed first).
+        """
+        _require_rclone(self.runner)
+        self.require_encrypted_upload(destination_name)
+        env = self.remote_env(destination_name)
+        secrets_literal = self._secret_literals(destination_name)
+        target_dir = self._folder_target(destination_name, folder)
+        entries = self._list_remote(env, target_dir, secrets_literal, hashes=False)
+        held = {
+            str(entry.get("Name")): entry.get("Size") for entry in entries if not entry.get("IsDir")
+        }
+        pending = [
+            local
+            for local in files
+            if local.is_file() and held.get(local.name) != local.stat().st_size
+        ]
+        uploaded: list[str] = []
+        for local in pending:
+            result = self.runner.run(
+                ["rclone", "copyto", str(local), f"{target_dir}/{local.name}"],
+                env=env,
+                timeout=_TRANSFER_TIMEOUT,
+                secrets=secrets_literal,
+            )
+            if not result.success:
+                raise BackupError(
+                    f"Failed to upload {local.name} to {destination_name}",
+                    details=_scrub((result.stderr or result.stdout).strip(), secrets_literal),
+                )
+            uploaded.append(local.name)
+        if uploaded:
+            listed = self._list_remote(env, target_dir, secrets_literal, hashes=False)
+            for local in pending:
+                try:
+                    self._verify_uploaded(local, listed)
+                except BackupError as exc:
+                    raise self._discard_upload(
+                        env, target_dir, [local.name], secrets_literal, exc
+                    ) from exc
+        return {
+            "destination": destination_name,
+            "folder": folder,
+            "uploaded": uploaded,
+            "present": len(files) - len(pending) + len(uploaded),
+        }
+
+    def list_names(self, destination_name: str, folder: str) -> list[str]:
+        """
+        List the names of the files of a folder, without reading their sidecars.
+
+        Args:
+            destination_name: Destination to list.
+            folder: The folder under the destination's path.
+
+        Returns:
+            The file names (not the sidecars), sorted. A folder that does not exist yet is
+            empty.
+
+        Raises:
+            DependencyError: When rclone is not installed.
+            BackupError: When the destination cannot be listed.
+        """
+        _require_rclone(self.runner)
+        self._require(destination_name)
+        env = self.remote_env(destination_name)
+        secrets_literal = self._secret_literals(destination_name)
+        target_dir = self._folder_target(destination_name, folder)
+        entries = self._list_remote(env, target_dir, secrets_literal, hashes=False)
+        return sorted(
+            str(entry.get("Name", ""))
+            for entry in entries
+            if not entry.get("IsDir") and not str(entry.get("Name", "")).endswith(".json")
+        )
+
+    def fetch_batch(
+        self,
+        destination_name: str,
+        folder: str,
+        names: Sequence[str],
+        directory: Path,
+        *,
+        fs: FileSystem | None = None,
+    ) -> list[str]:
+        """
+        Download files of a folder into a directory, skipping the ones already there whole.
+
+        Args:
+            destination_name: Destination to download from.
+            folder: The folder the files are in.
+            names: The files wanted.
+            directory: Where to put them; created if missing.
+            fs: Filesystem the directory is created through.
+
+        Returns:
+            The names downloaded now.
+
+        Raises:
+            DependencyError: When rclone is not installed.
+            BackupError: When a name is not a plain file name, a file is not on the
+                destination, or a download fails or arrives at another size.
+        """
+        _require_rclone(self.runner)
+        self._require(destination_name)
+        env = self.remote_env(destination_name)
+        secrets_literal = self._secret_literals(destination_name)
+        target_dir = self._folder_target(destination_name, folder)
+        entries = self._list_remote(env, target_dir, secrets_literal, hashes=False)
+        remote_sizes = {
+            str(entry.get("Name")): entry.get("Size") for entry in entries if not entry.get("IsDir")
+        }
+        files = fs or get_fs()
+        files.make_dir(directory, mode=SECRET_DIR_MODE, parents=True)
+        fetched: list[str] = []
+        for name in names:
+            try:
+                validate_filename(name)
+            except ValidationError as exc:
+                raise BackupError(
+                    f"Invalid file name: {name!r}", details="A file is named by its name alone."
+                ) from exc
+            if name not in remote_sizes:
+                raise BackupError(
+                    f"{name} is not on {destination_name}",
+                    details=f"Looked in {target_dir}.",
+                )
+            destination = directory / name
+            if destination.is_file() and destination.stat().st_size == remote_sizes[name]:
+                continue
+            result = self.runner.run(
+                ["rclone", "copyto", f"{target_dir}/{name}", str(destination)],
+                env=env,
+                timeout=_TRANSFER_TIMEOUT,
+                secrets=secrets_literal,
+            )
+            if not result.success or not destination.is_file():
+                raise BackupError(
+                    f"Failed to download {name} from {destination_name}",
+                    details=_scrub((result.stderr or result.stdout).strip(), secrets_literal),
+                )
+            expected = remote_sizes[name]
+            if isinstance(expected, int) and destination.stat().st_size != expected:
+                files.remove(destination)
+                raise BackupError(
+                    f"Size mismatch after downloading {name}",
+                    details=f"The destination holds {expected} bytes of it.",
+                )
+            fetched.append(name)
+        return fetched
+
+    def delete_names(self, destination_name: str, folder: str, names: Sequence[str]) -> list[str]:
+        """
+        Delete files of a folder, tolerating the ones already gone.
+
+        Args:
+            destination_name: Destination to delete from.
+            folder: The folder the files are in.
+            names: The files to delete.
+
+        Returns:
+            The names asked for, once each.
+
+        Raises:
+            DependencyError: When rclone is not installed.
+            BackupError: When a name is not a plain file name, or rclone fails for a reason
+                other than the file being gone.
+        """
+        for name in names:
+            self.delete_file(destination_name, folder, name)
+        return list(names)
 
     @staticmethod
     def _verify_sidecar(name: str, body: str, entries: list[dict[str, Any]]) -> None:

@@ -244,25 +244,6 @@ def test_session_info_answers_before_login(anon_client: TestClient) -> None:
     assert body["csrf_header"] == CSRF_HEADER_NAME
 
 
-@pytest.mark.parametrize("came_from_wasm", [True, False])
-def test_session_info_says_whether_the_server_ran_wasm(
-    client: TestClient,
-    anon_client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-    came_from_wasm: bool,
-) -> None:
-    """
-    The console tells a signed-in operator about the rename only where it
-    happened; an anonymous caller is not told what the server used to run.
-    """
-    from noust.core import paths
-
-    monkeypatch.setattr(paths, "came_from_wasm", lambda: came_from_wasm)
-
-    assert client.get("/api/auth/session").json()["renamed_from_wasm"] is came_from_wasm
-    assert anon_client.get("/api/auth/session").json()["renamed_from_wasm"] is False
-
-
 def test_session_info_reports_scope_and_elevation(client: TestClient, master_token: str) -> None:
     """A signed-in, not-yet-elevated session reports its scope but no elevation."""
     fresh = client.get("/api/auth/session").json()

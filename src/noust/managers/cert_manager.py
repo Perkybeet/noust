@@ -108,6 +108,9 @@ _DEPLOY_HOOK_TEXT = (
     "    esac\n"
     '    systemctl reload "$server"\n'
     "done\n"
+    "# A database engine that serves a certificate of its own (noust db tls) takes the renewed\n"
+    "# one the same way: copied for its account, and reloaded.\n"
+    "command -v noust >/dev/null 2>&1 && noust db tls refresh >/dev/null 2>&1 || true\n"
 )
 
 #: Cron fallback for systems whose certbot package ships no systemd timer.

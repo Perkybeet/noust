@@ -1,5 +1,5 @@
-# WASM Default Configuration
-# Location: /etc/wasm/config.yaml
+# Noust Default Configuration
+# Location: /etc/noust/config.yaml
 
 # Directory where applications are deployed
 apps_directory: /var/www/apps
@@ -50,7 +50,7 @@ monitor:
   memory_threshold: 80.0   # Processes using more than this % memory
   
   # Monitor log file
-  log_file: /var/log/wasm/monitor.log
+  log_file: /var/log/noust/monitor.log
   
   # SMTP Configuration for Email Notifications
   # Sends alerts when threats are detected and after mitigation

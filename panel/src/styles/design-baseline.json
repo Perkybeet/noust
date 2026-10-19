@@ -12,7 +12,6 @@
       "app/CommandPalette.tsx": 4,
       "app/ErrorBoundary.tsx": 1,
       "app/LanguageSwitch.tsx": 1,
-      "app/RenameNotice.tsx": 1,
       "app/ThemeSwitch.tsx": 1,
       "components/page/DangerZone.tsx": 1,
       "components/page/RelativeTime.tsx": 1,

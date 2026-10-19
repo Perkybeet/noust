@@ -68,7 +68,7 @@ def test_keeping_owners_is_what_pg_restore_always_did(
     assert argv[argv.index("pg_restore") :][:3] == ("pg_restore", "--no-password", "-d")
 
 
-def test_a_plain_dump_is_cleaned_of_owners_before_it_is_staged(
+def test_a_plain_dump_is_cleaned_of_owners_before_psql_reads_it(
     postgres: PostgresManager,
     runner: FakeRunner,
     tmp_path: Path,
@@ -90,8 +90,9 @@ def test_a_plain_dump_is_cleaned_of_owners_before_it_is_staged(
     postgres.restore("shop", dump, safety_backup=False, keep_owners=False, owner_role="app")
 
     assert seen == {"role": "app", "source": "d.sql"}
-    stage = next(call for call in runner.calls if call[:1] == ("cp",))
-    assert stage[2].endswith("postgresql-restore-shop.sql")
+    # psql reads the cleaned copy as its stdin: not the dump the operator gave.
+    assert runner.stdin_paths[-1].name == "owners-stripped.sql"
+    assert runner.stdin_paths[-1] != dump
 
 
 def test_a_plain_dump_is_left_alone_when_owners_are_kept(
@@ -110,5 +111,5 @@ def test_a_plain_dump_is_left_alone_when_owners_are_kept(
 
     postgres.restore("shop", dump, safety_backup=False, keep_owners=True)
 
-    stage = next(call for call in runner.calls if call[:1] == ("cp",))
-    assert stage[1] == str(dump)
+    assert runner.stdin_paths[-1] == dump
+    assert not runner.calls_to("cp")

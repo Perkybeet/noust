@@ -211,9 +211,9 @@ noust app source change shop.example.com upload:<id>   # a new version of the co
   continue it, and one nobody finished is swept after a day.
 - **It is extracted once, with the checks every archive gets** (the same as an archive URL): no
   absolute path and no `..`, nothing written through a link, links that point out of the project,
-  device files and setuid bits refused, and caps on members (50,000) and bytes (2 GiB). A directory
-  wrapping everything is taken off. An archive with no files, or an unsafe one, leaves nothing
-  behind. The archive itself is thrown away; the project is what is kept.
+  device files refused, setuid and setgid bits dropped, and caps on members (50,000) and bytes
+  (2 GiB). A directory wrapping everything is taken off. An archive with no files, or an unsafe
+  one, leaves nothing behind. The archive itself is thrown away; the project is what is kept.
 - **The result is a directory, and `upload:<id>` is its address.** It is a local source for
   everything that reads one (inspection, building, redeploying), but not a path anybody typed: the
   identifier is 128 random bits, only what Noust extracted exists at that name, and an API token
@@ -234,6 +234,11 @@ the source of a container application like any other. The build context holds no
 `COPY` finds nothing: the Dockerfile fetches what it needs itself (`ADD` of a URL, `RUN git clone`, a
 base image that has the program). Put anything larger in an archive or a repository. The text is at
 most 256 KiB, must have a `FROM`, and is stored, removed and audited like an uploaded archive.
+
+A container application keeps the text it was made from: `noust update` rebuilds that text (and keeps
+the previous image to go back to), and a different Dockerfile is another application, because the
+source of a container application is not changed in place (`noust app source change` refuses it and
+says so).
 
 ## Changing where the code comes from
 

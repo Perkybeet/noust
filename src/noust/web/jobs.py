@@ -7,8 +7,8 @@ connection open for minutes and, when the handler is ``async``, would freeze
 the event loop for every other client at the same time. They are queued here
 and the endpoint answers ``202 Accepted`` with a job id.
 
-**These jobs call the managers directly.** They used to spawn the ``wasm``
-binary with :mod:`subprocess` and scrape its console output for progress, which
+**These jobs call the managers directly.** They used to spawn the
+command line with :mod:`subprocess` and scrape its console output for progress, which
 made the web layer a third implementation of the product: it needed the CLI
 installed on ``PATH``, it lost every typed error, it reported progress by
 matching English words in log lines, and it ran as whatever user the panel ran
@@ -2301,6 +2301,10 @@ def deploy_app_job(
     except NoustError as exc:
         if databases is not None and new_database is not None:
             databases.keep_after_failed_deploy(new_database, exc)
+        if plan is not None:
+            from noust.recipes.deploy import keep_after_failed_deploy
+
+            keep_after_failed_deploy(plan, exc, logger=Logger(verbose=False))
         raise
     linked = (
         databases.link_new_app(new_database)
@@ -2953,6 +2957,79 @@ def rollback_deployment_job(
         "backup_id": outcome.backup_id,
         "status": "rolled_back",
     }
+
+
+def database_pitr_job(
+    action: str,
+    options: dict[str, Any] | None = None,
+    actor: str | None = None,
+    job_context: JobContext | None = None,
+) -> dict[str, Any]:
+    """
+    Do one thing to PostgreSQL's point-in-time recovery: turn it on or off, take a base backup,
+    send the archive, bring it back, or recover to an instant.
+
+    Each of them restarts the engine, copies the whole cluster or waits for a replay of the log:
+    minutes of work that must not happen on a request.
+
+    Args:
+        action: ``enable``, ``disable``, ``base``, ``sync``, ``fetch`` or ``restore``.
+        options: What the action takes (see the matching request model).
+        actor: Who asked, for the audit trail.
+        job_context: Injected by the job manager.
+
+    Returns:
+        What the action did.
+
+    Raises:
+        DatabaseEngineError: When the action is unknown.
+    """
+    from noust.core.exceptions import DatabaseEngineError
+    from noust.managers.database.pitr import PitrManager
+    from noust.managers.database.pitr_archive import parse_recovery_time
+    from noust.managers.database.postgres import PostgresManager
+    from noust.managers.database.service import DatabaseService
+
+    context = _require_context(job_context)
+    context.set_metadata("engine", "postgresql")
+    chosen = options or {}
+    manager = DatabaseService().manager("postgresql")
+    if not isinstance(manager, PostgresManager):
+        raise DatabaseEngineError("Point-in-time recovery is for PostgreSQL")
+    pitr = PitrManager(manager)
+    context.update(f"Point-in-time recovery: {action}", 10)
+
+    result: dict[str, Any]
+    if action == "enable":
+        result = pitr.enable(
+            confirmed=True,
+            base_every_hours=int(chosen.get("base_every_hours", 168)),
+            retention_count=chosen.get("retention_count"),
+            retention_days=chosen.get("retention_days"),
+            destinations=chosen.get("destinations", []),
+        )
+    elif action == "disable":
+        result = pitr.disable(confirmed=True, delete_archive=bool(chosen.get("delete_archive")))
+    elif action == "base":
+        result = pitr.take_base().to_dict()
+    elif action == "sync":
+        result = pitr.sync()
+    elif action == "fetch":
+        result = pitr.fetch(str(chosen.get("destination", "")))
+    elif action == "restore":
+        when = chosen.get("time")
+        result = pitr.restore(
+            parse_recovery_time(str(when)) if when else None,
+            confirmed=True,
+            base_id=chosen.get("base") or None,
+        )
+    else:
+        raise DatabaseEngineError(
+            f"Unsupported point-in-time recovery action: {action}",
+            details="Use enable, disable, base, sync, fetch or restore.",
+        )
+    context.update("Complete", 100)
+    return {"engine": "postgresql", "action": action, "status": "completed", "result": result}
 
 
 def database_engine_job(

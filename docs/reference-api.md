@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-976 operations.
+985 operations.
 
 ## Access
 
@@ -539,6 +539,15 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/databases/instances/{name}/upgrade` | Upgrade Instance | `databases.manage` | yes |  |
 | POST | `/api/databases/moves` | Move Database | `databases.manage` | yes |  |
 | POST | `/api/databases/moves/plan` | Plan Move | `databases.read` |  |  |
+| GET | `/api/databases/pitr` | Get Status | `databases.read` |  |  |
+| POST | `/api/databases/pitr/base` | Take Base | `databases.manage` | yes |  |
+| POST | `/api/databases/pitr/disable` | Disable | `databases.manage` | yes |  |
+| POST | `/api/databases/pitr/enable` | Enable | `databases.manage` | yes |  |
+| POST | `/api/databases/pitr/enable/plan` | Plan Enable | `databases.read` |  |  |
+| POST | `/api/databases/pitr/fetch` | Fetch | `databases.manage` | yes |  |
+| POST | `/api/databases/pitr/restore` | Restore | `databases.manage` | yes |  |
+| POST | `/api/databases/pitr/restore/plan` | Plan Restore | `databases.read` |  |  |
+| POST | `/api/databases/pitr/sync` | Sync | `databases.manage` | yes |  |
 | GET | `/api/databases/provisioning/choices` | Provisioning Choices | `databases.read` |  |  |
 | GET | `/api/databases/provisioning/plan` | Provisioning Plan | `databases.read` |  |  |
 | GET | `/api/databases/public` | List Public | `databases.read` |  |  |

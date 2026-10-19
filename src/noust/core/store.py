@@ -51,12 +51,9 @@ from noust.core.teams import ownership as teams_ownership
 
 logger = logging.getLogger(__name__)
 
-# Database location. The legacy paths are where WASM kept the store until
-# 3.0; they are read in place until noust.core.migrate_from_wasm moves them.
+# Database location: the system store, and the one a non-root user falls back to.
 DEFAULT_DB_PATH = paths.STATE_DIR / paths.STORE_NAME
-LEGACY_DB_PATH = paths.LEGACY_STATE_DIR / paths.LEGACY_STORE_NAME
 USER_DB_PATH = paths.user_data_dir() / paths.STORE_NAME
-LEGACY_USER_DB_PATH = paths.legacy_user_data_dir() / paths.LEGACY_STORE_NAME
 
 
 def _writable_dir(directory: Path) -> bool:
@@ -76,33 +73,10 @@ def _store_candidates() -> list[tuple[Path, bool]]:
     """
     List every place a store may already be, most authoritative first.
 
-    WASM kept the store at ``/var/lib/wasm/wasm.db``. The migration renames
-    the file to ``noust.db`` inside that directory, then the directory to
-    ``/var/lib/noust``, and leaves ``/var/lib/wasm`` as a symlink; a run
-    interrupted between two of those steps leaves the file under any of the
-    four combinations, and every one is looked at before a new, empty store
-    is ever chosen. The same holds for the per-user store.
-
     Returns:
-        ``(path, is_system)`` pairs, without duplicates.
+        ``(path, is_system)`` pairs: the system store, then the user's.
     """
-    candidates: list[tuple[Path, bool]] = []
-    seen: set[Path] = set()
-    system_dirs = (DEFAULT_DB_PATH.parent, LEGACY_DB_PATH.parent)
-    system_names = (DEFAULT_DB_PATH.name, LEGACY_DB_PATH.name)
-    user_dirs = (USER_DB_PATH.parent, LEGACY_USER_DB_PATH.parent)
-    user_names = (USER_DB_PATH.name, LEGACY_USER_DB_PATH.name)
-    for dirs, names, system in (
-        (system_dirs, system_names, True),
-        (user_dirs, user_names, False),
-    ):
-        for directory in dirs:
-            for name in names:
-                path = directory / name
-                if path not in seen:
-                    seen.add(path)
-                    candidates.append((path, system))
-    return candidates
+    return [(DEFAULT_DB_PATH, True), (USER_DB_PATH, False)]
 
 
 class StoreError(NoustError):
@@ -971,6 +945,9 @@ class BackupScheduleRecord:
             age limit.
         retention_bytes: The most the schedule's own local backups may weigh
             together; None for no limit by size.
+        remote_only: Delete each scheduled backup from this server once every
+            destination holds it and the upload was checked (a server with a
+            small disk).
         destinations: Remote copies: ``{"name", "retention_count",
             "retention_days", "retention_gb"}`` per destination.
         project_id: The project it belongs to (schema v14), the application's.
@@ -983,6 +960,7 @@ class BackupScheduleRecord:
     retention_count: int | None = None
     retention_days: int | None = None
     retention_bytes: int | None = None
+    remote_only: bool = False
     destinations: list[dict[str, Any]] = field(default_factory=list)
     created_at: str | None = None
     updated_at: str | None = None
@@ -994,6 +972,7 @@ class BackupScheduleRecord:
         """Create from database row."""
         data = dict(row)
         data["include_databases"] = bool(data.get("include_databases"))
+        data["remote_only"] = bool(data.get("remote_only"))
         try:
             destinations = json.loads(data.get("destinations") or "[]")
         except (json.JSONDecodeError, TypeError):
@@ -5147,14 +5126,15 @@ class NoustStore:
             )
             cursor.execute(
                 "INSERT INTO backup_schedules (app_domain, schedule, include_databases, "
-                "retention_count, retention_days, retention_bytes, destinations, created_at, "
-                "updated_at, project_id, environment_id) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                "retention_count, retention_days, retention_bytes, remote_only, destinations, "
+                "created_at, updated_at, project_id, environment_id) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(app_domain) DO UPDATE SET schedule = excluded.schedule, "
                 "include_databases = excluded.include_databases, "
                 "retention_count = excluded.retention_count, "
                 "retention_days = excluded.retention_days, "
                 "retention_bytes = excluded.retention_bytes, "
+                "remote_only = excluded.remote_only, "
                 "destinations = excluded.destinations, updated_at = excluded.updated_at",
                 (
                     schedule.app_domain,
@@ -5163,6 +5143,7 @@ class NoustStore:
                     schedule.retention_count,
                     schedule.retention_days,
                     schedule.retention_bytes,
+                    1 if schedule.remote_only else 0,
                     json.dumps(schedule.destinations, sort_keys=True),
                     now,
                     now,

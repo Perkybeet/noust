@@ -1016,6 +1016,38 @@ def test_create_passes_compose_settings_through(
     assert deployer.configured["compose_profiles"] == ["web", "worker"]
 
 
+def test_create_gives_a_stack_no_port_of_its_own_unless_asked(
+    cli_runner: CliRunner, monkeypatch: pytest.MonkeyPatch, deployer: DeployerSpy
+) -> None:
+    """The site of a stack goes to the port the stack publishes, not to a free one nobody listens on.
+
+    The real-machine harness found a stack created without ``--port`` proxied to the port Noust
+    picked for it (a 502), while docs/compose.md says the compose file's web port is used.
+    """
+    monkeypatch.setattr(webapp, "DockerComposeDeployer", lambda verbose=False: deployer)
+
+    result = cli_runner.invoke(
+        webapp.cli.commands["create"], ["-d", "example.com", "-s", ".", "-t", "docker-compose"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert deployer.configured["port"] is None
+
+
+def test_create_gives_a_stack_the_port_it_was_asked_for(
+    cli_runner: CliRunner, monkeypatch: pytest.MonkeyPatch, deployer: DeployerSpy
+) -> None:
+    monkeypatch.setattr(webapp, "DockerComposeDeployer", lambda verbose=False: deployer)
+
+    result = cli_runner.invoke(
+        webapp.cli.commands["create"],
+        ["-d", "example.com", "-s", ".", "-t", "docker-compose", "-p", "3100"],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert deployer.configured["port"] == 3100
+
+
 # ---------------------------------------------------------------------------
 # list and status
 # ---------------------------------------------------------------------------

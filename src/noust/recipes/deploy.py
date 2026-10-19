@@ -33,7 +33,7 @@ from urllib.parse import unquote, urlsplit
 
 from noust.central import require_server_role
 from noust.core.config import Config
-from noust.core.exceptions import DeploymentError
+from noust.core.exceptions import DeploymentError, NoustError
 from noust.core.fs import get_fs
 from noust.core.logger import Logger
 from noust.core.store import NoustStore, get_store
@@ -800,6 +800,41 @@ def _legacy_source(
         },
     )
     return str(directory), None
+
+
+def keep_after_failed_deploy(plan: RecipePlan, error: NoustError, *, logger: Logger) -> None:
+    """
+    Say, in a failed first deploy's error, that the databases the recipe made were kept.
+
+    The recipe provisions its databases before it deploys, so a deploy that fails leaves them.
+    They are never dropped behind the operator's back (a retry reuses them and their passwords),
+    and the error names the command that drops each, the way a first deploy with a database of
+    its own does (:meth:`~noust.managers.database.service.DatabaseService.keep_after_failed_deploy`).
+
+    Args:
+        plan: What the recipe resolved to, and so what it provisioned.
+        error: What the deploy raised; its details are extended.
+        logger: Where the database service reports.
+    """
+    from noust.managers.database.service import DatabaseService, NewAppDatabase
+
+    service = DatabaseService(logger=logger)
+    if plan.database is not None:
+        service.keep_after_failed_deploy(
+            NewAppDatabase(
+                domain=plan.domain,
+                engine=plan.database.engine,
+                database=plan.database.name,
+                username=plan.database.user,
+                env_var="DATABASE_URL",
+                extra_vars=False,
+                created_database=True,
+                values={},
+            ),
+            error,
+        )
+    for prepared in plan.keyed:
+        service.keep_after_failed_deploy(prepared, error)
 
 
 def finish_recipe(

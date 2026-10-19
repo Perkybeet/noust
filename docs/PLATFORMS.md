@@ -83,7 +83,7 @@ exit status 1, and a platform the table refuses is `{"status":"refused",...}` wi
 |--------|---------|
 | supported | A package from the repository of that release, installed by the system's package manager, and run by the installer matrix below |
 | best-effort | Installs, is not promised: an interim release, a release past its end of life, or a newer one that borrows the previous release's repository. The installer asks first, and `noust setup doctor` says so |
-| pip | No package exists for it: the installer builds a virtual environment in `/opt/noust` with pip and links `noust` and `wasm` into `/usr/local/bin` |
+| pip | No package exists for it: the installer builds a virtual environment in `/opt/noust` with pip and links `noust` into `/usr/local/bin` |
 | unsupported | Refused. The reason is in the table, or "not a release Noust declares support for" |
 
 A derivative that names a parent in `ID_LIKE` (Pop!_OS 22.04 says `ubuntu debian`) is judged as the
@@ -113,9 +113,9 @@ distribution gives (`SUPPORT_END`, or Noust's own table) is best-effort from tha
 | openSUSE Tumbleweed | supported | `openSUSE_Tumbleweed` | install:amd64 |  |
 | Rocky Linux 9 and 10 | pip | pip | install:amd64 | OBS has no RHEL-family target: Noust is installed with pip into /opt/noust. |
 | AlmaLinux 9 and 10 | pip | pip | install:amd64 | OBS has no RHEL-family target: Noust is installed with pip into /opt/noust. |
-| Red Hat Enterprise Linux 9 and 10 | pip | pip | not tested | Installed with pip into /opt/noust like Rocky and AlmaLinux, which are the ones run; RHEL itself is not. |
-| CentOS Stream 9 and 10 | pip | pip | not tested | Installed with pip into /opt/noust like Rocky and AlmaLinux, which are the ones run; CentOS Stream itself is not. |
-| Oracle Linux 9 and 10 | pip | pip | not tested | Installed with pip into /opt/noust like Rocky and AlmaLinux, which are the ones run; Oracle Linux itself is not. |
+| Red Hat Enterprise Linux 9 and 10 | pip | pip | install:amd64 | Installed with pip into /opt/noust like Rocky and AlmaLinux; run in Red Hat's UBI 9 and 10 images, not on a subscribed host. |
+| CentOS Stream 9 and 10 | pip | pip | install:amd64 | Installed with pip into /opt/noust like Rocky and AlmaLinux; run in the Stream 9 and 10 images. |
+| Oracle Linux 9 and 10 | pip | pip | install:amd64 | Installed with pip into /opt/noust like Rocky and AlmaLinux; run in the Oracle Linux 9 and 10 images. |
 | Arch Linux | unsupported | - | not tested | Rolling release with systemd, so it could run Noust, but Noust has no pacman support yet: neither its installer, its updates nor its setup would work. |
 | Alpine Linux | unsupported | - | not tested | No systemd (OpenRC) and musl: Noust runs every application as a systemd unit. |
 
@@ -147,7 +147,7 @@ The `Tested` column of the table says where a release was actually run, with the
 - **install**: `tests/integration/install_matrix.py` (also `tests/integration/run.py
   --install-matrix`). One throwaway container per release: `--print-platform` and `--dry-run`, a
   repository key with another fingerprint is refused **and nothing is written**, the real install
-  from the real OBS repository with the key checked, `noust --version` and `wasm --version`, and
+  from the real OBS repository with the key checked, `noust --version`, and
   a second run that must succeed. The containers have no systemd, so `noust setup init` and the
   console are not part of it. `install:arm64` is run under QEMU on an amd64 host.
 - **harness**: the scenario suite of `tests/integration/run.py`, in a container with systemd as PID

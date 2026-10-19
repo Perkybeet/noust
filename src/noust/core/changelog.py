@@ -156,8 +156,8 @@ def parse_debian(text: str) -> list[Entry]:
         text: The changelog, newest entry first.
 
     Returns:
-        One entry per release, in the file's order; the same version under two package names (the
-        product and its transitional package) is kept once, from the first.
+        One entry per release, in the file's order; the same version under two package names
+        is kept once, from the first.
     """
     entries: list[Entry] = []
     seen: set[str] = set()

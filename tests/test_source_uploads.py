@@ -320,6 +320,22 @@ class TestAddingAFileOnTheServer:
 
         assert uploads.items() == [] and not (tmp_path / "escaped.txt").exists()
 
+    def test_a_refused_archive_is_discarded_once_and_says_nothing_of_the_second(
+        self, uploads: SourceUploads, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Extracting discards the session, and the caller that sent it discards it again.
+
+        The real-machine harness saw `Could not remove the upload ...: No such file or directory`
+        under every archive `noust upload add` refused.
+        """
+        archive = tmp_path / "evil.zip"
+        archive.write_bytes(make_zip({"../escaped.txt": b"x"}))
+
+        with caplog.at_level("WARNING"), pytest.raises(SourceError):
+            uploads.add_file(archive, owner=OWNER)
+
+        assert "Could not remove the upload" not in caplog.text
+
 
 class TestTheIdentifierNamesNoPath:
     @pytest.mark.parametrize(

@@ -1272,6 +1272,11 @@ def create_app(
         port: int | None = validate_unclaimed_port(
             validate_port(body.port), get_store().ports_owned_by_apps()
         )
+    elif app_type == "docker-compose" and recipe is None:
+        # The stack publishes its own ports, and its site goes to the one it publishes for `/`
+        # (docs/compose.md): a free port picked here would be one nothing listens on. A recipe's
+        # stack is rendered with the port it is given, so it gets one.
+        port = None
     else:
         port = find_available_port(
             preferred=(recipe.port if recipe is not None and recipe.port else DEFAULT_PORT),

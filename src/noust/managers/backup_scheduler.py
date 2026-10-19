@@ -36,9 +36,10 @@ from jinja2 import Environment, PackageLoader, TemplateError
 from noust.central import require_server_role
 from noust.core import paths
 from noust.core.applock import AppBusyError
+from noust.core.audit import record as audit_record
 from noust.core.config import SYSTEMD_DIR as _SYSTEMD_DIR
 from noust.core.config import Config
-from noust.core.exceptions import BackupError, NoustError
+from noust.core.exceptions import BackupError, NoustError, ValidationError
 from noust.core.fs import FileSystem, get_fs
 from noust.core.logger import Logger
 from noust.core.notifications.composers import (
@@ -110,6 +111,13 @@ _DATABASE_DESCRIPTION_PREFIX = "Noust database backup timer for "
 _VOLUME_DESCRIPTION_PREFIX = "Noust volume backup timer for "
 _SELF_DESCRIPTION_PREFIX = "Noust self-backup timer for "
 
+#: The timer that sends an engine's archived write-ahead log to its destinations and takes its
+#: base backups (``noust db pitr``).
+_PITR_DESCRIPTION_PREFIX = "Noust point-in-time recovery timer for "
+
+#: How often it runs: the log is sent as it is archived, a minute behind at the most per run.
+PITR_CALENDAR = "*-*-* *:0/5:00"
+
 #: The unit of Noust's own state backup. An application's units are named after
 #: its domain, which always has a dot and so a dash: this name has none.
 SELF_BACKUP_UNIT = f"{paths.BACKUP_UNIT_PREFIX}self"
@@ -173,6 +181,9 @@ class BackupSchedule:
             None for no age limit.
         retention_bytes: The most the backups this schedule made may weigh together;
             None for no limit by size.
+        remote_only: Delete each scheduled backup from this server once every
+            destination holds it and its upload was checked (a small disk). It
+            needs a destination: there would be nowhere to keep the backup.
         tags: Tags attached to the backups this schedule creates.
         destinations: Remote copies to push each scheduled backup to, as
             ``{"name", "retention_count", "retention_days", "retention_gb"}`` per destination
@@ -187,6 +198,7 @@ class BackupSchedule:
     retention_count: int | None = 7
     retention_days: int | None = 30
     retention_bytes: int | None = None
+    remote_only: bool = False
     tags: list[str] = field(default_factory=lambda: [SCHEDULED_TAG, "auto"])
     destinations: list[dict[str, Any]] = field(default_factory=list)
 
@@ -377,6 +389,13 @@ class BackupScheduler:
         """
         require_server_role("Application backups")
         domain, app_name, calendar = self._validate(schedule)
+        if schedule.remote_only and not schedule.destinations:
+            raise ValidationError(
+                "A schedule that keeps nothing on this server needs a destination",
+                details="Name at least one destination to send the backups to (--destination "
+                "NAME), or keep the backups here.",
+                field="remote_only",
+            )
         checked = BackupSchedule(
             domain=domain,
             app_name=app_name,
@@ -385,6 +404,7 @@ class BackupScheduler:
             retention_count=schedule.retention_count,
             retention_days=schedule.retention_days,
             retention_bytes=schedule.retention_bytes,
+            remote_only=schedule.remote_only,
             tags=list(schedule.tags),
             destinations=list(schedule.destinations),
         )
@@ -415,6 +435,7 @@ class BackupScheduler:
                 retention_count=checked.retention_count,
                 retention_days=checked.retention_days,
                 retention_bytes=checked.retention_bytes,
+                remote_only=checked.remote_only,
                 destinations=checked.destinations,
             )
         )
@@ -543,6 +564,7 @@ class BackupScheduler:
                         _DATABASE_DESCRIPTION_PREFIX,
                         _VOLUME_DESCRIPTION_PREFIX,
                         _SELF_DESCRIPTION_PREFIX,
+                        _PITR_DESCRIPTION_PREFIX,
                     )
                 ):
                     # A database's, a volume policy's or Noust's own timer (see
@@ -584,6 +606,7 @@ class BackupScheduler:
                     else ""
                 )
                 schedule_info["include_databases"] = "true" if record.include_databases else "false"
+                schedule_info["remote_only"] = "true" if record.remote_only else "false"
 
             schedules.append(schedule_info)
 
@@ -676,6 +699,7 @@ class BackupScheduler:
             retention_count=record.retention_count,
             retention_days=record.retention_days,
             retention_bytes=record.retention_bytes,
+            remote_only=record.remote_only,
             destinations=list(record.destinations),
         )
 
@@ -1096,6 +1120,73 @@ class BackupScheduler:
         """
         return self.unit_state(SELF_BACKUP_UNIT)
 
+    @staticmethod
+    def pitr_timer_name(engine: str) -> str:
+        """
+        Name the timer of an engine's point-in-time recovery.
+
+        Args:
+            engine: Canonical engine name.
+
+        Returns:
+            ``noust-backup-pitr-<engine>``.
+        """
+        return f"{paths.BACKUP_UNIT_PREFIX}pitr-{engine}"
+
+    def install_pitr_timer(self, engine: str) -> str:
+        """
+        Create or replace the timer that runs an engine's point-in-time recovery upkeep.
+
+        The service runs ``noust db pitr run``, which reads everything else
+        (when a base backup is due, what is kept, where the log is sent) from the store.
+
+        Args:
+            engine: Canonical engine name.
+
+        Returns:
+            The timer's unit name.
+
+        Raises:
+            BackupError: When the unit name belongs to something else, a unit cannot be
+                written or the timer cannot be enabled.
+        """
+        require_server_role("Point-in-time recovery")
+        unit = self.pitr_timer_name(engine)
+        self.install_unit_pair(
+            unit,
+            _PITR_DESCRIPTION_PREFIX,
+            "point-in-time recovery",
+            "pitr-timer.j2",
+            "pitr-service.j2",
+            validate_calendar(PITR_CALENDAR),
+            target=engine,
+        )
+        return unit
+
+    def remove_pitr_timer(self, engine: str) -> bool:
+        """
+        Remove the timer of an engine's point-in-time recovery upkeep.
+
+        Args:
+            engine: Canonical engine name.
+
+        Returns:
+            True when a timer was there to remove.
+        """
+        return self.remove_unit_pair(self.pitr_timer_name(engine), _PITR_DESCRIPTION_PREFIX)
+
+    def pitr_timer_state(self, engine: str) -> dict[str, Any]:
+        """
+        Ask systemd about the timer of an engine's point-in-time recovery upkeep.
+
+        Args:
+            engine: Canonical engine name.
+
+        Returns:
+            ``installed``, ``next_run`` and ``last_run``.
+        """
+        return self.unit_state(self.pitr_timer_name(engine))
+
     def _render(self, template_name: str, **values: str) -> str:
         """
         Render one of the escaped systemd templates.
@@ -1472,6 +1563,21 @@ def run_schedule(
         )
 
     result["drill"] = _drill_when_due(domain, metadata.id, config, ctx)
+
+    # Every destination holds the archive and checked it on arrival, and the checks that read
+    # the local file (verification, the drill) are done: the copy a small disk cannot afford
+    # goes. A backup that did not reach every destination raised above and stays.
+    result["kept_locally"] = True
+    result["removed_after_sending"] = []
+    if record.remote_only and result["destinations"]:
+        backup_manager.delete(metadata.id)
+        audit_record(
+            "backups.delete",
+            target=f"backup:{metadata.id}",
+            details={"domain": domain, "reason": "remote_only"},
+        )
+        result["removed_after_sending"] = [metadata.id]
+        result["kept_locally"] = False
 
     # The heartbeat: off unless the operator switched backup_success on. Only a
     # backup that went everywhere it was meant to counts as one.

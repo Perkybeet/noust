@@ -146,6 +146,35 @@ def service_account_for(domain: str, config: Config | None = None) -> tuple[str,
     return service_account(get_store().get_app(domain) if domain else None, config)
 
 
+def ensure_service_account(
+    domain: str, runner: CommandRunner, config: Config | None = None
+) -> tuple[str, str]:
+    """
+    Say which account an application runs as, making it first when it is its own and missing.
+
+    An application's own account lives in ``/etc/passwd``, not in the store or in a bundle of
+    Noust's state, so a restore on a machine the application never ran on (or after the
+    application was deleted, which removes its account) finds the store naming an account the
+    system does not have: the files could not be handed over and the unit would not start
+    (``status=217/USER``).
+
+    Args:
+        domain: The application.
+        runner: The runner ``getent`` and ``useradd`` go through.
+        config: Where the shared service account comes from.
+
+    Returns:
+        ``(account, group)``, as :func:`service_account_for` says.
+
+    Raises:
+        DeploymentError: The account is its own, is missing and could not be created.
+    """
+    app = get_store().get_app(domain) if domain else None
+    if app is not None and app.identity:
+        ensure_account(app.identity, runner, domain=domain)
+    return service_account(app, config)
+
+
 def ineligible(app: App) -> str | None:
     """
     Say why an application cannot run as its own account.

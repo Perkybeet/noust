@@ -138,7 +138,7 @@ jobs:
   # pydantic-1-only failure - and the .deb depends on the distribution
   # package, which on Ubuntu 24.04 and Debian 12 is pydantic 1.10. That is
   # how v1.5.0 imported `field_validator`, a pydantic-2-only name, and
-  # `wasm web start` died with ImportError on every Ubuntu 24.04 install
+  # `noust web start` died with ImportError on every Ubuntu 24.04 install
   # while this whole workflow stayed green. This job pins pydantic to 1.10
   # and imports and tests the real web layer against it, exercising the
   # bridge in noust.web.pydantic_compat from its v1 side.
@@ -246,8 +246,6 @@ jobs:
         run: |
           noust --version
           noust --help
-          wasm --version
-          wasm --help
 
   # The console is built by Node but shipped by Python: src/noust/web/static
   # is the committed output of panel/, because OBS packages `git archive
@@ -295,7 +293,7 @@ jobs:
       # `git diff` alone misses a chunk the build created and nobody
       # committed; `git status` sees both that and a deleted one. The whole
       # tree, not only src/noust/web/static: after the rename the build still
-      # went to src/wasm/web/static, this check looked where nothing had
+      # went to the old package's folder, this check looked where nothing had
       # changed and passed, and the package shipped the console from before.
       - name: Check the committed build matches the source
         working-directory: .
@@ -434,14 +432,11 @@ jobs:
           sh -n packaging/install.sh
           shellcheck -s sh packaging/install.sh
 
-      # The product and the transitional wasm-cli that carries pip users of the
-      # old name over to it.
-      - name: Build distributions
+      - name: Build the distribution
         run: |
           pip install build twine
           python -m build --outdir dist/noust
-          python -m build packaging/transitional/wasm-cli --outdir dist/wasm-cli
-          twine check dist/noust/* dist/wasm-cli/*
+          twine check dist/noust/*
 
   # The Terraform and OpenTofu provider (checklist J-14), Go, in terraform-provider-noust/. Built, vetted and
   # unit-tested (among the tests, the ones that hold its operations table and every request and answer type to
@@ -554,9 +549,8 @@ jobs:
 
   # The distribution packages from exactly what OBS receives, on every push,
   # not only at the tag: v2.0.0's first tag failed on an RPM gate that branch
-  # CI never ran. The noust package and the transitional one it replaces, one
-  # Debian and one Fedora release; the Release workflow covers every target
-  # and the upgrade from 2.x.
+  # CI never ran. One Debian and one Fedora release; the Release workflow covers
+  # every target.
   packages:
     name: Distribution packages (${{ matrix.image }})
     runs-on: ubuntu-latest
@@ -577,34 +571,30 @@ jobs:
 
       - uses: actions/checkout@v7
 
-      # --snapshot: a branch between the rename and its release is staged as a
-      # pre-release of it; these packages are built and installed, never published.
-      - name: Stage the OBS packages
+      # --snapshot: a branch between two releases is staged as a pre-release of
+      # the last; these packages are built and installed, never published.
+      - name: Stage the OBS package
         run: |
           git config --global --add safe.directory "$PWD"
           packaging/obs/stage.sh --snapshot noust /tmp/obs/noust
-          packaging/obs/stage.sh --snapshot wasm /tmp/obs/wasm
 
       - name: Build
         run: |
           if [ "${{ matrix.kind }}" = deb ]; then
-            for package in noust wasm; do
-              mk-build-deps --install --remove --tool "apt-get -y --no-install-recommends" \
-                "/tmp/obs/$package/debian.control"
-            done
+            mk-build-deps --install --remove --tool "apt-get -y --no-install-recommends" \
+              /tmp/obs/noust/debian.control
           fi
           packaging/obs/build.sh ${{ matrix.kind }} /tmp/obs/noust /tmp/out
-          packaging/obs/build.sh ${{ matrix.kind }} /tmp/obs/wasm /tmp/out
 
       # Without the console's dependencies, as `dnf install noust` leaves a
       # machine: the CLI must not need FastAPI to start.
-      - name: Install both and run both commands
+      - name: Install it and run the command
         run: |
           if [ "${{ matrix.kind }}" = deb ]; then
             DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-              /tmp/out/noust_*.deb /tmp/out/wasm_*.deb
+              /tmp/out/noust_*.deb
           else
-            dnf install -y /tmp/out/noust-[0-9]*.noarch.rpm /tmp/out/wasm-cli-[0-9]*.noarch.rpm
+            dnf install -y /tmp/out/noust-[0-9]*.noarch.rpm
           fi
           if python3 -c "import fastapi" 2> /dev/null; then
             echo "FastAPI is installed; this step must run without it"; exit 1
@@ -612,6 +602,3 @@ jobs:
           noust --version
           noust --help > /dev/null
           noust list --help > /dev/null
-          wasm --version
-          wasm --help > /dev/null
-          wasm list --help > /dev/null

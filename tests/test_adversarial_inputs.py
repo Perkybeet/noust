@@ -607,6 +607,82 @@ class TestIdentifiersOfThingsNoustWrote:
 
 
 # ---------------------------------------------------------------------------
+# Replicas: the name, the host and the join code a person pastes
+# ---------------------------------------------------------------------------
+
+
+class TestReplicasAndTheirJoinCodes:
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_a_replica_name_becomes_a_role_a_slot_a_pg_hba_line_and_a_file(
+        self, value: str
+    ) -> None:
+        from noust.validators import replica
+
+        accepted, result = verdict(replica.check_replica_name, value)
+
+        if accepted:
+            assert re.fullmatch(r"[a-z][a-z0-9]*(?:_[a-z0-9]+)*", result), repr(result)
+            assert len(result) <= replica.MAX_NAME_LENGTH
+            assert not CONTROL.search(result)
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_the_host_a_replica_connects_to_reaches_libpq_and_a_passfile(self, value: str) -> None:
+        from noust.validators import replica
+
+        accepted, result = verdict(replica.check_replica_host, value)
+
+        if accepted:
+            assert result == value
+            assert not CONTROL.search(result) and not any(c in result for c in " /;'\"$`")
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_a_join_code_is_refused_cleanly_or_is_what_encode_makes(self, value: str) -> None:
+        from noust.managers.database import replication_token
+
+        accepted, result = verdict(replication_token.parse, replication_token.PREFIX + value)
+
+        if accepted:
+            assert replication_token.encode(result) == (replication_token.PREFIX + value).strip()
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_anything_after_the_prefix_is_refused_cleanly(self, value: str) -> None:
+        from noust.managers.database import replication_token
+
+        verdict(replication_token.parse, value)
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_the_address_of_a_replica_is_a_network_or_nothing(self, value: str) -> None:
+        import ipaddress
+
+        from noust.managers.database import pg_hba
+
+        try:
+            result = pg_hba.replica_address(value)
+        except ValueError:
+            return
+        network = ipaddress.ip_network(result)
+        assert network.prefixlen > 0
+        assert not CONTROL.search(result) and " " not in result
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_an_account_written_into_pg_hba_needs_no_quoting(self, value: str) -> None:
+        from noust.managers.database import pg_hba
+
+        try:
+            text = pg_hba.replication_block(value, "10.0.0.5")
+        except ValueError:
+            return
+        assert text.count("\n") == 4, repr(text)
+        assert re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,62}", value)
+
+
+# ---------------------------------------------------------------------------
 # The runner's own refusal
 # ---------------------------------------------------------------------------
 

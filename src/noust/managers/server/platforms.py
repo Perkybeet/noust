@@ -321,8 +321,9 @@ TARGETS: tuple[Target, ...] = (
         "dnf",
         PIP_ONLY,
         versions=("9", "9.*", "10", "10.*"),
-        note="Installed with pip into /opt/noust like Rocky and AlmaLinux, which are the ones run; "
-        "RHEL itself is not.",
+        tested=(INSTALL_AMD64,),
+        note="Installed with pip into /opt/noust like Rocky and AlmaLinux; run in Red Hat's UBI 9 "
+        "and 10 images, not on a subscribed host.",
     ),
     _row(
         "centos",
@@ -331,8 +332,9 @@ TARGETS: tuple[Target, ...] = (
         "dnf",
         PIP_ONLY,
         versions=("9", "9.*", "10", "10.*"),
-        note="Installed with pip into /opt/noust like Rocky and AlmaLinux, which are the ones run; "
-        "CentOS Stream itself is not.",
+        tested=(INSTALL_AMD64,),
+        note="Installed with pip into /opt/noust like Rocky and AlmaLinux; run in the Stream 9 and "
+        "10 images.",
     ),
     _row(
         "ol",
@@ -341,8 +343,9 @@ TARGETS: tuple[Target, ...] = (
         "dnf",
         PIP_ONLY,
         versions=("9", "9.*", "10", "10.*"),
-        note="Installed with pip into /opt/noust like Rocky and AlmaLinux, which are the ones run; "
-        "Oracle Linux itself is not.",
+        tested=(INSTALL_AMD64,),
+        note="Installed with pip into /opt/noust like Rocky and AlmaLinux; run in the Oracle Linux 9 "
+        "and 10 images.",
     ),
     _row(
         "arch",

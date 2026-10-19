@@ -145,6 +145,20 @@ class TestTargetsAndPolicies:
         assert again.json()["retention_gb"] == 2.5
         assert client.get(f"{BASE}/policies/{DOMAIN}").json()["retention_gb"] == 2.5
 
+    def test_a_policy_that_keeps_nothing_here_needs_a_destination(
+        self, client: TestClient, shop: Path
+    ) -> None:
+        elevate(client)
+
+        refused = client.put(f"{BASE}/policies/{DOMAIN}", json={"remote_only": True})
+
+        assert refused.status_code == 400, refused.text
+        assert "destination" in refused.text
+        assert client.get(f"{BASE}/policies/{DOMAIN}").json()["configured"] is False
+        kept = client.put(f"{BASE}/policies/{DOMAIN}", json={})
+        assert kept.status_code == 200, kept.text
+        assert kept.json()["remote_only"] is False
+
     def test_setting_or_removing_a_policy_needs_sudo_mode(
         self, client: TestClient, shop: Path
     ) -> None:

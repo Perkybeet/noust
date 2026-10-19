@@ -973,6 +973,7 @@ BackupScheduleInfo = TypedDict("BackupScheduleInfo", {
     "last_run": Required[str],
     "next_run": Required[str],
     "on_calendar": Required[str],
+    "remote_only": NotRequired[bool],
     "retention_count": NotRequired[Union[int, None]],
     "retention_days": NotRequired[Union[int, None]],
     "retention_gb": NotRequired[Union[float, None]],
@@ -2078,6 +2079,7 @@ CreateScheduleRequest = TypedDict("CreateScheduleRequest", {
     "destinations": NotRequired[list["NoustWebApiBackupSchedulesScheduleDestination"]],
     "domain": Required[str],
     "include_databases": NotRequired[bool],
+    "remote_only": NotRequired[bool],
     "retention_count": NotRequired[Union[int, None]],
     "retention_days": NotRequired[Union[int, None]],
     "retention_gb": NotRequired[Union[float, None]],
@@ -2887,6 +2889,7 @@ EngineCatalogResponse = TypedDict("EngineCatalogResponse", {
     "apt": Required[bool],
     "distribution": Required["DistributionResponse"],
     "flavours": Required[list["FlavourChoiceResponse"]],
+    "package_manager": NotRequired[str],
 })
 
 EngineChoiceResponse = TypedDict("EngineChoiceResponse", {
@@ -5388,6 +5391,73 @@ PinnedHostsResponse = TypedDict("PinnedHostsResponse", {
     "total": Required[int],
 })
 
+PitrDestinationRequest = TypedDict("PitrDestinationRequest", {
+    "name": Required[str],
+    "retention_count": NotRequired[Union[int, None]],
+    "retention_days": NotRequired[Union[int, None]],
+})
+
+PitrDisableRequest = TypedDict("PitrDisableRequest", {
+    "confirm": NotRequired[bool],
+    "delete_archive": NotRequired[bool],
+})
+
+PitrEnablePlanResponse = TypedDict("PitrEnablePlanResponse", {
+    "archive_path": Required[str],
+    "base_every_hours": Required[int],
+    "data_directory": Required[str],
+    "destinations": NotRequired[list[dict[str, Any]]],
+    "restart": Required[bool],
+    "retention_count": NotRequired[Union[int, None]],
+    "retention_days": NotRequired[Union[int, None]],
+    "settings": Required[dict[str, str]],
+    "system_id": Required[str],
+    "wal_level_was": NotRequired[Union[str, None]],
+})
+
+PitrEnableRequest = TypedDict("PitrEnableRequest", {
+    "base_every_hours": NotRequired[int],
+    "confirm": NotRequired[bool],
+    "destinations": NotRequired[list["PitrDestinationRequest"]],
+    "retention_count": NotRequired[Union[int, None]],
+    "retention_days": NotRequired[Union[int, None]],
+})
+
+PitrFetchRequest = TypedDict("PitrFetchRequest", {
+    "destination": Required[str],
+})
+
+PitrRestorePlanResponse = TypedDict("PitrRestorePlanResponse", {
+    "base": Required[dict[str, Any]],
+    "data_directory": Required[str],
+    "last_archived_at": NotRequired[Union[str, None]],
+    "missing": NotRequired[list[str]],
+    "restarts_engine": NotRequired[bool],
+    "saved_as": Required[str],
+    "segments": Required[int],
+    "target": NotRequired[Union[str, None]],
+    "timeline": NotRequired[Union[int, None]],
+    "warnings": NotRequired[list[str]],
+})
+
+PitrRestoreRequest = TypedDict("PitrRestoreRequest", {
+    "base": NotRequired[Union[str, None]],
+    "confirm": NotRequired[bool],
+    "time": NotRequired[Union[str, None]],
+})
+
+PitrStatusResponse = TypedDict("PitrStatusResponse", {
+    "archive": NotRequired[Union[dict[str, Any], None]],
+    "archiver": NotRequired[Union[dict[str, Any], None]],
+    "bases": NotRequired[list[dict[str, Any]]],
+    "enabled": Required[bool],
+    "engine": Required[str],
+    "policy": NotRequired[Union[dict[str, Any], None]],
+    "timer": NotRequired[Union[dict[str, Any], None]],
+    "warnings": NotRequired[list[str]],
+    "window": NotRequired[Union[dict[str, Any], None]],
+})
+
 PlacementDetailOut = TypedDict("PlacementDetailOut", {
     "placement": Required["PlacementOut"],
     "status": Required["PlacementStatusOut"],
@@ -7273,6 +7343,7 @@ ScheduleResponse = TypedDict("ScheduleResponse", {
     "last_verified_at": NotRequired[Union[str, None]],
     "last_verify_status": NotRequired[Union[str, None]],
     "passphrase_stored": NotRequired[Union[bool, None]],
+    "remote_only": NotRequired[bool],
     "retention_count": NotRequired[Union[int, None]],
     "retention_days": NotRequired[Union[int, None]],
     "retention_gb": NotRequired[Union[float, None]],
@@ -7532,7 +7603,6 @@ SessionInfo = TypedDict("SessionInfo", {
     "mfa_required": NotRequired[bool],
     "notice": NotRequired[Union["NoticeInfo", None]],
     "permissions": NotRequired[list[str]],
-    "renamed_from_wasm": NotRequired[bool],
     "role": NotRequired[Union[str, None]],
     "scope": NotRequired[Union[str, None]],
     "security_profile": NotRequired[Union[str, None]],
@@ -7574,6 +7644,7 @@ SetScheduleRequest = TypedDict("SetScheduleRequest", {
     "destinations": NotRequired[list["NoustWebApiSelfBackupScheduleDestination"]],
     "enabled": NotRequired[bool],
     "passphrase": NotRequired[Union[str, None]],
+    "remote_only": NotRequired[bool],
     "retention_count": NotRequired[Union[int, None]],
     "retention_days": NotRequired[Union[int, None]],
     "retention_gb": NotRequired[Union[float, None]],
@@ -7589,6 +7660,7 @@ SetVolumePolicyRequest = TypedDict("SetVolumePolicyRequest", {
     "destinations": NotRequired[list["NoustWebApiVolumeBackupsPolicyDestination"]],
     "enabled": NotRequired[bool],
     "extra_paths": NotRequired[list[str]],
+    "remote_only": NotRequired[bool],
     "retention_count": NotRequired[Union[int, None]],
     "retention_days": NotRequired[Union[int, None]],
     "retention_gb": NotRequired[Union[float, None]],
@@ -9389,6 +9461,7 @@ VolumePolicyResponse = TypedDict("VolumePolicyResponse", {
     "last_run_at": NotRequired[Union[str, None]],
     "last_status": NotRequired[Union[str, None]],
     "last_success_at": NotRequired[Union[str, None]],
+    "remote_only": NotRequired[bool],
     "retention_count": NotRequired[Union[int, None]],
     "retention_days": NotRequired[Union[int, None]],
     "retention_gb": NotRequired[Union[float, None]],

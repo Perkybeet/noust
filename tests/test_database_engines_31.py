@@ -186,12 +186,9 @@ def test_a_custom_dump_named_sql_is_restored_with_pg_restore(
 
     postgres.restore("shop", dump, safety_backup=False)
 
-    assert runner.calls[-1][4:] == (
-        "pg_restore",
-        "--no-password",
-        "-d",
-        "shop",
-        str(postgres.BACKUP_DIR / ".staging" / "postgresql-restore-shop.dump"),
+    assert runner.calls[-1][4:] == ("pg_restore", "--no-password", "-d", "shop")
+    assert (
+        runner.stdin_paths[-1] == postgres.BACKUP_DIR / ".staging" / "postgresql-restore-shop.dump"
     )
 
 
@@ -536,13 +533,57 @@ def test_a_new_mongodb_install_turns_authorization_on(
     manager._post_install()
 
     password = store.read(ADMIN_SECRET)
-    assert password and "createUser" in (runner.inputs[0] or "")
+    # The first ask is the wait for mongod to answer; the administrator comes after it.
+    assert runner.inputs[0] == "db.adminCommand({ping: 1})"
+    assert password and "createUser" in (runner.inputs[1] or "")
     assert password not in " ".join(" ".join(call) for call in runner.calls)
     written = yaml.safe_load(conf.read_text())
     assert written["security"]["authorization"] == "enabled"
     assert written["net"]["bindIp"] == "127.0.0.1"
     assert runner.calls[-1] == ("systemctl", "restart", "mongod")
     assert manager.warnings() == []
+
+
+def test_mongodb_is_given_time_to_open_its_port_before_the_administrator_is_made(
+    runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``systemctl start`` returns once mongod is forked, which is before it accepts a client."""
+    pauses: list[float] = []
+    monkeypatch.setattr(mongodb_module.time, "sleep", pauses.append)
+    runner.only_knows("mongosh", "mongod")
+    answers = iter([1, 1, 0])
+    original = runner.run
+
+    def run(argv: Any, **kwargs: Any) -> Any:
+        if kwargs.get("input") == "db.adminCommand({ping: 1})":
+            runner.script(
+                ("mongosh", "admin", "--quiet"),
+                exit_code=next(answers),
+                stderr="connect ECONNREFUSED 127.0.0.1:27017",
+            )
+        return original(argv, **kwargs)
+
+    monkeypatch.setattr(runner, "run", run)
+
+    MongoDBManager()._wait_until_answering()
+
+    assert pauses == [mongodb_module.MONGOD_READY_PAUSE] * 2
+
+
+def test_a_mongodb_that_never_answers_is_reported_with_where_to_look(
+    runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(mongodb_module.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(mongodb_module, "MONGOD_READY_ATTEMPTS", 3)
+    runner.only_knows("mongosh", "mongod")
+    runner.script(("mongosh",), exit_code=1, stderr="connect ECONNREFUSED 127.0.0.1:27017")
+
+    with pytest.raises(DatabaseEngineError, match="did not start answering") as caught:
+        MongoDBManager()._wait_until_answering()
+
+    assert "ECONNREFUSED" in str(caught.value.details)
+    assert "journalctl -u mongod" in str(caught.value.details)
+    assert sum(1 for call in runner.calls if call[0] == "mongosh") == 3
 
 
 def test_an_existing_mongodb_without_authorization_is_warned_about(
@@ -632,3 +673,88 @@ def test_the_tunnel_ends_on_the_loopback() -> None:
 )
 def test_loopback_addresses(address: str, loopback: bool) -> None:
     assert is_loopback(address) is loopback
+
+
+def test_an_apt_uninstall_of_postgresql_takes_out_every_major_and_the_wrappers(
+    runner: FakeRunner,
+) -> None:
+    """The meta packages only depend on a major, and the wrappers keep ``psql`` on the path."""
+    runner.only_knows("apt-get", "dpkg-query", "psql")
+    runner.script(
+        ["dpkg-query", "-W"],
+        stdout="postgresql-16\npostgresql-client-16\npostgresql-client-common\n",
+    )
+
+    PostgresManager().uninstall(purge=False)
+
+    removal = next(call for call in runner.calls if call[:3] == ("apt-get", "remove", "-y"))
+    assert removal[3:] == (
+        "postgresql",
+        "postgresql-contrib",
+        "postgresql-16",
+        "postgresql-client-16",
+        "postgresql-common",
+        "postgresql-client-common",
+    )
+
+
+def test_an_apt_uninstall_of_mariadb_takes_out_the_server_and_the_client_and_leaves_the_commons(
+    runner: FakeRunner,
+) -> None:
+    """A client left behind keeps ``mysql`` on the path: the engine would be reported installed."""
+    runner.only_knows("apt-get", "dpkg-query", "mysql")
+    runner.script(
+        ["dpkg-query", "-W", "-f", "${Package}\\n"],
+        stdout=(
+            "mariadb-server\nmariadb-server-core\nmariadb-client\nmariadb-client-core\n"
+            "mariadb-common\nmysql-common\nmariadb-plugin-provider-lz4\nmysql-server-8.0\n"
+        ),
+    )
+
+    MySQLManager().uninstall(purge=False)
+
+    removal = next(call for call in runner.calls if call[:3] == ("apt-get", "remove", "-y"))
+    assert removal[3:] == (
+        "mariadb-client",
+        "mariadb-client-core",
+        "mariadb-plugin-provider-lz4",
+        "mariadb-server",
+        "mariadb-server-core",
+        "mysql-server-8.0",
+    )
+
+
+def test_a_purge_gives_the_shared_packages_their_configuration_back(runner: FakeRunner) -> None:
+    """``rm -rf /etc/mysql`` deletes files of packages that stay: dpkg would not restore them."""
+    runner.only_knows("apt-get", "dpkg-query", "mysql")
+    runner.script(["dpkg-query", "-W", "-f", "${Package}\\n"], stdout="mariadb-server\n")
+    runner.script(
+        ["dpkg-query", "-W", "-f", "${Status}", "mariadb-common"], stdout="install ok installed"
+    )
+    runner.script(["dpkg-query", "-W", "-f", "${Status}", "mysql-common"], exit_code=1)
+
+    MySQLManager().uninstall(purge=True)
+
+    reinstalls = [call for call in runner.calls if "--reinstall" in call]
+    assert reinstalls == [
+        (
+            "apt-get",
+            "install",
+            "--reinstall",
+            "-y",
+            "-o",
+            "Dpkg::Options::=--force-confmiss",
+            "mariadb-common",
+        )
+    ]
+    wiped = runner.calls.index(("rm", "-rf", "/etc/mysql"))
+    assert runner.calls.index(reinstalls[0]) > wiped
+
+
+def test_removal_without_a_purge_leaves_the_configuration_alone(runner: FakeRunner) -> None:
+    runner.only_knows("apt-get", "dpkg-query", "mysql")
+    runner.script(["dpkg-query", "-W", "-f", "${Package}\\n"], stdout="mariadb-server\n")
+
+    MySQLManager().uninstall(purge=False)
+
+    assert not [call for call in runner.calls if "--reinstall" in call or call[:2] == ("rm", "-rf")]

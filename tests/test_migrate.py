@@ -544,6 +544,30 @@ def test_relocation_points_at_current_and_starts_venv_scripts_through_python() -
     )
 
 
+def test_relocation_keeps_the_directory_a_hardened_unit_may_write() -> None:
+    """The unit may write the application directory: shared/ and releases/ are beside current.
+
+    Rewriting ``ReadWritePaths=`` to ``current`` made the uploads of a migrated application fail
+    with EROFS the first time its unit restarted (found by the real-machine harness): the write
+    resolves through ``current/uploads`` to ``shared/uploads``, which the unit could no longer
+    write.
+    """
+    root = Path("/var/www/apps/shop")
+    unit = (
+        f"WorkingDirectory={root}\n"
+        "ProtectSystem=strict\n"
+        f"ReadWritePaths=-{root} -/var/lib/other\n"
+        f"EnvironmentFile=-{root}/.env\n"
+    )
+
+    assert relocate(unit, root) == (
+        f"WorkingDirectory={root}/current\n"
+        "ProtectSystem=strict\n"
+        f"ReadWritePaths=-{root} -/var/lib/other\n"
+        f"EnvironmentFile=-{root}/current/.env\n"
+    )
+
+
 def test_a_file_lost_on_the_way_fails_the_migration(
     root: Path, store: NoustStore, machine: Any
 ) -> None:

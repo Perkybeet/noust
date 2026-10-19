@@ -1,19 +1,18 @@
 .PHONY: help install dev-install build clean test lint format debian obs
 
 help:
-	@echo "WASM Makefile"
+	@echo "Noust Makefile"
 	@echo ""
 	@echo "Usage:"
-	@echo "  make install           Install WASM system-wide"
-	@echo "  make dev-install       Install WASM in development mode"
+	@echo "  make install           Install Noust system-wide"
+	@echo "  make dev-install       Install Noust in development mode"
 	@echo "  make build             Build the package"
 	@echo "  make clean             Remove build artifacts"
 	@echo "  make test              Run tests"
 	@echo "  make lint              Run linters"
 	@echo "  make format            Format code"
 	@echo ""
-	@echo "Packaging:"
-	@echo "  make obs-upload        Build and upload to OBS (all distributions)"
+	@echo "Packaging (the release workflow uploads to OBS; these only look):"
 	@echo "  make obs-status        Check OBS build status"
 	@echo "  make obs-logs          View OBS build logs"
 	@echo ""
@@ -60,28 +59,13 @@ format:
 	ruff check --fix src/noust tests
 
 # OBS (Open Build Service) targets
-obs-upload:
-	@echo "Building and uploading packages to OBS..."
-	@if [ ! -f ~/.oscrc ]; then \
-		echo "Error: OSC not configured. Run: osc config set apiurl https://api.opensuse.org"; \
-		exit 1; \
-	fi
-	chmod +x build-and-upload-obs.sh
-	./build-and-upload-obs.sh
-
-obs-upload-custom:
-	@echo "Building and uploading to custom OBS project..."
-	@echo "Usage: make obs-upload-custom PROJECT=home:myuser PACKAGE=wasm"
-	chmod +x build-and-upload-obs.sh
-	./build-and-upload-obs.sh $(PROJECT) $(PACKAGE)
-
 obs-status:
 	@echo "Checking OBS build status..."
 	@if [ ! -f ~/.oscrc ]; then \
 		echo "Error: OSC not configured"; \
 		exit 1; \
 	fi
-	osc results home:Perkybeet wasm || echo "Run: make obs-upload first"
+	osc results home:Perkybeet noust
 
 obs-status-watch:
 	@echo "Watching OBS build status (Ctrl+C to stop)..."
@@ -89,7 +73,7 @@ obs-status-watch:
 		echo "Error: OSC not configured"; \
 		exit 1; \
 	fi
-	watch -n 10 "osc results home:Perkybeet wasm"
+	watch -n 10 "osc results home:Perkybeet noust"
 
 obs-logs:
 	@echo "Fetching OBS build logs..."
@@ -99,4 +83,4 @@ obs-logs:
 		echo "Example: make obs-logs DISTRO=Fedora_40 ARCH=x86_64"; \
 		exit 1; \
 	fi
-	osc buildlog home:Perkybeet wasm $(DISTRO) $(ARCH)
+	osc buildlog home:Perkybeet noust $(DISTRO) $(ARCH)

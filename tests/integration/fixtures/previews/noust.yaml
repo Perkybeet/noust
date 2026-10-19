@@ -1,0 +1,7 @@
+# A preview's life, versioned with the code: seeded once its first deployment serves, and cleaned
+# up before it is removed. They run in the preview, as its own account, in its sandbox.
+hooks:
+  preview_post_create:
+    - run: node preview-hook.js seeded
+  preview_pre_destroy:
+    - run: node preview-hook.js goodbye

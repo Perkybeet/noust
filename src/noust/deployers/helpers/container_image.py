@@ -78,6 +78,19 @@ _INSPECT_FORMAT = "{{.Id}}|{{json .RepoDigests}}|{{json .Config.ExposedPorts}}"
 
 #: The environment every ``docker build`` is given: BuildKit, for secrets and
 #: cache mounts, whatever the daemon's own default is.
+#: What BuildKit says when Railpack's frontend asks for a feature the classic image store of the
+#: daemon does not have (merging layers): only Docker's containerd image store allows it.
+CONTAINERD_STORE_REQUIRED = "only enabled with containerd image store backend"
+
+#: What to tell an operator whose Docker keeps its images the classic way (a server that was
+#: upgraded keeps the store it had; a new installation of Docker 29 or later starts on containerd's).
+CONTAINERD_STORE_HINT = (
+    "Railpack builds need Docker's containerd image store. Turn it on in /etc/docker/daemon.json "
+    '(`{"features": {"containerd-snapshotter": true}}`) and restart Docker: images and '
+    "containers made with the previous store are not carried over, so Docker starts without "
+    "them. Or build from a Dockerfile, which does not need it."
+)
+
 _BUILD_ENV = {"DOCKER_BUILDKIT": "1"}
 
 
@@ -562,9 +575,14 @@ class ImageBuilder:
                 ).hexdigest()
                 argv += ["--build-arg", f"secrets-hash={digest}"]
             argv.append(str(context))
-            self._run_build(
-                argv, {**_BUILD_ENV, **login_env, **bridge}, secrets=list(bridge.values())
-            )
+            try:
+                self._run_build(
+                    argv, {**_BUILD_ENV, **login_env, **bridge}, secrets=list(bridge.values())
+                )
+            except DockerError as exc:
+                if CONTAINERD_STORE_REQUIRED in (exc.details or ""):
+                    exc.details = f"{exc.details}\n\n{CONTAINERD_STORE_HINT}"
+                raise
         finally:
             self.fs.remove_tree(self.work_dir)
 

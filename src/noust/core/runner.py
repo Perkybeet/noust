@@ -132,7 +132,7 @@ class CommandCancelled(NoustError):
 #: issued. Threading an argument through each of them is a rule with as many
 #: holes as there are callers.
 _cancel_event: contextvars.ContextVar[threading.Event | None] = contextvars.ContextVar(
-    "wasm_cancel_event", default=None
+    "noust_cancel_event", default=None
 )
 
 
@@ -3620,6 +3620,7 @@ PROBE_MODULES: tuple[str, ...] = (
     "noust.deployers.compose_adopt",
     "noust.managers.siteconf.regex",
     "noust.managers.database.settings",
+    "noust.managers.database.rpm_flavours",
     "noust.managers.unit_hardening",
     "noust.managers.cron_manager",
     "noust.managers.app_disk",

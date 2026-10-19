@@ -3302,7 +3302,8 @@ class DatabaseService:
             engine: The engine.
             database: The database.
             compress: gzip the dump (a PostgreSQL custom-format dump Noust
-                names is compressed by pg_dump already).
+                names is compressed by pg_dump already). Not for a file the
+                caller names without ``.gz``: the name says what it holds.
             dump_format: PostgreSQL's ``custom`` (default), ``plain`` or ``tar``.
             output: Where to write it; the engine's backup directory when None.
             exclusions: Schemas, tables or collections to leave out of the dump.
@@ -3317,6 +3318,11 @@ class DatabaseService:
         database = manager.validate_database_name(database)
         target = f"{manager.ENGINE_NAME}/{database}"
         kwargs: dict[str, Any] = {"format": dump_format} if dump_format else {}
+        if output is not None and output.suffix != ".gz":
+            # Listing, verifying and restoring a dump all tell gzip by the name. A file called
+            # shop.dump that held gzip could be neither restored (it was read as a custom-format
+            # dump, or as SQL with a 0x8b byte in it) nor opened by pg_restore.
+            compress = False
         if exclusions:
             exclusions.check_for(manager.engine_type, scope=SCOPE_DATABASE)
             if exclusions.schemas:

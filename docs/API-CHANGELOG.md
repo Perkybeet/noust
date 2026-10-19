@@ -247,6 +247,12 @@ API version 1.
   than the installed one that fixes a vulnerability is told apart from an ordinary update.
 - `GET /api/system/health`: a `Security posture` check among `checks` (backups that leave unencrypted, a
   central's keys not sealed, a security release that is out), each also a line of `warnings`.
+- Point-in-time recovery of the host's PostgreSQL ([databases.md](databases.md#recovering-postgresql-to-an-instant)):
+  `GET /api/databases/pitr` (the window that can be recovered, the base backups, the archiver, the
+  timer, warnings), `POST .../pitr/enable/plan` and `.../pitr/restore/plan` (read-only), and, as jobs
+  with sudo mode, `POST .../pitr/enable`, `.../disable`, `.../base`, `.../sync`, `.../fetch` and
+  `.../restore`. A change that restarts the engine or replaces the cluster is refused without
+  `confirm`. The reads need `databases.read`, the jobs `databases.manage`.
 
 ### Changed, without breaking a client
 
@@ -318,7 +324,12 @@ Nothing.
 
 ### Breaking changes
 
-None. The baseline for version 1 is the API as 3.3.1 shipped it.
+The baseline for version 1 is the API as 3.3.1 shipped it. What differs from it:
+
+- `GET /api/auth/session` no longer answers `renamed_from_wasm`. The console used it to tell an
+  operator, once, that the product had been renamed in 3.0; the notice is gone with the upgrade
+  from 2.x, which 4.0 does not move. A client that read the field reads it as absent, which is
+  what `false` meant.
 
 ## 3.3.1 and earlier
 

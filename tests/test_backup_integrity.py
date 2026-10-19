@@ -375,6 +375,32 @@ class TestSelfContainedBackup:
             manager.config.set("service_user", previous_user)
             manager.config.set("service_group", previous_group)
 
+    def test_restore_makes_the_applications_own_account_before_it_hands_the_tree_over(
+        self, manager, monkeypatch
+    ):
+        """
+        On a machine the application never ran on, its account is not there to receive the files.
+
+        The real-machine harness restored a server from its bundle: the store named
+        ``noust-app-shop-example-com``, ``chown`` said "invalid user" and the unit could not start.
+        """
+        account = "noust-app-shop-example-com"
+        app = FakeApp(1, "shop.example.com")
+        app.identity = account
+        store = FakeStore(app, [])
+        monkeypatch.setattr("noust.managers.backup_manager.get_store", lambda: store)
+        monkeypatch.setattr("noust.managers.app_identity.get_store", lambda: store)
+        metadata = manager.create("shop.example.com")
+        runner: FakeRunner = manager.runner
+        runner.script(["getent", "passwd", account], exit_code=2)
+
+        assert manager.restore(metadata.id) is True
+
+        app_path = manager.config.apps_directory / "shop-example-com"
+        made = next(i for i, call in enumerate(runner.calls) if call[:1] == ("useradd",))
+        handed = runner.calls.index(("chown", "-R", f"{account}:{account}", str(app_path)))
+        assert made < handed, runner.calls
+
     def test_legacy_archive_without_manifest_still_restores_files(self, manager, tmp_path):
         """A 1.x archive, application tree at the top level, still comes back."""
         legacy_tree = tmp_path / "legacy" / "shop-example-com"
