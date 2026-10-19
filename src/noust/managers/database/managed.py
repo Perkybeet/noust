@@ -198,6 +198,28 @@ class InstancePlan:
         """Whether creating it needs the operator to accept that Noust did not test it."""
         return self.custom or bool(self.command) or bool(self.args)
 
+    def require_accepted(self, accepted: bool) -> None:
+        """
+        Refuse a plan the operator has not accepted the price of.
+
+        The one place the question is asked, for the creation and for the API's check before it
+        queues one.
+
+        Args:
+            accepted: The operator accepted what running something Noust did not choose costs.
+
+        Raises:
+            ConfirmationRequired: The plan is the operator's and they did not; it carries
+                every warning.
+        """
+        if self.requires_confirmation and not accepted:
+            raise ConfirmationRequired(
+                untested_warnings(
+                    image=self.custom, command=bool(self.command), args=bool(self.args)
+                ),
+                field="accept_untested",
+            )
+
     def to_dict(self) -> dict[str, Any]:
         """
         Returns:
@@ -920,13 +942,7 @@ class ManagedInstances:
             command=command,
             args=args,
         )
-        if decided.requires_confirmation and not accept_untested:
-            raise ConfirmationRequired(
-                untested_warnings(
-                    image=decided.custom, command=bool(decided.command), args=bool(decided.args)
-                ),
-                field="accept_untested",
-            )
+        decided.require_accepted(accept_untested)
         password = BaseDatabaseManager.generate_password(32)
         record = self.records.create(
             name=decided.name,
@@ -1377,6 +1393,61 @@ class ManagedInstances:
             output=(shown.stderr or shown.stdout).strip() or None,
         )
 
+    def check_upgrade(
+        self, name: str, image: str | None, accept_untested: bool
+    ) -> CustomImage | None:
+        """
+        Judge what an upgrade is asked to do, before anything is pulled or stopped.
+
+        The one place the rules are, for the upgrade and for the API's check before it queues one:
+        an instance on an image the operator chose is moved only to one they name, pinned by
+        digest, with the price accepted again; the catalog's is moved by the registry and takes
+        no image.
+
+        Args:
+            name: The instance.
+            image: The image asked for, or None.
+            accept_untested: The operator accepted what running it costs.
+
+        Returns:
+            The image to move to; None for an instance on the catalog's, which follows its tag.
+
+        Raises:
+            DatabaseNotFoundError: No such instance.
+            ValidationError: An image for an instance on the catalog's, none for one on the
+                operator's, or one that is not pinned by a digest.
+            ConfirmationRequired: The operator's image, without ``accept_untested``.
+        """
+        record = self.get(name)
+        asked = image is not None and bool(str(image).strip())
+        if not record.custom_image:
+            if asked:
+                raise ValidationError(
+                    f"{name} runs the catalog's image, which a registry's newest digest moves",
+                    details=(
+                        "An image of your own is chosen when an instance is made: create one "
+                        "with --image, or move this one's databases to it (noust db move)."
+                    ),
+                    field="image",
+                )
+            return None
+        if not asked:
+            raise ValidationError(
+                f"{name} runs an image you chose, and Noust does not look for a newer one",
+                details=(
+                    "Say which image it moves to, pinned by its digest: noust db instance "
+                    f"upgrade {name} --image repository:tag@sha256:..."
+                ),
+                field="image",
+            )
+        chosen = parse_custom_image(str(image).strip())
+        if not accept_untested:
+            raise ConfirmationRequired(
+                untested_warnings(image=True, command=False, args=False),
+                field="accept_untested",
+            )
+        return chosen
+
     def upgrade(
         self,
         name: str,
@@ -1427,22 +1498,8 @@ class ManagedInstances:
         record = self.get(name)
         self._require_ready(record, "upgrade")
         target = record
-        if record.custom_image:
-            if image is None or not str(image).strip():
-                raise ValidationError(
-                    f"{name} runs an image you chose, and Noust does not look for a newer one",
-                    details=(
-                        "Say which image it moves to, pinned by its digest: noust db instance "
-                        f"upgrade {name} --image repository:tag@sha256:..."
-                    ),
-                    field="image",
-                )
-            chosen = parse_custom_image(str(image).strip())
-            if not accept_untested:
-                raise ConfirmationRequired(
-                    untested_warnings(image=True, command=False, args=False),
-                    field="accept_untested",
-                )
+        chosen = self.check_upgrade(name, image, accept_untested)
+        if chosen is not None:
             target = replace(
                 record, image=chosen.repository, image_tag=chosen.tag, digest=chosen.digest
             )
@@ -1456,15 +1513,6 @@ class ManagedInstances:
                 return UpgradeOutcome(name, False, record.digest, record.digest)
             self._pull(target)
         else:
-            if image is not None and str(image).strip():
-                raise ValidationError(
-                    f"{name} runs the catalog's image, which a registry's newest digest moves",
-                    details=(
-                        "An image of your own is chosen when an instance is made: create one "
-                        "with --image, or move this one's databases to it (noust db move)."
-                    ),
-                    field="image",
-                )
             newest = self._newest_digest(record)
             if newest == record.digest:
                 self.logger.info(f"{name} already runs the newest {record.image}:{record.tag}")

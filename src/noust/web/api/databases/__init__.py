@@ -27,6 +27,7 @@ all live below it.
 - :mod:`.migrations`: moving a database to another engine, and an engine to a newer
   major version, with a way back.
 - :mod:`.tls`: an instance that serves TLS with a certificate of Noust's own authority.
+- :mod:`.launch`: what an instance's container is started with: arguments of the operator's, or the whole command.
 - :mod:`.tuning`: what an instance may use (memory, CPUs, swap) and how it is probed.
 - :mod:`.limits`: what an engine on the host may use (memory, CPUs, swap, tasks), proved.
 - :mod:`.query`: the SQL console (history, saved queries, EXPLAIN, export)
@@ -59,6 +60,7 @@ from noust.web.api.databases import (
     host_tls,
     imports,
     instances,
+    launch,
     limits,
     links,
     metrics,
@@ -95,6 +97,7 @@ AREAS = (
     tuning.router,
     limits.router,
     instances.router,
+    launch.router,
     query.router,
     browse.router,
     metrics.router,

@@ -49,6 +49,7 @@ class LaunchPlan:
             image's own is left (an engine whose command Noust does not build).
         restarts: Whether the engine restarts (it does whenever anything changes).
         requires_confirmation: The new words are the operator's, and Noust did not test them.
+        untested: What the operator accepts by going ahead with them (the warnings that say so).
         apps: The applications that use its databases, which lose their connections for the
             length of the restart.
         blockers: Why it cannot be done.
@@ -60,9 +61,27 @@ class LaunchPlan:
     effective: list[str] = field(default_factory=list)
     restarts: bool = False
     requires_confirmation: bool = False
+    untested: list[str] = field(default_factory=list)
     apps: list[str] = field(default_factory=list)
     blockers: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+
+    def require_accepted(self, accepted: bool) -> None:
+        """
+        Refuse a change the operator has not accepted the price of.
+
+        The one place the question is asked, for the change and for the API's check before it
+        queues one.
+
+        Args:
+            accepted: The operator accepted that Noust did not test their words.
+
+        Raises:
+            ConfirmationRequired: The words are theirs and they did not accept; it carries what
+                they accept.
+        """
+        if self.requires_confirmation and not accepted:
+            raise ConfirmationRequired(self.untested, field="accept_untested")
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -227,9 +246,10 @@ class InstanceLaunch:
             if reason is not None:
                 plan.blockers.append(reason)
         if plan.requires_confirmation:
-            plan.warnings += untested_warnings(
+            plan.untested = untested_warnings(
                 image=False, command=bool(wanted.command), args=bool(wanted.args)
             )
+            plan.warnings += plan.untested
         service = self.managed.service
         domains = set()
         for link in service.records.links(engine=key_of(record)):
@@ -284,15 +304,7 @@ class InstanceLaunch:
             )
         if not plan.changes:
             return self.status(name)
-        if plan.requires_confirmation and not accept_untested:
-            raise ConfirmationRequired(
-                [
-                    warning
-                    for warning in plan.warnings
-                    if "not tested" in warning and "restarts" not in warning
-                ],
-                field="accept_untested",
-            )
+        plan.require_accepted(accept_untested)
         record = self.managed.get(name)
         wanted = self._wanted(record, command, args, reset)
         RestartGate(self.managed, self._write, self.EVENT).run(record, wanted)
