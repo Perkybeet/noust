@@ -1353,7 +1353,7 @@ STALE_TERM_SECONDS = 2.0
 
 #: Programs whose processes hold their tunnels: a tunnel whose parent is a
 #: running Noust (a CLI command, another console) is that process's, not stale.
-_NOUST_PROGRAMS = frozenset({"noust", "wasm"})
+_NOUST_PROGRAMS = frozenset({"noust"})
 
 
 @dataclass(frozen=True)
@@ -1460,7 +1460,7 @@ def _is_noust(argv: list[str] | None) -> bool:
 
     Returns:
         True when its program, or the script its interpreter runs, is
-        ``noust`` or ``wasm``, or it runs ``python -m noust``.
+        ``noust``, or it runs ``python -m noust``.
     """
     if not argv:
         return False

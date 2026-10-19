@@ -122,7 +122,6 @@ _RESERVED_PREFIXES = (
     "SUDO_",
     "SYSTEMD_",
     "NOUST_",
-    "WASM_",
     "GO",
     "PYTHON",
 )

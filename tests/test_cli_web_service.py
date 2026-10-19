@@ -1377,9 +1377,10 @@ def test_a_foreground_start_does_not_wait_for_the_port(
     ("cmdline", "cgroup", "expected"),
     [
         (["/usr/bin/python3", "/usr/bin/noust", "web", "start", "--under-systemd"], "", True),
-        (["/usr/bin/wasm", "web", "start", "-d"], "", True),
+        (["/usr/bin/noust", "web", "start", "-d"], "", True),
+        (["/usr/bin/wasm", "web", "start", "-d"], "", False),
         (["/usr/bin/sshd", "-D"], "0::/system.slice/noust-web.service\n", True),
-        (["/usr/bin/ssh", "-N"], "0::/system.slice/wasm-web.service\n", True),
+        (["/usr/bin/ssh", "-N"], "0::/system.slice/wasm-web.service\n", False),
         (["/usr/sbin/nginx"], "0::/system.slice/nginx.service\n", False),
         (["/usr/bin/noust", "web", "status"], "", False),
         (["/usr/bin/python3", "-m", "http.server", "8081"], "", False),

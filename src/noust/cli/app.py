@@ -41,6 +41,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 import click
 
 from noust import __version__
+from noust.core import retired_names
 from noust.core.exceptions import NoustError
 from noust.core.fs import DryRunFileSystem, set_fs
 from noust.core.logger import Colors, Logger, set_colors_disabled
@@ -86,7 +87,6 @@ COMMAND_MODULES: dict[str, str] = {
     "health": "noust.cli.commands.health",
     "import": "noust.cli.commands.importer",
     "incident": "noust.cli.commands.incident",
-    "migrate-from-wasm": "noust.cli.commands.migrate_from_wasm",
     "logdrain": "noust.cli.commands.logdrain",
     "log": "noust.cli.commands.log",
     "manifest": "noust.cli.commands.manifest",
@@ -661,7 +661,7 @@ def _remote_form(name: str) -> click.Command:
     "-V",
     "--version",
     prog_name="Noust",
-    message="%(prog)s %(version)s (formerly WASM)",
+    message="%(prog)s %(version)s",
 )
 @click.option("-v", "--verbose", is_flag=True, help="Show the detail of each step.")
 @click.option(
@@ -772,21 +772,21 @@ def cli(
         ctx.exit(0)
 
 
-def _complete_var() -> str:
+def _is_asking_for_help(args: list[str]) -> bool:
     """
-    Name the variable shell completion is requested through.
+    Tell whether a command line only asks what Noust is or how to use it.
 
-    Click derives it from the program's name, which is ``noust`` or ``wasm``
-    depending on which the operator typed; the completion script a shell has
-    loaded sets one or the other. Both are answered, whichever name ran.
+    Args:
+        args: The arguments after the program's name.
 
     Returns:
-        ``_WASM_COMPLETE`` when a WASM-era completion script set it, else
-        ``_NOUST_COMPLETE``.
+        True for no arguments at all (the help), for the help and version flags and for
+        ``--changelog``: those answer on a server whose data has not been moved, which is
+        where an operator most needs to read what to do.
     """
-    import os
-
-    return "_WASM_COMPLETE" if "_WASM_COMPLETE" in os.environ else "_NOUST_COMPLETE"
+    return not args or any(
+        arg in ("-h", "--help", "-V", "--version", "--changelog") for arg in args
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -803,7 +803,11 @@ def main(argv: list[str] | None = None) -> int:
         Process exit code.
     """
     try:
-        return cli.main(args=argv, standalone_mode=False, complete_var=_complete_var()) or 0
+        if not _is_asking_for_help(list(sys.argv[1:] if argv is None else argv)):
+            # Before any command reads a path: a server whose data 3.x never moved would get an
+            # empty store beside the real one (core/retired_names.py).
+            retired_names.require_moved()
+        return cli.main(args=argv, standalone_mode=False, complete_var="_NOUST_COMPLETE") or 0
     except click.ClickException as exc:
         exc.show()
         return exc.exit_code
@@ -828,38 +832,8 @@ def main(argv: list[str] | None = None) -> int:
         return 130
 
 
-def _announce_migration(line: str) -> None:
-    """
-    Report one step of the automatic migration from WASM.
-
-    On standard error, so a program reading ``--json`` output is not
-    disturbed, and to the journal through syslog, so the step is on record
-    whoever ran the command.
-
-    Args:
-        line: What was done.
-    """
-    click.echo(f"noust: {line}", err=True)
-    try:
-        import syslog
-
-        syslog.openlog("noust-migrate", 0, syslog.LOG_DAEMON)
-        syslog.syslog(syslog.LOG_NOTICE, line)
-    except OSError as exc:
-        log.debug("Could not write to syslog: %s", exc)
-
-
 def entrypoint() -> None:
     """Console script entry point."""
-    from noust.cli.rename_notice import maybe_announce
-    from noust.core.migrate_from_wasm import run_automatically
-
-    args = sys.argv[1:]
-    maybe_announce(sys.argv[0], args)
-    # Before any command reads a path: a 2.x server is moved onto Noust's
-    # names the first time an operator runs a privileged command.
-    run_automatically(args, _announce_migration)
-
     checker = None
     try:
         from noust.core.update_checker import UpdateChecker

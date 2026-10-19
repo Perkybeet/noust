@@ -3,11 +3,6 @@
 # Copyright (c) 2024-2026 Yago López Prado
 # License: AGPL-3.0-or-later
 #
-# Noust was called WASM until 3.0.0 and this package was named wasm-cli. That
-# name lives on as a transitional package, built from packaging/transitional/wasm
-# in the OBS package home:Perkybeet/wasm: an empty wasm-cli that Requires noust,
-# so `dnf upgrade` and `zypper up` bring noust in as an ordinary upgrade.
-#
 
 Name:           noust
 Version:        3.3.1
@@ -18,14 +13,9 @@ URL:            https://github.com/Perkybeet/noust
 Source0:        noust-%{version}.tar.gz
 BuildArch:      noarch
 
-# Conflicts, not Obsoletes, and on purpose. With Obsoletes the solver replaces
-# wasm-cli 2.x with noust outright and never installs the transitional package,
-# so no wasm-cli is left after the transaction and rpm runs the old package's
-# %%preun with $1 = 0, its "last copy removed" branch: on every upgraded server
-# that stopped and disabled wasm-web and wasm-monitor and stopped the console.
-# A conflict makes the solver upgrade wasm-cli to the transitional package
-# instead, where the old %%preun sees $1 = 1 and leaves the services alone.
-# The ~ takes in every 2.x and no pre-release of 3.0.0 (stage.sh --snapshot).
+# A server still on the package this one replaced in 3.0 moves through 3.3 first
+# (docs/UPGRADING-3.0.md): 4.0 does not move its data. The ~ takes in every 2.x and
+# no pre-release of 3.0.0.
 Conflicts:      wasm-cli < 3.0.0~
 
 # On Leap 15.x, python3 is 3.6. It cannot parse this code, so building against
@@ -150,10 +140,6 @@ services, manages databases and backups, and builds every deploy as a
 health-gated release with instant rollback. An optional browser console
 serves the same operations over a JSON API.
 
-Noust was called WASM until 3.0.0. The command is noust; wasm remains an
-alias for the whole 3.x series, so existing scripts and cron lines keep
-working.
-
 %prep
 %autosetup -n noust-%{version}
 
@@ -193,31 +179,25 @@ working.
 %py3_install
 %endif
 
-# Shell completion, for both names. Committed, not generated here: Click's
+# Shell completion. Committed, not generated here: Click's
 # scripts contain no command names, so they cannot drift, and running Python
 # during the build made every runtime import a build dependency.
 install -Dm644 src/noust/completions/noust.bash %{buildroot}%{_datadir}/bash-completion/completions/noust
-install -Dm644 src/noust/completions/wasm.bash %{buildroot}%{_datadir}/bash-completion/completions/wasm
 
 %if ! 0%{?suse_version}
 install -Dm644 src/noust/completions/noust.fish %{buildroot}%{_datadir}/fish/vendor_completions.d/noust.fish
-install -Dm644 src/noust/completions/wasm.fish %{buildroot}%{_datadir}/fish/vendor_completions.d/wasm.fish
 install -Dm644 src/noust/completions/_noust %{buildroot}%{_datadir}/zsh/site-functions/_noust
-install -Dm644 src/noust/completions/_wasm %{buildroot}%{_datadir}/zsh/site-functions/_wasm
 %endif
 
-# The manual, and `man wasm` for the alias.
+# The manual.
 install -Dm644 man/noust.1 %{buildroot}%{_mandir}/man1/noust.1
-ln -sf noust.1 %{buildroot}%{_mandir}/man1/wasm.1
 
 # The default configuration, as a reference only. Nothing is installed under
-# /etc/noust: on a server coming from WASM 2.x, noust moves /etc/wasm to
-# /etc/noust the first time it runs as root, and that rename is atomic only
-# while /etc/noust does not exist. A packaged config.yaml there would also be
-# a second, stale copy of the defaults noust.core.config already carries (the
-# one OBS shipped until 2.3 still enabled the AI monitor removed in 1.x).
-# noust writes /etc/noust/config.yaml itself, 0600 in a 0700 directory, when
-# `noust setup` or `noust config` first needs it.
+# /etc/noust: a packaged config.yaml there would be a second, stale copy of the
+# defaults noust.core.config already carries (the one OBS shipped until 2.3
+# still enabled the AI monitor removed in 1.x). noust writes
+# /etc/noust/config.yaml itself, 0600 in a 0700 directory, when `noust setup` or
+# `noust config` first needs it.
 install -Dm644 obs/noust.default.yaml %{buildroot}%{_datadir}/noust/config.example.yaml
 
 # The installer, for a central that enrolls a server with no Noust on it
@@ -238,30 +218,38 @@ install -d %{buildroot}/var/log/noust
 %{python3_sitelib}/noust/
 %{python3_sitelib}/noust-*
 %{_bindir}/noust
-%{_bindir}/wasm
 %{_mandir}/man1/noust.1*
-%{_mandir}/man1/wasm.1*
 %{_datadir}/noust/
 %{_datadir}/bash-completion/completions/noust
-%{_datadir}/bash-completion/completions/wasm
 %if ! 0%{?suse_version}
 %{_datadir}/fish/vendor_completions.d/noust.fish
-%{_datadir}/fish/vendor_completions.d/wasm.fish
 %{_datadir}/zsh/site-functions/_noust
-%{_datadir}/zsh/site-functions/_wasm
 %endif
 %dir /var/log/noust
 
 %pre
-# Coming from wasm-cli 2.x, rpm erases the old package after installing this
-# one, and erasing it renames a modified /etc/wasm/config.yaml to .rpmsave (or
-# deletes an unmodified one) before noust has had the chance to move /etc/wasm
-# to /etc/noust. A hard link keeps the operator's file whatever rpm does to the
-# name, and %%posttrans puts it back. Only while /etc/wasm is a real directory:
-# once moved it is a link to /etc/noust, which no old package owns.
-if [ -f /etc/wasm/config.yaml ] && [ ! -L /etc/wasm ] && [ ! -L /etc/wasm/config.yaml ]; then
-    rm -f /etc/wasm/config.yaml.noust-keep
-    ln /etc/wasm/config.yaml /etc/wasm/config.yaml.noust-keep || :
+# Noust 4.0 does not move a server onto its names. 3.x did that the first time
+# root ran a command, and left /etc/wasm, /var/lib/wasm and /var/backups/wasm as
+# links. A server whose configuration or store is still a real directory under the
+# old name was never moved, and installing 4.0 over it would point every command
+# at empty directories. The files looked for are the ones the product kept there
+# (the name is also WebAssembly's, and a runtime's own directory is not ours).
+# Nothing is unpacked yet, so stopping here leaves the installed version as it was.
+unmoved=
+if [ -f /etc/wasm/config.yaml ] && [ ! -L /etc/wasm ]; then
+    unmoved="$unmoved /etc/wasm"
+fi
+if [ -f /var/lib/wasm/wasm.db ] && [ ! -L /var/lib/wasm ]; then
+    unmoved="$unmoved /var/lib/wasm"
+fi
+if [ -n "$unmoved" ]; then
+    {
+        echo "noust: this server still keeps Noust's data where it was kept before 3.0:$unmoved"
+        echo "Noust 4.0 does not move it, and nothing was changed. Install Noust 3.3.1 first,"
+        echo "run any command there as root (it moves the data onto Noust's names), check that"
+        echo "'noust list' shows your applications, then upgrade to 4.0."
+    } >&2
+    exit 1
 fi
 
 %post
@@ -275,18 +263,13 @@ if [ $1 -eq 0 ]; then
     # 'noust monitor install' and 'noust web enable' write and enable these
     # units at runtime; this spec never packages them, so rpm has none of its
     # own to stop here and the daemons kept running under a binary that had
-    # just been removed. Both names: the wasm-* ones are what a server keeps
-    # until noust first runs as root and renames them. Data (the
-    # configuration, /var/lib/noust, deployed applications) is untouched.
+    # just been removed. Data (the configuration, /var/lib/noust, deployed
+    # applications) is untouched.
     systemctl stop noust-monitor.service >/dev/null 2>&1 || :
     systemctl disable noust-monitor.service >/dev/null 2>&1 || :
-    systemctl stop wasm-monitor.service >/dev/null 2>&1 || :
-    systemctl disable wasm-monitor.service >/dev/null 2>&1 || :
 
     systemctl stop noust-web.service >/dev/null 2>&1 || :
     systemctl disable noust-web.service >/dev/null 2>&1 || :
-    systemctl stop wasm-web.service >/dev/null 2>&1 || :
-    systemctl disable wasm-web.service >/dev/null 2>&1 || :
 
     # Without 'noust web enable' the console runs as a daemon (noust web start
     # -d), not as a unit; stop it while its binary still exists.
@@ -296,26 +279,13 @@ if [ $1 -eq 0 ]; then
 fi
 
 %posttrans
-# %%posttrans runs once the whole transaction is done, wasm-cli 2.x's files
-# removed included, which is why everything that runs noust is here and not in
-# %%post: first the configuration %%pre kept is put back, then noust runs.
-if [ -f /etc/wasm/config.yaml.noust-keep ]; then
-    if [ ! -e /etc/wasm/config.yaml ]; then
-        mv /etc/wasm/config.yaml.noust-keep /etc/wasm/config.yaml
-    else
-        rm -f /etc/wasm/config.yaml.noust-keep
-    fi
-    # The copy rpm made of the same file when it erased wasm-cli 2.x.
-    if [ /etc/wasm/config.yaml.rpmsave -ef /etc/wasm/config.yaml ]; then
-        rm -f /etc/wasm/config.yaml.rpmsave
-    fi
-fi
+# %%posttrans runs once the whole transaction is done, which is why everything
+# that runs noust is here and not in %%post.
 
 # Belt and suspenders: the configuration directory holds config.yaml's
 # credentials and, when the console is used, noust.web.auth's signing key and
 # token hash, so both are tightened on every install and upgrade. Setting the
-# exact target mode can only narrow permissions or leave them unchanged. The
-# /etc/wasm lines cover a server noust has not yet moved to /etc/noust.
+# exact target mode can only narrow permissions or leave them unchanged.
 if [ -d /etc/noust ] && [ ! -L /etc/noust ]; then
     chown root:root /etc/noust
     chmod 0700 /etc/noust
@@ -324,50 +294,27 @@ if [ -f /etc/noust/config.yaml ]; then
     chown root:root /etc/noust/config.yaml
     chmod 0600 /etc/noust/config.yaml
 fi
-if [ -d /etc/wasm ] && [ ! -L /etc/wasm ]; then
-    chown root:root /etc/wasm
-    chmod 0700 /etc/wasm
-fi
-if [ -f /etc/wasm/config.yaml ] && [ ! -L /etc/wasm/config.yaml ]; then
-    chown root:root /etc/wasm/config.yaml
-    chmod 0600 /etc/wasm/config.yaml
-fi
 
-# A server coming from WASM 2.x moves onto Noust's names here: /etc, /var/lib
-# and /var/backups renamed (links left at the old names) and wasm-web,
-# wasm-monitor, wasm-cron-*, wasm-backup-* replaced by the same units named
-# noust-*, in the same state. Explicitly, because the automatic migration on a
-# first privileged run is skipped inside a systemd unit, where unattended
-# upgrades (dnf-automatic) run. A migration that does not finish must not fail
-# the transaction: noust keeps reading the old locations, and says so, until
-# it is re-run.
-if { [ -d /etc/wasm ] && [ ! -L /etc/wasm ]; } \
-        || { [ -d /var/lib/wasm ] && [ ! -L /var/lib/wasm ]; } \
-        || { [ -d /var/backups/wasm ] && [ ! -L /var/backups/wasm ]; } \
-        || [ -e /etc/systemd/system/wasm-web.service ] \
-        || [ -e /etc/systemd/system/wasm-monitor.service ]; then
-    echo "Moving this server from WASM's names to Noust's..."
-    /usr/bin/noust migrate-from-wasm --reason "package upgrade" || echo "noust: the migration from wasm did not finish; run 'noust migrate-from-wasm' (see %{_docdir}/noust/UPGRADING-3.0.md)" >&2
-fi
+# Retire the links 3.x left beside /etc/noust, /var/lib/noust and
+# /var/backups/noust when the migration moved a server onto Noust's names
+# (noust setup retire-links says what it keeps and why). It removes only a link
+# that points exactly where 3.x pointed it and that nothing uses, never a real
+# file, and it must not fail the transaction.
+/usr/bin/noust setup retire-links --reason "package upgrade" >/dev/null 2>&1 || :
 
 # Add new defaults to an existing configuration (user values are kept).
-if [ -f /etc/noust/config.yaml ] || [ -f /etc/wasm/config.yaml ]; then
+if [ -f /etc/noust/config.yaml ]; then
     /usr/bin/noust config upgrade --reason "package upgrade" --quiet >/dev/null 2>&1 || :
     # Remove the settings no version reads any more (the old AI monitor's
     # OpenAI key among them), as text and with a dated 0600 copy first.
     /usr/bin/noust config clean --reason "package upgrade" --quiet >/dev/null 2>&1 || :
 fi
 
-# Rewrite the monitor unit for this version if it is enabled. Only under its
-# own name: 'noust monitor install' refuses while wasm-monitor.service exists,
-# which after the migration above means the migration did not finish, and it
-# says so already.
+# Rewrite the monitor unit for this version if it is enabled.
 if systemctl is-enabled noust-monitor.service >/dev/null 2>&1; then
     /usr/bin/noust monitor install --reason "package upgrade" >/dev/null 2>&1 || :
     systemctl daemon-reload >/dev/null 2>&1 || :
     systemctl try-restart noust-monitor.service >/dev/null 2>&1 || :
-elif systemctl is-enabled wasm-monitor.service >/dev/null 2>&1; then
-    systemctl try-restart wasm-monitor.service >/dev/null 2>&1 || :
 fi
 
 # The charts' history is recorded by the monitor, so a server gets it without
@@ -390,9 +337,6 @@ fi
 if [ -f /etc/systemd/system/noust-web.service ]; then
     /usr/bin/noust web refresh-unit --reason "package upgrade" >/dev/null 2>&1 || :
     systemctl try-restart noust-web.service >/dev/null 2>&1 || :
-fi
-if [ -f /etc/systemd/system/wasm-web.service ]; then
-    systemctl try-restart wasm-web.service >/dev/null 2>&1 || :
 fi
 
 %changelog

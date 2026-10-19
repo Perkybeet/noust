@@ -449,7 +449,7 @@ class TestTheTemporaryFileCannotBeHijacked:
         # link at each: whichever it chooses must be refused, not followed.
         for candidate in tmp_path.glob(".config.yaml*"):
             candidate.unlink()
-        planted = tmp_path / ".config.yaml.wasm-tmp"
+        planted = tmp_path / ".config.yaml.noust-tmp"
         planted.symlink_to(victim)
 
         fs.write_text(target, "new content")
@@ -466,7 +466,7 @@ class TestTheTemporaryFileCannotBeHijacked:
         original = os.open
 
         def record(path, flags, mode=0o777, **kwargs):
-            if ".wasm-tmp" in str(path):
+            if ".noust-tmp" in str(path):
                 seen.add(Path(path).name)
             return original(path, flags, mode, **kwargs)
 
@@ -487,7 +487,7 @@ class TestTheTemporaryFileCannotBeHijacked:
     ):
         """O_EXCL: an existing entry at the staging path aborts the write."""
         target = tmp_path / "unit.service"
-        fixed = tmp_path / ".unit.service.abcdef012345.wasm-tmp"
+        fixed = tmp_path / ".unit.service.abcdef012345.noust-tmp"
         fixed.write_text("someone else's file")
         monkeypatch.setattr("os.urandom", lambda _n: bytes.fromhex("abcdef012345"))
 

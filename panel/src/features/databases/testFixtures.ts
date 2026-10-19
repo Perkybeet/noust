@@ -202,6 +202,7 @@ export const DETECTED_DATABASE: Database = database("example_staging", "postgres
 export const CATALOG: EngineCatalog = {
   distribution: { id: "ubuntu", codename: "noble", name: "Ubuntu 24.04.1 LTS", known: true },
   apt: true,
+  package_manager: "apt",
   flavours: [
     {
       flavour: "postgresql",

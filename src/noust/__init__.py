@@ -3,8 +3,6 @@
 
 """
 Noust - deploy and manage web applications on Linux servers.
-
-Called WASM (Web App System Management) until 3.0.
 """
 
 from importlib.metadata import PackageNotFoundError
@@ -16,24 +14,18 @@ from importlib.metadata import version as _installed_version
 #: distribution packaging files in step with it.
 _FALLBACK_VERSION = "3.3.1"
 
-#: The distribution names this package has been published under: ``noust``
-#: from 3.0, ``wasm-cli`` before (and as the transitional package after).
-_DISTRIBUTIONS = ("noust", "wasm-cli")
-
 
 def _read_version() -> str:
     """
-    Read the installed version, whichever name the distribution has.
+    Read the installed version.
 
     Returns:
-        The version of the first distribution found, else the fallback.
+        The version of the installed distribution, else the fallback.
     """
-    for distribution in _DISTRIBUTIONS:
-        try:
-            return _installed_version(distribution)
-        except PackageNotFoundError:
-            continue
-    return _FALLBACK_VERSION  # pragma: no cover - only hit in uninstalled trees
+    try:
+        return _installed_version("noust")
+    except PackageNotFoundError:  # pragma: no cover - only hit in uninstalled trees
+        return _FALLBACK_VERSION
 
 
 __version__ = _read_version()

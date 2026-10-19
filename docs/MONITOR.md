@@ -57,7 +57,7 @@ nothing is installed, and the console records the history while it runs.
 "Turned off" is remembered in `/var/lib/noust/monitor-declined`, which `noust monitor disable`
 and `noust monitor uninstall` write from 3.1 on. A monitor removed with 3.0's `noust monitor
 uninstall` left no such file, so on the upgrade to 3.1 the package also leaves the monitor off
-when the journal still has lines from `noust-monitor` (or `wasm-monitor`), or the observation
+when the journal still has lines from `noust-monitor`, or the observation
 database holds anything a monitor recorded, and writes the file then. Where neither is left
 (a rotated journal), keep the monitor off with:
 

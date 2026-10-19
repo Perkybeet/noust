@@ -492,9 +492,9 @@ def test_installing_the_unit_writes_a_file_and_reloads_through_the_runner(
 
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
-    wasm_bin = bin_dir / "wasm"
-    wasm_bin.write_text("#!/bin/sh\n")
-    wasm_bin.chmod(0o755)
+    noust_bin = bin_dir / "noust"
+    noust_bin.write_text("#!/bin/sh\n")
+    noust_bin.chmod(0o755)
     monkeypatch.setenv("PATH", str(bin_dir))
     monkeypatch.setattr(module, "SYSTEMD_DIR", tmp_path / "systemd")
 
@@ -503,7 +503,7 @@ def test_installing_the_unit_writes_a_file_and_reloads_through_the_runner(
     assert monitor.install_service() is True
 
     unit = monitor.unit_path.read_text()
-    assert f"ExecStart={wasm_bin} monitor run" in unit
+    assert f"ExecStart={noust_bin} monitor run" in unit
     assert "NoNewPrivileges=true" in unit
     assert ("systemctl", "daemon-reload") in runner.calls
 
@@ -808,7 +808,7 @@ def test_real_system_daemons_are_still_known_safe() -> None:
         "python3.11",
         "php-fpm8.2",
         "dbus-daemon",
-        "wasm",
+        "noust",
     ):
         assert is_known_safe(_process_info(name=name)) is True, f"{name} lost its whitelist entry"
 

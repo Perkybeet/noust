@@ -190,7 +190,7 @@ class TestEveryUnitAndPackageCommand:
             "backup run-schedule",
             "preview sweep",
             "db backup-run",
-            "migrate-from-wasm",
+            "setup retire-links",
             "config upgrade",
             "config clean",
             "monitor install",

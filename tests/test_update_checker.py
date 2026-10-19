@@ -840,18 +840,6 @@ def test_detects_the_debian_package(installed_at, runner) -> None:
     assert runner.calls[0] == ("dpkg-query", "-W", "-f=${Status}", "noust")
 
 
-def test_detects_the_debian_package_under_its_legacy_name(installed_at, runner) -> None:
-    """A server that never reinstalled since the rename still has ``wasm``."""
-    installed_at("/usr/lib/python3/dist-packages/wasm", dpkg=True)
-    runner.script(
-        ["dpkg-query", "-W", "-f=${Status}", "noust"], exit_code=1, stderr="no packages found"
-    )
-    runner.script(["dpkg-query", "-W", "-f=${Status}", "wasm"], stdout="install ok installed")
-
-    assert UpdateChecker._detect_installation_method() == "apt"
-    assert ("dpkg-query", "-W", "-f=${Status}", "wasm") in runner.calls
-
-
 def test_detects_the_rpm_and_the_manager_that_upgrades_it(installed_at, runner) -> None:
     installed_at("/usr/lib/python3.12/site-packages/wasm")
     runner.only_knows("rpm", "dnf")
@@ -877,8 +865,8 @@ def test_a_pip_install_beside_a_leftover_package_is_pip(installed_at, runner, mo
 
 
 def test_detects_pipx_from_the_running_interpreter(installed_at, runner, monkeypatch) -> None:
-    installed_at("/root/.local/share/pipx/venvs/wasm-cli/lib/python3.12/site-packages/wasm")
-    monkeypatch.setattr("sys.prefix", "/root/.local/share/pipx/venvs/wasm-cli")
+    installed_at("/root/.local/share/pipx/venvs/noust/lib/python3.12/site-packages/noust")
+    monkeypatch.setattr("sys.prefix", "/root/.local/share/pipx/venvs/noust")
 
     assert UpdateChecker._detect_installation_method() == "pipx"
 

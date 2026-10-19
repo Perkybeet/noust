@@ -161,9 +161,9 @@ SYSTEM_ENTRY_POINTS: frozenset[str] = DAEMON_COMMANDS | frozenset(
         # Debian postinst/prerm, RPM %posttrans/%preun.
         "config clean",
         "config upgrade",
-        "migrate-from-wasm",
         "monitor autoenable",
         "monitor install",
+        "setup retire-links",
         "web refresh-unit",
         "web stop",
     }

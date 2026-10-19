@@ -33,7 +33,7 @@ def config_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Pat
     path = tmp_path / "config.yaml"
     path.write_text(yaml.safe_dump({"apps_directory": CUSTOM_APPS}))
     monkeypatch.setattr("noust.core.config.DEFAULT_CONFIG_PATH", path)
-    monkeypatch.delenv("WASM_APPS_DIR", raising=False)
+    monkeypatch.delenv("NOUST_APPS_DIR", raising=False)
     Config.reset_instance()
     try:
         yield path
@@ -66,7 +66,7 @@ def test_a_reader_during_reload_sees_the_previous_values(
 def test_env_overrides_still_apply_after_the_swap(
     config_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("WASM_APPS_DIR", "/from/env")
+    monkeypatch.setenv("NOUST_APPS_DIR", "/from/env")
     assert str(Config().apps_directory) == "/from/env"
 
 

@@ -10,7 +10,6 @@ version the console that comes back runs; and ``/api/system/update``.
 
 from __future__ import annotations
 
-import importlib.metadata
 import json
 import time
 from pathlib import Path
@@ -72,15 +71,6 @@ class TestRefusals:
 
 
 class TestStart:
-    @pytest.fixture(autouse=True)
-    def _no_transitional_wheel(self, monkeypatch):
-        """The test environment may have wasm-cli installed; these tests choose."""
-
-        def missing(name: str):
-            raise importlib.metadata.PackageNotFoundError(name)
-
-        monkeypatch.setattr(self_update.importlib.metadata, "distribution", missing)
-
     def test_apt_refreshes_then_installs_in_its_own_unit(self, tmp_path):
         runner = FakeRunner()
         manager = _manager(tmp_path, runner)
@@ -170,81 +160,24 @@ class TestStart:
             "noust[web]",
         )
 
-    def test_apt_upgrades_the_transitional_package_when_it_is_installed(self, tmp_path):
-        """Owner item 80: `wasm` stayed on 3.2.0 for ever and the Updates page listed it."""
-        runner = FakeRunner().script(
-            ["dpkg-query", "--show", "--showformat=${db:Status-Status}", "wasm"],
-            stdout="installed",
-        )
-        _manager(tmp_path, runner).start()
-
-        argv = _systemd_run(runner)
-        assert argv[argv.index("--") + 1 :][-4:] == ("install", "--only-upgrade", "noust", "wasm")
-
-    def test_apt_names_only_noust_when_the_transitional_package_is_absent(self, tmp_path):
-        runner = FakeRunner().script(
-            ["dpkg-query", "--show", "--showformat=${db:Status-Status}", "wasm"],
-            stdout="not-installed",
-        )
-        _manager(tmp_path, runner).start()
-
-        argv = _systemd_run(runner)
-        assert argv[-1] == "noust"
-
     @pytest.mark.parametrize(
         ("method", "expected"),
         [
-            ("dnf", ("dnf", "-y", "upgrade", "--refresh", "noust", "wasm-cli")),
-            ("yum", ("yum", "-y", "update", "noust", "wasm-cli")),
-            ("zypper", ("zypper", "--non-interactive", "update", "noust", "wasm-cli")),
+            ("apt", ("install", "--only-upgrade", "noust")),
+            ("dnf", ("dnf", "-y", "upgrade", "--refresh", "noust")),
+            ("yum", ("yum", "-y", "update", "noust")),
+            ("zypper", ("zypper", "--non-interactive", "update", "noust")),
         ],
     )
-    def test_rpm_families_ask_rpm_first_because_they_fail_on_an_absent_name(
+    def test_the_update_names_noust_and_asks_the_package_manager_nothing_first(
         self, tmp_path, method, expected
     ):
-        runner = FakeRunner().script(
-            ["rpm", "--query", "--queryformat=%{NAME}", "wasm-cli"], stdout="wasm-cli"
-        )
+        runner = FakeRunner()
         _manager(tmp_path, runner, method=method).start()
 
         argv = _systemd_run(runner)
-        assert argv[argv.index("--") + 1 :] == expected
-
-    def test_rpm_leaves_an_absent_transitional_package_out(self, tmp_path):
-        runner = FakeRunner().script(
-            ["rpm", "--query", "--queryformat=%{NAME}", "wasm-cli"],
-            stdout="package wasm-cli is not installed",
-            exit_code=1,
-        )
-        _manager(tmp_path, runner, method="dnf").start()
-
-        argv = _systemd_run(runner)
-        assert argv[argv.index("--") + 1 :] == ("dnf", "-y", "upgrade", "--refresh", "noust")
-
-    def test_pip_upgrades_the_transitional_wheel_when_it_is_installed(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(self_update, "web_installed", lambda: False)
-        monkeypatch.setattr(self_update.importlib.metadata, "distribution", lambda name: object())
-        runner = FakeRunner()
-        _manager(tmp_path, runner, method="pip").start()
-
-        argv = _systemd_run(runner)
-        assert argv[-2:] == ("noust", "wasm-cli")
-
-    def test_pipx_has_no_transitional_package_to_upgrade(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(self_update, "web_installed", lambda: False)
-        runner = FakeRunner()
-        _manager(tmp_path, runner, method="pipx").start()
-
-        assert _systemd_run(runner)[-1] == "noust"
-
-    def test_the_status_shows_the_transitional_package_it_will_upgrade_too(self, tmp_path):
-        runner = FakeRunner().script(
-            ["dpkg-query", "--show", "--showformat=${db:Status-Status}", "wasm"],
-            stdout="installed",
-        )
-        status = _manager(tmp_path, runner).status()
-
-        assert status["command"][-2:] == ["noust", "wasm"]
+        assert argv[argv.index("--") + 1 :][-len(expected) :] == expected
+        assert not any(call[0] in ("dpkg-query", "rpm") for call in runner.calls)
 
     def test_the_status_of_a_refused_installation_has_no_command_and_asks_nothing(self, tmp_path):
         runner = FakeRunner()
@@ -294,18 +227,14 @@ class TestStart:
 
     def test_the_preflight_is_given_the_method_and_the_packages_the_update_names(self, tmp_path):
         asked: list[tuple[str, tuple[str, ...]]] = []
-        runner = FakeRunner().script(
-            ["dpkg-query", "--show", "--showformat=${db:Status-Status}", "wasm"],
-            stdout="installed",
-        )
 
         def preflight(method, names):
             asked.append((method, tuple(names)))
             return PreflightReport()
 
-        _manager(tmp_path, runner, preflight=preflight).start()
+        _manager(tmp_path, FakeRunner(), preflight=preflight).start()
 
-        assert asked == [("apt", ("noust", "wasm"))]
+        assert asked == [("apt", ("noust",))]
 
     def test_a_refresh_that_fails_installs_nothing(self, tmp_path):
         runner = FakeRunner().script(["apt-get", "update"], exit_code=100, stderr="E: repo is gone")

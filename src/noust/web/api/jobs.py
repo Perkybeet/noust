@@ -5,7 +5,7 @@ The queue itself lives in :mod:`noust.web.jobs`; this module only translates
 HTTP into calls on it. Deploying a new application is not among them:
 ``POST /api/apps`` is the one route that queues a deployment, so there is one
 implementation of "deploy" rather than two that could disagree - an earlier
-``POST /api/jobs/deploy`` shelled out to the ``wasm`` binary and has been
+``POST /api/jobs/deploy`` shelled out to the command line and has been
 removed in favour of it.
 
 History is read from the store, not from the queue's own memory: a panel
