@@ -1,7 +1,8 @@
 # Upgrading to 4.0: the names that changed
 
 This guide covers one thing of 4.0: the names the product kept from its first life now carry
-Noust's. A server is updated from 3.3.x with the usual package update; nothing is restarted by it
+Noust's. A server is updated from 3.3.x with the usual package update (one still on 2.x goes
+through 3.3.1 first: 4.0 refuses to start on data that 3.x never moved); nothing is restarted by it
 that was not restarted before, and everything that is outside Noust's control keeps working. This
 page says what changes, what still works and what to do about each.
 
