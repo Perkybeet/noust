@@ -241,7 +241,7 @@ def test_update_without_project_file_matches_3_1(
 
     result = updater(root, docker).update()
 
-    assert [c[0] for c in docker.compose_calls()] == ["ps", "build", "up", "ps"]
+    assert [c[0] for c in docker.compose_calls()] == ["ps", "build", "pull", "up", "ps"]
     assert result.hooks == () and result.schema_changed is False
     row = store.list_deployments(DOMAIN)[0]
     assert row.status == "success" and row.hooks is None and row.schema_changed is False

@@ -703,6 +703,7 @@ def test_an_update_relays_the_web_services_then_brings_up_the_rest(
     assert steps == [
         "ps",
         "build",
+        "pull",
         "run",
         "up -d --no-deps --force-recreate backend",
         "run",

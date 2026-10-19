@@ -685,6 +685,83 @@ def test_docker_compose_build_streams_and_has_a_deadline(
     )
 
 
+class _ComposeCalls:
+    """What a deployer's ``_run`` was asked, with the deadline and whether it was streamed."""
+
+    def __init__(self, deployer: DockerComposeDeployer, *, pull_fails: bool = False) -> None:
+        self.calls: list[tuple[tuple[str, ...], int, bool]] = []
+        self.pull_fails = pull_fails
+        self.deployer = deployer
+        deployer._run = self._run  # type: ignore[method-assign]
+
+    def _run(self, command, timeout=0, *, stream=False):  # type: ignore[no-untyped-def]
+        from noust.core.runner import CommandResult
+
+        argv = tuple(command)
+        self.calls.append((argv, timeout, stream))
+        if self.pull_fails and "pull" in argv:
+            return CommandResult(argv=argv, exit_code=1, stderr="unknown flag: --ignore-buildable")
+        return CommandResult(argv=argv, exit_code=0)
+
+    def pull(self) -> tuple[tuple[str, ...], int, bool]:
+        return next(call for call in self.calls if "pull" in call[0])
+
+
+def _stack(tmp_path: Path, runner: FakeRunner) -> DockerComposeDeployer:
+    deployer = DockerComposeDeployer(runner=runner)
+    deployer.configure("app.example.com", "src", app_path=tmp_path)
+    deployer.compose_path = tmp_path / "docker-compose.yml"
+    return deployer
+
+
+def test_a_stack_pulls_the_images_it_names_before_the_unit_starts(
+    tmp_path: Path, runner: FakeRunner
+) -> None:
+    # The unit's `docker compose up -d` pulls them otherwise, inside `systemctl start`, whose wait
+    # is two minutes: a recipe with a large image failed its first install with "Command timed out
+    # after 120s" and was rolled back, ten of the sixteen first-wave recipes among them. Found
+    # installing them for real. A pull is a download, so it is streamed and has the build's deadline.
+    from noust.deployers.docker_compose import BUILD_TIMEOUT
+
+    deployer = _stack(tmp_path, runner)
+    spy = _ComposeCalls(deployer)
+
+    deployer._build_images()
+
+    argv, timeout, streamed = spy.pull()
+    assert argv[:2] == ("docker", "compose") and "-f" in argv
+    assert argv[-2:] == ("pull", "--ignore-buildable")
+    assert streamed and timeout == BUILD_TIMEOUT > 120
+    order = [call[0] for call in spy.calls]
+    assert order.index(argv) > order.index(next(a for a in order if "build" in a))
+
+
+def test_a_pull_names_only_the_services_the_stack_runs(tmp_path: Path, runner: FakeRunner) -> None:
+    deployer = _stack(tmp_path, runner)
+    deployer.compose_services = ("web", "worker")
+    spy = _ComposeCalls(deployer)
+
+    deployer._build_images()
+
+    assert spy.pull()[0][-4:] == ("pull", "--ignore-buildable", "web", "worker")
+
+
+def test_a_pull_that_fails_does_not_stop_the_deploy_and_says_so(
+    tmp_path: Path, runner: FakeRunner
+) -> None:
+    # A Compose too old to know --ignore-buildable, or a registry that is down: `up` pulls what is
+    # missing and says what is wrong in its own words, so the deploy goes on to it.
+    deployer = _stack(tmp_path, runner)
+    spy = _ComposeCalls(deployer, pull_fails=True)
+    warned: list[str] = []
+    deployer.logger.warning = warned.append  # type: ignore[method-assign]
+
+    deployer._build_images()  # does not raise
+
+    assert spy.pull()
+    assert any("unknown flag: --ignore-buildable" in line for line in warned)
+
+
 # ---------------------------------------------------------------------------
 # The hierarchy the registry claims
 # ---------------------------------------------------------------------------
