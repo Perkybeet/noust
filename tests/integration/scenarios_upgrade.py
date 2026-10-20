@@ -1027,4 +1027,306 @@ def run_upgrade_33_mode(wheel: Path, *, keep: bool) -> int:
     return 1 if failures else 0
 
 
-__all__ = ["WAVE5_DONE", "run_upgrade_33_mode"]
+# ---------------------------------------------------------------------------------------------
+# Going back: this tree on a store it migrated, then the release before it (checklist N-27)
+# ---------------------------------------------------------------------------------------------
+
+STATIC_BEFORE = "static-before.test"
+STATIC_AFTER = "static-after.test"
+
+#: The directory of the store, wherever this install put it.
+STORE_DIR = "$(dirname $(ls /var/lib/noust/noust.db /root/.local/share/noust/noust.db 2>/dev/null | head -1))"
+
+
+def schema_on_disk(sc: Scenario, label: str) -> str:
+    """The schema version the store records, read with sqlite3 and not through Noust."""
+    return sc.run(
+        run.store_query("SELECT MAX(version) FROM schema_version"), timeout=15, label=label
+    ).stdout.strip()
+
+
+def put_released_noust_back(sc: Scenario) -> None:
+    """Install the 3.3.1 checkout the rehearsal kept in ``/root/noust-src`` over the venv."""
+    sc.run(
+        "/opt/noust/bin/pip install --quiet --force-reinstall --no-deps /root/noust-src",
+        timeout=run.PIP_INSTALL_TIMEOUT,
+        label="pip install --force-reinstall --no-deps /root/noust-src  (3.3.1 again)",
+    )
+    schema = sc.run(
+        "/opt/noust/bin/python -c 'import noust.core.store as s; print(s.SCHEMA_VERSION)'",
+        timeout=30,
+        label="the installed package's SCHEMA_VERSION",
+    ).stdout.strip()
+    sc.check(schema == "13", f"the venv does not run 3.3.1 again: SCHEMA_VERSION {schema!r}")
+
+
+def run_downgrade_rehearsal(sc: Scenario, wheel: Path) -> None:
+    """Upgrade a 3.3.1 server to this tree and go back, the way docs/downgrading.md says.
+
+    What is proven with the real releases, on a real store: the upgrade keeps a copy of the store
+    it migrates; `noust store compat --to 3.3.1` says that the release cannot open the new store
+    and which copy can be put back, changing nothing; the release itself refuses the new store
+    (in its own words); putting the copy back, as the guide's steps say, brings 3.3.1 up with the
+    applications it had; what the new release created meanwhile is the loss the guide names, and
+    everything those applications serve keeps serving the whole time; going forward again migrates
+    the restored store once more.
+
+    Args:
+        sc: The scenario, in a container that runs Noust 3.3.1.
+        wheel: This tree's wheel, on the host.
+    """
+    new = "[this tree]"
+    old = "[noust 3.3.1]"
+    sc.run(
+        f"noust create -d {STATIC_BEFORE} -s /root/fixtures/static-site -t static --no-ssl",
+        timeout=DEPLOY_TIMEOUT,
+        label=f"{old} noust create -d {STATIC_BEFORE} -s /root/fixtures/static-site -t static",
+    )
+    wait_page(sc, STATIC_BEFORE, "Noust Integration Static Fixture", f"{old} the first application")
+    sc.check(schema_on_disk(sc, f"{old} schema on disk") == "13", "3.3.1 does not write schema 13")
+    sc.run(
+        "printf '%s\\n' 'before-upgrade-Passw0rd-xyz' | "
+        "noust user create before-acct --role viewer --stdin",
+        timeout=60,
+        label=f"{old} noust user create before-acct --role viewer --stdin",
+    )
+    token = sc.run(
+        "noust token create before-upgrade --scope admin",
+        timeout=60,
+        check=False,
+        label=f"{old} noust token create before-upgrade",
+    )
+    sc.check(token.returncode == 0, f"3.3.1 could not make a token: {token.stdout}{token.stderr}")
+
+    # -- The upgrade keeps a copy of what it migrates ----------------------------------------------
+    run.upgrade_noust_venv(sc, wheel)
+    sc.run("noust list --json", timeout=60, label=f"{new} noust list --json (migrates the store)")
+    sc.check(
+        schema_on_disk(sc, f"{new} schema on disk") == "14", "the store was not migrated to 14"
+    )
+    copies = sc.run(
+        f"ls -l {STORE_DIR}/noust.db.v13-*.bak", timeout=15, label="the copies the upgrade kept"
+    ).stdout
+    sc.check(copies.count(".bak") == 1, f"expected one copy of the schema 13 store:\n{copies}")
+    sc.check(copies.split()[0] == "-rw-------", f"the copy is not owner-only: {copies.split()[0]}")
+    copy = copies.split()[-1]
+    kept = sc.run(
+        run.store_query_at(
+            copy, "SELECT MAX(version) FROM schema_version; PRAGMA integrity_check;"
+        ),
+        timeout=15,
+        label="the copy: its schema, and SQLite's own check",
+    ).stdout.split()
+    sc.check(kept == ["13", "ok"], f"the copy is not a sound schema 13 store: {kept!r}")
+
+    # -- Work done on the new release: what going back loses ----------------------------------------
+    sc.run(
+        f"noust create -d {STATIC_AFTER} -s /root/fixtures/static-site -t static --no-ssl",
+        timeout=DEPLOY_TIMEOUT,
+        label=f"{new} noust create -d {STATIC_AFTER} (after the upgrade)",
+    )
+    sc.run(
+        "printf '%s\\n' 'after-upgrade-Passw0rd-xyz' | "
+        "noust user create after-acct --role viewer --stdin",
+        timeout=60,
+        label=f"{new} noust user create after-acct --role viewer --stdin",
+    )
+    sc.run(
+        "noust token create after-upgrade --scope admin",
+        timeout=60,
+        label=f"{new} noust token create after-upgrade",
+    )
+    before_compat = sc.run(
+        f"sha256sum {STORE_DIR}/noust.db | cut -d' ' -f1", timeout=15, label="checksum of the store"
+    ).stdout.strip()
+
+    # -- `store compat` reads, says, and changes nothing --------------------------------------------
+    said = json_of(
+        sc.run(
+            "noust store compat --to 3.3.1 --json",
+            timeout=60,
+            label=f"{new} noust store compat --to 3.3.1 --json",
+        ),
+        "store compat",
+    )
+    sc.evidence.append(f"# store compat said: {str(said)[:900]}")
+    sc.check(
+        "3.3.1" in str(said) and ".bak" in str(said),
+        f"`store compat --to 3.3.1` does not name the release and the copy to put back: {said!r}",
+    )
+    text = sc.run(
+        "noust store compat --to 3.3.1", timeout=60, label=f"{new} noust store compat --to 3.3.1"
+    ).stdout
+    sc.check(
+        "cannot open" in text and "stop" in text.lower(),
+        f"the human text does not say that 3.3.1 cannot open the store, and the steps:\n{text}",
+    )
+    after_compat = sc.run(
+        f"sha256sum {STORE_DIR}/noust.db | cut -d' ' -f1", timeout=15, label="checksum of the store"
+    ).stdout.strip()
+    sc.check(before_compat == after_compat, "`noust store compat` changed the store")
+
+    # -- 3.3.1 on the new store: refused, in its own words, with everything still serving ------------
+    page_before = body_of(sc, STATIC_BEFORE, "before going back")
+    put_released_noust_back(sc)
+    refused = sc.run(
+        "noust list --json",
+        timeout=60,
+        check=False,
+        label=f"{old} noust list --json (the store is schema 14)",
+    )
+    refusal = refused.stdout + refused.stderr
+    sc.check(refused.returncode != 0, "3.3.1 opened a store written by a newer release")
+    sc.check("newer Noust" in refusal, f"3.3.1 does not say why it refuses:\n{refusal[-600:]}")
+    sc.check(
+        schema_on_disk(sc, "schema on disk (3.3.1 refused, so nothing was written)") == "14",
+        "3.3.1 changed the store it refused",
+    )
+    sc.check(
+        body_of(sc, STATIC_BEFORE, "while 3.3.1 refuses") == page_before,
+        "an application stopped answering because the release was changed",
+    )
+
+    # -- The steps `store compat` printed, run as printed ----------------------------------------------
+    steps = [str(step) for step in said["plan"]["steps"]]
+    commands = [step.split(": ", 1)[1] for step in steps[1:4]]
+    sc.check(
+        len(commands) == 3 and all("noust" in c or "mv " in c or "cp " in c for c in commands),
+        f"`store compat` did not print the three commands I expected: {steps!r}",
+    )
+    sc.run(commands[0], timeout=60, check=False, label="1. " + commands[0])
+    aside = sc.run(
+        commands[1],
+        timeout=30,
+        check=False,
+        label="2. " + commands[1],
+    )
+    sc.check(
+        aside.returncode == 0,
+        "the command that keeps the store aside fails when the write-ahead log is not there, "
+        f"although the text says that is fine (exit {aside.returncode}): {aside.stderr!r}",
+    )
+    sc.run(commands[2], timeout=30, label="3. " + commands[2])
+    # 4. the earlier release is already installed (put_released_noust_back)
+    listing = json_of(
+        sc.run(
+            "noust list --json", timeout=60, label=f"{old} noust list --json (the copy is back)"
+        ),
+        "list",
+    )
+    domains = listed_domains(listing)
+    sc.check(STATIC_BEFORE in domains, f"3.3.1 does not know the application it had: {domains}")
+    sc.check(
+        STATIC_AFTER not in domains,
+        "3.3.1 knows an application created after the copy was taken: the loss the guide names "
+        "is not the one that happened",
+    )
+    sc.check(
+        schema_on_disk(sc, f"{old} schema on disk") == "13", "the store is not schema 13 again"
+    )
+    sc.check(
+        body_of(sc, STATIC_BEFORE, "after going back") == page_before,
+        "the application changed what it serves",
+    )
+    sc.check(
+        "Noust Integration Static Fixture"
+        in body_of(sc, STATIC_AFTER, "the one the new release made"),
+        "an application created on the new release stopped serving when the store went back",
+    )
+    accounts = sc.run("noust user list", timeout=60, label=f"{old} noust user list").stdout
+    sc.check(
+        "before-acct" in accounts and "after-acct" not in accounts,
+        f"the accounts are not those of the copy (they live in the store): {accounts[:400]}",
+    )
+    tokens = sc.run("noust token list", timeout=60, label=f"{old} noust token list").stdout
+    sc.check(
+        "before-upgrade" in tokens and "after-upgrade" in tokens,
+        f"the tokens are not all still there (they live in the sessions database, "
+        f"which no release's store holds): {tokens[:400]}",
+    )
+    sc.run(
+        f"noust update {STATIC_BEFORE}",
+        timeout=DEPLOY_TIMEOUT,
+        label=f"{old} noust update {STATIC_BEFORE} (3.3.1 works on what it had)",
+    )
+    kept_aside = sc.run(
+        run.store_query_at(
+            f"{STORE_DIR}/before-downgrade/noust.db",
+            "PRAGMA integrity_check; SELECT MAX(version) FROM schema_version;",
+        ),
+        timeout=15,
+        label="the store kept aside is whole, and is schema 14",
+    ).stdout.split()
+    sc.check(kept_aside == ["ok", "14"], f"the store kept aside is not intact: {kept_aside!r}")
+
+    # -- And forward again ---------------------------------------------------------------------------------
+    run.upgrade_noust_venv(sc, wheel)
+    again = json_of(
+        sc.run("noust list --json", timeout=60, label=f"{new} noust list --json (migrates again)"),
+        "list",
+    )
+    sc.check(STATIC_BEFORE in listed_domains(again), "the application is gone after going forward")
+    sc.check(
+        schema_on_disk(sc, f"{new} schema on disk") == "14", "the store was not migrated again"
+    )
+    copies_now = sc.run(
+        f"ls {STORE_DIR}/noust.db.v13-*.bak | wc -l", timeout=15, label="the copies now kept"
+    ).stdout.strip()
+    sc.check(int(copies_now) >= 2, f"the second migration kept no copy of its own: {copies_now}")
+    sc.check(
+        body_of(sc, STATIC_BEFORE, "after going forward") == page_before,
+        "the application changed what it serves",
+    )
+
+
+def run_downgrade_mode(wheel: Path, *, keep: bool) -> int:
+    """Run the going-back rehearsal in its own container.
+
+    Args:
+        wheel: This tree's wheel, on the host.
+        keep: Do not remove the container when done.
+
+    Returns:
+        0 when it held, 1 otherwise.
+    """
+    started_at = time.monotonic()
+    label = "downgrade_noust_to_3_3_1_over_a_migrated_store"
+    name = run.random_container_name()
+    sc = Scenario(container=name)
+    failures = 0
+    print(f"\n=== {label} ({name}) ===")
+    try:
+        try:
+            start_container(name)
+            wait_for_systemd(name)
+            run.prepare_inner_docker(name)
+            run.install_fixtures(name)
+            install_from_git(name, FROM_TAG)
+            run_downgrade_rehearsal(sc, wheel)
+        except run.ScenarioSkipped as exc:
+            failures += 1
+            print(f"FAIL: {label}: it could not run here: {exc}")
+        except (AssertionError, HarnessError) as exc:
+            failures += 1
+            print(f"FAIL: {label}: {exc}")
+        except Exception:
+            failures += 1
+            print(f"FAIL: {label} (the rehearsal itself raised)")
+            traceback.print_exc(file=sys.stdout)
+        else:
+            print(f"PASS: {label}")
+    finally:
+        if sc.evidence:
+            print("--- evidence ---")
+            print("\n\n".join(sc.evidence))
+        if keep:
+            print(f"\n[teardown] --keep given, leaving container {name} running")
+        else:
+            print(f"\n[teardown] removing container {name}")
+            run.remove_container(name)
+    elapsed = time.monotonic() - started_at
+    print(f"\n[summary] 1 scenario(s) run, {failures} failure(s), {elapsed:.1f}s total")
+    return 1 if failures else 0
+
+
+__all__ = ["WAVE5_DONE", "run_downgrade_mode", "run_upgrade_33_mode"]

@@ -155,7 +155,11 @@ scripts/reproducible_build.py   the wheel and the sdist of a commit, byte for by
 tests/integration/run.py    real deploys in a systemd container (Docker); not part of pytest. The 3.4
                             features' scenarios are in scenarios_34.py (loaded by run.py), and
                             `--upgrade-from-3.3` (scenarios_upgrade.py) upgrades a 3.3.1 server that
-                            carries every legacy name. Everything it creates on the machine's Docker
+                            carries every legacy name; `--downgrade-to-3.3` goes back over a store the
+                            new version migrated. scenarios_real.py holds the ones that run the real
+                            software: the Compose recipes (`--scenario recipe_compose`) and a server a
+                            real Coolify runs, taken over (`--scenario coolify_takeover`), both opt-in
+                            because they pull gigabytes. Everything it creates on the machine's Docker
                             carries the label `noust.test=1`; the rest runs in the harness container's
                             own Docker (NOUST_IT_IMAGE, NOUST_IT_DOCKER_VOLUME and NOUST_IT_PREFIX name the
                             image, the volume and the containers when the Docker is shared)
