@@ -40,6 +40,7 @@ from noust.deployers.importers.base import (
     declared_env,
     directory_export,
     persistent_path_for,
+    service_container,
     tarball_restore,
     text_value,
     volume_export,
@@ -424,8 +425,12 @@ def _one_database(
         detail = answer if isinstance(answer, dict) else {}
     name = text_value(item, "name") or service
     image = text_value(detail, "dockerImage")
-    container = f"$(docker ps -qf name=^{service}\\.)"
-    commands = database_commands(engine, container, database_name_for(name), service)
+    container = service_container(service)
+    commands = (
+        database_commands(engine, container, database_name_for(name), service)
+        if container is not None
+        else None
+    )
     dump, restore = commands if commands is not None else (None, None)
     entry = ProposedDatabase(
         engine=engine,

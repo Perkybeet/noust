@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import posixpath
+import re
 import shlex
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -194,6 +195,12 @@ class ProposedDatabase:
                 f" Create the engine if this server lacks it ('noust db install {self.engine}'),"
                 f" dump it on that server with: {self.dump}; and load it here with: {self.restore}."
             )
+        elif self.engine in DUMP_SCRIPTS and not self.dump:
+            text += (
+                " No command is written for it: its name is not one that can go on a command line"
+                " as it is. Dump it with the engine's own tool and load it here with"
+                " 'noust db import'."
+            )
         if self.note:
             text += f" {self.note}"
         return text
@@ -227,6 +234,42 @@ DUMP_SCRIPTS: dict[str, tuple[str, str]] = {
 }
 
 
+#: A name another platform gave something (a container, a service, a file) that may be written into
+#: a command as it is. The platform's owner is not always the person who pastes the command, so a
+#: name with a space, a quote, a semicolon or a substitution in it is never put on a command line.
+_PLAIN_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+
+#: The one expression that finds a Swarm or Compose service's container, built only by
+#: :func:`service_container`.
+_SERVICE_CONTAINER = re.compile(r"\$\(docker ps -qf name=\^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\\\.\)")
+
+
+def is_plain_name(value: str | None) -> bool:
+    """
+    Args:
+        value: A name another platform gave something.
+
+    Returns:
+        Whether it may be written into a command as it is.
+    """
+    return value is not None and _PLAIN_NAME.fullmatch(value) is not None
+
+
+def service_container(service: str) -> str | None:
+    """
+    Write the expression a shell turns into the container of a Swarm service.
+
+    Args:
+        service: The service's name, as the other platform gave it.
+
+    Returns:
+        ``$(docker ps -qf name=^SERVICE\\.)``, or None when the name is not a plain one.
+    """
+    if not is_plain_name(service):
+        return None
+    return f"$(docker ps -qf name=^{service}\\.)"
+
+
 def database_commands(engine: str, container: str, name: str, label: str) -> tuple[str, str] | None:
     """
     Write the commands that move a database's data from the other server to this one.
@@ -240,9 +283,17 @@ def database_commands(engine: str, container: str, name: str, label: str) -> tup
 
     Returns:
         ``(dump, restore)``, or None for an engine the official images have no portable dump for
-        (a cache: Redis and its kin are rebuilt, or copied with their own tools).
+        (a cache: Redis and its kin are rebuilt, or copied with their own tools), and for a
+        container or a label that is not a plain name: nothing the other platform supplied reaches
+        a command unchecked.
     """
     if engine not in DUMP_SCRIPTS:
+        return None
+    if not (
+        is_plain_name(label)
+        and is_plain_name(name)
+        and (is_plain_name(container) or _SERVICE_CONTAINER.fullmatch(container))
+    ):
         return None
     script, extension = DUMP_SCRIPTS[engine]
     return (
@@ -305,7 +356,10 @@ def tarball_restore(persistent_path: str | None) -> str:
     Returns:
         A command for this server, to run as root.
     """
-    target = f"/var/www/apps/APP/shared/{persistent_path}" if persistent_path else "FOLDER"
+    safe = persistent_path is not None and all(
+        re.fullmatch(r"[A-Za-z0-9_.][A-Za-z0-9_.-]*", part) for part in persistent_path.split("/")
+    )
+    target = f"/var/www/apps/APP/shared/{persistent_path}" if safe else "FOLDER"
     return f"tar -xzf FILE.tar.gz -C {target}"
 
 
@@ -326,7 +380,12 @@ def persistent_path_for(mount_path: str, work_dir: str = "/app") -> str | None:
     if not clean.startswith(prefix) or ".." in clean.split("/"):
         return None
     relative = clean[len(prefix) :]
-    return relative or None
+    if not relative or not all(
+        re.fullmatch(r"[A-Za-z0-9_.][A-Za-z0-9_.-]*", part) for part in relative.split("/")
+    ):
+        # A path with a space, a quote or a substitution in it is not written into a command.
+        return None
+    return relative
 
 
 @dataclass
