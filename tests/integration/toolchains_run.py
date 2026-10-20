@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import os
+import re
 import subprocess
 import sys
 import time
@@ -295,7 +296,13 @@ class Stack:
         start_marker: A substring of the unit's ``ExecStart``.
         gitignore: What the repository ignores (build output a ``prepare`` leaves).
         generate: A shell snippet that makes the project in an empty directory, for a sample a
-            generator writes (Phoenix) instead of a folder of fixtures.
+            generator writes (Phoenix, Angular, Rails) instead of a folder of fixtures.
+        runtime_marker: A substring the unit must carry when the project pins a runtime Noust
+            downloads (``/runtimes/node/``): the proof that the unit runs the managed one and not
+            the server's own.
+        create_args: More options for ``noust create``. Rails 7.1 and later write a Dockerfile
+            into every new project, and a repository with a Dockerfile is deployed as a container
+            by detection (its own way of saying how it runs), so the native build is asked for.
     """
 
     key: str
@@ -307,6 +314,8 @@ class Stack:
     prepare: str = ""
     gitignore: str = ""
     generate: str = ""
+    runtime_marker: str = ""
+    create_args: str = ""
 
     @property
     def domain(self) -> str:
@@ -353,6 +362,58 @@ PHOENIX_GENERATE = (
     f"sed -i 's/{{:plug_cowboy, \"~> 2.5\"}}/{PHOENIX_PINS}/' mix.exs && "
     "mix deps.get >/dev/null && mix compile >/dev/null && "
     "printf 'phoenix v1\\n' > lib/hello_phx_web/controllers/page_html/home.html.heex"
+)
+
+#: The Node frameworks are pinned to Node 22 by a .nvmrc and the server has Node 18: the project is
+#: built and run with the Node Noust downloads (checklist A-43), whose unit says where it lives.
+MANAGED_NODE = "/runtimes/node/"
+# The lock file is made under the Node 22 the project pins, the one Noust installs (`noust runtime
+# install`): a lock written under the server's Node 18 leaves out the optional packages whose
+# `engines` it does not satisfy, and `npm ci` under Node 22 then finds it out of step with
+# package.json ("Missing: commander@10.0.1 from lock file", Nuxt). Scripts are not run: only the
+# lock is wanted.
+NODE_LOCK_COMMAND = "npm install --package-lock-only --ignore-scripts >/dev/null 2>&1"
+NODE_LOCK = (
+    "noust runtime install node@22 >/dev/null && "
+    'PATH="$(ls -d /opt/noust/runtimes/node/22.*/bin | tail -n 1):$PATH" ' + NODE_LOCK_COMMAND
+)
+#: Nuxt 3's newest release carries a peer set that npm 10.9.9 cannot resolve ("Cannot read properties
+#: of null (reading 'edgesOut')", also for a plain `npm install`), and pnpm can, so its sample is
+#: locked by pnpm: the server has pnpm 9 and Noust picks the package manager from the lock file.
+PNPM_LOCK = (
+    "noust runtime install node@22 >/dev/null && "
+    'PATH="$(ls -d /opt/noust/runtimes/node/22.*/bin | tail -n 1):$PATH" '
+    "pnpm install --lockfile-only --ignore-scripts >/dev/null 2>&1"
+)
+NODE_IGNORE = "node_modules/\n"
+
+#: Angular as `ng new` writes it, with server-side rendering: the CLI's own generator is the sample
+#: (no hand-written angular.json), pinned to a major so a new release cannot change the fixture. The
+#: welcome page is replaced by a line that tells the versions apart.
+ANGULAR_GENERATE = (
+    "export NG_CLI_ANALYTICS=false CI=1 && "
+    "npx --yes @angular/cli@19 new ngapp --ssr --defaults --skip-git --skip-install --style=css "
+    "--routing=false --directory ngapp >/dev/null && "
+    "cp -a ngapp/. . && rm -rf ngapp && "
+    "printf '<main>angular v1</main>\\n' > src/app/app.component.html && "
+    "printf '22\\n' > .nvmrc && "
+    "noust runtime install node@22 >/dev/null && "
+    'PATH="$(ls -d /opt/noust/runtimes/node/22.*/bin | tail -n 1):$PATH" '
+    "npm install --package-lock-only --ignore-scripts >/dev/null 2>&1"
+)
+
+#: Rails as `rails new` writes it (no database, the asset pipeline kept so `assets:precompile`
+#: runs), with one controller that answers a line and TLS left to the proxy.
+RAILS_GENERATE = (
+    "gem install rails -v '~> 7.2.0' --no-document >/dev/null && "
+    "rails new . --minimal --skip-git --skip-bundle --skip-active-record --skip-test --force "
+    ">/dev/null && "
+    "printf 'class HomeController < ApplicationController\\n  def index\\n"
+    '    render plain: "rails v1\\\\n"\\n  end\\nend\\n\' > app/controllers/home_controller.rb && '
+    'sed -i \'s|# root "posts#index"|root "home#index"|\' config/routes.rb && '
+    "sed -i 's/config.force_ssl = true/config.force_ssl = false/; "
+    "s/config.assume_ssl = true/config.assume_ssl = false/' config/environments/production.rb && "
+    "bundle lock --add-platform x86_64-linux >/dev/null"
 )
 
 STACKS: dict[str, Stack] = {
@@ -439,6 +500,95 @@ STACKS: dict[str, Stack] = {
             start_marker="deno task start",
             gitignore=".deno/\n",
         ),
+        # The Node frameworks (A-35), each built with the Node 22 Noust downloads for it (A-43).
+        Stack(
+            key="node-nuxt",
+            app_type="nuxt",
+            served_v1="nuxt v1",
+            served_v2="nuxt v2",
+            change_v2="sed -i 's/nuxt v1/nuxt v2/' app.vue",
+            start_marker=".output/server/index.mjs",
+            prepare=PNPM_LOCK,
+            gitignore=NODE_IGNORE + ".nuxt/\n.output/\n",
+            runtime_marker=MANAGED_NODE,
+        ),
+        Stack(
+            key="node-sveltekit",
+            app_type="sveltekit",
+            served_v1="sveltekit v1",
+            served_v2="sveltekit v2",
+            change_v2="sed -i 's/sveltekit v1/sveltekit v2/' src/routes/+page.svelte",
+            start_marker="build",
+            prepare=NODE_LOCK,
+            gitignore=NODE_IGNORE + ".svelte-kit/\nbuild/\n",
+            runtime_marker=MANAGED_NODE,
+        ),
+        Stack(
+            key="node-astro",
+            app_type="astro",
+            served_v1="astro v1",
+            served_v2="astro v2",
+            change_v2="sed -i 's/astro v1/astro v2/' src/pages/index.astro",
+            start_marker="dist/server/entry.mjs",
+            prepare=NODE_LOCK,
+            gitignore=NODE_IGNORE + "dist/\n.astro/\n",
+            runtime_marker=MANAGED_NODE,
+        ),
+        Stack(
+            key="node-remix",
+            app_type="remix",
+            served_v1="remix v1",
+            served_v2="remix v2",
+            change_v2="sed -i 's/remix v1/remix v2/' app/routes/_index.tsx",
+            start_marker="run start",
+            prepare=NODE_LOCK,
+            gitignore=NODE_IGNORE + "build/\n",
+            runtime_marker=MANAGED_NODE,
+        ),
+        Stack(
+            key="node-angular",
+            app_type="angular",
+            served_v1="angular v1",
+            served_v2="angular v2",
+            change_v2="sed -i 's/angular v1/angular v2/' src/app/app.component.html",
+            start_marker="server.mjs",
+            gitignore=NODE_IGNORE + "dist/\n.angular/\n",
+            generate=ANGULAR_GENERATE,
+            runtime_marker=MANAGED_NODE,
+        ),
+        # Compiled languages (A-38) and Rails (A-39), with the toolchain the server's own
+        # distribution gives.
+        Stack(
+            key="go-http",
+            app_type="go",
+            served_v1="go v1",
+            served_v2="go v2",
+            change_v2="sed -i 's/go v1/go v2/' main.go",
+            start_marker="bin/",
+            prepare="go mod tidy",
+            gitignore="bin/\n",
+        ),
+        Stack(
+            key="rust-http",
+            app_type="rust",
+            served_v1="rust v1",
+            served_v2="rust v2",
+            change_v2="sed -i 's/rust v1/rust v2/' src/main.rs",
+            start_marker="bin/",
+            prepare="cargo generate-lockfile",
+            gitignore="target/\nbin/\n",
+        ),
+        Stack(
+            key="ruby-rails",
+            app_type="ruby",
+            served_v1="rails v1",
+            served_v2="rails v2",
+            change_v2="sed -i 's/rails v1/rails v2/' app/controllers/home_controller.rb",
+            start_marker="puma",
+            gitignore="vendor/bundle/\nlog/\ntmp/\npublic/assets/\n",
+            generate=RAILS_GENERATE,
+            create_args="-t ruby",
+        ),
     )
 }
 
@@ -523,10 +673,10 @@ def deploy_end_to_end(sc: Scenario, stack: Stack) -> None:
     make_repository(sc, stack)
 
     created = sc.run(
-        f"noust create -d {stack.domain} -s {stack.url} --no-ssl",
+        f"noust create -d {stack.domain} -s {stack.url} --no-ssl {stack.create_args}".rstrip(),
         timeout=FIRST_DEPLOY_TIMEOUT,
         check=False,
-        label=f"noust create -d {stack.domain} -s {stack.url} --no-ssl",
+        label=f"noust create -d {stack.domain} -s {stack.url} --no-ssl {stack.create_args}".rstrip(),
     )
     sc.check(
         created.returncode == 0,
@@ -551,13 +701,18 @@ def deploy_end_to_end(sc: Scenario, stack: Stack) -> None:
     ).stdout.split()
     sc.check(len(serving) == 1, f"expected one active unit for {stack.app}, found {serving}")
     unit = sc.run(
-        f"systemctl show {serving[0]} -p ExecStart -p User -p WorkingDirectory -p ActiveState "
-        "--no-pager",
+        f"systemctl show {serving[0]} -p ExecStart -p Environment -p User -p WorkingDirectory "
+        "-p ActiveState --no-pager",
         timeout=15,
         label=f"systemctl show {serving[0]}",
     ).stdout
     sc.check(stack.start_marker in unit, f"the unit does not start {stack.start_marker!r}:\n{unit}")
     sc.check("ActiveState=active" in unit, f"the unit is not active:\n{unit}")
+    if stack.runtime_marker:
+        sc.check(
+            stack.runtime_marker in unit,
+            f"the unit does not run the runtime Noust downloaded ({stack.runtime_marker!r}):\n{unit}",
+        )
     sc.check(
         f"WorkingDirectory={stack.root}/" in unit,
         f"the unit does not run from the application's releases:\n{unit}",
@@ -860,6 +1015,221 @@ def scenario_monorepo_instant_rollback(sc: Scenario) -> None:
 
 
 SCENARIOS.append(("monorepo_instant_rollback", scenario_monorepo_instant_rollback))
+
+
+# ---------------------------------------------------------------------------
+# Runtimes downloaded and installed for real: Node, Python with uv, PHP with apt (A-43)
+# ---------------------------------------------------------------------------
+
+#: Where the managed runtimes live (docs/build.md#runtimes).
+RUNTIMES_ROOT = "/opt/noust/runtimes"
+
+
+def scenario_runtimes_for_real(sc: Scenario) -> None:
+    """Node from nodejs.org, Python with uv, PHP with apt: each installed, proved and listed (A-43).
+
+    What the unit tests keep as a fake tree is here the real download and the real installers.
+    Node: the official tarball is fetched, checked against its release's SHASUMS256.txt, unpacked
+    to a directory owned by root and writable by nobody else, with no set-uid file, and run once to
+    prove it is the version asked; asking again installs nothing. Python: without uv the error says
+    how to get it, and with it the interpreter that arrives runs. PHP: a server that lost its
+    PHP-FPM gets it back through the package manager, with a pool unit that answers. A runtime in
+    use is not removed; one that is not, is.
+    """
+    sc.run(
+        "noust runtime remove node@20 >/dev/null 2>&1; rm -rf /opt/noust/runtimes/node/20.* "
+        "/opt/noust/runtimes/python/3.12.*; true",
+        timeout=120,
+        check=False,
+        label="(clean start) no managed Node 20 and no managed Python 3.12",
+    )
+
+    # -- Node: the official tarball, verified, unpacked, proved --------------------------------------
+    started = time.monotonic()
+    sc.run("noust runtime install node@20", timeout=600, label="noust runtime install node@20")
+    took = time.monotonic() - started
+    sc.evidence.append(f"# node@20 installed in {took:.0f}s")
+    listed = json_of(
+        sc.run("noust runtime list --json", timeout=60, label="noust runtime list --json"),
+        "runtime list",
+    )
+    sc.evidence.append(f"# runtime list: {str(listed)[:700]}")
+    home = sc.run(
+        f"ls -d {RUNTIMES_ROOT}/node/20.*", timeout=15, label="the directory it was unpacked to"
+    ).stdout.strip()
+    version = home.rsplit("/", 1)[-1]
+    sc.check(re.fullmatch(r"20\.\d+\.\d+", version) is not None, f"unexpected directory {home!r}")
+    ran = sc.run(f"{home}/bin/node --version", timeout=30, label="the downloaded node runs").stdout
+    sc.check(
+        ran.strip() == f"v{version}", f"the directory says {version} and node says {ran.strip()}"
+    )
+    owner = sc.run(
+        f"stat -c '%U %a' {home} {home}/bin/node", timeout=15, label="owner and mode"
+    ).stdout
+    sc.check(owner.split("\n")[0].startswith("root "), f"the runtime is not root's: {owner!r}")
+    sc.check(
+        sc.run(
+            f"find {home} -not -type l \\( -perm -4000 -o -perm -2000 -o -perm -0002 \\) | wc -l",
+            timeout=60,
+            label="set-uid, set-gid or world-writable files in it",
+        ).stdout.strip()
+        == "0",
+        "the unpacked runtime has a set-uid, set-gid or world-writable file",
+    )
+    sc.check(
+        sc.run(
+            f"find {home} -type l -lname '/*' | wc -l",
+            timeout=60,
+            label="links that leave the tree",
+        ).stdout.strip()
+        == "0",
+        "the unpacked runtime has an absolute link",
+    )
+    # What the build account sees: it can run it and cannot change it.
+    sc.run(
+        f"runuser -u noust-build -- {home}/bin/node -e 'console.log(process.version)'",
+        timeout=30,
+        label="the build account runs it",
+    )
+    cannot = sc.run(
+        f"runuser -u noust-build -- touch {home}/bin/planted",
+        timeout=30,
+        check=False,
+        label="the build account tries to write into it",
+    )
+    sc.check(cannot.returncode != 0, "the build account can write into a managed runtime")
+    again = sc.run(
+        "noust runtime install node@20", timeout=120, label="noust runtime install node@20 (again)"
+    )
+    sc.check(
+        home in again.stdout
+        and sc.run(
+            f"ls -d {RUNTIMES_ROOT}/node/20.* | wc -l",
+            timeout=15,
+            label="how many Node 20 are there",
+        ).stdout.strip()
+        == "1",
+        f"asking again installed another, or did not say where it is: {again.stdout!r}",
+    )
+
+    # -- Python: uv is the installer, and the error says so when it is missing --------------------------
+    sc.run(
+        "rm -f /usr/local/bin/uv /usr/local/bin/uvx",
+        timeout=15,
+        label="(setup) no uv on this server",
+    )
+    without = sc.run(
+        "noust runtime install python@3.12",
+        timeout=120,
+        check=False,
+        label="noust runtime install python@3.12 (no uv)",
+    )
+    said = without.stdout + without.stderr
+    sc.check(without.returncode != 0, "python was installed without uv")
+    sc.check(
+        "uv" in said and "astral.sh" in said,
+        f"the error does not say how to get uv:\n{said[-700:]}",
+    )
+    sc.run(
+        "curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin "
+        "UV_NO_MODIFY_PATH=1 sh",
+        timeout=300,
+        label="uv, as the error says (curl -LsSf https://astral.sh/uv/install.sh | sh)",
+    )
+    sc.run(
+        "noust runtime install python@3.12", timeout=900, label="noust runtime install python@3.12"
+    )
+    python = (
+        sc.run(
+            f"ls -d {RUNTIMES_ROOT}/python/3.12.*/cpython-3.12.*",
+            timeout=15,
+            label="uv's directory",
+        )
+        .stdout.strip()
+        .splitlines()[0]
+    )
+    said_version = sc.run(f"{python}/bin/python3 --version", timeout=30, label="it runs").stdout
+    sc.check(said_version.strip().startswith("Python 3.12."), f"python said {said_version!r}")
+    sc.check(
+        sc.run(f"stat -c %U {python}/bin/python3", timeout=15, label="owner").stdout.strip()
+        == "root",
+        "the Python uv installed is not root's",
+    )
+    sc.run(
+        f"runuser -u noust-build -- {python}/bin/python3 -c 'import sys; print(sys.version)'",
+        timeout=30,
+        label="the build account runs it",
+    )
+
+    # -- PHP: a server that lost its PHP-FPM gets it back through apt ------------------------------------
+    sc.run(
+        "systemctl stop php8.3-fpm; apt-get purge -y 'php8.3-*' 'php-fpm' 'php-mysql' 'php-curl' "
+        "'php-gd' 'php-mbstring' 'php-xml' 'php-zip' 'php-intl' php-common >/dev/null 2>&1; "
+        "apt-get autoremove -y >/dev/null 2>&1; true",
+        timeout=300,
+        check=False,
+        label="(setup) a server that has no PHP",
+    )
+    sc.check(
+        sc.run(
+            "test -x /usr/sbin/php-fpm8.3 && echo yes || echo no",
+            timeout=15,
+            label="is php-fpm8.3 there?",
+        ).stdout.strip()
+        == "no",
+        "PHP-FPM is still installed",
+    )
+    sc.run("noust runtime install php@8.3", timeout=900, label="noust runtime install php@8.3")
+    sc.check(
+        sc.run(
+            "test -x /usr/sbin/php-fpm8.3 && echo yes || echo no",
+            timeout=15,
+            label="is php-fpm8.3 back?",
+        ).stdout.strip()
+        == "yes",
+        "noust runtime install php@8.3 did not install PHP-FPM",
+    )
+    php = sc.run("php8.3 --version | head -1", timeout=30, label="php8.3 --version").stdout
+    sc.check(php.startswith("PHP 8.3."), f"PHP said {php!r}")
+    modules = sc.run("php8.3 -m", timeout=30, label="php8.3 -m").stdout.lower()
+    sc.check(
+        all(m in modules for m in ("mbstring", "curl", "xml", "zip")),
+        "the extensions the generic PHP install adds are missing",
+    )
+    asked = sc.run(
+        "noust runtime install php@8.2",
+        timeout=300,
+        check=False,
+        label="noust runtime install php@8.2 (not in the distribution)",
+    )
+    said = asked.stdout + asked.stderr
+    sc.check(
+        asked.returncode != 0, "php@8.2 was installed from a distribution that does not have it"
+    )
+    sc.check(
+        "ondrej" in said.lower() or "sury" in said.lower(),
+        f"the error does not name where PHP 8.2 comes from:\n{said[-600:]}",
+    )
+
+    # -- The listing says what is there; a runtime nobody uses can go -------------------------------------
+    final = sc.run("noust runtime list", timeout=60, label="noust runtime list").stdout
+    for expected in (version, "3.12", "8.3"):
+        sc.check(expected in final, f"`noust runtime list` does not show {expected}:\n{final}")
+    sc.run(
+        f"noust runtime remove node@{version}",
+        timeout=120,
+        label=f"noust runtime remove node@{version}",
+    )
+    sc.check(
+        sc.run(
+            f"test -e {home} && echo there || echo gone", timeout=15, label="is it gone?"
+        ).stdout.strip()
+        == "gone",
+        "the runtime directory is still there after the removal",
+    )
+
+
+SCENARIOS.append(("runtimes_downloaded_and_installed_for_real", scenario_runtimes_for_real))
 
 
 # ---------------------------------------------------------------------------

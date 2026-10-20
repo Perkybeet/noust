@@ -677,7 +677,8 @@ def _wait_words(options: dict[str, object]) -> str:
 @cli.command(
     "ssh",
     read_only=lambda params: (
-        not (
+        params["show"]
+        or not (
             params["connect_timeout"] is not None
             or params["default_timeout"]
             or params["bastion"]
@@ -712,7 +713,9 @@ def _wait_words(options: dict[str, object]) -> str:
 @click.option(
     "--show",
     is_flag=True,
-    help="Print the authorized_keys line to add on the bastion: one stream to the node, no shell.",
+    help="Print the authorized_keys line to add on the bastion: one stream to the node, no shell. "
+    "With --bastion it is the line for that bastion, and nothing is changed: ask for it first, "
+    "then change the bastion once it lets the central in.",
 )
 @json_option("Print the options as JSON.")
 @pass_context
@@ -745,7 +748,11 @@ def ssh_command(
         raise click.UsageError("Give --timeout or --default-timeout, not both")
     manager = _manager()
     manager.get(name)
-    changing = connect_timeout is not None or default_timeout or bastion or no_bastion
+    if show and (connect_timeout is not None or default_timeout or no_bastion):
+        raise click.UsageError("--show only prints a line; it changes nothing")
+    changing = (
+        connect_timeout is not None or default_timeout or bool(bastion) or no_bastion
+    ) and not show
     if changing and ctx.dry_run:
         ctx.logger.info(f"would change how {name} is connected to")
         return
@@ -769,7 +776,16 @@ def ssh_command(
             raise
         audit("fleet.node.ssh", "success", resource=f"node:{name}")
     options = manager.describe_ssh(name)
-    line = manager.bastion_authorization(name) if show and options["bastion"] else None
+    line: str | None = None
+    if show and (bastion or options["bastion"]):
+        proposed = (
+            manager.resolve_bastion(
+                bastion, host_key=bastion_host_key, fingerprint=bastion_fingerprint
+            )
+            if bastion
+            else None
+        )
+        line = manager.bastion_authorization(name, bastion=proposed)
     if ctx.json_output:
         click.echo(json.dumps({**options, "authorized_key_line": line}))
         return
@@ -778,8 +794,8 @@ def ssh_command(
         if line is None:
             raise NodeError(
                 f"{name} has no bastion",
-                details=f"Set one with: noust node ssh {name} --bastion USER@HOST "
-                "--bastion-fingerprint SHA256:...",
+                details=f"Ask for the line of the one you mean to set: noust node ssh {name} "
+                "--bastion USER@HOST --bastion-fingerprint SHA256:... --show",
             )
         logger.info("Add this line to the authorized_keys of the account on the bastion:")
         click.echo(line)

@@ -256,3 +256,23 @@ def test_run_command_accepts_any_runner() -> None:
     """Injection is what makes the deployers testable at all."""
     assert isinstance(FakeRunner(), CommandRunner)
     assert isinstance(utils.run_command, Callable)
+
+
+def test_the_system_info_names_the_distribution_from_os_release(
+    runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # lsb_release is not installed on a minimal Debian 13 (nor on the RPM families), which made
+    # `noust setup init` print "OS: Unknown" on a server that says what it is in /etc/os-release.
+    from noust.managers.server import host
+
+    monkeypatch.setattr(
+        host,
+        "read_os_release",
+        lambda *args, **kwargs: host.OsRelease(pretty_name="Debian GNU/Linux 13 (trixie)"),
+    )
+    runner.script(["lsb_release"], exit_code=127, stderr="lsb_release: command not found")
+
+    info = utils.get_system_info()
+
+    assert info["os"] == "Debian GNU/Linux 13 (trixie)"
+    assert not any(call[0] == "lsb_release" for call in runner.calls)

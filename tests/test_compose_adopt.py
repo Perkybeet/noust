@@ -264,6 +264,74 @@ def test_containers_of_another_compose_file_do_not_name_the_project(
     assert plan.project_from == "compose"
 
 
+def _coolify_stack(tmp_path: Path, docker: Docker, *, git: bool = True) -> Path:
+    """
+    A stack the way Coolify leaves it: its files under /data/coolify/applications/<uuid>, and
+    containers whose labels name the helper's mount of that directory, /artifacts/<id>, which does
+    not exist on the host. The project is the uuid, the directory's name.
+    """
+    uuid = "uuwy0zylbu2ihnctn9tr20ej"
+    stack = tmp_path / "data" / "coolify" / "applications" / uuid
+    stack.mkdir(parents=True)
+    shutil.copy(FIXTURES / "proggest.docker-compose.prod.yml", stack / "docker-compose.yaml")
+    if git:
+        (stack / ".git").mkdir()
+    mounted = "/artifacts/umriwhtiafofjikhnx84qr8h"
+    docker.containers = [
+        (f"{n:064x}", name, "running", uuid, f"{mounted}/docker-compose.yaml", mounted)
+        for n, name in enumerate(
+            ("proggest-postgres", "proggest-redis", "proggest-backend", "proggest-frontend"),
+            start=1,
+        )
+    ]
+    return stack
+
+
+def test_containers_made_through_a_mounted_copy_of_the_directory_are_the_stacks(
+    tmp_path: Path, docker: Docker, web: NginxManager, store: NoustStore
+) -> None:
+    # Coolify runs `docker compose` in a helper container with the stack's directory mounted at
+    # /artifacts/<id>, so the labels name a path that is not on the host and nothing matched:
+    # the plan said "Nothing made from docker-compose.yaml has run" and rehearsed creating
+    # everything, for a stack that had been running for days. The project is the directory's
+    # name and the file's name is the same: that is the stack. Found against a real Coolify.
+    from noust.deployers.compose_adopt import plan_adoption
+
+    stack = _coolify_stack(tmp_path, docker)
+
+    plan = plan_adoption(DOMAIN, stack, web=web)
+
+    assert plan.project == "uuwy0zylbu2ihnctn9tr20ej"
+    assert plan.project_from == "containers"
+    assert plan.running and len(plan.containers) == 4
+    assert not any("has run" in warning for warning in plan.warnings)
+
+
+def test_a_mounted_copy_of_another_directory_is_not_the_stacks(
+    tmp_path: Path, docker: Docker, web: NginxManager, store: NoustStore
+) -> None:
+    from noust.deployers.compose_adopt import find_stack_project
+
+    stack = _coolify_stack(tmp_path, docker)
+    docker.containers = [(c[0], c[1], c[2], "somebody-else", c[4], c[5]) for c in docker.containers]
+
+    assert find_stack_project(stack / "docker-compose.yaml", runner=docker) == (None, ())
+
+
+def test_a_mounted_file_with_another_name_is_not_the_stacks(
+    tmp_path: Path, docker: Docker, web: NginxManager, store: NoustStore
+) -> None:
+    from noust.deployers.compose_adopt import find_stack_project
+
+    stack = _coolify_stack(tmp_path, docker)
+    docker.containers = [
+        (c[0], c[1], c[2], c[3], "/artifacts/x/compose.override.yml", c[5])
+        for c in docker.containers
+    ]
+
+    assert find_stack_project(stack / "docker-compose.yaml", runner=docker) == (None, ())
+
+
 def test_two_running_projects_from_one_file_are_refused(
     root: Path, docker: Docker, web: NginxManager, store: NoustStore
 ) -> None:
@@ -405,15 +473,57 @@ def test_a_domain_already_deployed_is_refused(
         plan_adoption(DOMAIN, root, web=web)
 
 
-def test_a_directory_that_is_not_a_checkout_is_refused(
+def test_a_directory_with_no_repository_is_planned_with_no_source(
     root: Path, docker: Docker, web: NginxManager, store: NoustStore
 ) -> None:
+    # Coolify, Portainer and a tarball unpacked by hand leave stacks that never were a checkout.
+    # Refusing them meant the one thing adopting is for, keeping what runs, was impossible for
+    # every server another panel had set up. Found against a real Coolify.
+    from noust.deployers.compose_adopt import plan_adoption
+
+    shutil.rmtree(root / ".git")
+
+    plan = plan_adoption(DOMAIN, root, web=web)
+
+    assert plan.source == ""
+    assert plan.branch is None
+    assert plan.commit is None
+    assert any("no repository" in warning for warning in plan.warnings)
+    assert not any(call[:1] == ("git",) for call in docker.calls)
+
+
+def test_a_source_for_a_directory_with_no_repository_is_refused(
+    root: Path, docker: Docker, web: NginxManager, store: NoustStore
+) -> None:
+    # Naming a source says the operator expects updates to fetch it; that needs a checkout to
+    # reset, and Noust does not turn a directory it did not make into one.
     from noust.deployers.compose_adopt import plan_adoption
 
     shutil.rmtree(root / ".git")
 
     with pytest.raises(DeploymentError, match="not a git checkout"):
-        plan_adoption(DOMAIN, root, web=web)
+        plan_adoption(DOMAIN, root, web=web, source=REMOTE)
+
+
+def test_a_stack_with_no_repository_is_adopted_and_nothing_changes(
+    tmp_path: Path, docker: Docker, web: NginxManager, store: NoustStore, units: Path
+) -> None:
+    stack = _coolify_stack(tmp_path, docker, git=False)
+    tree_before = tree(stack)
+
+    result = adopt(stack, web)
+
+    app = store.get_app(DOMAIN)
+    assert app is not None
+    assert app.layout == "inplace"
+    assert app.source == ""
+    assert app.compose_project == "uuwy0zylbu2ihnctn9tr20ej"
+    assert result.plan.running and len(result.plan.containers) == 4
+    row = store.list_deployments(DOMAIN)[0]
+    assert row.status == "success"
+    assert row.git_commit is None
+    assert tree(stack) == tree_before
+    assert docker.mutating() == []
 
 
 def test_a_relative_or_missing_path_is_refused(

@@ -258,6 +258,42 @@ def test_the_terminal_prints_the_line_for_the_bastions_operator(terminal) -> Non
     assert 'permitopen="' in line and "port-forwarding" in line
 
 
+def test_the_line_is_printed_before_the_bastion_is_set_and_nothing_changes(terminal) -> None:
+    # Setting a bastion opens the tunnel through it, which fails until the bastion authorizes the
+    # central; `--show` used to need the bastion already set, so the operator could not learn the
+    # line without passing --no-test. Asked with --bastion, it prints that bastion's line and keeps
+    # the node as it is.
+    result = run(
+        "ssh",
+        "web-2",
+        "--bastion",
+        "hop@bastion.example.com",
+        "--bastion-host-key",
+        BASTION_KEY,
+        "--show",
+    )
+
+    assert result.exit_code == 0, result.output
+    line = next(row for row in result.output.splitlines() if row.startswith("restrict,"))
+    assert 'permitopen="' in line and "port-forwarding" in line
+    assert NodeSSHOptions(terminal.store).get("web-2").bastion is None
+
+
+def test_showing_a_line_is_not_a_change_so_it_is_not_changed_with_other_options(terminal) -> None:
+    result = run("ssh", "web-2", "--timeout", "45", "--show")
+
+    assert result.exit_code == 2
+    assert "only prints a line" in result.output
+    assert NodeSSHOptions(terminal.store).get("web-2").connect_timeout is None
+
+
+def test_showing_the_line_of_a_node_with_no_bastion_says_how_to_ask(terminal) -> None:
+    result = run("ssh", "web-2", "--show")
+
+    assert isinstance(result.exception, NodeError)
+    assert "--show" in (result.exception.details or "")
+
+
 def test_a_bastion_needs_its_key_or_its_fingerprint(terminal) -> None:
     result = run("ssh", "web-2", "--bastion", "hop@bastion.example.com")
 

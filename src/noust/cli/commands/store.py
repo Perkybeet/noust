@@ -642,7 +642,7 @@ def compat(state: Context, target: str | None) -> None:
     A release opens a store written at its own schema or an older one, and refuses a newer one.
     Without --to this shows the schema on disk, the oldest release that understands it and the
     copies the upgrades kept beside the store. With --to it gives the steps to run that release
-    (docs/DOWNGRADING.md). It reads and changes nothing.
+    (docs/downgrading.md). It reads and changes nothing.
     """
     from noust.core import store_compat
     from noust.core.store import SCHEMA_VERSION, get_store

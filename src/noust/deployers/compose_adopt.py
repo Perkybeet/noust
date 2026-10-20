@@ -188,7 +188,7 @@ class AdoptionPlan:
             Compose derives) or ``stack`` (the stack names it itself).
         containers: The names of the containers from that file, in that project.
         running: Whether any of them is running.
-        source: Where updates fetch from.
+        source: Where updates fetch from; empty for a stack that is not a checkout.
         branch: The branch updates follow.
         commit: The commit checked out, the adoption's history row's.
         site: The file in ``sites-available`` that serves the domain, or None.
@@ -363,7 +363,32 @@ def _made_from(container: StackContainer, compose_path: Path) -> bool:
         candidate = entry if os.path.isabs(entry) else os.path.join(container.working_dir, entry)
         if os.path.realpath(candidate) == wanted:
             return True
-    return False
+    return _made_through_a_mount(container, compose_path)
+
+
+def _made_through_a_mount(container: StackContainer, compose_path: Path) -> bool:
+    """
+    Tell whether a container was made from a compose file by a tool that mounted its directory.
+
+    Coolify runs ``docker compose`` in a helper container with the stack's directory
+    (``/data/coolify/applications/<uuid>``) mounted at ``/artifacts/<id>``, so the labels name a
+    path that does not exist on the host and the comparison by path finds nothing: the plan said
+    that nothing from the file had ever run, and rehearsed creating everything, for a stack that had
+    been serving for days. What survives the mount is the project, which such a tool names after the
+    directory (so it is the name Compose gives the file), and the file's own name.
+
+    Args:
+        container: The container.
+        compose_path: The compose file, on the host.
+
+    Returns:
+        True when the container's project is the one Compose derives from the file's directory and
+        one of its files has the file's name.
+    """
+    derived = compose_project_name(compose_path.parent, compose_path)
+    if derived is None or container.project != derived:
+        return False
+    return any(os.path.basename(entry) == compose_path.name for entry in container.config_files)
 
 
 def find_stack_project(
@@ -673,7 +698,8 @@ def plan_adoption(
         path: The directory it runs from.
         compose_file: Its compose file, relative to ``path``; found among the
             usual names when None.
-        source: Where updates fetch from; the checkout's ``origin`` when None.
+        source: Where updates fetch from; the checkout's ``origin`` when None. A
+            directory that is not a checkout is adopted with no source at all.
         branch: The branch updates follow; the one checked out when None.
         site: The site file that serves the domain; found when None.
         port: The port to register; the compose file's when None.
@@ -688,8 +714,9 @@ def plan_adoption(
 
     Raises:
         DeploymentError: The domain is deployed already, the directory or the
-            compose file is not usable, it is not a git checkout with a
-            source, its unit's name is taken, or the site is ambiguous.
+            compose file is not usable, a source is named for a directory that is
+            not a git checkout (or a checkout has no source), its unit's name is
+            taken, or the site is ambiguous.
         AdoptionRefusedError: The rehearsed ``up`` failed or would change
             something, and that was not accepted.
     """
@@ -727,15 +754,26 @@ def plan_adoption(
         )
 
     repo = SourceManager(runner=runner).get_repo_info(path)
-    if not repo["is_git"]:
+    if not repo["is_git"] and source:
         raise DeploymentError(
             f"{path} is not a git checkout",
-            details="An update brings an adopted stack up to date by resetting its checkout "
-            "to the branch, keeping what git does not track. Clone the repository there "
-            "(or git init and add its remote), or deploy it with noust create.",
+            details="A source is where an update fetches from, and it resets the checkout to "
+            "the branch, keeping what git does not track. Clone the repository there (or git "
+            "init and add its remote), or adopt the stack without --source.",
         )
     fetch_from = source or repo["remote"]
-    if not fetch_from:
+    if not repo["is_git"]:
+        # Coolify, Portainer and a tarball unpacked by hand leave stacks that never were a
+        # checkout. What adopting is for, keeping what runs, does not depend on one; an update
+        # then downloads the images the compose file names instead of fetching code.
+        fetch_from = ""
+        repo = {**repo, "branch": None, "commit": None}
+        warnings.append(
+            f"{path} has no repository: an update pulls the images the compose file names and "
+            "recreates the containers, and fetches no code. To follow a repository, clone it "
+            "there and adopt with --source."
+        )
+    elif not fetch_from:
         raise DeploymentError(
             f"The checkout in {path} has no remote 'origin'",
             details="Name where updates fetch from with --source (source in the API).",
@@ -936,7 +974,7 @@ def adopt(
     deployer = DockerComposeDeployer(runner=runner)
     deployer.configure(
         plan.domain,
-        plan.source,
+        plan.source or str(plan.app_path),
         app_path=plan.app_path,
         compose_file=plan.compose_file,
         branch=plan.branch,

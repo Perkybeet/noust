@@ -636,6 +636,7 @@ def test_renew_names_the_lineage_when_a_domain_is_given(live_dir: Path, runner: 
             "certbot",
             "renew",
             "--non-interactive",
+            "--no-random-sleep-on-renew",
             "--cert-name",
             "shop.tld",
             "--force-renewal",
@@ -651,7 +652,15 @@ def test_renew_without_a_domain_warns_before_forcing_everything(
 
     assert result.exit_code == 0
     assert any("rate limit" in line for line in log)
-    assert runner.calls == [("certbot", "renew", "--non-interactive", "--force-renewal")]
+    assert runner.calls == [
+        (
+            "certbot",
+            "renew",
+            "--non-interactive",
+            "--no-random-sleep-on-renew",
+            "--force-renewal",
+        )
+    ]
 
 
 # -- Destructive commands -----------------------------------------------------

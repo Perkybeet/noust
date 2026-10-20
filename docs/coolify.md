@@ -246,19 +246,72 @@ request writes nothing).
 
 ### Taking over a server Coolify runs
 
-Moving applications one by one to the *same* server is possible but needs a decision about the
-proxy. Coolify's Traefik owns ports 80 and 443, and an application it runs normally publishes
-**no port** to the host (Traefik reaches it by the Docker network), so
-[`noust app adopt`](compose.md#adopting-a-running-stack), which registers a stack that already runs
-without changing anything, would register such a stack as a worker with no site. The steps that follow
-from how both work, and which have not been exercised against a server Coolify set up (do the first
-on a copy, or on the least important application):
+Coolify keeps what it deployed as plain Docker Compose files: an application in
+`/data/coolify/applications/<uuid>/docker-compose.yaml`, a service in
+`/data/coolify/services/<uuid>/docker-compose.yml`, and its own stack in `/data/coolify/source`. Its
+Traefik owns ports 80 and 443 and an application normally publishes **no port** to the host (Traefik
+reaches it by the Docker network). Noust can take the stacks over on the same server, one at a time,
+without recreating a container.
 
-1. Move the applications first, one at a time, to Noust on a second server, as above.
-2. When the last one is moved, stop Coolify's proxy and Coolify, and install Noust on that server
-   (`setup init` installs nginx on the freed ports).
-3. An application you could not move earlier is deployed from its repository on this server, as
-   in the steps above, once the ports are free.
+This was run against a real Coolify 4.4.6, installed with its own installer in a container with
+systemd and Docker inside (`tests/integration/run.py --scenario coolify_takeover`): an application
+from an image and a service of two containers with a volume, both served by Traefik, taken over as
+below. The steps are exactly the scenario's.
+
+1. **Adopt each stack**, rehearsed first. Nothing is cloned, rebuilt or restarted; the containers are
+   the same ones afterwards, still served by Traefik.
+
+   ```bash
+   noust --dry-run app adopt app.example.com --path /data/coolify/applications/<uuid>
+   noust app adopt app.example.com --path /data/coolify/applications/<uuid>
+   ```
+
+   Coolify runs `docker compose` in a helper that mounts the directory at `/artifacts/<id>`, so its
+   containers' labels name a path that is not on the host; Noust recognises them by the project
+   (Coolify names it after the directory) and the file's name. A Coolify stack is not a checkout, so it
+   is adopted with no repository and says so: an update pulls the images the compose file names and
+   recreates the containers, and fetches no code. The domain is the one you name; Noust does not read it
+   from Coolify's Traefik labels.
+2. **Take Coolify down for good.** `docker stop` is not enough: three of its containers (`coolify`,
+   `coolify-db`, `coolify-redis`) restart `always`, so they come back with Docker, and a Coolify that is
+   up brings its sentinel back. Its own project goes down (nothing is deleted: its volumes stay) and its
+   proxy and sentinel are stopped while they run, which Docker remembers across a restart:
+
+   ```bash
+   cd /data/coolify/source
+   docker compose --env-file .env -f docker-compose.yml -f docker-compose.prod.yml down
+   docker stop coolify-proxy coolify-sentinel
+   ```
+
+   The stacks keep running (they restart `unless-stopped`) and ports 80 and 443 are free.
+3. **Give each stack a loopback port.** Coolify's publish none, and nginx reaches a stack by a port.
+   Under the web service of the compose file add `ports: ["127.0.0.1:18080:80"]` and run
+   `noust update app.example.com`. Noust writes the facts of the deployment (`NOUST_URL` and the
+   rest) into the stack's `.env`, which Coolify's services all read, so they are recreated, a cache or a
+   database in the same stack among them; their volumes are kept, and the data in the service's volume was
+   there afterwards.
+4. **Write the site.** `noust site create -d app.example.com -p 18080 --no-ssl`. If nginx was not
+   running (a Coolify server normally has none), Noust starts it, and if it cannot (the address still in
+   use) the command prints the web server's own output. The certificate comes the usual way once the
+   name points at this server ([certificates.md](certificates.md)); TLS was not part of the run.
+5. **Hand each unit back.** `noust app reclaim app.example.com -y` enables and starts the unit that
+   supervises the stack; `noust diagnose app.example.com` then says healthy.
+
+After a restart of Docker (what a reboot does) the two stacks came back, nothing of Coolify did, and the
+data in the service's volume was there.
+
+What this does not do:
+
+- It does not read Coolify's configuration. The domain, the port to publish and the environment come from
+  you (the environment is already in the stack's `.env`, which Noust leaves where it is). To rebuild an
+  application from its repository instead, use the import above.
+- A Coolify database resource, an application built from a repository and a stack with several domains
+  were not part of the run. A database Coolify runs in a container is moved with a dump, as in step 5 of
+  "Moving across".
+- Going back: nothing of Coolify was deleted, but starting it again was not exercised as a procedure.
+
+Moving the applications to a second server first, as above, and freeing the ports afterwards is still the
+way that needs no loopback port at all.
 
 
 ## Moving the other way

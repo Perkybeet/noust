@@ -244,13 +244,23 @@ def add_command(
 
 @provider.command("verify")
 @click.argument("name")
+@json_option("Print the zones as JSON.")
 @pass_context
 def verify_command(ctx: Context, name: str) -> None:
     """Try an account's credential again and list the zones it manages."""
     zones = DnsAccounts().verify(name)
+    if ctx.json_output:
+        click.echo(
+            json.dumps(
+                {"account": name, "zones": [{"id": zone.id, "name": zone.name} for zone in zones]}
+            )
+        )
+        return
     ctx.logger.success(f"{name} works")
+    # Printed, not logged as sub-steps: those are shown with --verbose only, and the zones are
+    # the answer this command exists to give.
     for zone in zones:
-        ctx.logger.substep(zone.name)
+        ctx.logger.key_value("Zone", zone.name)
 
 
 @provider.command("set")
