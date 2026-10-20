@@ -58,6 +58,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `dns.public_addresses` | `[]` |
 | `dns.resolvers` | `["1.1.1.1", "8.8.8.8"]` |
 | `github.host` | `""` |
+| `integrations.forge_hosts` | `[]` |
 | `mcp.enabled` | `false` |
 | `mcp.groups` | `["inspect", "deploy", "control"]` |
 | `metrics.retention_days` | `400` |

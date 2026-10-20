@@ -103,6 +103,7 @@ AccountInfo = TypedDict("AccountInfo", {
     "disabled_at": NotRequired[Union[float, None]],
     "disabled_reason": NotRequired[Union[str, None]],
     "display_name": Required[str],
+    "email": NotRequired[Union[str, None]],
     "failures_since_login": NotRequired[int],
     "id": Required[int],
     "last_login_at": NotRequired[Union[float, None]],
@@ -142,6 +143,7 @@ AccountOut = TypedDict("AccountOut", {
 
 AccountUpdate = TypedDict("AccountUpdate", {
     "display_name": NotRequired[Union[str, None]],
+    "email": NotRequired[Union[str, None]],
     "person_ref": NotRequired[Union[str, None]],
     "role": NotRequired[Union[str, None]],
 })
@@ -1456,6 +1458,7 @@ ChannelModel = TypedDict("ChannelModel", {
     "route": NotRequired[dict[str, Any]],
     "settings": NotRequired[dict[str, Any]],
     "summary": NotRequired[Union[dict[str, Any], None]],
+    "team": NotRequired[Union[str, None]],
     "type": Required[str],
 })
 
@@ -2244,6 +2247,7 @@ DatabaseInfoResponse = TypedDict("DatabaseInfoResponse", {
     "project": NotRequired[Union[str, None]],
     "size": NotRequired[Union[str, None]],
     "tables": NotRequired[Union[int, None]],
+    "tags": NotRequired[list[str]],
     "team": NotRequired[Union[str, None]],
     "tracked": NotRequired[bool],
     "unverified": NotRequired[bool],
@@ -2282,6 +2286,13 @@ DatabaseOverviewResponse = TypedDict("DatabaseOverviewResponse", {
     "service": Required[str],
     "support": Required["SupportNoticeResponse"],
     "warnings": Required[list[str]],
+})
+
+DatabaseTagsResponse = TypedDict("DatabaseTagsResponse", {
+    "database": Required[str],
+    "engine": Required[str],
+    "max_tags": NotRequired[int],
+    "tags": Required[list[str]],
 })
 
 DecisionBody = TypedDict("DecisionBody", {
@@ -4151,6 +4162,7 @@ InvitationCode = TypedDict("InvitationCode", {
 
 InvitationCreate = TypedDict("InvitationCreate", {
     "display_name": NotRequired[Union[str, None]],
+    "email": NotRequired[Union[str, None]],
     "expires_hours": NotRequired[int],
     "person_ref": NotRequired[Union[str, None]],
     "role": NotRequired[Union[str, None]],
@@ -4162,6 +4174,8 @@ InvitationCreate = TypedDict("InvitationCreate", {
 InvitationIssued = TypedDict("InvitationIssued", {
     "account": Required["AccountInfo"],
     "code": Required[str],
+    "email_error": NotRequired[Union[str, None]],
+    "emailed": NotRequired[bool],
     "expires_in": Required[int],
 })
 
@@ -5123,6 +5137,7 @@ NodeResponse = TypedDict("NodeResponse", {
     "console_port": Required[int],
     "created_at": NotRequired[Union[str, None]],
     "host_key": Required[str],
+    "labels": NotRequired[dict[str, str]],
     "last_seen": NotRequired[Union[str, None]],
     "link": NotRequired[Union["NodeLink", None]],
     "monitoring": NotRequired[Union["NodeMonitoring", None]],
@@ -5131,8 +5146,24 @@ NodeResponse = TypedDict("NodeResponse", {
     "ssh_port": Required[int],
     "ssh_user": Required[str],
     "status": Required[str],
+    "team": NotRequired[Union[str, None]],
     "tunnel": NotRequired[dict[str, Any]],
     "version": NotRequired[Union[str, None]],
+})
+
+NodeRotationRequest = TypedDict("NodeRotationRequest", {
+    "join_code": NotRequired[Union[str, None]],
+})
+
+NodeRotationResponse = TypedDict("NodeRotationResponse", {
+    "authorize_command": NotRequired[Union[str, None]],
+    "name": Required[str],
+    "node": NotRequired[Union["NodeResponse", None]],
+    "step": Required[str],
+})
+
+NodeTeamRequest = TypedDict("NodeTeamRequest", {
+    "team": NotRequired[Union[str, None]],
 })
 
 NoisyRule = TypedDict("NoisyRule", {
@@ -5328,6 +5359,26 @@ PassphraseRequest = TypedDict("PassphraseRequest", {
 PasswordChange = TypedDict("PasswordChange", {
     "current_password": Required[str],
     "new_password": Required[str],
+})
+
+PasswordResetAsked = TypedDict("PasswordResetAsked", {
+    "expires_in_minutes": Required[int],
+    "message": Required[str],
+})
+
+PasswordResetConfirm = TypedDict("PasswordResetConfirm", {
+    "code": Required[str],
+    "password": Required[str],
+    "second_factor": Required[str],
+})
+
+PasswordResetDone = TypedDict("PasswordResetDone", {
+    "message": Required[str],
+    "success": Required[bool],
+})
+
+PasswordResetRequest = TypedDict("PasswordResetRequest", {
+    "identifier": Required[str],
 })
 
 PasswordResponse = TypedDict("PasswordResponse", {
@@ -5967,6 +6018,7 @@ ProviderChoice = TypedDict("ProviderChoice", {
 
 ProviderChoices = TypedDict("ProviderChoices", {
     "local_login": NotRequired[bool],
+    "password_reset": NotRequired[bool],
     "providers": Required[list["ProviderChoice"]],
 })
 
@@ -5986,6 +6038,7 @@ ProviderInfo = TypedDict("ProviderInfo", {
     "group_sync": Required[bool],
     "groups_claim": Required[str],
     "issuer": Required[str],
+    "kind": NotRequired[str],
     "label": Required[str],
     "link_by_email": Required[bool],
     "name": Required[str],
@@ -6037,6 +6090,7 @@ ProviderSettings = TypedDict("ProviderSettings", {
     "group_sync": NotRequired[Union[bool, None]],
     "groups_claim": NotRequired[Union[str, None]],
     "issuer": NotRequired[Union[str, None]],
+    "kind": NotRequired[Union[str, None]],
     "label": NotRequired[Union[str, None]],
     "link_by_email": NotRequired[Union[bool, None]],
     "provisioning": NotRequired[Union[str, None]],
@@ -6854,6 +6908,17 @@ RestartServicesRequest = TypedDict("RestartServicesRequest", {
     "services": NotRequired[Union[list[str], None]],
 })
 
+RestartTagRequest = TypedDict("RestartTagRequest", {
+    "dry_run": NotRequired[bool],
+})
+
+RestartTagResponse = TypedDict("RestartTagResponse", {
+    "dry_run": Required[bool],
+    "restarted": Required[int],
+    "results": Required[list["TagRestartOut"]],
+    "tag": Required[str],
+})
+
 RestoreFromDestinationRequest = TypedDict("RestoreFromDestinationRequest", {
     "app_name": NotRequired[Union[str, None]],
     "restore_env": NotRequired[bool],
@@ -7553,6 +7618,7 @@ ServiceInfo = TypedDict("ServiceInfo", {
     "result": NotRequired[Union[str, None]],
     "status": Required[str],
     "sub_state": NotRequired[Union[str, None]],
+    "tags": NotRequired[list[str]],
     "uptime": NotRequired[Union[str, None]],
 })
 
@@ -7565,6 +7631,12 @@ ServiceLogsResponse = TypedDict("ServiceLogsResponse", {
     "lines": Required[int],
     "logs": Required[str],
     "service": Required[str],
+})
+
+ServiceTagsResponse = TypedDict("ServiceTagsResponse", {
+    "max_tags": NotRequired[int],
+    "service": Required[str],
+    "tags": Required[list[str]],
 })
 
 SessionEndedResponse = TypedDict("SessionEndedResponse", {
@@ -7616,6 +7688,10 @@ SessionsListResponse = TypedDict("SessionsListResponse", {
     "sessions": Required[list["SessionEntry"]],
 })
 
+SetDatabaseTagsRequest = TypedDict("SetDatabaseTagsRequest", {
+    "tags": NotRequired[list[str]],
+})
+
 SetPolicyRequest = TypedDict("SetPolicyRequest", {
     "destinations": NotRequired[list["NoustWebApiDatabasesBackupsPolicyDestination"]],
     "dump_format": NotRequired[Union[str, None]],
@@ -7649,6 +7725,10 @@ SetScheduleRequest = TypedDict("SetScheduleRequest", {
     "retention_days": NotRequired[Union[int, None]],
     "retention_gb": NotRequired[Union[float, None]],
     "schedule": NotRequired[str],
+})
+
+SetServiceTagsRequest = TypedDict("SetServiceTagsRequest", {
+    "tags": NotRequired[list[str]],
 })
 
 SetTagsRequest = TypedDict("SetTagsRequest", {
@@ -8489,6 +8569,13 @@ TagOut = TypedDict("TagOut", {
     "tag": Required[str],
 })
 
+TagRestartOut = TypedDict("TagRestartOut", {
+    "detail": NotRequired[str],
+    "kind": Required[str],
+    "name": Required[str],
+    "outcome": Required[str],
+})
+
 TagsResponse = TypedDict("TagsResponse", {
     "domain": Required[str],
     "max_tags": NotRequired[int],
@@ -8522,6 +8609,41 @@ TeamBindRequest = TypedDict("TeamBindRequest", {
     "project": NotRequired[Union[str, None]],
     "role": Required[str],
     "username": Required[str],
+})
+
+TeamChannelBody = TypedDict("TeamChannelBody", {
+    "enabled": NotRequired[Union[bool, None]],
+    "events": NotRequired[Union[dict[str, bool], None]],
+    "flood": NotRequired[Union[dict[str, Any], None]],
+    "quiet": NotRequired[Union[dict[str, Any], None]],
+    "route": NotRequired[Union[dict[str, Any], None]],
+    "settings": NotRequired[dict[str, Any]],
+    "summary": NotRequired[Union[dict[str, Any], None]],
+    "type": NotRequired[Union[str, None]],
+})
+
+TeamChannelListResponse = TypedDict("TeamChannelListResponse", {
+    "items": Required[list["TeamChannelModel"]],
+    "team": Required[str],
+    "types": Required[list[dict[str, Any]]],
+})
+
+TeamChannelModel = TypedDict("TeamChannelModel", {
+    "configured": Required[bool],
+    "enabled": Required[bool],
+    "events": NotRequired[dict[str, bool]],
+    "flood": NotRequired[Union[dict[str, Any], None]],
+    "name": Required[str],
+    "quiet": NotRequired[Union[dict[str, Any], None]],
+    "route": NotRequired[dict[str, Any]],
+    "settings": NotRequired[dict[str, Any]],
+    "summary": NotRequired[Union[dict[str, Any], None]],
+    "type": Required[str],
+})
+
+TeamChannelTestResult = TypedDict("TeamChannelTestResult", {
+    "detail": Required[str],
+    "ok": Required[bool],
 })
 
 TeamDetailOut = TypedDict("TeamDetailOut", {
@@ -10092,6 +10214,7 @@ NoustWebApiJobsRollbackRequest = TypedDict("NoustWebApiJobsRollbackRequest", {
 NoustWebApiManifestActionOut = TypedDict("NoustWebApiManifestActionOut", {
     "elevated": NotRequired[bool],
     "kind": Required[str],
+    "server": NotRequired[Union[str, None]],
     "summary": Required[str],
     "target": Required[str],
     "unverified": NotRequired[bool],
