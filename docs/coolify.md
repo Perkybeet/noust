@@ -35,7 +35,7 @@ What follows from that:
 | Resource (an application, a database or a service) | Application, Database, Recipe | An application is a thing Noust deploys; a database is on an engine; a recipe is a ready-made application from the catalog. |
 | Application (Nixpacks, Railpack, Dockerfile, Docker Compose, Docker image, Static) | An application of a type: Next.js, Nuxt, SvelteKit, Astro, Remix, Angular, Vite, Node.js, Python, PHP, static; Docker Compose; container (Dockerfile, registry image or Railpack) | Native types need no build file; see [frameworks.md](frameworks.md). Nixpacks has no counterpart: Railpack is its successor and is supported for the container type. |
 | Build pack settings (install, build, start commands, base directory, publish directory) | The `build:` block of `noust.yaml`, or `noust app build set` | [build.md](build.md). Commands are argument vectors, never given to a shell. |
-| One-click Service | Recipe (53 applications) | [recipes.md](recipes.md). A service Noust does not have is deployed as a Docker Compose project. |
+| One-click Service | Recipe (127 applications) | [recipes.md](recipes.md). A service Noust does not have is deployed as a Docker Compose project. |
 | Server | Server; several are a fleet | Each server runs its own Noust; a central drives them. |
 | Destination (a Docker network) | Not applicable | Applications are processes on the server's loopback address; there is nothing to choose. |
 | Proxy (Traefik or Caddy) | nginx or Apache | Per application: `--webserver apache`. Sites are yours to edit ([domains.md](domains.md#operator-sites)). |

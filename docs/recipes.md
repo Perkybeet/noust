@@ -298,7 +298,7 @@ unavailable_reason: Why, in a sentence that says what it waits for.
 ```
 
 It carries only the catalogue fields above, and `noust recipe show` and the console print the
-reason. Excalidraw, PocketBase, Vault and fourteen more are listed this way (see the end of this page).
+reason. Excalidraw, PocketBase, Vault and others are listed this way (see the end of this page).
 
 ### `kind: compose`
 
@@ -364,6 +364,47 @@ overwritten; nothing is written through a link.
 A recipe may ship a `noust.nginx.yaml` (upload size and read timeout: `max_body_size`,
 `routes: [{path: /, read_timeout: 600}]`), which the Compose deployer builds the site from.
 Applications that take uploads or answer slowly need it: nginx's default is 1 MB and 60 seconds.
+
+#### Several public addresses
+
+Some applications are two programs that must answer on two names: Typebot's builder and the viewer
+visitors open, Logto's sign-in service and its admin console. The recipe's `port` and its
+`${PORT}` are the first, the application's own address. Each of the others is an **entrypoint**:
+
+```yaml
+variables:
+  VIEWER_DOMAIN: {required: true, description: The viewer's address, a second name that points here.}
+  VIEWER_PORT: {default: "3470", description: The viewer's port on 127.0.0.1.}
+entrypoints:
+  viewer:
+    title: Viewer
+    description: Where visitors open and answer the chatbots you publish.
+    domain_variable: VIEWER_DOMAIN     # a required variable: the operator gives the name
+    port_variable: VIEWER_PORT         # a loopback port the document publishes
+compose: |
+  services:
+    viewer:
+      ports:
+        - "127.0.0.1:${VIEWER_PORT}:3000"
+```
+
+The address is a required variable on purpose: the console's wizard, `--var` and the API ask for it
+like any other input, with no new field to learn. Before anything exists the install checks that it
+is a domain, differs from the application's own and from the other entrypoints', and belongs to no
+other application; it chooses a free port from the variable's default up (an operator's value
+is kept) and writes it to the stack's `.env`. Once the application is deployed, each name is added
+to it as an alias proxied to that port, through the one `noust domain add --port` implementation,
+which orders the certificate that covers every name. The name has to point at the server first;
+when it cannot be added (another site answers on it, the web server refuses it) the install is
+still a deployment, and a note says why with the command that repeats it. A variable that carries
+the address to the application (`NEXT_PUBLIC_VIEWER_URL`) is composed with
+`value: "${SCHEME}://${VIEWER_DOMAIN}"` and a `SCHEME: {from: scheme}` variable. A name of a
+Compose stack may go to a port the stack publishes and to no other. At most four entrypoints.
+
+An update that brings an entrypoint the installed version lacked asks for its address like an
+install does (nothing is touched until it is given), writes the address and the port to the
+`.env`, and adds the name once the update has passed its health gate; one the application already
+answers on is left as it is.
 
 ### `kind: native`
 
@@ -498,6 +539,24 @@ python scripts/recipe_pins.py check --evidence /tmp/pins
 python scripts/recipe_smoke.py vaultwarden --evidence /tmp/smoke
 ```
 
+The lookups of writing a recipe are in one tool, `scripts/recipe_draft.py`, so that none is typed
+from memory: `tags IMAGE` lists the release tags of an image (newest first), `release OWNER/REPO` the
+latest release of a project, `pin FILE --to OUT` adds to every `image:` the digest its registry serves
+(reusing the digest another recipe already pins for the same tag, so two recipes on
+`postgres:17.11-alpine` are one image on a server) and writes the `architectures:` every image is
+published for, `logo NAME TITLE` draws the monogram, and `template NAME` prints a Coolify template to
+read next to the project's own documentation.
+
+The smoke test is meant for a machine whose Docker is shared: `--project-prefix noust-test-me-` (for example) names
+the Compose project (`<prefix><recipe>`), everything it creates (containers, volumes, the network)
+carries the label `noust.test=1` so that a run is found and removed by that label and that prefix and
+never by a prune, the loopback port it asks for must be free, and a run stopped with SIGTERM (`timeout`
+sends it) still removes what it made. A container that finished with an error is a problem, not only
+one that restarts.
+
+`scripts/recipe_docs.py` writes the table at the end of this page from the recipes, and `--check`
+fails if it is out of date.
+
 `check` resolves each image's tag in its registry and compares the digest, reads the
 architectures it is published for, tests each archive's SHA-256 (or the checksum the project
 publishes beside it), and looks for each git tag, failing on any difference; `--evidence` writes what was read,
@@ -553,10 +612,13 @@ to the image the project publishes, pinned by its digest. Three cases:
 - An open source licence: the recipe is installable.
 - A source-available licence that lets an organisation run the software for itself (n8n's and
   NocoDB's Sustainable Use License, Directus's Monospace Sustainable Core License, Open WebUI's
-  branding clause), or an open core whose repository holds some files under a proprietary
-  licence (Stirling PDF): the recipe is installable, its description says "source-available" or
-  "open core", and a note names the restriction that matters (not offering it to others as a
-  service, no competing use, keeping a name and logo).
+  branding clause, PLANKA's Community License, Tandoor's AGPL with the Commons Clause, Outline's
+  Business Source License, Typebot's Functional Source License and Bugsink's PolyForm Shield
+  License), or an open core whose
+  repository holds some files under a proprietary licence (Stirling PDF, AFFiNE, Chatwoot,
+  Infisical): the recipe is installable, its description says "source-available" or "open core",
+  and a note names the restriction that matters (not offering it to others as a service, no
+  competing use, keeping a name and logo).
 - A licence that forbids what an operator of a server does (personal use only, no access for
   others), a community edition its own project declares not for production, or terms that cannot
   be told from the file: the recipe is listed as unavailable with the file or page named and the
@@ -609,63 +671,143 @@ test results.
 
 ## What ships, and what does not
 
-The 3.4 catalogue has 53 recipes you can install and 17 that are listed with the reason.
+<!-- recipes:start (generated by scripts/recipe_docs.py; do not edit) -->
+
+The catalogue has 127 recipes you can install and 15 that are listed with the reason.
+
+Of the 127 you can install, 123 run in Docker and 4 are native (a pinned source built by one of Noust's deployers). 104 were written from the project's own documentation, and 23 took part of their wiring from Coolify's service templates (Apache-2.0), credited in the header of their file. Every image is pinned by tag and by digest and every recipe starts closed. `scripts/recipe_smoke.py` starts a recipe in Docker and asks its health check: run it for a recipe you add or change.
 
 | Recipe | Version | Kind | Runs |
 |---|---|---|---|
 | Activepieces | 0.92.1 | compose | Docker; PostgreSQL with pgvector, Valkey |
 | Actual Budget | 26.10.0 | compose | Docker |
+| AFFiNE | 0.27.4 | compose | Docker; PostgreSQL with pgvector, Valkey |
+| AnythingLLM | 1.18.0 | compose | Docker |
+| Apache Superset | 6.1.0 | compose | Docker; PostgreSQL, Valkey |
+| Appsmith | 2.5.0 | compose | Docker |
 | Audiobookshelf | 2.37.1 | compose | Docker |
 | authentik | 2026.8.3 | compose | Docker; PostgreSQL |
 | Baserow | 2.4.0 | compose | Docker; PostgreSQL with pgvector |
+| Bazarr | 1.6.2 | compose | Docker |
+| Beszel | 0.21.0 | compose | Docker |
+| Bugsink | 2.6.1 | compose | Docker; MySQL |
+| changedetection.io | 0.60.9 | compose | Docker |
+| Chatwoot | 4.18.0 | compose | Docker; PostgreSQL with pgvector, Valkey |
+| CloudBeaver | 26.2.3 | compose | Docker |
 | code-server | 4.140.0 | compose | Docker |
+| ConvertX | 0.19.0 | compose | Docker |
+| CouchDB | 3.5.3 | compose | Docker |
 | CyberChef | 11.5.0 | compose | Docker |
+| Dashy | 4.8.7 | compose | Docker |
 | Directus | 12.4.1 | compose | Docker; PostgreSQL |
 | Docmost | 0.96.0 | compose | Docker; PostgreSQL, Valkey |
+| DocuSeal | 3.3.3 | compose | Docker |
+| Dolibarr | 24.0.2 | compose | Docker; MariaDB |
+| draw.io | 32.5.5 | compose | Docker |
+| Elasticsearch | 9.5.5 | compose | Docker |
+| EspoCRM | 10.0.10 | compose | Docker; MariaDB |
+| Etherpad | 3.3.9 | compose | Docker |
+| Firefly III | 6.7.9 | compose | Docker; PostgreSQL |
 | Forgejo | 16.0.5 | compose | Docker; PostgreSQL; opens 2222 tcp |
 | FreshRSS | 1.30.1 | compose | Docker |
+| Garage | 2.4.1 | compose | Docker |
+| Gatus | 5.37.0 | compose | Docker |
 | Ghost | 6.67.0 | compose | Docker; MySQL |
+| Ghostfolio | 3.88.0 | compose | Docker; PostgreSQL, Valkey |
 | Gitea | 28.0.0 | compose | Docker; PostgreSQL; opens 2222 tcp |
+| Glance | 0.8.7 | compose | Docker |
+| GlitchTip | 6.2.6 | compose | Docker; PostgreSQL |
 | Gotify | 3.1.1 | compose | Docker |
 | Grafana | 13.2.3 | compose | Docker |
+| Headscale | 0.29.5 | compose | Docker |
 | Healthchecks | 4.4 | compose | Docker |
+| HedgeDoc | 1.12.0 | compose | Docker; PostgreSQL |
+| Homarr | 2.6.0 | compose | Docker |
+| Home Assistant | 2026.10.2 | compose | Docker; no discovery on the local network: devices by address |
+| Homebox | 0.27.0 | compose | Docker |
 | Homepage | 2.4.0 | compose | Docker |
-| Immich | 3.2.4 | compose | Docker; PostgreSQL with VectorChord, Valkey |
+| Hoppscotch | 2026.9.0 | compose | Docker; PostgreSQL |
+| Immich | 3.2.4 | compose | Docker; Valkey, PostgreSQL with VectorChord |
+| Infisical | 0.166.8 | compose | Docker; PostgreSQL, Valkey |
 | Jellyfin | 12.2 | compose | Docker |
+| Jenkins | 2.580.1 | compose | Docker |
+| Karakeep | 0.34.0 | compose | Docker; headless Chrome, Meilisearch |
+| Kavita | 0.9.1 | compose | Docker |
 | Keycloak | 26.8.0 | compose | Docker; PostgreSQL |
+| Kimai | 2.70.0 | compose | Docker; MySQL |
+| Komga | 1.29.1 | compose | Docker |
 | Langflow | 1.12.5 | compose | Docker; PostgreSQL |
+| Leantime | 3.12.0 | compose | Docker; MySQL |
+| LibreChat | 0.8.8 | compose | Docker; MongoDB, Meilisearch |
+| LibreSpeed | 6.3.0 | compose | Docker |
+| Lidarr | 3.1.0.4875 | compose | Docker |
 | linkding | 1.47.0 | compose | Docker |
+| Linkwarden | 2.16.3 | compose | Docker; PostgreSQL, Meilisearch |
 | listmonk | 6.2.0 | compose | Docker; PostgreSQL |
 | LiteLLM | 1.104.0 | compose | Docker; PostgreSQL |
+| Logto | 1.45.0 | compose | Docker; PostgreSQL; answers on a second address (admin) |
 | Mailpit | 1.31.4 | compose | Docker; SMTP on 127.0.0.1 |
 | Matomo | 5.14.0 | compose | Docker; MariaDB |
 | Mattermost | 11.11.1 | compose | Docker; PostgreSQL |
+| Mealie | 3.29.0 | compose | Docker |
 | Meilisearch | 1.54.3 | compose | Docker |
 | Memos | 0.31.0 | compose | Docker |
 | Metabase | 0.63.19 | compose | Docker; PostgreSQL |
 | Miniflux | 2.3.3 | compose | Docker; PostgreSQL |
 | n8n | 1.123.82 | native | Node.js |
 | Navidrome | 0.64.2 | compose | Docker |
+| Netdata | 2.12.1 | compose | Docker |
 | Nextcloud | 35.0.1 | compose | Docker; PostgreSQL, Valkey |
 | NocoDB | 2026.09.1 | compose | Docker; PostgreSQL, Valkey |
 | ntfy | 2.28.0 | compose | Docker |
 | Odoo | 20.0.20260926 | compose | Docker; PostgreSQL |
 | Ollama | 0.35.1 | compose | Docker; no authentication of its own |
 | Open WebUI | 0.11.4 | compose | Docker |
+| OpenObserve | 1.1.1 | compose | Docker |
+| Outline | 1.11.0 | compose | Docker; PostgreSQL, Valkey |
+| ownCloud Infinite Scale | 8.2.1 | compose | Docker |
+| PairDrop | 1.11.2 | compose | Docker |
 | Paperless-ngx | 3.3.0 | compose | Docker; PostgreSQL, Valkey |
+| Penpot | 2.18.3 | compose | Docker; PostgreSQL, Valkey |
+| pgAdmin | 9.18.0 | compose | Docker |
+| Plane | 1.4.2 | compose | Docker; PostgreSQL, Valkey |
+| PLANKA | 2.2.1 | compose | Docker; PostgreSQL |
 | Plausible Analytics Community Edition | 3.2.1 | compose | Docker; PostgreSQL, ClickHouse |
+| Pocket ID | 2.18.0 | compose | Docker |
+| PrivateBin | 2.1.0 | compose | Docker |
+| Prowlarr | 2.6.5.5623 | compose | Docker |
+| qBittorrent | 5.2.4 | compose | Docker; opens 6881 tcp and udp |
+| Qdrant | 1.19.2 | compose | Docker |
+| RabbitMQ | 4.4.0 | compose | Docker; AMQP on 127.0.0.1 |
+| Radarr | 6.4.4.10685 | compose | Docker |
 | Rocket.Chat | 8.9.0 | compose | Docker; MongoDB |
+| Roundcube | 1.7.5 | compose | Docker |
 | SearXNG | 2026.10.4 | compose | Docker; a dated build, the project has no releases |
+| Seerr | 3.5.0 | compose | Docker |
+| SFTPGo | 2.7.6 | compose | Docker; opens 2022 tcp |
+| Shlink | 5.1.7 | compose | Docker |
+| SilverBullet | 2.12.1 | compose | Docker |
+| SiYuan | 3.8.7 | compose | Docker |
+| Sonarr | 4.0.20.3014 | compose | Docker |
 | Stirling PDF | 3.1.0 | compose | Docker |
 | Syncthing | 2.1.6 | compose | Docker; opens 22000 tcp and udp |
+| Tandoor Recipes | 2.6.15 | compose | Docker; PostgreSQL |
+| Transmission | 4.1.3 | compose | Docker; opens 51413 tcp and udp |
 | Trilium Notes | 0.106.0 | compose | Docker |
 | Twenty | 2.45.6 | compose | Docker; PostgreSQL, Valkey |
-| Umami | 2.20.2 | native | Node.js, PostgreSQL |
+| Typebot | 3.19.0 | compose | Docker; PostgreSQL, Valkey; answers on a second address (viewer) |
+| Typesense | 30.2 | compose | Docker |
+| Umami | 2.20.2 | native | Node.js; PostgreSQL |
 | Uptime Kuma | 1.23.17 | native | Node.js |
 | Vaultwarden | 1.37.4 | compose | Docker |
 | Vikunja | 2.7.0 | compose | Docker |
+| Wallos | 5.10.0 | compose | Docker |
+| Weaviate | 1.40.1 | compose | Docker |
+| Wekan | 12.56 | compose | Docker; MongoDB |
 | Wiki.js | 2.5.315 | compose | Docker; PostgreSQL |
-| WordPress | 7.1.2 | native | PHP-FPM, MySQL/MariaDB |
+| WordPress | 7.1.2 | native | PHP-FPM; MySQL/MariaDB |
+
+<!-- recipes:end -->
 
 Listed, not installable. Each carries its reason in its file, with the page or file it was read
 from and the day, and `noust recipe show` and the console print it:
@@ -678,7 +820,6 @@ from and the day, and `noust recipe show` and the console print it:
 | Coder | drives the Docker daemon through its socket |
 | Excalidraw | no release tag to pin: only `latest` and per-build `sha-` tags, none of them `latest` itself |
 | Hermes Agent | a single-tenant agent whose own policy says the operating system is its only boundary |
-| Home Assistant | its container needs `--privileged`, the host's network and `/run/dbus` |
 | Joplin Server | its licence is personal, non-commercial use only |
 | MinIO | the repository is archived and says it is no longer maintained |
 | OpenClaw | its policy says anyone who can operate the agent can make it do anything it can do |
@@ -687,7 +828,6 @@ from and the day, and `noust recipe show` and the console print it:
 | Stalwart | publishes 25, 110, 143, 443, 465, 587, 993, 995 and 4190, and needs mail DNS and certificates |
 | Strapi | publishes no image: a project is built from your own code |
 | Supabase | 11 services, a `container_name` Realtime depends on, and nested variable references |
-| Typebot | two public addresses (builder and viewer); this release routes one |
 | Vault | a server that starts sealed, and a licence to review |
 
 The four migrated recipes keep the versions they were tested at; newer majors exist (Uptime Kuma 2,

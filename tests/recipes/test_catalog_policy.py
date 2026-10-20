@@ -32,7 +32,6 @@ LISTED_IN_34 = {
     "cal-com",
     "coder",
     "hermes-agent",
-    "home-assistant",
     "joplin-server",
     "minio",
     "openclaw",
@@ -40,7 +39,6 @@ LISTED_IN_34 = {
     "stalwart",
     "strapi",
     "supabase",
-    "typebot",
 }
 #: Licences that are readable but not open source, and so are said in the description.
 NOT_OPEN_SOURCE = re.compile(r"LicenseRef|BUSL|FSL|SSPL", re.IGNORECASE)
@@ -130,14 +128,28 @@ def test_a_licence_that_is_not_open_source_is_said_in_the_description(recipe: Re
 
 
 def test_the_licences_that_are_not_open_source_are_the_ones_the_policy_names() -> None:
-    """n8n, NocoDB, Directus, Open WebUI and Stirling PDF: the ones the docs name, and no other."""
+    """The ones the docs name (the Licences paragraph of docs/recipes.md), and no other."""
     found = {
         recipe.name
         for recipe in list_recipes()
         if recipe.available and NOT_OPEN_SOURCE.search(recipe.license or "")
     }
 
-    assert found == {"directus", "n8n", "nocodb", "open-webui", "stirling-pdf"}
+    assert found == {
+        "affine",
+        "bugsink",
+        "chatwoot",
+        "directus",
+        "infisical",
+        "n8n",
+        "nocodb",
+        "open-webui",
+        "outline",
+        "planka",
+        "stirling-pdf",
+        "tandoor",
+        "typebot",
+    }
 
 
 @pytest.mark.parametrize("name", sorted(LISTED_IN_34))
