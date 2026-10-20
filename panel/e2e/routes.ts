@@ -65,6 +65,8 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "projects", path: "/projects" },
   { name: "project", path: "/projects/default/default" },
   { name: "teams", path: "/teams" },
+  // 4.0: the teams list is the Teams tab of Projects; /teams above is the old address, which redirects to it.
+  { name: "projects-teams", path: "/projects/teams" },
   { name: "team", path: "/teams/default" },
   { name: "team-members", path: "/teams/default/members" },
   { name: "team-settings", path: "/teams/default/settings" },

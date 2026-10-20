@@ -6,8 +6,10 @@ import { backupSchedulesQuery, backupsQuery } from "../../api/queries/backups";
 import { volumePoliciesQuery } from "../../api/queries/volumeBackups";
 import { LinkTabs } from "../../app/LinkTabs";
 import type { LinkTab } from "../../app/LinkTabs";
+import { tabsOf, withCounts } from "../../app/navCore";
 import { ListPage } from "../../components/page/ListPage";
 import { useT } from "../../i18n";
+import { BACKUPS_SCREENS } from "../nav/backups";
 import { StorageSummary } from "./StorageSummary";
 
 export type BackupsTab = "backups" | "schedules" | "volumes" | "noust" | "destinations";
@@ -33,13 +35,12 @@ export function BackupsListPage({ secondaryActions, primaryAction, notice, filte
   const schedules = useQuery(backupSchedulesQuery());
   const destinations = useQuery(backupDestinationsQuery());
   const volumes = useQuery(volumePoliciesQuery());
-  const tabs: LinkTab[] = [
-    { label: "backups.tabs.backups", to: "/backups", exact: true, count: backups.data?.total ?? null },
-    { label: "backups.tabs.schedules", to: "/backups/schedules", count: schedules.data?.total ?? null },
-    { label: "volumeBackups.tab", to: "/backups/volumes", count: volumes.data?.total ?? null },
-    { label: "selfBackup.tab", to: "/backups/noust" },
-    { label: "backups.tabs.destinations", to: "/backups/destinations", count: destinations.data?.total ?? null },
-  ];
+  const tabs: LinkTab[] = withCounts(tabsOf(BACKUPS_SCREENS),{
+    "/backups": backups.data?.total ?? null,
+    "/backups/schedules": schedules.data?.total ?? null,
+    "/backups/volumes": volumes.data?.total ?? null,
+    "/backups/destinations": destinations.data?.total ?? null,
+  });
   return (
     <ListPage
       header={{

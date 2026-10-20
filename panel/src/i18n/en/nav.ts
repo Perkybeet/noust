@@ -75,4 +75,31 @@ export const nav = {
     about: { label: "About", keywords: "version update", command: "About settings" },
     central: { label: "Central", keywords: "seal passphrase unlock hub role fleet", command: "This central's settings" },
   },
+  /** Screens with no name of their own anywhere else: the account's and the controls' (app/nav.ts). */
+  screens: {
+    account: { label: "Profile and password", keywords: "me my user profile password name email", command: "Your account" },
+    accountSecurity: {
+      label: "Sign-in security",
+      keywords: "two-factor 2fa authenticator totp passkeys sessions sign in",
+      command: "Sign-in security",
+    },
+    controls: { label: "Controls", keywords: "compliance frameworks ens security profile policy", command: "Controls settings" },
+    teams: { keywords: "people members roles organise group workspace" },
+    terminal: { keywords: "shell ssh console command line" },
+    files: { keywords: "browse edit upload download folder" },
+    diagnose: { keywords: "troubleshoot why down broken health check" },
+  },
+  /** What these screens were called before the 4.0 navigation: still search words in the palette (RENAMED). */
+  renamed: {
+    domains: "Domains and certificates",
+    notifications: "Notifications",
+    alerts: "Alerts",
+    console: "Console access",
+    about: "About",
+    access: "Roles and access",
+    compliance: "Compliance",
+    probes: "Probes",
+    logShipping: "Log shipping",
+    security: "Security",
+  },
 } as const;

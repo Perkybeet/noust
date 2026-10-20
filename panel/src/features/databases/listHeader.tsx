@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { request } from "../../api/client";
 import { databaseKeys, databasesQuery } from "../../api/queries/databases";
 import { LinkTabs } from "../../app/LinkTabs";
+import { tabsOf, withCounts } from "../../app/navCore";
 import type { PageHeaderProps } from "../../app/PageHeader";
 import { Button } from "../../components/ui/Button";
 import { ICONS } from "../../components/ui/icons";
@@ -14,6 +15,7 @@ import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
+import { DATABASES_SCREENS } from "../nav/databases";
 import { CreateDatabaseDialog } from "./CreateDatabaseDialog";
 import { ImportDumpDialog } from "./import/ImportDumpDialog";
 
@@ -64,13 +66,7 @@ export function useDatabasesHeader(): { header: PageHeaderProps; tabs: ReactNode
       ),
     },
     tabs: (
-      <LinkTabs
-        label={t("databases.tabs.label")}
-        tabs={[
-          { label: "databases.tabs.databases", to: "/databases", exact: true, count: list.data === undefined ? null : list.data.total },
-          { label: "databases.tabs.engines", to: "/databases/engines" },
-        ]}
-      />
+      <LinkTabs label={t("databases.tabs.label")} tabs={withCounts(tabsOf(DATABASES_SCREENS),{ "/databases": list.data === undefined ? null : list.data.total })} />
     ),
     dialogs: (
       <>

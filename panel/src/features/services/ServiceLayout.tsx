@@ -10,6 +10,7 @@ import { useState } from "react";
 
 import { LinkTabs } from "../../app/LinkTabs";
 import type { LinkTab } from "../../app/LinkTabs";
+import { tabsOf } from "../../app/navCore";
 import { DetailPage } from "../../components/page/DetailPage";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -25,6 +26,7 @@ import { StatusPill } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
+import { SERVICE_SCREENS } from "../nav/server";
 import { serviceState } from "./data";
 import { useServiceActions } from "./useServiceActions";
 import { useServiceRecord } from "./useServiceRecord";
@@ -74,10 +76,7 @@ export function ServiceLayout({ name }: { name: string }) {
   const view = service ? serviceState(service) : null;
   const settled = !record.appPending;
   const managed = service !== undefined && !record.foreign;
-  const tabs: readonly LinkTab[] = [
-    { label: "services.tabs.overview", to: "/server/services/$name", params: { name }, exact: true },
-    { label: "services.tabs.logs", to: "/server/services/$name/logs", params: { name } },
-  ];
+  const tabs: readonly LinkTab[] = tabsOf(SERVICE_SCREENS).map((tab) => ({ ...tab, params: { name } }));
 
   const notice =
     record.app !== null ? (
