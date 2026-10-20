@@ -75,6 +75,7 @@ from noust.core.store import (
 from noust.deployers.helpers import tree_names
 from noust.deployers.helpers.layout import RELEASES, app_root, supports_release_layout
 from noust.deployers.helpers.permissions import hand_over_file
+from noust.deployers.helpers.workspace_env import ENV_FILE_NAME
 from noust.deployers.lifecycle import health_gate_for
 from noust.deployers.php_fpm import PHP_SETTINGS_FILE
 from noust.deployers.recorder import CapturingLogger, DeploymentRecorder, recording
@@ -133,7 +134,7 @@ ENV_INVENTORIES = (ENV_INVENTORY, tree_names.legacy_of(tree_names.ENV_DIR))
 MONOREPO = "monorepo"
 
 #: The file each workspace of a monorepo loads (see :mod:`noust.deployers.monorepo_releases`).
-WORKSPACE_ENV_FILE = ".env.production"
+WORKSPACE_ENV_FILE = ENV_FILE_NAME
 
 #: What stays at the application root, beside ``releases/`` and ``current``:
 #: Noust reads a PHP application's settings there, whatever the layout. Moved

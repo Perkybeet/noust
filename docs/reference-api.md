@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-985 operations.
+996 operations.
 
 ## Access
 
@@ -63,10 +63,15 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/apps/{domain}/compose` | Get Compose Settings | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/compose` | Put Compose Settings | `apps.manage` | yes |  |
 | DELETE | `/api/apps/{domain}/compose` | Delete Compose Settings | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/compose/document` | Get Compose Document | `secrets.reveal` |  |  |
+| PUT | `/api/apps/{domain}/compose/document` | Put Compose Document | `apps.manage` | yes |  |
+| POST | `/api/apps/{domain}/compose/document/check` | Check Compose Document | `apps.manage` |  |  |
 | GET | `/api/apps/{domain}/compose/variables` | Get Compose Variables | `apps.read` |  |  |
 | GET | `/api/apps/{domain}/container` | Get App Container | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/container` | Put App Container | `apps.manage` |  |  |
+| POST | `/api/apps/{domain}/container/check` | Check App Image | `apps.deploy` |  |  |
 | GET | `/api/apps/{domain}/declaration` | Get Declaration | `secrets.reveal` |  |  |
+| GET | `/api/apps/{domain}/deletion` | Get Deletion Plan | `apps.read` |  |  |
 | POST | `/api/apps/{domain}/deploy` | Deploy App | `apps.deploy` |  |  |
 | GET | `/api/apps/{domain}/deploy-key` | Get Deploy Key | `apps.read` |  |  |
 | POST | `/api/apps/{domain}/deploy-key` | Create Deploy Key | `apps.manage` |  |  |
@@ -83,8 +88,10 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/apps/{domain}/env` | Get App Env | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/env` | Update App Env | `apps.manage` | yes |  |
 | PATCH | `/api/apps/{domain}/env` | Merge App Env | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/env/file` | Get App Env File | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/env/marks` | Update App Env Marks | `apps.manage` | yes |  |
 | POST | `/api/apps/{domain}/env/resolve` | Resolve App Env | `apps.manage` | yes |  |
+| POST | `/api/apps/{domain}/env/sync` | Sync App Env | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/export` | Get App Export | `secrets.reveal` |  |  |
 | GET | `/api/apps/{domain}/files` | List Files | `apps.terminal` |  |  |
 | DELETE | `/api/apps/{domain}/files` | Delete File | `apps.terminal` | yes |  |
@@ -1277,6 +1284,10 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | DELETE | `/api/apps/{domain}/webhook-secret` | Delete Webhook Secret | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/webhook/deliveries` | Webhook Deliveries | `apps.read` |  |  |
 | GET | `/api/apps/{domain}/webhook/received` | Webhook Received | `apps.read` |  |  |
+| GET | `/api/apps/{domain}/webhook/registry` | Registry Hook State | `apps.read` |  |  |
+| POST | `/api/apps/{domain}/webhook/registry/reveal` | Reveal Registry Hook | `secrets.reveal` | yes |  |
 | POST | `/api/apps/{domain}/webhook/reveal` | Reveal Webhook Secret | `secrets.reveal` | yes |  |
 | POST | `/hooks/deploy/{domain}` | Deliver | `public` |  |  |
 | POST | `/hooks/github` | Deliver | `public` |  |  |
+| POST | `/hooks/registry/{domain}` | Deliver Registry | `public` |  |  |
+| POST | `/hooks/registry/{domain}/{token}` | Deliver Registry | `public` |  |  |

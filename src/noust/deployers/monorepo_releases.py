@@ -30,8 +30,7 @@ read-only; the release is handed to the units' account after the build, like any
 
 from __future__ import annotations
 
-import json
-from pathlib import Path, PurePosixPath
+from collections.abc import Collection, Mapping
 from typing import TYPE_CHECKING
 
 from noust.core import cancellation
@@ -41,8 +40,9 @@ from noust.core.store import App, ReleaseStatus, Service
 from noust.deployers.helpers.layout import RELEASES
 from noust.deployers.helpers.release_book import ReleaseBook
 from noust.deployers.helpers.release_build import StagedRelease, discard_release, stage_release
+from noust.deployers.helpers.workspace_env import ENV_FILE_NAME, propagate, workspace_paths
 from noust.deployers.helpers.workspace_gates import WorkspaceRestart
-from noust.deployers.releases import CURRENT_LINK, ReleaseManager
+from noust.deployers.releases import ReleaseManager
 
 if TYPE_CHECKING:
     from noust.deployers.interface import StepReporter, UpdateResult
@@ -50,55 +50,8 @@ if TYPE_CHECKING:
 
 __all__ = ["ENV_FILE_NAME", "MonorepoReleases", "workspace_paths"]
 
-#: The file a workspace's unit loads, in the workspace's directory.
-ENV_FILE_NAME = ".env.production"
-
 #: Releases kept when the application records no retention.
 DEFAULT_KEEP = 5
-
-
-def workspace_paths(app: App | None, units: list[Service] | None = None) -> list[str]:
-    """
-    List the directories of an application's workspaces, relative to its tree.
-
-    The deployment records them as JSON beside the application's variables, and each workspace's
-    unit runs in its directory, so both are read: the record may be missing on an application
-    that was deployed by an old version, and the unit may not be recorded yet.
-
-    Args:
-        app: The application.
-        units: The units the store records for it.
-
-    Returns:
-        Relative POSIX paths, each a plain path inside the tree (no ``..``, no root), without
-        repeats, in the order they were recorded.
-    """
-    found: list[str] = []
-    recorded = (app.env_vars or {}).get("_workspaces") if app is not None else None
-    if recorded:
-        try:
-            for entry in json.loads(recorded):
-                if isinstance(entry, dict) and isinstance(entry.get("path"), str):
-                    found.append(entry["path"])
-        except (ValueError, TypeError):
-            found = []
-    root = Path(app.app_path) if app is not None and app.app_path else None
-    for unit in units or []:
-        if root is None or not unit.working_directory:
-            continue
-        directory = Path(unit.working_directory)
-        for base in (root / CURRENT_LINK, root):
-            if directory.is_relative_to(base):
-                found.append(directory.relative_to(base).as_posix())
-                break
-    clean: list[str] = []
-    for path in found:
-        parts = PurePosixPath(path)
-        if parts.is_absolute() or ".." in parts.parts or str(parts) in (".", ""):
-            continue
-        if str(parts) not in clean:
-            clean.append(str(parts))
-    return clean
 
 
 class MonorepoReleases:
@@ -268,6 +221,29 @@ class MonorepoReleases:
             deployer.logger.substep(f"Environment carried over: {', '.join(copied)}")
         return copied
 
+    def carry_changes(self, values: Mapping[str, str], names: Collection[str]) -> None:
+        """
+        Bring the values a resolution changed into the workspaces' files of the release being built.
+
+        The resolution wrote the files of the release that serves; the one being built was copied
+        from them before it, so it still has the old values.
+
+        Args:
+            values: Every variable the application has now.
+            names: The ones whose value changed.
+        """
+        staged = self.staged
+        app = self.app()
+        if staged is None or app is None:
+            return
+        propagate(
+            app,
+            changed={name: values[name] for name in names if name in values},
+            root=staged.path,
+            fs=self.deployer.fs,
+            logger=self.deployer.logger,
+        )
+
     def _owns(self, unit: Service) -> bool:
         """
         Args:
@@ -325,6 +301,13 @@ class MonorepoReleases:
                 # read must not block a rebuild.
                 deployer.logger.debug(f"Could not enumerate workspaces: {exc}")
         cancellation.checkpoint()
+        # The references are resolved again for this release and its workspaces are told what it
+        # is; the serving release's files were changed by the resolution itself, and this
+        # release's copy of them is brought along.
+        plan = deployer._variables.refresh()
+        if plan is not None and plan.changed:
+            self.carry_changes(plan.environment.runtime, plan.changed)
+        deployer._write_workspace_facts()
         report("Installing dependencies")
         deployer._install_dependencies()
         cancellation.checkpoint()

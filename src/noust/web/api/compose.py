@@ -123,10 +123,10 @@ def analyze_compose(
         ValidationError: It is not a Compose document: too large, not YAML,
             no services (400).
     """
-    return _analysis_out(analyze_document(body.document))
+    return analysis_out(analyze_document(body.document))
 
 
-def _analysis_out(found: PastedCompose) -> ComposeAnalysisOut:
+def analysis_out(found: PastedCompose) -> ComposeAnalysisOut:
     """
     Args:
         found: What :func:`~noust.deployers.compose_paste.analyze_document` made of a document.
@@ -254,5 +254,5 @@ def import_coolify(
         metadata=result.metadata,
         adjustments=result.adjustments,
         warnings=result.warnings,
-        analysis=_analysis_out(found),
+        analysis=analysis_out(found),
     )

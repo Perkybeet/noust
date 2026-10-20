@@ -46,6 +46,7 @@ from noust.deployers.helpers.app_env import (
     write_app_env,
 )
 from noust.deployers.helpers.env_manager import EnvConfig, EnvManager, redact_url_credentials
+from noust.deployers.helpers.env_sync import MAX_FILE_BYTES, EnvSyncPlan, plan_sync
 from noust.deployers.helpers.env_variables import predefined_for
 from noust.deployers.helpers.layout import code_path_for, env_file_for
 
@@ -424,6 +425,82 @@ def _env_set(
     return 0
 
 
+def _read_dotenv(path: str) -> str:
+    """
+    Read the ``.env`` file to bring in.
+
+    Args:
+        path: A file, or ``-`` for standard input.
+
+    Returns:
+        Its text.
+
+    Raises:
+        click.UsageError: It cannot be read as text or is larger than a ``.env`` is.
+    """
+    try:
+        if path == "-":
+            text = sys.stdin.read(MAX_FILE_BYTES + 1)
+        else:
+            with Path(path).expanduser().open(encoding="utf-8") as handle:
+                text = handle.read(MAX_FILE_BYTES + 1)
+    except (OSError, UnicodeDecodeError) as exc:
+        raise click.UsageError(f"{path} could not be read as text: {exc}") from exc
+    if len(text) > MAX_FILE_BYTES:
+        raise click.UsageError(f"{path} is larger than {MAX_FILE_BYTES // 1024} KiB: not a .env")
+    return text
+
+
+def _env_sync(
+    domain: str,
+    text: str,
+    *,
+    prune: bool,
+    audience: str | None,
+    dry_run: bool,
+    verbose: bool,
+) -> EnvSyncPlan:
+    """
+    Bring a ``.env`` file into an application's variables, creating and updating, never deleting.
+
+    Args:
+        domain: Domain the application is served on.
+        text: The file's text.
+        prune: Also remove the variables the file does not hold.
+        audience: ``both``, ``build`` or ``runtime`` for the variables the file sets, or None to
+            keep each one's.
+        dry_run: Only work out what it would do.
+        verbose: Print the detail of each step.
+
+    Returns:
+        What it did, or would do.
+
+    Raises:
+        EnvConfigError: If nothing is deployed at this domain.
+        ValidationError: The file is not a ``.env``, or a name or a value cannot be written.
+    """
+    app = _app(domain)
+    manager = EnvManager(verbose=verbose)
+    current = read_environment_of(app, manager=manager)
+    plan = plan_sync(current.values, text, expressions=current.expressions, prune=prune)
+    if dry_run or not (plan.changed or plan.comments):
+        return plan
+    chosen = (
+        dict.fromkeys((*plan.created, *plan.updated, *plan.unchanged), audience)
+        if audience
+        else None
+    )
+    write_app_env(
+        app,
+        plan.values,
+        manager=manager,
+        logger=Logger(verbose=verbose),
+        audience=chosen,
+        comments=plan.comments,
+    )
+    return plan
+
+
 def _env_resolve(domain: str, verbose: bool) -> int:
     """
     Resolve an application's references again, without a deploy.
@@ -709,6 +786,86 @@ def set_command(
     if not values:
         raise click.UsageError("Give at least one NAME=VALUE, or --file NAME=PATH.")
     _env_set(domain, values, audience, (), state.verbose, comment)
+
+
+@cli.command("sync")
+@click.argument("domain")
+@click.option(
+    "--file",
+    "-f",
+    "path",
+    required=True,
+    metavar="PATH",
+    help="The .env file to bring in; - reads it from standard input.",
+)
+@click.option(
+    "--prune",
+    is_flag=True,
+    help="Also remove the variables the file does not hold. Without it nothing is deleted.",
+)
+@click.option("--build-only", "build_only", is_flag=True, help="Only the install and the build.")
+@click.option("--runtime-only", "runtime_only", is_flag=True, help="Not the install or the build.")
+@click.option("--both", "both", is_flag=True, help="The build and the running application.")
+@json_option("Print what changed (names, never values) as JSON.")
+@pass_context
+def sync_command(
+    state: Context,
+    domain: str,
+    path: str,
+    prune: bool,
+    build_only: bool,
+    runtime_only: bool,
+    both: bool,
+) -> None:
+    """
+    Bring a real .env file into an application's variables.
+
+    Quotes, 'export', comments and values of several lines are read as the application's own
+    .env is. Every variable the file sets is created or updated and the others are kept,
+    unless --prune. PORT and NODE_ENV (the unit sets them) and the NOUST_* names are skipped
+    with the reason rather than refusing the file. With the global --dry-run, only says what
+    would change. A running process keeps its values until it is restarted.
+    """
+    chosen = [flag for flag in (build_only, runtime_only, both) if flag]
+    if len(chosen) > 1:
+        raise click.UsageError("Pass at most one of --build-only, --runtime-only and --both.")
+    audience = "build" if build_only else "runtime" if runtime_only else "both" if both else None
+    text = _read_dotenv(path)
+    plan = _env_sync(
+        domain,
+        text,
+        prune=prune,
+        audience=audience,
+        dry_run=state.dry_run,
+        verbose=state.verbose,
+    )
+    if state.json_output:
+        click.echo(json.dumps({"domain": domain, "dry_run": state.dry_run, **plan.to_dict()}))
+        return
+    logger = state.logger
+    prefix = "Would " if state.dry_run else ""
+    for label, names in (
+        (f"{prefix}create" if state.dry_run else "Created", plan.created),
+        (f"{prefix}update" if state.dry_run else "Updated", plan.updated),
+        (f"{prefix}remove" if state.dry_run else "Removed", plan.removed),
+    ):
+        if names:
+            logger.key_value(label, ", ".join(names))
+    if plan.unchanged:
+        logger.key_value("Already as the file says", ", ".join(plan.unchanged))
+    for name, reason in plan.skipped.items():
+        logger.warning(f"{name} skipped: {reason}")
+    if plan.duplicates:
+        logger.warning(
+            f"Set more than once in the file (the last counts): {', '.join(plan.duplicates)}"
+        )
+    if not plan.changed:
+        logger.info(f"{domain} already has what the file says")
+    elif not state.dry_run:
+        logger.success(
+            f"{len(plan.changed)} variable(s) of {domain} written. A running process keeps "
+            f"its values: noust restart {domain}"
+        )
 
 
 @cli.command("comment")

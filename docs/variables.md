@@ -68,6 +68,33 @@ application still refers to says which ones: their next deploy fails until the r
 In the console: a team's **Variables** tab, the **Project variables** and the environment's sections
 of a project's page, and **Settings > Variables** for the server's.
 
+## Bringing in a .env file, and seeing the stored one
+
+`noust env set` takes `NAME=VALUE` words. A developer has a `.env`: comments, `export` in front
+of a line, quotes, a value of several lines. `noust env sync` reads that file as the application's
+own `.env` is read and **creates and updates what it holds, deleting nothing**:
+
+```bash
+noust env sync shop.example.com --file .env.production
+printenv | grep ^APP_ | noust env sync shop.example.com --file -        # standard input
+noust env sync shop.example.com --file .env --prune                    # also remove what the file lacks
+noust --dry-run env sync shop.example.com --file .env                  # only say what would change
+noust env sync shop.example.com --file .env --build-only                # the audience of what it sets
+```
+
+It says which names it created, updated and left as they were, and never a value. `PORT` and
+`NODE_ENV` (the unit sets them) and the `NOUST_*` names are skipped with the reason, because a
+`.env` from a laptop has a `PORT` and refusing the whole file for it would make the command
+useless. A name set twice in the file counts once, the last, and is reported. The comment above a
+variable becomes its comment. A running process keeps its values until it is restarted.
+
+Over the API, `POST /api/apps/{domain}/env/sync` takes `{"content": "<the file's text>", "prune":
+false, "audience": null, "dry_run": false}` (sudo mode, as a write is) and answers with the same
+names. `GET /api/apps/{domain}/env/file` is the stored `.env` as text, for a viewer with a search
+box and a download (`?download=true` names the file `<app>.env`): the secrets are masked as in
+the table, `?unmask=true` needs an admin credential and sudo mode and is audited, and what only
+the build is given is named in a comment at the end, without its value.
+
 ## Values of several lines, literals and comments
 
 The `.env` is read by more than Noust: by systemd (`EnvironmentFile=`), by Docker Compose, by the
@@ -124,15 +151,36 @@ noust env audience shop.example.com SENTRY_DSN --runtime-only
 In the console it is the **Given to** choice of a variable and of its row's menu; a change is
 saved with the values.
 
-A Docker Compose application reads its `.env` itself, for the build and for the containers alike,
-and Noust does not separate the two there: every variable is in its `.env`, whatever its audience.
+Every type of application honours the audience, each the way its build works:
+
+| Type | A variable only the build is given | A variable only the application is given |
+|---|---|---|
+| Node.js, Python, Next.js and the rest | In the environment of the install and the build; in no file. | Taken out of the install and the build. |
+| Docker Compose | In the environment of `docker compose build`, so `${NPM_TOKEN}` in `build.args` and a Compose secret with `environment: NPM_TOKEN` read it; in no file, so no `env_file:` hands it to a container. | Set to empty for `docker compose build`, so `${NAME}` in `build.args` is empty (Compose would otherwise fill it from the `.env`). |
+| Container, built from a Dockerfile or by Railpack | A BuildKit secret, `RUN --mount=type=secret,id=NPM_TOKEN`. It is **never a build argument**: an argument stays in the image's history for whoever pulls it, and Noust says so in the deploy log when the Dockerfile declares `ARG NPM_TOKEN`. | Not in the build: a container's build is given only what its settings and the build-only variables name. |
+| Container, an image from a registry | **Refused**: nothing is built, so the variable would be given to nobody. Give it to the application instead. | The same as `both`. |
+| Monorepo | In the environment of `pnpm install` and `pnpm build`; in no file, in the root `.env` or in a workspace's. | Taken out of the install and the build. |
+
+The refusal is an error that names the variable and the way out, at the moment the variable is
+saved, never a silent drop.
 
 ## What Noust gives every application
 
 `NOUST_URL`, `NOUST_DOMAIN`, `NOUST_BRANCH`, `NOUST_COMMIT` and `NOUST_RELEASE` are given to the
-running application from a file beside each release (`.noust-env`), so going back to an earlier
-release gives it that release's commit. The port is the unit's (`PORT`, and `HOST` for the Node
-frameworks), and `{{app.PORT}}` and `{{app.HOST}}` name the same facts in a value.
+running application, and going back to an earlier release gives it that release's commit. Where
+they are written depends on what loads them:
+
+| Type | Where | Rollback |
+|---|---|---|
+| Node.js, Python and the rest | A file beside each release (`.noust-env`) that the unit loads. | The unit loads the file of whatever `current` points at. |
+| Docker Compose, container | Inside the stack's own `.env`, in lines headed `# Set by Noust on every deployment`, because that file is what reaches every container and every `docker compose` command (`${NOUST_URL}` in the compose file works, and so does `env_file: .env`). The rest of the file is never rewritten. | Going back to a release writes that release's commit and name; an update that does not pass the health gate puts the file back as it was. |
+| Monorepo | A file in each workspace's directory (`.noust-env`) that its unit loads. A workspace answers on a name of its own, and is told that one. | The file belongs to the release. |
+
+The names are Noust's: a variable of your own cannot use them, and `noust env show`, the export
+and a clone leave the ones in a stack's `.env` out. The port is the unit's (`PORT`, and `HOST` for
+the Node frameworks), and `{{app.PORT}}` and `{{app.HOST}}` name the same facts in a value.
+`NOUST_RELEASE` is the release a stack's images are kept under; a stack that is not a checkout of
+a repository has no commit and no release to name, so it is not given them.
 
 A [preview](previews.md) is also told what it is: `NOUST_PREVIEW_OF` is the application it copies
 and, when it is for a pull request, `NOUST_PR_NUMBER` is that pull request's number (a preview of
@@ -142,8 +190,17 @@ a database name or a banner that says which pull request this is.
 The build gets them too, **except the commit and the release**: both change on every deploy, and a
 build that depends on them could never be reused or compared with the last one. A build that needs
 the commit asks for it by name: a variable whose value is `{{app.COMMIT}}` and whose audience is
-`build`. The names are Noust's: a variable of your own cannot use them. The console lists them,
-read-only, under the environment.
+`build`. A Dockerfile receives the ones it declares (`ARG NOUST_URL`) as build arguments. The names
+are Noust's: a variable of your own cannot use them. The console lists them, read-only, under the
+environment.
+
+## Editing a monorepo's variables
+
+A monorepo's units load a file in each workspace (`.env.production`), not the `.env` at the root
+that `noust env` and the console edit. A change to the application's variables is carried to every
+workspace's file, naming only what changed: a workspace keeps its own `PORT` and what its
+`package.json` asked for. The same goes for a reference that resolves to a new value at the next
+deploy. A running process keeps what it started with until it is restarted.
 
 ## Secret managers
 
@@ -175,6 +232,11 @@ noust env set shop.example.com 'DB_PASSWORD={{secret:vault/shop/db#password}}'
   stops the deploy before anything is built or switched, with its own words. Removing a provider
   deletes its token at once: the applications that refer to it fail their next deploy until their
   references change.
+- **At every deploy, for every type.** A Node.js application, a Docker Compose stack, a container
+  and a monorepo resolve their references again before anything is built, so a rotated secret
+  reaches the `.env` (and, for a monorepo, every workspace's file) with the next update. For a
+  stack and a container it is the `.env` its containers load; recreating them (an update does) is
+  what puts the value in the running process.
 
 In the console: **Settings > Secret managers**, with a connection test.
 

@@ -233,7 +233,10 @@ noust app clone shop.acme.com shop-staging.acme.com --environment staging --data
 
 In the console: **Promote to another environment** and **Clone application** are in an application's
 menu in the list and in its header's more actions. To put a copy on another server, export the
-application there (`noust app export --with-secrets`) and import it on the other.
+application there (`noust app export --with-secrets`) and import it on the other; the document
+carries its mounted files and, for a container, its settings
+([runtime.md](runtime.md#mounts-in-an-export-a-clone-and-a-copy-to-another-server)), and a clone
+copies the original's mounted files too.
 
 ### Tags on applications
 

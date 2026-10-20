@@ -32,7 +32,7 @@ nothing it was not told the digest of.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from dataclasses import replace
 from typing import Any
 from urllib.parse import quote
@@ -67,9 +67,16 @@ from noust.web.fleet_placement_actions import (
     _placement_undo,
     _row,
     _same_commit,
+    rollout_request,
 )
 
-__all__ = ["BUILDER_OPERATIONS", "ship_request"]
+__all__ = [
+    "BUILDER_OPERATIONS",
+    "builder_declined",
+    "placement_ship_request",
+    "ship_request",
+    "update_request",
+]
 
 #: Bytes read from the builder at a time; the node refuses more than 8 MiB.
 DOWNLOAD_CHUNK = 4 * 1024 * 1024
@@ -622,6 +629,195 @@ def ship_request(
         max_failures=max_failures,
         canary=canary,
         options=options,
+    )
+
+
+def placement_ship_request(
+    placement: Any,
+    members: Sequence[str],
+    *,
+    builder: str | None = None,
+    commit: str | None = None,
+    keep: bool = False,
+    schema_changed_ok: bool = False,
+    frozen_ok: bool = False,
+    force: bool = False,
+    rollback_on_failure: bool | None = None,
+    serial: int | str | None = None,
+    max_failures: int | None = None,
+    canary: str | None = None,
+) -> FleetRequest:
+    """
+    Build the request that ships a placement's build, with the placement's own strategy.
+
+    What the operator did not say is the placement's (how many servers at a time, how many
+    failures stop it, who goes first, whether it puts the moved servers back), exactly as a
+    rollout takes them, so the console, the terminal and an update that follows the builder
+    agree on what "the placement's own" is.
+
+    Args:
+        placement: The placement.
+        members: The servers that receive the release.
+        builder: The server that builds it; the application's recorded one when None.
+        commit: Build this commit instead of the head of the branch.
+        keep: Keep the release the build made on the builder.
+        schema_changed_ok: Confirm taking a release older than a deployment that changed the
+            schema.
+        frozen_ok: Confirm switching although deploys are frozen.
+        force: Send it even to a server already on its commit.
+        rollback_on_failure: Put the servers already moved back when it stops; the placement's
+            own when None.
+        serial: Servers at a time; the placement's own when None.
+        max_failures: Failures that stop it; the placement's own when None.
+        canary: The server that goes first; the placement's own when it is a member.
+
+    Returns:
+        The request.
+
+    Raises:
+        ValidationError: Nothing says which servers receive it.
+    """
+    chosen = canary or (placement.canary if placement.canary in members else None)
+    return ship_request(
+        placement.domain,
+        list(members),
+        builder=builder,
+        commit=commit,
+        keep=keep,
+        schema_changed_ok=schema_changed_ok,
+        frozen_ok=frozen_ok,
+        force=force,
+        rollback_on_failure=(
+            placement.rollback_on_failure if rollback_on_failure is None else rollback_on_failure
+        ),
+        serial=serial if serial is not None else placement.serial,
+        max_failures=max_failures if max_failures is not None else placement.max_failures,
+        canary=chosen,
+    )
+
+
+def builder_declined(
+    builder: str,
+    members: Sequence[str],
+    *,
+    tag: str | None = None,
+    image_tag: str | None = None,
+    build_on_each: bool = False,
+) -> str | None:
+    """
+    Say why an update of an application that has a build server is not built there.
+
+    An update follows the build server (:func:`update_request`) unless this answers. Each reason
+    is a thing the build server does not do, or the operator chose against it; none is silent,
+    because the plan says which it was.
+
+    Args:
+        builder: The application's recorded build server.
+        members: The servers the update goes to.
+        tag: A git tag the update was asked to deploy.
+        image_tag: A registry image tag the update was asked to roll out.
+        build_on_each: The operator asked for each server to build.
+
+    Returns:
+        The reason, or None when the build server builds it.
+    """
+    if build_on_each:
+        return "you asked for each server to build it"
+    if image_tag:
+        return (
+            f"the servers pull the image tag {image_tag} from a registry: there is nothing to build"
+        )
+    if tag:
+        return (
+            f"the build server builds a commit, not a tag: give the commit {tag} points at "
+            "(--commit) to have it built there"
+        )
+    if builder in members:
+        return (
+            f"{builder} is also one of the servers it runs on, and a server that builds and "
+            "runs it updates the ordinary way"
+        )
+    return None
+
+
+def update_request(
+    placement: Any,
+    members: Sequence[str],
+    *,
+    manager: NodeManager,
+    build_on_each: bool = False,
+    commit: str | None = None,
+    tag: str | None = None,
+    image_tag: str | None = None,
+    force: bool = False,
+    rollback_on_failure: bool | None = None,
+    serial: int | str | None = None,
+    max_failures: int | None = None,
+    canary: str | None = None,
+) -> FleetRequest:
+    """
+    Build the request that updates an application on all its servers.
+
+    The one place "update it everywhere" becomes an action, for the console's rollout, the
+    terminal's and any client of the API. An application with a recorded build server
+    (:mod:`noust.fleet.builders`) is built there once and the release is sent to the servers
+    (:func:`ship_request`), which is why anyone recorded a build server; one without is rolled
+    out, each server building as it always did. What the build server cannot do (a registry
+    image tag, a git tag, a server that is itself one of the members) or the operator declined
+    (``build_on_each``) is a rollout, and the plan names the reason, so a server too small to
+    compile the application is never silently asked to.
+
+    Args:
+        placement: The placement.
+        members: The servers it runs on now.
+        manager: The node registry, which keeps the recorded build servers.
+        build_on_each: Build on each server even though there is a build server.
+        commit: Deploy exactly this commit everywhere.
+        tag: Deploy the commit this git tag points at (a rollout builds it).
+        image_tag: For a registry image: the tag every server pulls (a rollout).
+        force: Rebuild or resend even to a server already on it.
+        rollback_on_failure: Put the servers already moved back when it stops; the placement's
+            own when None.
+        serial: Servers at a time; the placement's own when None.
+        max_failures: Failures that stop it; the placement's own when None.
+        canary: The server that goes first; the placement's own when None.
+
+    Returns:
+        The request: a ``placement_ship`` when the build server builds it, else a
+        ``placement_rollout``.
+
+    Raises:
+        ValidationError: The application runs on no server right now.
+    """
+    recorded = Builders(manager.store).get(placement.domain)
+    if recorded is not None and (
+        builder_declined(
+            recorded.node, members, tag=tag, image_tag=image_tag, build_on_each=build_on_each
+        )
+        is None
+    ):
+        return placement_ship_request(
+            placement,
+            members,
+            commit=commit,
+            force=force,
+            rollback_on_failure=rollback_on_failure,
+            serial=serial,
+            max_failures=max_failures,
+            canary=canary,
+        )
+    return rollout_request(
+        placement,
+        list(members),
+        commit=commit,
+        tag=tag,
+        image_tag=image_tag,
+        force=force,
+        rollback_on_failure=rollback_on_failure,
+        serial=serial,
+        max_failures=max_failures,
+        canary=canary,
+        build_on_each=build_on_each,
     )
 
 

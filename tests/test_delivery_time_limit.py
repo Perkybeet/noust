@@ -257,13 +257,22 @@ def test_a_job_that_is_not_a_build_is_not_held_to_it(manager: JobManager) -> Non
 
 
 def test_a_build_that_cannot_be_interrupted_is_left_running_and_the_job_says_so_once(
-    manager: JobManager,
+    manager: JobManager, store: NoustStore
 ) -> None:
-    """A Compose build runs inside the Docker daemon: the limit reports it, it does not kill the daemon."""
+    """A build in place runs in the tree that serves: the limit reports it, it does not kill it."""
+    store.create_app(
+        App(
+            domain="mono.example.com",
+            app_type="monorepo",
+            app_path="/var/www/apps/mono",
+            port=3000,
+            layout=AppLayout.INPLACE.value,
+        )
+    )
     reached = threading.Event()
     stop = threading.Event()
 
-    def compose_build(*, job_context: JobContext | None = None) -> str:
+    def in_place_build(*, job_context: JobContext | None = None) -> str:
         reached.set()
         stop.wait(20)
         return "ok"
@@ -271,9 +280,9 @@ def test_a_build_that_cannot_be_interrupted_is_left_running_and_the_job_says_so_
     job = manager.create_job(
         job_type=JobType.DEPLOY,
         name="D",
-        description="compose",
-        func=compose_build,
-        metadata={"domain": "stack.example.com", "app_type": "docker-compose"},
+        description="monorepo",
+        func=in_place_build,
+        metadata={"domain": "mono.example.com", "app_type": "monorepo"},
     )
     assert reached.wait(20)
 

@@ -22,7 +22,11 @@ environment.
 **Secrets never reach argv.** A build secret is mounted from the 0600 file of the
 secret store (``--secret id=...,src=...``), never ``--build-arg``, which lands in
 the image's history; Railpack reads its secrets from the environment of the
-command. A registry password goes in on stdin to a ``docker login`` that writes
+command. A variable only the build is given (``noust env set --build-only``) is a build
+secret too, mounted from the command's environment under a name of Noust's own, so it
+is never in a layer, in the image's history or on a command line; what Noust says about
+the deployment (``NOUST_URL`` and the rest) is a build argument, for a Dockerfile that
+declares it. A registry password goes in on stdin to a ``docker login`` that writes
 to a configuration directory of its own, which is removed as soon as the
 command that needed it is over: nothing is left in ``/root/.docker``.
 """
@@ -52,7 +56,9 @@ from noust.core.fs import SECRET_DIR_MODE, FileSystem, get_fs
 from noust.core.logger import Logger
 from noust.core.runner import CommandResult, CommandRunner, get_runner
 from noust.core.secrets import SecretStore
+from noust.core.variables.predefined import RESERVED
 from noust.deployers.helpers.container_compose import image_repository, release_of_tag
+from noust.deployers.helpers.deployment_variables import BuildEnvironment
 from noust.managers import railpack
 from noust.validators.container import METHOD_RAILPACK
 from noust.validators.names import resolve_within
@@ -93,6 +99,14 @@ CONTAINERD_STORE_HINT = (
 
 _BUILD_ENV = {"DOCKER_BUILDKIT": "1"}
 
+#: ``ARG NAME`` or ``ARG NAME=default``: the arguments a Dockerfile declares. An argument that is
+#: not declared is dropped by the build with a warning, so only the ones asked for are offered.
+_ARG = re.compile(r"^[ \t]*ARG[ \t]+([A-Za-z_][A-Za-z0-9_]*)", re.IGNORECASE | re.MULTILINE)
+
+#: The names of the variables a build is given as secrets in the environment of the docker
+#: command: Noust's own, so what a variable is called cannot steer the daemon's client.
+_BRIDGE = "NOUST_BUILD_VAR_"
+
 
 #: ``EXPOSE 8080`` or ``EXPOSE 8080/tcp``: where a Dockerfile says its process listens.
 _EXPOSE = re.compile(r"^[ \t]*EXPOSE[ \t]+(\d{1,5})(?:/tcp)?(?=\s|$)", re.IGNORECASE | re.MULTILINE)
@@ -114,6 +128,19 @@ def exposed_port(dockerfile: str) -> int | None:
         return None
     port = int(found.group(1))
     return port if 1 <= port <= 65535 else None
+
+
+def declared_arguments(dockerfile: str) -> set[str]:
+    """
+    Read the build arguments a Dockerfile declares.
+
+    Args:
+        dockerfile: The Dockerfile's text.
+
+    Returns:
+        The names after its ``ARG`` instructions.
+    """
+    return set(_ARG.findall(dockerfile))
 
 
 @dataclass(frozen=True)
@@ -164,6 +191,7 @@ class ImageBuilder:
         app_path: Path,
         secrets: SecretStore | None = None,
         work_dir: Path,
+        build_timeout: int = BUILD_TIMEOUT,
     ) -> None:
         """
         Args:
@@ -176,6 +204,8 @@ class ImageBuilder:
             secrets: Where build secrets and the registry password are kept;
                 the process-wide store when None.
             work_dir: A private directory for Railpack's plan, removed after use.
+            build_timeout: Seconds a build may take before it is stopped: the application's
+                own, or the server's (``deploy.build_timeout``).
         """
         self._runner = runner
         self._fs = fs
@@ -185,6 +215,7 @@ class ImageBuilder:
         self.app_path = app_path
         self._secrets = secrets
         self.work_dir = work_dir
+        self.build_timeout = build_timeout
 
     @property
     def runner(self) -> CommandRunner:
@@ -270,7 +301,14 @@ class ImageBuilder:
 
     # -- Building ------------------------------------------------------------
 
-    def build(self, settings: ContainerSettings, tag: str, *, no_cache: bool = False) -> None:
+    def build(
+        self,
+        settings: ContainerSettings,
+        tag: str,
+        *,
+        no_cache: bool = False,
+        variables: BuildEnvironment | None = None,
+    ) -> None:
         """
         Build the image of a release from the repository.
 
@@ -279,17 +317,21 @@ class ImageBuilder:
             tag: The image's name, ``noust-<app>:<release>``.
             no_cache: Ignore BuildKit's layer cache and pull the base images
                 again.
+            variables: What the application's variables give the build beyond its settings:
+                the ones only the build is given, as secrets, and what Noust says about the
+                deployment.
 
         Raises:
             DeploymentError: A path leaves the repository, there is no Dockerfile,
                 Railpack is not installed, or a secret has no value.
             DockerError: The build failed; the daemon's output is carried.
         """
+        given = variables or BuildEnvironment()
         with self.registry_session(settings) as login_env:
             if settings.method == METHOD_RAILPACK:
-                self._build_railpack(settings, tag, login_env, no_cache=no_cache)
+                self._build_railpack(settings, tag, login_env, no_cache=no_cache, variables=given)
             else:
-                self._build_dockerfile(settings, tag, login_env, no_cache=no_cache)
+                self._build_dockerfile(settings, tag, login_env, no_cache=no_cache, variables=given)
 
     def _inside(self, relative: str, what: str) -> Path:
         """
@@ -408,6 +450,7 @@ class ImageBuilder:
         login_env: Mapping[str, str],
         *,
         no_cache: bool = False,
+        variables: BuildEnvironment | None = None,
     ) -> None:
         """
         Build with the repository's Dockerfile.
@@ -417,6 +460,7 @@ class ImageBuilder:
             tag: The image's name.
             login_env: The registry session's environment.
             no_cache: Ignore BuildKit's layer cache and pull the base images again.
+            variables: What the application's variables give the build.
 
         Raises:
             DeploymentError: See :meth:`build`.
@@ -439,13 +483,68 @@ class ImageBuilder:
             argv += ["--target", settings.target]
         for name, value in settings.build_args.items():
             argv += ["--build-arg", f"{name}={value}"]
+        given = variables or BuildEnvironment()
+        plain, secret = self._split_variables(given, self._declared_in(dockerfile))
+        for name, value in plain.items():
+            argv += ["--build-arg", f"{name}={value}"]
+        bridge = {f"{_BRIDGE}{n}": value for n, value in enumerate(secret.values())}
         try:
             for secret_id, source in self._secret_sources(settings):
                 argv += ["--secret", f"id={secret_id},src={source}"]
+            for name, variable in zip(secret, bridge, strict=True):
+                argv += ["--secret", f"id={name},env={variable}"]
             argv.append(str(context))
-            self._run_build(argv, {**_BUILD_ENV, **login_env})
+            self._run_build(
+                argv, {**_BUILD_ENV, **login_env, **bridge}, secrets=list(bridge.values())
+            )
         finally:
             self._discard_sources(settings)
+
+    def _declared_in(self, dockerfile: Path) -> set[str]:
+        """
+        Read which build arguments a Dockerfile declares.
+
+        Args:
+            dockerfile: The Dockerfile, already resolved inside the repository.
+
+        Returns:
+            The names; none when it cannot be read (the build itself will say why).
+        """
+        try:
+            return declared_arguments(dockerfile.read_text(encoding="utf-8", errors="replace"))
+        except OSError as exc:
+            self.logger.debug(f"The Dockerfile was not read for its arguments: {exc}")
+            return set()
+
+    def _split_variables(
+        self, variables: BuildEnvironment, declared: set[str]
+    ) -> tuple[dict[str, str], dict[str, str]]:
+        """
+        Decide how each variable the build is given reaches a Dockerfile.
+
+        What Noust says about the deployment (not a secret) is offered as a build argument to
+        a Dockerfile that declares it. A variable only the build is given is a secret, mounted
+        for the instructions that ask for it with ``RUN --mount=type=secret``: an argument
+        stays in the image's history for whoever pulls it, which is the one thing a token for
+        a private package must not do.
+
+        Args:
+            variables: What the build is given.
+            declared: The arguments the Dockerfile declares.
+
+        Returns:
+            The build arguments, and the secrets.
+        """
+        plain = {n: v for n, v in variables.extra.items() if n in RESERVED and n in declared}
+        secret = {n: v for n, v in variables.extra.items() if n not in RESERVED}
+        for name in sorted(secret.keys() & declared):
+            self.logger.warning(
+                f"{name} is a variable only the build is given and the Dockerfile declares "
+                f"ARG {name}: it is mounted as a build secret, not passed as an argument, "
+                "because an argument stays in the image's history. Read it with "
+                f"RUN --mount=type=secret,id={name} ..."
+            )
+        return plain, secret
 
     def _run_build(
         self, argv: list[str], env: Mapping[str, str], secrets: Sequence[str] = ()
@@ -462,7 +561,7 @@ class ImageBuilder:
             DockerError: It failed; the daemon's own output is the details.
         """
         result = self.runner.stream(
-            argv, on_line=self.logger.debug, env=env, timeout=BUILD_TIMEOUT, secrets=secrets
+            argv, on_line=self.logger.debug, env=env, timeout=self.build_timeout, secrets=secrets
         )
         if not result.success:
             raise DockerError(
@@ -478,6 +577,7 @@ class ImageBuilder:
         login_env: Mapping[str, str],
         *,
         no_cache: bool = False,
+        variables: BuildEnvironment | None = None,
     ) -> None:
         """
         Build with Railpack: its plan, then Docker through its BuildKit frontend.
@@ -494,9 +594,13 @@ class ImageBuilder:
             tag: The image's name.
             login_env: The registry session's environment.
             no_cache: Ignore BuildKit's layer cache and pull the base images again.
+            variables: What the application's variables give the build: the ones only the
+                build is given are its secrets, what Noust says about the deployment its
+                variables.
 
         Raises:
-            DeploymentError: Railpack is not installed, or a secret has no value.
+            DeploymentError: Railpack is not installed, a secret has no value, or a variable
+                only the build is given is also one of its build arguments.
             DockerError: Analysing the repository or building failed.
         """
         if not self.runner.exists(railpack.BINARY_NAME):
@@ -517,7 +621,24 @@ class ImageBuilder:
                     f"--build-secret {secret_id}=FILE",
                 )
             secret_values[secret_id] = value
-        every = {**settings.build_args, **secret_values}
+        given = variables or BuildEnvironment()
+        # Railpack takes both kinds as environment variables of the command; the ones only the
+        # build is given are secrets, and what Noust says about the deployment is plain.
+        only_build = {n: v for n, v in given.extra.items() if n not in RESERVED}
+        plain_values = {
+            **settings.build_args,
+            **{n: v for n, v in given.extra.items() if n in RESERVED},
+        }
+        clashing = sorted(set(only_build) & (set(plain_values) | set(secret_values)))
+        if clashing:
+            raise DeploymentError(
+                f"{clashing[0]} is a variable only the build is given and also a build "
+                "argument or a build secret",
+                details="Railpack reads all of them as environment variables, so a name is "
+                "one thing: remove it from the build settings, or from the variables.",
+            )
+        secret_values.update(only_build)
+        every = {**plain_values, **secret_values}
         bridge = {f"NOUST_BUILD_SECRET_{n}": value for n, value in enumerate(every.values())}
 
         self.fs.make_dir(self.work_dir, mode=SECRET_DIR_MODE, parents=True)
@@ -533,7 +654,7 @@ class ImageBuilder:
                 "--info-out",
                 str(info),
             ]
-            for name, value in settings.build_args.items():
+            for name, value in plain_values.items():
                 prepare += ["--env", f"{name}={value}"]
             for name in secret_values:
                 prepare += ["--env", name]
@@ -605,6 +726,55 @@ class ImageBuilder:
                 the pulled image cannot be read.
         """
         reference = settings.image or ""
+        image_id, digest, ports = self._pull_and_describe(settings)
+        named = self.runner.run(["docker", "image", "tag", image_id, tag], timeout=QUERY_TIMEOUT)
+        if not named.success:
+            raise DockerError(
+                f"The pulled image could not be named {tag}",
+                details=(named.stderr or named.stdout).strip(),
+            )
+        self.logger.substep(f"Pulled {reference}" + (f" ({digest})" if digest else ""))
+        return PulledImage(
+            reference=reference, image_id=image_id, digest=digest, exposed_ports=ports
+        )
+
+    def latest_digest(self, settings: ContainerSettings) -> str | None:
+        """
+        Ask the registry which digest an image's tag is now.
+
+        By pulling it: a tag the host already has costs one request to the registry and no layer,
+        and one that moved is what the update that follows needs anyway, so nothing is downloaded
+        twice. The image is not named for a release: nothing is deployed by looking.
+
+        Args:
+            settings: The application's settings; ``image`` is what is asked.
+
+        Returns:
+            The digest of the repository the image is pulled from; None when the image has none.
+
+        Raises:
+            DeploymentError: The account's password is missing.
+            DockerError: The registry refused the account or the pull failed.
+        """
+        return self._pull_and_describe(settings)[1]
+
+    def _pull_and_describe(
+        self, settings: ContainerSettings
+    ) -> tuple[str, str | None, tuple[int, ...]]:
+        """
+        Pull an application's image and read what Docker knows of it.
+
+        Args:
+            settings: The application's settings.
+
+        Returns:
+            The image's id, its digest and the TCP ports it says it listens on.
+
+        Raises:
+            DeploymentError: The account's password is missing.
+            DockerError: The pull failed, or Docker cannot describe what it pulled.
+        """
+        reference = settings.image or ""
         with self.registry_session(settings) as login_env:
             result = self.runner.stream(
                 ["docker", "pull", reference],
@@ -628,17 +798,7 @@ class ImageBuilder:
                 f"{reference} was pulled but Docker cannot describe it",
                 details=(inspected.stderr or inspected.stdout).strip(),
             )
-        image_id, digest, ports = self._read_inspection(inspected, reference)
-        named = self.runner.run(["docker", "image", "tag", image_id, tag], timeout=QUERY_TIMEOUT)
-        if not named.success:
-            raise DockerError(
-                f"The pulled image could not be named {tag}",
-                details=(named.stderr or named.stdout).strip(),
-            )
-        self.logger.substep(f"Pulled {reference}" + (f" ({digest})" if digest else ""))
-        return PulledImage(
-            reference=reference, image_id=image_id, digest=digest, exposed_ports=ports
-        )
+        return self._read_inspection(inspected, reference)
 
     @staticmethod
     def _read_inspection(

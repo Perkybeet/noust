@@ -15,7 +15,7 @@ Keep a copy of what Noust knows that the server does not show:
 
 ```bash
 noust list                                   # every application, so none is forgotten
-noust app export shop.example.com -o shop.json            # its settings, domains, health check, cron, variables
+noust app export shop.example.com -o shop.json            # its settings, domains, health check, cron, variables, mounts
 noust app export shop.example.com --as-yaml -o noust.yaml  # the same as a file for the repository
 noust backup create shop.example.com --include-databases   # the files, with the databases it uses
 noust env show shop.example.com --unmask     # the variables in clear, once, to a place you trust

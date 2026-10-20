@@ -301,6 +301,11 @@ def _strategy_options(function: Any) -> Any:
     "(build it once, push it, roll it out).",
 )
 @click.option("--force", is_flag=True, help="Rebuild even a server already on it.")
+@click.option(
+    "--build-on-each",
+    is_flag=True,
+    help="Build on every server even though DOMAIN has a build server (noust fleet builder).",
+)
 @click.option("--canary", default=None, help="The server that goes first and alone.")
 @click.option(
     "--rollback/--no-rollback",
@@ -318,6 +323,7 @@ def rollout_command(
     tag: str | None,
     image_tag: str | None,
     force: bool,
+    build_on_each: bool,
     canary: str | None,
     rollback: bool | None,
     serial: str | None,
@@ -331,15 +337,21 @@ def rollout_command(
     The first server goes alone and builds the head of the branch (or the commit or
     tag you give); the commit it ends on is what the others are asked for. When the
     rollout stops, the servers already moved are put back by their previous release.
+    An application with a build server (noust fleet builder set) is built there once
+    and the release is sent to the servers, as 'noust fleet placement ship' does;
+    --build-on-each builds on every server instead, and a tag or an image tag, which a
+    build server does not build, is rolled out the ordinary way (the plan says which).
     The exit status is 1 when any server failed.
     """
     from noust.cli.commands.fleet_views import _run
-    from noust.web.fleet_placement_actions import rollout_request
+    from noust.web.fleet_ship_actions import update_request
 
     manager, placements, found = _placed(domain)
-    fleet_request = rollout_request(
+    fleet_request = update_request(
         found,
         placements.members(found, manager.list()),
+        manager=manager,
+        build_on_each=build_on_each,
         commit=commit,
         tag=tag,
         image_tag=image_tag,
@@ -416,24 +428,23 @@ def ship_command(
     failed.
     """
     from noust.cli.commands.fleet_views import _run
-    from noust.web.fleet_ship_actions import ship_request
+    from noust.web.fleet_ship_actions import placement_ship_request
 
     manager, placements, found = _placed(domain)
     members = _csv(to) if to is not None else placements.members(found, manager.list())
-    chosen = canary or (found.canary if found.canary in members else None)
-    fleet_request = ship_request(
-        found.domain,
-        list(members),
+    fleet_request = placement_ship_request(
+        found,
+        members,
         builder=builder,
         commit=commit,
         keep=keep,
         schema_changed_ok=schema_changed_ok,
         frozen_ok=frozen_ok,
         force=force,
-        rollback_on_failure=found.rollback_on_failure if rollback is None else rollback,
-        serial=(int(serial) if serial and serial.isdigit() else serial) if serial else found.serial,
-        max_failures=max_failures if max_failures is not None else found.max_failures,
-        canary=chosen,
+        rollback_on_failure=rollback,
+        serial=(int(serial) if serial and serial.isdigit() else serial) if serial else None,
+        max_failures=max_failures,
+        canary=canary,
     )
     _run(ctx, fleet_request, assume_yes, plan_only)
 

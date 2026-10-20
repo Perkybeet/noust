@@ -595,6 +595,7 @@ application ever will. The central can have **one server build it and the others
 noust fleet builder set shop.example.com build-1      # which server builds it (the central's note)
 noust fleet placement ship shop.example.com --plan    # the plan: who goes first, what is skipped
 noust fleet placement ship shop.example.com           # build once on build-1, run it on every member
+noust fleet placement rollout shop.example.com        # the same: an update follows the build server
 noust fleet placement ship shop.example.com --commit 3f9c2ab --to web-2 --serial 2
 noust fleet builder list
 noust fleet builder clear shop.example.com            # back to building where it runs
@@ -626,8 +627,17 @@ items of an application in Fleet > On several servers; in the API, `POST
   the schema needs `--schema-changed-ok` on the server that would refuse it, because Noust puts code
   back, never a database.
 - **The builder is not one of the servers it ships to.** A server that builds and runs the application
-  updates the ordinary way; ship to the others. A rollout of a placement whose application has a recorded
-  builder says so in its plan, and builds on each server as it always did.
+  updates the ordinary way; ship to the others.
+- **An update follows the builder.** Recording a build server is saying where the application is
+  compiled, so `noust fleet placement rollout` (and `POST /api/fleet/placements/{domain}/rollout`, and
+  the console's **Roll out**) builds there once and sends the release, exactly as `ship` does; the plan's
+  action says `placement_ship`. It does not when the build server cannot build that kind of update, and
+  then the plan names the reason and each server builds as it always did: a registry image tag
+  (`--image-tag`: the servers pull it, nothing is built), a git tag (`--tag`: the build server builds a
+  commit, so give `--commit`), or a build server that is itself one of the placement's servers.
+  `--build-on-each` (`build_on_each` over the API) builds on every server although one is recorded.
+  Nothing falls back silently: a build server that lacks the application, or is not on the release
+  layout, makes the update refuse before anything is built, with the command that puts it right.
 - **Every step is the server's own API call, as the same operator**, so each server's ceiling and
   permissions apply (`apps.deploy`; a `read` server is skipped with the reason), a server older than this
   is skipped as `unsupported`, and the builder is judged by the same rule before anything is built.
@@ -672,15 +682,17 @@ own API and holds no shell and no copy of what they run.
   A mesh between servers, service discovery across machines and moving a running workload by itself
   are not part of it; a private network between your servers is yours to provide (a bastion in front
   of a server is [supported](#a-server-behind-a-bastion)).
-- **It does not build on a separate server.** Builds run on the server that serves the application, as an
-  unprivileged account in a sandbox, so the build and the run see the same machine and nothing has to
-  move between them. A dedicated build server with a registry between it and the rest is the shape
-  other platforms need because their builds are images; for an application that already ships an
-  image, **build it once and roll the tag out** (`noust fleet placement rollout --image-tag`): your CI
-  builds and pushes, and every server pulls the same tag. Noust does not run the registry. The
-  per-server side of building (how many builds at once, how many may wait, how long one may take) is
-  each server's own: `deploy.max_concurrent_builds`, `deploy.queue_limit` and `deploy.max_minutes`
-  (**Settings > General**, [CONFIG.md](CONFIG.md)).
+- **It does not run a registry between a build server and the rest.** By default builds run on the server
+  that serves the application, as an unprivileged account in a sandbox, so the build and the run see
+  the same machine. A dedicated build server is optional
+  ([building on one server and running on others](#building-on-one-server-and-running-on-others)): the
+  release it builds travels to the servers as a bundle checked against its SHA-256, through the tunnels, not as an
+  image through a registry, which is the shape other platforms need because their builds are images.
+  For an application that already ships an image, **build it once and roll the tag out** (`noust fleet
+  placement rollout --image-tag`): your CI builds and pushes, and every server pulls the same tag. Noust
+  does not run the registry. The per-server side of building (how many builds at once, how many may
+  wait, how long one may take) is each server's own: `deploy.max_concurrent_builds`,
+  `deploy.queue_limit` and `deploy.max_minutes` (**Settings > General**, [CONFIG.md](CONFIG.md)).
 - **It does not run your CI.** A runner executes code from a repository you may not control, with
   network and often the container socket, on a machine that also serves production. Noust keeps that
   out of the fleet: your CI runs where you trust it and calls Noust to deploy ([ci.md](ci.md)) with a

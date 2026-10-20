@@ -29,6 +29,7 @@ function areaWords(t: T, area: string): string {
     mounts: () => t("runtime.pending.areas.mounts"),
     build: () => t("runtime.pending.areas.build"),
     container: () => t("runtime.pending.areas.container"),
+    compose: () => t("runtime.pending.areas.compose"),
     persistent_paths: () => t("runtime.pending.areas.persistent_paths"),
     health: () => t("runtime.pending.areas.health"),
     hooks: () => t("runtime.pending.areas.hooks"),

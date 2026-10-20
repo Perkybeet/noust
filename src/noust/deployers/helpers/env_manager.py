@@ -26,7 +26,7 @@ import os
 import re
 import secrets
 import stat
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
@@ -751,13 +751,28 @@ class EnvManager:
             )
 
         kept = self.read_env_comments(path) if comments is None else comments
-        lines = []
-        for key, value in sorted(values.items()):
-            for note in self._comment_lines(kept.get(key, "")):
-                lines.append(note)
-            lines.append(f"{key}={self._quote_if_needed(value)}")
-        self.fs.write_text(path, "\n".join(lines) + "\n", mode=SECRET_MODE)
+        self.fs.write_text(path, self.render(values, kept), mode=SECRET_MODE)
         self.logger.debug(f"Wrote env file: {path}")
+
+    def render(self, values: Mapping[str, str], comments: Mapping[str, str] | None = None) -> str:
+        """
+        Write variables as the text of an environment file.
+
+        The one rendering of a ``.env``: the file Noust writes and the text a viewer shows are
+        this, so they cannot differ.
+
+        Args:
+            values: Variable name to value.
+            comments: Variable name to the comment written above it.
+
+        Returns:
+            The text: sorted by name, each variable under its comment, ending in a line feed.
+        """
+        lines: list[str] = []
+        for key, value in sorted(values.items()):
+            lines.extend(self._comment_lines((comments or {}).get(key, "")))
+            lines.append(f"{key}={self._quote_if_needed(value)}")
+        return "\n".join(lines) + "\n"
 
     def add_if_missing(self, path: Path, name: str, value: str) -> bool:
         """
@@ -795,6 +810,75 @@ class EnvManager:
             path, f"{text}{separator}{name}={self._quote_if_needed(value)}\n", mode=SECRET_MODE
         )
         self.logger.debug(f"Added {name} to {path}")
+        return True
+
+    #: The comment that heads the lines :meth:`replace_managed` writes, so whoever opens the
+    #: file knows they are not theirs to edit.
+    MANAGED_COMMENT = "# Set by Noust on every deployment. Do not edit."
+
+    def replace_managed(
+        self, path: Path, values: Mapping[str, str], names: Collection[str]
+    ) -> bool:
+        """
+        Set the variables Noust itself owns in a file, touching nothing else in it.
+
+        The lines of ``names`` are taken out and the ones in ``values`` appended under a comment
+        that says whose they are. Everything else is kept byte for byte (an operator's comments,
+        their order, a value they quoted their own way), which is what rewriting the whole file
+        through :meth:`write_env_files` would lose.
+
+        Args:
+            path: The ``.env``; created (readable by its owner only) when it does not exist.
+            values: The variables to write; the others of ``names`` are taken out.
+            names: Every name Noust owns in this file.
+
+        Returns:
+            True when the file changed; False when it already said exactly this.
+
+        Raises:
+            SecurityError: If the destination is a symlink.
+            OSError: If the file cannot be read or written.
+        """
+        if path.is_symlink():
+            raise SecurityError(
+                f"Refusing to write secrets through the symlink {path}",
+                details=(
+                    "Something replaced the file with a symbolic link, which would "
+                    "redirect the write. Inspect the directory, remove the link and "
+                    "retry."
+                ),
+            )
+        owned = set(names)
+        text = path.read_text(encoding="utf-8") if path.is_file() else ""
+        kept: list[str] = []
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped == self.MANAGED_COMMENT:
+                continue
+            key = stripped.partition("=")[0].strip()
+            exported = self._EXPORT_PREFIX.match(key)
+            if (
+                "=" in stripped
+                and not stripped.startswith("#")
+                and (exported.group(1) if exported else key) in owned
+            ):
+                continue
+            kept.append(line)
+        while kept and not kept[-1].strip():
+            kept.pop()
+        lines = [*kept]
+        if values:
+            if lines:
+                lines.append("")
+            lines.append(self.MANAGED_COMMENT)
+            lines.extend(f"{key}={self._quote_if_needed(values[key])}" for key in sorted(values))
+        updated = ("\n".join(lines) + "\n") if lines else ""
+        if updated == text or (not text and not updated):
+            return False
+        self.fs.write_text(path, updated, mode=SECRET_MODE)
+        self.logger.debug(
+            f"Set {', '.join(sorted(values)) or 'nothing'} managed by Noust in {path}"
+        )
         return True
 
     @staticmethod
