@@ -67,7 +67,7 @@ test("zero-downtime deploys are turned off and on again, each confirmed and foll
   await expectNoA11yViolations(page, "an app with zero-downtime deploys");
 
   // Off: "Confirm it's you" first, then what going back to one copy means.
-  await zd.getByRole("button", { name: "Turn off" }).click();
+  await zd.getByRole("button", { name: "Turn off…" }).click();
   await confirmItsYou(page, consoleServer);
   const off = page.getByRole("alertdialog", { name: `Turn off zero-downtime deploys for ${ZD_APP}?` });
   await expect(off).toBeVisible();

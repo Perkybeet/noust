@@ -269,9 +269,9 @@ test("the sites list says who wrote each site and which application it serves", 
 test("whether a feature is on reads at a glance: instant rollback and zero-downtime deploys", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/apps/${RELEASES_APP}/settings/deploys`);
   const rollback = card(page, "Instant rollback");
-  await expect(rollback.locator('[data-feature-state][data-state="on"]')).toBeVisible();
+  await expect(rollback.getByText("On", { exact: true })).toBeVisible();
   const zeroDowntime = card(page, "Zero-downtime deploys");
-  await expect(zeroDowntime.locator("[data-feature-state]")).toBeVisible();
+  await expect(zeroDowntime.getByText(/^(On|Off)\b/).first()).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the deploy settings");
 });

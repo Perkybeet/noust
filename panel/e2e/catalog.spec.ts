@@ -327,13 +327,13 @@ withCatalogApps("an image's registry account is kept without its password coming
   await expectNoA11yViolations(page, "an image application's settings");
 });
 
-withCatalogApps("a Compose stack and a container have no build commands to set, and the navigation does not offer them", async ({ page, consoleServer }) => {
+withCatalogApps("a Compose stack and a container have no build commands to set, and the Build page says so and keeps only the sandbox", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/apps/vault.example.net/settings/build");
   for (const domain of ["vault.example.net", "crate.example.net"]) {
     await page.goto(`/apps/${domain}/settings/build`);
-    await expect(page.getByRole("heading", { level: 2, name: "Build commands" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Build", exact: true })).toBeVisible();
     await expect(page.getByText(/is built by its own configuration, so it has no build commands here/)).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Application settings" }).first().getByRole("link", { name: "Build commands" })).toHaveCount(0);
+    await expect(page.getByRole("textbox", { name: /^Build command/ })).toHaveCount(0);
   }
 });
 
