@@ -456,3 +456,51 @@ def test_a_port_the_previous_recipe_only_left_in_time_wait_is_free(smoke: Module
     listener.close()
 
     assert smoke.port_is_free(port) is True
+
+
+def test_the_gate_waits_as_long_as_the_recipe_s_own_timeout_unless_told_otherwise(
+    smoke: ModuleType, fake_docker: type[FakeProject], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A stack that takes ten minutes to migrate is judged as a deployment would judge it."""
+    import dataclasses
+
+    from noust.recipes.model import RecipeHealth
+
+    clock = [0.0]
+    monkeypatch.setattr(smoke.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(
+        smoke.time, "sleep", lambda seconds: clock.__setitem__(0, clock[0] + seconds)
+    )
+    asked: list[float] = []
+
+    def refuse(url: str, *, follow: bool, headers: Any = None) -> tuple[int, str]:
+        asked.append(clock[0])
+        return 503, ""
+
+    monkeypatch.setattr(smoke, "ask", refuse)
+    slow = dataclasses.replace(
+        get_recipe("vaultwarden"), health=RecipeHealth(path="/alive", expect="200", timeout=20)
+    )
+
+    def run(wait: int | None) -> Any:
+        asked.clear()
+        clock[0] = 0.0
+        return smoke.smoke(
+            slow,
+            port=18080,
+            wait=wait,
+            given={},
+            extra=[],
+            domain="vault.example.com",
+            ssl=True,
+            keep=False,
+        )
+
+    run(None)
+    assert asked == [0.0, 5.0, 10.0, 15.0]
+    run(10)
+    assert asked == [0.0, 5.0]
+    no_timeout = dataclasses.replace(slow, health=RecipeHealth(path="/alive", expect="200"))
+    slow = no_timeout
+    run(None)
+    assert len(asked) == 60

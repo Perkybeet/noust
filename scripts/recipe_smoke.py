@@ -387,7 +387,7 @@ def smoke(
     recipe: Recipe,
     *,
     port: int,
-    wait: int,
+    wait: int | None,
     given: Mapping[str, str],
     extra: Sequence[str],
     domain: str,
@@ -401,7 +401,8 @@ def smoke(
     Args:
         recipe: A Compose recipe.
         port: The loopback port its web service publishes on.
-        wait: Seconds the gate may take to answer as the recipe expects.
+        wait: Seconds the gate may take to answer as the recipe expects; None for the recipe's
+            own health timeout, which is what a deployment would give it, else 300.
         given: Variables the operator gives.
         extra: ``K=V`` lines appended to ``.env`` as an operator editing it would.
         domain: The domain the application believes it has.
@@ -437,7 +438,8 @@ def smoke(
         url = f"http://127.0.0.1:{port}{report.gate_path}"
         begin = time.monotonic()
         status: int | str = ""
-        while time.monotonic() - begin < wait:
+        limit = wait if wait is not None else (health.timeout if health and health.timeout else 300)
+        while time.monotonic() - begin < limit:
             status, _ = ask(url, follow=report.gate_expected is None)
             if isinstance(status, int) and gate_accepts(report.gate_expected, status):
                 break
@@ -502,7 +504,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("names", nargs="+", help="the Compose recipes to start, one after another")
     parser.add_argument("--port", type=int, default=18080, help="loopback port for the web service")
-    parser.add_argument("--wait", type=int, default=300, help="seconds the gate may take")
+    parser.add_argument(
+        "--wait",
+        type=int,
+        default=None,
+        help="seconds the gate may take (default: the recipe's health timeout, else 300)",
+    )
     parser.add_argument("--var", action="append", default=[], help="NAME=VALUE the operator gives")
     parser.add_argument("--extra", action="append", default=[], help="NAME=VALUE appended to .env")
     parser.add_argument("--domain", default="smoke.example.com")
