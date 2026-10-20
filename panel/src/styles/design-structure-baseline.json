@@ -148,6 +148,7 @@
       "features/settings/TwoFactorSection.tsx": 1,
       "features/teams/ProjectPage.tsx": 1,
       "features/teams/TeamLayout.tsx": 1,
+      "features/teams/TeamNotifications.tsx": 1,
       "features/terminal/TerminalPanel.tsx": 1,
       "nodes/capability.tsx": 1
     }
