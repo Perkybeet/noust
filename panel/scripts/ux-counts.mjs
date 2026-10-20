@@ -10,6 +10,9 @@
 // is TypeScript that Node strips (Node 22.18 or newer, which panel/.nvmrc gives), so the script needs no
 // build. It reads files and writes nothing.
 //
+// --rules reads the English catalog too (the namespace files of i18n/en, plain objects Node reads as they
+// are): the rules that count what a notice says, and the catalog strings themselves, need its words.
+//
 // Columns: one JSX element per use of Notice, FeatureState, ActionDialog, Switch, SaveBar, LoadingRegion,
 // QueryState, ConfirmDialog and Badge, and every `aria-busy` attribute. Tests, the gallery and the
 // components' own files are left out. The table of docs/superpowers/specs/2026-10-17-noust-4.0-ux-design.md
@@ -17,7 +20,7 @@
 
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -31,7 +34,7 @@ try {
   console.error("ux-counts reads TypeScript directly: use Node 22.18 or newer (nvm use, see panel/.nvmrc).");
   process.exit(1);
 }
-const { STRUCTURE_RULES, UX_COLUMNS, countStructure, tallyUx, uxDirectory } = structure;
+const { STRUCTURE_RULES, UX_COLUMNS, countStructure, messageLookup, tallyUx, uxDirectory } = structure;
 
 /**
  * Every .ts and .tsx file under a directory, as a path relative to it.
@@ -73,17 +76,35 @@ export function tally(root, byFile = false) {
 }
 
 /**
+ * The English catalog as the structural rules read it: every namespace file of i18n/en, which
+ * are plain objects with no imports, so Node reads them without a build.
+ *
+ * @param {string} root
+ * @returns {Promise<{ message: (key: string) => string | undefined }>}
+ */
+export async function englishContext(root) {
+  const dir = path.join(root, "i18n", "en");
+  /** @type {Record<string, unknown>} */
+  const tree = {};
+  for (const name of readdirSync(dir).filter((file) => file.endsWith(".ts") && file !== "index.ts")) {
+    Object.assign(tree, await import(pathToFileURL(path.join(dir, name)).href));
+  }
+  return { message: messageLookup(tree) };
+}
+
+/**
  * What the structural ratchet counts: per rule, per file, after the design-exception comments.
  *
  * @param {string} root
+ * @param {{ message: (key: string) => string | undefined }} context
  * @returns {Record<string, Record<string, number>>}
  */
-export function ruleCounts(root) {
+export function ruleCounts(root, context) {
   /** @type {Record<string, Record<string, number>>} */
   const counts = Object.fromEntries(STRUCTURE_RULES.map((rule) => [rule.id, {}]));
   for (const rel of sourceFiles(root)) {
     if (/\.test\.tsx?$/.test(rel) || rel.startsWith("dev/") || rel.startsWith("test/") || rel.startsWith("styles/")) continue;
-    for (const [rule, count] of Object.entries(countStructure(rel, readFileSync(path.join(root, rel), "utf8")))) {
+    for (const [rule, count] of Object.entries(countStructure(rel, readFileSync(path.join(root, rel), "utf8"), context))) {
       const into = counts[rule];
       if (into) into[rel] = count;
     }
@@ -107,7 +128,7 @@ if (invoked) {
   const flags = new Set(args.filter((arg) => arg.startsWith("--")));
   const root = path.resolve(args.find((arg) => !arg.startsWith("--")) ?? path.join(here, "..", "src"));
   if (flags.has("--rules")) {
-    const counts = ruleCounts(root);
+    const counts = ruleCounts(root, await englishContext(root));
     for (const [rule, byPath] of Object.entries(counts)) {
       const total = Object.values(byPath).reduce((sum, count) => sum + count, 0);
       console.log(`${rule}: ${String(total)} in ${String(Object.keys(byPath).length)} files`);
