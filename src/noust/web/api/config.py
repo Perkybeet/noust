@@ -40,6 +40,8 @@ from noust.core.config import (
     coerce_config_value,
     redact_secrets,
 )
+from noust.core.notifications.team_channels import may_use, visible_to
+from noust.core.teams import current_scope
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, require_elevated
 from noust.web.auth import actor_label, get_audit_logger, get_client_ip
@@ -459,7 +461,9 @@ def get_config(session: dict = Depends(get_current_session)) -> ConfigResponse:
     """
     config = load_config()
     return ConfigResponse(
-        config=public_config(config),
+        # The channels of other teams name their destinations (a chat, a topic): a member
+        # of one team does not read the others'.
+        config=visible_to(current_scope(), public_config(config)),
         path=str(config.path),
         writable=_is_writable(config.path),
     )
@@ -1329,6 +1333,9 @@ def test_notification_channel(
         ``ok=True`` with a confirmation, or ``ok=False`` with the failure in
         the receiving server's own words.
     """
+    if not may_use(current_scope(), channel, load_config().to_dict()):
+        # Another team's channel reads as one that does not exist.
+        return NotificationTestResult(ok=False, detail=f"No notification channel named {channel!r}")
     error = _build_notifier().test_channel(channel)
     if error is None:
         return NotificationTestResult(ok=True, detail=f"Test message sent through {channel}.")

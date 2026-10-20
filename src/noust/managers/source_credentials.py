@@ -335,6 +335,38 @@ class GitCredentialManager:
         # A GitLab connection signs in to every repository of its host.
         return GitLabStore(self.store).any()
 
+    def credential_for(self, url: str) -> tuple[str, str] | None:
+        """
+        Find what signs in to a repository: its own credential, else its host's connection.
+
+        The one place that answers it, for git (:meth:`auth_for`) and for the code host's API
+        (:mod:`noust.integrations.forges`), so a repository is reached with the same
+        credential whichever way.
+
+        Args:
+            url: A repository's URL.
+
+        Returns:
+            ``(user, secret)``; None for a URL that is not http(s), already carries a
+            credential, or names a repository without one.
+        """
+        parts = urlsplit(url.split("#", 1)[0])
+        if parts.scheme.lower() not in ("http", "https") or "@" in parts.netloc:
+            return None
+        identity = repository_identity(url)
+        if identity is None:
+            return None
+        try:
+            stored = self._read(self._secret_name(identity))
+        except ValidationError:
+            return None
+        if stored is not None:
+            return stored["username"], stored["secret"]
+        # No credential of the repository's own: the connection of its host, if any.
+        from noust.integrations.gitlab.service import GitLabService
+
+        return GitLabService(GitLabStore(self.store), self.secrets).credential_for_url(url)
+
     def auth_for(self, url: str) -> dict[str, str]:
         """
         Build the git environment that signs in to a repository, when it has a credential.
@@ -351,24 +383,11 @@ class GitCredentialManager:
         # Imported here: this module is imported by the source manager's callers.
         from noust.managers.source_manager import split_url_credentials
 
+        found = self.credential_for(url)
+        if found is None:
+            return {}
         parts = urlsplit(url.split("#", 1)[0])
-        if parts.scheme.lower() not in ("http", "https") or "@" in parts.netloc:
-            return {}
-        identity = repository_identity(url)
-        if identity is None:
-            return {}
-        try:
-            stored = self._read(self._secret_name(identity))
-        except ValidationError:
-            return {}
-        if stored is None:
-            # No credential of the repository's own: the connection of its host, if any.
-            from noust.integrations.gitlab.service import GitLabService
-
-            found = GitLabService(GitLabStore(self.store), self.secrets).credential_for_url(url)
-            stored = {"username": found[0], "secret": found[1]} if found else None
-        if stored is None:
-            return {}
+        stored = {"username": found[0], "secret": found[1]}
         userinfo = f"{quote(stored['username'], safe='')}:{quote(stored['secret'], safe='')}"
         _bare, environment = split_url_credentials(
             f"{parts.scheme}://{userinfo}@{parts.netloc}{parts.path}"

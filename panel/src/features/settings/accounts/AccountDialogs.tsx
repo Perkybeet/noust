@@ -14,11 +14,82 @@ import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import { ChoiceCards } from "../../../components/ui/ChoiceCards";
 import { splitErrors } from "../formErrors";
-import { accountKeys, createException, disableAccount, setRole } from "./api";
+import { accountKeys, createException, disableAccount, setEmail, setRole } from "./api";
 import type { Account } from "./api";
 import { samePerson } from "./data";
 import { ROLES, incompatible, isRole, roleDescription, roleLabel } from "./roles";
 import type { Role } from "./roles";
+
+// ---------------------------------------------------------------------------------------
+// The address mail goes to
+
+/**
+ * The address an account's invitations and password resets are mailed to. It is only where mail
+ * goes: it is never a way to sign in, and an empty one stops mail going there.
+ */
+export function EmailDialog({ account, onClose }: { account: Account; onClose: () => void }) {
+  const t = useT();
+  const queryClient = useQueryClient();
+  const [address, setAddress] = useState(account.email ?? "");
+  const formId = useId();
+  const change = useMutation({
+    mutationFn: () => setEmail(account.username, address.trim()),
+    onSuccess: (updated) => {
+      toast.success(updated.email ? t("accounts.email.changedToast", { name: updated.username, address: updated.email }) : t("accounts.email.clearedToast", { name: updated.username }));
+      void queryClient.invalidateQueries({ queryKey: accountKeys.list });
+      onClose();
+    },
+    onError: (error) => {
+      if (error instanceof ApprovalPendingError) onClose();
+    },
+  });
+  const errors = splitErrors(change.error instanceof ApprovalPendingError ? null : change.error, ["email"], "email");
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(next) => {
+        if (!next && !change.isPending) onClose();
+      }}
+      size="md"
+      title={t("accounts.email.title", { name: account.username })}
+      description={t("accounts.email.description")}
+      footer={
+        <>
+          <Button disabled={change.isPending} onClick={onClose}>
+            {t("settings.shared.cancel")}
+          </Button>
+          <Button type="submit" form={formId} variant="primary" loading={change.isPending} disabled={address.trim() === (account.email ?? "")}>
+            {t("accounts.email.submit")}
+          </Button>
+        </>
+      }
+    >
+      <form
+        id={formId}
+        noValidate
+        className="flex flex-col gap-5"
+        onSubmit={(event: SyntheticEvent<HTMLFormElement>) => {
+          event.preventDefault();
+          if (!change.isPending) change.mutate();
+        }}
+      >
+        {errors.form !== null ? <ErrorBlock live compact error={errors.form} title={t("accounts.email.failed")} /> : null}
+        <Field label={t("accounts.email.label")} description={t("accounts.email.hint")} error={errors.fields.email}>
+          <Input
+            type="email"
+            autoComplete="off"
+            maxLength={254}
+            value={address}
+            onValueChange={(value: string) => {
+              setAddress(value);
+            }}
+          />
+        </Field>
+      </form>
+    </Dialog>
+  );
+}
 
 // ---------------------------------------------------------------------------------------
 // Changing a role

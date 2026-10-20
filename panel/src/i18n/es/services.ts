@@ -70,6 +70,8 @@ export const services: Catalog<typeof en> = {
     enableAtBoot: "Arrancar con el sistema",
     disableAtBoot: "No arrancar con el sistema",
     actionsFor: "Acciones de {name}",
+    editTags: "Editar tags...",
+    noun: "el servicio",
     moreActions: "Más acciones",
     startedToast: "Se inició {name}",
     stoppedToast: "Se detuvo {name}",

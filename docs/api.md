@@ -166,6 +166,15 @@ Accounts are managed under `/api/auth/accounts`, invitations under `/api/auth/in
 (accepted at `/api/auth/invitations/open` and `/accept`, without a credential), passkeys under
 `/api/auth/passkeys`, and an account changes its own password with `POST /api/auth/password`.
 
+An account has an `email` (`PATCH /api/auth/accounts/{username}`), where mail goes and nothing else. An
+invitation with `email` is also mailed (`emailed`, and `email_error` when the mail failed and the code is
+to be handed over), and refused before anything is made when the server cannot send mail. A person who
+forgot the password asks for a link at `POST /api/auth/password-reset/request` (`identifier`: the name or
+the address; always `202`, the same whoever asks) and finishes at `POST /api/auth/password-reset/confirm`
+(`code`, `password`, `second_factor`), both without a credential. They answer `404 reset_unavailable`
+when the server has no mail channel or runs the ENS profile; `GET /api/auth/oidc/providers` says
+whether the sign-in page offers it (`password_reset`).
+
 Since 3.4 a person can also sign in through an identity provider (OpenID Connect), under
 `/api/auth/oidc` ([sso.md](sso.md)). `GET /api/auth/oidc/providers` lists the buttons the sign-in page
 shows (anonymous); `GET /start` and `GET /callback` are the browser's two redirects; `POST /complete`
@@ -378,7 +387,10 @@ server's applications is planned and applied through it (`POST /api/manifest/pla
 project, an environment or a tag in one call, and `POST /api/mcp` speaks the Model Context Protocol for clients
 that inspect, deploy and control with an API token ([mcp.md](mcp.md)).
 
-The console lists every route with the permission it needs and can try a read: Settings > API reference.
+The console lists every route with the permission it needs and can try any of them: Settings > API
+reference sends the call with the session you are signed in with (a JSON body to edit, the status, the
+headers and the server's own words back), so your role, sudo mode and a second person's approval apply
+as on any page, and a change asks before it goes. It loads nothing from outside: no Swagger UI, no CDN.
 The same document is `GET /api/openapi.json`.
 A typed Python client generated from it is `sdk/python` ([sdk.md](sdk.md)), and a Terraform and OpenTofu
 provider written against it is `terraform-provider-noust/` ([terraform.md](terraform.md)).
@@ -749,6 +761,8 @@ to send push events to `hook_url`, which is `https://<console>/hooks/deploy/{dom
 |---|---|
 | GitHub | `X-Hub-Signature-256: sha256=<HMAC-SHA256 of the body>` (set the webhook secret) |
 | Gitea | `X-Gitea-Signature: <HMAC-SHA256 of the body>` |
+| Forgejo (Codeberg) | `X-Forgejo-Signature: <HMAC-SHA256 of the body>`; it sends Gitea's headers too, and the delivery log says `forgejo` |
+| Gogs | `X-Gogs-Signature: <HMAC-SHA256 of the body>`, no prefix; the event is in `X-Gogs-Event` (and `X-GitHub-Event`) |
 | GitLab | `X-Gitlab-Token: <secret>` |
 | Bitbucket Cloud | `X-Hub-Signature: sha256=<HMAC-SHA256 of the body>` (set the webhook's secret); the event is in `X-Event-Key` |
 
@@ -769,7 +783,7 @@ pin, the branch its checkout is on in place or its recorded branch on releases) 
 deploys. A forge's ping is answered and recorded; a forge retry of the same delivery answers `"reason": "duplicate"`.
 An application that **follows tags** (`noust app follow-tags DOMAIN 'v*'`, `PATCH
 /api/apps/{domain}/follow-tags`) reads its deliveries differently (3.2): a published `release` of
-GitHub or Gitea (not a draft or a pre-release) and a pushed tag (GitHub, Gitea, GitLab or Bitbucket)
+GitHub, Gitea or Forgejo (not a draft or a pre-release) and a pushed tag (GitHub, Gitea, Forgejo, Gogs, GitLab or Bitbucket)
 deploy that tag, once even though a forge may send both for one version (`202 {job_id,
 status}`); a draft or a pre-release, a tag that does not match the pattern, is not a version,
 or is not newer than what is deployed answers `200 {"status":
@@ -1071,6 +1085,7 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/services/{name}/restart` | POST `apps.operate` |  |
 | `/api/services/{name}/start` | POST `apps.operate` |  |
 | `/api/services/{name}/stop` | POST `apps.operate` |  |
+| `/api/services/{name}/tags` | GET `server.read`; PUT `server.manage` | The unit's tags; `{tags}` makes it carry exactly those. `GET /api/services?tag=` filters the list |
 
 ### Backups
 
@@ -1125,6 +1140,7 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/databases/databases/{engine}/{name}/keys` | GET `databases.read` |  |
 | `/api/databases/databases/{engine}/{name}/metrics` | GET `databases.read` |  |
 | `/api/databases/databases/{engine}/{name}/overview` | GET `databases.read` |  |
+| `/api/databases/databases/{engine}/{name}/tags` | GET `databases.read`; PUT `databases.write` | The database's tags; `{tags}` makes it carry exactly those. `GET /api/databases/databases?tag=` filters the list, and every database carries its `tags` |
 | `/api/databases/databases/{engine}/{name}/relation` | GET `databases.read` |  |
 | `/api/databases/databases/{engine}/{name}/relations` | GET `databases.read` |  |
 | `/api/databases/databases/{engine}/{name}/rows` | GET `databases.read`; POST `databases.write`, sudo, four-eyes; PATCH `databases.write`, sudo, four-eyes |  |
@@ -1171,6 +1187,7 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/secret-providers/{name}/test` | POST `settings.manage`, sudo | Prove it answers and accepts its token |
 | `/api/tags` | GET `apps.read` | The tags your applications carry, with those applications |
 | `/api/tags/{tag}/deploy` | POST `apps.deploy` | Update every app that carries a tag, each as a job; `{force}` rebuilds those with nothing new. A pipeline's token calls this to redeploy a group |
+| `/api/tags/{tag}/restart` | POST `apps.operate` | Restart every application and service that carries a tag, one by one; `{dry_run}` says what would happen and restarts nothing. Databases that carry it are listed and left. A caller reaches what it sees: a team its own applications, only the instance the server's units |
 | `/api/variables/server` | GET `settings.read` (`?unmask=true`: `admin`, sudo, audited); POST `settings.manage`, sudo | The server's shared variables, which every application can refer to |
 | `/api/variables/server/{name}` | PUT `settings.manage`, sudo; DELETE `settings.manage`, sudo |  |
 | `/api/variables/server/{name}/usage` | GET `settings.read` |  |

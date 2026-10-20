@@ -67,6 +67,8 @@ export const services = {
     enableAtBoot: "Start at boot",
     disableAtBoot: "Do not start at boot",
     actionsFor: "Actions for {name}",
+    editTags: "Edit tags...",
+    noun: "service",
     moreActions: "More actions",
     startedToast: "Started {name}",
     stoppedToast: "Stopped {name}",

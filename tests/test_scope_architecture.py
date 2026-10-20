@@ -51,6 +51,7 @@ from noust.web.permissions.scopes import (
     DOMAIN,
     INSTANCE,
     JOB,
+    NODE,
     OPEN,
     RESOURCE,
     RULES,
@@ -396,7 +397,7 @@ class TestEveryRouteIsHeldToTheScope:
         assert not dead, f"No route matches these rules; delete them: {dead}"
 
     def test_a_resource_rule_names_the_parameters_its_route_has(self, served: Any) -> None:
-        kinds = {APP, DOMAIN, DATABASE, DEPLOYMENT, JOB, TEAM}
+        kinds = {APP, DOMAIN, DATABASE, DEPLOYMENT, JOB, TEAM, NODE}
         wrong = []
         for method, template, _route in served_routes(served):
             rule = rule_for(method, template)
@@ -454,10 +455,15 @@ class TestEveryRouteIsHeldToTheScope:
             "GET /api/recipes/installed",
             "GET /api/tags",
             "POST /api/tags/{tag}/deploy",
+            # What it reaches is what the caller sees: its applications, its databases, and the
+            # server's units only for the instance.
+            "POST /api/tags/{tag}/restart",
             "GET /api/teams",
             "GET /api/projects",
             "GET /api/environments",
             "GET /api/map",
+            # The servers a team was given: the handler keeps to them.
+            "GET /api/nodes",
             "GET /events",
         }
 
@@ -798,6 +804,11 @@ NOT_OWNED: dict[str, str] = {
     "host's engines. A database on it is a team's, and is reached as any database is",
     "fleet_builders": "which server a central builds an application on: the central's own, reached "
     "only through /api/fleet, which is the instance's. The node keeps the application and its build",
+    "accounts": "the people who sign in: an account is not a team's resource, and the address it "
+    "carries (where an invitation or a password reset is mailed) is read and written by the "
+    "account's own routes and by those who manage accounts, never through an application",
+    "oidc_providers": "the ways to sign in with an identity provider, GitHub included: the "
+    "server's, like every identity source (/api/auth/oidc is instance-scoped)",
     "fleet_placements": "where a central runs an application across its servers: the central's own, "
     "reached only through /api/fleet, which is the instance's. Each server keeps the application and "
     "applies its own teams' scope to it",

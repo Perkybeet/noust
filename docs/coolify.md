@@ -48,7 +48,7 @@ What follows from that:
 | Health check | The health gate | Runs on every activation and also on a rollback; configurable per application (`noust app health`). |
 | Resource limits | Resource limits | `noust app limits`; systemd resource control. |
 | API token (Root, Write, Deploy, Read, Read sensitive) | A token with a scope, and roles | Settings > Tokens; roles are `viewer`, `operator`, `admin`, `security`, `auditor`. |
-| Tags | App tags | The labels that group applications, set under an application's **Settings > General**. The Applications list narrows to one, and **Update tagged apps** updates every application that carries it ([console.md](console.md)). Projects and environments group resources too. |
+| Tags | App tags | The labels that group applications, set under an application's **Settings > General**. The Applications list narrows to one, and **Update tagged apps** updates every application that carries it ([console.md](console.md)). Databases and services carry tags too, and `noust app tag restart` restarts everything that has one ([teams.md](teams.md#tags-on-applications)). Projects and environments group resources too. |
 | Shared variables | Shared variables and references | A variable of a team, a project, an environment or the server, used as `{{project.NAME}}` in an application's own variables; **Settings > Variables** holds the server's, a team's **Variables** tab and a project's page the others ([variables.md](variables.md)). |
 
 ## Screens

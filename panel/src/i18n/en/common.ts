@@ -252,6 +252,8 @@ export const common = {
     failed: "Failed",
     noAnswer: "No answer",
     runningUnmanaged: "Running outside Noust",
+    degraded: "Degraded",
+    runningNoHealthcheck: "Running, no health check",
     unknown: "Unknown",
   },
   deployState: {

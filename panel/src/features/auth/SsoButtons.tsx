@@ -23,6 +23,15 @@ export function useLocalSignIn(): boolean {
   return data?.local_login ?? true;
 }
 
+/**
+ * Whether the sign-in page offers "Forgot your password?": the server can mail a link, and does
+ * not recover accounts another way (the ENS profile). False until the server says.
+ */
+export function usePasswordReset(): boolean {
+  const { data } = useQuery(ssoProvidersQuery());
+  return data?.password_reset ?? false;
+}
+
 export interface SsoButtonsProps {
   providers: SsoProvider[];
   /** Where the console goes once signed in; carried through the provider and back. */

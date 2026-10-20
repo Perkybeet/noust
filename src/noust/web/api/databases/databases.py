@@ -18,6 +18,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 
+from noust.core.app_tags import validate_tag
 from noust.core.exceptions import ValidationError
 from noust.core.teams import TeamStore, ownership_target, scoped_store
 from noust.managers.database.registry import DatabaseRegistry
@@ -322,6 +323,7 @@ def list_databases(
     environment: Annotated[
         str | None, Query(description="Only this environment's databases")
     ] = None,
+    tag: Annotated[str | None, Query(description="Only the databases that carry this tag")] = None,
 ) -> DatabaseListResponse:
     """
     List databases across the running engines, joined with the store.
@@ -332,6 +334,7 @@ def list_databases(
         team: Only this team's databases.
         project: Only the projects with this slug.
         environment: Only the environments with this slug.
+        tag: Only the databases that carry this tag.
 
     Returns:
         Every database the running engines report, the tracked ones they
@@ -355,6 +358,9 @@ def list_databases(
     }
     if scoped.scope.restricted or team or project or environment:
         views = [view for view in views if (view.name, view.engine) in owners]
+    if tag is not None:
+        wanted = validate_tag(tag)
+        views = [view for view in views if wanted in view.tags]
     rows = []
     for view in views:
         row = database_response(view)

@@ -129,6 +129,7 @@ def invite_to_team(
     person_ref: str | None = None,
     created_by: str | None = None,
     expires_hours: float | None = None,
+    email: str | None = None,
 ) -> tuple[Account, str, Membership]:
     """
     Invite a person to one team: they set their own password, and join only it.
@@ -143,6 +144,7 @@ def invite_to_team(
         person_ref: Who the account belongs to.
         created_by: Who is inviting.
         expires_hours: How long the code lasts; the manager's default when omitted.
+        email: Where the invitation is mailed; kept on the new account.
 
     Returns:
         The account, the invitation code (shown once) and the membership.
@@ -160,6 +162,7 @@ def invite_to_team(
         person_ref=person_ref,
         created_by=created_by,
         join_default_team=False,
+        email=email,
         **options,
     )
     membership = TeamStore(accounts.store).add_member(

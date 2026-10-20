@@ -59,6 +59,11 @@ export function setRole(username: string, role: string) {
   return request("patch", "/api/auth/accounts/{username}", { params: { username }, body: { role } });
 }
 
+/** The address an account's invitations and password resets are mailed to; empty clears it. */
+export function setEmail(username: string, email: string) {
+  return request("patch", "/api/auth/accounts/{username}", { params: { username }, body: { email } });
+}
+
 export function disableAccount(username: string, reason: string | null) {
   return request("post", "/api/auth/accounts/{username}/disable", { params: { username }, body: { reason } });
 }

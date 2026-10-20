@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1033 operations.
+1047 operations.
 
 ## Access
 
@@ -260,6 +260,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/auth/logout` | Logout | `self` |  |  |
 | POST | `/api/auth/notice/accept` | Accept Notice | `self` |  |  |
 | POST | `/api/auth/password` | Change Password | `self` |  |  |
+| POST | `/api/auth/password-reset/confirm` | Confirm Password Reset | `public` |  |  |
+| POST | `/api/auth/password-reset/request` | Request Password Reset | `public` |  |  |
 | GET | `/api/auth/roles` | List Roles | `self` |  |  |
 | GET | `/api/auth/session` | Get Session Info | `public` |  |  |
 | GET | `/api/auth/sessions` | Get Sessions | `self` |  |  |
@@ -509,6 +511,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/databases/databases/{engine}/{name}/rows/delete` | Delete Row | `databases.write` | yes | yes |
 | GET | `/api/databases/databases/{engine}/{name}/schemas` | List Schemas | `databases.read` |  |  |
 | GET | `/api/databases/databases/{engine}/{name}/slow-queries` | Slow Queries | `databases.read` |  |  |
+| GET | `/api/databases/databases/{engine}/{name}/tags` | Get Database Tags | `databases.read` |  |  |
+| PUT | `/api/databases/databases/{engine}/{name}/tags` | Put Database Tags | `databases.write` |  |  |
 | GET | `/api/databases/engines` | List Engines | `databases.read` |  |  |
 | GET | `/api/databases/engines/catalog` | Get Engine Catalog | `databases.read` |  |  |
 | GET | `/api/databases/engines/tls` | List Status | `databases.read` |  |  |
@@ -854,9 +858,12 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/nodes/{node}/inventory` | Get Node Inventory | `fleet.read` |  |  |
 | POST | `/api/nodes/{node}/inventory` | Apply Node Inventory | `fleet.manage` |  |  |
 | GET | `/api/nodes/{node}/key` | Get Node Key | `fleet.manage` |  |  |
+| POST | `/api/nodes/{node}/migrate-tunnel` | Migrate Node Tunnel | `fleet.manage` | yes | yes |
 | PUT | `/api/nodes/{node}/monitoring` | Set Node Monitoring | `fleet.manage` |  |  |
+| POST | `/api/nodes/{node}/rekey` | Rekey Node | `fleet.manage` | yes | yes |
 | GET | `/api/nodes/{node}/ssh` | Get Node Ssh | `fleet.read` |  |  |
 | PUT | `/api/nodes/{node}/ssh` | Set Node Ssh | `fleet.manage` | yes |  |
+| PUT | `/api/nodes/{node}/team` | Set Node Team | `fleet.manage` | yes |  |
 | POST | `/api/nodes/{node}/test` | Test Node | `fleet.read` |  |  |
 
 ## Notifications
@@ -870,6 +877,10 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/notifications/deliveries/sweep` | Sweep Deliveries | `settings.manage` |  |  |
 | POST | `/api/notifications/deliveries/{delivery_id}/retry` | Retry Delivery | `settings.manage` |  |  |
 | GET | `/api/notifications/events` | List Events | `settings.read` |  |  |
+| GET | `/api/teams/{team}/notifications/channels` | List Team Channels | `apps.read` |  |  |
+| PUT | `/api/teams/{team}/notifications/channels/{name}` | Save Team Channel | `apps.manage` | yes |  |
+| DELETE | `/api/teams/{team}/notifications/channels/{name}` | Remove Team Channel | `apps.manage` | yes |  |
+| POST | `/api/teams/{team}/notifications/channels/{name}/test` | Test Team Channel | `apps.operate` |  |  |
 
 ## OpenAPI
 
@@ -1103,6 +1114,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/services/{name}/restart` | Restart Service | `apps.operate` |  |  |
 | POST | `/api/services/{name}/start` | Start Service | `apps.operate` |  |  |
 | POST | `/api/services/{name}/stop` | Stop Service | `apps.operate` |  |  |
+| GET | `/api/services/{name}/tags` | Get Service Tags | `server.read` |  |  |
+| PUT | `/api/services/{name}/tags` | Put Service Tags | `server.manage` |  |  |
 
 ## Single sign-on
 
@@ -1204,6 +1217,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | PUT | `/api/apps/{domain}/tags` | Put App Tags | `apps.manage` |  |  |
 | GET | `/api/tags` | List Tags | `apps.read` |  |  |
 | POST | `/api/tags/{tag}/deploy` | Deploy Tag | `apps.deploy` |  |  |
+| POST | `/api/tags/{tag}/restart` | Restart Tag | `apps.operate` |  |  |
 
 ## Teams
 

@@ -54,7 +54,7 @@ _PROVIDER_COLUMNS = (
     "name, label, issuer, client_id, scopes, enabled, require_email_verified, "
     "assume_email_verified, clock_skew_seconds, provisioning, default_role, default_team, default_team_role, "
     "link_by_email, allowed_domains, require_amr, groups_claim, group_sync, group_mappings, "
-    "redirect_uri, created_at, created_by, updated_at, updated_by"
+    "redirect_uri, created_at, created_by, updated_at, updated_by, kind"
 )
 _IDENTITY_COLUMNS = (
     "id, account_id, protocol, provider, issuer, subject, email, mapped_role, created_at, "
@@ -136,6 +136,7 @@ def _provider(row: sqlite3.Row) -> OidcProvider:
         group_sync=bool(row["group_sync"]),
         group_mappings=tuple(mappings),
         redirect_uri=row["redirect_uri"],
+        kind=str(row["kind"] or "oidc"),
         created_at=float(row["created_at"]),
         created_by=row["created_by"],
         updated_at=float(row["updated_at"]),
@@ -366,7 +367,7 @@ class OidcStore:
         with self.store._transaction() as cursor:
             cursor.execute(
                 f"INSERT INTO oidc_providers ({_PROVIDER_COLUMNS}) "  # noqa: S608 - fixed columns
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(name) DO UPDATE SET label = excluded.label, "
                 "issuer = excluded.issuer, client_id = excluded.client_id, "
                 "scopes = excluded.scopes, enabled = excluded.enabled, "
@@ -406,6 +407,7 @@ class OidcStore:
                     provider.created_by,
                     provider.updated_at,
                     provider.updated_by,
+                    provider.kind,
                 ),
             )
 

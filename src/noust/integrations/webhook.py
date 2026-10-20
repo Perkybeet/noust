@@ -32,6 +32,7 @@ from noust.core.exceptions import DeploymentError, NoustError
 from noust.core.github_host import GITHUB_COM, configured_host, integration_repository
 from noust.core.store import App, get_store
 from noust.core.webhook_deliveries import WebhookDelivery
+from noust.integrations.forges.hosts import kind_of_host
 from noust.validators.source import github_repository, parse_ssh_remote
 
 logger = logging.getLogger(__name__)
@@ -53,11 +54,14 @@ BITBUCKET_PREVIEW_EVENTS = [
     "pullrequest:rejected",
 ]
 
-#: Forges whose settings page Noust can link to, by host (or a word in it).
-_GITLAB_WORD = "gitlab"
-_GITEA_HOSTS = ("codeberg.org", "gitea.com")
-_GITEA_WORD = "gitea"
-_BITBUCKET_WORD = "bitbucket"
+#: Where each kind of forge puts the page that adds a webhook, under the repository.
+_SETTINGS_PAGES = {
+    "gitlab": "/-/hooks",
+    "gitea": "/settings/hooks/gitea/new",
+    "forgejo": "/settings/hooks/forgejo/new",
+    "gogs": "/settings/hooks/gogs/new",
+    "bitbucket": "/admin/webhooks",
+}
 
 
 @dataclass
@@ -113,8 +117,9 @@ class ForgeInfo:
     The forge side of the setup.
 
     Attributes:
-        forge: ``github``, ``gitlab``, ``gitea`` or ``bitbucket``; None for
-            another host or a source that is not a remote repository.
+        forge: ``github``, ``gitlab``, ``gitea``, ``forgejo``, ``gogs`` or ``bitbucket``;
+            None for another host (one the operator can name in
+            ``integrations.forge_hosts``) or a source that is not a remote repository.
         host: The forge's host name. Never a credential: a source may carry a
             token in its URL, and nothing here repeats it.
         repository: ``owner/repo`` (``group/subgroup/repo`` on GitLab).
@@ -314,7 +319,7 @@ def reveal_secret(domain: str) -> str:
     return secret
 
 
-def _forge_of(source: str | None) -> ForgeInfo:
+def forge_of(source: str | None) -> ForgeInfo:
     """
     Read the forge side of an application's source.
 
@@ -357,17 +362,9 @@ def _forge_of(source: str | None) -> ForgeInfo:
     host = host.lower()
     repo = path.strip("/").removesuffix(".git")
     repository = repo or None
-    forge: str | None = None
-    settings_url: str | None = None
-    if _GITLAB_WORD in host:
-        forge = "gitlab"
-        settings_url = f"https://{host}/{repo}/-/hooks" if repo else None
-    elif host in _GITEA_HOSTS or _GITEA_WORD in host:
-        forge = "gitea"
-        settings_url = f"https://{host}/{repo}/settings/hooks/gitea/new" if repo else None
-    elif _BITBUCKET_WORD in host:
-        forge = "bitbucket"
-        settings_url = f"https://{host}/{repo}/admin/webhooks" if repo else None
+    forge = kind_of_host(host)
+    page = _SETTINGS_PAGES.get(forge or "")
+    settings_url = f"https://{host}/{repo}{page}" if page and repo else None
     return ForgeInfo(forge=forge, host=host, repository=repository, settings_url=settings_url)
 
 
@@ -471,7 +468,7 @@ def status(app: App, *, fallback_base: str | None = None) -> WebhookStatus:
     enabled = bool(store.get_webhook_secret(app.domain))
     public = public_hooks_url()
     base = public or (fallback_base.rstrip("/") if fallback_base else None)
-    forge = _forge_of(app.source)
+    forge = forge_of(app.source)
     console_url = Config().get("web.public_url")
     api_base = (
         str(console_url).rstrip("/")

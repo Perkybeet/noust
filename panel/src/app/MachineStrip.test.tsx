@@ -1,11 +1,12 @@
-import { screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { bindT, loadCatalog } from "../i18n";
+import { setLocale } from "./locale";
 import { expectNoAxeViolations } from "../test/axe";
 import { renderConsole } from "../test/console";
 import { MACHINE, fakeBackend, json, signedInRoutes } from "../test/fakes";
-import { unitTallySummary } from "./MachineStrip";
+import { StreamBadge, unitTallySummary } from "./MachineStrip";
 
 async function stripAt(units: typeof MACHINE.units) {
   fakeBackend({ ...signedInRoutes(), "GET /api/system/machine": () => json(200, { ...MACHINE, units }) });
@@ -64,5 +65,44 @@ describe("the unit tally", () => {
   it("has no accessibility violations, with a failure to show", async () => {
     const { strip } = await stripAt({ running: 9, failed: 1, stopped: 2 });
     await expectNoAxeViolations(strip);
+  });
+});
+
+describe("the live stream's badge", () => {
+  it("says Live, with the running shape, while the stream keeps the readings current", () => {
+    const { container } = render(<StreamBadge stream="live" />);
+    expect(screen.getByText("Live")).toBeInTheDocument();
+    expect(container.querySelector("[data-state='running']")).not.toBeNull();
+  });
+
+  it("says Reconnecting, with the in-progress shape, when the stream is down", () => {
+    const { container } = render(<StreamBadge stream="reconnecting" />);
+    expect(screen.getByText("Reconnecting")).toBeInTheDocument();
+    expect(container.querySelector("[data-state='deploying']")).not.toBeNull();
+    expect(screen.queryByText("Live")).toBeNull();
+  });
+
+  it("says nothing before the first connection", () => {
+    const { container } = render(<StreamBadge stream="connecting" />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("gives the word way on a narrow strip but never the reconnecting state", () => {
+    const live = render(<StreamBadge stream="live" />);
+    expect(live.container.firstElementChild).toHaveClass("hidden");
+    live.unmount();
+    const down = render(<StreamBadge stream="reconnecting" />);
+    expect(down.container.firstElementChild).not.toHaveClass("hidden");
+  });
+
+  it("says it in Spanish too", async () => {
+    await act(() => setLocale("es"));
+    render(<StreamBadge stream="live" />);
+    expect(screen.getByText("En vivo")).toBeInTheDocument();
+  });
+
+  it("has no accessibility violations", async () => {
+    const { container } = render(<StreamBadge stream="live" />);
+    await expectNoAxeViolations(container);
   });
 });

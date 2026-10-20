@@ -113,9 +113,93 @@ describe("Settings > API reference", () => {
     const curl = within(drawer).getByText(/^curl -sS -X POST/);
     expect(curl.textContent).toContain('Bearer $NOUST_TOKEN');
     expect(curl.textContent).not.toContain("noust_tok_");
-    // A change is copied and sent from a terminal, never from the page.
-    expect(within(drawer).getByText("A change is not sent from here: copy the curl and run it with an API token.")).toBeInTheDocument();
-    expect(within(drawer).queryByRole("button", { name: "Send request" })).not.toBeInTheDocument();
+    // A change can be tried from the page too, with an example body to edit first.
+    const body = within(drawer).getByLabelText("Body to send");
+    expect(body).toHaveValue(JSON.stringify({ domain: "string", force: false }, null, 2));
+    expect(within(drawer).getByRole("button", { name: "Send request" })).toBeEnabled();
+  });
+
+  it("sends a change only after asking, with the body as edited, and shows its status, headers and body", { timeout: 30_000 }, async () => {
+    const { backend, user } = await pageAt("/settings/api", {
+      "POST /api/jobs/update": () => json(202, { job_id: "j-7", status: "queued" }, { "X-Noust-API-Version": "1" }),
+    });
+    await user.click(await screen.findByText("/api/jobs/update"));
+    const drawer = await screen.findByRole("dialog", { name: "POST /api/jobs/update" });
+    const body = within(drawer).getByLabelText("Body to send");
+    await user.clear(body);
+    await user.click(body);
+    await user.paste('{"domain": "shop.example.com", "force": true}');
+
+    await user.click(within(drawer).getByRole("button", { name: "Send request" }));
+    // Nothing has gone yet: it is the real server.
+    const confirm = await screen.findByRole("alertdialog", { name: "Send POST /api/jobs/update?" });
+    expect(backend.callsTo("POST /api/jobs/update")).toHaveLength(0);
+    expect(within(confirm).getByText(/not a rehearsal/)).toBeInTheDocument();
+    await user.click(within(confirm).getByRole("button", { name: "Send POST" }));
+
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/jobs/update")).toHaveLength(1);
+    });
+    expect(backend.callsTo("POST /api/jobs/update")[0]?.body).toEqual({ domain: "shop.example.com", force: true });
+    expect(await within(drawer).findByText("Status 202")).toBeInTheDocument();
+    expect(within(drawer).getByText(/"job_id": "j-7"/)).toBeInTheDocument();
+    await user.click(within(drawer).getByText("Response headers"));
+    expect(within(drawer).getByText(/x-noust-api-version: 1/)).toBeInTheDocument();
+  });
+
+  it("sends nothing when the question is declined", { timeout: 30_000 }, async () => {
+    const { backend, user } = await pageAt("/settings/api", { "POST /api/jobs/update": () => json(202, {}) });
+    await user.click(await screen.findByText("/api/jobs/update"));
+    const drawer = await screen.findByRole("dialog", { name: "POST /api/jobs/update" });
+
+    await user.click(within(drawer).getByRole("button", { name: "Send request" }));
+    const confirm = await screen.findByRole("alertdialog", { name: "Send POST /api/jobs/update?" });
+    await user.click(within(confirm).getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+    expect(backend.callsTo("POST /api/jobs/update")).toHaveLength(0);
+    expect(within(drawer).queryByText(/^Status \d/)).not.toBeInTheDocument();
+  });
+
+  it("does not send a body that is not JSON, and says so", { timeout: 30_000 }, async () => {
+    const { backend, user } = await pageAt();
+    await user.click(await screen.findByText("/api/jobs/update"));
+    const drawer = await screen.findByRole("dialog", { name: "POST /api/jobs/update" });
+    const body = within(drawer).getByLabelText("Body to send");
+    await user.clear(body);
+    await user.click(body);
+    await user.paste("{domain:");
+
+    expect(await within(drawer).findByText("This is not valid JSON.")).toBeInTheDocument();
+    expect(within(drawer).getByRole("button", { name: "Send request" })).toBeDisabled();
+    expect(backend.callsTo("POST /api/jobs/update")).toHaveLength(0);
+  });
+
+  it("shows a change's refusal with its status and the words the server wrote", { timeout: 30_000 }, async () => {
+    const { user } = await pageAt("/settings/api", {
+      "POST /api/jobs/update": () => problem(403, "forbidden", "You may not update applications.", { hint: "Ask for the operator role." }),
+    });
+    await user.click(await screen.findByText("/api/jobs/update"));
+    const drawer = await screen.findByRole("dialog", { name: "POST /api/jobs/update" });
+    await user.click(within(drawer).getByRole("button", { name: "Send request" }));
+    await user.click(await screen.findByRole("button", { name: "Send POST" }));
+
+    expect(await within(drawer).findByText("Status 403")).toBeInTheDocument();
+    expect(within(drawer).getByText("You may not update applications.")).toBeInTheDocument();
+    expect(within(drawer).getByText("Ask for the operator role.")).toBeInTheDocument();
+  });
+
+  it("shows a read's status too, and a read is sent without asking", { timeout: 30_000 }, async () => {
+    const { backend, user } = await pageAt("/settings/api", { "GET /api/apps": () => json(200, []) });
+    await user.click(await screen.findByText("/api/apps"));
+    const drawer = await screen.findByRole("dialog", { name: "GET /api/apps" });
+    await user.click(within(drawer).getByRole("button", { name: "Send request" }));
+
+    expect(await within(drawer).findByText("Status 200")).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(backend.callsTo("GET /api/apps")).toHaveLength(1);
   });
 
   it("tries a read with the session and shows the answer as it came, after the parameters it needs", { timeout: 30_000 }, async () => {

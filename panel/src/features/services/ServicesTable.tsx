@@ -10,6 +10,7 @@ import { StatusPill } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { formatBytes } from "../../lib/format";
+import { TagChips } from "../app/settings/ResourceTagsDialog";
 import type { ServiceInfo } from "./data";
 import { serviceState } from "./data";
 
@@ -54,6 +55,7 @@ function columnsFor(t: T, mixed: boolean, memory: boolean, appOf: ((service: Ser
             ) : !row.managed ? (
               <span className="text-12 text-fg-muted sm:hidden">{t("services.table.foreign")}</span>
             ) : null}
+            <TagChips tags={row.tags} />
           </span>
         );
       },

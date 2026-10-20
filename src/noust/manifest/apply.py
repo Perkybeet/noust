@@ -13,7 +13,10 @@ left, so running it again, after fixing the cause, continues from where it
 stopped: a plan taken again shows only what remains.
 
 Nothing here is destructive. It creates, sets and moves; it never deletes an
-application, a domain, a database, a variable or a schedule.
+application, a domain, a database, a variable, a cron job or a schedule.
+
+An action on another server of the fleet is the same call one level down, through the
+central (:class:`~noust.manifest.plan.NodeTransport`), and its jobs are followed there too.
 """
 
 from __future__ import annotations
@@ -24,8 +27,8 @@ from typing import Any
 
 from noust.client.errors import RemoteError
 from noust.client.jobs import DEFAULT_WAIT, follow
-from noust.manifest.plan import Action, Plan, Transport
-from noust.manifest.schema import AppSpec
+from noust.manifest.plan import Action, NodeTransport, Plan, Transport
+from noust.manifest.schema import AppSpec, PlacementSpec
 
 
 @dataclass
@@ -77,7 +80,7 @@ class ApplyResult:
 
     @property
     def restart(self) -> list[str]:
-        """The applications whose new variables wait for a restart."""
+        """The applications whose new variables wait for a restart (``SERVER:domain`` on another)."""
         return sorted({o.action.target for o in self.outcomes if o.restart_required})
 
     def to_dict(self) -> dict[str, Any]:
@@ -190,7 +193,19 @@ class Applier:
 
     # ------------------------------------------------------------------- steps
 
-    def _job(self, answer: dict[str, Any], what: str, action: Action) -> Outcome:
+    def _transport_for(self, action: Action) -> Transport:
+        """
+        Args:
+            action: One action of the plan.
+
+        Returns:
+            The routes it is done through: this server's, or another's through the central.
+        """
+        return NodeTransport(self.transport, action.server) if action.server else self.transport
+
+    def _job(
+        self, answer: dict[str, Any], what: str, action: Action, transport: Transport | None = None
+    ) -> Outcome:
         """
         Wait for the job an action queued, if asked to.
 
@@ -198,6 +213,7 @@ class Applier:
             answer: What the route answered, carrying the job.
             what: What the job does, for the message.
             action: The action.
+            transport: The routes the job is followed through; the action's own by default.
 
         Returns:
             How the job ended.
@@ -207,7 +223,7 @@ class Applier:
         if not self.wait or not job_id:
             return Outcome(action, "applied", f"{what} queued as job {job_id}")
         final = follow(
-            _Getter(self.transport),
+            _Getter(transport or self._transport_for(action)),
             str(job_id),
             on_line=self.on_line,
             timeout=self.timeout,
@@ -242,7 +258,33 @@ class Applier:
         """
         data = action.data
         kind = action.kind
-        t = self.transport
+        t = self._transport_for(action)
+        if kind == "server.team":
+            t.put(f"/nodes/{data['node']}/team", {"team": data["team"]})
+            return Outcome(action, "applied", "assigned")
+        if kind == "server.labels":
+            t.put(f"/fleet/servers/{data['node']}/labels", {"labels": data["labels"]})
+            return Outcome(action, "applied", "set")
+        if kind == "placement.set":
+            spec: PlacementSpec = data["placement"]
+            body: dict[str, Any] = {
+                "serial": spec.serial,
+                "max_failures": spec.max_failures,
+                "canary": spec.canary,
+                "rollback_on_failure": spec.rollback_on_failure,
+            }
+            if spec.nodes is not None:
+                body["nodes"] = list(spec.nodes)
+            if spec.labels is not None:
+                body["labels"] = dict(spec.labels)
+            t.put(f"/fleet/placements/{data['domain']}", body)
+            return Outcome(action, "applied", "placed")
+        if kind == "cron.set":
+            t.post("/cron", data["body"])
+            return Outcome(action, "applied", "scheduled")
+        if kind == "cron.state":
+            t.post(f"/cron/{data['name']}/{'enable' if data['enabled'] else 'disable'}")
+            return Outcome(action, "applied", "switched on" if data["enabled"] else "switched off")
         if kind == "project.create":
             t.post(
                 f"/teams/{data['team']}/projects", {"name": data["name"], "slug": data["project"]}
@@ -255,16 +297,16 @@ class Applier:
             )
             return Outcome(action, "applied", "created")
         if kind == "app.create":
-            spec: AppSpec = data["spec"]
+            app_spec: AppSpec = data["spec"]
             if data.get("env") is None:
                 return Outcome(
                     action,
                     "failed",
                     "its variables are read where the manifest is applied from, and could not be",
                 )
-            first = spec.databases[0] if spec.databases else None
-            answer = t.post("/apps", _create_body(spec, data["env"], first))
-            return self._job(answer, "the deployment", action)
+            first = app_spec.databases[0] if app_spec.databases else None
+            answer = t.post("/apps", _create_body(app_spec, data["env"], first))
+            return self._job(answer, "the deployment", action, t)
         if kind == "app.move":
             t.post(
                 f"/apps/{data['domain']}/move",
@@ -286,7 +328,7 @@ class Applier:
             return Outcome(action, "applied", "added")
         if kind == "app.database":
             database = data["database"]
-            body = {
+            made = {
                 k: v
                 for k, v in {
                     "engine": database.engine,
@@ -295,8 +337,8 @@ class Applier:
                 }.items()
                 if v is not None
             }
-            answer = t.post(f"/apps/{data['domain']}/databases", body)
-            return self._job(answer, "the database", action)
+            answer = t.post(f"/apps/{data['domain']}/databases", made)
+            return self._job(answer, "the database", action, t)
         if kind == "app.env":
             if data.get("env") is None:
                 return Outcome(
@@ -315,7 +357,7 @@ class Applier:
             )
         if kind == "app.backups":
             backups = data["backups"]
-            body = {
+            schedule = {
                 "domain": data["domain"],
                 "schedule": backups.schedule,
                 "retention_count": backups.retention_count,
@@ -323,9 +365,9 @@ class Applier:
                 "include_databases": backups.include_databases,
             }
             if data.get("exists"):
-                t.put(f"/backup-schedules/{data['domain']}", body)
+                t.put(f"/backup-schedules/{data['domain']}", schedule)
             else:
-                t.post("/backup-schedules", body)
+                t.post("/backup-schedules", schedule)
             return Outcome(action, "applied", "scheduled")
         return Outcome(
             action, "failed", f"unknown action {kind}"
@@ -347,13 +389,17 @@ def restart_changed(
         The applications restarted.
     """
     restarted: list[str] = []
-    for domain in result.restart:
-        try:
-            transport.post(f"/apps/{domain}/restart")
-        except RemoteError as exc:
-            warn(f"{domain}: could not restart it: {exc.message}")
+    for outcome in result.outcomes:
+        if not outcome.restart_required:
             continue
-        restarted.append(domain)
+        action = outcome.action
+        routes: Transport = NodeTransport(transport, action.server) if action.server else transport
+        try:
+            routes.post(f"/apps/{action.data['domain']}/restart")
+        except RemoteError as exc:
+            warn(f"{action.target}: could not restart it: {exc.message}")
+            continue
+        restarted.append(action.target)
     return restarted
 
 

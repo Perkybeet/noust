@@ -270,14 +270,17 @@ class EmailNotifier:
         return text
 
     @property
-    def is_configured(self) -> bool:
-        """True when there is a way to send and someone to send to."""
-        if not self.recipients:
-            return False
+    def has_transport(self) -> bool:
+        """True when mail can leave this server: a provider's API with what it needs, or SMTP."""
         provider = self.provider
         if provider:
             return not email_api.missing(provider, self.api_settings)
         return bool(self.smtp_config.host)
+
+    @property
+    def is_configured(self) -> bool:
+        """True when there is a way to send and someone to send to."""
+        return bool(self.recipients) and self.has_transport
 
     def _create_connection(self) -> smtplib.SMTP:
         """
@@ -504,6 +507,44 @@ class EmailNotifier:
             EmailError: When the message could not be delivered.
         """
         return self._send(self.content_for(notification, self._inline_images()))
+
+    def send_message(
+        self, subject: str, text: str, html: str, *, message_id: str | None = None
+    ) -> bool:
+        """
+        Send one transactional message (an invitation, a password reset) to the recipients.
+
+        It leaves through the same transport as every notification, so there is one SMTP
+        implementation and one provider client. Nothing in it is rendered from a
+        notification: the caller wrote the text, and it is answered to nobody.
+
+        Args:
+            subject: The subject.
+            text: The plain text part.
+            html: The HTML part.
+            message_id: The local part of ``Message-ID``, when the caller wants one.
+
+        Returns:
+            True when the server accepted the message.
+
+        Raises:
+            EmailError: When the message could not be delivered or no transport is set.
+        """
+        if not self.has_transport:
+            raise EmailError(
+                "No way to send mail is configured",
+                details="Set monitor.smtp.* or monitor.email_api.* first.",
+            )
+        return self._send(
+            EmailContent(
+                subject=subject,
+                text=text,
+                html=html,
+                headers={"Auto-Submitted": "auto-generated"},
+                message_id=message_id,
+                sender_name=f"Noust ({self._hostname()})",
+            )
+        )
 
     def _inline_images(self) -> bool:
         """Returns: Whether the message can carry the wordmark as an attachment."""

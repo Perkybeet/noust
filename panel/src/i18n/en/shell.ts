@@ -126,6 +126,7 @@ export const shell = {
     disk: "Disk",
     upFor: "up {duration}",
     unavailable: "Machine readings unavailable",
+    live: "Live",
     reconnecting: "Reconnecting",
     failedUnits: { one: "{count} failed service", other: "{count} failed services" },
   },

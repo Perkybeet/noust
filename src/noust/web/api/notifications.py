@@ -68,6 +68,8 @@ class ChannelModel(BaseModel):
             one message.
         summary: What waits for a periodic summary (``at``, ``timezone``,
             ``below``, ``days``), or null for none.
+        team: The slug of the team that keeps it (``/api/teams/{team}/notifications``),
+            or null for the server's own.
     """
 
     name: str
@@ -81,6 +83,7 @@ class ChannelModel(BaseModel):
     quiet: dict[str, Any] | None = None
     flood: dict[str, Any] | None = None
     summary: dict[str, Any] | None = None
+    team: str | None = None
 
 
 class ChannelFieldModel(BaseModel):

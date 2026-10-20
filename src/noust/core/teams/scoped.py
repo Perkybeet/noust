@@ -38,6 +38,7 @@ if TYPE_CHECKING:
         DeploymentRecord,
         DomainRecord,
         JobRecord,
+        NodeRecord,
         NoustStore,
         Site,
     )
@@ -593,6 +594,122 @@ class ScopedStore:
             The newest deployment of each visible one.
         """
         return self.store.get_latest_deployments([d for d in domains if self.sees_domain(d)])
+
+    # ------------------------------------------------------------------ nodes
+
+    def _node_rows(self, where: str, params: Iterable[Any], order: str = "n.name") -> list[Any]:
+        """
+        Read the nodes of the teams the principal belongs to.
+
+        A server is its team's and nobody else's, so a project or an environment given
+        alone shows none: the machine is the team's as a whole.
+
+        Args:
+            where: A condition over ``n`` (the node) and ``t`` (its assignment), fixed text.
+            params: Its parameters.
+            order: An ``ORDER BY`` clause body.
+
+        Returns:
+            The rows of the visible nodes.
+        """
+        ids = self.scope.team_ids
+        if ids is None:
+            sql = (
+                "SELECT n.* FROM nodes n LEFT JOIN node_teams t ON t.node = n.name "  # noqa: S608
+                f"WHERE ({where}) ORDER BY {order}"
+            )
+            values: list[Any] = [*params]
+        elif not ids:
+            return []
+        else:
+            marks = ", ".join("?" for _ in ids)
+            sql = (
+                "SELECT n.* FROM nodes n JOIN node_teams t ON t.node = n.name "  # noqa: S608
+                f"WHERE ({where}) AND t.team_id IN ({marks}) ORDER BY {order}"
+            )
+            values = [*params, *sorted(ids)]
+        with self.store._transaction() as cursor:
+            cursor.execute(sql, values)
+            return list(cursor.fetchall())
+
+    def list_nodes(self, *, team: str | None = None) -> list[NodeRecord]:
+        """
+        List the visible servers of the fleet, by name.
+
+        Args:
+            team: Only this team's.
+
+        Returns:
+            The nodes. The instance sees every one, assigned or not; a member
+            sees those assigned to its teams.
+        """
+        from noust.core.store import NodeRecord
+
+        if team is None:
+            rows = self._node_rows("1 = 1", ())
+        else:
+            rows = self._node_rows(
+                "t.team_id = (SELECT id FROM teams WHERE slug = ?)", (team.strip().lower(),)
+            )
+        return [NodeRecord.from_row(row) for row in rows]
+
+    def get_node(self, name: str) -> NodeRecord | None:
+        """
+        Args:
+            name: A node's name.
+
+        Returns:
+            The node, or None when there is none or it is not visible.
+        """
+        from noust.core.store import NodeRecord
+
+        rows = self._node_rows("n.name = ?", (name,))
+        return NodeRecord.from_row(rows[0]) if rows else None
+
+    def sees_node(self, name: str) -> bool:
+        """
+        Args:
+            name: A node's name.
+
+        Returns:
+            Whether the principal may know the node exists. A principal that sees
+            every team is not asked: whether the node is there is the registry's.
+        """
+        return self.scope.sees_all or self.get_node(name) is not None
+
+    def require_node(self, name: str) -> NodeRecord:
+        """
+        Args:
+            name: A node's name.
+
+        Returns:
+            The node.
+
+        Raises:
+            ResourceNotFoundError: When there is none or it is not visible.
+        """
+        found = self.get_node(name)
+        if found is None:
+            raise ResourceNotFoundError(f"Node not found: {name}")
+        return found
+
+    def placement_of_node(self, name: str | None) -> Target | None:
+        """
+        Where a visible server lives: its team, which is all a server has.
+
+        Args:
+            name: A node's name.
+
+        Returns:
+            The team (and no project or environment), or None when the node is
+            not visible or nobody took it.
+        """
+        if not name or self.get_node(name) is None:
+            return None
+        with self.store._transaction() as cursor:
+            cursor.execute("SELECT team_id FROM node_teams WHERE node = ?", (name,))
+            row = cursor.fetchone()
+        return Target(int(row[0]), 0, 0) if row is not None else None
 
     # --------------------------------------------------------- whose it is
 

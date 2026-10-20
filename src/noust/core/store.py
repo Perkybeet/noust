@@ -3615,10 +3615,12 @@ class NoustStore:
             return cursor.rowcount > 0
 
     def delete_service(self, name: str) -> bool:
-        """Delete a service."""
+        """Delete a service, and the tags it carried (a unit created again starts without)."""
         with self._transaction() as cursor:
             cursor.execute("DELETE FROM services WHERE name = ?", (name,))
-            return cursor.rowcount > 0
+            removed = cursor.rowcount > 0
+            cursor.execute("DELETE FROM resource_tags WHERE kind = 'service' AND name = ?", (name,))
+            return removed
 
     def service_exists(self, name: str) -> bool:
         """Check if a service exists."""
@@ -3730,10 +3732,20 @@ class NoustStore:
         )
 
     def delete_database(self, name: str, engine: str) -> bool:
-        """Delete a database record."""
+        """
+        Delete a database record, and the tags the database carried.
+
+        The tags go even when there was no record: a database an engine holds that Noust never
+        tracked can be tagged too, and dropping it ends its labels as well.
+        """
         with self._transaction() as cursor:
             cursor.execute("DELETE FROM databases WHERE name = ? AND engine = ?", (name, engine))
-            return cursor.rowcount > 0
+            removed = cursor.rowcount > 0
+            cursor.execute(
+                "DELETE FROM resource_tags WHERE kind = 'database' AND name = ?",
+                (f"{engine}/{name}",),
+            )
+            return removed
 
     def link_database_to_app(self, db_name: str, engine: str, app_domain: str) -> bool:
         """Link a database to an application."""

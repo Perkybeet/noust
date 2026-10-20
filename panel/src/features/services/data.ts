@@ -72,6 +72,8 @@ export interface ServicesSearch {
   all?: true;
   /** Only the units in this state; "failed" also keeps the ones systemd is restarting. */
   state?: ServiceStateFilter;
+  /** Only the units that carry this tag. */
+  tag?: string;
 }
 
 function text(value: unknown): string | undefined {
@@ -85,15 +87,17 @@ export function validateServicesSearch(search: Record<string, unknown>): Service
   const q = text(search["q"]);
   const all = search["all"] === "1" || search["all"] === true || search["all"] === 1;
   const state = search["state"];
+  const tag = text(search["tag"]);
   return {
     ...(q !== undefined ? { q } : {}),
     ...(all ? { all: true as const } : {}),
     ...(typeof state === "string" && (SERVICE_STATES as readonly string[]).includes(state) ? { state: state as ServiceStateFilter } : {}),
+    ...(tag !== undefined && /^[a-z0-9](?:[a-z0-9._-]{0,30}[a-z0-9])?$/.test(tag) ? { tag } : {}),
   };
 }
 
 export function isFiltered(search: ServicesSearch): boolean {
-  return search.q !== undefined || search.state !== undefined;
+  return search.q !== undefined || search.state !== undefined || search.tag !== undefined;
 }
 
 /** Whether a unit is in the state a filter asks for. */
@@ -109,8 +113,9 @@ export function filterServices(services: readonly ServiceInfo[], search: Service
   const needle = search.q?.toLowerCase();
   return services.filter((service) => {
     if (search.state !== undefined && !inState(service, search.state)) return false;
+    if (search.tag !== undefined && !(service.tags ?? []).includes(search.tag)) return false;
     if (needle === undefined) return true;
-    const haystack = `${service.name} ${service.description ?? ""}`.toLowerCase();
+    const haystack = `${service.name} ${service.description ?? ""} ${(service.tags ?? []).join(" ")}`.toLowerCase();
     return haystack.includes(needle);
   });
 }

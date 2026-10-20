@@ -28,9 +28,10 @@ import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.core.accounts import ROLES, Account, AccountManager
+from noust.core.accounts.mail import AccountMailer
 from noust.core.accounts.manager import DEFAULT_INVITATION_HOURS
-from noust.core.accounts.model import ROLE_ADMIN
-from noust.core.exceptions import DependencyError, ValidationError
+from noust.core.accounts.model import ROLE_ADMIN, AccountError, clean_email
+from noust.core.exceptions import DependencyError, EmailError, ValidationError
 from noust.core.teams.model import TEAM_ROLES
 from noust.core.teams.onboarding import create_in_team, invite_to_team
 
@@ -313,6 +314,12 @@ def create_command(
     default=None,
     help="Their role in --team (viewer when omitted).",
 )
+@click.option(
+    "--email",
+    default=None,
+    help="Mail the invitation to this address (needs mail set up and web.public_url).",
+)
+@json_option("Print the account, the code and whether it was mailed as JSON.")
 @pass_context
 def invite_command(
     ctx: Context,
@@ -323,14 +330,27 @@ def invite_command(
     expires_hours: int,
     team: str | None,
     team_role: str | None,
+    email: str | None,
 ) -> None:
     """
     Invite a person: they set their own password and authenticator.
 
     For a new USERNAME, --role is required. For an existing account the
     invitation is a recovery: accepting it replaces the password and the
-    authenticator. The code is printed once; only its digest is stored.
+    authenticator. The code is printed once; only its digest is stored. With
+    --email the link is also mailed to that address, and the address is kept on the
+    account for password resets.
     """
+    mailer = AccountMailer() if email else None
+    if mailer is not None and not mailer.ready():
+        raise ValidationError(
+            "This server cannot send mail yet",
+            details=(
+                "Set monitor.smtp.* or monitor.email_api.* and web.public_url, or leave "
+                "--email out and hand the code over yourself."
+            ),
+            field="email",
+        )
     if team is not None:
         if role is None:
             raise ValidationError(
@@ -347,6 +367,7 @@ def invite_command(
             person_ref=person_ref,
             created_by="cli",
             expires_hours=expires_hours,
+            email=email,
         )
         _record(
             "team.member.add",
@@ -361,13 +382,46 @@ def invite_command(
             person_ref=person_ref,
             created_by="cli",
             expires_hours=expires_hours,
+            email=email,
         )
-    _record("user.invite", f"account:{account.username}", {"expires_hours": expires_hours})
+    mailed, mail_error = False, None
+    if mailer is not None and email and not ctx.dry_run:
+        try:
+            mailer.send_invitation(
+                clean_email(email) or email,
+                account.username,
+                code,
+                expires_hours,
+                invited_by="root",
+            )
+            mailed = True
+        except (EmailError, AccountError) as exc:
+            mail_error = exc.message
+    _record(
+        "user.invite",
+        f"account:{account.username}",
+        {"expires_hours": expires_hours, "mailed": mailed},
+    )
     if ctx.json_output:
-        click.echo(json.dumps({"account": account.to_dict(), "code": code}))
+        click.echo(
+            json.dumps(
+                {
+                    "account": account.to_dict(),
+                    "code": code,
+                    "emailed": mailed,
+                    "email_error": mail_error,
+                }
+            )
+        )
         return
     logger = ctx.logger
     logger.success(f"Invitation issued for {account.username} ({account.role})")
+    if mailed:
+        logger.success(f"The invitation was mailed to {account.email}")
+    elif mail_error:
+        logger.warning(
+            f"The invitation could not be mailed ({mail_error}); hand the code over yourself"
+        )
     logger.blank()
     click.echo(f"Code: {code}")
     logger.blank()
@@ -377,6 +431,28 @@ def invite_command(
     )
     if ctx.dry_run:
         logger.warning("Rehearsal: this invitation was not saved and will not work.")
+
+
+@cli.command("set-email")
+@click.argument("username")
+@click.argument("address", required=False, default="")
+@json_option("Print the account as JSON.")
+@pass_context
+def set_email_command(ctx: Context, username: str, address: str) -> None:
+    """
+    Set the address an account's invitations and password resets are mailed to.
+
+    ADDRESS left out (or empty) forgets it. It is never a way to sign in.
+    """
+    account = _manager().set_email(username, address)
+    _record("user.email", f"account:{account.username}", {"set": bool(account.email)})
+    _show(
+        ctx,
+        account,
+        f"{account.username} is mailed at {account.email}"
+        if account.email
+        else f"{account.username} has no address now",
+    )
 
 
 @cli.command("set-role")

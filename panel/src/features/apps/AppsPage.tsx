@@ -23,6 +23,7 @@ import { BulkAppsDialog } from "./BulkAppsDialog";
 import { latestDeployByDomain, recentDeploysQuery, useLatestMetrics, useTypeName } from "./data";
 import { STATE_FILTERS, appTagNames, appTypes, filterApps, isFiltered } from "./filters";
 import type { AppsSearch } from "./filters";
+import { RestartTaggedApps } from "./RestartTaggedApps";
 import { UpdateTaggedApps } from "./UpdateTaggedApps";
 import { useStateTransitions } from "./useStateTransitions";
 
@@ -86,6 +87,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [acting, setActing] = useState(false);
   const canDeploy = useOrganization().can("apps.deploy");
+  const canOperate = useOrganization().can("apps.operate");
 
   const all = useMemo(() => apps.data?.apps ?? [], [apps.data]);
   // The team the operator works in narrows the list, and the project and environment filters narrow it further.
@@ -135,6 +137,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
       <>
         {/* A bulk update is offered where the list is narrowed to one tag, and not before. */}
         {search.tag !== undefined && shown.length > 0 && canDeploy ? <UpdateTaggedApps tag={search.tag} count={shown.length} /> : null}
+        {search.tag !== undefined && shown.length > 0 && canOperate ? <RestartTaggedApps tag={search.tag} count={shown.length} /> : null}
         <FromRecipeLink />
       </>
     ),
