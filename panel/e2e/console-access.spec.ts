@@ -20,7 +20,7 @@ test("the console is published on a name of its own, with an allow-list, and mad
   problems.expect(/status of 403 .*\/api\/console\/exposure$/);
   await signIn(page, consoleServer, "/settings/console");
   await expect(page.getByRole("heading", { name: "Public name" })).toBeVisible();
-  await expect(page.getByText("Private", { exact: true })).toBeVisible();
+  await expect(page.locator("[data-state]").getByText("Private", { exact: true })).toBeVisible();
   // What it checks first is on the page before anything is asked.
   await expect(page.getByText("A second factor on every account that can sign in")).toBeVisible();
   await expect(page.getByText("The ENS profile")).toBeVisible();
@@ -63,7 +63,7 @@ test("the console is published on a name of its own, with an allow-list, and mad
   await expectNoA11yViolations(page, "publishing, finished");
   await dialog.getByRole("button", { name: "Done" }).click();
 
-  await expect(page.getByText("Published", { exact: true })).toBeVisible();
+  await expect(page.locator("[data-state]").getByText("Published", { exact: true })).toBeVisible();
   await expect(page.getByText(`https://${NAME}`).first()).toBeVisible();
   await expect(page.getByText("203.0.113.0/24", { exact: true })).toBeVisible();
   await expect(page.getByText("Written by Noust: it is removed when the console is unpublished").first()).toBeVisible();
@@ -76,7 +76,7 @@ test("the console is published on a name of its own, with an allow-list, and mad
   await expect(confirm.getByText(/removes exactly what publishing made/)).toBeVisible();
   await confirm.getByRole("button", { name: "Unpublish" }).click();
   await expect(page.getByText("The console is private again").first()).toBeVisible();
-  await expect(page.getByText("Private", { exact: true })).toBeVisible();
+  await expect(page.locator("[data-state]").getByText("Private", { exact: true })).toBeVisible();
 });
 
 /** The access token's session over the API, in sudo mode. */

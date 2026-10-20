@@ -134,8 +134,9 @@ serial("a token can be bound to a project, and the access token, which belongs t
   const dialog = page.getByRole("dialog", { name: "Create an API token" });
   await dialog.getByLabel("Name", { exact: true }).fill("project-ci");
   await dialog.getByRole("radio", { name: /One project/ }).check();
-  // Until it names a project, the token cannot be made.
-  await expect(dialog.getByRole("button", { name: "Create token" })).toBeDisabled();
+  // Until it names a project, the token cannot be made: pressing says what is missing.
+  await dialog.getByRole("button", { name: "Create token" }).click();
+  await expect(dialog.getByText("Choose the team, project or environment the token reaches.")).toBeVisible();
   await choose(page, dialog, "Team", "Default", true);
   await choose(page, dialog, "Project", "Default", true);
   await expect(dialog.getByText(/sees that and nothing else of the server/)).toBeVisible();
