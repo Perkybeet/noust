@@ -30,6 +30,8 @@ export interface ChannelField {
   destination?: true;
   /** Left empty, the channel still sends: the field only adds something. */
   optional?: true;
+  /** One value per line (the receiver's headers): a text area, not a line. */
+  multiline?: true;
   placeholder: string;
   /** Help shown under the field regardless of what is typed: format, consequence, default. */
   description?: string;
@@ -62,7 +64,7 @@ export interface ChannelSpec {
 export const CHANNEL_IDS: readonly ChannelId[] = ["webhook", "slack", "discord", "telegram", "email", "pushover", "ntfy", "gotify", "teams", "mattermost", "matrix", "lark", "pagerduty"];
 
 const CHANNEL_FIELD_KEYS: Readonly<Record<ChannelId, readonly string[]>> = {
-  webhook: ["webhook_url", "secret"],
+  webhook: ["webhook_url", "secret", "webhook_headers"],
   slack: ["webhook_url"],
   discord: ["webhook_url"],
   telegram: ["bot_token", "chat_id"],
@@ -100,6 +102,15 @@ export function channels(t: T): readonly ChannelSpec[] {
           optional: true,
           placeholder: "",
           description: t("settings.notifications.channels.webhook.secretDescription"),
+        },
+        {
+          key: "webhook_headers",
+          label: t("settings.notifications.channels.webhook.headersLabel"),
+          secret: true,
+          optional: true,
+          multiline: true,
+          placeholder: "Authorization: Bearer …",
+          description: t("settings.notifications.channels.webhook.headersDescription"),
         },
       ],
     },
@@ -394,6 +405,9 @@ export const EVENT_KINDS: readonly string[] = [
   "cron_missed",
   "probe_failed",
   "probe_recovered",
+  "security_release",
+  "container_restart_loop",
+  "recipe_outdated",
 ];
 
 /**
@@ -411,7 +425,7 @@ export const EVENT_GROUPS: readonly { id: EventGroupId; kinds: readonly string[]
   { id: "backups", kinds: ["backup_failed", "backup_missing", "destination_unreachable", "restore_failed", "restore_success", "backup_success"] },
   {
     id: "server",
-    kinds: ["unit_failed", "app_unreachable", "app_recovered", "disk_threshold", "cert_expiring", "os_patches", "token_expiring", "server_rebooted", "server_back", "cleanup_failed", "cleanup_success"],
+    kinds: ["unit_failed", "app_unreachable", "app_recovered", "disk_threshold", "cert_expiring", "os_patches", "token_expiring", "server_rebooted", "server_back", "cleanup_failed", "cleanup_success", "security_release", "container_restart_loop", "recipe_outdated"],
   },
   { id: "alerts", kinds: ["alert_firing", "alert_acknowledged", "alert_resolved", "probe_failed", "probe_recovered", "cron_failed", "cron_missed", "cron_success"] },
   { id: "fleet", kinds: ["node_unreachable", "node_host_key_changed", "node_recovered"] },
@@ -469,7 +483,10 @@ type EventCatalogKey =
   | "cleanupSuccess"
   | "cronMissed"
   | "probeFailed"
-  | "probeRecovered";
+  | "probeRecovered"
+  | "securityRelease"
+  | "containerRestartLoop"
+  | "recipeOutdated";
 
 /** The events, translated, in the notifier's order. */
 export function events(t: T): readonly EventSpec[] {
