@@ -383,6 +383,32 @@ class TestSiteCreateWithSslCallsCertManager:
         assert calls[0]["domain"] == "example.com"
         assert calls[0]["ssl"] is True
 
+    def test_the_web_server_that_would_not_load_the_site_is_quoted(
+        self, tmp_path: Path, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The answer said "Reload nginx to serve it" whatever happened; now it says what did."""
+        bind = "nginx: [emerg] bind() to 0.0.0.0:80 failed (98: Address already in use)"
+
+        def fake_create_secured_site(domain: str, **kwargs: Any):
+            from noust.managers.webserver import SecuredSite
+
+            return SecuredSite(domain=domain, webserver="nginx", load_error=bind)
+
+        available = tmp_path / "sites-available"
+        available.mkdir()
+        monkeypatch.setattr(
+            sites_api, "MANAGERS", {"nginx": lambda verbose=False: _StubManager(available)}
+        )
+        monkeypatch.setattr(sites_api, "create_secured_site", fake_create_secured_site)
+
+        client = _client(sites_api.router, "/api/sites")
+        response = client.post(
+            "/api/sites", json={"domain": "example.com", "ssl": False, "webserver": "nginx"}
+        )
+
+        assert response.status_code == 200, response.text
+        assert bind in response.json()["message"]
+
 
 class _StubManager:
     """The minimal manager surface POST /api/sites needs before delegating."""
