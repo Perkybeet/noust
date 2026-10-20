@@ -1,0 +1,63 @@
+# SiYuan from the image the project publishes (b3log/siyuan on Docker Hub), run as its Docker
+# documentation describes (github.com/siyuan-note/siyuan, "Docker Deployment", read 2026-10-20):
+# `--workspace=/siyuan/workspace/` puts the notes, the configuration and the database under
+# one directory, `--accessAuthCode` is the password that protects the interface (without it
+# whoever opens the page owns the workspace), PUID and PGID are the account the process runs as
+# (the entrypoint changes the ownership of the workspace to it), and the server listens on 6806.
+# /check-auth is the sign-in page and answers without a session.
+#
+# Licence: AGPL-3.0 (LICENSE, read 2026-10-20). Pinned to the release tag and to the digest
+# Docker Hub serves for it.
+schema: 2
+name: siyuan
+kind: compose
+title: SiYuan
+slogan: "A privacy-first personal knowledge system with block-level references."
+description: "Write notes in blocks that you can link, embed and query, with a Markdown WYSIWYG editor, a database view, spaced repetition and sync. A self-hosted web version of the desktop app, protected by an access code."
+category: productivity
+tags: [notes, knowledge-base, markdown, pkm]
+logo: logo.svg
+version: "3.8.7"
+revision: 1
+updated: 2026-10-20
+homepage: https://b3log.org/siyuan/en/
+docs: https://github.com/siyuan-note/siyuan/blob/master/README.md
+repository: https://github.com/siyuan-note/siyuan
+license: AGPL-3.0-only
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 6806
+variables:
+  SIYUAN_ACCESS_CODE:
+    generate: password32
+    description: The access code you enter to open the workspace.
+  TZ:
+    default: UTC
+    description: The time zone, such as Europe/Madrid.
+health:
+  path: /check-auth
+  expect: "200"
+  timeout: 120
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    siyuan:
+      image: b3log/siyuan:v3.8.7@sha256:aced5ce847dc0a6bd33033176533e7c0954a0f043c95806f6831b7a351a952c9
+      restart: unless-stopped
+      command:
+        - --workspace=/siyuan/workspace/
+        - --accessAuthCode=${SIYUAN_ACCESS_CODE}
+      environment:
+        TZ: "${TZ}"
+        PUID: "1000"
+        PGID: "1000"
+      volumes:
+        - siyuan-workspace:/siyuan/workspace
+      ports:
+        - "127.0.0.1:${PORT}:6806"
+  volumes:
+    siyuan-workspace:
+notes:
+  - "Open {{ url }} and enter the access code SIYUAN_ACCESS_CODE (noust env show {{ domain }} --unmask)."
+  - "Your notes, assets and configuration are in the Docker volume siyuan-workspace of this application: back it up before updating."

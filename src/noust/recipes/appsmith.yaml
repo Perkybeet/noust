@@ -1,0 +1,64 @@
+# Appsmith Community Edition from the image the project publishes (appsmith/appsmith-ce on Docker
+# Hub), run as its installation documentation describes (docs.appsmith.com "Install Appsmith >
+# Docker", read 2026-10-20): one container that carries the application, its proxy and its own
+# MongoDB and Redis, with everything it keeps (the databases, the configuration and the encryption
+# keys) under /appsmith-stacks. APPSMITH_ENCRYPTION_PASSWORD and APPSMITH_ENCRYPTION_SALT encrypt
+# the datasource credentials it stores (the image generates them when they are absent and keeps them
+# in the volume; setting them here makes them part of the recipe's variables, so a copy of the
+# environment restores a copy of the volume), and APPSMITH_DISABLE_TELEMETRY turns off the
+# statistics. The first visit creates the administrator, which the first note says. The image also
+# listens on 443 with its own certificate; only 80 is published, behind nginx. It needs about 4 GB
+# of memory. /api/v1/health answers without a sign-in.
+#
+# Pinned to the release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: appsmith
+kind: compose
+title: Appsmith
+slogan: "A low-code platform to build internal tools, dashboards and admin panels."
+description: "Build internal applications by dragging widgets onto a canvas and connecting them to your databases and APIs with SQL and JavaScript, then share them with your team. Everything runs in one container with its own database; it needs about 4 GB of memory. The first person to open it creates the administrator."
+category: development
+tags: [low-code, internal-tools, dashboards, admin-panel]
+logo: logo.svg
+version: "2.5.0"
+revision: 1
+updated: 2026-10-20
+homepage: https://www.appsmith.com
+docs: https://docs.appsmith.com
+repository: https://github.com/appsmithorg/appsmith
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - At least 4 GB of free memory
+port: 8680
+variables:
+  APPSMITH_ENCRYPTION_PASSWORD:
+    generate: password32
+    description: Encrypts the credentials of the datasources Appsmith stores. Do not change it once any exist.
+  APPSMITH_ENCRYPTION_SALT:
+    generate: password32
+    description: The salt that goes with APPSMITH_ENCRYPTION_PASSWORD.
+health:
+  path: /api/v1/health
+  expect: "200"
+  timeout: 600
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    appsmith:
+      image: appsmith/appsmith-ce:v2.5.0@sha256:5b6133ab8317b98edf9dc0315a02d12f9861ab2acc89386c0b1f5b7938dfeb90
+      restart: unless-stopped
+      environment:
+        APPSMITH_ENCRYPTION_PASSWORD: "${APPSMITH_ENCRYPTION_PASSWORD}"
+        APPSMITH_ENCRYPTION_SALT: "${APPSMITH_ENCRYPTION_SALT}"
+        APPSMITH_DISABLE_TELEMETRY: "true"
+      volumes:
+        - appsmith-stacks:/appsmith-stacks
+      ports:
+        - "127.0.0.1:${PORT}:80"
+  volumes:
+    appsmith-stacks:
+notes:
+  - "The first start takes a few minutes. Then open {{ url }} and create the administrator: until you do, anybody who reaches it can."
+  - "Appsmith runs its own database inside the container: everything is in the Docker volume appsmith-stacks of this application, which Noust cannot dump as a database. Back the volume up before updating, and keep APPSMITH_ENCRYPTION_PASSWORD and APPSMITH_ENCRYPTION_SALT with the copy."

@@ -1,0 +1,100 @@
+# Logto from the image the project publishes (svhd/logto on Docker Hub), arranged as its
+# self-hosting guide does (docs.logto.io/logto-oss/deployment-and-configuration, read 2026-10-20):
+# the core (sign-in experience and APIs) on 3001 and the admin console on 3002, which must answer
+# on two addresses, with PostgreSQL. The core's address is the application's own (ENDPOINT); the
+# admin console's is a second one the recipe declares as an entrypoint, which the install adds to
+# the application as an alias proxied to the console's port (ADMIN_ENDPOINT). TRUST_PROXY_HEADER=1
+# makes it read the client's address behind nginx. The container seeds the database on every
+# start (`npm run cli db seed -- --swe`, which does nothing when it is seeded) before it serves.
+# The first person to open the admin console creates the administrator. The core's /api/status
+# answers 204 without a sign-in.
+#
+# Pinned to the release tag and to the digests Docker Hub serves for it.
+schema: 2
+name: logto
+kind: compose
+title: Logto
+slogan: "An identity and sign-in service for your applications: OIDC, OAuth 2.1 and SAML."
+description: "Add sign-in to your products without building it: passwords, social sign-in, one-time codes, multi-factor, organizations and roles, behind a customisable sign-in page. Two addresses: one for the sign-in service, one for the admin console. The first person to open the console creates the administrator."
+category: security
+tags: [identity, authentication, oidc, sso, iam]
+logo: logo.svg
+version: "1.45.0"
+revision: 1
+updated: 2026-10-20
+homepage: https://logto.io
+docs: https://docs.logto.io
+repository: https://github.com/logto-io/logto
+license: MPL-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3501
+variables:
+  LOGTO_URL:
+    from: url
+    description: The sign-in service's address, the application's own; applications use it as their issuer.
+  SCHEME:
+    from: scheme
+    description: http or https, as the addresses are served.
+  ADMIN_DOMAIN:
+    required: true
+    description: "The admin console's address, a second name that must also point at this server (for example auth-admin.example.com)."
+  ADMIN_HOST_PORT:
+    default: "3502"
+    description: The admin console's port on 127.0.0.1, which the second address is proxied to. Noust picks a free one near it.
+  ADMIN_ENDPOINT:
+    value: "${SCHEME}://${ADMIN_DOMAIN}"
+    description: The admin console's public address.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+entrypoints:
+  admin:
+    title: Admin console
+    description: Where you manage applications, users and the sign-in experience.
+    domain_variable: ADMIN_DOMAIN
+    port_variable: ADMIN_HOST_PORT
+health:
+  path: /api/status
+  expect: "200-299"
+  timeout: 300
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    logto:
+      image: svhd/logto:1.45.0@sha256:097cd47689546461edb4637fb6eee60b9ab6d3d4c08ebb20bc44a1b1809b82c0
+      restart: unless-stopped
+      entrypoint: ["sh", "-c", "npm run cli db seed -- --swe && npm start"]
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        TRUST_PROXY_HEADER: "1"
+        DB_URL: "postgres://logto:${DB_PASSWORD}@db:5432/logto"
+        ENDPOINT: "${LOGTO_URL}"
+        ADMIN_ENDPOINT: "${ADMIN_ENDPOINT}"
+      ports:
+        - "127.0.0.1:${PORT}:3001"
+        - "127.0.0.1:${ADMIN_HOST_PORT}:3002"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: logto
+        POSTGRES_DB: logto
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U logto -d logto"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - logto-db:/var/lib/postgresql/data
+  volumes:
+    logto-db:
+notes:
+  - "The sign-in service is {{ url }} and the admin console is {{ vars.ADMIN_ENDPOINT }}: both names must point at this server. Noust added the console's name to this application and asked for a certificate that covers both; if that failed, the notes below say what to run."
+  - "Open {{ vars.ADMIN_ENDPOINT }} now and create the administrator: until you do, anybody who reaches it can."
+  - "Everything Logto keeps is in the database, the Docker volume logto-db of this application (PostgreSQL, dumped by Noust before every update): back it up before updating."

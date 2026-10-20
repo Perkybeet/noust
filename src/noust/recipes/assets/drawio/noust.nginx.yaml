@@ -1,0 +1,2 @@
+# How nginx proxies this application. Diagrams with embedded images are posted to the export service.
+max_body_size: 50m

@@ -41,6 +41,8 @@ from noust.core.utils import domain_to_app_name
 from noust.deployers.helpers.hooks import HookFailedError
 from noust.recipes import Recipe, RecipeError, RecipeNotFoundError, get_recipe
 from noust.recipes.deploy import (
+    add_entrypoints,
+    plan_entrypoints,
     prepare_source,
     recipe_source_dir,
     require_available,
@@ -320,6 +322,11 @@ def update_recipe(
     if recipe.kind == "compose":
         refuse_compose_dollar(recipe.title, overrides)
     _refuse_new_requirements(recipe, existing)
+    # An address this version adds is judged now, before anything is touched, and given its port.
+    entrypoints, chosen = plan_entrypoints(
+        recipe, domain, port=app.port, overrides=overrides, store=store, existing=existing
+    )
+    overrides = {**overrides, **chosen}
 
     context = DeploymentContext(
         domain=domain,
@@ -370,6 +377,7 @@ def update_recipe(
             )
         raise
     record_update(domain, recipe, store=store)
+    notes = add_entrypoints(domain, entrypoints, logger=log)
     return RecipeUpdate(
         domain=domain,
         recipe=recipe.name,
@@ -378,6 +386,7 @@ def update_recipe(
         updated=True,
         deployment_id=outcome.deployment_id,
         warnings=outcome.warnings,
+        notes=tuple(notes),
         added_variables=added,
     )
 

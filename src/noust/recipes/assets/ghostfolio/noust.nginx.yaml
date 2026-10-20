@@ -1,0 +1,5 @@
+# How nginx proxies this application. Activities are imported from files and market data is fetched on request.
+max_body_size: 20m
+routes:
+  - path: /
+    read_timeout: 300

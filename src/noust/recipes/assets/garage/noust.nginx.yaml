@@ -1,0 +1,6 @@
+# How nginx proxies the S3 API. Objects of any size are uploaded (clients split large ones), and the body must not be buffered.
+max_body_size: 5g
+routes:
+  - path: /
+    read_timeout: 3600
+    buffering: false

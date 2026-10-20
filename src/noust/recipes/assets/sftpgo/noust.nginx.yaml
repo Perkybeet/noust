@@ -1,0 +1,5 @@
+# How nginx proxies the web interface. Files are uploaded through the web client.
+max_body_size: 10g
+routes:
+  - path: /
+    read_timeout: 3600

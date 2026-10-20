@@ -1,0 +1,67 @@
+# Apache CouchDB from the official image (couchdb on Docker Hub), run as its documentation
+# describes (docs.couchdb.org "Installation > Docker" and the image's README, read 2026-10-20):
+# COUCHDB_USER and COUCHDB_PASSWORD create the administrator, so the node is never in "admin
+# party", COUCHDB_SECRET is the cluster's shared secret, the data is under /opt/couchdb/data,
+# and the HTTP API and Fauxton, its web interface (/_utils), listen on 5984. A file in
+# /opt/couchdb/etc/local.d sets the node standalone (single_node) so that the system databases
+# are made, and enables CORS for the origins the Obsidian LiveSync plug-in uses (its setup
+# documentation, "CouchDB"), which is the usual reason to run one. /_up answers without a login.
+#
+# Pinned to the release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: couchdb
+kind: compose
+title: CouchDB
+slogan: "A document database with an HTTP API, built for syncing between devices."
+description: "Apache CouchDB: JSON documents, a REST API, replication and a web interface, used as the sync server of apps such as the Obsidian LiveSync plug-in. Starts with an administrator you do not have to choose, as a single node with CORS enabled for Obsidian."
+category: data
+tags: [database, nosql, sync, replication, couchdb]
+logo: logo.svg
+version: "3.5.3"
+revision: 1
+updated: 2026-10-20
+homepage: https://couchdb.apache.org
+docs: https://docs.couchdb.org
+repository: https://github.com/apache/couchdb
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 5984
+variables:
+  COUCHDB_USER:
+    default: admin
+    description: The administrator's user name.
+  COUCHDB_PASSWORD:
+    generate: password32
+    description: The administrator's password.
+  COUCHDB_SECRET:
+    generate: hex32
+    description: The cluster's shared secret, used to sign cookies and tokens.
+health:
+  path: /_up
+  expect: "200"
+  timeout: 90
+files:
+  local.ini: {asset: local.ini, mode: "0644"}
+  noust.nginx.yaml: noust.nginx.yaml
+compose: |
+  services:
+    couchdb:
+      image: couchdb:3.5.3@sha256:3611ce43bd32fe2368997fd41ec6e7270ec8d84aa5fc13c9828e5b15fd6bafe8
+      restart: unless-stopped
+      environment:
+        COUCHDB_USER: "${COUCHDB_USER}"
+        COUCHDB_PASSWORD: "${COUCHDB_PASSWORD}"
+        COUCHDB_SECRET: "${COUCHDB_SECRET}"
+      volumes:
+        - couchdb-data:/opt/couchdb/data
+        - ./local.ini:/opt/couchdb/etc/local.d/10-noust.ini:ro
+      ports:
+        - "127.0.0.1:${PORT}:5984"
+  volumes:
+    couchdb-data:
+notes:
+  - "The API is {{ url }} and the web interface is {{ url }}/_utils; sign in as {{ vars.COUCHDB_USER }} with COUCHDB_PASSWORD (noust env show {{ domain }} --unmask)."
+  - "For Obsidian LiveSync, use {{ url }} as the remote database URI with that user name and password; the CORS origins it needs are already set in local.ini in this application's directory."
+  - "Your databases are in the Docker volume couchdb-data of this application: back it up before updating."

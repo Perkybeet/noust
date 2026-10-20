@@ -1,0 +1,72 @@
+# Bazarr from the image linuxserver.io publishes (ghcr.io/linuxserver/bazarr), run as its
+# documentation describes (docs.linuxserver.io/images/docker-bazarr, read 2026-10-20): the
+# configuration under /config, PUID, PGID and TZ for the account the process runs as, the
+# interface on 6767; the *arr applications answer /ping without a sign-in.
+# The image's s6 init changes the ownership of /config only, so a directory it writes to as
+# somebody other than root has to belong to PUID: the defaults here run as root inside the
+# container (PUID and PGID 0), which writes anywhere the operator mounts and nowhere else.
+# Since version 4 the first visit asks for the account that protects the interface.
+#
+# Pinned to the release tag and to the digest ghcr.io serves for it.
+schema: 2
+name: bazarr
+kind: compose
+title: Bazarr
+slogan: "A subtitle manager that finds and downloads subtitles for Sonarr and Radarr."
+description: "Connect it to Sonarr and Radarr, and Bazarr searches the subtitle providers for every episode and movie in your library, in the languages you choose, and keeps them in step. Part of the *arr family."
+category: media
+tags: [subtitles, media, automation]
+logo: logo.svg
+version: "1.6.2"
+revision: 1
+updated: 2026-10-20
+homepage: https://www.bazarr.media
+docs: https://wiki.bazarr.media
+repository: https://github.com/morpheus65535/bazarr
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 6767
+variables:
+  PUID:
+    default: "0"
+    description: The user ID the process runs as inside the container. 0 is root; use the owner of your library to keep its files yours.
+  PGID:
+    default: "0"
+    description: The group ID the process runs as inside the container.
+  TZ:
+    default: UTC
+    description: The time zone, such as Europe/Madrid.
+  MOVIES_PATH:
+    default: ./movies
+    description: "Your movie library. Inside the application by default; give an absolute path to use a library elsewhere."
+  TV_PATH:
+    default: ./tv
+    description: "Your TV library. Inside the application by default; give an absolute path to use a library elsewhere."
+health:
+  path: /
+  expect: "200"
+  timeout: 120
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    bazarr:
+      image: ghcr.io/linuxserver/bazarr:v1.6.2-ls368@sha256:fb0437897eaa7f96cf6ac42f795f8dcc208d34ec969eac5d366454e767304eb9
+      restart: unless-stopped
+      environment:
+        PUID: "${PUID}"
+        PGID: "${PGID}"
+        TZ: "${TZ}"
+      volumes:
+        - bazarr-config:/config
+        - "${MOVIES_PATH}:/movies"
+        - "${TV_PATH}:/tv"
+      ports:
+        - "127.0.0.1:${PORT}:6767"
+  volumes:
+    bazarr-config:
+notes:
+  - "Open {{ url }} now: the first visit asks for the user name and password that protect Bazarr, and until you set them anybody who reaches the page can."
+  - "Its settings and database are in the Docker volume bazarr-config of this application: back it up before updating."
+  - "Put your libraries where MOVIES_PATH and TV_PATH point (inside {{ app_path }} by default) and restart the application after changing them: noust restart {{ domain }}. The paths must be the ones Sonarr, Radarr and your download client see, so that files are found where they are said to be."

@@ -1,0 +1,2 @@
+# How nginx proxies this application. Pastes may carry files up to the size its configuration allows.
+max_body_size: 20m

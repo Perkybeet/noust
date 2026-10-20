@@ -1,0 +1,57 @@
+# Kavita from the image the project publishes (jvmilazz0/kavita on Docker Hub), run as its
+# documentation describes (wiki.kavitareader.com "Installation > Docker", read 2026-10-20): the
+# database and settings under /kavita/config, the libraries under /manga (the directory
+# MEDIA_PATH names, mounted read-only) and the interface on 5000. The first visit creates the
+# administrator, which the first note says. /api/health answers without a sign-in.
+#
+# Pinned to the release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: kavita
+kind: compose
+title: Kavita
+slogan: "A fast, feature-rich reading server for manga, comics and books."
+description: "Read your manga, comics and e-books in the browser, with a reader built for each, series metadata, reading lists, progress sync and per-user access. The first person to open it creates the administrator."
+category: media
+tags: [manga, comics, ebooks, reader]
+logo: logo.svg
+version: "0.9.1"
+revision: 1
+updated: 2026-10-20
+homepage: https://www.kavitareader.com
+docs: https://wiki.kavitareader.com
+repository: https://github.com/Kareadita/Kavita
+license: GPL-3.0-only
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 5080
+variables:
+  MEDIA_PATH:
+    default: ./media
+    description: The directory of manga, comics and books to serve, read-only. Inside the application by default; give an absolute path to use a library elsewhere.
+  TZ:
+    default: UTC
+    description: The time zone, such as Europe/Madrid.
+health:
+  path: /api/health
+  expect: "200"
+  timeout: 180
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    kavita:
+      image: jvmilazz0/kavita:0.9.1@sha256:31181a32f0dda73cae68721867028a7253d57881b58bea5754cd9e578e75421a
+      restart: unless-stopped
+      environment:
+        TZ: "${TZ}"
+      volumes:
+        - kavita-config:/kavita/config
+        - "${MEDIA_PATH}:/manga:ro"
+      ports:
+        - "127.0.0.1:${PORT}:5000"
+  volumes:
+    kavita-config:
+notes:
+  - "Open {{ url }} now and create the administrator: until you do, anybody who reaches it can."
+  - "Put your library in {{ app_path }}/media, or set MEDIA_PATH to the directory that holds it and restart the application: noust restart {{ domain }}. Add it as a library under /manga."
+  - "Its database and settings are in the Docker volume kavita-config of this application: back it up before updating."

@@ -1,0 +1,5 @@
+# How nginx proxies this application. .torrent files are uploaded and the interface polls constantly.
+max_body_size: 20m
+routes:
+  - path: /
+    read_timeout: 300

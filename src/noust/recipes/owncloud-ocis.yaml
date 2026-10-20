@@ -1,0 +1,68 @@
+# ownCloud Infinite Scale (oCIS) from the image the project publishes (owncloud/ocis on Docker
+# Hub), run as its deployment documentation describes (doc.owncloud.com/ocis "Docker
+# Deployment" and the ocis_full example, read 2026-10-20): `ocis init` writes the configuration
+# and its secrets under /etc/ocis the first time (and fails harmlessly the next, which is why it
+# is followed by `||true`), `ocis server` runs every service in one process, and the data is
+# under /var/lib/ocis. OCIS_URL is the public address, PROXY_TLS=false because nginx ends TLS,
+# and IDM_ADMIN_PASSWORD sets the administrator's password on every start, so no visitor can
+# claim the account. The built-in LDAP and identity provider are used: no external IdP.
+#
+# Pinned to the release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: owncloud-ocis
+kind: compose
+title: ownCloud Infinite Scale
+slogan: "A modern file sync and share platform in a single Go binary, from ownCloud."
+description: "Sync and share files with web, desktop and mobile clients, spaces for teams, shares by link and a WebDAV endpoint, in one process with an embedded identity provider. No database to run. Starts with the administrator account admin and a password Noust generates."
+category: files
+tags: [files, sync, share, webdav, owncloud]
+logo: logo.svg
+version: "8.2.1"
+revision: 1
+updated: 2026-10-20
+homepage: https://owncloud.dev/ocis/
+docs: https://doc.owncloud.com/ocis/next/
+repository: https://github.com/owncloud/ocis
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 9200
+variables:
+  OCIS_URL:
+    from: url
+    description: The address people use; clients and the sign-in service are told to use it.
+  IDM_ADMIN_PASSWORD:
+    generate: password32
+    description: The password of the administrator, admin. It is set on every start.
+health:
+  path: /
+  expect: "200-399"
+  timeout: 300
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    ocis:
+      image: owncloud/ocis:8.2.1@sha256:155c8daf63991772640ffcd5a505b41c0484b56ae519fcbf119c0811804968b1
+      restart: unless-stopped
+      entrypoint: ["/bin/sh", "-c", "ocis init || true; ocis server"]
+      environment:
+        OCIS_URL: "${OCIS_URL}"
+        OCIS_INSECURE: "false"
+        PROXY_TLS: "false"
+        PROXY_HTTP_ADDR: 0.0.0.0:9200
+        IDM_ADMIN_PASSWORD: "${IDM_ADMIN_PASSWORD}"
+        OCIS_LOG_LEVEL: warn
+        OCIS_DISABLE_VERSIONING: "false"
+        DEMO_USERS: "false"
+      volumes:
+        - ocis-config:/etc/ocis
+        - ocis-data:/var/lib/ocis
+      ports:
+        - "127.0.0.1:${PORT}:9200"
+  volumes:
+    ocis-config:
+    ocis-data:
+notes:
+  - "Sign in at {{ url }} as admin; the password is IDM_ADMIN_PASSWORD (noust env show {{ domain }} --unmask). It is set on every start from the environment, so change it there."
+  - "The generated configuration and its secrets are in the Docker volume ocis-config and every file in ocis-data of this application: back both up before updating, and keep them together."

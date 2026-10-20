@@ -1,0 +1,5 @@
+# How nginx proxies this application. Bulk requests carry many documents and searches can run long.
+max_body_size: 256m
+routes:
+  - path: /
+    read_timeout: 300
