@@ -1,0 +1,241 @@
+# Plane Community Edition from the images the project publishes (makeplane/plane-* on Docker
+# Hub), arranged as its own compose file does (deployments/cli/community/docker-compose.yml of
+# the repository, read 2026-10-20, with the version tag in place of `stable`): the web, space
+# (public pages), admin and live (real-time editing) front ends, the API, a worker and the
+# scheduler, PostgreSQL, a Redis-compatible store (Valkey), RabbitMQ for the task queue, an
+# S3-compatible store for uploads (pgsty/silo, the maintained MinIO fork the project itself runs;
+# MinIO's own repository is archived), and the project's proxy, which routes the paths of one
+# address to those services and is the only one published (on 127.0.0.1, for nginx). The
+# services keep the project's names because the proxy's configuration names them. The project
+# runs the database migration as a job that exits; a recipe cannot have one, so the API's
+# container runs ./bin/docker-entrypoint-migrator.sh first, which is what that job is. The
+# first visit to /god-mode/ registers the instance administrator, which the first note says.
+# It needs about 4 GB of memory.
+#
+# Derived in part from Coolify's template "plane" (Apache-2.0,
+# https://github.com/coollabsio/coolify/blob/next/templates/compose/plane.yaml). Pinned to the
+# release tag and to the digests Docker Hub serves for it.
+schema: 2
+name: plane
+kind: compose
+title: Plane
+slogan: "An open source project management tool: issues, cycles, modules and pages."
+description: "Plan and track work with issues, sprints (cycles), roadmaps (modules), views and a wiki, as an open alternative to Jira and Linear. A twelve-container stack that needs about 4 GB of memory. The first person to open the instance setup page becomes the instance administrator."
+category: productivity
+tags: [project-management, issues, agile, kanban, jira-alternative]
+logo: logo.svg
+version: "1.4.2"
+revision: 1
+updated: 2026-10-20
+homepage: https://plane.so
+docs: https://developers.plane.so/self-hosting/overview
+repository: https://github.com/makeplane/plane
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - At least 4 GB of free memory
+port: 3780
+variables:
+  PLANE_URL:
+    from: url
+    description: The address people use; Plane builds its links and its CORS origin from it.
+  PLANE_DOMAIN:
+    from: fqdn
+    description: The domain of that address, for the project's proxy.
+  SECRET_KEY:
+    generate: password64
+    description: Signs the sessions and encrypts what Plane stores. Changing it signs everybody out.
+  LIVE_SERVER_SECRET_KEY:
+    generate: password64
+    description: The secret between the API and the real-time editing server; it stays inside the stack.
+  RABBITMQ_PASSWORD:
+    generate: password32
+    description: The password of the task queue; it stays inside the stack.
+  MINIO_ROOT_USER:
+    generate: user
+    description: The access key of the stack's object store; it stays inside the stack.
+  MINIO_ROOT_PASSWORD:
+    generate: password32
+    description: The secret key of the stack's object store.
+  API_KEY_RATE_LIMIT:
+    default: 60/minute
+    description: How many requests an API key may make.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /
+  expect: "200"
+  timeout: 600
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    proxy:
+      image: makeplane/plane-proxy:v1.4.2@sha256:47e651c56749c287710cc26f82dc5d1046a2af76a332aa048ab7adb881cc4cd0
+      restart: unless-stopped
+      depends_on:
+        web:
+          condition: service_started
+        api:
+          condition: service_started
+        space:
+          condition: service_started
+        admin:
+          condition: service_started
+        live:
+          condition: service_started
+      environment:
+        APP_DOMAIN: "${PLANE_DOMAIN}"
+        SITE_ADDRESS: ":80"
+        FILE_SIZE_LIMIT: "5242880"
+        BUCKET_NAME: uploads
+      volumes:
+        - plane-proxy-config:/config
+        - plane-proxy-data:/data
+      ports:
+        - "127.0.0.1:${PORT}:80"
+    web:
+      image: makeplane/plane-frontend:v1.4.2@sha256:22fd2434fb8d6658439f669ab72f999ce0773abe587663da21a77d70bd63ff61
+      restart: unless-stopped
+      depends_on:
+        api:
+          condition: service_started
+    space:
+      image: makeplane/plane-space:v1.4.2@sha256:f8f842f05f41a16e9fe8c4f5e17a3bb175338ccdc094620e58ae49764ffbd671
+      restart: unless-stopped
+      depends_on:
+        api:
+          condition: service_started
+    admin:
+      image: makeplane/plane-admin:v1.4.2@sha256:6e1bb1d800d3c7ce84a09f810d5588db8613b35d4464e722a1bec12556ca0ebb
+      restart: unless-stopped
+      depends_on:
+        api:
+          condition: service_started
+    live:
+      image: makeplane/plane-live:v1.4.2@sha256:cbb630ccaea24bb9998040cb45c11619a7501e8b6c75d449df2f8fd9b9cddbd0
+      restart: unless-stopped
+      environment:
+        API_BASE_URL: http://api:8000
+        LIVE_SERVER_SECRET_KEY: "${LIVE_SERVER_SECRET_KEY}"
+        REDIS_HOST: plane-redis
+        REDIS_PORT: "6379"
+        REDIS_URL: redis://plane-redis:6379/
+      depends_on:
+        api:
+          condition: service_started
+    api:
+      image: makeplane/plane-backend:v1.4.2@sha256:90032ce088708889b60c00d491897916f4deb882facda27db59fd10fb68729ef
+      restart: unless-stopped
+      command: ["sh", "-c", "./bin/docker-entrypoint-migrator.sh && ./bin/docker-entrypoint-api.sh"]
+      depends_on:
+        plane-db:
+          condition: service_healthy
+        plane-redis:
+          condition: service_healthy
+        plane-mq:
+          condition: service_started
+        plane-minio:
+          condition: service_started
+      environment: &plane-env
+        WEB_URL: "${PLANE_URL}"
+        DEBUG: "0"
+        CORS_ALLOWED_ORIGINS: "${PLANE_URL}"
+        GUNICORN_WORKERS: "1"
+        USE_MINIO: "1"
+        MINIO_ENDPOINT_SSL: "0"
+        DATABASE_URL: "postgresql://plane:${DB_PASSWORD}@plane-db/plane"
+        PGHOST: plane-db
+        PGDATABASE: plane
+        POSTGRES_USER: plane
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+        POSTGRES_DB: plane
+        POSTGRES_PORT: "5432"
+        REDIS_HOST: plane-redis
+        REDIS_PORT: "6379"
+        REDIS_URL: redis://plane-redis:6379/
+        SECRET_KEY: "${SECRET_KEY}"
+        AMQP_URL: "amqp://plane:${RABBITMQ_PASSWORD}@plane-mq:5672/plane"
+        API_KEY_RATE_LIMIT: "${API_KEY_RATE_LIMIT}"
+        LIVE_SERVER_SECRET_KEY: "${LIVE_SERVER_SECRET_KEY}"
+        AWS_REGION: ""
+        AWS_ACCESS_KEY_ID: "${MINIO_ROOT_USER}"
+        AWS_SECRET_ACCESS_KEY: "${MINIO_ROOT_PASSWORD}"
+        AWS_S3_ENDPOINT_URL: http://plane-minio:9000
+        AWS_S3_BUCKET_NAME: uploads
+        APP_DOMAIN: "${PLANE_DOMAIN}"
+        FILE_SIZE_LIMIT: "5242880"
+        BUCKET_NAME: uploads
+    worker:
+      image: makeplane/plane-backend:v1.4.2@sha256:90032ce088708889b60c00d491897916f4deb882facda27db59fd10fb68729ef
+      restart: unless-stopped
+      command: ./bin/docker-entrypoint-worker.sh
+      depends_on:
+        api:
+          condition: service_started
+      environment: *plane-env
+    beat-worker:
+      image: makeplane/plane-backend:v1.4.2@sha256:90032ce088708889b60c00d491897916f4deb882facda27db59fd10fb68729ef
+      restart: unless-stopped
+      command: ./bin/docker-entrypoint-beat.sh
+      depends_on:
+        api:
+          condition: service_started
+      environment: *plane-env
+    plane-db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      command: ["postgres", "-c", "max_connections=500"]
+      environment:
+        POSTGRES_USER: plane
+        POSTGRES_DB: plane
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U plane -d plane"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - plane-db:/var/lib/postgresql/data
+    plane-redis:
+      image: valkey/valkey:9.0.6-alpine@sha256:187679e3bd4036959631e3f03983ab2ba503ab21e6fd0454d508e909db2ee989
+      restart: unless-stopped
+      healthcheck:
+        test: ["CMD", "valkey-cli", "ping"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      volumes:
+        - plane-cache:/data
+    plane-mq:
+      image: rabbitmq:4.4.0@sha256:71be6ca71cd3ad92f29b354ec381b1ee587894aaaac21f185b8cf43fb50d3feb
+      restart: unless-stopped
+      hostname: plane-mq
+      environment:
+        RABBITMQ_DEFAULT_USER: plane
+        RABBITMQ_DEFAULT_PASS: "${RABBITMQ_PASSWORD}"
+        RABBITMQ_DEFAULT_VHOST: plane
+      volumes:
+        - plane-mq:/var/lib/rabbitmq
+    plane-minio:
+      image: pgsty/silo:RELEASE.2026-10-18T00-00-00Z@sha256:2636fc4155d9a7e41ff58cdb65ddd13ba9304e67184e13c25bc5cb34016269d7
+      restart: unless-stopped
+      command: server /export --console-address ":9090"
+      environment:
+        MINIO_ROOT_USER: "${MINIO_ROOT_USER}"
+        MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD}"
+      volumes:
+        - plane-uploads:/export
+  volumes:
+    plane-proxy-config:
+    plane-proxy-data:
+    plane-db:
+    plane-cache:
+    plane-mq:
+    plane-uploads:
+notes:
+  - "Open {{ url }}/god-mode/ now and register the instance administrator: until you do, anybody who reaches it can. Then create your workspace at {{ url }}."
+  - "Plane runs twelve containers and needs about 4 GB of memory; the first start migrates the database, which takes a few minutes."
+  - "The projects are in the database, the Docker volume plane-db of this application (PostgreSQL, dumped by Noust before every update), and the uploaded files in plane-uploads. Back both up before updating: the uploads are not in the database dump."
