@@ -1,8 +1,8 @@
 # Examples
 
 A minimal application for every type Noust deploys. Each one answers `Hello from Noust (<type>)` at
-`/`, has as few files as the stack allows, and is built and run for real by the integration harness
-(`python tests/integration/examples_run.py`, below), so what is here is what [first-application.md](../docs/first-application.md)
+`/` and has as few files as the stack allows. `python tests/integration/examples_run.py` (below)
+deploys every one on a clean machine, so that what is here is what [first-application.md](../docs/first-application.md)
 and [frameworks.md](../docs/frameworks.md) describe, not a sketch of it.
 
 Deploy one from a clone of this repository (`-s` takes a repository, an archive or a directory):
