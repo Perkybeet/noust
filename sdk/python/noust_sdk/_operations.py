@@ -560,6 +560,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("domains", "put_canonical"): ("PUT", "/api/apps/{domain}/domains/canonical", "apps.manage", False),
     ("domains", "delete_domain"): ("DELETE", "/api/apps/{domain}/domains/{name}", "apps.manage", True),
     ("domains", "get_domain_dns"): ("GET", "/api/apps/{domain}/domains/{name}/dns", "apps.read", False),
+    ("domains", "put_domain_enabled"): ("PUT", "/api/apps/{domain}/domains/{name}/enabled", "apps.manage", False),
     ("domains", "put_domain_port"): ("PUT", "/api/apps/{domain}/domains/{name}/port", "apps.manage", False),
     ("domains", "get_http3"): ("GET", "/api/apps/{domain}/http3", "apps.read", False),
     ("domains", "get_policy"): ("GET", "/api/apps/{domain}/policy", "apps.read", False),
@@ -740,6 +741,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("passkeys", "remove_passkey"): ("DELETE", "/api/auth/passkeys/{passkey_id}", "self", False),
     ("previews", "list_previews"): ("GET", "/api/apps/{domain}/previews", "apps.read", False),
     ("previews", "create_preview"): ("POST", "/api/apps/{domain}/previews", "apps.deploy", True),
+    ("previews", "get_preview_dns"): ("GET", "/api/apps/{domain}/previews/dns", "apps.read", False),
     ("previews", "list_pull_requests"): ("GET", "/api/apps/{domain}/previews/pull-requests", "apps.read", False),
     ("previews", "put_preview_settings"): ("PUT", "/api/apps/{domain}/previews/settings", "apps.manage", True),
     ("previews", "delete_preview_settings"): ("DELETE", "/api/apps/{domain}/previews/settings", "apps.manage", True),
@@ -5378,7 +5380,7 @@ class Deployments:
 
 
 class Domains:
-    """Domains: 29 operations."""
+    """Domains: 30 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -5454,6 +5456,14 @@ class Domains:
 
         Needs: permission `apps.read`."""
         return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/domains/{quote(str(name), safe='')}/dns", query=None, body=None)
+
+    def put_domain_enabled(self, domain: str, name: str, body: "DomainEnabledRequest") -> "AppDomainChange":
+        """PUT /api/apps/{domain}/domains/{name}/enabled
+
+        Put Domain Enabled
+
+        Needs: permission `apps.manage`."""
+        return self._call("PUT", f"/api/apps/{quote(str(domain), safe='')}/domains/{quote(str(name), safe='')}/enabled", query=None, body=body)
 
     def put_domain_port(self, domain: str, name: str, body: "DomainPortRequest") -> "AppDomainChange":
         """PUT /api/apps/{domain}/domains/{name}/port
@@ -7018,7 +7028,7 @@ class Passkeys:
 
 
 class Previews:
-    """Previews: 16 operations."""
+    """Previews: 17 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -7038,6 +7048,14 @@ class Previews:
 
         Needs: permission `apps.deploy`, sudo mode."""
         return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/previews", query=None, body=body)
+
+    def get_preview_dns(self, domain: str) -> "PreviewDnsResponse":
+        """GET /api/apps/{domain}/previews/dns
+
+        Get Preview Dns
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/previews/dns", query=None, body=None)
 
     def list_pull_requests(self, domain: str) -> "PullRequestsResponse":
         """GET /api/apps/{domain}/previews/pull-requests

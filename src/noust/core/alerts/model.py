@@ -71,7 +71,8 @@ BYTES = "bytes"
 BYTES_PER_SECOND = "bytes_s"
 NUMBER = "number"
 PER_MINUTE = "per_min"
-UNITS: tuple[str, ...] = (PERCENT, BYTES, BYTES_PER_SECOND, NUMBER, PER_MINUTE)
+MILLISECONDS = "ms"
+UNITS: tuple[str, ...] = (PERCENT, BYTES, BYTES_PER_SECOND, NUMBER, PER_MINUTE, MILLISECONDS)
 
 
 @dataclass(frozen=True)
@@ -122,6 +123,7 @@ METRICS: dict[str, MetricSpec] = _specs(
     MetricSpec("app_memory", "app", BYTES, "app.{app}.mem.bytes"),
     MetricSpec("app_requests", "app", PER_MINUTE, "app.{app}.http.requests_per_min"),
     MetricSpec("app_5xx", "app", PER_MINUTE, "app.{app}.http.errors_5xx_per_min"),
+    MetricSpec("app_latency_p95", "app", MILLISECONDS, "app.{app}.http.latency_p95_ms"),
     MetricSpec("app_disk_read", "app", BYTES_PER_SECOND, "app.{app}.io.read_bytes_s"),
     MetricSpec("app_disk_write", "app", BYTES_PER_SECOND, "app.{app}.io.write_bytes_s"),
     MetricSpec("app_net_rx", "app", BYTES_PER_SECOND, "app.{app}.net.rx_bytes_s"),
@@ -171,13 +173,16 @@ def parse_threshold(text: str | float | int, unit: str) -> float:
                 )
         elif suffix == "" and unit in (BYTES, BYTES_PER_SECOND):
             pass
+        elif unit == MILLISECONDS and suffix in ("", "ms", "s"):
+            if suffix == "s":
+                value *= 1000
         else:
             raise ValidationError(
                 f"The unit of {text!r} does not fit this metric",
                 details=_hint(unit),
                 field="threshold",
             )
-    if not math.isfinite(value):
+    if not math.isfinite(value) or (unit == MILLISECONDS and value < 0):
         raise ValidationError(f"Not a limit: {text!r}", field="threshold")
     return value
 
@@ -237,7 +242,7 @@ def format_value(unit: str, value: float, *, limit: bool = False) -> str:
             ``90.0%``.
 
     Returns:
-        ``93.4%``, ``512.0 MB``, ``2.0 MB/s``, ``1.50``, ``120/min``.
+        ``93.4%``, ``512.0 MB``, ``2.0 MB/s``, ``1.50``, ``120/min``, ``250 ms``, ``1.5 s``.
     """
     from noust.core.notifications.formatting import format_bytes
 
@@ -249,6 +254,10 @@ def format_value(unit: str, value: float, *, limit: bool = False) -> str:
         return f"{format_bytes(max(int(value), 0))}/s"
     if unit == PER_MINUTE:
         return f"{value:.0f}/min"
+    if unit == MILLISECONDS:
+        if value < 1:
+            return "<1 ms"
+        return f"{value:.0f} ms" if value < 1000 else f"{round(value / 1000, 1):g} s"
     return f"{value:g}" if limit else f"{value:.2f}"
 
 
@@ -266,6 +275,7 @@ def _hint(unit: str) -> str:
         BYTES_PER_SECOND: "This metric is a rate: write bytes per second, or 2MB/s.",
         NUMBER: "This metric is a plain number.",
         PER_MINUTE: "This metric is a count per minute: write a number.",
+        MILLISECONDS: "This metric is a time: write milliseconds, or 500ms, 2s.",
     }[unit]
 
 

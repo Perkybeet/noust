@@ -313,6 +313,8 @@ export const settings: Catalog<typeof en> = {
         endpointUrlDescription: "Una dirección https:// que acepte un POST.",
         secretLabel: "Secreto de firma",
         secretDescription: "Firma cada envío con HMAC-SHA256 en X-Noust-Signature, para que tu endpoint compruebe que viene de este servidor.",
+        headersLabel: "Cabeceras que enviar",
+        headersDescription: "Las cabeceras propias del receptor, una por línea como Nombre: valor (un Authorization: Bearer para n8n o Home Assistant). Son credenciales: se guardan cifradas y no se vuelven a mostrar.",
         generate: "Generar",
         secretCopyLabel: "el secreto de firma",
         generatedHint: "Cópialo ahora en tu endpoint: una vez guardado no se vuelve a mostrar.",
@@ -540,6 +542,9 @@ export const settings: Catalog<typeof en> = {
         cronMissed: { label: "Una tarea programada no se ejecutará", description: "El temporizador de una tarea se detuvo, así que no se ejecutará cuando toca." },
         probeFailed: { label: "Una dirección dejó de responder", description: "Una dirección que consulta una sonda falló tantas veces seguidas como se le toleraba." },
         probeRecovered: { label: "Una dirección vuelve a responder", description: "Una sonda que estaba caída recibe una buena respuesta." },
+        securityRelease: { label: "Versión de seguridad", description: "Hay una versión de Noust que corrige una vulnerabilidad y este servidor no la ha instalado." },
+        containerRestartLoop: { label: "Contenedor reiniciándose en bucle", description: "Docker ha reiniciado un contenedor de una pila Compose tantas veces como permite monitor.container_restart_limit." },
+        recipeOutdated: { label: "Actualizaciones de recetas", description: "Hay aplicaciones instaladas desde una receta que tienen una versión más nueva en el catálogo." },
       },
     },
     messages: {

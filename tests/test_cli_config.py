@@ -32,6 +32,7 @@ from noust.cli.commands import config as config_cmd
 from noust.core.config import Config
 from noust.core.logger import Logger
 from noust.core.runner import DryRunRunner, FakeRunner, get_runner
+from tests.config_files import stored_config
 
 CONTRACT = json.loads(
     (Path(__file__).parent / "contracts/cli_surface.json").read_text(encoding="utf-8")
@@ -637,7 +638,7 @@ def test_set_coerces_a_boolean_from_the_existing_default(
     result = wasm("config", "set", "ssl.enabled", "false")
 
     assert result.exit_code == 0, result.output
-    assert yaml.safe_load(real_config_path.read_text())["ssl"]["enabled"] is False
+    assert stored_config(real_config_path)["ssl"]["enabled"] is False
 
 
 def test_set_rejects_a_boolean_that_does_not_parse(wasm: Wasm, real_config_path: Path) -> None:
@@ -659,7 +660,7 @@ def test_set_coerces_a_boolean_for_a_key_with_no_default(
     result = wasm("config", "set", "monitor.notify", "false")
 
     assert result.exit_code == 0, result.output
-    assert yaml.safe_load(real_config_path.read_text())["monitor"]["notify"] is False
+    assert stored_config(real_config_path)["monitor"]["notify"] is False
 
 
 def test_set_parses_a_json_number_for_a_key_with_no_default(
@@ -669,14 +670,14 @@ def test_set_parses_a_json_number_for_a_key_with_no_default(
     result = wasm("config", "set", "monitor.retention_days", "30")
 
     assert result.exit_code == 0, result.output
-    assert yaml.safe_load(real_config_path.read_text())["monitor"]["retention_days"] == 30
+    assert stored_config(real_config_path)["monitor"]["retention_days"] == 30
 
 
 def test_set_parses_json_null_for_a_key_with_no_default(wasm: Wasm, real_config_path: Path) -> None:
     result = wasm("config", "set", "monitor.some_new_setting", "null")
 
     assert result.exit_code == 0, result.output
-    assert yaml.safe_load(real_config_path.read_text())["monitor"]["some_new_setting"] is None
+    assert stored_config(real_config_path)["monitor"]["some_new_setting"] is None
 
 
 def test_set_falls_back_to_a_plain_string_for_a_key_with_no_default(
@@ -686,7 +687,7 @@ def test_set_falls_back_to_a_plain_string_for_a_key_with_no_default(
     result = wasm("config", "set", "monitor.some_new_setting", "hello")
 
     assert result.exit_code == 0, result.output
-    assert yaml.safe_load(real_config_path.read_text())["monitor"]["some_new_setting"] == "hello"
+    assert stored_config(real_config_path)["monitor"]["some_new_setting"] == "hello"
 
 
 def test_set_list_flag_splits_on_commas_for_a_key_with_no_default(
@@ -705,7 +706,7 @@ def test_set_list_flag_splits_on_commas_for_a_key_with_no_default(
     )
 
     assert result.exit_code == 0, result.output
-    stored = yaml.safe_load(real_config_path.read_text())
+    stored = stored_config(real_config_path)
     assert stored["notifications"]["allow_private_hosts"] == [
         "internal.example",
         "partner.example",
@@ -721,7 +722,7 @@ def test_set_list_flag_trims_whitespace_and_drops_empty_items(
     )
 
     assert result.exit_code == 0, result.output
-    stored = yaml.safe_load(real_config_path.read_text())
+    stored = stored_config(real_config_path)
     assert stored["notifications"]["allow_private_hosts"] == ["a.example", "b.example"]
 
 
@@ -732,7 +733,7 @@ def test_set_a_list_default_key_also_accepts_a_json_array_without_the_flag(
     result = wasm("config", "set", "monitor.email_recipients", '["ops@example.com", "a@b.com"]')
 
     assert result.exit_code == 0, result.output
-    stored = yaml.safe_load(real_config_path.read_text())
+    stored = stored_config(real_config_path)
     assert stored["monitor"]["email_recipients"] == ["ops@example.com", "a@b.com"]
 
 
@@ -749,7 +750,7 @@ def test_set_a_list_default_key_also_accepts_a_plain_comma_separated_value(
     result = wasm("config", "set", "monitor.email_recipients", "a@x.com,b@y.com")
 
     assert result.exit_code == 0, result.output
-    stored = yaml.safe_load(real_config_path.read_text())
+    stored = stored_config(real_config_path)
     assert stored["monitor"]["email_recipients"] == ["a@x.com", "b@y.com"]
 
 
@@ -776,7 +777,7 @@ def test_the_deprecated_apps_directory_alias_writes_the_canonical_key(
     result = wasm("config", "set", "apps.directory", "/srv/apps")
 
     assert result.exit_code == 0, result.output
-    stored = yaml.safe_load(real_config_path.read_text())
+    stored = stored_config(real_config_path)
     assert stored["apps_directory"] == "/srv/apps"
     assert "apps" not in stored, "the alias must not create a separate 'apps' container"
 
@@ -847,7 +848,7 @@ def test_set_refuses_enabling_both_smtp_transports(wasm: Wasm, real_config_path:
     assert "cannot both be enabled" in result.output
     # The single-leaf write that failed the cross-field check must not have
     # been applied either.
-    assert yaml.safe_load(real_config_path.read_text())["monitor"]["smtp"]["use_tls"] is False
+    assert stored_config(real_config_path)["monitor"]["smtp"]["use_tls"] is False
 
 
 def test_set_refuses_an_invalid_smtp_from_address(wasm: Wasm, real_config_path: Path) -> None:
@@ -874,7 +875,7 @@ def test_set_stdin_reads_the_value_from_standard_input(wasm: Wasm, real_config_p
     result = wasm("config", "set", "monitor.smtp.password", "--stdin", input="hunter2\n")
 
     assert result.exit_code == 0, result.output
-    stored = yaml.safe_load(real_config_path.read_text())
+    stored = stored_config(real_config_path)
     assert stored["monitor"]["smtp"]["password"] == "hunter2"
 
 
@@ -883,7 +884,7 @@ def test_set_stdin_strips_exactly_one_trailing_newline(wasm: Wasm, real_config_p
     result = wasm("config", "set", "monitor.smtp.password", "--stdin", input="hunter2\n\n")
 
     assert result.exit_code == 0, result.output
-    stored = yaml.safe_load(real_config_path.read_text())
+    stored = stored_config(real_config_path)
     assert stored["monitor"]["smtp"]["password"] == "hunter2\n"
 
 
@@ -894,7 +895,7 @@ def test_set_stdin_without_a_trailing_newline_is_kept_whole(
     result = wasm("config", "set", "monitor.smtp.password", "--stdin", input="hunter2")
 
     assert result.exit_code == 0, result.output
-    stored = yaml.safe_load(real_config_path.read_text())
+    stored = stored_config(real_config_path)
     assert stored["monitor"]["smtp"]["password"] == "hunter2"
 
 
@@ -904,7 +905,7 @@ def test_set_prompt_reads_the_value_without_echoing_it_in_the_transcript(
     result = wasm("config", "set", "monitor.smtp.password", "--prompt", input="hunter2\nhunter2\n")
 
     assert result.exit_code == 0, result.output
-    stored = yaml.safe_load(real_config_path.read_text())
+    stored = stored_config(real_config_path)
     assert stored["monitor"]["smtp"]["password"] == "hunter2"
     assert "hunter2" not in result.output
 
@@ -923,7 +924,7 @@ def test_set_prompt_asks_twice_so_a_typo_is_not_saved_unseen(
 
     assert result.exit_code == 0, result.output
     assert "do not match" in result.output.lower() or "don't match" in result.output.lower()
-    stored = yaml.safe_load(real_config_path.read_text())
+    stored = stored_config(real_config_path)
     assert stored["monitor"]["smtp"]["password"] == "hunter2"
 
 

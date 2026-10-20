@@ -130,6 +130,56 @@ describe("an application's Domains tab", () => {
   });
 });
 
+describe("switching a name off", () => {
+  it("lets a name rest without deleting it, says so on its row, and brings it back", { timeout: 20_000 }, async () => {
+    const created = "2026-09-20T10:00:00+00:00";
+    let domains = [
+      { domain: APP, kind: "primary", created_at: created, enabled: true },
+      { domain: `shop.${APP}`, kind: "alias", created_at: created, enabled: true },
+    ];
+    const switched = (enabled: boolean) => {
+      domains = domains.map((entry) => (entry.domain === `shop.${APP}` ? { ...entry, enabled } : entry));
+      return json(200, { app: APP, domains, tls: false, adopted: [], certificate_job_id: null });
+    };
+    const backend = fakeBackend({
+      ...signedInRoutes(),
+      "GET /api/certs": () => json(200, CERTS),
+      "GET /api/jobs/active": () => json(200, { jobs: [], total: 0, active: 0 }),
+      [`GET /api/apps/${APP}/domains`]: () => json(200, { app: APP, domains }),
+      [`PUT /api/apps/${APP}/domains/shop.${APP}/enabled`]: (request) => switched((request.body as { enabled: boolean }).enabled),
+    });
+    const { user } = renderConsole(`/apps/${APP}/domains`);
+    const table = await screen.findByRole("region", { name: `Domains of ${APP}` });
+    const alias = await within(table).findByRole("link", { name: (name) => name.startsWith(`shop.${APP}`) });
+    const row = alias.closest("tr");
+    if (!row) throw new Error("no row");
+
+    // The primary cannot rest: its own menu has no such item.
+    const primaryRow = (await within(table).findByRole("link", { name: /^shop\.example\.com/ })).closest("tr");
+    if (!primaryRow) throw new Error("no primary row");
+    await user.click(within(primaryRow).getByRole("button", { name: `Actions for ${APP}` }));
+    expect(await screen.findByRole("menuitem", { name: "Check DNS" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Switch off" })).not.toBeInTheDocument();
+    await user.keyboard("{Escape}");
+
+    await user.click(within(row).getByRole("button", { name: `Actions for shop.${APP}` }));
+    await user.click(await screen.findByRole("menuitem", { name: "Switch off" }));
+    await waitFor(() => {
+      expect(backend.callsTo(`PUT /api/apps/${APP}/domains/shop.${APP}/enabled`)[0]?.body).toEqual({ enabled: false });
+    });
+    // Kept, and marked: the badge says it is off and the menu now offers the way back.
+    expect(await within(row).findByText("Off")).toBeInTheDocument();
+    await user.click(within(row).getByRole("button", { name: `Actions for shop.${APP}` }));
+    await user.click(await screen.findByRole("menuitem", { name: "Switch on" }));
+    await waitFor(() => {
+      expect(backend.callsTo(`PUT /api/apps/${APP}/domains/shop.${APP}/enabled`)[1]?.body).toEqual({ enabled: true });
+    });
+    await waitFor(() => {
+      expect(within(row).queryByText("Off")).not.toBeInTheDocument();
+    });
+  });
+});
+
 const SITES = {
   sites: [
     {

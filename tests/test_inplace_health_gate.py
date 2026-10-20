@@ -45,7 +45,7 @@ services:
   web:
     build: .
     ports:
-      - "8080:80"
+      - "18080:80"
   db:
     image: postgres:16
     volumes:
@@ -175,7 +175,7 @@ class Stack(FakeRunner):
                 return answer(self.log)
             if "up" in args and "--no-build" in args and self.previous_up_fails:
                 return answer(
-                    stderr="Bind for 0.0.0.0:8080 failed: port is already allocated", code=1
+                    stderr="Bind for 0.0.0.0:18080 failed: port is already allocated", code=1
                 )
             if "up" in args and "--no-build" not in args and self.up_fails:
                 return answer(stderr="container stack-web-1 exited (1)", code=1)
@@ -214,7 +214,7 @@ def probe(monkeypatch: pytest.MonkeyPatch) -> Probe:
     return fake
 
 
-def compose_app(store: NoustStore, root: Path, *, port: int = 8080) -> App:
+def compose_app(store: NoustStore, root: Path, *, port: int = 18080) -> App:
     """A deployed stack at ``root``: its tree, a checkout, and its row."""
     root.mkdir(parents=True, exist_ok=True)
     (root / ".git").mkdir(exist_ok=True)
@@ -257,7 +257,7 @@ def test_a_stack_that_answers_keeps_its_new_containers(
     result = compose_deployer(root, stack_runner).update()
 
     assert result.is_static is True
-    assert probe.urls == ["http://127.0.0.1:8080/"]
+    assert probe.urls == ["http://127.0.0.1:18080/"]
     ps = stack_runner.index_of("ps", "-q")
     keep = stack_runner.index_of("docker", "image", "tag", "sha256:0ld0web")
     build = stack_runner.index_of("compose", "build")
@@ -282,7 +282,7 @@ def test_the_gate_asks_the_path_and_statuses_the_application_set(
 
     compose_deployer(root, stack_runner).update()
 
-    assert probe.urls == ["http://127.0.0.1:8080/healthz"]
+    assert probe.urls == ["http://127.0.0.1:18080/healthz"]
 
 
 def test_a_stack_that_does_not_answer_goes_back_to_what_served(
@@ -291,7 +291,7 @@ def test_a_stack_that_does_not_answer_goes_back_to_what_served(
     """The previous commit and the previous images, with the evidence verbatim."""
     root = tmp_path / "stack"
     compose_app(store, root)
-    probe.failing.add("http://127.0.0.1:8080/")
+    probe.failing.add("http://127.0.0.1:18080/")
 
     with pytest.raises(DeploymentError) as caught:
         compose_deployer(root, stack_runner).update()
@@ -330,7 +330,7 @@ def test_the_containers_output_kept_by_a_failed_update_has_its_secrets_masked(
     """
     root = tmp_path / "stack"
     compose_app(store, root)
-    probe.failing.add("http://127.0.0.1:8080/")
+    probe.failing.add("http://127.0.0.1:18080/")
     stack_runner.environment = ["DB_PASSWORD=Tr0ub4dor-in-env", "NODE_ENV=production"]
     stack_runner.log = (
         "web-1  | connecting as app with Tr0ub4dor-in-env\n"
@@ -355,7 +355,7 @@ def test_going_back_never_touches_a_volume(
     """The stack's databases live in its volumes: no down, no -v, no volume command."""
     root = tmp_path / "stack"
     compose_app(store, root)
-    probe.failing.add("http://127.0.0.1:8080/")
+    probe.failing.add("http://127.0.0.1:18080/")
 
     with pytest.raises(DeploymentError):
         compose_deployer(root, stack_runner).update()
@@ -372,7 +372,7 @@ def test_a_failure_while_going_back_is_reported_not_swallowed(
     """Every step of the way back is attempted, and each one that failed is named."""
     root = tmp_path / "stack"
     compose_app(store, root)
-    probe.failing.add("http://127.0.0.1:8080/")
+    probe.failing.add("http://127.0.0.1:18080/")
     probe.fail_rounds = 2
     stack_runner.tag_fails = True
     stack_runner.previous_up_fails = True
@@ -397,7 +397,7 @@ def test_a_stack_put_back_that_does_not_answer_either_says_so(
     """Restored is not the same as serving."""
     root = tmp_path / "stack"
     compose_app(store, root)
-    probe.failing.add("http://127.0.0.1:8080/")
+    probe.failing.add("http://127.0.0.1:18080/")
     probe.fail_rounds = 2
 
     with pytest.raises(DeploymentError) as caught:
@@ -421,7 +421,7 @@ def test_a_recreate_that_fails_goes_back_with_dockers_own_words(
 
     assert "container stack-web-1 exited (1)" in (caught.value.details or "")
     assert stack_runner.argv_with("up", "-d", "--no-build")
-    assert probe.urls == ["http://127.0.0.1:8080/"]
+    assert probe.urls == ["http://127.0.0.1:18080/"]
 
 
 def test_a_failed_build_puts_the_tree_and_the_tags_back_and_recreates_nothing(
@@ -487,7 +487,7 @@ def test_without_a_previous_commit_the_compose_file_cannot_go_back(
     """A tree that is not a checkout gets its images back, and is told the rest."""
     root = tmp_path / "stack"
     compose_app(store, root)
-    probe.failing.add("http://127.0.0.1:8080/")
+    probe.failing.add("http://127.0.0.1:18080/")
 
     with pytest.raises(DeploymentError) as caught:
         compose_deployer(root, stack_runner, previous=None).update()

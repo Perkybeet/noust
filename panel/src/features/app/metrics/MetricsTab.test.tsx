@@ -279,6 +279,29 @@ describe("the metrics tab", () => {
       expect(backend.callsTo("GET /api/apps/shop.example.com/traffic")[0]?.search.get("window")).toBe("24h");
     });
 
+    it("shows how many different visitors there were and how long the slowest requests took, when the log says", async () => {
+      await metricsAt({
+        appStatus: status({ traffic: { available: true, log: "/x", reason: null } }),
+        traffic: () => {
+          const base = trafficFixture();
+          return json(200, { ...base, totals: { ...base.totals, visitors: 312, latency_p50_ms: 42, latency_p95_ms: 1800 } });
+        },
+      });
+      const visitors = (await screen.findByText("Visitors")).closest("div");
+      expect(visitors).not.toBeNull();
+      expect(within(visitors as HTMLElement).getByText("312")).toBeInTheDocument();
+      expect(screen.getByText("Different addresses with their browsers")).toBeInTheDocument();
+      expect(screen.getByText("Response time (p95)")).toBeInTheDocument();
+      expect(screen.getByText(/Half took under/)).toBeInTheDocument();
+    });
+
+    it("shows neither tile for a site whose log carries no time and no visitor", async () => {
+      await metricsAt({ appStatus: status({ traffic: { available: true, log: "/x", reason: null } }) });
+      await screen.findByRole("heading", { name: "Who asks for what" });
+      expect(screen.queryByText("Visitors")).toBeNull();
+      expect(screen.queryByText("Response time (p95)")).toBeNull();
+    });
+
     it("reads another window when asked, and keeps the last answer meanwhile", async () => {
       const { user, backend } = await metricsAt({ appStatus: status({ traffic: { available: true, log: "/x", reason: null } }) });
       await screen.findByRole("heading", { name: "Who asks for what" });

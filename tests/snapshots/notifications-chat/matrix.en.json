@@ -566,6 +566,76 @@
     "formatted_body": "<b>○ Scheduled summary</b><br>3 notifications since the last summary.<ul><li><b>Server:</b> web-1</li><li><b>Notifications:</b> 3</li><li><b>Between:</b> 2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC</li></ul><b>Disk cleaned · /</b><ul><li><b>When:</b> 2026-09-29 10:45 UTC</li><li><b>Detail:</b> The server&#x27;s cleanup policy ran and freed space.</li></ul><b>Scheduled task runs again · shop-sync</b><ul><li><b>When:</b> 2026-09-29 10:48 UTC</li><li><b>Detail:</b> The task&#x27;s timer is running again.</li></ul><b>Address answering again · shop-site</b><ul><li><b>When:</b> 2026-09-29 10:51 UTC</li><li><b>Detail:</b> The address answers what the probe asks of it again.</li></ul>",
     "m.mentions": {}
   },
+  "webserver.restarted": {
+    "msgtype": "m.text",
+    "body": "▲ Web server restarted · nginx\nIt had stopped working and Noust started it again once its configuration test passed.\n\nServer: web-1\nInspect with: journalctl -u nginx -n 50\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Web server restarted · nginx</b><br>It had stopped working and Noust started it again once its configuration test passed.<ul><li><b>Server:</b> web-1</li><li><b>Inspect with:</b> <code>journalctl -u nginx -n 50</code></li></ul><a href=\"https://console.example.com/n/web-1/server\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "webserver.down": {
+    "msgtype": "m.text",
+    "body": "✕ Web server down · nginx\nIt is not running, and the automatic restart is switched off.\n\nServer: web-1\nInspect with: journalctl -u nginx -n 50\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Web server down · nginx</b><br>It is not running, and the automatic restart is switched off.<ul><li><b>Server:</b> web-1</li><li><b>Inspect with:</b> <code>journalctl -u nginx -n 50</code></li></ul><a href=\"https://console.example.com/n/web-1/server\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "webserver.config_invalid": {
+    "msgtype": "m.text",
+    "body": "✕ Web server cannot start · nginx\nIt is not running and its configuration does not pass its own test, so Noust did not restart it.\n\nServer: web-1\nCheck it with: nginx -t\n\nWhat the system reported:\n  nginx: [emerg] unknown directive \"servre_name\" in /etc/nginx/sites-enabled/shop.example.com:4\n  nginx: configuration file /etc/nginx/nginx.conf test failed\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Web server cannot start · nginx</b><br>It is not running and its configuration does not pass its own test, so Noust did not restart it.<ul><li><b>Server:</b> web-1</li><li><b>Check it with:</b> <code>nginx -t</code></li></ul><i>What the system reported</i><pre><code>nginx: [emerg] unknown directive &quot;servre_name&quot; in /etc/nginx/sites-enabled/shop.example.com:4\nnginx: configuration file /etc/nginx/nginx.conf test failed</code></pre><a href=\"https://console.example.com/n/web-1/server\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "webserver.restart_failed": {
+    "msgtype": "m.text",
+    "body": "✕ Web server restart failed · nginx\nIt is not running and starting it again did not work.\n\nServer: web-1\nInspect with: journalctl -u nginx -n 50\n\nWhat the system reported:\n  Job for nginx.service failed because the control process exited with error code.\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Web server restart failed · nginx</b><br>It is not running and starting it again did not work.<ul><li><b>Server:</b> web-1</li><li><b>Inspect with:</b> <code>journalctl -u nginx -n 50</code></li></ul><i>What the system reported</i><pre><code>Job for nginx.service failed because the control process exited with error code.</code></pre><a href=\"https://console.example.com/n/web-1/server\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "webserver.limit": {
+    "msgtype": "m.text",
+    "body": "✕ Web server keeps falling · nginx\nIt has fallen 3 times in the last hour, so Noust stopped starting it again.\n\nServer: web-1\nInspect with: journalctl -u nginx -n 50\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Web server keeps falling · nginx</b><br>It has fallen 3 times in the last hour, so Noust stopped starting it again.<ul><li><b>Server:</b> web-1</li><li><b>Inspect with:</b> <code>journalctl -u nginx -n 50</code></li></ul><a href=\"https://console.example.com/n/web-1/server\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "webserver.stopped": {
+    "msgtype": "m.text",
+    "body": "▲ Web server stopped · nginx\nIt is stopped but starts at boot, so every site on this server is down until somebody starts it.\n\nServer: web-1\nStart it with: systemctl start nginx\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Web server stopped · nginx</b><br>It is stopped but starts at boot, so every site on this server is down until somebody starts it.<ul><li><b>Server:</b> web-1</li><li><b>Start it with:</b> <code>systemctl start nginx</code></li></ul><a href=\"https://console.example.com/n/web-1/server\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "security.release": {
+    "msgtype": "m.text",
+    "body": "▲ Security release available · Noust 3.3.2\nNoust 3.3.2 fixes a vulnerability and this server still runs 3.3.1.\n\nServer: web-1\nRunning: 3.3.1\nFixed in: 3.3.2\nAdvisory: https://github.com/Perkybeet/noust/security/advisories/GHSA-aaaa-bbbb-cccc\nUpdate with: pipx upgrade noust\n\nOpen in the console: https://console.example.com/n/web-1/settings/about",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Security release available · Noust 3.3.2</b><br>Noust 3.3.2 fixes a vulnerability and this server still runs 3.3.1.<ul><li><b>Server:</b> web-1</li><li><b>Running:</b> 3.3.1</li><li><b>Fixed in:</b> 3.3.2</li><li><b>Advisory:</b> <code>https://github.com/Perkybeet/noust/security/advisories/GHSA-aaaa-bbbb-cccc</code></li><li><b>Update with:</b> <code>pipx upgrade noust</code></li></ul><a href=\"https://console.example.com/n/web-1/settings/about\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "container.restart_loop": {
+    "msgtype": "m.text",
+    "body": "✕ Container restarting in a loop · shop.example.com\nDocker has restarted it 6 times since it was first seen, and the limit is 5.\n\nServer: web-1\nContainer: shop-worker-1\nRestarts: 6\nLast exit code: 1\nInspect with: docker logs --tail 50 shop-worker-1\n\nWhat the system reported:\n  Error: connect ECONNREFUSED 10.0.0.4:5432\n      at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16)\n  worker exiting with status 1\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Container restarting in a loop · shop.example.com</b><br>Docker has restarted it 6 times since it was first seen, and the limit is 5.<ul><li><b>Server:</b> web-1</li><li><b>Container:</b> <code>shop-worker-1</code></li><li><b>Restarts:</b> 6</li><li><b>Last exit code:</b> 1</li><li><b>Inspect with:</b> <code>docker logs --tail 50 shop-worker-1</code></li></ul><i>What the system reported</i><pre><code>Error: connect ECONNREFUSED 10.0.0.4:5432\n    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16)\nworker exiting with status 1</code></pre><a href=\"https://console.example.com/n/web-1/apps/shop.example.com\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "container.recovered": {
+    "msgtype": "m.text",
+    "body": "● Container stable again · shop.example.com\nIt has run for 7 minutes without restarting.\n\nServer: web-1\nContainer: shop-worker-1\nInspect with: docker logs --tail 50 shop-worker-1\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Container stable again · shop.example.com</b><br>It has run for 7 minutes without restarting.<ul><li><b>Server:</b> web-1</li><li><b>Container:</b> <code>shop-worker-1</code></li><li><b>Inspect with:</b> <code>docker logs --tail 50 shop-worker-1</code></li></ul><a href=\"https://console.example.com/n/web-1/apps/shop.example.com\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "recipe.outdated": {
+    "msgtype": "m.text",
+    "body": "○ Recipe updates available\n2 installed recipes have a newer version in the catalogue.\n\nServer: web-1\nRecipe: vault.example.com: 1.37.4 -> 1.38.0\nRecipe: blog.example.com: 5.0.1 -> 5.1.0\nUpdate with: noust recipe outdated\n\nOpen in the console: https://console.example.com/n/web-1/catalog",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>○ Recipe updates available</b><br>2 installed recipes have a newer version in the catalogue.<ul><li><b>Server:</b> web-1</li><li><b>Recipe:</b> <code>vault.example.com: 1.37.4 -&gt; 1.38.0</code></li><li><b>Recipe:</b> <code>blog.example.com: 5.0.1 -&gt; 5.1.0</code></li><li><b>Update with:</b> <code>noust recipe outdated</code></li></ul><a href=\"https://console.example.com/n/web-1/catalog\">Open in the console</a>",
+    "m.mentions": {}
+  },
   "hostile.deploy_failed": {
     "msgtype": "m.text",
     "body": "✕ Deploy failed · shop.example.com\nIt stopped at an error before the new version could take over.\n\nServer: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nRelease: 20260929-104449\nCommit: a1b2c3d (<b>x</b>&amp;<!channel> @​everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @​here <@​U123> <#C1> red emoji 🚀\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  Release did not pass <its> health & check\n  <urlopen error [Errno 111] Connection refused>\n  ```\n  @​everyone <!channel> <@​U123|admin> &lt;b&gt;\n  red *bold* _italic_ ~strike~ `code`\n  noitcnuf\n  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",

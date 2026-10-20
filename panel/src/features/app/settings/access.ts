@@ -26,6 +26,8 @@ export interface AccessDraft {
   connection_limit: string;
   hsts: "default" | "on" | "off";
   noindex: boolean;
+  /** Send port 80 to HTTPS once the site has a certificate (nginx); off leaves it answering on both. */
+  force_https: boolean;
   headers: string;
   hidden_headers: string;
   /** What happens at prefixes of the site; edited in their own dialog, saved with the rest. */
@@ -121,6 +123,7 @@ export function draftOf(policy: PolicyFields): AccessDraft {
     connection_limit: policy.connection_limit === 0 ? "" : String(policy.connection_limit),
     hsts: policy.hsts === "on" || policy.hsts === "off" ? policy.hsts : "default",
     noindex: policy.noindex,
+    force_https: policy.force_https,
     headers: formatHeaders(policy.headers),
     hidden_headers: policy.hidden_headers.join("\n"),
     routes: policy.routes,
@@ -214,6 +217,10 @@ export function changesOf(draft: AccessDraft, policy: PolicyFields): { count: nu
   }
   if (draft.noindex !== policy.noindex) {
     body.noindex = draft.noindex;
+    count += 1;
+  }
+  if (draft.force_https !== policy.force_https) {
+    body.force_https = draft.force_https;
     count += 1;
   }
   const { headers } = parseHeaders(draft.headers);

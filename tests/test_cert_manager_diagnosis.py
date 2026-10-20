@@ -55,7 +55,7 @@ class _Store:
         """No deployed application in these tests."""
         return None
 
-    def list_domains(self, _domain: str) -> list[Any]:
+    def list_domains(self, _domain: str, *, include_disabled: bool = True) -> list[Any]:
         """No deployed application in these tests."""
         return []
 

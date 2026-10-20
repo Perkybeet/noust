@@ -146,6 +146,10 @@ class SitePolicy:
         routes: What happens at prefixes of the site (:mod:`noust.managers.site_routes`):
             a password asked or lifted there, response headers, another service
             behind the prefix, a redirect. Longest path first.
+        force_https: Send every request on port 80 to HTTPS once the site has a certificate
+            (the default). False leaves the site as one server answering on both ports, for
+            a client that cannot follow a redirect or speak TLS; nginx only, and HSTS, which
+            promises browsers HTTPS only, is never sent for it.
     """
 
     basic_auth: bool = False
@@ -169,6 +173,7 @@ class SitePolicy:
     waf: str = ""
     waf_exclusions: tuple[int, ...] = ()
     routes: tuple[SiteRoute, ...] = ()
+    force_https: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -199,6 +204,7 @@ class SitePolicy:
             "waf": self.waf,
             "waf_exclusions": list(self.waf_exclusions),
             "routes": [route.to_dict() for route in self.routes],
+            "force_https": self.force_https,
         }
 
     @property
@@ -353,7 +359,7 @@ def validated(base: SitePolicy, changes: Mapping[str, Any]) -> SitePolicy:
         )
     values: dict[str, Any] = {}
     for key, value in changes.items():
-        if key in ("basic_auth", "noindex", "http3", "client_certs"):
+        if key in ("basic_auth", "noindex", "http3", "client_certs", "force_https"):
             values[key] = _flag(value, key)
         elif key == "hsts":
             values[key] = None if value is None else _flag(value, key)
@@ -434,6 +440,13 @@ def _check_consistency(policy: SitePolicy) -> None:
             "Naming the header that carries the client address is required",
             details=f"With real_ip custom, real_ip_header is one of {', '.join(REAL_IP_HEADERS)}.",
             field="real_ip_header",
+        )
+    if policy.hsts is True and not policy.force_https:
+        raise ValidationError(
+            "HSTS cannot go with a site that also answers over HTTP",
+            details="Strict-Transport-Security promises browsers that the site is only reached "
+            "over HTTPS. Turn HSTS off for it, or force HTTPS.",
+            field="hsts",
         )
     ways = sum((policy.basic_auth, bool(policy.allow_ips), policy.forward_auth is not None))
     if policy.access == "any" and ways < 2:
@@ -626,6 +639,9 @@ def response_headers(
         hsts = hsts or "max-age=31536000"
     elif policy.hsts is False:
         hsts = ""
+    if not policy.force_https:
+        # A browser that is promised HTTPS only would stop reaching the HTTP side that was asked for.
+        hsts = ""
     if ssl and hsts and "Strict-Transport-Security" not in policy.headers:
         merged["Strict-Transport-Security"] = hsts
     if policy.noindex:
@@ -779,7 +795,12 @@ def policy_context(
         _route_context(
             policy, prefix=prefix, kind=kind, block=block, maps=maps, site_headers=site_headers
         )
-    return {"policy": block, "policy_zones": zones, "policy_maps": maps}
+    return {
+        "policy": block,
+        "policy_zones": zones,
+        "policy_maps": maps,
+        "force_https": policy.force_https,
+    }
 
 
 def _map_key(path: str) -> str:

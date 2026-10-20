@@ -720,6 +720,8 @@ class DomainRecord:
         created_at: When it was added, ISO 8601.
         port: The port of the application this name is proxied to, when it is
             not the application's own (schema v14); None for the application's.
+        enabled: Whether the name is served. A name that is switched off keeps its row and
+            its port, and the site and the certificate leave it out.
     """
 
     id: int | None = None
@@ -728,6 +730,11 @@ class DomainRecord:
     kind: str = DomainKind.PRIMARY.value
     created_at: str | None = None
     port: int | None = None
+    enabled: bool = True
+
+    def __post_init__(self) -> None:
+        """Read the flag the database stores as an integer."""
+        self.enabled = bool(self.enabled)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -2958,12 +2965,16 @@ class NoustStore:
     # Domains
     # =========================================================================
 
-    def list_domains(self, app_domain: str) -> list[DomainRecord]:
+    def list_domains(self, app_domain: str, *, include_disabled: bool = True) -> list[DomainRecord]:
         """
         List the domains an application answers on.
 
         Args:
             app_domain: The application's (primary) domain.
+            include_disabled: Also the names that are switched off. What renders the site
+                and orders the certificate passes False: a name that rests is neither
+                served nor named in a certificate, and everything else (the list the
+                operator reads, export, the DNS checks) sees it.
 
         Returns:
             The primary first, then the aliases, then the redirects, each in
@@ -2998,6 +3009,8 @@ class NoustStore:
                     created_at=app["created_at"],
                 ),
             )
+        if not include_disabled:
+            records = [record for record in records if record.enabled]
         return records
 
     def add_domain(self, app_domain: str, domain: str, kind: str) -> DomainRecord:
@@ -3101,6 +3114,60 @@ class NoustStore:
                 )
             cursor.execute("UPDATE domains SET port = ? WHERE id = ?", (port, row["id"]))
             return True
+
+    def set_domain_enabled(self, app_domain: str, domain: str, enabled: bool) -> bool:
+        """
+        Switch a name off or on without forgetting it.
+
+        Args:
+            app_domain: The application's (primary) domain.
+            domain: The alias or redirect.
+            enabled: True to serve it, False to let it rest.
+
+        Returns:
+            True when the application has that name, False when it does not.
+
+        Raises:
+            DomainError: When the name is the application's primary, which is what the
+                application answers on and cannot rest.
+        """
+        name = domain.strip().lower()
+        with self._transaction() as cursor:
+            cursor.execute(
+                "SELECT d.id, d.kind FROM domains d JOIN apps a ON a.id = d.app_id "
+                "WHERE a.domain = ? AND d.domain = ?",
+                (app_domain, name),
+            )
+            row = cursor.fetchone()
+            if row is None:
+                if name == app_domain and not enabled:
+                    self._refuse_switching_off_primary(name)
+                return False
+            if row["kind"] == DomainKind.PRIMARY.value and not enabled:
+                self._refuse_switching_off_primary(name)
+            cursor.execute(
+                "UPDATE domains SET enabled = ? WHERE id = ?", (1 if enabled else 0, row["id"])
+            )
+            return True
+
+    @staticmethod
+    def _refuse_switching_off_primary(domain: str) -> NoReturn:
+        """
+        Refuse to switch a primary domain off.
+
+        Args:
+            domain: The primary.
+
+        Raises:
+            DomainError: Always.
+        """
+        raise DomainError(
+            f"{domain} is the primary domain and cannot be switched off",
+            details=(
+                "The primary is the domain the application was deployed as. Stop the "
+                f"application to stop serving it: noust stop {domain}"
+            ),
+        )
 
     def remove_domain(self, app_domain: str, domain: str) -> bool:
         """
@@ -4636,28 +4703,44 @@ class NoustStore:
             )
             return cursor.rowcount > 0
 
+    def app_port_claims(self) -> list[tuple[int, str, str]]:
+        """
+        List every port an application holds, and whose it is.
+
+        The one reading of "which ports do the applications own": a port nothing listens on
+        can still be an application's (one that is stopped, or the idle instance of one in
+        zero-downtime mode, which answers on the port after its own). The registry of who
+        holds a port (:class:`~noust.managers.port_claims.PortClaims`) is built on this.
+
+        Returns:
+            ``(port, domain, detail)`` for every application's port, the second port of each
+            application in zero-downtime mode (``detail`` says ``idle copy``) and the ports of
+            the extra copies of the ones scaled out (``extra copy``); ``detail`` is empty for
+            an application's own port.
+        """
+        from noust.core.app_replica_store import reserved_ports_by_app
+
+        claims: list[tuple[int, str, str]] = []
+        for app in self.list_apps():
+            if app.port:
+                claims.append((app.port, app.domain, ""))
+                if app.zero_downtime:
+                    claims.append((app.port + 1, app.domain, "idle copy"))
+        claims.extend(reserved_ports_by_app(store=self))
+        return claims
+
     def ports_owned_by_apps(self) -> set[int]:
         """
         List the ports stored applications own, whether or not they listen now.
 
-        A port nothing listens on can still be an application's: one that is
-        stopped, or the idle instance of one in zero-downtime mode, which
-        answers on the port after its own. Every port picker skips these.
+        Every port picker skips these (see :meth:`app_port_claims`).
 
         Returns:
             Every application's port, the second port of each application
             in zero-downtime mode and the ports of the extra copies of the
             ones scaled out.
         """
-        from noust.core.app_replica_store import reserved_ports
-
-        taken: set[int] = set()
-        for app in self.list_apps():
-            if app.port:
-                taken.add(app.port)
-                if app.zero_downtime:
-                    taken.add(app.port + 1)
-        return taken | reserved_ports(store=self)
+        return {port for port, _domain, _detail in self.app_port_claims()}
 
     def set_zero_downtime(
         self, domain: str, enabled: bool, *, drain_seconds: int | None = None

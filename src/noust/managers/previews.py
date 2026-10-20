@@ -124,8 +124,9 @@ from noust.core.terminal_context import TerminalContext
 from noust.core.utils import domain_to_app_name, find_noust_executable
 from noust.deployers.helpers.hooks import Hook, HookPhase
 from noust.integrations.github import pulls
-from noust.managers import preview_env
+from noust.managers import preview_dns, preview_env
 from noust.managers.database.linking import EXTRA_VARIABLES
+from noust.managers.port_claims import claimed_ports
 from noust.managers.source_manager import validate_git_ref
 from noust.validators.domain import validate_domain
 from noust.validators.environment import ENV_NAME_PATTERN
@@ -1045,7 +1046,7 @@ def _reserve_port() -> int:
     Raises:
         DeploymentError: No port in the range is free.
     """
-    taken = get_store().ports_owned_by_apps()
+    taken = claimed_ports()
     with _ports_guard:
         start, end = _PORT_RANGE
         while start < end:
@@ -1196,6 +1197,11 @@ def _deploy(
     """
     from noust.web.jobs import deploy_app_job
 
+    # Said once, before the build: a name that points elsewhere fails minutes later, at the
+    # certificate, with certbot's words.
+    dns_problem = preview_dns.problem_with(record.domain)
+    if dns_problem:
+        context.log(dns_problem, "warning")
     extras = PreviewStore()
     options = extras.options(parent.domain)
     environment = preview_env.compose(parent, settings, options)

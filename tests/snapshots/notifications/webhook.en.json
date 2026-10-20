@@ -3659,6 +3659,412 @@
     "links": [],
     "excerpt": null
   },
+  "webserver.restarted": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000081",
+    "event": "unit_failed",
+    "code": "webserver.restarted",
+    "state": "warning",
+    "locale": "en",
+    "title": "Web server restarted: nginx",
+    "summary": "It had stopped working and Noust started it again once its configuration test passed.",
+    "body": "It had stopped working and Noust started it again once its configuration test passed.\n\nServer: web-1\nInspect with: journalctl -u nginx -n 50\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "inspect",
+        "label": "Inspect with",
+        "value": "journalctl -u nginx -n 50"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": null
+  },
+  "webserver.down": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000082",
+    "event": "unit_failed",
+    "code": "webserver.down",
+    "state": "failed",
+    "locale": "en",
+    "title": "Web server down: nginx",
+    "summary": "It is not running, and the automatic restart is switched off.",
+    "body": "It is not running, and the automatic restart is switched off.\n\nServer: web-1\nInspect with: journalctl -u nginx -n 50\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "inspect",
+        "label": "Inspect with",
+        "value": "journalctl -u nginx -n 50"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": null
+  },
+  "webserver.config_invalid": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000083",
+    "event": "unit_failed",
+    "code": "webserver.config_invalid",
+    "state": "failed",
+    "locale": "en",
+    "title": "Web server cannot start: nginx",
+    "summary": "It is not running and its configuration does not pass its own test, so Noust did not restart it.",
+    "body": "It is not running and its configuration does not pass its own test, so Noust did not restart it.\n\nServer: web-1\nCheck it with: nginx -t\n\nWhat the system reported:\n  nginx: [emerg] unknown directive \"servre_name\" in /etc/nginx/sites-enabled/shop.example.com:4\n  nginx: configuration file /etc/nginx/nginx.conf test failed\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "verify",
+        "label": "Check it with",
+        "value": "nginx -t"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": {
+      "label": "What the system reported",
+      "lines": [
+        "nginx: [emerg] unknown directive \"servre_name\" in /etc/nginx/sites-enabled/shop.example.com:4",
+        "nginx: configuration file /etc/nginx/nginx.conf test failed"
+      ],
+      "omitted": 0
+    }
+  },
+  "webserver.restart_failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000084",
+    "event": "unit_failed",
+    "code": "webserver.restart_failed",
+    "state": "failed",
+    "locale": "en",
+    "title": "Web server restart failed: nginx",
+    "summary": "It is not running and starting it again did not work.",
+    "body": "It is not running and starting it again did not work.\n\nServer: web-1\nInspect with: journalctl -u nginx -n 50\n\nWhat the system reported:\n  Job for nginx.service failed because the control process exited with error code.\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "inspect",
+        "label": "Inspect with",
+        "value": "journalctl -u nginx -n 50"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": {
+      "label": "What the system reported",
+      "lines": [
+        "Job for nginx.service failed because the control process exited with error code."
+      ],
+      "omitted": 0
+    }
+  },
+  "webserver.limit": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000085",
+    "event": "unit_failed",
+    "code": "webserver.limit",
+    "state": "failed",
+    "locale": "en",
+    "title": "Web server keeps falling: nginx",
+    "summary": "It has fallen 3 times in the last hour, so Noust stopped starting it again.",
+    "body": "It has fallen 3 times in the last hour, so Noust stopped starting it again.\n\nServer: web-1\nInspect with: journalctl -u nginx -n 50\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "inspect",
+        "label": "Inspect with",
+        "value": "journalctl -u nginx -n 50"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": null
+  },
+  "webserver.stopped": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000086",
+    "event": "unit_failed",
+    "code": "webserver.stopped",
+    "state": "warning",
+    "locale": "en",
+    "title": "Web server stopped: nginx",
+    "summary": "It is stopped but starts at boot, so every site on this server is down until somebody starts it.",
+    "body": "It is stopped but starts at boot, so every site on this server is down until somebody starts it.\n\nServer: web-1\nStart it with: systemctl start nginx\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "start",
+        "label": "Start it with",
+        "value": "systemctl start nginx"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": null
+  },
+  "security.release": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000087",
+    "event": "security_release",
+    "code": "security.release",
+    "state": "warning",
+    "locale": "en",
+    "title": "Security release available: Noust 3.3.2",
+    "summary": "Noust 3.3.2 fixes a vulnerability and this server still runs 3.3.1.",
+    "body": "Noust 3.3.2 fixes a vulnerability and this server still runs 3.3.1.\n\nServer: web-1\nRunning: 3.3.1\nFixed in: 3.3.2\nAdvisory: https://github.com/Perkybeet/noust/security/advisories/GHSA-aaaa-bbbb-cccc\nUpdate with: pipx upgrade noust\n\nOpen in the console: https://console.example.com/n/web-1/settings/about",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "running",
+        "label": "Running",
+        "value": "3.3.1"
+      },
+      {
+        "key": "fixed_in",
+        "label": "Fixed in",
+        "value": "3.3.2"
+      },
+      {
+        "key": "advisory",
+        "label": "Advisory",
+        "value": "https://github.com/Perkybeet/noust/security/advisories/GHSA-aaaa-bbbb-cccc"
+      },
+      {
+        "key": "update_with",
+        "label": "Update with",
+        "value": "pipx upgrade noust"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/settings/about"
+      }
+    ],
+    "excerpt": null
+  },
+  "container.restart_loop": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000088",
+    "event": "container_restart_loop",
+    "code": "container.restart_loop",
+    "state": "failed",
+    "locale": "en",
+    "title": "Container restarting in a loop: shop.example.com",
+    "summary": "Docker has restarted it 6 times since it was first seen, and the limit is 5.",
+    "body": "Docker has restarted it 6 times since it was first seen, and the limit is 5.\n\nServer: web-1\nContainer: shop-worker-1\nRestarts: 6\nLast exit code: 1\nInspect with: docker logs --tail 50 shop-worker-1\n\nWhat the system reported:\n  Error: connect ECONNREFUSED 10.0.0.4:5432\n      at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16)\n  worker exiting with status 1\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "container",
+        "label": "Container",
+        "value": "shop-worker-1"
+      },
+      {
+        "key": "restarts",
+        "label": "Restarts",
+        "value": "6"
+      },
+      {
+        "key": "exit_code",
+        "label": "Last exit code",
+        "value": "1"
+      },
+      {
+        "key": "inspect",
+        "label": "Inspect with",
+        "value": "docker logs --tail 50 shop-worker-1"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ],
+    "excerpt": {
+      "label": "What the system reported",
+      "lines": [
+        "Error: connect ECONNREFUSED 10.0.0.4:5432",
+        "    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16)",
+        "worker exiting with status 1"
+      ],
+      "omitted": 0
+    }
+  },
+  "container.recovered": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000089",
+    "event": "container_restart_loop",
+    "code": "container.recovered",
+    "state": "ok",
+    "locale": "en",
+    "title": "Container stable again: shop.example.com",
+    "summary": "It has run for 7 minutes without restarting.",
+    "body": "It has run for 7 minutes without restarting.\n\nServer: web-1\nContainer: shop-worker-1\nInspect with: docker logs --tail 50 shop-worker-1\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "container",
+        "label": "Container",
+        "value": "shop-worker-1"
+      },
+      {
+        "key": "inspect",
+        "label": "Inspect with",
+        "value": "docker logs --tail 50 shop-worker-1"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ],
+    "excerpt": null
+  },
+  "recipe.outdated": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000090",
+    "event": "recipe_outdated",
+    "code": "recipe.outdated",
+    "state": "info",
+    "locale": "en",
+    "title": "Recipe updates available",
+    "summary": "2 installed recipes have a newer version in the catalogue.",
+    "body": "2 installed recipes have a newer version in the catalogue.\n\nServer: web-1\nRecipe: vault.example.com: 1.37.4 -> 1.38.0\nRecipe: blog.example.com: 5.0.1 -> 5.1.0\nUpdate with: noust recipe outdated\n\nOpen in the console: https://console.example.com/n/web-1/catalog",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "recipe",
+        "label": "Recipe",
+        "value": "vault.example.com: 1.37.4 -> 1.38.0"
+      },
+      {
+        "key": "recipe",
+        "label": "Recipe",
+        "value": "blog.example.com: 5.0.1 -> 5.1.0"
+      },
+      {
+        "key": "update_with",
+        "label": "Update with",
+        "value": "noust recipe outdated"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/catalog"
+      }
+    ],
+    "excerpt": null
+  },
   "hostile.deploy_failed": {
     "version": 1,
     "id": "00000000-0000-4000-8000-000000001000",

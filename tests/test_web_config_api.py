@@ -36,6 +36,7 @@ from noust.web.api.auth import get_current_session
 from noust.web.api.deps import install_error_handlers
 from noust.web.auth import CSRF_HEADER_NAME, AuditLogger, SecurityConfig, set_audit_logger
 from noust.web.server import create_app, get_token_manager
+from tests.config_files import planted, stored_config
 
 #: Secrets planted in the stored configuration; none may reach a response.
 PLANTED_SECRETS = {
@@ -153,7 +154,7 @@ def stored_value(config_path: Path, dotted_key: str) -> Any:
     Returns:
         The stored value, or None when absent.
     """
-    node: Any = yaml.safe_load(config_path.read_text())
+    node: Any = stored_config(config_path)
     for part in dotted_key.split("."):
         if not isinstance(node, dict) or part not in node:
             return None
@@ -215,9 +216,7 @@ class TestSecretsNeverLeave:
             marker = f"leaked-{index}-{key.replace('.', '-')}"
             markers[key] = marker
             # A channel's webhook is refused unless it is a URL; the marker stays visible in it.
-            config.set(
-                key, f"https://example.test/{marker}" if key.endswith("webhook_url") else marker
-            )
+            config.set(key, planted(key, marker))
         assert config.save() is True
         Config.reset_instance()
 

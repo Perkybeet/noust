@@ -2881,6 +2881,293 @@
     },
     "flags": 4096
   },
+  "webserver.restarted": {
+    "embeds": [
+      {
+        "title": "▲ Web server restarted · nginx",
+        "description": "It had stopped working and Noust started it again once its configuration test passed.\n\n**Inspect with:** `journalctl -u nginx -n 50`",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "webserver.down": {
+    "embeds": [
+      {
+        "title": "✕ Web server down · nginx",
+        "description": "It is not running, and the automatic restart is switched off.\n\n**Inspect with:** `journalctl -u nginx -n 50`",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "webserver.config_invalid": {
+    "embeds": [
+      {
+        "title": "✕ Web server cannot start · nginx",
+        "description": "It is not running and its configuration does not pass its own test, so Noust did not restart it.\n\n**Check it with:** `nginx -t`\n\n*What the system reported*\n```\nnginx: [emerg] unknown directive \"servre_name\" in /etc/nginx/sites-enabled/shop.example.com:4\nnginx: configuration file /etc/nginx/nginx.conf test failed\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "webserver.restart_failed": {
+    "embeds": [
+      {
+        "title": "✕ Web server restart failed · nginx",
+        "description": "It is not running and starting it again did not work.\n\n**Inspect with:** `journalctl -u nginx -n 50`\n\n*What the system reported*\n```\nJob for nginx.service failed because the control process exited with error code.\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "webserver.limit": {
+    "embeds": [
+      {
+        "title": "✕ Web server keeps falling · nginx",
+        "description": "It has fallen 3 times in the last hour, so Noust stopped starting it again.\n\n**Inspect with:** `journalctl -u nginx -n 50`",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "webserver.stopped": {
+    "embeds": [
+      {
+        "title": "▲ Web server stopped · nginx",
+        "description": "It is stopped but starts at boot, so every site on this server is down until somebody starts it.\n\n**Start it with:** `systemctl start nginx`",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "security.release": {
+    "embeds": [
+      {
+        "title": "▲ Security release available · Noust 3.3.2",
+        "description": "Noust 3.3.2 fixes a vulnerability and this server still runs 3.3.1.\n\n**Update with:** `pipx upgrade noust`",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Running",
+            "value": "3.3.1",
+            "inline": true
+          },
+          {
+            "name": "Fixed in",
+            "value": "3.3.2",
+            "inline": true
+          },
+          {
+            "name": "Advisory",
+            "value": "`https://github.com/Perkybeet/noust/security/advisories/GHSA-aaaa-bbbb-cccc`",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/settings/about"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "container.restart_loop": {
+    "embeds": [
+      {
+        "title": "✕ Container restarting in a loop · shop.example.com",
+        "description": "Docker has restarted it 6 times since it was first seen, and the limit is 5.\n\n**Inspect with:** `docker logs --tail 50 shop-worker-1`\n\n*What the system reported*\n```\nError: connect ECONNREFUSED 10.0.0.4:5432\n    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16)\nworker exiting with status 1\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Container",
+            "value": "`shop-worker-1`",
+            "inline": true
+          },
+          {
+            "name": "Restarts",
+            "value": "6",
+            "inline": true
+          },
+          {
+            "name": "Last exit code",
+            "value": "1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "container.recovered": {
+    "embeds": [
+      {
+        "title": "● Container stable again · shop.example.com",
+        "description": "It has run for 7 minutes without restarting.\n\n**Inspect with:** `docker logs --tail 50 shop-worker-1`",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Container",
+            "value": "`shop-worker-1`",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "recipe.outdated": {
+    "embeds": [
+      {
+        "title": "○ Recipe updates available",
+        "description": "2 installed recipes have a newer version in the catalogue.\n\n**Update with:** `noust recipe outdated`",
+        "color": 10395294,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Recipe",
+            "value": "`vault.example.com: 1.37.4 -> 1.38.0`",
+            "inline": true
+          },
+          {
+            "name": "Recipe",
+            "value": "`blog.example.com: 5.0.1 -> 5.1.0`",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/catalog"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
   "hostile.deploy_failed": {
     "embeds": [
       {

@@ -637,6 +637,86 @@
     "priority": "-1",
     "timestamp": "1790678751"
   },
+  "webserver.restarted": {
+    "title": "▲ Web server restarted · nginx",
+    "message": "It had stopped working and Noust started it again once its configuration test passed.\n\nServer: web-1\nInspect with: journalctl -u nginx -n 50",
+    "priority": "0",
+    "timestamp": "1790678751",
+    "url": "https://console.example.com/n/web-1/server",
+    "url_title": "Open in the console"
+  },
+  "webserver.down": {
+    "title": "✕ Web server down · nginx",
+    "message": "It is not running, and the automatic restart is switched off.\n\nServer: web-1\nInspect with: journalctl -u nginx -n 50",
+    "priority": "1",
+    "timestamp": "1790678751",
+    "url": "https://console.example.com/n/web-1/server",
+    "url_title": "Open in the console"
+  },
+  "webserver.config_invalid": {
+    "title": "✕ Web server cannot start · nginx",
+    "message": "It is not running and its configuration does not pass its own test, so Noust did not restart it.\n\nServer: web-1\nCheck it with: nginx -t\n\nWhat the system reported:\n  nginx: [emerg] unknown directive \"servre_name\" in /etc/nginx/sites-enabled/shop.example.com:4\n  nginx: configuration file /etc/nginx/nginx.conf test failed",
+    "priority": "1",
+    "timestamp": "1790678751",
+    "url": "https://console.example.com/n/web-1/server",
+    "url_title": "Open in the console"
+  },
+  "webserver.restart_failed": {
+    "title": "✕ Web server restart failed · nginx",
+    "message": "It is not running and starting it again did not work.\n\nServer: web-1\nInspect with: journalctl -u nginx -n 50\n\nWhat the system reported:\n  Job for nginx.service failed because the control process exited with error code.",
+    "priority": "1",
+    "timestamp": "1790678751",
+    "url": "https://console.example.com/n/web-1/server",
+    "url_title": "Open in the console"
+  },
+  "webserver.limit": {
+    "title": "✕ Web server keeps falling · nginx",
+    "message": "It has fallen 3 times in the last hour, so Noust stopped starting it again.\n\nServer: web-1\nInspect with: journalctl -u nginx -n 50",
+    "priority": "1",
+    "timestamp": "1790678751",
+    "url": "https://console.example.com/n/web-1/server",
+    "url_title": "Open in the console"
+  },
+  "webserver.stopped": {
+    "title": "▲ Web server stopped · nginx",
+    "message": "It is stopped but starts at boot, so every site on this server is down until somebody starts it.\n\nServer: web-1\nStart it with: systemctl start nginx",
+    "priority": "0",
+    "timestamp": "1790678751",
+    "url": "https://console.example.com/n/web-1/server",
+    "url_title": "Open in the console"
+  },
+  "security.release": {
+    "title": "▲ Security release available · Noust 3.3.2",
+    "message": "Noust 3.3.2 fixes a vulnerability and this server still runs 3.3.1.\n\nServer: web-1\nRunning: 3.3.1\nFixed in: 3.3.2\nAdvisory: https://github.com/Perkybeet/noust/security/advisories/GHSA-aaaa-bbbb-cccc\nUpdate with: pipx upgrade noust",
+    "priority": "0",
+    "timestamp": "1790678751",
+    "url": "https://console.example.com/n/web-1/settings/about",
+    "url_title": "Open in the console"
+  },
+  "container.restart_loop": {
+    "title": "✕ Container restarting in a loop · shop.example.com",
+    "message": "Docker has restarted it 6 times since it was first seen, and the limit is 5.\n\nServer: web-1\nContainer: shop-worker-1\nRestarts: 6\nLast exit code: 1\nInspect with: docker logs --tail 50 shop-worker-1\n\nWhat the system reported:\n  Error: connect ECONNREFUSED 10.0.0.4:5432\n      at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16)\n  worker exiting with status 1",
+    "priority": "1",
+    "timestamp": "1790678751",
+    "url": "https://console.example.com/n/web-1/apps/shop.example.com",
+    "url_title": "Open in the console"
+  },
+  "container.recovered": {
+    "title": "● Container stable again · shop.example.com",
+    "message": "It has run for 7 minutes without restarting.\n\nServer: web-1\nContainer: shop-worker-1\nInspect with: docker logs --tail 50 shop-worker-1",
+    "priority": "-1",
+    "timestamp": "1790678751",
+    "url": "https://console.example.com/n/web-1/apps/shop.example.com",
+    "url_title": "Open in the console"
+  },
+  "recipe.outdated": {
+    "title": "○ Recipe updates available",
+    "message": "2 installed recipes have a newer version in the catalogue.\n\nServer: web-1\nRecipe: vault.example.com: 1.37.4 -> 1.38.0\nRecipe: blog.example.com: 5.0.1 -> 5.1.0\nUpdate with: noust recipe outdated",
+    "priority": "-1",
+    "timestamp": "1790678751",
+    "url": "https://console.example.com/n/web-1/catalog",
+    "url_title": "Open in the console"
+  },
   "hostile.deploy_failed": {
     "title": "✕ Deploy failed · shop.example.com",
     "message": "It stopped at an error before the new version could take over.\n\nServer: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nRelease: 20260929-104449\nCommit: a1b2c3d (<b>x</b>&amp;<!channel> @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here <@U123> <#C1> red emoji 🚀\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  <urlopen error [Errno 111] Connection refused>\n  ```\n  @everyone <!channel> <@U123|admin> &lt;b&gt;\n  red *bold* _italic_ ~strike~ `code`\n  noitcnuf\n  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…\n  1 earlier line omitted",

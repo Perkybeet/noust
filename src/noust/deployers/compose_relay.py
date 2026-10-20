@@ -67,6 +67,7 @@ from noust.deployers.helpers.compose_ports import parse_ports, web_root_service
 from noust.deployers.helpers.health import wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate, Probe
 from noust.deployers.helpers.site import is_operator_site
+from noust.managers.port_claims import claimed_ports
 from noust.managers.service_manager import ServiceManager
 from noust.managers.upstream_names import alias_for
 from noust.managers.webserver import (
@@ -1119,7 +1120,7 @@ class ComposeRelay:
             A port nothing listens on, that no application owns and that the
             stack does not publish; None when there is none in range.
         """
-        owned = set(self.deployer.store.ports_owned_by_apps())
+        owned = claimed_ports(self.deployer.store, self.deployer.runner)
         owned.update(target.host_port for target in relay_targets(self.deployer.services).values())
         start, end = RELAY_PORT_RANGE
         return self._find_port(start=start, end=end, exclude=owned)

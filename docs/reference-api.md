@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1031 operations.
+1033 operations.
 
 ## Access
 
@@ -638,6 +638,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | PUT | `/api/apps/{domain}/domains/canonical` | Put Canonical | `apps.manage` |  |  |
 | DELETE | `/api/apps/{domain}/domains/{name}` | Delete Domain | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/domains/{name}/dns` | Get Domain Dns | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/domains/{name}/enabled` | Put Domain Enabled | `apps.manage` |  |  |
 | PUT | `/api/apps/{domain}/domains/{name}/port` | Put Domain Port | `apps.manage` |  |  |
 | GET | `/api/apps/{domain}/http3` | Get Http3 | `apps.read` |  |  |
 | GET | `/api/apps/{domain}/policy` | Get Policy | `apps.read` |  |  |
@@ -908,6 +909,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 |---|---|---|---|---|---|
 | GET | `/api/apps/{domain}/previews` | List Previews | `apps.read` |  |  |
 | POST | `/api/apps/{domain}/previews` | Create Preview | `apps.deploy` | yes |  |
+| GET | `/api/apps/{domain}/previews/dns` | Get Preview Dns | `apps.read` |  |  |
 | GET | `/api/apps/{domain}/previews/pull-requests` | List Pull Requests | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/previews/settings` | Put Preview Settings | `apps.manage` | yes |  |
 | DELETE | `/api/apps/{domain}/previews/settings` | Delete Preview Settings | `apps.manage` | yes |  |

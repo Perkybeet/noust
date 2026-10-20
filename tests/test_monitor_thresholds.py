@@ -273,6 +273,13 @@ class TestTheLoopsNewDuties:
         finally:
             NoustStore.reset_instance()
 
+    def test_the_web_server_is_watched_by_default(self, tmp_path: Path, config: Config) -> None:
+        from noust.monitor.watch_webserver import WebServerWatch
+
+        monitor, _, _ = make(tmp_path, config)
+
+        assert any(isinstance(watch, WebServerWatch) for watch in monitor._watches)
+
     def test_a_store_that_cannot_be_read_does_not_stop_the_scan(
         self, tmp_path: Path, config: Config, caplog: pytest.LogCaptureFixture
     ) -> None:

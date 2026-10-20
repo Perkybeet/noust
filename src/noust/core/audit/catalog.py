@@ -348,6 +348,7 @@ EVENTS: dict[str, EventSpec] = {
             "sites.policy.user": "An account of a site's basic authentication was added, changed or removed.",
             "sites.port": "The port a name of an application is proxied to was changed.",
             "domains.canonical": "Which spelling of a domain, www or the bare name, is served was changed.",
+            "domains.enabled": "A name of an application was switched off, or on again, without being deleted.",
             "certs.upload": "A certificate and its key were uploaded.",
             "certs.assign": "The certificate an application's site serves was chosen.",
             "certs.acme": "The certificate authority, the account e-mail or the challenge was changed.",
@@ -692,6 +693,14 @@ EVENTS: dict[str, EventSpec] = {
             "audit.degraded": "The audit log is failing or over its size limit.",
             "audit.gap": "The audit chain has a gap or a broken link.",
             "audit.sink.degraded": "An audit destination has not received events for too long.",
+        },
+    ),
+    # What the monitor does by itself.
+    **_events(
+        "system",
+        NOTICE,
+        {
+            "monitor.webserver_restart": "The monitor started the web server again after it fell.",
         },
     ),
     # The host action ledger: what Noust actually did as root.

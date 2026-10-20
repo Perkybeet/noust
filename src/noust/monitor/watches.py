@@ -21,8 +21,10 @@ Three rules hold for every watch:
   and says it again only when the situation changes or a long time passed.
 - **Not knowing is not a change.** A watch that could not look (the package
   manager is locked, the journal unreadable) leaves what it remembered alone.
-- **A watch never acts.** Like the rest of the monitor it reports and does
-  nothing else.
+- **A watch reports.** Like the rest of the monitor it observes and says so. The one
+  exception is the web server's (:mod:`noust.monitor.watch_webserver`): it starts a server
+  that crashed again, after the server's own test passes, within a limit, audited, and the
+  operator can turn that off.
 """
 
 from __future__ import annotations
