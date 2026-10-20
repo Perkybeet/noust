@@ -8,6 +8,7 @@ import { jobKeys } from "../../../api/queries/jobs";
 import { useDocumentTitle } from "../../../app/documentTitle";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Section, Sections } from "../../../components/page/Section";
@@ -15,7 +16,6 @@ import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { ExternalLink } from "../../../components/ui/ExternalLink";
-import { FeatureState } from "../../../components/ui/FeatureState";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
@@ -120,45 +120,40 @@ export function ConsoleAccessSettings() {
       {query.isError && exposure === undefined ? (
         <ErrorBlock error={query.error} title={t("consoleAccess.loadFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} />
       ) : exposure === undefined ? (
-        <div aria-busy="true" className="flex flex-col gap-8">
-          <span className="sr-only">{t("consoleAccess.loading")}</span>
+        <LoadingRegion label={t("consoleAccess.loading")} className="flex flex-col gap-8">
           <Skeleton className="h-24 w-full rounded-card" />
           <Skeleton className="h-48 w-full rounded-card" />
-        </div>
+        </LoadingRegion>
       ) : (
         <>
-          <FeatureState
-            state={exposure.exposed ? (problem ? "problem" : "on") : stuck ? "problem" : "off"}
-            title={exposure.exposed ? (problem ? t("consoleAccess.state.problem") : t("consoleAccess.state.on")) : stuck ? t("consoleAccess.state.unfinished") : t("consoleAccess.state.off")}
-            action={
+          <Card
+            level={2}
+            title={t("consoleAccess.state.title")}
+            status={
+              <StatusPill
+                state={exposure.exposed ? (problem ? "warning" : "running") : stuck ? "warning" : "stopped"}
+                label={exposure.exposed ? (problem ? t("consoleAccess.state.problem") : t("consoleAccess.state.on")) : stuck ? t("consoleAccess.state.unfinished") : t("consoleAccess.state.off")}
+                size="sm"
+              />
+            }
+            description={
+              exposure.exposed
+                ? problem
+                  ? t("consoleAccess.state.problemBody", { url: exposure.url ?? exposure.domain ?? "" })
+                  : t("consoleAccess.state.onBody", { url: exposure.url ?? exposure.domain ?? "" })
+                : stuck
+                  ? t("consoleAccess.state.unfinishedBody", { domain: exposure.domain ?? "" })
+                  : t("consoleAccess.state.offBody")
+            }
+            actions={
               exposure.exposed || stuck ? (
-                <Button size="sm" variant="secondary" disabled={job.busy} onClick={() => setUnpublishing(true)}>
+                <Button size="sm" disabled={job.busy} onClick={() => setUnpublishing(true)}>
                   {t("consoleAccess.actions.unpublish")}
                 </Button>
               ) : undefined
             }
           >
-            {exposure.exposed
-              ? problem
-                ? t("consoleAccess.state.problemBody", { url: exposure.url ?? exposure.domain ?? "" })
-                : t("consoleAccess.state.onBody", { url: exposure.url ?? exposure.domain ?? "" })
-              : stuck
-                ? t("consoleAccess.state.unfinishedBody", { domain: exposure.domain ?? "" })
-                : t("consoleAccess.state.offBody")}
-          </FeatureState>
-
-          {exposure.problems.length > 0 ? (
-            <Notice tone="warning">
-              <ul className="flex flex-col gap-1" translate="no">
-                {exposure.problems.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            </Notice>
-          ) : null}
-
-          {exposure.exposed || stuck ? (
-            <Section title={t("consoleAccess.facts.title")}>
+            {exposure.exposed || stuck ? (
               <KeyValueList
                 items={[
                   { label: t("consoleAccess.facts.address"), value: exposure.url !== null ? <ExternalLink href={exposure.url} /> : (exposure.domain ?? ""), mono: false, copy: exposure.url ?? false },
@@ -180,10 +175,20 @@ export function ConsoleAccessSettings() {
                   ...(exposure.createdBy !== null ? [{ label: t("consoleAccess.facts.by"), value: exposure.createdBy }] : []),
                 ]}
               />
-            </Section>
-          ) : (
-            <Prerequisites exposure={exposure} lacking={lacking} />
-          )}
+            ) : undefined}
+          </Card>
+
+          {exposure.problems.length > 0 ? (
+            <Notice tone="warning">
+              <ul className="flex flex-col gap-1" translate="no">
+                {exposure.problems.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </Notice>
+          ) : null}
+
+          {exposure.exposed || stuck ? null : <Prerequisites exposure={exposure} lacking={lacking} />}
 
           <CommandHint command="noust console expose --domain console.example.com --allow-ip 203.0.113.0/24" label={t("backups.common.fromTerminal")} />
         </>

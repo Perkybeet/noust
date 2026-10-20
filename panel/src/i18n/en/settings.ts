@@ -719,6 +719,10 @@ export const settings = {
       source: "a source checkout",
       unknown: "the package source",
     },
+    groups: {
+      updates: { title: "Version and updates", description: "Which Noust is running here, whether a newer one can be installed, and whether this server installs it by itself." },
+      support: { title: "This installation and support", description: "What this server runs, whether it is ready for deployments, and what to send when something goes wrong." },
+    },
     version: {
       title: "Version",
       description: "The installed Noust, and whether a newer one can be installed on this server.",

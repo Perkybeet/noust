@@ -115,7 +115,8 @@ describe("the approvals inbox", () => {
       "GET /api/approvals": () => json(200, { approvals: [], pending: 0 }),
     });
     renderConsole("/settings/approvals");
-    expect(await screen.findByText("Approvals are off on this server")).toBeInTheDocument();
+    expect(await screen.findByText("Off", { selector: "[data-state]" })).toHaveAttribute("data-state", "stopped");
+    expect(screen.getByText(/Nothing waits for a second person here/)).toBeInTheDocument();
     expect(await screen.findByText("Nothing waits for approval.")).toBeInTheDocument();
   });
 });

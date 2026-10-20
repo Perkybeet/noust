@@ -101,8 +101,8 @@ export function InstallCheck() {
   const check = useQuery(installCheckQuery());
   return (
     <Section
+      level={3}
       title={t("settings.about.installCheck.title")}
-      description={t("settings.about.installCheck.description")}
       loading={check.data === undefined && !check.isError}
       actions={
         <Button size="sm" icon={<RotateCw aria-hidden="true" />} loading={check.isFetching} onClick={() => void check.refetch()}>

@@ -202,6 +202,27 @@ function ssoBackend(initial: Partial<Fixture> = {}, extra: Record<string, RouteH
   return { backend, state };
 }
 
+type Pointer = ReturnType<typeof renderConsole>["user"];
+
+/** Adds a connection of one of the three kinds from the one menu. */
+async function addConnection(user: Pointer, kind: "OpenID Connect provider" | "SAML provider" | "Directory"): Promise<void> {
+  await user.click(await screen.findByRole("button", { name: "Add a connection" }));
+  await user.click(await screen.findByRole("menuitem", { name: kind }));
+}
+
+/** One of a row's actions, from the menu at its end. */
+async function rowAction(user: Pointer, name: string, action: "Test" | "Edit" | "Remove"): Promise<void> {
+  await user.click(await screen.findByRole("button", { name: `Actions for ${name}` }));
+  await user.click(await screen.findByRole("menuitem", { name: action }));
+}
+
+/** The row of the connections table that holds a text. */
+function rowOf(text: string): HTMLElement {
+  const row = within(screen.getByRole("region", { name: "Sign-in connections" })).getByText(text).closest("tr");
+  if (!row) throw new Error(`no connection row holds ${text}`);
+  return row;
+}
+
 async function pageAt(initial: Partial<Fixture> = {}, extra: Record<string, RouteHandler> = {}) {
   screenWidth(1440);
   const world = ssoBackend(initial, extra);
@@ -215,10 +236,8 @@ describe("Settings > Single sign-on", () => {
     await pageAt();
     // The skeleton has the table's name too: wait for the provider, then take the real table.
     await screen.findByText("Acme SSO");
-    const table = screen.getByRole("region", { name: "Configured providers" });
-    const row = within(table).getAllByRole("row")[1];
-    if (!row) throw new Error("no provider row");
-    expect(within(row).getByText("Acme SSO")).toBeInTheDocument();
+    const row = rowOf("Acme SSO");
+    expect(within(row).getByText("OpenID Connect")).toBeInTheDocument();
     expect(within(row).getByText("Enabled")).toHaveAttribute("data-state", "running");
     expect(within(row).getByText("https://sso.acme.test/realms/acme")).toBeInTheDocument();
     expect(screen.getByText(REDIRECT)).toBeInTheDocument();
@@ -234,12 +253,16 @@ describe("Settings > Single sign-on", () => {
     expect(within(nav).getByRole("link", { name: "Single sign-on" })).toHaveAttribute("aria-current", "page");
   });
 
-  it("offers to add the first provider when there is none", async () => {
-    await pageAt({ providers: [], identities: [], local: { enabled: true, exempt: [], providers: 0, survivors: ["ana"] } });
-    expect(await screen.findByRole("heading", { name: "No identity provider yet" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add a provider" })).toBeInTheDocument();
+  it("offers to add the first connection, of three kinds, when there is none", async () => {
+    const { user } = await pageAt({ providers: [], identities: [], local: { enabled: true, exempt: [], providers: 0, survivors: ["ana"] } });
+    expect(await screen.findByRole("heading", { name: "No sign-in connection yet" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Add a connection" }));
+    expect(await screen.findByRole("menuitem", { name: "OpenID Connect provider" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "SAML provider" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Directory" })).toBeInTheDocument();
+    await user.keyboard("{Escape}");
     // With none, turning passwords off would lock everybody out: it is not offered, and says why.
-    expect(screen.getByRole("button", { name: "Turn off…" })).toBeDisabled();
+    expect(screen.getByRole("switch", { name: "Sign in with passwords and passkeys" })).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByText(/Add a provider and test it first/)).toBeInTheDocument();
   });
 
@@ -250,7 +273,7 @@ describe("Settings > Single sign-on", () => {
       state.providers = [{ ...PROVIDER, name: "entra", label: body["label"], issuer: body["issuer"], client_id: body["client_id"], provisioning: body["provisioning"] }];
       return json(200, state.providers[0]);
     });
-    await user.click(await screen.findByRole("button", { name: "Add a provider" }));
+    await addConnection(user, "OpenID Connect provider");
     const drawer = await screen.findByRole("dialog", { name: "Add an identity provider" });
     await user.type(within(drawer).getByLabelText(/^Name/), "entra");
     await user.type(within(drawer).getByLabelText(/^Button label/), "Entra ID");
@@ -283,7 +306,7 @@ describe("Settings > Single sign-on", () => {
       state.providers = [{ ...PROVIDER, name: "github", label: body["label"], kind: "github", issuer: "https://github.com", client_id: body["client_id"] }];
       return json(200, state.providers[0]);
     });
-    await user.click(await screen.findByRole("button", { name: "Add a provider" }));
+    await addConnection(user, "OpenID Connect provider");
     const drawer = await screen.findByRole("dialog", { name: "Add an identity provider" });
     await user.click(within(drawer).getByRole("radio", { name: /^GitHub/ }));
     // Nothing OpenID Connect about it: no issuer to type, and no scopes to choose.
@@ -311,7 +334,7 @@ describe("Settings > Single sign-on", () => {
     backend.on("PUT /api/auth/oidc/config/corp", () =>
       problem(422, "validation_error", "Invalid", { fields: { issuer: "The issuer must use HTTPS, or be a provider on this machine." } }),
     );
-    await user.click(await screen.findByRole("button", { name: "Edit corp" }));
+    await rowAction(user, "corp", "Edit");
     const drawer = await screen.findByRole("dialog", { name: "Edit corp" });
     expect(within(drawer).getByLabelText(/^Issuer/)).toHaveValue("https://sso.acme.test/realms/acme");
     await user.click(within(drawer).getByRole("button", { name: "Save provider" }));
@@ -320,7 +343,7 @@ describe("Settings > Single sign-on", () => {
 
   it("keeps the stored secret unless one is typed, and reads group mappings back as lines", { timeout: 30_000 }, async () => {
     const { backend, user } = await pageAt({}, { "PUT /api/auth/oidc/config/corp": () => json(200, PROVIDER) });
-    await user.click(await screen.findByRole("button", { name: "Edit corp" }));
+    await rowAction(user, "corp", "Edit");
     const drawer = await screen.findByRole("dialog", { name: "Edit corp" });
     expect(within(drawer).getByText("A secret is stored. Leave this empty to keep it.")).toBeInTheDocument();
     expect(within(drawer).getByLabelText(/^What each group means/)).toHaveValue("ops=admin\ndevs=acme:operator");
@@ -339,7 +362,7 @@ describe("Settings > Single sign-on", () => {
 
   it("says which mappings line is wrong instead of sending it", { timeout: 30_000 }, async () => {
     const { backend, user } = await pageAt();
-    await user.click(await screen.findByRole("button", { name: "Edit corp" }));
+    await rowAction(user, "corp", "Edit");
     const drawer = await screen.findByRole("dialog", { name: "Edit corp" });
     const box = within(drawer).getByLabelText(/^What each group means/);
     await user.clear(box);
@@ -363,7 +386,7 @@ describe("Settings > Single sign-on", () => {
           }),
       },
     );
-    await user.click(await screen.findByRole("button", { name: "Test corp" }));
+    await rowAction(user, "corp", "Test");
     const dialog = await screen.findByRole("dialog", { name: "Test of corp" });
     expect(within(dialog).getByText("The provider did not answer as expected.")).toBeInTheDocument();
     expect(within(dialog).getByText("HTTP 503 from https://sso.acme.test/realms/acme/protocol/openid-connect/certs")).toBeInTheDocument();
@@ -378,22 +401,22 @@ describe("Settings > Single sign-on", () => {
         "DELETE /api/auth/oidc/config/corp": () => json(200, { success: true, removed: "corp" }),
       },
     );
-    await user.click(await screen.findByRole("button", { name: "Remove corp" }));
+    await rowAction(user, "corp", "Remove");
     const dialog = await screen.findByRole("alertdialog", { name: "Remove corp" });
     state.providers = [];
     await user.click(within(dialog).getByRole("button", { name: "Remove provider" }));
     await waitFor(() => {
       expect(backend.callsTo("DELETE /api/auth/oidc/config/corp")).toHaveLength(1);
     });
-    expect(await screen.findByRole("heading", { name: "No identity provider yet" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "No sign-in connection yet" })).toBeInTheDocument();
   });
 
   describe("passwords and passkeys", () => {
     it("turns them off keeping the password of the accounts chosen, and then says who keeps it", { timeout: 30_000 }, async () => {
       const { backend, user } = await pageAt();
-      expect(await screen.findByText("Passwords and passkeys sign accounts in")).toBeInTheDocument();
-      await user.click(screen.getByRole("button", { name: "Turn off…" }));
-      const dialog = await screen.findByRole("dialog", { name: "Turn off passwords and passkeys" });
+      expect(await screen.findByText("On", { selector: "[data-state]" })).toHaveAttribute("data-state", "running");
+      await user.click(screen.getByRole("switch", { name: "Sign in with passwords and passkeys" }));
+      const dialog = await screen.findByRole("alertdialog", { name: "Turn off passwords and passkeys" });
       // The accounts that can administer first.
       const boxes = within(dialog).getAllByRole("checkbox");
       expect(boxes.map((box) => box.getAttribute("aria-label") ?? box.closest("label")?.textContent ?? "")).toHaveLength(3);
@@ -404,9 +427,9 @@ describe("Settings > Single sign-on", () => {
         expect(backend.callsTo("PUT /api/auth/oidc/local-login")).toHaveLength(1);
       });
       expect(backend.callsTo("PUT /api/auth/oidc/local-login")[0]?.body).toEqual({ enabled: false, exempt: ["ana"] });
-      expect(await screen.findByText("Only the identity provider signs accounts in")).toBeInTheDocument();
-      const keepers = screen.getByRole("group", { name: "Accounts that keep their password" });
-      expect(within(keepers).getByText("ana")).toBeInTheDocument();
+      expect(await screen.findByText("Off", { selector: "[data-state]" })).toHaveAttribute("data-state", "stopped");
+      expect(screen.getByText("Accounts that keep their password")).toBeInTheDocument();
+      expect(screen.getAllByText("ana").length).toBeGreaterThan(0);
     });
 
     it("shows the server's refusal as it wrote it and leaves the dialog open", { timeout: 30_000 }, async () => {
@@ -417,8 +440,8 @@ describe("Settings > Single sign-on", () => {
             problem(400, "configerror", "That would leave nobody able to administer without a password.", { hint: "Keep the password of at least one administrator." }),
         },
       );
-      await user.click(await screen.findByRole("button", { name: "Turn off…" }));
-      const dialog = await screen.findByRole("dialog", { name: "Turn off passwords and passkeys" });
+      await user.click(await screen.findByRole("switch", { name: "Sign in with passwords and passkeys" }));
+      const dialog = await screen.findByRole("alertdialog", { name: "Turn off passwords and passkeys" });
       await user.click(within(dialog).getByRole("button", { name: "Turn off passwords and passkeys" }));
       expect(await within(dialog).findByText("That would leave nobody able to administer without a password.")).toBeInTheDocument();
       expect(within(dialog).getByText("Keep the password of at least one administrator.")).toBeInTheDocument();
@@ -426,15 +449,15 @@ describe("Settings > Single sign-on", () => {
 
     it("says who keeps a password and who could administer, and turns them on again", { timeout: 30_000 }, async () => {
       const { backend, user } = await pageAt({ local: { enabled: false, exempt: ["ana"], providers: 1, survivors: ["ana", "carla"] } });
-      expect(await screen.findByText("Only the identity provider signs accounts in")).toBeInTheDocument();
-      const survivors = screen.getByRole("group", { name: "Could still administer without the provider" });
-      expect(within(survivors).getByText("carla")).toBeInTheDocument();
-      await user.click(screen.getByRole("button", { name: "Turn on" }));
+      expect(await screen.findByText("Off", { selector: "[data-state]" })).toHaveAttribute("data-state", "stopped");
+      expect(screen.getByText("Could still administer without the provider")).toBeInTheDocument();
+      expect(screen.getByText("carla")).toBeInTheDocument();
+      await user.click(screen.getByRole("switch", { name: "Sign in with passwords and passkeys" }));
       await waitFor(() => {
         expect(backend.callsTo("PUT /api/auth/oidc/local-login")).toHaveLength(1);
       });
       expect(backend.callsTo("PUT /api/auth/oidc/local-login")[0]?.body).toEqual({ enabled: true });
-      expect(await screen.findByText("Passwords and passkeys sign accounts in")).toBeInTheDocument();
+      expect(await screen.findByText("On", { selector: "[data-state]" })).toHaveAttribute("data-state", "running");
     });
   });
 
@@ -472,24 +495,13 @@ describe("Settings > Single sign-on", () => {
   });
 
   describe("directories (LDAP)", () => {
-    it("offers to add the first directory, and says the account's second factor still follows", { timeout: 30_000 }, async () => {
-      await pageAt();
-      const empty = await screen.findByRole("heading", { name: "No directory yet" });
-      const section = screen.getByRole("region", { name: "Directories (LDAP)" });
-      expect(within(section).getByRole("heading", { name: "No directory yet" })).toBe(empty);
-      expect(within(section).getByText(/second factor still follows/)).toBeInTheDocument();
-      expect(within(section).getByRole("button", { name: "Add a directory" })).toBeInTheDocument();
-    });
-
     it("lists the directories with their server and whether a password is kept, and passes axe", { timeout: 30_000 }, async () => {
       await pageAt({ directories: [DIRECTORY] });
       await screen.findByText("Acme directory");
-      const table = screen.getByRole("region", { name: "Configured directories" });
-      const row = within(table).getAllByRole("row")[1];
-      if (!row) throw new Error("no directory row");
+      const row = rowOf("Acme directory");
+      expect(within(row).getByText("Directory")).toBeInTheDocument();
       expect(within(row).getByText("ldap.acme.test:636 (ldaps)")).toBeInTheDocument();
       expect(within(row).getByText("Enabled")).toHaveAttribute("data-state", "running");
-      expect(within(row).getByText("Password kept")).toBeInTheDocument();
       await expectNoAxeViolations(screen.getByRole("main"));
     });
 
@@ -500,7 +512,7 @@ describe("Settings > Single sign-on", () => {
         state.directories = [{ ...DIRECTORY, label: body["label"], host: body["host"] }];
         return json(200, state.directories[0]);
       });
-      await user.click(await screen.findByRole("button", { name: "Add a directory" }));
+      await addConnection(user, "Directory");
       const drawer = await screen.findByRole("dialog", { name: "Add a directory" });
       await user.type(within(drawer).getByLabelText(/^Name/), "ad");
       await user.type(within(drawer).getByLabelText(/^Label/), "Acme directory");
@@ -536,7 +548,7 @@ describe("Settings > Single sign-on", () => {
         { directories: [DIRECTORY] },
         { "PUT /api/auth/ldap/directories/ad": () => json(200, DIRECTORY) },
       );
-      await user.click(await screen.findByRole("button", { name: "Edit ad" }));
+      await rowAction(user, "ad", "Edit");
       const drawer = await screen.findByRole("dialog", { name: "Edit ad" });
       expect(within(drawer).getByText("A password is stored. Leave this empty to keep it.")).toBeInTheDocument();
       expect(within(drawer).getByLabelText(/^What each group means/)).toHaveValue("cn=ops,ou=groups,dc=acme,dc=test=admin");
@@ -557,7 +569,7 @@ describe("Settings > Single sign-on", () => {
             problem(422, "validation_error", "Invalid", { fields: { user_filter: "The user filter must use {username}." } }),
         },
       );
-      await user.click(await screen.findByRole("button", { name: "Add a directory" }));
+      await addConnection(user, "Directory");
       const drawer = await screen.findByRole("dialog", { name: "Add a directory" });
       await user.type(within(drawer).getByLabelText(/^Name/), "ad");
       await user.type(within(drawer).getByLabelText(/^Server/), "ldap.acme.test");
@@ -580,7 +592,7 @@ describe("Settings > Single sign-on", () => {
             }),
         },
       );
-      await user.click(await screen.findByRole("button", { name: "Test ad" }));
+      await rowAction(user, "ad", "Test");
       const dialog = await screen.findByRole("dialog", { name: "Test of ad" });
       expect(within(dialog).getByText(/The directory said: invalid credentials/)).toBeInTheDocument();
       expect(within(dialog).getByText("Failed")).toHaveAttribute("data-state", "failed");
@@ -591,41 +603,25 @@ describe("Settings > Single sign-on", () => {
         { directories: [DIRECTORY] },
         { "DELETE /api/auth/ldap/directories/ad": () => json(200, { success: true, removed: "ad" }) },
       );
-      await user.click(await screen.findByRole("button", { name: "Remove ad" }));
+      await rowAction(user, "ad", "Remove");
       const dialog = await screen.findByRole("alertdialog", { name: "Remove ad?" });
       state.directories = [];
       await user.click(within(dialog).getByRole("button", { name: "Remove directory" }));
       await waitFor(() => {
         expect(backend.callsTo("DELETE /api/auth/ldap/directories/ad")).toHaveLength(1);
       });
-      expect(await screen.findByRole("heading", { name: "No directory yet" })).toBeInTheDocument();
-    });
-
-    it("speaks Spanish", { timeout: 30_000 }, async () => {
-      await pageAt({ directories: [DIRECTORY] });
-      await act(() => setLocale("es"));
-      expect(await screen.findByRole("button", { name: "Probar ad" })).toBeInTheDocument();
-      expect(screen.getByRole("region", { name: "Directorios configurados" })).toBeInTheDocument();
-      await act(() => setLocale("en"));
+      await waitFor(() => {
+        expect(screen.queryByText("Acme directory")).not.toBeInTheDocument();
+      });
     });
   });
 
   describe("SAML providers", () => {
-    it("offers to add the first provider, and says the account's second factor still follows", { timeout: 30_000 }, async () => {
-      await pageAt();
-      const empty = await screen.findByRole("heading", { name: "No SAML provider yet" });
-      const section = screen.getByRole("region", { name: "SAML providers" });
-      expect(within(section).getByRole("heading", { name: "No SAML provider yet" })).toBe(empty);
-      expect(within(section).getByText(/second factor still follows/)).toBeInTheDocument();
-      expect(within(section).getByRole("button", { name: "Add a SAML provider" })).toBeInTheDocument();
-    });
-
     it("lists the providers with their entity id and when the certificate stops being good, and passes axe", { timeout: 30_000 }, async () => {
       await pageAt({ saml: [SAML_PROVIDER] });
       await screen.findByText("Entra ID");
-      const table = screen.getByRole("region", { name: "Configured SAML providers" });
-      const row = within(table).getAllByRole("row")[1];
-      if (!row) throw new Error("no provider row");
+      const row = rowOf("Entra ID");
+      expect(within(row).getByText("SAML")).toBeInTheDocument();
       expect(within(row).getByText("https://sts.windows.net/tenant/")).toBeInTheDocument();
       expect(within(row).getByText("Enabled")).toHaveAttribute("data-state", "running");
       expect(within(row).getByRole("time")).toBeInTheDocument();
@@ -645,7 +641,7 @@ describe("Settings > Single sign-on", () => {
         state.saml = [SAML_PROVIDER];
         return json(200, SAML_PROVIDER);
       });
-      await user.click(await screen.findByRole("button", { name: "Add a SAML provider" }));
+      await addConnection(user, "SAML provider");
       const drawer = await screen.findByRole("dialog", { name: "Add a SAML provider" });
       const add = within(drawer).getByRole("button", { name: "Add provider" });
       await user.type(within(drawer).getByLabelText(/^Name/), "entra");
@@ -680,7 +676,7 @@ describe("Settings > Single sign-on", () => {
         {},
         { "PUT /api/auth/saml/config/entra": () => json(200, SAML_PROVIDER) },
       );
-      await user.click(await screen.findByRole("button", { name: "Add a SAML provider" }));
+      await addConnection(user, "SAML provider");
       const drawer = await screen.findByRole("dialog", { name: "Add a SAML provider" });
       await user.type(within(drawer).getByLabelText(/^Name/), "entra");
       await user.type(within(drawer).getByPlaceholderText("https://idp.acme.test/metadata"), "https://sts.windows.net/tenant/");
@@ -706,7 +702,7 @@ describe("Settings > Single sign-on", () => {
         { saml: [SAML_PROVIDER] },
         { "PUT /api/auth/saml/config/entra": () => json(200, SAML_PROVIDER) },
       );
-      await user.click(await screen.findByRole("button", { name: "Edit entra" }));
+      await rowAction(user, "entra", "Edit");
       const drawer = await screen.findByRole("dialog", { name: "Edit entra" });
       const register = within(drawer).getByRole("region", { name: "Register this server with the provider" });
       expect(within(register).getAllByText("https://noust.acme.test/api/auth/saml/metadata/entra").length).toBeGreaterThan(0);
@@ -733,7 +729,7 @@ describe("Settings > Single sign-on", () => {
             problem(422, "validation_error", "Invalid", { fields: { certificates: "Not a certificate: no start line." } }),
         },
       );
-      await user.click(await screen.findByRole("button", { name: "Add a SAML provider" }));
+      await addConnection(user, "SAML provider");
       const drawer = await screen.findByRole("dialog", { name: "Add a SAML provider" });
       await user.type(within(drawer).getByLabelText(/^Name/), "entra");
       await user.type(within(drawer).getByRole("textbox", { name: /^Its metadata/ }), "<x/>");
@@ -743,7 +739,7 @@ describe("Settings > Single sign-on", () => {
 
     it("says which mappings line is wrong instead of sending it", { timeout: 30_000 }, async () => {
       const { backend, user } = await pageAt({ saml: [SAML_PROVIDER] });
-      await user.click(await screen.findByRole("button", { name: "Edit entra" }));
+      await rowAction(user, "entra", "Edit");
       const drawer = await screen.findByRole("dialog", { name: "Edit entra" });
       const box = within(drawer).getByLabelText(/^What each group means/);
       await user.clear(box);
@@ -767,7 +763,7 @@ describe("Settings > Single sign-on", () => {
             }),
         },
       );
-      await user.click(await screen.findByRole("button", { name: "Test entra" }));
+      await rowAction(user, "entra", "Test");
       const dialog = await screen.findByRole("dialog", { name: "Test of entra" });
       expect(within(dialog).getByText(/serve the console over TLS/)).toBeInTheDocument();
       expect(within(dialog).getByText("Failed")).toHaveAttribute("data-state", "failed");
@@ -778,22 +774,16 @@ describe("Settings > Single sign-on", () => {
         { saml: [SAML_PROVIDER] },
         { "DELETE /api/auth/saml/config/entra": () => json(200, { success: true, removed: "entra" }) },
       );
-      await user.click(await screen.findByRole("button", { name: "Remove entra" }));
+      await rowAction(user, "entra", "Remove");
       const dialog = await screen.findByRole("alertdialog", { name: "Remove entra?" });
       state.saml = [];
       await user.click(within(dialog).getByRole("button", { name: "Remove provider" }));
       await waitFor(() => {
         expect(backend.callsTo("DELETE /api/auth/saml/config/entra")).toHaveLength(1);
       });
-      expect(await screen.findByRole("heading", { name: "No SAML provider yet" })).toBeInTheDocument();
-    });
-
-    it("speaks Spanish", { timeout: 30_000 }, async () => {
-      await pageAt({ saml: [SAML_PROVIDER] });
-      await act(() => setLocale("es"));
-      expect(await screen.findByRole("button", { name: "Probar entra" })).toBeInTheDocument();
-      expect(screen.getByRole("region", { name: "Proveedores SAML configurados" })).toBeInTheDocument();
-      await act(() => setLocale("en"));
+      await waitFor(() => {
+        expect(screen.queryByText("Entra ID")).not.toBeInTheDocument();
+      });
     });
   });
 
@@ -857,7 +847,7 @@ describe("Settings > Single sign-on", () => {
           },
         },
       );
-      await user.click(await screen.findByRole("button", { name: "Edit entra" }));
+      await rowAction(user, "entra", "Edit");
       let drawer = await screen.findByRole("dialog", { name: "Edit entra" });
       // The mapping reads back as the line it was written as.
       await user.click(within(drawer).getByText("What each group means", { exact: false }));
@@ -868,7 +858,7 @@ describe("Settings > Single sign-on", () => {
       });
       expect(screen.queryByRole("dialog", { name: "Give the provider this token" })).not.toBeInTheDocument();
 
-      await user.click(await screen.findByRole("button", { name: "Edit entra" }));
+      await rowAction(user, "entra", "Edit");
       drawer = await screen.findByRole("dialog", { name: "Edit entra" });
       await user.click(within(drawer).getByRole("checkbox", { name: /Issue a new token/ }));
       await user.click(within(drawer).getByRole("button", { name: "Save source" }));
@@ -897,7 +887,7 @@ describe("Settings > Single sign-on", () => {
         { scim: [SCIM_SOURCE] },
         { "DELETE /api/auth/scim/sources/entra": () => json(200, { success: true, removed: "entra" }) },
       );
-      await user.click(await screen.findByRole("button", { name: "Remove entra" }));
+      await rowAction(user, "entra", "Remove");
       const dialog = await screen.findByRole("alertdialog", { name: "Remove entra?" });
       state.scim = [];
       await user.click(within(dialog).getByRole("button", { name: "Remove source" }));
@@ -911,7 +901,7 @@ describe("Settings > Single sign-on", () => {
       await pageAt({ scim: [SCIM_SOURCE] });
       await act(() => setLocale("es"));
       // The skeleton has the table's name too: wait for a button only the loaded table has.
-      expect(await screen.findByRole("button", { name: "Editar entra" })).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "Acciones de entra" })).toBeInTheDocument();
       expect(screen.getByRole("region", { name: "Fuentes de aprovisionamiento" })).toBeInTheDocument();
       await act(() => setLocale("en"));
     });
@@ -920,8 +910,14 @@ describe("Settings > Single sign-on", () => {
   it("speaks Spanish", { timeout: 30_000 }, async () => {
     await pageAt();
     await act(() => setLocale("es"));
-    expect(await screen.findByRole("region", { name: "Proveedores configurados" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Probar corp" })).toBeInTheDocument();
+    // The skeleton has the table's name too: wait for a button only the loaded table has.
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Acciones de corp" })).toBeInTheDocument();
+    });
+    expect(screen.getByRole("region", { name: "Conexiones de inicio de sesión" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Añadir una conexión" })).toBeInTheDocument();
+    });
     await act(() => setLocale("en"));
   });
 });

@@ -11,15 +11,16 @@ export const consoleAccess: Catalog<typeof en> = {
   loadFailed: "No se pudo leer si la consola está publicada",
   loading: "Leyendo si la consola está publicada",
   state: {
-    on: "La consola está publicada",
-    onBody: "Responde en {url} por HTTPS. El token de acceso de emergencia sigue entrando ahí: guárdalo fuera de línea.",
-    off: "La consola es privada",
+    title: "Nombre público",
+    on: "Publicada",
+    onBody: "La consola responde en {url} por HTTPS. El token de acceso de emergencia sigue entrando ahí: guárdalo fuera de línea.",
+    off: "Privada",
     offBody:
-      "Escucha solo en este servidor, y se llega a ella por un túnel SSH. Publicarla le da un nombre propio y un certificado, y se abre desde un navegador sin túnel.",
+      "La consola escucha solo en este servidor, y se llega a ella por un túnel SSH. Publicarla le da un nombre y un certificado, y un navegador la abre sin túnel.",
     problem: "Publicada, con un problema",
     problemBody: "Está publicada en {url}, pero algo que Noust hizo para ella no está como lo dejó.",
-    unfinished: "Un intento anterior no terminó",
-    unfinishedBody: "Parte del trabajo para {domain} se hizo y el resto no. Despublicarla limpia exactamente lo que se hizo.",
+    unfinished: "Sin terminar",
+    unfinishedBody: "Un intento anterior hizo parte del trabajo para {domain} y el resto no. Despublicarla limpia exactamente lo que se hizo.",
   },
   actions: {
     publish: "Publicar la consola…",

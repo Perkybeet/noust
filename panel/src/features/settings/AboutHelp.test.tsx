@@ -214,7 +214,7 @@ describe("Settings > About > Support report", () => {
     const { user } = renderConsole("/settings/about");
     const section = await screen.findByRole("region", { name: "Support report" });
 
-    await user.click(within(section).getByRole("switch", { name: "Replace domains and this server's name" }));
+    await user.click(within(section).getByRole("checkbox", { name: "Replace domains and this server's name" }));
     await user.click(within(section).getByRole("button", { name: "Create the report" }));
 
     await waitFor(() => expect(backend.callsTo("GET /api/system/support-report")[0]?.search.get("hide_domains")).toBe("true"));

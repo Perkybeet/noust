@@ -61,7 +61,8 @@ async function pageAt(initial: Partial<Status> = {}, extra: Record<string, Route
 describe("Settings > MCP", () => {
   it("says the endpoint is off, gives its address and lists the tools by what they do, and passes axe", { timeout: 30_000 }, async () => {
     await pageAt();
-    expect(await screen.findByText("The MCP endpoint is off")).toBeInTheDocument();
+    expect(await screen.findByText("Off", { selector: "[data-state]" })).toHaveAttribute("data-state", "stopped");
+    expect(screen.getByRole("switch", { name: "Answer MCP clients" })).not.toBeChecked();
     expect(screen.getByText("https://noust.acme.test/api/mcp")).toBeInTheDocument();
     expect(screen.getByText("2025-06-18, 2025-03-26")).toBeInTheDocument();
     const table = await screen.findByRole("region", { name: "MCP tools" });
@@ -83,13 +84,13 @@ describe("Settings > MCP", () => {
 
   it("turns the endpoint on and then off", { timeout: 30_000 }, async () => {
     const { backend, user } = await pageAt();
-    await user.click(await screen.findByRole("button", { name: "Turn on" }));
+    await user.click(await screen.findByRole("switch", { name: "Answer MCP clients" }));
     await waitFor(() => {
       expect(backend.callsTo("PUT /api/mcp/settings")).toHaveLength(1);
     });
     expect(backend.callsTo("PUT /api/mcp/settings")[0]?.body).toEqual({ enabled: true });
-    expect(await screen.findByText("The MCP endpoint answers")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Turn off" }));
+    expect(await screen.findByText("On", { selector: "[data-state]" })).toHaveAttribute("data-state", "running");
+    await user.click(screen.getByRole("switch", { name: "Answer MCP clients" }));
     await waitFor(() => {
       expect(backend.callsTo("PUT /api/mcp/settings")).toHaveLength(2);
     });
@@ -114,7 +115,7 @@ describe("Settings > MCP", () => {
       {},
       { "PUT /api/mcp/settings": () => problem(403, "forbidden", "Only a security officer can turn MCP on.", { hint: "Ask an account with the security role." }) },
     );
-    await user.click(await screen.findByRole("button", { name: "Turn on" }));
+    await user.click(await screen.findByRole("switch", { name: "Answer MCP clients" }));
     expect(await screen.findByText("Only a security officer can turn MCP on.")).toBeInTheDocument();
     expect(screen.getByText("Ask an account with the security role.")).toBeInTheDocument();
   });
@@ -122,7 +123,7 @@ describe("Settings > MCP", () => {
   it("speaks Spanish", { timeout: 30_000 }, async () => {
     await pageAt();
     await act(() => setLocale("es"));
-    expect(await screen.findByText("El endpoint MCP está desactivado")).toBeInTheDocument();
+    expect(await screen.findByText("Desactivado", { selector: "[data-state]" })).toHaveAttribute("data-state", "stopped");
     expect(screen.getByRole("region", { name: "Herramientas MCP" })).toBeInTheDocument();
     await act(() => setLocale("en"));
   });

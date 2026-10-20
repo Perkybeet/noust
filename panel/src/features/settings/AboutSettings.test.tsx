@@ -46,7 +46,7 @@ describe("Settings > About", () => {
     );
     // How this server updates, the rename, and the licence.
     expect(await screen.findByText("the apt repository")).toBeInTheDocument();
-    expect(screen.getByText("Noust was called WASM")).toBeInTheDocument();
+    expect(screen.getByText(/Noust is the new name of WASM since version 3\.0/)).toBeInTheDocument();
     expect(screen.getByText("AGPL-3.0-or-later")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Source code/ })).toHaveAttribute("href", "https://github.com/Perkybeet/noust");
     expect(screen.getByText("noust config show")).toBeInTheDocument();
@@ -264,7 +264,7 @@ describe("Settings > About", () => {
 
     release();
     expect(await screen.findByRole("region", { name: "Version" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Automatic updates" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "Automatic updates" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "What's new" })).toBeInTheDocument();
     expect(screen.queryByText("Reading the version and the automatic updates")).not.toBeInTheDocument();
   });

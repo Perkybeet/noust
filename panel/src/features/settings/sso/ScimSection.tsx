@@ -1,11 +1,12 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import { useState } from "react";
 
 import { removeScimSource, scimKeys, scimSourcesQuery } from "../../../api/queries/scim";
 import type { ScimSource } from "../../../api/queries/scim";
 import { QueryState } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
+import { RowMenu } from "../../../components/page/RowMenu";
 import { Section } from "../../../components/page/Section";
 import { Button } from "../../../components/ui/Button";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
@@ -14,12 +15,12 @@ import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { ICONS } from "../../../components/ui/icons";
+import { MenuItem, MenuSeparator } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
-import { RowAction } from "../RowAction";
 import { ScimDrawer } from "./ScimDrawer";
 
 function columnsFor(t: T): Column<ScimSource>[] {
@@ -116,25 +117,15 @@ export function ScimSection() {
               rows={data.sources}
               getRowId={(source) => source.name}
               mobile="cards"
+              onRowActivate={(source) => setEditing(source)}
               rowActions={(source) => (
-                <span className="flex items-center gap-1">
-                  <RowAction
-                    label={t("scimAdmin.editLabel", { name: source.name })}
-                    text={t("scimAdmin.editText")}
-                    icon={<Pencil />}
-                    onClick={() => {
-                      setEditing(source);
-                    }}
-                  />
-                  <RowAction
-                    label={t("scimAdmin.removeLabel", { name: source.name })}
-                    text={t("scimAdmin.removeText")}
-                    icon={<ICONS.delete />}
-                    onClick={() => {
-                      setRemoving(source);
-                    }}
-                  />
-                </span>
+                <RowMenu name={source.name}>
+                  <MenuItem onClick={() => setEditing(source)}>{t("scimAdmin.editText")}</MenuItem>
+                  <MenuSeparator />
+                  <MenuItem destructive onClick={() => setRemoving(source)}>
+                    {t("scimAdmin.removeText")}
+                  </MenuItem>
+                </RowMenu>
               )}
             />
             <div className="flex flex-col gap-2">

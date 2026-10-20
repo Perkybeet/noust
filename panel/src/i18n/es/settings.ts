@@ -703,6 +703,10 @@ export const settings: Catalog<typeof en> = {
       source: "una copia del código fuente",
       unknown: "el origen de los paquetes",
     },
+    groups: {
+      updates: { title: "Versión y actualizaciones", description: "Qué Noust corre aquí, si hay uno más nuevo que se pueda instalar y si este servidor lo instala por su cuenta." },
+      support: { title: "Esta instalación y soporte", description: "Qué corre este servidor, si está listo para desplegar y qué enviar cuando algo falla." },
+    },
     version: {
       title: "Versión",
       description: "El Noust instalado, y si se puede instalar uno más nuevo en este servidor.",
