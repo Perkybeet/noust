@@ -710,6 +710,7 @@ export const settings = {
 
   about: {
     documentTitle: "About",
+    loading: "Reading the version and the automatic updates",
     method: {
       apt: "the apt repository",
       rpm: "the RPM repository ({tool})",

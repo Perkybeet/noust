@@ -1,10 +1,10 @@
-import { act, screen, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
-import { fakeBackend, json, signedInRoutes } from "../../test/fakes";
+import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 
 function aboutRoutes(version: Record<string, unknown>): Record<string, RouteHandler> {
@@ -237,6 +237,51 @@ describe("Settings > About", () => {
     await user.click(screen.getByRole("button", { name: "Check again" }));
     expect(await screen.findByText("Could not find out whether a newer version exists.")).toBeInTheDocument();
     expect(backend.callsTo("GET /api/system/version")).toHaveLength(2);
+  });
+
+  it("draws one skeleton, and none of its sections, until the version and the automatic updates are read", { timeout: 20_000 }, async () => {
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const backend = fakeBackend({
+      ...aboutRoutes({ current_version: "2.1.0", latest_version: "2.1.0", has_update: false, update_command: null, release_url: null }),
+      "GET /api/system/update/auto": async () => {
+        await held;
+        return json(200, { settings: { enabled: false, channel: "patch", window: "03:00-05:00", days: "daily" }, supported: true, check_enabled: true, window_open: false, timer: { installed: false } });
+      },
+    });
+    renderConsole("/settings/about");
+    await screen.findByRole("heading", { level: 1, name: "Settings" });
+    await waitFor(() => expect(backend.callsTo("GET /api/system/update/auto")).toHaveLength(1));
+
+    // The version is in, the automatic updates are not: a section drawn now would be pushed down
+    // by the one above it when that arrives.
+    await waitFor(() => expect(backend.callsTo("GET /api/system/version")).toHaveLength(1));
+    expect(screen.getByText("Reading the version and the automatic updates")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Version" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "What's new" })).not.toBeInTheDocument();
+
+    release();
+    expect(await screen.findByRole("region", { name: "Version" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Automatic updates" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "What's new" })).toBeInTheDocument();
+    expect(screen.queryByText("Reading the version and the automatic updates")).not.toBeInTheDocument();
+  });
+
+  it("draws its sections when the automatic updates are refused, and asks for them once more at most", { timeout: 20_000 }, async () => {
+    const backend = fakeBackend({
+      ...aboutRoutes({ current_version: "2.1.0", latest_version: "2.1.0", has_update: false, update_command: null, release_url: null }),
+      "GET /api/system/update/auto": () => problem(403, "forbidden", "Your role cannot read this"),
+    });
+    renderConsole("/settings/about");
+
+    expect(await screen.findByRole("region", { name: "Version" })).toBeInTheDocument();
+    expect(await screen.findByText("Could not read the automatic update")).toBeInTheDocument();
+    // A refusal answered, the section mounted and asked again: a page that went back to its
+    // skeleton for that asked again and again.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(backend.callsTo("GET /api/system/update/auto").length).toBeLessThanOrEqual(2);
   });
 });
 

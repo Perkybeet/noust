@@ -694,6 +694,7 @@ export const settings: Catalog<typeof en> = {
 
   about: {
     documentTitle: "Acerca de",
+    loading: "Leyendo la versión y las actualizaciones automáticas",
     method: {
       apt: "el repositorio apt",
       rpm: "el repositorio RPM ({tool})",
