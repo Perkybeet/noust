@@ -4,6 +4,9 @@
  * schedule is held and counted, while an update somebody starts still runs; resuming says how many
  * arrived meanwhile. After a rollback the app pauses by itself unless this is turned off, so the
  * next push cannot undo the rollback.
+ *
+ * Two rows of Automation: the switch is "deploys on its own", off while paused, and turning it off
+ * asks for the reason the pause is kept with.
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,18 +20,17 @@ import { announce } from "../../../app/Announcer";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Button } from "../../../components/ui/Button";
-import { Card } from "../../../components/ui/Card";
 import { Dialog } from "../../../components/ui/Dialog";
-import { FeatureState } from "../../../components/ui/FeatureState";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
-import { Skeleton } from "../../../components/ui/Skeleton";
-import { Switch } from "../../../components/ui/Switch";
+import { Setting } from "../../../components/ui/Setting";
+import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { reportActionError } from "../../apps/useAppActions";
 import { olderServer } from "./queries";
+import { RowError, RowLoading } from "./settingRows";
 
 /** The longest reason the backend keeps with a pause. */
 const MAX_REASON = 300;
@@ -93,13 +95,12 @@ function PauseDialog({ domain, open, onOpenChange }: { domain: string; open: boo
   );
 }
 
-/** The card: paused or running, the pause and the resume, and what a rollback does to it. */
-export function AutomaticDeploysCard({ domain }: { domain: string }) {
+/** The two rows: whether the app deploys on its own (and the pause that holds it), and what a rollback does to that. */
+export function AutomaticDeploysRows({ domain }: { domain: string }) {
   const t = useT();
   const queryClient = useQueryClient();
   const query = useQuery({ ...rolloutQuery(domain), retry: false });
   const [pausing, setPausing] = useState(false);
-  const title = t("rollout.auto.title");
 
   const resume = useMutation({
     mutationFn: () => request("post", "/api/apps/{domain}/rollout/resume", { params: { domain } }),
@@ -122,75 +123,52 @@ export function AutomaticDeploysCard({ domain }: { domain: string }) {
     },
   });
 
-  if (query.isPending) {
-    return (
-      <Card title={title}>
-        <div aria-busy="true">
-          <span className="sr-only">{t("rollout.auto.loading")}</span>
-          <Skeleton className="h-10 w-full rounded-control" />
-        </div>
-      </Card>
-    );
-  }
+  if (query.isPending) return <RowLoading label={t("rollout.auto.loading")} />;
   // A server older than 3.4 has no such setting: nothing to show rather than a guess.
   if (query.isError && olderServer(query.error)) return null;
-  if (query.isError) {
-    return (
-      <Card title={title}>
-        <ErrorBlock compact error={query.error} title={t("rollout.auto.readFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} />
-      </Card>
-    );
-  }
+  if (query.isError) return <RowError title={t("rollout.auto.readFailed")} error={query.error} onRetry={() => void query.refetch()} retrying={query.isRefetching} />;
+
   const data = query.data;
   const paused = data.paused;
   const sources = sourceWords(t, data.automatic);
   const pauseOnRollback = onRollback.isPending && typeof onRollback.variables === "boolean" ? onRollback.variables : data.pause_on_rollback;
 
+  // Running: what can deploy it. Paused: since when, by whom, why and what has been held meanwhile.
+  const help =
+    paused === null ? (
+      <span data-testid="automatic-sources">
+        {sources.length > 0 ? t.rich("rollout.auto.sources", { list: <Mono>{sources.join(", ")}</Mono> }) : t("rollout.auto.nothingAutomatic")}
+      </span>
+    ) : (
+      <span>
+        {t.rich("rollout.hold.pausedSince", { time: <RelativeTime value={paused.at} /> })}
+        {paused.by !== null ? ` ${t("rollout.hold.pausedBy", { by: paused.by })}` : ""}
+        {paused.reason !== null ? ` ${t("rollout.hold.pausedReason", { reason: paused.reason })}` : ""}
+        {data.held > 0 ? ` ${t("rollout.auto.heldNow", { count: data.held })}` : ""}
+      </span>
+    );
+
   return (
-    <Card title={title} description={t("rollout.auto.description")}>
-      <div className="flex flex-col gap-4">
-        {paused === null ? (
-          <FeatureState
-            state="on"
-            title={t("rollout.auto.on")}
-            action={
-              <Button size="sm" onClick={() => setPausing(true)}>
-                {t("rollout.auto.pause")}
-              </Button>
-            }
-          >
-            {t("rollout.auto.onBody")}
-          </FeatureState>
-        ) : (
-          <FeatureState
-            state="off"
-            title={t("rollout.auto.off")}
-            action={
-              <Button size="sm" loading={resume.isPending} onClick={() => resume.mutate()}>
-                {t("rollout.auto.resume")}
-              </Button>
-            }
-          >
-            <span className="flex flex-col gap-0.5">
-              <span>{t.rich("rollout.hold.pausedSince", { time: <RelativeTime value={paused.at} /> })}</span>
-              {paused.by !== null ? <span>{t("rollout.hold.pausedBy", { by: paused.by })}</span> : null}
-              {paused.reason !== null ? <span>{t("rollout.hold.pausedReason", { reason: paused.reason })}</span> : null}
-              {data.held > 0 ? <span>{t("rollout.auto.heldNow", { count: data.held })}</span> : null}
-            </span>
-          </FeatureState>
-        )}
-        <p className="max-w-measure text-13 text-pretty text-fg-muted" data-testid="automatic-sources">
-          {sources.length > 0 ? t.rich("rollout.auto.sources", { list: <Mono>{sources.join(", ")}</Mono> }) : t("rollout.auto.nothingAutomatic")}
-        </p>
-        <Switch
-          label={t("rollout.auto.rollbackLabel")}
-          description={t("rollout.auto.rollbackDescription")}
-          checked={pauseOnRollback}
-          disabled={onRollback.isPending}
-          onCheckedChange={(next) => onRollback.mutate(next)}
-        />
-      </div>
+    <>
+      <Setting
+        label={t("rollout.auto.title")}
+        help={help}
+        {...(paused !== null ? { status: <StatusPill state="stopped" size="sm" label={t("rollout.auto.pausedPill")} /> } : {})}
+        checked={paused === null}
+        busy={resume.isPending}
+        onCheckedChange={(next) => {
+          if (next) resume.mutate();
+          else setPausing(true);
+        }}
+      />
+      <Setting
+        label={t("rollout.auto.rollbackLabel")}
+        help={t("rollout.auto.rollbackDescription")}
+        checked={pauseOnRollback}
+        busy={onRollback.isPending}
+        onCheckedChange={(next) => onRollback.mutate(next)}
+      />
       <PauseDialog domain={domain} open={pausing} onOpenChange={setPausing} />
-    </Card>
+    </>
   );
 }

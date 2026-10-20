@@ -11,7 +11,7 @@ const HEALTH = `GET /api/apps/${DOMAIN}/health`;
 const PATCH = `PATCH /api/apps/${DOMAIN}/health`;
 
 function deploys(extras: Record<string, unknown> = {}, app: object = RELEASE_APP, routes: Parameters<typeof renderSettings>[3] = {}) {
-  return renderSettings("/deploys", "Deploys", app, {
+  return renderSettings("/deploys", "Releases and rollback", app, {
     "GET /api/auth/session": () => json(200, ELEVATED),
     [HEALTH]: () => json(200, healthOf(app as Record<string, unknown>, extras)),
     ...routes,

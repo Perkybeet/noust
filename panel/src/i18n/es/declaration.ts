@@ -3,12 +3,11 @@ import type { Catalog } from "../types";
 
 export const declaration: Catalog<typeof en> = {
   title: "Archivo de declaración",
-  description: "Cómo se ejecuta esta aplicación (comprobación de salud, límites, opciones de origen, comandos de compilación, hooks, variables no secretas, dominios y tareas) con las claves de noust.yaml. Se escribe desde esta aplicación o se aplica a ella.",
+  description: "Cómo se ejecuta esta aplicación (comprobación de arranque, límites, opciones de origen, comandos de compilación, hooks, variables no secretas, dominios y tareas) con las claves de noust.yaml. Se escribe desde esta aplicación o se aplica a ella.",
   download: "Descargar la declaración",
   downloaded: "Se descargó la declaración de {domain}",
   downloadFailed: "No se pudo escribir la declaración",
   secrets: "Las variables secretas nunca están en ella: sus nombres se listan en un comentario.",
-  apply: "Aplicar una declaración…",
   dialog: {
     title: "Aplicar una declaración a {domain}",
     description: "Pega un archivo de declaración. Solo cambian las secciones que tiene, y no cambia nada hasta que la apliques.",
@@ -27,7 +26,7 @@ export const declaration: Catalog<typeof en> = {
   },
   scope: {
     title: "Qué cubre este conjunto",
-    body: "La comprobación de salud, los límites de recursos, las releases que se conservan, las opciones de origen, Compose, los comandos de compilación, los hooks de despliegue, las variables que nombra, los alias y redirecciones, y las tareas programadas. Los límites se aplican pasando por la comprobación de salud y se vuelven atrás si falla; las variables se escriben ya y llegan a la aplicación en su próximo reinicio; los comandos de compilación y los hooks se ejecutan en el próximo despliegue, y solo si estás de acuerdo. Cada parte se aplica por separado y en este orden: si una no se puede aplicar, las anteriores se quedan y el resultado dice cuál. La configuración de un sitio, una base de datos o cualquier otra cosa se cambia en su propia página.",
+    body: "La comprobación de arranque, los límites de recursos, las releases que se conservan, las opciones de origen, Compose, los comandos de compilación, los hooks de despliegue, las variables que nombra, los alias y redirecciones, y las tareas programadas. Los límites se aplican pasando por la comprobación de arranque y se vuelven atrás si falla; las variables se escriben ya y llegan a la aplicación en su próximo reinicio; los comandos de compilación y los hooks se ejecutan en el próximo despliegue, y solo si estás de acuerdo. Cada parte se aplica por separado y en este orden: si una no se puede aplicar, las anteriores se quedan y el resultado dice cuál. La configuración de un sitio, una base de datos o cualquier otra cosa se cambia en su propia página.",
   },
   review: {
     title: {
@@ -43,7 +42,7 @@ export const declaration: Catalog<typeof en> = {
     removedLine: "Quitada:",
   },
   blocks: {
-    app: "Cómo se ejecuta (comprobación de salud, límites, releases)",
+    app: "Cómo se ejecuta (comprobación de arranque, límites, releases)",
     source: "Opciones de origen",
     compose: "Compose",
     build: "Compilación",
@@ -59,6 +58,8 @@ export const declaration: Catalog<typeof en> = {
     runsCommands: "Ejecuta comandos",
     confirm: "He leído lo que ejecuta como la aplicación o en esta máquina, y estoy de acuerdo",
     notApplied: "No aplicado",
+    confirmLegend: "Antes de aplicarla",
+    confirmAsked: "Marca la casilla para decir que has leído lo que ejecuta.",
   },
-  fromTerminal: "Lo mismo, desde un terminal",
+  fromFile: "Aplicar una declaración…",
 };

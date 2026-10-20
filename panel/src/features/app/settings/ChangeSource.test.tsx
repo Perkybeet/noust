@@ -74,7 +74,6 @@ describe("changing the source", () => {
 
     expect(section.getByText(RELEASE_APP.source)).toBeInTheDocument();
     expect(section.getByRole("button", { name: "Change the source" })).toBeEnabled();
-    expect(section.getByText(`noust app source change ${DOMAIN} https://git.example.org/team/shop.git`)).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 
@@ -212,7 +211,6 @@ describe("an application whose source is not this to change", () => {
 
     expect(within(card()).getByText(/builds in place\. Move it onto releases first/)).toBeInTheDocument();
     expect(within(card()).queryByRole("button", { name: "Change the source" })).not.toBeInTheDocument();
-    expect(within(card()).getByText(`noust app migrate ${DOMAIN}`)).toBeInTheDocument();
   });
 
   it("says a push repository is turned off in Deploy on push first", { timeout: 40_000 }, async () => {

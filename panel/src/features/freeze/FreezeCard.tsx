@@ -6,8 +6,8 @@ import { request } from "../../api/client";
 import { freezesQuery, invalidateHolds } from "../../api/queries/rollout";
 import type { Freeze } from "../../api/queries/rollout";
 import { announce } from "../../app/Announcer";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
-import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
@@ -16,12 +16,15 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
-import { Skeleton } from "../../components/ui/Skeleton";
+import { Setting } from "../../components/ui/Setting";
+import { SkeletonCard } from "../../components/ui/Skeleton";
+import { StatusPill } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import { formatDateTime, parseTimestamp } from "../../lib/format";
 import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
 import { olderServer } from "../app/settings/queries";
+import { RowError, RowLoading } from "../app/settings/settingRows";
 
 /** The lengths a freeze is offered for, in hours; `open` lasts until somebody lifts it. */
 const LENGTHS = [
@@ -167,7 +170,7 @@ export function FreezeDialog({ domain, open, onOpenChange }: { domain: string | 
 }
 
 /** One freeze: why, over what, for how long, who set it, and lifting it. */
-function FreezeRow({ freeze, canLift, onLift }: { freeze: Freeze; canLift: boolean; onLift: (freeze: Freeze) => void }) {
+function FreezeItem({ freeze, canLift, onLift }: { freeze: Freeze; canLift: boolean; onLift: (freeze: Freeze) => void }) {
   const t = useT();
   const starts = parseTimestamp(freeze.starts_at);
   const ends = parseTimestamp(freeze.ends_at);
@@ -177,7 +180,7 @@ function FreezeRow({ freeze, canLift, onLift }: { freeze: Freeze; canLift: boole
     <li className="flex min-w-0 flex-col gap-1.5 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between">
       <div className="flex min-w-0 flex-col gap-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <Badge tone={active ? "warn" : "neutral"}>{active ? t("rollout.freeze.stateActive") : t("rollout.freeze.stateScheduled")}</Badge>
+          <StatusPill state={active ? "warning" : "queued"} size="sm" label={active ? t("rollout.freeze.stateActive") : t("rollout.freeze.stateScheduled")} />
           <span className="min-w-0 text-13 font-medium break-words text-fg">{freeze.reason}</span>
         </div>
         <p className="text-12 text-fg-muted">
@@ -195,72 +198,22 @@ function FreezeRow({ freeze, canLift, onLift }: { freeze: Freeze; canLift: boole
   );
 }
 
-export interface FreezeCardProps {
-  /** The app whose freezes are listed; absent lists the server's. */
-  domain?: string;
-  /** Whether the person may freeze and lift (`apps.deploy`); the server decides again. */
-  canDeploy: boolean;
-  /** The card's title and description, which differ between the app and the server. */
-  title: string;
-  description?: string;
-}
-
-/**
- * The freezes that hold deploys, and the way to make one and lift it. An app's card lists its own
- * (the server's is told apart in the app's deployments page, where it is in force); the server's
- * lists the whole server's. A freeze refuses a deploy somebody asks for unless they say it must
- * go ahead; pushes, tags and schedules wait; a rollback is never held.
- */
-export function FreezeCard({ domain, canDeploy, title, description }: FreezeCardProps) {
-  const t = useT();
-  const { node } = useNode();
-  const queryClient = useQueryClient();
+/** The freezes to list: an app's own, or the server's, and the question that lifts one. */
+function useFreezes(domain: string | undefined) {
   const query = useQuery({ ...freezesQuery(), retry: false });
   const [making, setMaking] = useState(false);
   const [lifting, setLifting] = useState<Freeze | null>(null);
+  const freezes = query.data?.freezes.filter((freeze) => (domain === undefined ? freeze.scope === "server" : freeze.domain === domain)) ?? [];
+  return { query, freezes, making, setMaking, lifting, setLifting };
+}
 
-  // A server older than 3.4 has no freezes: nothing to show rather than a guess.
-  if (query.isError && olderServer(query.error)) return null;
-  if (query.isPending) {
-    return (
-      <Card title={title}>
-        <div aria-busy="true">
-          <span className="sr-only">{t("rollout.freeze.loading")}</span>
-          <Skeleton className="h-10 w-full rounded-control" />
-        </div>
-      </Card>
-    );
-  }
-  if (query.isError) {
-    return (
-      <Card title={title}>
-        <ErrorBlock compact error={query.error} title={t("rollout.freeze.readFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} />
-      </Card>
-    );
-  }
-  const freezes = query.data.freezes.filter((freeze) => (domain === undefined ? freeze.scope === "server" : freeze.domain === domain));
-
+/** The dialog that makes a freeze and the question that lifts one; both live beside whatever lists them. */
+function FreezeDialogs({ domain, making, setMaking, lifting, setLifting }: { domain: string | undefined } & Pick<ReturnType<typeof useFreezes>, "making" | "setMaking" | "lifting" | "setLifting">) {
+  const t = useT();
+  const { node } = useNode();
+  const queryClient = useQueryClient();
   return (
-    <Card
-      title={title}
-      {...(description !== undefined ? { description } : {})}
-      actions={
-        canDeploy ? (
-          <Button size="sm" onClick={() => setMaking(true)}>
-            {t("rollout.freeze.make")}
-          </Button>
-        ) : undefined
-      }
-    >
-      {freezes.length === 0 ? (
-        <EmptyState variant="inline" title={domain === undefined ? t("rollout.freeze.none") : t("rollout.freeze.noneApp")} />
-      ) : (
-        <ul aria-label={title} className="flex flex-col divide-y divide-border">
-          {freezes.map((freeze) => (
-            <FreezeRow key={freeze.id} freeze={freeze} canLift={canDeploy} onLift={setLifting} />
-          ))}
-        </ul>
-      )}
+    <>
       <FreezeDialog domain={domain} open={making} onOpenChange={setMaking} />
       <ConfirmDialog
         open={lifting !== null}
@@ -285,6 +238,109 @@ export function FreezeCard({ domain, canDeploy, title, description }: FreezeCard
           announce(t("rollout.freeze.lifted"));
         }}
       />
+    </>
+  );
+}
+
+/**
+ * An app's freeze as a row of Automation: what it holds, the button that makes one and the ones in
+ * force with the way to lift each. A freeze refuses a deploy somebody asks for unless they say it
+ * must go ahead; pushes, tags and schedules wait; a rollback is never held.
+ */
+export function FreezeSetting({ domain, canDeploy }: { domain: string; canDeploy: boolean }) {
+  const t = useT();
+  const { query, freezes, making, setMaking, lifting, setLifting } = useFreezes(domain);
+
+  // A server older than 3.4 has no freezes: nothing to show rather than a guess.
+  if (query.isError && olderServer(query.error)) return null;
+  if (query.isPending) return <RowLoading label={t("rollout.freeze.loading")} />;
+  if (query.isError) return <RowError title={t("rollout.freeze.readFailed")} error={query.error} onRetry={() => void query.refetch()} retrying={query.isRefetching} />;
+  const inForce = freezes.some((freeze) => freeze.state === "active");
+
+  return (
+    <>
+      <Setting
+        label={t("rollout.freeze.title")}
+        help={t("rollout.freeze.help")}
+        {...(inForce ? { status: <StatusPill state="warning" size="sm" label={t("rollout.freeze.stateActive")} /> } : {})}
+        action={
+          canDeploy ? (
+            <Button size="sm" onClick={() => setMaking(true)}>
+              {t("rollout.freeze.make")}
+            </Button>
+          ) : (
+            <></>
+          )
+        }
+      >
+        {freezes.length > 0 ? (
+          <ul aria-label={t("rollout.freeze.title")} className="flex flex-col divide-y divide-border">
+            {freezes.map((freeze) => (
+              <FreezeItem key={freeze.id} freeze={freeze} canLift={canDeploy} onLift={setLifting} />
+            ))}
+          </ul>
+        ) : null}
+      </Setting>
+      <FreezeDialogs domain={domain} making={making} setMaking={setMaking} lifting={lifting} setLifting={setLifting} />
+    </>
+  );
+}
+
+export interface FreezeCardProps {
+  /** Whether the person may freeze and lift (`apps.deploy`); the server decides again. */
+  canDeploy: boolean;
+  /** The card's title. */
+  title: string;
+  description?: string;
+}
+
+/**
+ * The server's freezes, and the way to make one and lift it: every deploy on the machine is held for
+ * a stretch, apart from rollbacks. An app's own freezes are a row of its Automation settings.
+ */
+export function FreezeCard({ canDeploy, title, description }: FreezeCardProps) {
+  const t = useT();
+  const { query, freezes, making, setMaking, lifting, setLifting } = useFreezes(undefined);
+
+  // A server older than 3.4 has no freezes: nothing to show rather than a guess.
+  if (query.isError && olderServer(query.error)) return null;
+  if (query.isPending) {
+    return (
+      <LoadingRegion label={t("rollout.freeze.loading")}>
+        <SkeletonCard lines={1} />
+      </LoadingRegion>
+    );
+  }
+  if (query.isError) {
+    return (
+      <Card title={title}>
+        <ErrorBlock compact error={query.error} title={t("rollout.freeze.readFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} />
+      </Card>
+    );
+  }
+
+  return (
+    <Card
+      title={title}
+      {...(description !== undefined ? { description } : {})}
+      actions={
+        canDeploy ? (
+          <Button size="sm" onClick={() => setMaking(true)}>
+            {t("rollout.freeze.make")}
+          </Button>
+        ) : undefined
+      }
+    >
+      {freezes.length === 0 ? (
+        <EmptyState variant="inline" title={t("rollout.freeze.none")} />
+      ) : (
+        <ul aria-label={title} className="flex flex-col divide-y divide-border">
+          {freezes.map((freeze) => (
+            <FreezeItem key={freeze.id} freeze={freeze} canLift={canDeploy} onLift={setLifting} />
+          ))}
+        </ul>
+      )}
+      <FreezeDialogs domain={undefined} making={making} setMaking={setMaking} lifting={lifting} setLifting={setLifting} />
     </Card>
   );
 }

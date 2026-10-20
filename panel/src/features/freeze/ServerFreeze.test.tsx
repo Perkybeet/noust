@@ -64,7 +64,7 @@ describe("the freeze of the whole server, in Settings > General", { timeout: 20_
 
     const section = await screen.findByRole("region", { name: "Deploy freeze" });
     expect(await within(section).findByText("No freeze is set.")).toBeInTheDocument();
-    await user.click(within(section).getByRole("button", { name: "Freeze deploys" }));
+    await user.click(within(section).getByRole("button", { name: "Freeze deploys…" }));
     const dialog = await screen.findByRole("dialog", { name: "Freeze deploys on this server" });
     await user.type(within(dialog).getByRole("textbox", { name: /Reason/ }), "Datacentre move");
     await user.click(within(dialog).getByRole("button", { name: "Freeze" }));

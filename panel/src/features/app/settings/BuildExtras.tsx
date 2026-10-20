@@ -3,7 +3,6 @@ import { useState } from "react";
 
 import { request } from "../../../api/client";
 import { announce } from "../../../app/Announcer";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
@@ -74,7 +73,6 @@ export function BuildCacheCard({ domain }: { domain: string }) {
             {t("buildExtras.cache.empty")}
           </Button>
         </div>
-        <CommandHint command={`noust app cache show ${domain}`} label={t("buildExtras.cache.fromTerminal")} />
       </div>
       <ConfirmDialog
         open={emptying}
@@ -144,7 +142,6 @@ export function ProcessesCard({ domain }: { domain: string }) {
             {note}
           </p>
         ))}
-        <CommandHint command={`noust app process-types show ${domain}`} label={t("buildExtras.processes.fromTerminal")} />
       </div>
     </Card>
   );

@@ -12,6 +12,7 @@ import { previewsKey, previewsQuery } from "../../../api/queries/previews";
 import type { Preview, Previews, PreviewSettings } from "../../../api/queries/previews";
 import { announce } from "../../../app/Announcer";
 import { CommandHint } from "../../../components/page/CommandHint";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { SaveBar } from "../../../components/page/SaveBar";
 import { Section } from "../../../components/page/Section";
@@ -25,11 +26,11 @@ import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
-import { Mono } from "../../../components/ui/Mono";
-import { FeatureState } from "../../../components/ui/FeatureState";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { ICONS } from "../../../components/ui/icons";
-import { Notice } from "../../../components/ui/Notice";
-import { Skeleton } from "../../../components/ui/Skeleton";
+import { Mono } from "../../../components/ui/Mono";
+import { SkeletonCard } from "../../../components/ui/Skeleton";
+import { StatusPill } from "../../../components/ui/StatusPill";
 import { TextLink } from "../../../components/ui/TextLink";
 import { useT } from "../../../i18n";
 import { formatCount } from "../../../lib/format";
@@ -51,7 +52,6 @@ import {
   MAX_PREVIEWS_MIN,
   PREVIEW_FIELDS,
   TEMPLATE_PLACEHOLDERS,
-  lifetime,
   parsePreviewDraft,
   previewChanges,
   previewDraftOf,
@@ -79,55 +79,22 @@ function Need({ icon, title, children }: { icon: ReactNode; title: string; child
   );
 }
 
-/**
- * What previews need before a pull request gets one, and what a preview is given by default,
- * which the operator must know before turning them on: only what they choose, and an empty
- * database of their own.
- */
+/** What previews need before a pull request gets one: a wildcard record and the pull request events. */
 function Needs({ domain, base }: { domain: string; base: string | null }) {
   const t = useT();
   const shownBase = base ?? t("appSettings.previews.baseDomainUnset");
   return (
-    <div className="flex flex-col gap-3">
-      <ul aria-label={t("appSettings.previews.needsLabel")} className="grid gap-3 sm:grid-cols-2">
-        <Need icon={<Globe />} title={t("appSettings.previews.needWildcardTitle")}>
-          {t.rich("appSettings.previews.needWildcardBody", {
-            record: <Mono>{`*.${shownBase}`}</Mono>,
-            example: <Mono className="break-all">{`pr-12-${appNameOf(domain)}.${shownBase}`}</Mono>,
-          })}
-        </Need>
-        <Need icon={<Webhook />} title={t("appSettings.previews.needPrTitle")}>
-          {t("appSettings.previews.needPrBody")}
-        </Need>
-      </ul>
-      <Notice title={t("previewHand.exposure.unreviewedTitle")}>{t("previewHand.exposure.unreviewedBody")}</Notice>
-    </div>
-  );
-}
-
-/**
- * What the settings in force give a preview that the operator should weigh, said while they are
- * in force: every variable of the app (the way previews were made before 3.4) and its own
- * databases. Nothing is said of the safe way, which needs no warning.
- */
-function Exposure({ settings, hasDatabase }: { settings: PreviewSettings; hasDatabase: boolean }) {
-  const t = useT();
-  const all = settings.inherit_env === "all";
-  const shared = settings.data_mode === "shared" && hasDatabase;
-  if (!all && !shared) return null;
-  return (
-    <div className="flex flex-col gap-3">
-      {all ? (
-        <Notice tone="warning" title={t("previewHand.exposure.allTitle")}>
-          {t("previewHand.exposure.allBody")}
-        </Notice>
-      ) : null}
-      {shared ? (
-        <Notice tone="warning" title={t("previewHand.exposure.sharedTitle")}>
-          {t("previewHand.exposure.sharedBody")}
-        </Notice>
-      ) : null}
-    </div>
+    <ul aria-label={t("appSettings.previews.needsLabel")} className="grid gap-3 sm:grid-cols-2">
+      <Need icon={<Globe />} title={t("appSettings.previews.needWildcardTitle")}>
+        {t.rich("appSettings.previews.needWildcardBody", {
+          record: <Mono>{`*.${shownBase}`}</Mono>,
+          example: <Mono className="break-all">{`pr-12-${appNameOf(domain)}.${shownBase}`}</Mono>,
+        })}
+      </Need>
+      <Need icon={<Webhook />} title={t("appSettings.previews.needPrTitle")}>
+        {t("appSettings.previews.needPrBody")}
+      </Need>
+    </ul>
   );
 }
 
@@ -141,11 +108,14 @@ function PreviewSettingsForm({
   domain,
   settings,
   previews,
+  hasDatabase,
   children,
 }: {
   domain: string;
   settings: PreviewSettings | null;
   previews: readonly Preview[];
+  /** Whether the app has a database of its own: sharing it with previews is a risk only then. */
+  hasDatabase: boolean;
   /** What follows the form in the subsection (the list, the command), before the save bar. */
   children: ReactNode;
 }) {
@@ -279,17 +249,26 @@ function PreviewSettingsForm({
 
   return (
     <>
+      <Card
+        title={t("appSettings.previews.title")}
+        status={<StatusPill state={enabled ? "running" : "stopped"} size="sm" label={enabled ? t("appSettings.previews.on") : t("appSettings.previews.off")} />}
+        description={enabled ? t("appSettings.previews.onBody") : t("appSettings.previews.offBody")}
+        actions={
+          enabled ? (
+            <Button size="sm" variant="ghost" onClick={turnOff}>
+              {t("appSettings.previews.turnOff")}
+            </Button>
+          ) : (
+            <Button size="sm" type="submit" form="preview-settings" loading={save.isPending}>
+              {t("appSettings.previews.turnOn")}
+            </Button>
+          )
+        }
+      >
+        {enabled ? null : <Needs domain={domain} base={null} />}
+      </Card>
       <form id="preview-settings" onSubmit={enabled ? (event) => { event.preventDefault(); bar.onSave(); } : turnOn} noValidate className="flex flex-col gap-4">
-        <Card
-          title={t("appSettings.previews.settingsTitle")}
-          actions={
-            enabled ? (
-              <Button size="sm" variant="ghost" onClick={turnOff}>
-                {t("appSettings.previews.turnOff")}
-              </Button>
-            ) : undefined
-          }
-        >
+        <Card title={t("appSettings.previews.settingsTitle")}>
           <div className="flex flex-col gap-5">
             <div className="grid gap-5 sm:grid-cols-2">
               <Field
@@ -369,11 +348,7 @@ function PreviewSettingsForm({
                 { value: "approve", label: t("rollout.previews.forkApproveLabel"), description: t("rollout.previews.forkApproveDescription") },
               ]}
             />
-            {draft.fork_policy === "approve" ? (
-              <Notice tone="warning" title={t("rollout.previews.forkApproveWarningTitle")}>
-                {t("rollout.previews.forkApproveWarning")}
-              </Notice>
-            ) : null}
+            {draft.fork_policy === "approve" ? <InlineMessage>{t("rollout.previews.forkApproveRisk")}</InlineMessage> : null}
           </div>
         </Card>
 
@@ -425,6 +400,7 @@ function PreviewSettingsForm({
                 { value: "all", label: t("previewHand.env.allLabel"), description: t("previewHand.env.allDescription") },
               ]}
             />
+            {draft.inherit_env === "all" ? <InlineMessage>{t("previewHand.exposure.allRisk")}</InlineMessage> : null}
             {draft.inherit_env === "allowlist" ? (
               <Field label={t("previewHand.env.allowLabel")} description={t("previewHand.env.allowDescription")} error={errorOf("allow_env")} optional>
                 <Input
@@ -465,6 +441,7 @@ function PreviewSettingsForm({
                 { value: "shared", label: t("previewHand.data.sharedLabel"), description: t("previewHand.data.sharedDescription") },
               ]}
             />
+            {draft.data_mode === "shared" && hasDatabase ? <InlineMessage>{t("previewHand.exposure.sharedRisk")}</InlineMessage> : null}
           </div>
         </Card>
 
@@ -478,21 +455,6 @@ function PreviewSettingsForm({
             hint={t("appSettings.previews.someNotRemovedHint")}
           />
         ) : null}
-        {enabled ? (
-          <p className="text-12 text-pretty text-fg-muted">
-            {t("appSettings.previews.nowSummary", {
-              count: t("appSettings.previews.previewCount", { count: settings.max_previews }),
-              domain: settings.base_domain,
-              lifetime: lifetime(settings.ttl_hours, t.locale),
-            })}
-          </p>
-        ) : (
-          <div>
-            <Button type="submit" loading={save.isPending}>
-              {t("appSettings.previews.turnOn")}
-            </Button>
-          </div>
-        )}
       </form>
       <ConfirmDialog
         open={confirmOff}
@@ -611,21 +573,14 @@ export function PreviewsSettings() {
       description={t("appSettings.previews.description")}
     >
       {previews.isPending ? (
-        <div aria-busy="true" className="flex flex-col gap-4">
-          <span className="sr-only">{t("appSettings.previews.loading")}</span>
-          <Skeleton className="h-24 w-full rounded-card" />
-          <Skeleton className="h-48 w-full rounded-card" />
-        </div>
+        <LoadingRegion label={t("appSettings.previews.loading")}>
+          <SkeletonCard lines={3} />
+        </LoadingRegion>
       ) : previews.isError || data === undefined ? (
         <ErrorBlock error={previews.error} title={t("appSettings.previews.readFailed")} onRetry={() => void previews.refetch()} retrying={previews.isRefetching} />
       ) : (
         <>
-          <FeatureState state={data.enabled ? "on" : "off"} title={data.enabled ? t("appSettings.previews.on") : t("appSettings.previews.off")}>
-            {data.enabled ? t("appSettings.previews.onBody") : t("appSettings.previews.offBody")}
-          </FeatureState>
-          {/* What previews need is the way in: once they are on, only what they are given and might expose stays said. */}
-          {settings !== null ? <Exposure settings={settings} hasDatabase={data.has_database} /> : <Needs domain={domain} base={null} />}
-          <PreviewSettingsForm domain={domain} settings={settings} previews={data.previews}>
+          <PreviewSettingsForm domain={domain} settings={settings} previews={data.previews} hasDatabase={data.has_database}>
             {data.enabled || data.previews.length > 0 ? <PreviewList domain={domain} data={data} onGithub={onGithub} can={can} /> : null}
             {data.enabled ? <SharedVariables scope={{ kind: "preview", domain }} name={domain} canManage={can.manage} level={3} command={false} inlineEmpty /> : null}
             {hint}

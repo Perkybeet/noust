@@ -1,12 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { CommandHint } from "../../../components/page/CommandHint";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Badge } from "../../../components/ui/Badge";
 import { Card } from "../../../components/ui/Card";
+import { EmptyState } from "../../../components/ui/EmptyState";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Mono } from "../../../components/ui/Mono";
-import { Notice } from "../../../components/ui/Notice";
-import { Skeleton } from "../../../components/ui/Skeleton";
+import { SkeletonCard } from "../../../components/ui/Skeleton";
+import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import { stackNetworksQuery } from "./queries";
 
@@ -23,10 +25,9 @@ export function StackNetworksCard({ domain }: { domain: string }) {
 
   if (view.isPending) {
     return (
-      <Card title={title} description={description} loading>
-        <span className="sr-only">{t("composeSettings.networks.loading")}</span>
-        <Skeleton className="h-16 w-full rounded-control" />
-      </Card>
+      <LoadingRegion label={t("composeSettings.networks.loading")}>
+        <SkeletonCard lines={2} />
+      </LoadingRegion>
     );
   }
   if (view.isError) {
@@ -41,7 +42,7 @@ export function StackNetworksCard({ domain }: { domain: string }) {
     <Card title={title} description={description}>
       <div className="flex flex-col gap-4">
         {!applicable ? <p className="text-13 text-fg-muted">{reason}</p> : null}
-        {applicable && networks.length === 0 ? <p className="text-13 text-fg-muted">{t("composeSettings.networks.none")}</p> : null}
+        {applicable && networks.length === 0 ? <EmptyState variant="inline" title={t("composeSettings.networks.none")} /> : null}
         {applicable && networks.length > 0 ? (
           <p className="text-14" role="status">
             {isolated ? t("composeSettings.networks.isolated") : t("composeSettings.networks.shared")}
@@ -55,7 +56,7 @@ export function StackNetworksCard({ domain }: { domain: string }) {
                   <Mono>{network.name}</Mono>
                   <Badge>{network.driver}</Badge>
                   {network.internal ? <Badge>{t("composeSettings.networks.internal")}</Badge> : null}
-                  {network.shared ? <Badge tone="warn">{t("composeSettings.networks.sharedBadge")}</Badge> : null}
+                  {network.shared ? <StatusPill state="warning" size="sm" label={t("composeSettings.networks.sharedBadge")} /> : null}
                 </div>
                 {network.subnets.length > 0 ? <p className="text-13 text-fg-muted">{t("composeSettings.networks.ranges", { ranges: network.subnets.join(", ") })}</p> : null}
                 <ul aria-label={t("composeSettings.networks.members", { name: network.name })} className="flex flex-wrap gap-2">
@@ -63,18 +64,17 @@ export function StackNetworksCard({ domain }: { domain: string }) {
                     <li key={member.name} className="flex items-center gap-1 text-13">
                       <Mono>{member.name}</Mono>
                       {member.address !== "" ? <span className="text-fg-muted">{member.address}</span> : null}
-                      {member.own ? null : <Badge tone="warn">{t("composeSettings.networks.other")}</Badge>}
+                      {member.own ? null : <StatusPill state="warning" size="sm" label={t("composeSettings.networks.other")} />}
                     </li>
                   ))}
                 </ul>
                 {network.findings.map((finding) => (
-                  <Notice key={finding} tone="warning" title={finding} />
+                  <InlineMessage key={finding}>{finding}</InlineMessage>
                 ))}
               </li>
             ))}
           </ul>
         ) : null}
-        <CommandHint command={`noust app networks ${domain}`} label={t("composeSettings.fromTerminal")} />
       </div>
     </Card>
   );

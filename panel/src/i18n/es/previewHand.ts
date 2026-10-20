@@ -4,14 +4,8 @@ import type { Catalog } from "../types";
 export const previewHand: Catalog<typeof en> = {
   statusStopped: "Detenida",
   exposure: {
-    unreviewedTitle: "Una vista previa ejecuta código que nadie ha revisado",
-    unreviewedBody:
-      "Una vista previa recibe solo lo que eliges aquí: las variables que nombres y una base de datos vacía propia. Los pull requests de forks, y en GitHub los de cualquiera que no sea propietario, miembro o colaborador, no tienen vista previa salvo que elijas aprobarlos uno a uno abajo; los de bots solo si lo permites abajo.",
-    allTitle: "Las vistas previas reciben las variables de esta app",
-    allBody:
-      "Todas las variables de la app, salvo las que nunca se copian, llegan a código escrito por cualquiera que pueda abrir un pull request. Elige mejor las que una vista previa necesita.",
-    sharedTitle: "Las vistas previas escriben en las bases de datos de esta app",
-    sharedBody: "El código de un pull request se conecta a las bases de datos que usa la app y puede cambiarlas. Da mejor a cada vista previa una base de datos propia.",
+    allRisk: "Todas las variables de la app, salvo las que nunca se copian, llegan a código escrito por quien abre el pull request.",
+    sharedRisk: "El código de un pull request se conecta a las bases de datos de la app y puede cambiarlas.",
   },
   given: {
     title: "Lo que recibe una vista previa",
@@ -44,7 +38,7 @@ export const previewHand: Catalog<typeof en> = {
     openAria: "Abrir la vista previa de {name}",
     actionsAria: "Acciones de la vista previa de {name}",
     logs: "Registros",
-    redeploy: "Redesplegar",
+    redeploy: "Actualizar",
     stop: "Detener",
     start: "Iniciar",
     remove: "Quitar",
@@ -85,7 +79,7 @@ export const previewHand: Catalog<typeof en> = {
     branch: "Una rama",
     tag: "Un tag",
     prListLabel: "Pull requests abiertos",
-    prLoading: "Leyendo los pull requests abiertos",
+    prLoading: "Cargando los pull requests abiertos",
     prNone: "No hay ningún pull request abierto en el repositorio.",
     prFailedTitle: "No se pudieron leer los pull requests abiertos",
     prFailedHint: "Leerlos necesita la GitHub App de este servidor en el repositorio. Crea la vista previa desde una rama.",

@@ -33,13 +33,15 @@ export const APP_TABS: readonly TabItem[] = tabsOf(APP_SCREENS);
  * The subsections of an application's settings (features/app/settings/sections.ts decides, per
  * application, which of them apply). The groups are the ones of 2.5 of the navigation design.
  */
-const setting = (name: string, label: Dest["label"], group: string): Dest => section(appSettings, name, label, { scope: "server", owner: "resource", group });
+const setting = (name: string, label: Dest["label"], group: string, more: Parameters<typeof section>[3] = {}): Dest =>
+  section(appSettings, name, label, { scope: "server", owner: "resource", group, ...more });
 export const APP_SETTINGS_SCREENS: Strip = [
   setting("source", "appSettings.nav.source", "code"),
-  setting("build", "appSettings.nav.buildCommands", "code"),
-  setting("builds", "appSettings.nav.builds", "code"),
+  setting("build", "appSettings.nav.build", "code", { keywords: "appSettings.keywords.build" }),
   setting("container", "appSettings.nav.container", "code"),
-  setting("deploys", "appSettings.nav.deploys", "deploys"),
+  setting("deploys", "appSettings.nav.deploys", "deploys", { keywords: "appSettings.keywords.deploys" }),
+  setting("automation", "appSettings.nav.automation", "deploys", { keywords: "appSettings.keywords.automation" }),
+  setting("compose", "appSettings.nav.compose", "deploys", { when: "compose", keywords: "appSettings.keywords.compose" }),
   setting("deploy-on-push", "appSettings.nav.push", "triggers"),
   setting("hooks", "appSettings.nav.hooks", "triggers"),
   setting("previews", "appSettings.nav.previews", "triggers"),
@@ -49,6 +51,7 @@ export const APP_SETTINGS_SCREENS: Strip = [
   setting("mounts", "runtime.nav.mounts", "runtime"),
   setting("security", "runtime.nav.security", "runtime"),
   setting("access", "network.access.nav", "access"),
+  setting("protection", "network.protection.nav", "access", { keywords: "appSettings.keywords.protection" }),
   setting("export", "appSettings.nav.export", "danger"),
   setting("delete", "appSettings.nav.delete", "danger"),
 ];

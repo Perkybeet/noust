@@ -3,16 +3,16 @@ import { useState } from "react";
 
 import { request } from "../../../api/client";
 import { appPrivateQuery, networkKeys } from "../../../api/queries/network";
-import { CommandHint } from "../../../components/page/CommandHint";
+import { announce } from "../../../app/Announcer";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
+import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field } from "../../../components/ui/Field";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
-import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
 import { splitErrors } from "../../settings/formErrors";
@@ -48,7 +48,7 @@ export function PrivateCard({ domain }: { domain: string }) {
     onSuccess: (_, body) => {
       refresh();
       setLockout(null);
-      toast.success(t("network.access.private.enabledToast", { domain, network: body.network ?? "" }));
+      announce(t("network.access.private.enabledToast", { domain, network: body.network ?? "" }));
     },
     onError: (error, body) => {
       const address = lockoutAddress(splitErrors(error, ["allow_ips"]).fields.allow_ips);
@@ -59,14 +59,14 @@ export function PrivateCard({ domain }: { domain: string }) {
     mutationFn: () => request("delete", "/api/apps/{domain}/private", { params: { domain }, query: { accept_lockout: false } }),
     onSuccess: () => {
       refresh();
-      toast.success(t("network.access.private.disabledToast", { domain }));
+      announce(t("network.access.private.disabledToast", { domain }));
     },
   });
   const certificate = useMutation({
     mutationFn: () => request("post", "/api/apps/{domain}/private/certificate", { params: { domain } }),
     onSuccess: (issued) => {
       refresh();
-      toast.success(t("network.access.private.certificateToast", { name: issued.hostname }));
+      announce(t("network.access.private.certificateToast", { name: issued.hostname }));
     },
   });
 
@@ -106,9 +106,7 @@ export function PrivateCard({ domain }: { domain: string }) {
                 ) : null}
               </div>
             ) : (
-              <Notice tone="info" title={t("network.access.private.none")}>
-                {t("network.access.private.noneHelp")}
-              </Notice>
+              <EmptyState variant="inline" title={t("network.access.private.none")} description={t("network.access.private.noneHelp")} />
             )}
             {down.map((candidate) => (
               <Notice key={candidate.name} tone="warning" title={t("network.access.private.down", { name: candidate.name })}>
@@ -135,7 +133,6 @@ export function PrivateCard({ domain }: { domain: string }) {
           </>
         ) : null}
         {failure !== undefined ? <ErrorBlock live compact error={failure.error} title={t("network.access.private.failed")} /> : null}
-        <CommandHint command={`noust app policy private show ${domain}`} label={t("appSettings.fromTerminal")} />
       </div>
       <ConfirmDialog
         open={lockout !== null}

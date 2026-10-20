@@ -4,7 +4,6 @@ import { useState } from "react";
 import { addPushKey, appPushQuery, disableAppPush, enableAppPush, prepareServerForPush, pushKeys, refreshAppPush, removePushKey } from "../../../api/queries/push";
 import type { AppPush, PushKey } from "../../../api/queries/push";
 import { announce } from "../../../app/Announcer";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
@@ -21,6 +20,7 @@ import { Input } from "../../../components/ui/Input";
 import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
+import { TextLink } from "../../../components/ui/TextLink";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
@@ -104,6 +104,7 @@ function TurnOn({ domain, info }: { domain: string; info: AppPush }) {
         <Textarea mono rows={3} value={key} placeholder="ssh-ed25519 AAAA..." onChange={(event) => setKey(event.target.value)} />
       </Field>
       <div>
+        {/* design-exception: submit-disabled-invalid the server must be prepared first, which the notice above says and offers */}
         <Button
           variant="primary"
           loading={enable.isPending}
@@ -293,7 +294,11 @@ export function GitPushCard({ app }: { app: { domain: string; layout?: string | 
         <p className="max-w-measure text-13 text-pretty text-fg-muted">
           {fit === "inPlace" ? t("gitPush.unsupportedInPlace") : t("gitPush.unsupportedType", { type: app.app_type ?? "" })}
         </p>
-        {fit === "inPlace" ? <CommandHint command={`noust app migrate ${domain}`} label={t("gitPush.fromTerminal")} /> : null}
+        {fit === "inPlace" ? (
+          <TextLink to="/apps/$domain/settings/deploys" params={{ domain }} size="ui">
+            {t("appSettings.nav.deploys")}
+          </TextLink>
+        ) : null}
       </Card>
     );
   }
@@ -315,7 +320,6 @@ export function GitPushCard({ app }: { app: { domain: string; layout?: string | 
   return (
     <Card title={title} description={description}>
       {view.data.enabled ? <TurnedOn domain={domain} info={view.data} /> : <TurnOn domain={domain} info={view.data} />}
-      <CommandHint command={view.data.enabled ? `noust push show ${domain}` : `noust push enable ${domain} --key-file ~/.ssh/id_ed25519.pub --label laptop`} label={t("gitPush.fromTerminal")} />
     </Card>
   );
 }

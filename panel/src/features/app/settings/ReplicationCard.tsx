@@ -2,14 +2,14 @@ import { useQuery } from "@tanstack/react-query";
 
 import { replicationQuery } from "../../../api/queries/replication";
 import type { ReplicationFinding } from "../../../api/queries/replication";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Section } from "../../../components/page/Section";
-import { Badge } from "../../../components/ui/Badge";
 import { Card } from "../../../components/ui/Card";
 import { Mono } from "../../../components/ui/Mono";
 import { Skeleton } from "../../../components/ui/Skeleton";
+import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
+import { LoadingRegion } from "../../../components/page";
 
 function Finding({ finding }: { finding: ReplicationFinding }) {
   const t = useT();
@@ -18,7 +18,7 @@ function Finding({ finding }: { finding: ReplicationFinding }) {
     <li className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0">
       <div className="flex flex-wrap items-center gap-2">
         {/* A shape and a word as well as a colour: it is read without telling red from amber. */}
-        <Badge tone={blocks ? "fail" : "warn"}>{blocks ? t("runtime.replication.blocks") : t("runtime.replication.warns")}</Badge>
+        <StatusPill state={blocks ? "failed" : "warning"} size="sm" label={blocks ? t("runtime.replication.blocks") : t("runtime.replication.warns")} />
         <span className="text-13 text-fg">{finding.message}</span>
       </div>
       {finding.items.length > 0 ? (
@@ -48,10 +48,9 @@ export function ReplicationCard({ domain }: { domain: string }) {
     <Section title={t("runtime.replication.title")} description={t("runtime.replication.description")}>
       <Card>
         {replication.isPending ? (
-          <div aria-busy="true">
-            <span className="sr-only">{t("runtime.replication.loading")}</span>
+          <LoadingRegion label={t("runtime.replication.loading")}>
             <Skeleton className="h-16 w-full" />
-          </div>
+          </LoadingRegion>
         ) : replication.isError ? (
           <ErrorBlock compact error={replication.error} title={t("runtime.replication.loadFailed")} onRetry={() => void replication.refetch()} retrying={replication.isRefetching} />
         ) : (
@@ -70,7 +69,6 @@ export function ReplicationCard({ domain }: { domain: string }) {
           </div>
         )}
       </Card>
-      <CommandHint command={`noust app replication ${domain}`} label={t("appSettings.fromTerminal")} />
     </Section>
   );
 }

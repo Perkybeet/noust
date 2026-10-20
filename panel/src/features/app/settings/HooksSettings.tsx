@@ -13,6 +13,7 @@ import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field } from "../../../components/ui/Field";
 import { Mono } from "../../../components/ui/Mono";
+import { RowList } from "../../../components/ui/RowList";
 import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
@@ -26,6 +27,7 @@ import type { FormPart } from "./formParts";
 import { hooksQuery, olderServer, settingsKeys } from "./queries";
 import type { AppHooks } from "./queries";
 import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { LoadingRegion } from "../../../components/page";
 
 type Hook = AppHooks["pre_deploy"][number];
 
@@ -45,13 +47,14 @@ function originWords(t: T, source: string): { badge: string; sentence: string } 
 }
 
 function HookList({ label, hooks, t }: { label: string; hooks: readonly Hook[]; t: T }) {
-  if (hooks.length === 0) return <p className="text-13 text-fg-muted">{t("appSettings.hooks.emptyPhase")}</p>;
+  if (hooks.length === 0) return <EmptyState variant="inline" title={t("appSettings.hooks.emptyPhase")} />;
   return (
-    <ol aria-label={label} className="flex flex-col divide-y divide-border rounded-control border border-border">
+    <RowList aria-label={label}>
       {hooks.map((hook, index) => {
         const run = hook.run.join(" ");
         return (
-          <li key={`${run}-${String(index)}`} className="flex min-w-0 flex-col gap-1 px-3 py-2">
+          <RowList.Item key={`${run}-${String(index)}`}>
+            <div className="flex min-w-0 flex-col gap-1">
             <Mono truncate title={run}>
               {run}
             </Mono>
@@ -60,11 +63,12 @@ function HookList({ label, hooks, t }: { label: string; hooks: readonly Hook[]; 
               {hook.workdir ? <span>{t.rich("appSettings.hooks.inDirectory", { path: <Mono>{hook.workdir}</Mono> })}</span> : null}
               <span>{t("appSettings.hooks.timeout", { count: hook.timeout })}</span>
               {hook.migrates ? <span>{t("appSettings.hooks.migrates")}</span> : null}
-            </span>
-          </li>
+              </span>
+            </div>
+          </RowList.Item>
         );
       })}
-    </ol>
+    </RowList>
   );
 }
 
@@ -190,10 +194,9 @@ export function HooksSettings() {
   return (
     <Section title={t("appSettings.hooks.title")} description={t("appSettings.hooks.description")}>
       {hooks.isPending ? (
-        <div aria-busy="true" className="flex flex-col gap-3">
-          <span className="sr-only">{t("appSettings.hooks.loading")}</span>
+        <LoadingRegion label={t("appSettings.hooks.loading")} className="flex flex-col gap-3">
           <Skeleton className="h-32 w-full rounded-card" />
-        </div>
+        </LoadingRegion>
       ) : hooks.isError && olderServer(hooks.error) ? (
         <EmptyState variant="inline" title={t("appSettings.hooks.olderServer")} />
       ) : hooks.isError ? (

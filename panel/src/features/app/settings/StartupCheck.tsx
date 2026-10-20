@@ -40,6 +40,7 @@ import {
   sameExtras,
 } from "./healthExtras";
 import type { HealthExtrasDraft, HealthExtrasErrors, HealthKind } from "./healthExtras";
+import { LoadingRegion } from "../../../components/page";
 
 const EMPTY: HealthDraft = { path: "", expect: "", timeout: "" };
 
@@ -390,11 +391,10 @@ export function StartupCheckCard({ app, check }: { app: App; check: StartupCheck
     >
       <div className="flex flex-col gap-5">
         {extras.loading ? (
-          <div aria-busy="true" className="flex flex-col gap-3">
-            <span className="sr-only">{t("runtime.health.loading")}</span>
+          <LoadingRegion label={t("runtime.health.loading")} className="flex flex-col gap-3">
             <Skeleton className="h-6 w-56" />
             <Skeleton className="h-16 w-full" />
-          </div>
+          </LoadingRegion>
         ) : extras.failed !== null ? (
           <ErrorBlock compact error={extras.failed} title={t("runtime.health.readFailed")} />
         ) : (

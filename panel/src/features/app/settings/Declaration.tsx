@@ -5,15 +5,17 @@ import { useState } from "react";
 import { request } from "../../../api/client";
 import type { ResponseOf } from "../../../api/client";
 import { announce } from "../../../app/Announcer";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Subsection } from "../../../components/page/Subsection";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { Dialog } from "../../../components/ui/Dialog";
-import { Field } from "../../../components/ui/Field";
+import { Disclosure } from "../../../components/ui/Disclosure";
+import { EmptyState } from "../../../components/ui/EmptyState";
+import { Field, FieldGroup } from "../../../components/ui/Field";
 import { Notice } from "../../../components/ui/Notice";
+import { StatusPill } from "../../../components/ui/StatusPill";
 import { Textarea } from "../../../components/ui/Textarea";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
@@ -71,6 +73,9 @@ function ApplyDialog({ domain, open, onOpenChange }: { domain: string; open: boo
   const split = splitErrors(run.error, ["declaration"] as const, "declaration");
   const plan = result?.plan ?? null;
   const needsAgreement = (plan?.confirm.length ?? 0) > 0;
+  // Nothing to apply until a check has found something; the agreement is asked for when it is pressed.
+  const nothingToApply = plan === null || plan.changes.length === 0;
+  const [agreementAsked, setAgreementAsked] = useState(false);
 
   function close(): void {
     setResult(null);
@@ -115,9 +120,15 @@ function ApplyDialog({ domain, open, onOpenChange }: { domain: string; open: boo
               </Button>
               <Button
                 variant="primary"
-                disabled={plan === null || plan.changes.length === 0 || (needsAgreement && !agreed)}
+                disabled={nothingToApply}
                 loading={run.isPending && !run.variables.check}
-                onClick={() => run.mutate({ check: false })}
+                onClick={() => {
+                  if (needsAgreement && !agreed) {
+                    setAgreementAsked(true);
+                    return;
+                  }
+                  run.mutate({ check: false });
+                }}
               >
                 {t("declaration.dialog.applyNow")}
               </Button>
@@ -127,7 +138,9 @@ function ApplyDialog({ domain, open, onOpenChange }: { domain: string; open: boo
       }
     >
       <div className="flex flex-col gap-4">
-        <Notice title={t("declaration.scope.title")}>{t("declaration.scope.body")}</Notice>
+        <Disclosure label={t("declaration.scope.title")}>
+          <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("declaration.scope.body")}</p>
+        </Disclosure>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="ghost" size="sm" loading={fromNow.isPending} disabled={run.isPending} onClick={() => fromNow.mutate()}>
             {t("declaration.dialog.startFromNow")}
@@ -145,12 +158,12 @@ function ApplyDialog({ domain, open, onOpenChange }: { domain: string; open: boo
         {plan !== null ? (
           <Subsection title={t("declaration.plan.title")}>
             <div className="flex flex-col gap-3" aria-live="polite">
-            {plan.changes.length === 0 ? <p className="text-13 text-fg-muted">{t("declaration.plan.nothing")}</p> : null}
+            {plan.changes.length === 0 ? <EmptyState variant="inline" title={t("declaration.plan.nothing")} /> : null}
             <ul className="flex flex-col gap-1.5">
               {plan.changes.map((change) => (
                 <li key={`${change.section}:${change.description}`} className="text-13 text-fg">
                   {change.description}
-                  {change.root_equivalent ? <span className="ml-2 text-12 text-warn">{t("declaration.plan.runsCommands")}</span> : null}
+                  {change.root_equivalent ? <StatusPill state="warning" size="sm" label={t("declaration.plan.runsCommands")} className="ml-2" /> : null}
                 </li>
               ))}
             </ul>
@@ -159,9 +172,15 @@ function ApplyDialog({ domain, open, onOpenChange }: { domain: string; open: boo
             ) : null}
             {plan.unchanged.length > 0 ? <p className="text-12 text-fg-muted">{t("declaration.plan.already", { sections: plan.unchanged.join(", ") })}</p> : null}
             {plan.notes.map((note) => (
-              <Notice key={note}>{note}</Notice>
+              <p key={note} className="max-w-measure text-13 text-pretty text-fg-muted">
+                {note}
+              </p>
             ))}
-            {needsAgreement && !result?.applied ? <Checkbox label={t("declaration.plan.confirm")} checked={agreed} onCheckedChange={setAgreed} /> : null}
+            {needsAgreement && !result?.applied ? (
+              <FieldGroup legend={t("declaration.plan.confirmLegend")} error={agreementAsked && !agreed ? t("declaration.plan.confirmAsked") : undefined}>
+                <Checkbox label={t("declaration.plan.confirm")} checked={agreed} onCheckedChange={setAgreed} />
+              </FieldGroup>
+            ) : null}
             {result?.applied
               ? result.steps.filter((step) => !step.applied).map((step) => (
                   <Notice key={step.part} tone="warning" title={`${t("declaration.plan.notApplied")}: ${step.part}`}>
@@ -189,6 +208,7 @@ export function DeclarationCard({ domain }: { domain: string }) {
     mutationFn: () => request("get", "/api/apps/{domain}/declaration", { params: { domain } }),
     onSuccess: (answer) => {
       downloadText("noust.yaml", answer.declaration, "text/yaml");
+      // design-exception: toast-success A download happens outside the page: nothing on screen says it went through.
       toast.success(t("declaration.downloaded", { domain }));
     },
     onError: (error: unknown) => {
@@ -204,10 +224,9 @@ export function DeclarationCard({ domain }: { domain: string }) {
             {t("declaration.download")}
           </Button>
           <Button variant="ghost" onClick={() => setApplying(true)}>
-            {t("declaration.apply")}
+            {t("declaration.fromFile")}
           </Button>
         </div>
-        <CommandHint command={`noust app export ${domain} --as-yaml -o noust.yaml`} label={t("declaration.fromTerminal")} />
       </div>
       <ApplyDialog key={String(applying)} domain={domain} open={applying} onOpenChange={setApplying} />
     </Card>

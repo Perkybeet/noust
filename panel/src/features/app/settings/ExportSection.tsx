@@ -35,7 +35,7 @@ export function ExportSettings() {
       request("get", "/api/apps/{domain}/export", { params: { domain }, ...(withSecrets ? { query: { with_secrets: true as const } } : {}) }),
     onSuccess: (document) => {
       downloadText(`${domain}.noust-app.json`, JSON.stringify(document, null, 2), "application/json");
-      // A download happens outside the page: nothing on screen says it went through.
+      // design-exception: toast-success A download happens outside the page: nothing on screen says it went through.
       toast.success(t("appSettings.exportApp.exported", { domain }));
     },
     onError: (error: unknown) => {

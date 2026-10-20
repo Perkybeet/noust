@@ -1,26 +1,36 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { UseQueryResult } from "@tanstack/react-query";
 import { useState } from "react";
-import type { SyntheticEvent } from "react";
 
 import { request } from "../../../api/client";
 import { sourceKeys, sourceOptionsQuery } from "../../../api/queries/sources";
 import type { SourceOptions } from "../../../api/queries/sources";
 import { announce } from "../../../app/Announcer";
-import { CommandHint } from "../../../components/page/CommandHint";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
+import { Checkbox } from "../../../components/ui/Checkbox";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { Field } from "../../../components/ui/Field";
 import { Select } from "../../../components/ui/Select";
-import { Skeleton } from "../../../components/ui/Skeleton";
-import { Switch } from "../../../components/ui/Switch";
+import { SkeletonCard } from "../../../components/ui/Skeleton";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
 import { splitErrors } from "../../settings/formErrors";
+import type { FormPart } from "./formParts";
 
 type Lfs = SourceOptions["lfs"];
+
+/** The fields as typed: the globs are one per line. */
+interface Draft {
+  submodules: boolean;
+  lfs: Lfs;
+  shallow: boolean;
+  skip: boolean;
+  paths: string;
+}
 
 /** One glob per line, blank lines left out: what the API takes. */
 function pathsOf(text: string): string[] {
@@ -30,33 +40,62 @@ function pathsOf(text: string): string[] {
     .filter((line) => line !== "");
 }
 
-/** The fields, starting from what is stored; keyed on the stored value so a save redraws them clean. */
-function SourceOptionsForm({ domain, options }: { domain: string; options: SourceOptions }) {
-  const t = useT();
-  const { node } = useNode();
-  const queryClient = useQueryClient();
-  const [submodules, setSubmodules] = useState(options.submodules);
-  const [lfs, setLfs] = useState<Lfs>(options.lfs);
-  const [shallow, setShallow] = useState(options.shallow);
-  const [skip, setSkip] = useState(options.skip_markers);
-  const [paths, setPaths] = useState(options.watch_paths.join("\n"));
-  const [resetting, setResetting] = useState(false);
+function draftOf(options: SourceOptions): Draft {
+  return { submodules: options.submodules, lfs: options.lfs, shallow: options.shallow, skip: options.skip_markers, paths: options.watch_paths.join("\n") };
+}
 
-  const changed =
-    submodules !== options.submodules ||
-    lfs !== options.lfs ||
-    shallow !== options.shallow ||
-    skip !== options.skip_markers ||
-    JSON.stringify(pathsOf(paths)) !== JSON.stringify(options.watch_paths);
+/** How many of the fields differ from what is stored. */
+function changedFields(draft: Draft, stored: Draft): number {
+  return [
+    draft.submodules !== stored.submodules,
+    draft.lfs !== stored.lfs,
+    draft.shallow !== stored.shallow,
+    draft.skip !== stored.skip,
+    JSON.stringify(pathsOf(draft.paths)) !== JSON.stringify(pathsOf(stored.paths)),
+  ].filter(Boolean).length;
+}
+
+export interface SourceOptionsPart {
+  /** The save bar's part; null until the options are read. */
+  part: FormPart | null;
+  view: UseQueryResult<SourceOptions>;
+  draft: Draft;
+  set: (next: Partial<Draft>) => void;
+  errors: Partial<Record<"watch_paths" | "lfs" | "submodules" | "shallow" | "skip_markers", string>>;
+  unplaced: unknown;
+  /** Back to the defaults, asked about first. */
+  reset: () => Promise<void>;
+}
+
+/**
+ * How the code is fetched (submodules, Git LFS, shallow clone) and which pushes deploy it (skip
+ * markers, watch paths): the application's Source settings, one form saved from the page's save
+ * bar. They are the same options `noust app source` sets.
+ */
+export function useSourceOptions(domain: string): SourceOptionsPart {
+  const t = useT();
+  const queryClient = useQueryClient();
+  const view = useQuery(sourceOptionsQuery(domain));
+  const stored = view.data !== undefined ? draftOf(view.data) : null;
+  const [baseline, setBaseline] = useState<Draft | null>(null);
+  const [draft, setDraft] = useState<Draft>({ submodules: false, lfs: "auto", shallow: false, skip: false, paths: "" });
+
+  // The options changed underneath an untouched form (saved here, or from a terminal): follow them.
+  if (stored !== null && (baseline === null || changedFields(stored, baseline) > 0)) {
+    setBaseline(stored);
+    if (baseline === null || changedFields(draft, baseline) === 0) setDraft(stored);
+  }
 
   const settle = (result: SourceOptions): void => {
     queryClient.setQueryData(sourceKeys.sourceOptions(domain), result);
+    setBaseline(draftOf(result));
+    setDraft(draftOf(result));
   };
   const save = useMutation({
     mutationFn: () =>
       request("put", "/api/apps/{domain}/source-options", {
         params: { domain },
-        body: { submodules, lfs, shallow, skip_markers: skip, watch_paths: pathsOf(paths) },
+        body: { submodules: draft.submodules, lfs: draft.lfs, shallow: draft.shallow, skip_markers: draft.skip, watch_paths: pathsOf(draft.paths) },
       }),
     onSuccess: (result) => {
       settle(result);
@@ -65,78 +104,51 @@ function SourceOptionsForm({ domain, options }: { domain: string; options: Sourc
   });
   const split = splitErrors(save.error, ["watch_paths", "lfs", "submodules", "shallow", "skip_markers"] as const);
 
-  const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
-    event.preventDefault();
-    if (changed && !save.isPending) save.mutate();
+  return {
+    part:
+      stored === null
+        ? null
+        : {
+            changes: changedFields(draft, stored),
+            elevated: false,
+            check: () => true,
+            save: async () => {
+              await save.mutateAsync();
+            },
+            discard: () => {
+              setDraft(stored);
+              save.reset();
+            },
+          },
+    view,
+    draft,
+    set: (next) => {
+      setDraft((previous) => ({ ...previous, ...next }));
+      if (save.isError) save.reset();
+    },
+    errors: split.fields,
+    unplaced: save.isError ? split.form : null,
+    reset: async () => {
+      const result = await request("delete", "/api/apps/{domain}/source-options", { params: { domain } });
+      settle(result);
+      announce(t("sourceOptions.resetDone", { domain }));
+    },
   };
-
-  return (
-    <>
-      <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-        <Switch label={t("sourceOptions.submodules.label")} description={t("sourceOptions.submodules.description")} checked={submodules} onCheckedChange={setSubmodules} />
-        <Field label={t("sourceOptions.lfs.label")} description={t("sourceOptions.lfs.description")} error={split.fields.lfs}>
-          <Select
-            value={lfs}
-            onValueChange={(value) => setLfs(value)}
-            options={[
-              { value: "auto", label: t("sourceOptions.lfs.auto") },
-              { value: "on", label: t("sourceOptions.lfs.on") },
-              { value: "off", label: t("sourceOptions.lfs.off") },
-            ]}
-          />
-        </Field>
-        <Switch label={t("sourceOptions.shallow.label")} description={t("sourceOptions.shallow.description")} checked={shallow} onCheckedChange={setShallow} />
-        <Switch label={t("sourceOptions.skip.label")} description={t("sourceOptions.skip.description")} checked={skip} onCheckedChange={setSkip} />
-        <Field label={t("sourceOptions.paths.label")} description={t("sourceOptions.paths.description")} error={split.fields.watch_paths}>
-          <Textarea mono rows={4} value={paths} placeholder={t("sourceOptions.paths.placeholder")} onChange={(event) => setPaths(event.target.value)} />
-        </Field>
-        <p className="max-w-measure text-12 text-pretty text-fg-muted">{t("sourceOptions.paths.note")}</p>
-        {save.isError && split.form !== null ? <ErrorBlock live compact error={split.form} title={t("sourceOptions.notSaved", { domain })} /> : null}
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="submit" variant="primary" size="sm" loading={save.isPending} disabled={!changed}>
-            {t("sourceOptions.save")}
-          </Button>
-          {options.customised ? (
-            <Button size="sm" variant="ghost" onClick={() => setResetting(true)}>
-              {t("sourceOptions.reset")}
-            </Button>
-          ) : null}
-        </div>
-      </form>
-      <ConfirmDialog
-        open={resetting}
-        onOpenChange={setResetting}
-        friction="simple"
-        server={node}
-        title={t("sourceOptions.resetTitle", { domain })}
-        description={t("sourceOptions.resetDescription")}
-        actionLabel={t("sourceOptions.resetAction")}
-        onConfirm={async () => {
-          const result = await request("delete", "/api/apps/{domain}/source-options", { params: { domain } });
-          settle(result);
-          announce(t("sourceOptions.resetDone", { domain }));
-        }}
-      />
-    </>
-  );
 }
 
-/**
- * How the code is fetched (submodules, Git LFS, shallow clone) and which pushes deploy it (skip
- * markers, watch paths): the application's Source settings, one form saved with one button.
- * They are the same options `noust app source` sets.
- */
-export function SourceOptionsCard({ domain }: { domain: string }) {
+/** The card of the git options: fetching and the pushes that deploy, with the way back to the defaults. */
+export function SourceOptionsCard({ domain, options }: { domain: string; options: SourceOptionsPart }) {
   const t = useT();
-  const view = useQuery(sourceOptionsQuery(domain));
+  const { node } = useNode();
+  const [resetting, setResetting] = useState(false);
+  const { view, draft, set, errors } = options;
   const title = t("sourceOptions.title");
   const description = t("sourceOptions.description");
   if (view.isPending) {
     return (
-      <Card title={title} description={description} loading>
-        <span className="sr-only">{t("sourceOptions.loading")}</span>
-        <Skeleton className="h-24 w-full rounded-control" />
-      </Card>
+      <LoadingRegion label={t("sourceOptions.loading")}>
+        <SkeletonCard lines={4} />
+      </LoadingRegion>
     );
   }
   if (view.isError) {
@@ -147,9 +159,47 @@ export function SourceOptionsCard({ domain }: { domain: string }) {
     );
   }
   return (
-    <Card title={title} description={description}>
-      <SourceOptionsForm key={JSON.stringify(view.data)} domain={domain} options={view.data} />
-      <CommandHint command={`noust app source show ${domain}`} label={t("sourceOptions.fromTerminal")} />
+    <Card
+      title={title}
+      description={description}
+      actions={
+        view.data.customised ? (
+          <Button size="sm" variant="ghost" onClick={() => setResetting(true)}>
+            {t("sourceOptions.reset")}
+          </Button>
+        ) : undefined
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <Checkbox label={t("sourceOptions.submodules.label")} description={t("sourceOptions.submodules.description")} checked={draft.submodules} onCheckedChange={(submodules) => set({ submodules })} />
+        <Field label={t("sourceOptions.lfs.label")} description={t("sourceOptions.lfs.description")} error={errors.lfs}>
+          <Select
+            value={draft.lfs}
+            onValueChange={(lfs) => set({ lfs })}
+            options={[
+              { value: "auto", label: t("sourceOptions.lfs.auto") },
+              { value: "on", label: t("sourceOptions.lfs.on") },
+              { value: "off", label: t("sourceOptions.lfs.off") },
+            ]}
+          />
+        </Field>
+        <Checkbox label={t("sourceOptions.shallow.label")} description={t("sourceOptions.shallow.description")} checked={draft.shallow} onCheckedChange={(shallow) => set({ shallow })} />
+        <Checkbox label={t("sourceOptions.skip.label")} description={t("sourceOptions.skip.description")} checked={draft.skip} onCheckedChange={(skip) => set({ skip })} />
+        <Field label={t("sourceOptions.paths.label")} description={`${t("sourceOptions.paths.description")} ${t("sourceOptions.paths.note")}`} error={errors.watch_paths}>
+          <Textarea mono rows={4} value={draft.paths} placeholder={t("sourceOptions.paths.placeholder")} onChange={(event) => set({ paths: event.target.value })} />
+        </Field>
+        {options.unplaced !== null ? <ErrorBlock live compact error={options.unplaced} title={t("sourceOptions.notSaved", { domain })} /> : null}
+      </div>
+      <ConfirmDialog
+        open={resetting}
+        onOpenChange={setResetting}
+        friction="simple"
+        server={node}
+        title={t("sourceOptions.resetTitle", { domain })}
+        description={t("sourceOptions.resetDescription")}
+        actionLabel={t("sourceOptions.resetAction")}
+        onConfirm={options.reset}
+      />
     </Card>
   );
 }

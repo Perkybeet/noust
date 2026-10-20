@@ -2,7 +2,6 @@ import type { containers as en } from "../en/containers";
 import type { Catalog } from "../types";
 
 export const containers: Catalog<typeof en> = {
-  area: "Contenedores",
   fromTerminal: "Desde una terminal",
   restart: {
     unlessStopped: "Salvo que se detenga",
@@ -136,7 +135,6 @@ export const containers: Catalog<typeof en> = {
     digest: "Imagen descargada",
     digestHint: "La huella que resolvió el último despliegue.",
     takesEffect: "Un cambio se guarda ahora y surte efecto con la próxima actualización, que vuelve a escribir el fichero Compose. Guardar no recrea nada.",
-    saved: "Guardado. Surte efecto con la próxima actualización.",
     saveFailed: "No se guardaron los ajustes del contenedor de {domain}",
     notSavedFor: "No se guardaron los ajustes del contenedor de {domain}",
   },

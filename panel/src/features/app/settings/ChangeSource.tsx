@@ -7,7 +7,6 @@ import { appKeys } from "../../../api/queries/apps";
 import { changeSource, planSourceChange, sourceKeys } from "../../../api/queries/sources";
 import type { SourceChange, SourcePlan } from "../../../api/queries/sources";
 import { announce } from "../../../app/Announcer";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { Subsection } from "../../../components/page/Subsection";
 import { ErrorBlock } from "../../../components/page/QueryState";
@@ -16,6 +15,7 @@ import { Card } from "../../../components/ui/Card";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Field } from "../../../components/ui/Field";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Input } from "../../../components/ui/Input";
 import { Notice } from "../../../components/ui/Notice";
 import { useT } from "../../../i18n";
@@ -53,7 +53,7 @@ function PlanSummary({ plan }: { plan: SourcePlan }) {
           ...(plan.head ? [{ label: t("changeSource.plan.head"), value: plan.head.slice(0, 12) }] : []),
         ]}
       />
-      {!plan.changed ? <Notice tone="info">{t("changeSource.plan.unchanged")}</Notice> : null}
+      {!plan.changed ? <InlineMessage tone="info">{t("changeSource.plan.unchanged")}</InlineMessage> : null}
       {plan.warnings.length > 0 ? (
         <Notice tone="warning" title={t("changeSource.plan.warnings")}>
           <ul className="flex list-disc flex-col gap-1 pl-4">
@@ -241,7 +241,6 @@ export function ChangeSourceCard({
                 ? t("changeSource.unsupportedPush")
                 : t("changeSource.unsupportedType", { type: app.app_type ?? "" })}
         </p>
-        {fit === "inPlace" ? <CommandHint command={`noust app migrate ${domain}`} label={t("changeSource.fromTerminal")} /> : null}
       </Card>
     );
   }
@@ -255,7 +254,7 @@ export function ChangeSourceCard({
       />
       {changed !== null ? (
         <Notice
-          tone="success"
+          tone="info"
           title={t("changeSource.done.title", { domain })}
           action={
             <Button size="sm" loading={build.isPending} onClick={() => build.mutate()}>
@@ -287,7 +286,6 @@ export function ChangeSourceCard({
           }}
         />
       ) : null}
-      <CommandHint command={`noust app source change ${domain} https://git.example.org/team/shop.git`} label={t("changeSource.fromTerminal")} />
     </Card>
   );
 }

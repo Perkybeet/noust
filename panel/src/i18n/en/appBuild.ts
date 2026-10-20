@@ -1,8 +1,7 @@
 /** Strings of an application's build commands: the block that says how it is installed, built and started. */
 export const appBuild = {
-  area: "Build commands",
-  title: "Build commands",
-  description: "What installs, builds and starts the project, where in the repository it lives and the runtime it runs on. Left empty, each is what the application's type does.",
+  title: "Build",
+  description: "How the project is built: what installs, builds and starts it, where in the repository it lives, the runtime it runs on and the sandbox its builds run in. Left empty, each is what the application's type does.",
   loading: "Loading the build commands",
   readFailed: "Could not read the build commands",
   notSupported: "A {type} application is built by its own configuration, so it has no build commands here.",
@@ -18,16 +17,12 @@ export const appBuild = {
     unitDirectory: "The service runs in",
     unitRuntime: "The service runs on",
   },
-  precedence: {
-    title: "This application's own settings win, whole",
-    body: "When they exist, the repository's noust.yaml is not read at all: nothing is merged, so what only the repository said (a base directory, say) no longer applies. Remove them and the repository's apply again.",
-  },
   repositoryError: {
     title: "The repository's noust.yaml is not valid",
     body: "The next update fails with this until it is fixed, or until this application has settings of its own.",
     label: "What the build block's validation said",
   },
-  fromRepository: "These values come from the repository. Saving them here makes them this application's own, and the repository's block stops being read: what you leave empty falls back to the type's own command, not to the repository's.",
+  fromRepository: "These values come from the repository's noust.yaml. Saving them makes them this application's own.",
   form: {
     title: "The commands",
     description: "Each is optional. They take effect with the next update or deploy, which also writes the service again when the start command, the directory or the runtime changed.",
@@ -47,7 +42,6 @@ export const appBuild = {
     runtime: "Runtime",
     runtimeDescription: "node@22, python@3.12 or php@8.3: a major, a minor, a full version, lts or latest. Noust installs it when the server does not have it.",
     runtimePresets: "Runtimes to start from",
-    runtimeInstalled: "What this server has installed",
     timeout: "Time limit (seconds)",
     timeoutDescription: "How long the install and the build may each take before they are stopped. Empty takes the server's: 1800 for the install, 2700 for the build.",
   },
@@ -56,7 +50,6 @@ export const appBuild = {
     title: "Remove the build commands of {domain}?",
     description: "The repository's noust.yaml applies again at the next update, and the type's own commands where it has none. Nothing is rebuilt now.",
   },
-  saved: "Saved. It takes effect with the next update.",
   saveFailed: "The build commands of {domain} were not saved",
   notSavedFor: "The build commands of {domain} were not saved",
   validation: {

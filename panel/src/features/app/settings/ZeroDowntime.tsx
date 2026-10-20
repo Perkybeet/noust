@@ -12,6 +12,7 @@ import { zeroDowntimeKey } from "../../../api/queries/zeroDowntime";
 import type { ZeroDowntime, ZeroDowntimeInstance } from "../../../api/queries/zeroDowntime";
 import { announce } from "../../../app/Announcer";
 import { AppStatePill } from "../../../components/page/AppStatePill";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -20,10 +21,12 @@ import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
+import { Disclosure } from "../../../components/ui/Disclosure";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Mono } from "../../../components/ui/Mono";
-import { FeatureState } from "../../../components/ui/FeatureState";
-import { Notice } from "../../../components/ui/Notice";
-import { Skeleton } from "../../../components/ui/Skeleton";
+import { RowList } from "../../../components/ui/RowList";
+import { SkeletonCard } from "../../../components/ui/Skeleton";
+import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
 import { splitErrors } from "../../settings/formErrors";
@@ -136,9 +139,8 @@ export function useDrain(domain: string, status: ZeroDowntime | undefined): Drai
 }
 
 /**
- * What a new application gets, said where an operator decides about this one: an application
- * that can run as two copies starts with this on, and the server's setting is the default for
- * every new one. Static: it is how the product behaves, not a reading of this server.
+ * What a new application gets and where the server's default is kept, said beside the decision about
+ * this one. Static: it is how the product behaves, not a reading of this server.
  */
 function DefaultNote({ enabled }: { enabled: boolean }) {
   const t = useT();
@@ -156,28 +158,30 @@ function Instances({ status }: { status: ZeroDowntime }) {
   const instances = status.instances ?? [];
   if (instances.length === 0) return <p className="text-13 text-fg-muted">{t("appSettings.zeroDowntime.noInstances")}</p>;
   return (
-    <ul aria-label={t("appSettings.zeroDowntime.instancesLabel")} className="flex flex-col divide-y divide-border rounded-control border border-border">
+    <RowList aria-label={t("appSettings.zeroDowntime.instancesLabel")}>
       {instances.map((instance: ZeroDowntimeInstance) => (
-        <li key={instance.color} className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
-          <span className="text-13 font-medium text-fg">{instanceName(instance.color, t.locale)}</span>
-          {instance.serving ? (
-            <Badge>
-              <Radio aria-hidden="true" className="size-icon-xs" />
-              {t("appSettings.zeroDowntime.serving")}
-            </Badge>
-          ) : (
-            <span className="text-12 text-fg-muted">{t("appSettings.zeroDowntime.idle")}</span>
-          )}
-          <AppStatePill status={instance.state} appearance="inline" size="sm" />
-          <span className="text-12 text-fg-muted">
-            {t.rich("appSettings.zeroDowntime.instanceLine", {
-              port: <Mono>{instance.port}</Mono>,
-              release: <Mono>{instance.release ?? t("appSettings.zeroDowntime.noRelease")}</Mono>,
-            })}
-          </span>
-        </li>
+        <RowList.Item key={instance.color}>
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="text-13 font-medium text-fg">{instanceName(instance.color, t.locale)}</span>
+            {instance.serving ? (
+              <Badge>
+                <Radio aria-hidden="true" className="size-icon-xs" />
+                {t("appSettings.zeroDowntime.serving")}
+              </Badge>
+            ) : (
+              <span className="text-12 text-fg-muted">{t("appSettings.zeroDowntime.idle")}</span>
+            )}
+            <AppStatePill status={instance.state} appearance="inline" size="sm" />
+            <span className="text-12 text-fg-muted">
+              {t.rich("appSettings.zeroDowntime.instanceLine", {
+                port: <Mono>{instance.port}</Mono>,
+                release: <Mono>{instance.release ?? t("appSettings.zeroDowntime.noRelease")}</Mono>,
+              })}
+            </span>
+          </div>
+        </RowList.Item>
       ))}
-    </ul>
+    </RowList>
   );
 }
 
@@ -241,9 +245,10 @@ function TurnOnDialog({
       }
     >
       <form id="zero-downtime-on" onSubmit={submit} noValidate className="flex flex-col gap-4">
-        <Notice tone="warning" title={compose ? t("appSettings.zeroDowntime.composeTwoCopiesTitle") : t("appSettings.zeroDowntime.twoCopiesTitle")}>
-          {compose ? t("appSettings.zeroDowntime.composeTwoCopiesBody") : t("appSettings.zeroDowntime.twoCopiesBody")}
-        </Notice>
+        <InlineMessage>{compose ? t("appSettings.zeroDowntime.composeRisk") : t("appSettings.zeroDowntime.risk")}</InlineMessage>
+        <Disclosure label={t("common.setting.whatChanges")}>
+          <p className="text-13 text-pretty text-fg-muted">{compose ? t("appSettings.zeroDowntime.composeRiskDetail") : t("appSettings.zeroDowntime.riskDetail")}</p>
+        </Disclosure>
         <Field label={t("appSettings.zeroDowntime.drainLabel")} description={t("appSettings.zeroDowntime.drainDescription", { min: DRAIN_MIN, max: DRAIN_MAX })} error={error}>
           <Input mono inputMode="numeric" autoComplete="off" suffix="s" value={draft} onValueChange={(value: string) => setDraft(value)} className="w-32" />
         </Field>
@@ -269,7 +274,8 @@ function TurnOnDialog({
  * Zero-downtime deploys, for an app with a process of its own: the new version starts beside
  * the old one and traffic moves once it answers. Whether the app can use it is the backend's to
  * say, in its words; an app still in a single folder is told it needs instant rollback first.
- * Turning it on or off rewrites units and the site, so each runs as a job, waited for here.
+ * Turning it on or off rewrites units and the site, so each runs as a job, waited for here: the
+ * button opens the dialog that says what changes, and the state is the pill beside the title.
  */
 export function ZeroDowntimeCard({ app, status, drain }: { app: App; status: UseQueryResult<ZeroDowntime>; drain: DrainPart }) {
   const t = useT();
@@ -288,12 +294,9 @@ export function ZeroDowntimeCard({ app, status, drain }: { app: App; status: Use
   const title = t("appSettings.zeroDowntime.title");
   if (status.isPending) {
     return (
-      <Card title={title}>
-        <div aria-busy="true">
-          <span className="sr-only">{t("appSettings.zeroDowntime.loading")}</span>
-          <Skeleton className="h-10 w-full rounded-control" />
-        </div>
-      </Card>
+      <LoadingRegion label={t("appSettings.zeroDowntime.loading")}>
+        <SkeletonCard lines={1} />
+      </LoadingRegion>
     );
   }
   if (status.isError || data === undefined) {
@@ -307,51 +310,65 @@ export function ZeroDowntimeCard({ app, status, drain }: { app: App; status: Use
   const description = compose ? t("appSettings.zeroDowntime.composeDescription") : t("appSettings.zeroDowntime.description");
   if (!data.enabled && !data.eligible) {
     return (
-      <Card title={title} description={description}>
+      <Card title={title} status={<StatusPill state="stopped" size="sm" label={t("appSettings.zeroDowntime.off")} />} description={description}>
         {app.layout !== "releases" && !compose ? (
-          <FeatureState state="off" title={t("appSettings.zeroDowntime.off")}>
-            {t("appSettings.zeroDowntime.needsRollback")}
-          </FeatureState>
+          <p className="text-13 text-pretty text-fg-muted">{t("appSettings.zeroDowntime.needsRollback")}</p>
         ) : (
-          <FeatureState state="off" title={t("appSettings.zeroDowntime.offCannot")}>
-            <div className="flex flex-col gap-2">
-              <p className="break-words">{data.reason ?? t("appSettings.zeroDowntime.notEligibleDefault")}</p>
-              <Problems hint={data.hint ?? null} label={t("appSettings.zeroDowntime.problemsLabel")} />
-            </div>
-          </FeatureState>
+          <div className="flex flex-col gap-2 text-13 text-pretty text-fg-muted">
+            <p className="break-words">{data.reason ?? t("appSettings.zeroDowntime.notEligibleDefault")}</p>
+            <Problems hint={data.hint ?? null} label={t("appSettings.zeroDowntime.problemsLabel")} />
+          </div>
         )}
       </Card>
     );
   }
 
   return (
-    <Card title={title} description={description}>
+    <Card
+      title={title}
+      status={
+        data.enabled ? (
+          data.reason ? (
+            <StatusPill state="warning" size="sm" label={t("appSettings.zeroDowntime.onProblem")} />
+          ) : (
+            <StatusPill state="running" size="sm" label={t("appSettings.zeroDowntime.on")} />
+          )
+        ) : (
+          <StatusPill state="stopped" size="sm" label={t("appSettings.zeroDowntime.off")} />
+        )
+      }
+      description={description}
+      actions={
+        data.enabled ? (
+          <Button size="sm" variant="ghost" onClick={() => ask(() => setTurningOff(true))}>
+            {t("appSettings.zeroDowntime.turnOffEllipsis")}
+          </Button>
+        ) : (
+          <Button size="sm" onClick={() => ask(() => setTurningOn(true))}>
+            {t("appSettings.zeroDowntime.turnOnEllipsis")}
+          </Button>
+        )
+      }
+    >
       {data.enabled ? (
         <div className="flex flex-col gap-4">
           {data.reason ? (
-            <FeatureState state="problem" title={<span className="break-words">{data.reason}</span>}>
+            <div className="flex flex-col gap-2 text-13 text-pretty text-fg">
+              <p className="break-words">{data.reason}</p>
               <Problems hint={data.hint ?? null} label={t("appSettings.zeroDowntime.problemsLabel")} />
-            </FeatureState>
+            </div>
           ) : (
-            <FeatureState state="on" title={t("appSettings.zeroDowntime.on")}>
-              {compose ? t("appSettings.zeroDowntime.composeOnBody") : t("appSettings.zeroDowntime.onBody")}
-            </FeatureState>
+            <InlineMessage>{compose ? t("appSettings.zeroDowntime.composeRisk") : t("appSettings.zeroDowntime.risk")}</InlineMessage>
           )}
-          <DefaultNote enabled />
           {compose && (data.instances ?? []).length === 0 ? null : <Instances status={data} />}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <Field
-              label={t("appSettings.zeroDowntime.drainLabel")}
-              description={t("appSettings.zeroDowntime.drainDescription", { min: DRAIN_MIN, max: DRAIN_MAX })}
-              error={drain.error}
-              className="max-w-measure-help"
-            >
-              <Input mono inputMode="numeric" autoComplete="off" suffix="s" value={drain.draft} onValueChange={drain.edit} className="w-32" />
-            </Field>
-            <Button size="sm" variant="ghost" onClick={() => ask(() => setTurningOff(true))} className="self-start sm:self-auto">
-              {t("appSettings.zeroDowntime.turnOff")}
-            </Button>
-          </div>
+          <Field
+            label={t("appSettings.zeroDowntime.drainLabel")}
+            description={t("appSettings.zeroDowntime.drainDescription", { min: DRAIN_MIN, max: DRAIN_MAX })}
+            error={drain.error}
+            className="max-w-measure-help"
+          >
+            <Input mono inputMode="numeric" autoComplete="off" suffix="s" value={drain.draft} onValueChange={drain.edit} className="w-32" />
+          </Field>
           {drain.failure !== null ? (
             <ErrorBlock
               live
@@ -361,20 +378,11 @@ export function ZeroDowntimeCard({ app, status, drain }: { app: App; status: Use
               hint={drain.failure instanceof JobFailedError ? t("appSettings.zeroDowntime.revertedHint") : t("appSettings.zeroDowntime.nothingChangedHint")}
             />
           ) : null}
+          <DefaultNote enabled />
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
-          <FeatureState
-            state="off"
-            title={t("appSettings.zeroDowntime.off")}
-            action={
-              <Button size="sm" onClick={() => ask(() => setTurningOn(true))}>
-                {t("appSettings.zeroDowntime.turnOnEllipsis")}
-              </Button>
-            }
-          >
-            {t("appSettings.zeroDowntime.offNote")}
-          </FeatureState>
+        <div className="flex flex-col gap-2">
+          <p className="text-13 text-pretty text-fg-muted">{t("appSettings.zeroDowntime.offNote")}</p>
           <DefaultNote enabled={false} />
         </div>
       )}
