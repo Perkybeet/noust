@@ -122,7 +122,7 @@ export function expireSession(): void {
 }
 
 // The backend names both in GET /api/auth/session; these are its defaults.
-const csrf = { header: "X-WASM-CSRF", cookie: "wasm_csrf" };
+const csrf = { header: "X-Noust-CSRF", cookie: "noust_csrf" };
 
 /** Adopts the CSRF header and cookie names the session endpoint announced. */
 export function setCsrfNames(header: string, cookie: string): void {

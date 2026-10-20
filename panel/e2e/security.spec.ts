@@ -20,8 +20,8 @@ import { confirmItsYou, expectAccessibleToast, stillness, toastSaying } from "./
 /** The CSRF header a mutation from a request context must carry, from its cookie. */
 async function csrfHeaders(context: APIRequestContext): Promise<Record<string, string>> {
   const { cookies } = await context.storageState();
-  const csrf = cookies.find((cookie) => cookie.name === "wasm_csrf");
-  return csrf ? { "X-WASM-CSRF": csrf.value } : {};
+  const csrf = cookies.find((cookie) => cookie.name === "noust_csrf");
+  return csrf ? { "X-Noust-CSRF": csrf.value } : {};
 }
 
 /** A second, API-only session on the server, as another browser would hold. */

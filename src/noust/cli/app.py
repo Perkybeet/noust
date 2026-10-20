@@ -42,7 +42,7 @@ import click
 
 from noust import __version__
 from noust.core import retired_names
-from noust.core.exceptions import NoustError
+from noust.core.exceptions import ConfigError, NoustError
 from noust.core.fs import DryRunFileSystem, set_fs
 from noust.core.logger import Colors, Logger, set_colors_disabled
 from noust.core.runner import DryRunRunner, SubprocessRunner, set_runner
@@ -789,6 +789,26 @@ def _is_asking_for_help(args: list[str]) -> bool:
     )
 
 
+def _announce_names(line: str) -> None:
+    """
+    Report the automatic rewrite of the first line of the files Noust wrote before 3.0.
+
+    On standard error, so a program reading ``--json`` output is not disturbed, and to the
+    journal through syslog, so the step is on record whoever ran the command.
+
+    Args:
+        line: What was done.
+    """
+    click.echo(f"noust: {line}", err=True)
+    try:
+        import syslog
+
+        syslog.openlog("noust-names", 0, syslog.LOG_DAEMON)
+        syslog.syslog(syslog.LOG_NOTICE, line)
+    except OSError as exc:
+        log.debug("Could not write to syslog: %s", exc)
+
+
 def main(argv: list[str] | None = None) -> int:
     """
     Run the CLI and turn a Noust error into an exit code.
@@ -834,6 +854,21 @@ def main(argv: list[str] | None = None) -> int:
 
 def entrypoint() -> None:
     """Console script entry point."""
+    from noust.managers.name_migration import run_automatically as run_names_automatically
+
+    args = sys.argv[1:]
+    # The first line of the files Noust wrote before 3.0, once (name_migration). Only on a
+    # server whose data has been moved: where it has not, the command that follows refuses to
+    # start, and writing a state file there would be the empty store beside the real one that
+    # refusal exists to prevent.
+    if not _is_asking_for_help(args):
+        try:
+            retired_names.require_moved()
+        except ConfigError:
+            pass
+        else:
+            run_names_automatically(args, _announce_names)
+
     checker = None
     try:
         from noust.core.update_checker import UpdateChecker

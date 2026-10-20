@@ -22,7 +22,8 @@ configuration now, section by section; each section knows what applying it takes
 - ``restart``: the process picks it up when it starts (variables, limits, the
   sandbox, mounted files, processes);
 - ``rebuild``: it is an input of the build (build commands, container settings,
-  the persistent paths, and a variable the framework bakes into the bundle);
+  a stack's compose document, the persistent paths, and a variable the framework
+  bakes into the bundle);
 - ``next_deploy``: it is read at the next activation, which nothing needs to be
   restarted for (the health check, the deploy hooks).
 
@@ -264,6 +265,13 @@ def _build(app: App) -> dict[str, Any]:
     return _hashed(app.domain, "build", {"document": document}) if document else {}
 
 
+def _compose_document(app: App) -> dict[str, Any]:
+    from noust.deployers.compose_document import document_text
+
+    text = document_text(app)
+    return _hashed(app.domain, "compose", {"document": text}) if text else {}
+
+
 def _container(app: App) -> dict[str, Any]:
     if app.app_type != "container":
         return {}
@@ -351,6 +359,7 @@ SECTIONS: tuple[Section, ...] = (
     Section("tuning", NEEDS_RESTART, _tuning, on_restart=True),
     Section("build", NEEDS_REBUILD, _build, hashed=True),
     Section("container", NEEDS_REBUILD, _container, hashed=True),
+    Section("compose", NEEDS_REBUILD, _compose_document, hashed=True),
     Section("persistent_paths", NEEDS_REBUILD, _persistent_paths),
     Section("health", NEEDS_NEXT_DEPLOY, _health),
     Section("hooks", NEEDS_NEXT_DEPLOY, _hooks, hashed=True),

@@ -422,7 +422,7 @@ class TestPostgresInAContainer:
 
         manager.execute_query("empleo", "SELECT 1", read_only=True)
 
-        login = next(call for call in fleet.calls if "wasm_ro_empleo" in call)
+        login = next(call for call in fleet.calls if "noust_ro_empleo" in call)
         env = fleet.envs[fleet.calls.index(login)]
         assert env is not None and env["PGPASSWORD"]
         position = login.index("PGPASSWORD")
@@ -459,7 +459,7 @@ class TestPostgresInAContainer:
         dump = tmp_path / "plain.sql"
         dump.write_text("CREATE TABLE t (id int);\n")
 
-        manager._load_backup("empleo", dump, format="plain")
+        manager._load_backup("empleo", dump, format="plain", as_superuser=True)
 
         (load,) = [call for call in fleet.calls if call[-2:] == ("-f", "-")]
         assert str(dump) not in " ".join(load)
@@ -548,7 +548,7 @@ class TestMySQLInAContainer:
 
         manager.execute_query("tienda", "SELECT 1", read_only=True)
 
-        login = next(call for call in fleet.calls if any("--user=wasm_ro_" in p for p in call))
+        login = next(call for call in fleet.calls if any("--user=noust_ro_" in p for p in call))
         env = fleet.envs[fleet.calls.index(login)]
         assert env is not None and set(env) == {"MYSQL_PWD"}
         assert login[login.index("MYSQL_PWD") - 1] == "-e"

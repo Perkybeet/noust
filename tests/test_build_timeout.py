@@ -101,9 +101,12 @@ class TestTheSchema:
     def test_every_type_that_noust_builds_honours_it(self, app_type: str) -> None:
         refuse_unsupported(BuildConfig(timeout=600, source="operator"), app_type)
 
-    def test_a_stack_built_by_its_own_configuration_does_not(self) -> None:
+    def test_a_stack_honours_it_for_docker_compose_build(self) -> None:
+        refuse_unsupported(BuildConfig(timeout=600, source="operator"), "docker-compose")
+
+    def test_a_monorepo_built_by_its_workspaces_does_not(self) -> None:
         with pytest.raises(ValidationError) as caught:
-            refuse_unsupported(BuildConfig(timeout=600, source="operator"), "docker-compose")
+            refuse_unsupported(BuildConfig(timeout=600, source="operator"), "monorepo")
         assert caught.value.field == "build"
 
 

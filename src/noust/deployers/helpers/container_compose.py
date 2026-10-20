@@ -150,6 +150,22 @@ def _volume_names(paths: tuple[str, ...]) -> list[str]:
     return names
 
 
+def _literal(words: tuple[str, ...]) -> list[str]:
+    """
+    Write words so Compose hands them to the container as they are.
+
+    Compose interpolates ``$NAME`` in every string of the file, and a command is the
+    operator's literal text: a ``$`` they typed reaches the process, not the host's environment.
+
+    Args:
+        words: The command's words.
+
+    Returns:
+        The words with every ``$`` doubled.
+    """
+    return [word.replace("$", "$$") for word in words]
+
+
 def build_document(plan: ContainerPlan) -> dict[str, Any]:
     """
     Build the compose file of one release, as a document.
@@ -191,6 +207,11 @@ def build_document(plan: ContainerPlan) -> dict[str, Any]:
     if settings.method == METHOD_RAILPACK:
         # What Railpack's images are documented to listen on.
         service["environment"] = {"PORT": str(port)}
+    # What replaces the image's own program and arguments; an argument vector, never a shell.
+    if settings.entrypoint is not None:
+        service["entrypoint"] = _literal(settings.entrypoint)
+    if settings.command is not None:
+        service["command"] = _literal(settings.command)
     document: dict[str, Any] = {"services": {SERVICE: service}}
 
     if settings.volumes:

@@ -71,6 +71,7 @@ from noust.managers.backup_failures import record_failure
 from noust.managers.database.backup_notifications import database_job_notification, database_subject
 from noust.managers.database.uploads import MAX_CHUNK_BYTES
 from noust.web.auth import (
+    CSRF_HEADER_NAMES,
     SAFE_METHODS,
     SESSION_COOKIE_NAME,
     WS_CLOSE_FORBIDDEN,
@@ -1091,7 +1092,7 @@ def create_app(config: SecurityConfig | None = None) -> FastAPI:
             allow_origins=security_config.cors_origins,
             allow_credentials=True,
             allow_methods=["GET", "POST", "PUT", "DELETE"],
-            allow_headers=["Authorization", "Content-Type", "X-WASM-CSRF"],
+            allow_headers=["Authorization", "Content-Type", *CSRF_HEADER_NAMES],
             # A script in a browser reads which API version answered, and a
             # deprecation notice, only if the response exposes the headers.
             expose_headers=[API_VERSION_HEADER, "Deprecation", "Sunset", "Link"],
@@ -1132,12 +1133,16 @@ def create_app(config: SecurityConfig | None = None) -> FastAPI:
     from noust.web.api.github_hooks import router as github_hooks_router
     from noust.web.api.hooks import admin_router as webhook_admin_router
     from noust.web.api.hooks import router as hooks_router
+    from noust.web.api.registry_hooks import router as registry_hooks_router
     from noust.web.api.scope import enforce_scope
 
     app.include_router(hooks_router, prefix="/hooks", tags=["Webhooks"])
     # GitHub App deliveries: one endpoint for every application, verified
     # with the App's own secret rather than a per-application one.
     app.include_router(github_hooks_router, prefix="/hooks", tags=["Webhooks"])
+    # A container registry's notification that an image was pushed: signed by GitHub with the
+    # application's secret, or carrying the token of the address Docker Hub is given.
+    app.include_router(registry_hooks_router, prefix="/hooks", tags=["Webhooks"])
     # Mounted beside the API router, not in it, so the teams' guard is stated here:
     # an application's webhook secret is not for anyone outside its team.
     app.include_router(

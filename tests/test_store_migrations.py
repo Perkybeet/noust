@@ -572,7 +572,7 @@ class TestSchemaV12Migration:
 
         store = NoustStore(db_path, fs=RecordingFileSystem())
 
-        assert _raw_max_version(db_path) == SCHEMA_VERSION == 14
+        assert _raw_max_version(db_path) == SCHEMA_VERSION
         assert store.get_app("v8.example.com") is not None
 
     def test_the_fresh_schema_and_the_migration_agree_on_every_table(self, fresh, tmp_path):
@@ -670,7 +670,7 @@ class TestSchemaV14Migration:
 
         NoustStore(db_path, fs=RecordingFileSystem())
 
-        assert _raw_max_version(db_path) == SCHEMA_VERSION == store_module.schema_v14.VERSION == 14
+        assert _raw_max_version(db_path) == SCHEMA_VERSION == 15
 
     def test_a_v13_store_climbs_to_v14_and_keeps_its_rows(self, fresh, tmp_path):
         db_path = tmp_path / "noust.db"
@@ -682,7 +682,7 @@ class TestSchemaV14Migration:
 
         store = NoustStore(db_path, fs=RecordingFileSystem())
 
-        assert _raw_max_version(db_path) == 14
+        assert _raw_max_version(db_path) == SCHEMA_VERSION
         assert store.get_app("shop.example.com") is not None
 
     def test_the_climb_from_v13_applies_what_an_area_declares(self, fresh, tmp_path, monkeypatch):
@@ -694,7 +694,7 @@ class TestSchemaV14Migration:
 
         NoustStore(db_path, fs=RecordingFileSystem())
 
-        assert _raw_max_version(db_path) == 14
+        assert _raw_max_version(db_path) == SCHEMA_VERSION
         assert "v14_probe" in _raw_tables(db_path)
         assert "v14_probe_column" in _raw_columns(db_path, "apps")
 
@@ -730,7 +730,7 @@ class TestAStoreStampedV14WithoutItsTables:
         db_path = tmp_path / "noust.db"
         NoustStore(db_path, fs=RecordingFileSystem())
         NoustStore.reset_instance()
-        assert _raw_max_version(db_path) == 14
+        assert _raw_max_version(db_path) == SCHEMA_VERSION
         # The fragment arrives after the store was stamped: the version row alone
         # would say there is nothing to climb.
         monkeypatch.setattr(
@@ -755,7 +755,7 @@ class TestAStoreStampedV14WithoutItsTables:
         finally:
             conn.close()
         assert "idx_v14_late_kind" in indexes
-        assert _raw_max_version(db_path) == 14
+        assert _raw_max_version(db_path) == SCHEMA_VERSION
 
     def test_a_complete_v14_store_is_left_alone(self, fresh, tmp_path, caplog):
         db_path = tmp_path / "noust.db"

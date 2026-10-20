@@ -224,7 +224,7 @@ def test_test_endpoint_reaches_the_destination(
         json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS, "encrypted": False},
     )
     runner.script(
-        ("rclone", "lsf", "nas:wasm-backups", "--max-depth", "1"), stdout="shop-example-com/\n"
+        ("rclone", "lsf", "nas:noust-backups", "--max-depth", "1"), stdout="shop-example-com/\n"
     )
 
     response = client.post("/api/backup-destinations/nas/test")

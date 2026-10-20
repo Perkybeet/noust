@@ -7,7 +7,7 @@ Advanced Nginx configuration builder for Noust.
 Supports multi-route path-based proxying, WebSocket upgrade, rate limiting,
 request body limits, unbuffered routes, files served straight from the
 application and redirects, and custom security headers via noust.nginx.yaml
-(or the wasm.nginx.yaml a repository written for WASM carries).
+(or the file under the name it had before 4.0, which is read and asked to be renamed).
 
 The file comes from the repository, so it is untrusted input: its schema is
 closed (a key nothing reads is reported, not ignored), every value that lands
@@ -33,7 +33,7 @@ from typing import Any, ClassVar
 
 import yaml
 
-from noust.core import paths
+from noust.core import legacy_names, paths
 from noust.core.exceptions import ValidationError
 from noust.core.logger import Logger
 from noust.core.utils import nginx_zone_name as _zone_name
@@ -286,7 +286,7 @@ class NginxConfigBuilder:
 
     def detect(self, app_path: Path) -> Path | None:
         """
-        Find the nginx overrides file: noust.nginx.yaml, or wasm.nginx.yaml.
+        Find the nginx overrides file: noust.nginx.yaml, or the name it had before 4.0.
 
         Args:
             app_path: Application root path.
@@ -299,6 +299,28 @@ class NginxConfigBuilder:
             if config_path.exists():
                 return config_path
         return None
+
+    @staticmethod
+    def rename_notice(config_path: Path) -> str | None:
+        """
+        Say that a repository's overrides file carries the name it had before 4.0.
+
+        It is read as it is; the notice is what a deployment prints so the repository is
+        changed once, and a file Noust would stop reading one day is not found out then.
+
+        Args:
+            config_path: The file :meth:`detect` found.
+
+        Returns:
+            A sentence naming the file and the rename, or None when the name is current.
+        """
+        if config_path.name not in legacy_names.NGINX_OVERRIDE_FILES:
+            return None
+        current = config_path.name.replace(config_path.name.split(".", 1)[0], "noust", 1)
+        return (
+            f"{config_path.name} is read, but it has the name it had before 4.0: in the "
+            f"repository, rename it with: git mv {config_path.name} {current}"
+        )
 
     def parse(self, config_path: Path) -> NginxAdvancedConfig:
         """

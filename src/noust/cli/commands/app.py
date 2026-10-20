@@ -878,6 +878,9 @@ def cli_deploy(logger: Logger) -> Callable[[CreateSpec], None]:
             ),
             initial_health=spec.initial_health,
             build_document=spec.build_document,
+            container=spec.container,
+            seed_files=spec.seed_files,
+            seed_modes=spec.seed_modes,
         )
         if code != 0:
             raise DeploymentError(
@@ -1028,11 +1031,12 @@ def export_command(
     Export everything that defines an application as a JSON document.
 
     Type, source, branch, layout, domains, variables, secret marks, health
-    check, limits, retention, persistent paths, cron jobs, backup schedule,
-    previews and zero-downtime. Secret values are left out unless
-    --with-secrets; Noust's own credentials (webhook secret, backup
-    destination keys, GitHub App) never go in. Recreate it anywhere with
-    'noust app import'.
+    check, limits, retention, persistent paths, mounted files and paths,
+    container settings, cron jobs, backup schedule, previews and
+    zero-downtime. Secret values, and the text of mounted files, are left out
+    unless --with-secrets; Noust's own credentials (webhook secret, backup
+    destination keys, GitHub App, a container's registry password and build
+    secrets) never go in. Recreate it anywhere with 'noust app import'.
     """
     if as_yaml and with_secrets:
         raise click.UsageError("--as-yaml never writes secrets: drop --with-secrets")
@@ -1102,9 +1106,9 @@ def import_command(
     Create an application from a 'noust app export' document.
 
     It is deployed through the normal path (built, health-gated, recorded),
-    then its domains, health check, retention, secret marks, cron jobs,
-    backup schedule, previews and zero-downtime are applied. What cannot be
-    applied here is listed at the end. With --dry-run, only the plan is shown.
+    then its domains, health check, retention, secret marks, mounted files and
+    paths, cron jobs, backup schedule, previews and zero-downtime are applied.
+    What cannot be applied here is listed at the end. With --dry-run, only the plan is shown.
     An export that creates cron jobs or previews is confirmed first: every
     job is shown with its user, directory and command; --yes skips the
     question, and without a terminal it is required.

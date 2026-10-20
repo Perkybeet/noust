@@ -204,7 +204,7 @@ class TestWhatItRefusesAndWhatItDoesNot:
         assert body["error"] == "local_login_disabled"
         assert "identity provider" in body["hint"]
         assert len(accounts().list_all()) == before
-        assert "wasm_session" not in client.cookies
+        assert "noust_session" not in client.cookies
 
     def test_a_wrong_password_is_answered_as_ever_so_nothing_is_learnt(
         self, app: Any, idp: FakeIdP

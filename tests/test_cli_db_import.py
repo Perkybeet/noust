@@ -190,6 +190,61 @@ class TestImportCommand:
 
         assert seen[0]["keep_owners"] is True
 
+    def test_owner_makes_the_new_database_with_that_account(
+        self, engine: type[BaseDatabaseManager], tmp_path: Path
+    ) -> None:
+        result = invoke(
+            "fresh", str(dump(tmp_path)), "-e", "postgresql", "--force", "--owner", "shopapp"
+        )
+
+        assert result.exit_code == 0, result.output
+        assert engine.state["dbs"]["fresh"]["owner"] == "shopapp"
+
+    def test_the_superuser_is_not_what_an_import_runs_as_by_default(
+        self, engine: type[BaseDatabaseManager], tmp_path: Path
+    ) -> None:
+        seen: list[dict[str, Any]] = []
+        original = engine._load_backup
+
+        def spy(self: Any, database: str, backup_path: Path, **kwargs: Any) -> None:
+            seen.append(kwargs)
+            original(self, database, backup_path, **kwargs)
+
+        engine._load_backup = spy  # type: ignore[method-assign]
+
+        invoke("shop", str(dump(tmp_path)), "-e", "postgresql", "--force")
+
+        assert "as_superuser" not in seen[0]
+
+    def test_as_superuser_asks_a_second_question_and_a_no_loads_nothing(
+        self, engine: type[BaseDatabaseManager], tmp_path: Path
+    ) -> None:
+        result = CliRunner().invoke(
+            cli_app.cli,
+            ["db", "import", "shop", str(dump(tmp_path)), "-e", "postgresql", "--as-superuser"],
+            input="y\nn\n",
+        )
+
+        assert result.exit_code == 0
+        assert "superuser" in result.output
+        assert engine.state["calls"] == []
+
+    def test_as_superuser_confirmed_reaches_the_loader(
+        self, engine: type[BaseDatabaseManager], tmp_path: Path
+    ) -> None:
+        seen: list[dict[str, Any]] = []
+        original = engine._load_backup
+
+        def spy(self: Any, database: str, backup_path: Path, **kwargs: Any) -> None:
+            seen.append(kwargs)
+            original(self, database, backup_path, **kwargs)
+
+        engine._load_backup = spy  # type: ignore[method-assign]
+
+        invoke("shop", str(dump(tmp_path)), "-e", "postgresql", "--force", "--as-superuser")
+
+        assert seen[0]["as_superuser"] is True
+
     def test_only_inspecting_is_read_only_for_the_audit_policy(self) -> None:
         command = db_cli.cli.commands["import"]
 

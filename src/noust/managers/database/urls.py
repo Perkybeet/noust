@@ -46,6 +46,7 @@ def connection_url(
     host: str = "localhost",
     port: int,
     options: Mapping[str, str] | None = None,
+    secure: bool = False,
 ) -> str:
     """
     Build a connection URL with every credential percent-encoded.
@@ -61,6 +62,8 @@ def connection_url(
         host: Host the client connects to. An IPv6 address is bracketed.
         port: The port the server really listens on, never an assumed one.
         options: Query parameters, such as MongoDB's ``authSource``.
+        secure: The server speaks TLS on this port and nothing else: Redis, Valkey and KeyDB
+            then name it in the scheme (``rediss``). The other engines carry it in an option.
 
     Returns:
         ``<scheme>://<user>:<password>@<host>:<port>/<database>[?options]``.
@@ -68,6 +71,8 @@ def connection_url(
     # A key says where a database is, not what protocol it speaks.
     engine = engine.partition("@")[0]
     scheme = SCHEMES.get(engine, engine)
+    if secure and engine == "redis":
+        scheme = "rediss"
     name = user
     if engine == "redis" and (not user or user == REDIS_DEFAULT_USER):
         name = ""

@@ -29,9 +29,14 @@ describe("the batch size of a rollout", () => {
 describe("what a rollout deploys", () => {
   it("is the head of the branch with nothing named, and says so by naming nothing", () => {
     const body = rolloutBody({ ...BASE });
-    expect(body).toEqual({ force: false, rollback_on_failure: true, serial: null, max_failures: null, canary: null, plan: true });
+    expect(body).toEqual({ force: false, build_on_each: false, rollback_on_failure: true, serial: null, max_failures: null, canary: null, plan: true });
     expect(body).not.toHaveProperty("commit");
     expect(body).not.toHaveProperty("image_tag");
+  });
+
+  it("follows the application's build server unless each server is asked to build", () => {
+    expect(rolloutBody({ ...BASE })).toMatchObject({ build_on_each: false });
+    expect(rolloutBody({ ...BASE, buildOnEach: true })).toMatchObject({ build_on_each: true });
   });
 
   it("lowercases a commit and refuses what is not one", () => {
@@ -54,6 +59,7 @@ describe("what a rollout deploys", () => {
     expect(rolloutBody({ ...BASE, failures: "x" })).toBeNull();
     expect(rolloutBody({ ...BASE, serial: "25%", failures: "2", canary: "web-2", force: true, rollback: false, plan: false })).toEqual({
       force: true,
+      build_on_each: false,
       rollback_on_failure: false,
       serial: "25%",
       max_failures: 2,

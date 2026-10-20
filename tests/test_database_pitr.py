@@ -643,7 +643,7 @@ def with_destination(pitr: PitrManager, engine: SimulatedPostgres) -> PitrManage
 
 def remote_dir(engine: SimulatedPostgres, kind: str) -> Path:
     """Where the fake destination keeps a kind of file."""
-    return engine.root / "nas" / "wasm-backups" / "databases" / ENGINE / "pitr" / SYSTEM_ID / kind
+    return engine.root / "nas" / "noust-backups" / "databases" / ENGINE / "pitr" / SYSTEM_ID / kind
 
 
 def test_the_archive_and_the_base_backups_reach_the_destination(

@@ -61,8 +61,25 @@ TLS_OPTIONAL = "optional"
 TLS_REQUIRED = "required"
 TLS_MODES: tuple[str, ...] = (TLS_OFF, TLS_OPTIONAL, TLS_REQUIRED)
 
+#: What an instance's ``variant`` holds when the operator chose its image, pinned by digest, and
+#: the catalog did not.
+CUSTOM_VARIANT = "custom"
+
 #: A flavour's name, as the catalog spells it.
 _FLAVOUR = re.compile(r"[a-z][a-z0-9]{1,23}")
+
+#: The most words, and the longest word, of a command or of arguments the operator adds.
+MAX_WORDS = 64
+MAX_WORD_LENGTH = 512
+
+#: What no word of a command may hold: a control character (a line break, a NUL, an escape) or
+#: the line separators of Unicode. Not an allowlist of the arguments an engine takes, which are the
+#: engine's to define; of the characters that are never one.
+_CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]")
+
+#: Arguments that would put a secret in a process list, which every local user can read: Noust
+#: writes the password to the configuration file the container reads, never to a command line.
+_SECRET_FLAGS = ("--requirepass", "--masterauth", "--tls-key-file-pass")
 
 #: The version of an image's tag: numbers and dots, as the catalog offers them.
 _VERSION = re.compile(r"[0-9]{1,3}(?:\.[0-9]{1,3}){0,2}")
@@ -118,6 +135,9 @@ class InstanceRecord:
         image_tag: The tag its digest was read from, when that is not the version
             (``pg17``, ``17-3.5``); None when the tag is the version.
         init_scripts: The names of the SQL scripts the engine ran the first time it started.
+        command: What the operator made the container run instead of the engine's own command
+            (the whole argument vector), or empty.
+        args: What the operator added after the arguments Noust passes the engine, or empty.
     """
 
     id: int
@@ -143,6 +163,18 @@ class InstanceRecord:
     variant: str | None = None
     image_tag: str | None = None
     init_scripts: tuple[str, ...] = ()
+    command: tuple[str, ...] = ()
+    args: tuple[str, ...] = ()
+
+    @property
+    def custom_image(self) -> bool:
+        """Whether the operator chose the image, by digest, instead of the catalog."""
+        return self.variant == CUSTOM_VARIANT
+
+    @property
+    def customised(self) -> bool:
+        """Whether anything about the container is the operator's and not the catalog's."""
+        return self.custom_image or bool(self.command) or bool(self.args)
 
     @property
     def tag(self) -> str:
@@ -189,6 +221,10 @@ class InstanceRecord:
             "variant": self.variant,
             "image_tag": self.image_tag,
             "init_scripts": list(self.init_scripts),
+            "custom_image": self.custom_image,
+            "command": list(self.command),
+            "args": list(self.args),
+            "customised": self.customised,
         }
 
 
@@ -331,6 +367,8 @@ def _build(row: sqlite3.Row) -> InstanceRecord:
         variant=row["variant"],
         image_tag=row["image_tag"],
         init_scripts=_names_of(row["init_scripts"]),
+        command=_words_of(row["custom_command"]),
+        args=_words_of(row["custom_args"]),
     )
 
 
@@ -427,6 +465,103 @@ def check_image_tag(tag: object) -> str:
             field="image_tag",
         )
     return tag
+
+
+def check_words(values: object, *, field: str) -> tuple[str, ...]:
+    """
+    Accept a command, or arguments, as a list of words: an argument vector, never a shell line.
+
+    Args:
+        values: The words. A string is refused: it would have to be split, and how is the
+            caller's to say (shlex), not this check's.
+        field: ``command`` or ``args``, for the error.
+
+    Returns:
+        The words, as a tuple.
+
+    Raises:
+        ValidationError: Not a list of non-empty strings without a line break or a NUL, too
+            many, too long, or one that puts a secret in the process list.
+    """
+    if values is None:
+        return ()
+    if isinstance(values, (str, bytes)) or not isinstance(values, (list, tuple)):
+        raise ValidationError(
+            f"{field} must be a list of words",
+            details="Each word is one argument: ['-c', 'max_connections=200'].",
+            field=field,
+        )
+    if len(values) > MAX_WORDS:
+        raise ValidationError(f"{field} has {len(values)} words; at most {MAX_WORDS}", field=field)
+    words: list[str] = []
+    for word in values:
+        if (
+            not isinstance(word, str)
+            or not word
+            or len(word) > MAX_WORD_LENGTH
+            or _CONTROL.search(word) is not None
+        ):
+            raise ValidationError(
+                f"{field} holds a word that is not an argument: {str(word)[:40]!r}",
+                details=f"Each word is 1 to {MAX_WORD_LENGTH} characters, on one line.",
+                field=field,
+            )
+        flag = word.split("=", 1)[0]
+        if flag in _SECRET_FLAGS:
+            raise ValidationError(
+                f"{flag} would put a password in the process list",
+                details="Every local user can read a command line, a container's included. The "
+                "password of an instance is in its configuration file, which only root reads: "
+                "change it with 'noust db user-password'.",
+                field=field,
+            )
+        words.append(word)
+    return tuple(words)
+
+
+def check_launch(command: object, args: object) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """
+    Accept a command and arguments together.
+
+    Args:
+        command: A command, or None.
+        args: Arguments, or None.
+
+    Returns:
+        Both, checked.
+
+    Raises:
+        ValidationError: Either is not valid, or both are given: a command is the whole command,
+            so the arguments belong in it.
+    """
+    words = check_words(command, field="command")
+    extra = check_words(args, field="args")
+    if words and extra:
+        raise ValidationError(
+            "A command and arguments together say the same thing twice",
+            details="A command is the whole command, Noust's arguments left out: put the "
+            "arguments in it. Arguments alone are added after the ones Noust passes.",
+            field="args",
+        )
+    return words, extra
+
+
+def _words_of(raw: object) -> tuple[str, ...]:
+    """
+    Args:
+        raw: What a ``custom_command`` or ``custom_args`` column holds: a JSON list, or nothing.
+
+    Returns:
+        The words; none for a column that is empty or damaged (the container then runs the
+        engine's own command, which is the safe direction).
+    """
+    if not isinstance(raw, str) or not raw:
+        return ()
+    try:
+        found = json.loads(raw)
+    except ValueError:
+        return ()
+    return tuple(item for item in found if isinstance(item, str)) if isinstance(found, list) else ()
 
 
 def check_probe(
@@ -543,6 +678,8 @@ class DbInstanceStore:
         variant: str | None = None,
         image_tag: str | None = None,
         init_scripts: Sequence[str] = (),
+        command: Sequence[str] | None = None,
+        args: Sequence[str] | None = None,
     ) -> InstanceRecord:
         """
         Record that an instance is being made, before anything is created.
@@ -559,6 +696,8 @@ class DbInstanceStore:
             variant: The image variant, or None for the engine's own.
             image_tag: The tag the digest was read from when it is not the version.
             init_scripts: The names of the scripts the engine runs when it first starts.
+            command: The whole command the container runs instead of the engine's.
+            args: Arguments added after the ones Noust passes the engine.
 
         Returns:
             The row, ``creating``.
@@ -580,13 +719,15 @@ class DbInstanceStore:
         if image_tag is not None:
             check_image_tag(image_tag)
         scripts = [rules.check_init_script_name(name) for name in init_scripts]
+        words, extra = check_launch(command, args)
         now = _now()
         try:
             with self.store._transaction() as cursor:
                 cursor.execute(
                     "INSERT INTO db_instances (name, flavour, version, image, digest, host_port, "
                     "memory_limit_mb, state, created_at, created_by, updated_at, variant, "
-                    "image_tag, init_scripts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    "image_tag, init_scripts, custom_command, custom_args) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         name,
                         flavour,
@@ -602,6 +743,8 @@ class DbInstanceStore:
                         variant,
                         image_tag,
                         json.dumps(scripts) if scripts else None,
+                        json.dumps(list(words)) if words else None,
+                        json.dumps(list(extra)) if extra else None,
                     ),
                 )
         except sqlite3.IntegrityError as exc:
@@ -803,6 +946,61 @@ class DbInstanceStore:
                 "UPDATE db_instances SET previous_digest = digest, digest = ?, "
                 "upgraded_at = ?, updated_at = ? WHERE name = ?",
                 (digest, _now(), _now(), name),
+            )
+            return cursor.rowcount > 0
+
+    def set_launch(
+        self, name: str, *, command: Sequence[str] | None, args: Sequence[str] | None
+    ) -> bool:
+        """
+        Store what the operator made the container run, or take it back to the engine's own.
+
+        Args:
+            name: The instance's name.
+            command: The whole command; None for the engine's own.
+            args: Arguments added after Noust's; None for none. Not with a command.
+
+        Returns:
+            True when the instance exists and the words were written.
+
+        Raises:
+            ValidationError: A word is not valid, or both are given.
+        """
+        words, extra = check_launch(command, args)
+        return self._set(
+            name,
+            {
+                "custom_command": json.dumps(list(words)) if words else None,
+                "custom_args": json.dumps(list(extra)) if extra else None,
+            },
+        )
+
+    def set_image(self, name: str, *, image: str, tag: str | None, digest: str) -> bool:
+        """
+        Store the image an instance of the operator's own image now runs, keeping the digest
+        that ran before it.
+
+        Args:
+            name: The instance's name.
+            image: The repository.
+            tag: The tag the digest was read from, or None.
+            digest: The new image's digest.
+
+        Returns:
+            True when the instance exists and the image was written.
+
+        Raises:
+            ValidationError: The repository, the tag or the digest is not valid.
+        """
+        check_repository(image)
+        if tag is not None:
+            check_image_tag(tag)
+        image_rules.check_digest(digest)
+        with self.store._transaction() as cursor:
+            cursor.execute(
+                "UPDATE db_instances SET previous_digest = digest, image = ?, image_tag = ?, "
+                "digest = ?, upgraded_at = ?, updated_at = ? WHERE name = ?",
+                (image, tag, digest, _now(), _now(), name),
             )
             return cursor.rowcount > 0
 

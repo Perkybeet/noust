@@ -34,16 +34,16 @@ from typing import Any
 
 from noust.core.db_instance_store import (
     READY,
-    UPGRADING,
     InstanceRecord,
     check_cpus,
     check_probe,
     check_swap,
 )
-from noust.core.exceptions import DatabaseEngineError, NoustError, ValidationError
+from noust.core.exceptions import ValidationError
 from noust.managers.database import instance_layout as layout
 from noust.managers.database.instance_catalog import spec_for
 from noust.managers.database.instance_compose import DEFAULT_PROBE
+from noust.managers.database.instance_gate import RestartGate
 from noust.managers.database.instance_records import key_of
 from noust.managers.database.managed import ManagedInstances
 from noust.validators.db_instance import check_memory, parse_memory
@@ -548,57 +548,4 @@ class InstanceTuning:
             DatabaseEngineError: The engine did not come up; the previous settings are
                 back, or the error says they could not be.
         """
-        managed = self.managed
-        name = record.name
-        unit = layout.unit_name(name)
-        managed.records.set_state(name, UPGRADING)
-        try:
-            self._write(wanted)
-            managed._write_compose(replace(wanted, state=UPGRADING))
-            managed.units().restart(unit)
-            managed._wait_ready(wanted)
-        except (NoustError, OSError) as exc:
-            raise self._undo(record, exc) from exc
-        managed.records.set_state(name, READY)
-        managed.service.refresh_instances()
-
-    def _undo(self, record: InstanceRecord, cause: Exception) -> DatabaseEngineError:
-        """
-        Put the previous settings back after an engine that did not come up.
-
-        Args:
-            record: The instance as it was.
-            cause: What failed.
-
-        Returns:
-            The error to raise.
-        """
-        managed = self.managed
-        message = getattr(cause, "message", str(cause))
-        output = getattr(cause, "output", None)
-        try:
-            self._write(record)
-            managed._write_compose(record)
-            managed.units().restart(layout.unit_name(record.name))
-            managed._wait_ready(record)
-        except (NoustError, OSError) as back:
-            managed.service.audit("db.instance.tune", record.name, "failure")
-            return DatabaseEngineError(
-                f"The change of {record.name} failed and its previous settings could not be "
-                "put back",
-                details=(
-                    f"{message}\nPutting them back failed too: "
-                    f"{getattr(back, 'message', str(back))}. Its row says 'upgrading'; its "
-                    f"Compose file is {layout.compose_path(record.name)}: fix the cause, then "
-                    f"'noust db instance start {record.name}'."
-                ),
-                output=output,
-            )
-        managed.records.set_state(record.name, READY)
-        managed.service.refresh_instances()
-        managed.service.audit("db.instance.tune", record.name, "failure")
-        return DatabaseEngineError(
-            f"{record.name} did not come up on the new settings, and runs as it did before",
-            details=f"{message}\nNothing of its data was changed.",
-            output=output,
-        )
+        RestartGate(self.managed, self._write, "db.instance.tune").run(record, wanted)

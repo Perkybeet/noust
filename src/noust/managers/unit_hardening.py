@@ -30,10 +30,11 @@ health gate as a deploy and puts the previous unit back when it does not
 answer (:mod:`noust.deployers.hardening`).
 
 **Who is hardened.** An application whose unit runs its code: Node, Python and
-the like. Not a Docker Compose stack or a container application (their processes
-are Docker's, and the unit that starts them is root's), not a monorepo (one
-unit per workspace), not a site nothing runs for, and not a PHP application
-(its pool lives in the PHP-FPM every PHP application shares).
+the like, and a monorepo, whose workspaces are Node projects and each of whose units gets the
+same profile (all of them are restarted together behind the one health gate). Not a Docker
+Compose stack or a container application (their processes are Docker's, and the unit that
+starts them is root's, so Docker's own confinement applies), not a site nothing runs for, and
+not a PHP application (its pool lives in the PHP-FPM every PHP application shares).
 """
 
 from __future__ import annotations
@@ -80,6 +81,8 @@ _NODE_TYPES = frozenset(
         "sveltekit",
         "angular",
         "vite",
+        # A monorepo's workspaces are Node projects (turbo and pnpm).
+        "monorepo",
     }
 )
 
@@ -205,8 +208,6 @@ def ineligible(app: App) -> str | None:
             "its processes are Docker's: the unit that starts the stack is root's, "
             "and the containers are confined by Docker"
         )
-    if kind == "monorepo":
-        return "a monorepo runs several units, which are not hardened yet"
     if kind == "php-fpm":
         return "its code runs in the PHP-FPM every PHP application shares"
     if kind == "static" or app.is_static:
@@ -550,4 +551,17 @@ def hardening_for_unit(unit: str, apps: Sequence[App]) -> list[str]:
     for app in apps:
         if app.app_path and Path(app.app_path).name == unit:
             return directives_for_app(app, get_record(app.domain))
+    # A monorepo runs one unit per workspace, named after the application and the workspace
+    # (``shop-api`` of ``shop``). An application of exactly that name was matched above, and of
+    # two monorepos the longer name is the closer one.
+    owners = [
+        app
+        for app in apps
+        if app.app_type == "monorepo"
+        and app.app_path
+        and unit.startswith(f"{Path(app.app_path).name}-")
+    ]
+    if owners:
+        owner = max(owners, key=lambda app: len(Path(app.app_path).name))
+        return directives_for_app(owner, get_record(owner.domain))
     return []

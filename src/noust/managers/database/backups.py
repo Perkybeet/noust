@@ -46,6 +46,7 @@ from typing import Any
 
 from noust.core.exceptions import (
     BackupError,
+    ConfirmationRequired,
     DatabaseBackupError,
     DatabaseError,
     DatabaseNotFoundError,
@@ -79,6 +80,7 @@ from noust.managers.database.backup_records import (
 )
 from noust.managers.database.backup_verify import check_dump, restore_test
 from noust.managers.database.base import (
+    OWN_DUMP_OPTIONS,
     BackupInfo,
     BaseDatabaseManager,
     RestoreOutcome,
@@ -120,6 +122,13 @@ _STAGING_DIR = ".remote-staging"
 #: Limits a policy's retention accepts, the same as an application's schedule.
 MAX_RETENTION_COUNT = 365
 MAX_RETENTION_DAYS = 3650
+
+#: What an operator accepts by loading a dump as the server's superuser.
+SUPERUSER_WARNING = (
+    "The dump will run with the rights of PostgreSQL's superuser. A dump can run programs on "
+    "this server (COPY ... FROM PROGRAM), read its files and change any database; only load one "
+    "you made or have read."
+)
 
 #: Dump formats a PostgreSQL policy may ask for.
 _POLICY_FORMATS = ("custom", "plain", "tar")
@@ -1390,7 +1399,15 @@ class DatabaseBackups:
             DatabaseBackupError: When the restore fails.
         """
         source = self.service.dump_path(engine, file_name)
-        return self.restore_file(engine, database, source, drop_existing, safety_backup, new_name)
+        return self.restore_file(
+            engine,
+            database,
+            source,
+            drop_existing,
+            safety_backup,
+            new_name,
+            options=OWN_DUMP_OPTIONS,
+        )
 
     def restore_remote(
         self,
@@ -1446,8 +1463,15 @@ class DatabaseBackups:
                     f"{file_name} from {destination} failed its check; nothing was restored",
                     details=outcome.detail,
                 )
+            # Matched to the checksum recorded when Noust sent it, and read by the engine.
             return self.restore_file(
-                manager.ENGINE_NAME, name, path, drop_existing, safety_backup, new_name
+                manager.ENGINE_NAME,
+                name,
+                path,
+                drop_existing,
+                safety_backup,
+                new_name,
+                options=OWN_DUMP_OPTIONS,
             )
         finally:
             try:
@@ -1502,6 +1526,8 @@ class DatabaseBackups:
         new_name: str | None,
         *,
         options: Mapping[str, Any] | None = None,
+        as_superuser: bool = False,
+        confirm_superuser: bool = False,
     ) -> RestoreOutcome:
         """
         Restore a file through the service and record the safety copy it took.
@@ -1509,6 +1535,8 @@ class DatabaseBackups:
         The file is whatever the caller already vetted: a dump named in the
         engine's directory (:meth:`restore`), a download that passed its
         check (:meth:`restore_remote`), or a path the operator gave the CLI.
+        Whatever it is, PostgreSQL loads it as the database's owner unless
+        ``as_superuser`` says otherwise (checklist H-19).
 
         Args:
             engine: The engine.
@@ -1519,21 +1547,34 @@ class DatabaseBackups:
             new_name: Restore into a new database of this name instead.
             options: What the engine's loader is asked beyond that (an import's
                 ``keep_owners``); the engine ignores what it has no use for.
+            as_superuser: PostgreSQL: load the dump as the cluster's superuser
+                instead of the database's owner, which lets it run programs
+                on this server. The operator's explicit decision, audited.
+            confirm_superuser: The operator accepted :data:`SUPERUSER_WARNING`.
 
         Returns:
             What the service did.
 
         Raises:
             ValidationError: For a new name on Redis, which cannot restore
-                beside itself.
+                beside itself, or ``as_superuser`` on an engine that has no
+                such account to ask for.
+            ConfirmationRequired: ``as_superuser`` without ``confirm_superuser``.
         """
-        if new_name is not None and self.service.manager(engine).engine_type == "redis":
+        manager = self.service.manager(engine)
+        if new_name is not None and manager.engine_type == "redis":
             raise ValidationError(
                 "Redis cannot restore as a new database",
                 details="A snapshot replaces every key of the instance.",
                 field="new_name",
             )
-        canonical = self.service.manager(engine).ENGINE_NAME
+        canonical = manager.ENGINE_NAME
+        if as_superuser:
+            options = self.superuser_options(manager, options, confirm_superuser)
+            # Before it runs: a load that kills the server still leaves the decision on record.
+            self._audit(
+                "db.restore.superuser", f"{canonical}/{new_name or database}", source=source.name
+            )
         journal = _RestoreJournal(self.service.store, self.fs)
         entry = journal.begin(canonical, new_name or database, source, replace=drop_existing)
         noted: set[Path] = set()
@@ -1567,6 +1608,34 @@ class DatabaseBackups:
         if outcome.safety_copy is not None:
             self._prune_safety_copies(engine, database)
         return outcome
+
+    def superuser_options(
+        self, manager: BaseDatabaseManager, options: Mapping[str, Any] | None, confirmed: bool
+    ) -> dict[str, Any]:
+        """
+        Turn the operator's request for a superuser load into the engine's option.
+
+        Args:
+            manager: The engine the dump is loaded into.
+            options: The options so far.
+            confirmed: The operator accepted :data:`SUPERUSER_WARNING`.
+
+        Returns:
+            The options with ``as_superuser`` set.
+
+        Raises:
+            ValidationError: For an engine that is not PostgreSQL.
+            ConfirmationRequired: When the warning was not accepted.
+        """
+        if manager.engine_type != "postgresql":
+            raise ValidationError(
+                f"{manager.DISPLAY_NAME} has no superuser load to ask for",
+                details="Only PostgreSQL loads a dump as the database's owner by default.",
+                field="as_superuser",
+            )
+        if not confirmed:
+            raise ConfirmationRequired([SUPERUSER_WARNING], field="confirm_superuser")
+        return {**(options or {}), **OWN_DUMP_OPTIONS}
 
     def safety_copies_kept(self) -> int:
         """

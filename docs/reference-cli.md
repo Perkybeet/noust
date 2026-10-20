@@ -654,7 +654,40 @@ The compose file, profiles and extra arguments of a Docker Compose stack.
 noust app compose [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`reset`](#noust-app-compose-reset), [`set`](#noust-app-compose-set), [`show`](#noust-app-compose-show), [`variables`](#noust-app-compose-variables)
+Subcommands: [`document`](#noust-app-compose-document), [`replace`](#noust-app-compose-replace), [`reset`](#noust-app-compose-reset), [`set`](#noust-app-compose-set), [`show`](#noust-app-compose-show), [`variables`](#noust-app-compose-variables)
+
+### noust app compose document
+
+Print the Compose document a stack runs from.
+
+```
+noust app compose document [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the document and where Noust keeps it as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust app compose replace
+
+Replace the Compose document a stack runs from.
+
+```
+noust app compose replace [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--from` | The new document; - reads standard input. |  |
+| `--check` | Only judge it: write nothing and run nothing. |  |
+| `--apply` | Update the stack to run it now, behind the health gate; without it the stack runs it at its next update. |  |
+| `--json` | Print the outcome as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust app compose reset
 
@@ -730,7 +763,22 @@ How a container application is built and run: see it, change it.
 noust app container [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`set`](#noust-app-container-set), [`show`](#noust-app-container-show)
+Subcommands: [`check`](#noust-app-container-check), [`set`](#noust-app-container-set), [`show`](#noust-app-container-show)
+
+### noust app container check
+
+Ask the registry whether the tag of an image application points at a new image.
+
+```
+noust app container check [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the finding as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust app container set
 
@@ -754,6 +802,8 @@ Arguments: `domain`
 | `--container-port` | Where the process listens inside the container. Default: what the Dockerfile or the image exposes. |  |
 | `--volume` | A path in the container whose data survives every deployment, such as /data. Repeat for several. |  |
 | `--restart` | Docker's restart policy: no, always, unless-stopped (default) or on-failure. |  |
+| `--entrypoint` | Run this program instead of the image's ENTRYPOINT: the line is split into words the way a shell would, and no shell runs it. An empty line clears the image's entrypoint (its CMD is then the program). Setting one drops the image's CMD: give --command too if it should still apply. |  |
+| `--command` | Give the entrypoint these arguments instead of the image's CMD (split into words, no shell). Docker cannot clear a CMD: an empty line is refused; --clear command goes back to the image's. |  |
 | `--registry-server` | The registry the account is for. Default: the image's own. |  |
 | `--registry-user` | The account of a private registry. |  |
 | `--registry-password-stdin` | Read the account's password from standard input. |  |
@@ -2757,7 +2807,7 @@ The deploy webhook of an application: a push to its repository deploys it.
 noust app webhook [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`deliveries`](#noust-app-webhook-deliveries), [`disable`](#noust-app-webhook-disable), [`rotate`](#noust-app-webhook-rotate), [`show`](#noust-app-webhook-show)
+Subcommands: [`deliveries`](#noust-app-webhook-deliveries), [`disable`](#noust-app-webhook-disable), [`registry`](#noust-app-webhook-registry), [`rotate`](#noust-app-webhook-rotate), [`show`](#noust-app-webhook-show)
 
 ### noust app webhook deliveries
 
@@ -2793,6 +2843,25 @@ Arguments: `domain`
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust app webhook registry
+
+Say what to give a container registry so a push of the image deploys the application.
+
+```
+noust app webhook registry [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reveal` | Print the token of Docker Hub's address too (it is a credential, never shown otherwise). |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the addresses as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust app webhook rotate
@@ -5448,6 +5517,8 @@ noust create [OPTIONS]
 | `--container-port` | Where the process listens inside the container. Default: what the Dockerfile or the image exposes. |  |
 | `--volume` | A path in the container whose data survives every deployment, such as /data. Repeat for several. |  |
 | `--restart` | Docker's restart policy: no, always, unless-stopped (default) or on-failure. |  |
+| `--entrypoint` | Run this program instead of the image's ENTRYPOINT: the line is split into words the way a shell would, and no shell runs it. An empty line clears the image's entrypoint (its CMD is then the program). Setting one drops the image's CMD: give --command too if it should still apply. |  |
+| `--command` | Give the entrypoint these arguments instead of the image's CMD (split into words, no shell). Docker cannot clear a CMD: an empty line is refused; --clear command goes back to the image's. |  |
 | `--registry-server` | The registry the account is for. Default: the image's own. |  |
 | `--registry-user` | The account of a private registry. |  |
 | `--registry-password-stdin` | Read the account's password from standard input. |  |
@@ -5599,7 +5670,7 @@ Install engines, and manage databases, users, backups and application links.
 noust db [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`access`](#noust-db-access), [`adopt`](#noust-db-adopt), [`backup`](#noust-db-backup), [`backup-delete`](#noust-db-backup-delete), [`backup-push`](#noust-db-backup-push), [`backup-remote`](#noust-db-backup-remote), [`backup-run`](#noust-db-backup-run), [`backup-schedule`](#noust-db-backup-schedule), [`backup-verify`](#noust-db-backup-verify), [`backups`](#noust-db-backups), [`catalog`](#noust-db-catalog), [`choices`](#noust-db-choices), [`config`](#noust-db-config), [`connect`](#noust-db-connect), [`connect-info`](#noust-db-connect-info), [`connection-string`](#noust-db-connection-string), [`create`](#noust-db-create), [`describe`](#noust-db-describe), [`drop`](#noust-db-drop), [`engines`](#noust-db-engines), [`explain`](#noust-db-explain), [`export`](#noust-db-export), [`exposure`](#noust-db-exposure), [`extension`](#noust-db-extension), [`fix-owner`](#noust-db-fix-owner), [`forget`](#noust-db-forget), [`globals`](#noust-db-globals), [`grant`](#noust-db-grant), [`history`](#noust-db-history), [`import`](#noust-db-import), [`info`](#noust-db-info), [`install`](#noust-db-install), [`instance`](#noust-db-instance), [`key`](#noust-db-key), [`keys`](#noust-db-keys), [`limits`](#noust-db-limits), [`link`](#noust-db-link), [`links`](#noust-db-links), [`list`](#noust-db-list), [`metrics`](#noust-db-metrics), [`move`](#noust-db-move), [`pitr`](#noust-db-pitr), [`provision`](#noust-db-provision), [`public`](#noust-db-public), [`query`](#noust-db-query), [`replica`](#noust-db-replica), [`restart`](#noust-db-restart), [`restore`](#noust-db-restore), [`restore-remote`](#noust-db-restore-remote), [`revoke`](#noust-db-revoke), [`row`](#noust-db-row), [`rows`](#noust-db-rows), [`saved`](#noust-db-saved), [`settings`](#noust-db-settings), [`slow-queries`](#noust-db-slow-queries), [`sqlite`](#noust-db-sqlite), [`start`](#noust-db-start), [`status`](#noust-db-status), [`stop`](#noust-db-stop), [`tables`](#noust-db-tables), [`tls`](#noust-db-tls), [`uninstall`](#noust-db-uninstall), [`unlink`](#noust-db-unlink), [`user-create`](#noust-db-user-create), [`user-delete`](#noust-db-user-delete), [`user-list`](#noust-db-user-list), [`user-password`](#noust-db-user-password)
+Subcommands: [`access`](#noust-db-access), [`adopt`](#noust-db-adopt), [`backup`](#noust-db-backup), [`backup-delete`](#noust-db-backup-delete), [`backup-push`](#noust-db-backup-push), [`backup-remote`](#noust-db-backup-remote), [`backup-run`](#noust-db-backup-run), [`backup-schedule`](#noust-db-backup-schedule), [`backup-verify`](#noust-db-backup-verify), [`backups`](#noust-db-backups), [`catalog`](#noust-db-catalog), [`choices`](#noust-db-choices), [`config`](#noust-db-config), [`connect`](#noust-db-connect), [`connect-info`](#noust-db-connect-info), [`connection-string`](#noust-db-connection-string), [`create`](#noust-db-create), [`describe`](#noust-db-describe), [`drop`](#noust-db-drop), [`engines`](#noust-db-engines), [`explain`](#noust-db-explain), [`export`](#noust-db-export), [`exposure`](#noust-db-exposure), [`extension`](#noust-db-extension), [`fix-owner`](#noust-db-fix-owner), [`forget`](#noust-db-forget), [`globals`](#noust-db-globals), [`grant`](#noust-db-grant), [`history`](#noust-db-history), [`import`](#noust-db-import), [`import-all`](#noust-db-import-all), [`info`](#noust-db-info), [`install`](#noust-db-install), [`instance`](#noust-db-instance), [`key`](#noust-db-key), [`keys`](#noust-db-keys), [`limits`](#noust-db-limits), [`link`](#noust-db-link), [`links`](#noust-db-links), [`list`](#noust-db-list), [`metrics`](#noust-db-metrics), [`move`](#noust-db-move), [`pitr`](#noust-db-pitr), [`provision`](#noust-db-provision), [`public`](#noust-db-public), [`query`](#noust-db-query), [`replica`](#noust-db-replica), [`restart`](#noust-db-restart), [`restore`](#noust-db-restore), [`restore-remote`](#noust-db-restore-remote), [`revoke`](#noust-db-revoke), [`row`](#noust-db-row), [`rows`](#noust-db-rows), [`saved`](#noust-db-saved), [`settings`](#noust-db-settings), [`slow-queries`](#noust-db-slow-queries), [`sqlite`](#noust-db-sqlite), [`start`](#noust-db-start), [`status`](#noust-db-status), [`stop`](#noust-db-stop), [`tables`](#noust-db-tables), [`tls`](#noust-db-tls), [`transfer`](#noust-db-transfer), [`uninstall`](#noust-db-uninstall), [`unlink`](#noust-db-unlink), [`user-create`](#noust-db-user-create), [`user-delete`](#noust-db-user-delete), [`user-list`](#noust-db-user-list), [`user-password`](#noust-db-user-password)
 
 ### noust db access
 
@@ -6240,9 +6311,35 @@ Arguments: `database`, `file`
 | `--replace` | Drop the database and load the dump into a fresh one. A safety copy is taken first and put back if the import fails. |  |
 | `--keep-owners` | PostgreSQL: keep the owners and privileges the dump names. By default they are left out, because they are the roles of the server it came from, and everything belongs to the database's owner. |  |
 | `--no-safety-copy` | Do not dump the database first when nothing is dropped. |  |
+| `--owner` | PostgreSQL: the account a database this import makes belongs to (it must exist), instead of the default. A database that is loaded over keeps its owner. |  |
+| `--as-superuser` | PostgreSQL: load the dump as the server's superuser. By default it is loaded as the database's owner, so what a dump asks beyond that (COPY ... FROM PROGRAM, extensions that need a superuser) is refused. Use it only for a dump you made or have read. Audited. |  |
 | `--inspect` | Say what the file is and whether the engine can load it, and stop. |  |
 | `--force`, `-f`, `-y` | Do not ask for confirmation. |  |
 | `--json` | Print what the import did as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust db import-all
+
+Import a dump of every database of an engine, and its accounts when asked.
+
+```
+noust db import-all [OPTIONS] FILE
+```
+
+Arguments: `file`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--engine`, `-e` | Engine to import into. |  |
+| `--users` | Also create the accounts of the dump (PostgreSQL: its roles, with the password hash it holds). Without superuser, role-creating, replication or row-security-bypassing power, and never over an account that exists. The databases then keep the owners and privileges the dump names for those accounts. |  |
+| `--accounts-file` | MySQL and MariaDB: a file of CREATE USER and GRANT statements, one per line (SHOW CREATE USER and SHOW GRANTS print them, so does pt-show-grants); mysqldump does not write the accounts. Used with --users. |  |
+| `--database`, `-d` | Load only this database (repeat for several). The server's own ones (postgres) are loaded only when named. |  |
+| `--replace` | Drop each database that exists and load the dump into a fresh one. A safety copy is taken first and put back if its load fails. |  |
+| `--no-safety-copy` | Do not dump a database first when it is loaded over rather than replaced. |  |
+| `--as-superuser` | Load every database as the server's superuser instead of as its owner. By default a database is loaded as its owner, so what a dump asks beyond that (COPY ... FROM PROGRAM, extensions that need a superuser) is refused. Use it only for a file you made or have read. Audited. |  |
+| `--plan` | Say what would be created, loaded over, replaced or left out, and stop. |  |
+| `--force`, `-f`, `-y` | Do not ask for confirmation. |  |
+| `--json` | Print the plan or what was done as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust db info
@@ -6284,7 +6381,7 @@ Run another version of an engine, or an engine the host lacks, in a container.
 noust db instance [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`catalog`](#noust-db-instance-catalog), [`create`](#noust-db-instance-create), [`health`](#noust-db-instance-health), [`limits`](#noust-db-instance-limits), [`list`](#noust-db-instance-list), [`migrate`](#noust-db-instance-migrate), [`migrations`](#noust-db-instance-migrations), [`remove`](#noust-db-instance-remove), [`renew-tls`](#noust-db-instance-renew-tls), [`rollback`](#noust-db-instance-rollback), [`show`](#noust-db-instance-show), [`start`](#noust-db-instance-start), [`stop`](#noust-db-instance-stop), [`tls`](#noust-db-instance-tls), [`tls-ca`](#noust-db-instance-tls-ca), [`upgrade`](#noust-db-instance-upgrade)
+Subcommands: [`catalog`](#noust-db-instance-catalog), [`create`](#noust-db-instance-create), [`health`](#noust-db-instance-health), [`launch`](#noust-db-instance-launch), [`limits`](#noust-db-instance-limits), [`list`](#noust-db-instance-list), [`migrate`](#noust-db-instance-migrate), [`migrations`](#noust-db-instance-migrations), [`remove`](#noust-db-instance-remove), [`renew-tls`](#noust-db-instance-renew-tls), [`rollback`](#noust-db-instance-rollback), [`show`](#noust-db-instance-show), [`start`](#noust-db-instance-start), [`stop`](#noust-db-instance-stop), [`tls`](#noust-db-instance-tls), [`tls-ca`](#noust-db-instance-tls-ca), [`upgrade`](#noust-db-instance-upgrade)
 
 ### noust db instance catalog
 
@@ -6320,6 +6417,10 @@ Arguments: `name`
 | `--port` | The port on 127.0.0.1. A free one just above the engine's own when omitted. |  |
 | `--variant` | An image of the engine with something added, such as pgvector or postgis for PostgreSQL ('noust db instance catalog'). The engine's own image when omitted. |  |
 | `--init-script` | A .sql file the engine runs, in name order, the first time it starts (PostgreSQL, MySQL and MariaDB; repeatable). It is not run again, and it is readable by the container: no secrets. |  |
+| `--image` | An image of your own instead of the catalog's: repository[:tag]@sha256:DIGEST. The digest is mandatory (a tag can be moved after you looked; 'docker buildx imagetools inspect REPO:TAG' prints it) and --version says which version it is. Noust has not tested it. |  |
+| `--args` | Arguments added after the ones Noust passes the engine, such as '-c max_connections=200'. Split like a shell would and never run by one. Not with --command. No secrets: a command line is visible to every local user. |  |
+| `--command` | The container's whole command, instead of the engine's: Noust adds nothing to it (the memory share, TLS), so it is refused for an instance that serves TLS. Not with --args. |  |
+| `--accept-untested` | Accept that Noust has not tested an image, a command or arguments you chose. Needed with --yes or --json for them; --yes alone answers the question, not this. |  |
 | `--yes`, `-y` | Do not ask before making it. |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
@@ -6348,6 +6449,30 @@ Arguments: `name`
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
 | `--json` | Print the settings, the plan or what was done as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust db instance launch
+
+Show or change what an instance's container is started with.
+
+```
+noust db instance launch [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--args` | Arguments added after the ones Noust passes the engine, such as '-c work_mem=8MB'. Split like a shell would and never run by one; no secrets. |  |
+| `--command` | The container's whole command, instead of the engine's. Noust adds nothing to it. |  |
+| `--reset` | Take both back to what Noust passes the engine. |  |
+| `--plan` | Only say what it would do. |  |
+| `--accept-untested` | Accept that Noust has not tested your words. |  |
+| `--yes`, `-y` | Do not ask before restarting it. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the command, the plan or what was done as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust db instance limits
@@ -6590,6 +6715,8 @@ Arguments: `name`
 | Option | What it does | Default |
 |---|---|---|
 | `--no-backup` | Do not dump every database first. Only when its data does not matter. |  |
+| `--image` | For an instance on an image of your own: the next one, repository[:tag]@sha256:DIGEST. Noust never looks for a newer image of one you pinned. |  |
+| `--accept-untested` | Accept that Noust has not tested the image you name. Needed with --json. |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
@@ -7146,6 +7273,7 @@ Arguments: `database`, `file`
 | `--drop` | Drop the database before restoring it. A safety copy is taken first and put back if the restore fails. |  |
 | `--as-new` | Restore into a new database of this name instead. |  |
 | `--no-safety-copy` | Do not dump the database first when nothing is dropped. |  |
+| `--as-superuser` | PostgreSQL: load a file Noust did not write as the server's superuser instead of the database's owner. A dump can run programs on this server (COPY ... FROM PROGRAM) with that account: use it only for a dump you made or have read, when the error says the owner may not do what it asks. Audited. |  |
 | `--force`, `-f`, `-y` | Do not ask for confirmation. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
@@ -7564,6 +7692,31 @@ noust db tls status [OPTIONS]
 | `--json` | Print the status as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
+### noust db transfer
+
+Move DATABASE from one server of the fleet to another.
+
+```
+noust db transfer [OPTIONS] DATABASE
+```
+
+Arguments: `database`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--engine`, `-e` | The engine it is on at the source: postgresql, mysql (MariaDB too) or mongodb, or an instance such as postgresql@pg16. | `postgresql` |
+| `--from` | The server that holds the database. |  |
+| `--to` | The server that receives it. |  |
+| `--to-engine` | The engine or instance on the target, when it is not the source's own. |  |
+| `--as` | Its name on the target; the same by default. |  |
+| `--replace` | Replace a database of that name the target holds, after a safety copy of it taken there. |  |
+| `--accounts` | Also make the accounts with access to it, with the password the source holds for each and the profile they had. The passwords pass through this machine and are kept nowhere. |  |
+| `--drop-source` | Drop it from the source once it has moved, after a last dump kept there. Refused while an application uses it. |  |
+| `--plan` | Only show what would happen. |  |
+| `-y`, `--yes` | Do not ask first. |  |
+| `--json` | Print the plan, then the job's result, as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
 ### noust db uninstall
 
 Remove a database engine from this server.
@@ -7681,6 +7834,9 @@ Arguments: `domain`
 |---|---|---|
 | `-f`, `-y`, `--force` | Delete without asking for confirmation. |  |
 | `--keep-files` | Leave the application directory on disk. |  |
+| `--keep-certificate` | Leave the domain's certificate in place (it is removed with the application otherwise). |  |
+| `--remove-volumes` | Also remove the Docker volumes of a Compose stack or a container application: they hold its data, so they are never removed unless asked for. |  |
+| `--remove-databases` | Also drop the databases that belong to the application and that no other application uses, each after a last dump. Never unless asked for; one it merely uses is kept. |  |
 | `--remove-adopted-directory` | Also remove the application's directory when it is outside Noust's apps directory (an adopted stack). Name it exactly; without this it is kept. |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
@@ -8151,7 +8307,7 @@ Read and set the environment variables of a deployed application.
 noust env [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`audience`](#noust-env-audience), [`comment`](#noust-env-comment), [`configure`](#noust-env-configure), [`export`](#noust-env-export), [`mark`](#noust-env-mark), [`migrate`](#noust-env-migrate), [`resolve`](#noust-env-resolve), [`set`](#noust-env-set), [`show`](#noust-env-show), [`unset`](#noust-env-unset)
+Subcommands: [`audience`](#noust-env-audience), [`comment`](#noust-env-comment), [`configure`](#noust-env-configure), [`export`](#noust-env-export), [`mark`](#noust-env-mark), [`migrate`](#noust-env-migrate), [`resolve`](#noust-env-resolve), [`set`](#noust-env-set), [`show`](#noust-env-show), [`sync`](#noust-env-sync), [`unset`](#noust-env-unset)
 
 ### noust env audience
 
@@ -8293,6 +8449,26 @@ Arguments: `domain`
 |---|---|---|
 | `--unmask` | Print secret values in clear instead of hiding them. |  |
 | `--json` | Print the variables as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust env sync
+
+Bring a real .env file into an application's variables.
+
+```
+noust env sync [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--file`, `-f` | The .env file to bring in; - reads it from standard input. |  |
+| `--prune` | Also remove the variables the file does not hold. Without it nothing is deleted. |  |
+| `--build-only` | Only the install and the build. |  |
+| `--runtime-only` | Not the install or the build. |  |
+| `--both` | The build and the running application. |  |
+| `--json` | Print what changed (names, never values) as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust env unset
@@ -9112,6 +9288,7 @@ Arguments: `domain`
 | `--tag` | Deploy the commit this tag points at. |  |
 | `--image-tag` | For an application that runs a registry image: the tag every server pulls (build it once, push it, roll it out). |  |
 | `--force` | Rebuild even a server already on it. |  |
+| `--build-on-each` | Build on every server even though DOMAIN has a build server (noust fleet builder). |  |
 | `--canary` | The server that goes first and alone. |  |
 | `--rollback`, `--no-rollback` | Put the servers already moved back if it stops (the placement's own by default). |  |
 | `--serial` | Servers at a time: 2 or 25%. |  |
@@ -13704,7 +13881,7 @@ noust setup [OPTIONS] COMMAND [ARGS]...
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
 
-Subcommands: [`completions`](#noust-setup-completions), [`doctor`](#noust-setup-doctor), [`init`](#noust-setup-init), [`permissions`](#noust-setup-permissions), [`railpack`](#noust-setup-railpack), [`retire-links`](#noust-setup-retire-links), [`ssh`](#noust-setup-ssh)
+Subcommands: [`completions`](#noust-setup-completions), [`doctor`](#noust-setup-doctor), [`init`](#noust-setup-init), [`permissions`](#noust-setup-permissions), [`railpack`](#noust-setup-railpack), [`rename`](#noust-setup-rename), [`retire-links`](#noust-setup-retire-links), [`ssh`](#noust-setup-ssh)
 
 ### noust setup completions
 
@@ -13781,6 +13958,21 @@ noust setup railpack [OPTIONS]
 | Option | What it does | Default |
 |---|---|---|
 | `--force` | Install the pinned release again even when this version is already installed. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust setup rename
+
+Finish the renaming that 4.0 begins, without restarting anything.
+
+```
+noust setup rename [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |

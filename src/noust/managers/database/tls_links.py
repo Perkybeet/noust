@@ -11,6 +11,9 @@ engine's certificate (the same words a client library uses):
 - ``verify-ca``: it is encrypted, and the certificate was signed by Noust's authority.
 - ``verify-full``: and the certificate is for the name the application connected to.
 
+Redis, Valkey and KeyDB in an instance serve TLS on their one port (``required``): the URL is
+``rediss://`` and carries redis-py's ``ssl_cert_reqs``, ``ssl_ca_certs`` and ``ssl_check_hostname``.
+
 Noust writes the mode and the path of the authority's certificate into the connection
 string (``sslmode=verify-full&sslrootcert=/etc/noust/tls/ca.crt``), which every
 application account can read: the authority's *public* certificate is the only file
@@ -83,6 +86,16 @@ def client_options(engine: str, mode: str | None, ca: Path | None = None) -> dic
         if mode != "require":
             options["ssl-ca"] = authority
         return options
+    if family == "redis":
+        # redis-py's names; a client that reads none of them is given the same facts as
+        # DB_SSL_MODE and DB_SSL_CA, and the scheme (rediss) says it speaks TLS.
+        if mode == "require":
+            return {"ssl_cert_reqs": "none"}
+        return {
+            "ssl_cert_reqs": "required",
+            "ssl_ca_certs": authority,
+            "ssl_check_hostname": "true" if mode == "verify-full" else "false",
+        }
     if family == "mongodb":
         options = {"tls": "true"}
         if mode != "require":
@@ -140,10 +153,13 @@ def check_link_tls(
             details=f"Use one of: {', '.join(LINK_MODES)}.",
             field="tls",
         )
-    if engine_of(engine) == "redis":
+    if engine_of(engine) == "redis" and not is_instance_key(engine):
         raise ValidationError(
-            "Redis and Valkey do not serve TLS through Noust yet",
-            details="Link without --tls, or reach the database through a tunnel.",
+            "The server's own Redis or Valkey serves no TLS through Noust",
+            details=(
+                "Link without --tls, or move the database to an instance of Noust's that serves "
+                "TLS (noust db instance create, then noust db instance tls NAME --mode required)."
+            ),
             field="tls",
         )
     if not is_instance_key(engine):
@@ -169,6 +185,7 @@ def check_link_tls(
     if record.tls_mode == TLS_OFF:
         raise DatabaseError(
             f"{record.name} does not serve TLS",
-            details=f"Turn it on first: noust db instance tls {record.name} --mode optional",
+            details=f"Turn it on first: noust db instance tls {record.name} --mode "
+            + ("required" if engine_of(engine) == "redis" else "optional"),
         )
     return LinkTls(mode, ca_certificate_path())

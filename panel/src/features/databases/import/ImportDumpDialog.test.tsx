@@ -119,6 +119,9 @@ describe("importing a dump from the browser", () => {
       replace: false,
       keep_owners: true,
       safety_backup: true,
+      // Loaded as the database's owner: the superuser is a decision this dialog never takes.
+      as_superuser: false,
+      confirm_superuser: false,
     });
     expect(await within(dialog).findByText("Imported into example_production")).toBeInTheDocument();
     // The output streams into a log of its own (its lines are drawn by the browser's layout).

@@ -8065,8 +8065,16 @@ def parse_args() -> argparse.Namespace:
             "Run only the Noust 3.3.1 -> working tree upgrade, on a server seeded with every "
             "legacy name (a wasm- unit, a wasm_bg_ upstream and an operator's site that names it, "
             "a wasm_ro_ role, a backup in wasm-backups, an API token): see scenarios_upgrade.py. "
-            "The expectations of wave 5 (the rename) are reported XFAIL until it has run. "
             "--scenario is ignored when this is given."
+        ),
+    )
+    parser.add_argument(
+        "--mixed-fleet",
+        action="store_true",
+        help=(
+            "Run only the mixed fleets (tests/integration/scenarios_fleet_mixed.py): a central of "
+            "this tree with a node of 3.3.1, and a node of this tree under a central of 3.3.1, "
+            "enrolled over a real SSH tunnel. --scenario is ignored when this is given."
         ),
     )
     parser.add_argument(
@@ -8908,6 +8916,11 @@ def main() -> int:
 
         return scenarios_upgrade.run_upgrade_33_mode(wheel, keep=args.keep)
 
+    if args.mixed_fleet:
+        import scenarios_fleet_mixed
+
+        return scenarios_fleet_mixed.run_mixed_fleet_mode(wheel, keep=args.keep)
+
     name = args.reuse or random_container_name()
     failures = 0
     attempted = 0
@@ -8996,7 +9009,7 @@ def load_extension_scenarios() -> None:
 
 
 #: Modules beside this one whose scenarios join the suite (see :func:`load_extension_scenarios`).
-EXTENSION_MODULES = ("scenarios_34",)
+EXTENSION_MODULES = ("scenarios_34", "scenarios_w6a")
 
 load_extension_scenarios()
 

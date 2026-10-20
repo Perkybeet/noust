@@ -74,6 +74,16 @@ class InstanceRequest(BaseModel):
             them); the engine's own image when omitted.
         init_scripts: SQL scripts run, in name order, the first time the engine starts
             (PostgreSQL, MySQL and MariaDB; at most ten).
+        image: An image of your own instead of the catalog's, ``repository[:tag]@sha256:digest``.
+            The digest is mandatory (a tag can be moved after you looked) and ``version`` says
+            which version it is. Noust has not tested it; not with ``variant``.
+        command: The container's whole command, instead of the engine's: a list of words, never
+            a shell line. Noust adds nothing to it. Not with ``args``.
+        args: Arguments added after the ones Noust passes the engine, a list of words. A
+            password is never one: a command line is visible to every local user.
+        accept_untested: The operator accepts that Noust has not tested an image, a command or
+            arguments they chose. Without it, queueing one is a 400 ``confirmation_required``
+            carrying what is accepted, and nothing is queued.
     """
 
     name: str = Field(..., max_length=24)
@@ -83,6 +93,10 @@ class InstanceRequest(BaseModel):
     port: int | None = Field(default=None, ge=1, le=65535)
     variant: str | None = Field(default=None, max_length=24)
     init_scripts: list[InitScript] = Field(default_factory=list, max_length=10)
+    image: str | None = Field(default=None, max_length=255)
+    command: list[str] | None = Field(default=None, max_length=64)
+    args: list[str] | None = Field(default=None, max_length=64)
+    accept_untested: bool = False
 
     def scripts(self) -> list[tuple[str, bytes]]:
         """
@@ -90,6 +104,21 @@ class InstanceRequest(BaseModel):
             The scripts as the manager takes them: a name and the content's bytes.
         """
         return [(item.name, item.content.encode("utf-8")) for item in self.init_scripts]
+
+
+class UpgradeRequest(BaseModel):
+    """
+    What an upgrade is asked to move an instance to.
+
+    Attributes:
+        image: For an instance on an image of the operator's own: the next one,
+            ``repository[:tag]@sha256:digest``. Noust never looks for a newer image of one the
+            operator pinned. Refused for an instance on the catalog's.
+        accept_untested: The operator accepts that Noust has not tested that image.
+    """
+
+    image: str | None = Field(default=None, max_length=255)
+    accept_untested: bool = False
 
 
 class InstanceResponse(BaseModel):
@@ -129,6 +158,10 @@ class InstanceResponse(BaseModel):
         variant: The image variant it runs (``pgvector``); null for the engine's own.
         image_tag: The tag its digest was read from when that is not the version.
         init_scripts: The names of the scripts it ran the first time it started.
+        custom_image: The image is the operator's own, pinned by their digest.
+        command: The whole command the operator made the container run; empty for the engine's.
+        args: What the operator added after the arguments Noust passes; empty for none.
+        customised: Anything about the container is the operator's.
     """
 
     name: str
@@ -161,6 +194,10 @@ class InstanceResponse(BaseModel):
     variant: str | None = None
     image_tag: str | None = None
     init_scripts: list[str] = Field(default_factory=list)
+    custom_image: bool = False
+    command: list[str] = Field(default_factory=list)
+    args: list[str] = Field(default_factory=list)
+    customised: bool = False
 
 
 class BudgetResponse(BaseModel):
@@ -266,6 +303,11 @@ class PlanResponse(BaseModel):
 
     Attributes:
         warnings: What the operator should know before going ahead.
+        custom: The image is the operator's own.
+        command: The whole command the operator wrote, or empty.
+        args: The arguments the operator adds, or empty.
+        requires_confirmation: Making it needs ``accept_untested``: Noust has not tested what
+            the operator chose.
     """
 
     name: str
@@ -283,6 +325,10 @@ class PlanResponse(BaseModel):
     variant: str | None = None
     tag: str | None = None
     init_scripts: list[str] = Field(default_factory=list)
+    custom: bool = False
+    command: list[str] = Field(default_factory=list)
+    args: list[str] = Field(default_factory=list)
+    requires_confirmation: bool = False
 
 
 class RemovePlanResponse(BaseModel):
@@ -403,6 +449,9 @@ def plan_instance(
         port=request.port,
         variant=request.variant,
         init_scripts=request.scripts(),
+        image=request.image,
+        command=request.command,
+        args=request.args,
     )
     return PlanResponse(**plan.to_dict())
 
@@ -425,6 +474,10 @@ def create_instance(
 
     Returns:
         The queued job.
+
+    Raises:
+        ConfirmationRequired: An image, a command or arguments of the operator's own, without
+            ``accept_untested``.
     """
     plan = _manager(session).plan(
         request.name,
@@ -434,7 +487,11 @@ def create_instance(
         port=request.port,
         variant=request.variant,
         init_scripts=request.scripts(),
+        image=request.image,
+        command=request.command,
+        args=request.args,
     )
+    plan.require_accepted(request.accept_untested)
     return _job(
         session,
         "create",
@@ -444,10 +501,16 @@ def create_instance(
         version=plan.version,
         memory_mb=plan.memory_limit_mb,
         port=plan.host_port,
-        variant=plan.variant,
+        # What was asked, not what the plan decided: an image of the operator's own is planned as
+        # variant 'custom', which asking for again alongside the image would be two answers.
+        variant=request.variant,
         init_scripts=[
             {"name": item.name, "content": item.content} for item in request.init_scripts
         ],
+        image=request.image,
+        command=request.command,
+        args=request.args,
+        accept_untested=request.accept_untested,
     )
 
 
@@ -511,6 +574,7 @@ def upgrade_instance(
     name: str,
     session: Annotated[dict, Depends(require_elevated)],
     backup: Annotated[bool, Query(description="Dump every database first")] = True,
+    request: UpgradeRequest | None = None,
 ) -> JobAcceptedResponse:
     """
     Queue moving an instance to the newest image of its version, with sudo mode.
@@ -520,16 +584,29 @@ def upgrade_instance(
     dump stops it), the instance must become healthy and accept its superuser,
     and when it does not the previous image is put back.
 
+    An instance on an image of the operator's own is never moved to what a registry serves:
+    the body names the next image (pinned by digest) and accepts again that Noust did not test
+    it. The catalog's takes no body.
+
     Args:
         name: Its name.
         session: The authenticated, elevated session.
         backup: Dump every database first; on by default.
+        request: The image to move to, for an instance on one of the operator's own.
 
     Returns:
         The queued job.
+
+    Raises:
+        ValidationError: An image for an instance on the catalog's, none for one on the
+            operator's, or one that is not pinned by a digest.
+        ConfirmationRequired: The operator's image, without ``accept_untested``.
     """
-    _manager(session).get(name)
-    return _job(session, "upgrade", name, f"Upgrading {name}", backup=backup)
+    asked = request or UpgradeRequest()
+    _manager(session).check_upgrade(name, asked.image, asked.accept_untested)
+    # The job of an ordinary upgrade is what it always was; the image travels only when named.
+    named = {"image": asked.image, "accept_untested": asked.accept_untested} if asked.image else {}
+    return _job(session, "upgrade", name, f"Upgrading {name}", backup=backup, **named)
 
 
 @router.get("/instances/{name}/remove-plan", response_model=RemovePlanResponse)

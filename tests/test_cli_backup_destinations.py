@@ -301,7 +301,7 @@ def test_test_command_reports_entries(runner: FakeRunner) -> None:
         ],
         input="s3cr3t\n",
     )
-    runner.script(("rclone", "lsf", "nas:wasm-backups", "--max-depth", "1"), stdout="shop-com/\n")
+    runner.script(("rclone", "lsf", "nas:noust-backups", "--max-depth", "1"), stdout="shop-com/\n")
 
     result = invoke(["backup", "destination", "test", "nas"])
 
@@ -393,7 +393,7 @@ def test_remote_list_without_app_lists_directories(runner: FakeRunner) -> None:
         input="s3cr3t\n",
     )
     runner.script(
-        ("rclone", "lsjson", "--hash", "nas:wasm-backups"),
+        ("rclone", "lsjson", "--hash", "nas:noust-backups"),
         stdout=json.dumps([{"Name": "shop-example-com", "IsDir": True}]),
     )
 

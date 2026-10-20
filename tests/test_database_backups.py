@@ -388,6 +388,24 @@ class TestChecksPerEngine:
         assert (ok, method) == (True, "trailer")
         assert runner.ran("gzip", "-dc")
 
+    def test_a_gzipped_dump_is_read_on_a_server_that_never_took_one(
+        self, tmp_path: Path, runner: RcloneRunner
+    ) -> None:
+        # The folder of dumps does not exist until the first dump: a dump imported into a server
+        # that came to be last week is still checked, and the check leaves the folder it made.
+        elsewhere = tmp_path / "taken-elsewhere"
+        elsewhere.mkdir()
+        cls = make_engine(elsewhere, suffix=".sql.gz", content=b"gz bytes")
+        info = cls().backup("shop")
+        never = tmp_path / "never-dumped-here"
+        cls.BACKUP_DIR = never
+        runner.script(("gzip", "-dc"), stdout=PG_PLAIN.decode())
+
+        outcome = check_dump(cls(), info.path)
+
+        assert (outcome.ok, outcome.method) == (True, "trailer")
+        assert never.is_dir() and list(never.iterdir()) == []
+
     def test_a_corrupt_gzip_fails_with_gzips_words(
         self, tmp_path: Path, runner: RcloneRunner
     ) -> None:
@@ -947,7 +965,9 @@ class TestRunPolicy:
         assert "could not be sent to: nas" in str(failure.value)
         assert "The local dump was kept" in str(failure.value)
         cloud = list(
-            (runner.root / "cloud" / "wasm-backups" / "databases" / "postgresql" / "shop").iterdir()
+            (
+                runner.root / "cloud" / "noust-backups" / "databases" / "postgresql" / "shop"
+            ).iterdir()
         )
         assert len(cloud) == 2  # the dump and its sidecar
         assert len(backups.list_dumps("postgresql", "shop")) == 1
@@ -1300,7 +1320,8 @@ def test_a_restore_as_a_new_database_loads_isolated(
 
     backups.restore("postgresql", "shop", taken.name, new_name="shop_copy")
 
-    assert seen == [{"isolated": True}]
+    # Noust's own dump: loaded as the superuser, as ever.
+    assert seen == [{"isolated": True, "as_superuser": True}]
 
 
 def test_a_restore_over_the_database_itself_is_not_isolated(
@@ -1311,7 +1332,7 @@ def test_a_restore_over_the_database_itself_is_not_isolated(
 
     backups.restore("postgresql", "shop", taken.name)
 
-    assert seen == [{}]
+    assert seen == [{"as_superuser": True}]
 
 
 # ---------------------------------------------------------------------------

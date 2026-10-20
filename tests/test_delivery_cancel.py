@@ -202,8 +202,8 @@ def test_a_build_in_place_is_refused_and_explains_why(store: NoustStore) -> None
     assert "in place" in caught.value.details
 
 
-def test_a_compose_stack_is_refused(store: NoustStore) -> None:
-    """Compose builds inside the Docker daemon, which Noust cannot stop."""
+def test_a_compose_stack_can_be_stopped_while_its_images_build(store: NoustStore) -> None:
+    """The daemon stops the build when its client is killed; the containers that serve are untouched."""
     store.create_app(
         App(
             domain="stack.example.com",
@@ -213,24 +213,35 @@ def test_a_compose_stack_is_refused(store: NoustStore) -> None:
         )
     )
 
-    supported, why = cancellation.supports_cancel("stack.example.com", store)
+    assert cancellation.supports_cancel("stack.example.com", store) == (True, "")
+
+
+def test_a_monorepo_built_in_place_is_refused_and_says_why(store: NoustStore) -> None:
+    """Its units run from the tree the build writes to."""
+    store.create_app(
+        App(
+            domain="mono.example.com",
+            app_type="monorepo",
+            app_path="/var/www/apps/mono",
+            layout=AppLayout.INPLACE.value,
+        )
+    )
+
+    supported, why = cancellation.supports_cancel("mono.example.com", store)
 
     assert supported is False
-    assert "Docker" in why
+    assert "in place" in why
 
 
-def test_a_new_application_of_a_type_built_by_its_own_tools_is_refused(
-    store: NoustStore,
-) -> None:
-    """The caller knows the type before the row exists; the refusal does not wait for the window."""
-    assert cancellation.supports_cancel("brand-new.example.com", store, "monorepo")[0] is False
+def test_a_new_application_of_any_type_can_be_stopped(store: NoustStore) -> None:
+    """Nothing serves yet, so nothing can be broken: the caller knowing the type changes nothing."""
+    for kind in ("monorepo", "docker-compose", "container"):
+        assert cancellation.supports_cancel("brand-new.example.com", store, kind) == (True, "")
 
     with app_lock("brand-new.example.com", "deploy"):
-        with pytest.raises(CancelRefused) as caught:
-            request_cancel("brand-new.example.com", by="op", app_type="docker-compose")
+        result = request_cancel("brand-new.example.com", by="op", app_type="docker-compose")
 
-    assert caught.value.reason == "unsupported"
-    assert "deploy in place" in caught.value.details
+    assert result.operation == "deploy"
 
 
 def test_a_deployer_chosen_after_the_window_opened_can_take_the_cancellation_away(

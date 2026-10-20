@@ -34,7 +34,7 @@ const SFTP_FIELDS = [
   { key: "port", label: "Port", secret: false, required: false, placeholder: "22", help: "", choices: [] },
   { key: "pass", label: "Password", secret: true, required: false, placeholder: "", help: "Leave blank when using a private key instead.", choices: [] },
   { key: "key_file", label: "Private key path", secret: false, required: false, placeholder: "", help: "", choices: [] },
-  { key: "path", label: "Remote folder", secret: false, required: false, placeholder: "wasm-backups", help: "", choices: [] },
+  { key: "path", label: "Remote folder", secret: false, required: false, placeholder: "noust-backups", help: "", choices: [] },
 ];
 
 const BACKENDS = { backends: [{ backend: "sftp", fields: SFTP_FIELDS }] };
@@ -44,7 +44,7 @@ function destination(overrides: Record<string, unknown> = {}): Record<string, un
     name: "offsite",
     backend: "sftp",
     encrypted: false,
-    settings: { host: "backup.example.com", user: "wasm", path: "wasm-backups" },
+    settings: { host: "backup.example.com", user: "wasm", path: "noust-backups" },
     configured_secret_fields: [],
     encryption_configured: false,
     created_at: "2026-01-01T00:00:00+00:00",

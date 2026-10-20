@@ -26,8 +26,14 @@ The rules, and why they are these:
   deployment the console started, and the reverse.
 - **The operation answers.** Whoever asked learns what came of it
   (:mod:`noust.core.delivery_store` ``outcome``): cancelled, too late, already
-  finished, or not something that can be interrupted (an in-place build runs in
-  the live tree; a Compose build runs inside the Docker daemon).
+  finished, or not something that can be interrupted (a build in place runs in
+  the live tree).
+- **A stack, a container and a monorepo on releases can be stopped too.** The build of a
+  Compose stack or of a container is a ``docker`` command whose client is killed, and the
+  daemon stops the build with it; what serves (the containers) is replaced only once the
+  build is done. What the update changed on the way - the tree it pulled in place, the compose
+  file of a container - is put back exactly as after a build that failed. A monorepo on releases
+  builds in a release of its own like any other.
 - **Only the build is interruptible.** :func:`interruptible` puts a region
   under the runner's cancel scope, in which a command that has not started never
   starts and one that runs is killed. The undo of a failed deployment runs
@@ -66,9 +72,10 @@ CANCELLABLE_OPERATIONS = frozenset({"deploy", "update"})
 #: How often a running operation looks for a request another process made.
 POLL_INTERVAL = 0.5
 
-#: Types that never build in a release of their own: a monorepo and a Compose
-#: stack deploy in place, and Compose builds inside the Docker daemon.
-_IN_PLACE_TYPES = frozenset({AppType.MONOREPO.value, AppType.DOCKER_COMPOSE.value})
+#: Types that run as Docker containers: their images are built by the daemon, and the
+#: containers that serve are replaced only once the build is done, so a build can be stopped
+#: while the application is not on the release layout.
+_DOCKER_TYPES = frozenset({AppType.DOCKER_COMPOSE.value, AppType.CONTAINER.value})
 
 
 class CancelToken:
@@ -228,33 +235,27 @@ def supports_cancel(
     """
     Tell whether an application's build can be interrupted safely.
 
-    A new application builds where nothing serves yet, and an application on
-    releases builds beside what serves. One built in place is rebuilt in the
-    tree that serves, and a Compose stack builds inside the Docker daemon, so
-    stopping either halfway would leave the application broken.
+    A new application builds where nothing serves yet, an application on
+    releases builds beside what serves, and a Compose stack or a container
+    builds images the containers that serve do not use until the build is
+    done. One built in place is rebuilt in the tree that serves, so stopping it
+    halfway would leave the application broken.
 
     Args:
         domain: The application.
         store: The store; defaults to the process-wide one.
         app_type: The type a new application is being deployed as, when it is
-            known before its row exists.
+            known before its row exists. Any type can be stopped while it is
+            new, so it changes no answer; the argument stays for the callers
+            that have it.
 
     Returns:
         Whether it can, and why not when it cannot.
     """
     app = (store or get_store()).get_app(domain)
-    if app is None:
-        if app_type in _IN_PLACE_TYPES:
-            return (
-                False,
-                f"{app_type} applications deploy in place and are built by their own tools",
-            )
+    if app is None or app.app_type in _DOCKER_TYPES:
         return True, ""
-    if app.app_type == AppType.DOCKER_COMPOSE.value:
-        return False, (
-            "Docker Compose builds run inside the Docker daemon, where Noust cannot stop them"
-        )
-    if app.layout != AppLayout.RELEASES.value or app.app_type in _IN_PLACE_TYPES:
+    if app.layout != AppLayout.RELEASES.value:
         return False, (
             "this application builds in place, in the tree that serves: stopping it halfway "
             "would leave the live application broken"
@@ -267,9 +268,8 @@ def restrict(reason: str) -> None:
     Say that what runs turned out not to be interruptible.
 
     For a deployer that is chosen after the window opened (the automatic one
-    detects the type from the source it fetched): a monorepo or a Compose stack
-    has no point at which a build can be stopped, and a request must not be
-    accepted for it.
+    detects the type from the source it fetched) and turns out to be one whose
+    build cannot be stopped, a request must not be accepted for it.
 
     Args:
         reason: Why, as the operator reads it.

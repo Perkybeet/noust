@@ -15,6 +15,7 @@ Redis/Valkey family, MongoDB authorization (B7), and the exposure check.
 from __future__ import annotations
 
 import gzip
+import re
 from collections.abc import Iterator
 from datetime import date
 from pathlib import Path
@@ -184,7 +185,7 @@ def test_a_custom_dump_named_sql_is_restored_with_pg_restore(
     dump = tmp_path / "postgresql-shop-20250101_000000.sql.gz"
     dump.write_bytes(gzip.compress(b"PGDMP\x01\x0e\x00binary archive"))
 
-    postgres.restore("shop", dump, safety_backup=False)
+    postgres.restore("shop", dump, safety_backup=False, as_superuser=True)
 
     assert runner.calls[-1][4:] == ("pg_restore", "--no-password", "-d", "shop")
     assert (
@@ -258,7 +259,7 @@ def test_access_is_read_from_one_catalog_query(postgres: PostgresManager, runner
             "reporter|f|f|3|3|0|t|f\n"
             "writer|f|f|3|3|3|t|t\n"
             "postgres|f|t|3|3|3|f|f\n"
-            "wasm_ro_shop|f|f|3|3|0|f|f\n"
+            "noust_ro_shop|f|f|3|3|0|f|f\n"
         ),
     )
 
@@ -267,7 +268,7 @@ def test_access_is_read_from_one_catalog_query(postgres: PostgresManager, runner
     assert entries["app"].profile == "owner"
     assert entries["reporter"].profile == "read_only"
     assert entries["writer"].profile == "read_write"
-    assert entries["postgres"].internal and entries["wasm_ro_shop"].internal
+    assert entries["postgres"].internal and entries["noust_ro_shop"].internal
 
 
 def test_fix_owner_shows_and_changes_nothing_until_asked(postgres, runner) -> None:
@@ -296,14 +297,18 @@ def test_fix_owner_shows_and_changes_nothing_until_asked(postgres, runner) -> No
 def test_a_name_holding_the_dollar_tag_cannot_close_the_block(postgres, runner) -> None:
     """Names may contain '$': the read-only role's DO blocks pick a tag they do not contain."""
     runner.script(PSQL, stdout="1")
-    name = "a$wasm_ro_role$b"
+    name = "a$noust_ro_role$b"
 
     postgres._ensure_read_only_role(name)
 
     script = next(text for text in runner.inputs if text and "DO $" in text)
-    tag = script.split("DO ", 1)[1].split("\n", 1)[0]
-    assert tag.startswith("$wasm_ro_role_") and tag not in name
-    assert script.count(tag) == 2
+    tags = re.findall(r"DO (\$[a-z_0-9]+\$)", script)
+    assert len(tags) == 3, "the old role's block, the role's and the grants"
+    assert len(set(tags)) == 3
+    for tag in tags:
+        assert tag not in name
+        assert script.count(tag) == 2
+    assert any(tag.startswith("$noust_ro_role_") for tag in tags)
 
 
 def test_dropping_a_database_drops_its_read_only_role(postgres, runner, tmp_path) -> None:
@@ -311,7 +316,30 @@ def test_dropping_a_database_drops_its_read_only_role(postgres, runner, tmp_path
 
     postgres.drop_read_only_account("shop")
 
-    assert runner.inputs[-1] == 'DROP ROLE IF EXISTS "wasm_ro_shop";'
+    assert 'DROP ROLE IF EXISTS "noust_ro_shop";' in runner.inputs
+
+
+def test_dropping_a_database_also_drops_the_role_an_earlier_release_made(
+    postgres, runner, tmp_path
+) -> None:
+    """The role under the old prefix is the cluster's too: a database made later would inherit it."""
+    runner.script(PSQL, stdout="1")
+
+    removed = postgres.drop_legacy_read_only_account("shop")
+
+    assert removed is True
+    dropped = next(text for text in runner.inputs if text and "DROP OWNED BY" in text)
+    assert "'wasm_ro_shop'" in dropped
+    assert "DROP ROLE %I" in dropped
+
+
+def test_a_database_that_never_had_the_old_role_has_nothing_to_drop(
+    postgres, runner, tmp_path
+) -> None:
+    runner.script(PSQL, stdout="")
+
+    assert postgres.drop_legacy_read_only_account("shop") is False
+    assert not any(text and "DROP OWNED BY" in text for text in runner.inputs)
 
 
 def test_listen_addresses_come_from_the_server(postgres, runner) -> None:
@@ -343,7 +371,7 @@ def test_mysql_access_reads_the_grant_table(mysql: MySQLManager, runner) -> None
             "app\tlocalhost\tY\tY\tY\tY\tY\tY\tY\tY\n"
             "rw\tlocalhost\tY\tY\tY\tY\tN\tN\tN\tN\n"
             "ro\t%\tY\tN\tN\tN\tN\tN\tN\tN\n"
-            "wasm_ro_shop\tlocalhost\tY\tN\tN\tN\tN\tN\tN\tN\n"
+            "noust_ro_shop\tlocalhost\tY\tN\tN\tN\tN\tN\tN\tN\n"
         ),
     )
 
@@ -352,7 +380,7 @@ def test_mysql_access_reads_the_grant_table(mysql: MySQLManager, runner) -> None
     assert entries["app"].profile == "owner"
     assert entries["rw"].profile == "read_write"
     assert (entries["ro"].profile, entries["ro"].host) == ("read_only", "%")
-    assert entries["wasm_ro_shop"].internal
+    assert entries["noust_ro_shop"].internal
 
 
 def test_mysql_password_change_goes_on_stdin(mysql: MySQLManager, runner) -> None:

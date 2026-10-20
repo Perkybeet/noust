@@ -1211,7 +1211,12 @@ def compose_volumes_from_disk(
 
 
 def extract_stack_dumps(
-    archive: Path, names: Sequence[str], staging: Path, *, prefix: str, max_bytes: int
+    archive: Path,
+    names: Sequence[str],
+    staging: Path,
+    *,
+    prefix: str | tuple[str, ...],
+    max_bytes: int,
 ) -> list[Path]:
     """
     Copy only the dump files out of a backup archive.
@@ -1225,7 +1230,8 @@ def extract_stack_dumps(
         archive: The ``.tar.gz``.
         names: Archive paths of the dumps wanted, as the manifest records them.
         staging: A private directory to copy them into.
-        prefix: Where in the archive dumps live; a name outside it is refused.
+        prefix: Where in the archive dumps live (one place, or several for an archive that may
+            have been taken before 4.0); a name outside it is refused.
         max_bytes: The most one dump may hold.
 
     Returns:

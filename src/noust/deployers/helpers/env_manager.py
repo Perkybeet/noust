@@ -10,7 +10,7 @@ secret auto-generation, and interactive configuration.
 
 Everything this module writes holds credentials: a deployed ``.env`` carries
 ``DATABASE_URL``, API keys and the secrets generated here, and
-``.wasm/env-config.json`` records the same inventory. Both go out through
+``.noust/env-config.json`` records the same inventory. Both go out through
 :mod:`noust.core.fs` with :data:`~noust.core.fs.SECRET_MODE`, so the mode is
 applied by the ``os.open`` that creates the file rather than by a ``chmod``
 afterwards, and the write lands on a temporary file that is renamed into place,
@@ -26,7 +26,7 @@ import os
 import re
 import secrets
 import stat
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
@@ -41,6 +41,7 @@ from noust.core.secret_detection import (
     name_looks_secret,
     redact_url_credentials,
 )
+from noust.deployers.helpers import tree_names
 from noust.validators.environment import EnvironmentValidationError
 
 # URL_CREDENTIALS and redact_url_credentials moved to noust.core.secret_detection,
@@ -750,13 +751,28 @@ class EnvManager:
             )
 
         kept = self.read_env_comments(path) if comments is None else comments
-        lines = []
-        for key, value in sorted(values.items()):
-            for note in self._comment_lines(kept.get(key, "")):
-                lines.append(note)
-            lines.append(f"{key}={self._quote_if_needed(value)}")
-        self.fs.write_text(path, "\n".join(lines) + "\n", mode=SECRET_MODE)
+        self.fs.write_text(path, self.render(values, kept), mode=SECRET_MODE)
         self.logger.debug(f"Wrote env file: {path}")
+
+    def render(self, values: Mapping[str, str], comments: Mapping[str, str] | None = None) -> str:
+        """
+        Write variables as the text of an environment file.
+
+        The one rendering of a ``.env``: the file Noust writes and the text a viewer shows are
+        this, so they cannot differ.
+
+        Args:
+            values: Variable name to value.
+            comments: Variable name to the comment written above it.
+
+        Returns:
+            The text: sorted by name, each variable under its comment, ending in a line feed.
+        """
+        lines: list[str] = []
+        for key, value in sorted(values.items()):
+            lines.extend(self._comment_lines((comments or {}).get(key, "")))
+            lines.append(f"{key}={self._quote_if_needed(value)}")
+        return "\n".join(lines) + "\n"
 
     def add_if_missing(self, path: Path, name: str, value: str) -> bool:
         """
@@ -794,6 +810,75 @@ class EnvManager:
             path, f"{text}{separator}{name}={self._quote_if_needed(value)}\n", mode=SECRET_MODE
         )
         self.logger.debug(f"Added {name} to {path}")
+        return True
+
+    #: The comment that heads the lines :meth:`replace_managed` writes, so whoever opens the
+    #: file knows they are not theirs to edit.
+    MANAGED_COMMENT = "# Set by Noust on every deployment. Do not edit."
+
+    def replace_managed(
+        self, path: Path, values: Mapping[str, str], names: Collection[str]
+    ) -> bool:
+        """
+        Set the variables Noust itself owns in a file, touching nothing else in it.
+
+        The lines of ``names`` are taken out and the ones in ``values`` appended under a comment
+        that says whose they are. Everything else is kept byte for byte (an operator's comments,
+        their order, a value they quoted their own way), which is what rewriting the whole file
+        through :meth:`write_env_files` would lose.
+
+        Args:
+            path: The ``.env``; created (readable by its owner only) when it does not exist.
+            values: The variables to write; the others of ``names`` are taken out.
+            names: Every name Noust owns in this file.
+
+        Returns:
+            True when the file changed; False when it already said exactly this.
+
+        Raises:
+            SecurityError: If the destination is a symlink.
+            OSError: If the file cannot be read or written.
+        """
+        if path.is_symlink():
+            raise SecurityError(
+                f"Refusing to write secrets through the symlink {path}",
+                details=(
+                    "Something replaced the file with a symbolic link, which would "
+                    "redirect the write. Inspect the directory, remove the link and "
+                    "retry."
+                ),
+            )
+        owned = set(names)
+        text = path.read_text(encoding="utf-8") if path.is_file() else ""
+        kept: list[str] = []
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped == self.MANAGED_COMMENT:
+                continue
+            key = stripped.partition("=")[0].strip()
+            exported = self._EXPORT_PREFIX.match(key)
+            if (
+                "=" in stripped
+                and not stripped.startswith("#")
+                and (exported.group(1) if exported else key) in owned
+            ):
+                continue
+            kept.append(line)
+        while kept and not kept[-1].strip():
+            kept.pop()
+        lines = [*kept]
+        if values:
+            if lines:
+                lines.append("")
+            lines.append(self.MANAGED_COMMENT)
+            lines.extend(f"{key}={self._quote_if_needed(values[key])}" for key in sorted(values))
+        updated = ("\n".join(lines) + "\n") if lines else ""
+        if updated == text or (not text and not updated):
+            return False
+        self.fs.write_text(path, updated, mode=SECRET_MODE)
+        self.logger.debug(
+            f"Set {', '.join(sorted(values)) or 'nothing'} managed by Noust in {path}"
+        )
         return True
 
     @staticmethod
@@ -860,11 +945,12 @@ class EnvManager:
 
     def save_config(self, app_path: Path, config: EnvConfig) -> None:
         """
-        Persist environment configuration to .wasm/env-config.json.
+        Persist environment configuration to .noust/env-config.json.
 
         The file records the variable inventory, defaults included, so it is
-        written 0600 inside a 0700 directory. Nothing but Noust reads ``.wasm``,
-        so tightening that directory costs the deployment nothing.
+        written 0600 inside a 0700 directory. Nothing but Noust reads ``.noust``,
+        so tightening that directory costs the deployment nothing. A ``.wasm``
+        directory an earlier release left is renamed first, with what is in it.
 
         Args:
             app_path: Application root path.
@@ -874,17 +960,18 @@ class EnvManager:
             SecurityError: If the destination is a symlink.
             OSError: If the file cannot be created or written.
         """
-        directory = app_path / ".wasm"
+        directory = app_path / tree_names.ENV_DIR
         # In place the application directory is a repository checkout, and a
-        # committed ``.wasm -> /etc`` would have this tighten /etc to 0700
+        # committed ``.noust -> /etc`` would have this tighten /etc to 0700
         # and write the inventory there.
         if directory.is_symlink():
             raise SecurityError(
                 f"Refusing to write the environment inventory through the symlink {directory}",
-                details="Remove .wasm from the repository; Noust keeps its own files there.",
+                details="Remove .noust from the repository; Noust keeps its own files there.",
             )
+        tree_names.adopt(app_path, tree_names.ENV_DIR, fs=self.fs)
         self.fs.make_dir(directory, mode=SECRET_DIR_MODE, parents=True)
-        # A .wasm left world readable by an older version is tightened; the
+        # A .noust left world readable by an older version is tightened; the
         # directory is ours alone, so there is nothing else to break.
         if directory.is_dir() and directory.stat().st_mode & 0o077:
             self.fs.chmod(directory, SECRET_DIR_MODE, follow_symlinks=False)
@@ -912,7 +999,10 @@ class EnvManager:
         Returns:
             EnvConfig or None if not found.
         """
-        config_file = app_path / ".wasm" / "env-config.json"
+        directory = tree_names.present(app_path, tree_names.ENV_DIR)
+        if directory is None:
+            return None
+        config_file = directory / "env-config.json"
         if not config_file.exists():
             return None
         try:

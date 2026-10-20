@@ -532,7 +532,7 @@ class TestNames:
 # 5/6. Pushing: verification failures, and retention on a shared folder
 # ---------------------------------------------------------------------------
 
-TARGET = f"nas:wasm-backups/{APP}"
+TARGET = f"nas:noust-backups/{APP}"
 
 
 def _push_setup(

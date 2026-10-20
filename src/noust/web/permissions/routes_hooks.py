@@ -20,10 +20,14 @@ from noust.web.permissions import PUBLIC, Permission
 ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/hooks/deploy/{domain}"): PUBLIC,
     ("POST", "/hooks/github"): PUBLIC,
+    ("POST", "/hooks/registry/{domain}"): PUBLIC,
+    ("POST", "/hooks/registry/{domain}/{token}"): PUBLIC,
     ("POST", "/api/apps/{domain}/webhook-secret"): Permission.APPS_MANAGE,
     ("DELETE", "/api/apps/{domain}/webhook-secret"): Permission.APPS_MANAGE,
     ("GET", "/api/apps/{domain}/webhook"): Permission.APPS_READ,
     ("GET", "/api/apps/{domain}/webhook/received"): Permission.APPS_READ,
     ("GET", "/api/apps/{domain}/webhook/deliveries"): Permission.APPS_READ,
     ("POST", "/api/apps/{domain}/webhook/reveal"): Permission.SECRETS_REVEAL,
+    ("GET", "/api/apps/{domain}/webhook/registry"): Permission.APPS_READ,
+    ("POST", "/api/apps/{domain}/webhook/registry/reveal"): Permission.SECRETS_REVEAL,
 }

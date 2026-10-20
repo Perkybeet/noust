@@ -289,7 +289,7 @@ def test_no_manager_operation_ever_invokes_a_shell(
     dump.write_text(NASTY_DUMP)
 
     postgres.backup("shop", compress=True)
-    postgres.restore("shop", dump)
+    postgres.restore("shop", dump, as_superuser=True)
     mysql.backup("shop", compress=True)
     mysql.restore("shop", dump)
     mongo_archive = tmp_path / "mongo.tar.gz"
@@ -434,7 +434,7 @@ def test_postgres_restore_gives_the_dump_to_psql_as_its_stdin(
     dump = tmp_path / "dump.sql"
     dump.write_text(NASTY_DUMP)
 
-    postgres.restore("shop", dump)
+    postgres.restore("shop", dump, as_superuser=True)
 
     assert runner.calls[-1] == (
         "runuser",
@@ -462,7 +462,7 @@ def test_postgres_restore_into_a_new_database_makes_the_role_a_dump_grants_to(
     postgres: PostgresManager, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """
-    A dump of a database the read-only console was used on grants to ``wasm_ro_<database>``.
+    A dump of a database the read-only console was used on grants to ``noust_ro_<database>``.
 
     That role is cluster-wide and Noust's own: another server, or another instance a database is
     moved to, does not have it, and ``pg_restore`` stopped at the first GRANT ("role does not
@@ -478,10 +478,10 @@ def test_postgres_restore_into_a_new_database_makes_the_role_a_dump_grants_to(
     postgres._create_for_restore("shop", "shop_user")
 
     assert created == ["shop"]
-    statements = [text for text in runner.inputs if text and "wasm_ro_shop" in text]
+    statements = [text for text in runner.inputs if text and "noust_ro_shop" in text]
     assert len(statements) == 1, runner.inputs
     assert "IF NOT EXISTS" in statements[0]
-    assert 'CREATE ROLE "wasm_ro_shop" NOLOGIN' in statements[0]
+    assert 'CREATE ROLE "noust_ro_shop" NOLOGIN' in statements[0]
     assert "PASSWORD" not in statements[0], "a role without a password: the first read sets one"
 
 
@@ -517,7 +517,7 @@ def test_postgres_gzipped_restore_decompresses_without_a_pipe(
     dump = tmp_path / "dump.sql.gz"
     dump.write_bytes(gzip.compress(NASTY_DUMP.encode("latin-1")))
 
-    postgres.restore("shop", dump)
+    postgres.restore("shop", dump, as_superuser=True)
 
     staged = postgres.BACKUP_DIR / ".staging" / "postgresql-restore-shop.sql"
     assert runner.calls[-2] == ("gzip", "-dc", str(dump))
@@ -1508,7 +1508,7 @@ class TestStructuredQuery:
         # Signed in as the read-only role, not a superuser session that
         # switched roles: see tests/test_database_console_injection.py.
         assert runner.calls[-1][0] == "psql"
-        assert runner.calls[-1][runner.calls[-1].index("-U") + 1] == "wasm_ro_app"
+        assert runner.calls[-1][runner.calls[-1].index("-U") + 1] == "noust_ro_app"
 
     def test_postgres_caps_rows_and_reports_truncation(self, postgres, runner):
         runner.script(["runuser", "-u", "postgres", "--", "psql"], stdout="1\n")

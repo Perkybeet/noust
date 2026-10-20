@@ -87,6 +87,10 @@ EXPECTED_PUBLIC = {
     ("DELETE", "/api/scim/v2/Groups/{group_id}"),
     ("POST", "/hooks/deploy/{domain}"),
     ("POST", "/hooks/github"),
+    # A container registry's push notification: signed with the application's secret, or carrying
+    # the token of the address Docker Hub is given.
+    ("POST", "/hooks/registry/{domain}"),
+    ("POST", "/hooks/registry/{domain}/{token}"),
     ("GET", "/health"),
     ("GET", "/{path}"),
 }
