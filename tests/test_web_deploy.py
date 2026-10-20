@@ -213,8 +213,9 @@ def test_a_port_another_application_owns_is_refused_even_when_nothing_listens_on
     response = client.post("/api/apps", json={**PAYLOAD, "port": 4321})
 
     assert response.status_code == 400, response.text
-    assert "belongs to another application" in response.text
-    assert "other.example.com" not in response.text
+    # The whole server is this caller's to see, so the holder is named; a member of a team
+    # is told "another application" (tests/test_cross_tenant.py).
+    assert "is the port of other.example.com" in response.text
     assert queued == []
 
 

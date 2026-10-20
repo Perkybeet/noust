@@ -275,8 +275,9 @@ notes:                            # what to tell the operator after the deploy (
 
 **Categories**: `ai`, `analytics`, `automation`, `backend`, `business`, `cms`, `communication`,
 `data`, `development`, `files`, `media`, `monitoring`, `productivity`, `search`, `security`,
-`smart-home`, `utilities`, `other`. The list is closed on purpose: Coolify's free text ended up
-with 38 spellings, "Networking" and "networking" among them.
+`smart-home`, `utilities`, `other`. The list is closed on purpose: a free-text category drifts
+into several spellings of the same word ("Networking" and "networking"), and a filter by category
+then misses half of them.
 
 `min_noust` and `architectures` are applied, not only shown: an install or an update on a Noust
 older than `min_noust`, or on a server whose architecture is not in `architectures`
@@ -584,9 +585,8 @@ else a recipe says about someone else's software, is in the next section.
 ## Names, marks, licences and logos of the projects
 
 A recipe is Noust's description of how to run someone else's software, so what it may call that
-software, show of it and ship of it is written down. Coolify has no such policy: it hides Plausible
-over its trademark and ships 349 third-party SVGs with no attribution per file. This is what Noust
-does. It is the project's practice, so that a rights holder, an operator and a contributor can all
+software, show of it and ship of it is written down. This is what Noust does. It is the project's
+practice, so that a rights holder, an operator and a contributor can all
 read it, and not legal advice.
 
 **Names.** A recipe names a project by its own name, to say what it deploys ("Gitea", "Rocket.Chat",

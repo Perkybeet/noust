@@ -238,7 +238,7 @@ central that has been compromised, an application that has been compromised.
 
 **The failure it answers.** Coolify updates itself by downloading a script and running it with `bash` (`app/Actions/Server/UpdateCoolify.php:122-131`; 4.4.0, read on 2026-10-13), and its `SECURITY.md` is twenty-five lines with a contact address and no timeline. On 2026-10-13 [Coolify](https://github.com/coollabsio/coolify/security/advisories) had published 70 advisories (21 critical) and [Dokploy](https://github.com/Dokploy/dokploy/security/advisories) 60 (34 critical), counted from the published advisories of each repository; a fix whose advisory is published long after the release leaves everyone who updates on time unwarned.
 
-**The guarantee.** Every release is built by GitHub Actions from a signed tag. Its files have a signed checksum file and a build-provenance attestation; the wheel has its SBOM attested; the container image is signed and attested by digest, and a fixable critical vulnerability in it stops the release; PyPI publishes with attestations; the installer is published with its own signed checksum. The update the product performs is one fixed command per installation method; nothing of the request reaches the command line. A release that fixes a vulnerability is titled *(security release)*, which the update check, `noust health` and the console report. `SECURITY.md` commits to acknowledging in 3 working days, confirming in 10 and fixing in 90.
+**The guarantee.** Every release is built by GitHub Actions from its tag, signed from 4.0.0 on with the maintainer's SSH key. Its files have a signed checksum file and a build-provenance attestation; the wheel has its SBOM attested; the container image is signed and attested by digest, and a fixable critical vulnerability in it stops the release; PyPI publishes with attestations; the installer is published with its own signed checksum. The update the product performs is one fixed command per installation method; nothing of the request reaches the command line. A release that fixes a vulnerability is titled *(security release)*, which the update check, `noust health` and the console report. `SECURITY.md` commits to acknowledging in 3 working days, confirming in 10 and fixing in 90.
 
 **How it is enforced.** `.github/workflows/release.yml`, `.github/workflows/security.yml` (CodeQL, gitleaks, Trivy, dependency review), `scripts/release.py`, `SECURITY.md`, `.well-known/security.txt`, `managers/self_update.py`.
 
@@ -573,8 +573,9 @@ credited. A summary of any review that is done will be published here with its d
 
 ## Verifying a release
 
-A release is built by GitHub Actions from a signed tag, and what it publishes can be checked without
-trusting whoever uploaded it. `VERSION` below is the release, for example `3.4.0`.
+A release is built by GitHub Actions from its tag (signed from 4.0.0 on with the maintainer's SSH key),
+and what it publishes can be checked without trusting whoever uploaded it. `VERSION` below is the
+release, for example `4.0.0`.
 
 The files of a release (wheel, source distribution, Debian packages, SBOM, installer) have one
 checksum file, signed by the release workflow with a keyless Sigstore certificate that names the
