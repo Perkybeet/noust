@@ -13,7 +13,7 @@ export const mcpSettings: Catalog<typeof en> = {
     title: "Endpoint MCP",
     description: "Un cliente puede hacer exactamente lo que permite su token, y cada llamada queda en la auditoría.",
     label: "Responder a clientes MCP",
-    help: "Deja que un cliente con un token de API inspeccione, despliegue y controle aplicaciones.",
+    help: "Deja que un cliente con un token de API gestione aplicaciones.",
     on: "Activado",
     off: "Desactivado",
     turnedOn: "El endpoint MCP responde ahora",
@@ -36,7 +36,7 @@ export const mcpSettings: Catalog<typeof en> = {
     description:
       "Las herramientas vienen en tres grupos. Desactiva un grupo y sus herramientas no se listan ni se pueden llamar, tenga lo que tenga el token.",
     toolCount: { one: "{count} herramienta", other: "{count} herramientas" },
-    inspect: { name: "Inspeccionar", description: "Solo lectura: aplicaciones, registros, despliegues, salud. Nunca cambia nada." },
+    inspect: { name: "Inspeccionar", description: "Solo lectura: aplicaciones, registros, despliegues, salud." },
     deploy: { name: "Desplegar", description: "Actualizar, volver atrás y copiar una aplicación, y cancelar un trabajo." },
     control: { name: "Controlar", description: "Reiniciar, arrancar y parar una aplicación, y renovar un certificado." },
     changed: "Se cambiaron los grupos que se ofrecen",
