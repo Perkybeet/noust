@@ -203,7 +203,7 @@ export function Patterns() {
               <Field label="Port" error="Use a port between 1024 and 65535.">
                 <Input mono defaultValue="80" />
               </Field>
-              <SaveBar changes={1} onDiscard={() => undefined} onSave={() => undefined} />
+              <SaveBar changes={1} onDiscard={() => undefined} onSave={() => undefined} guard={false} yieldPrimary={false} />
             </div>
           }
           notThis={

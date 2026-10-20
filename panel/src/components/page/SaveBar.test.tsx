@@ -185,6 +185,27 @@ describe("SaveBar", () => {
       });
     });
 
+    it("leaves the page's header alone when the form is not the page's own: a drawer's bar has its own primary", async () => {
+      function Drawerish() {
+        const [changes, setChanges] = useState(0);
+        return (
+          <main>
+            <PageHeader title="Settings" primaryAction={<Button variant="primary">Update</Button>} />
+            <button type="button" onClick={() => setChanges(1)}>
+              Edit a field
+            </button>
+            <SaveBar changes={changes} onDiscard={() => setChanges(0)} onSave={() => setChanges(0)} guard={false} yieldPrimary={false} />
+          </main>
+        );
+      }
+      await routed(<Drawerish />);
+      await userEvent.click(screen.getByRole("button", { name: "Edit a field" }));
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "Save" })).toHaveAttribute("data-variant", "primary");
+      });
+      expect(screen.getByRole("button", { name: "Update" })).toHaveAttribute("data-variant", "primary");
+    });
+
     it("keeps the header's primary while no bar holds changes, even with a bar on the page", async () => {
       await routed(<Form />);
       expect(screen.getByRole("button", { name: "Save" })).toHaveAttribute("data-variant", "secondary");

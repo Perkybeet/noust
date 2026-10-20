@@ -31,6 +31,12 @@ export interface SaveBarProps {
    * when it is closed.
    */
   guard?: boolean;
+  /**
+   * Makes the header's primary step aside while there are changes (FM-2). On unless the form is
+   * not the page's own: a dialog's or a drawer's has a primary of its own, and the page behind it
+   * keeps its.
+   */
+  yieldPrimary?: boolean;
   className?: string;
 }
 
@@ -42,10 +48,10 @@ export interface SaveBarProps {
  * (one primary per view). It also asks once before the page is left with changes: the guard
  * belongs to the bar, so no subsection writes its own.
  */
-export function SaveBar({ changes, onDiscard, onSave, form, saving = false, busy = false, saveLabel, secondary, guard = true, className }: SaveBarProps) {
+export function SaveBar({ changes, onDiscard, onSave, form, saving = false, busy = false, saveLabel, secondary, guard = true, yieldPrimary = true, className }: SaveBarProps) {
   const t = useT();
   const dirty = changes > 0;
-  useYieldPrimary(dirty);
+  useYieldPrimary(dirty && yieldPrimary);
   // A bar drawn alone (a unit test, the gallery) has no router to ask; in the console there always is.
   const routed = Boolean(useRouter({ warn: false }) as ReturnType<typeof useRouter> | null | undefined);
   return (
