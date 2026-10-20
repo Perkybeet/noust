@@ -3,6 +3,9 @@
 
 # Include essential files
 include LICENSE
+include LICENSE-APACHE-2.0
+include LICENSE-OFL-1.1
+include NOTICE
 include README.md
 include setup.py
 include pyproject.toml
