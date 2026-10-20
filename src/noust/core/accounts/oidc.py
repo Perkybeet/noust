@@ -763,7 +763,7 @@ class OidcManager:
             raise OidcError(
                 "no_client_secret",
                 "GitHub needs the application's client secret",
-                details="Set it: noust auth oidc set NAME --secret (the OAuth App's client secret).",
+                details="Set it: noust auth oidc set NAME --prompt-secret (the OAuth App's client secret).",
                 public="unavailable",
             )
         github = GithubLogin(self.client.http)
