@@ -97,6 +97,18 @@ def websocket_permissions(path: str) -> list[str] | None:
     return [own] if own is not None else None
 
 
+def node_stream_permission(inner: str) -> str | None:
+    """
+    Args:
+        inner: A stream of a server, from ``/ws`` on, such as ``/ws/events``.
+
+    Returns:
+        The permission it needs, or None for one this central does not know:
+        a team is held only to what the central can name.
+    """
+    return _own_permission(inner)
+
+
 def _own_permission(path: str) -> str | None:
     """
     Args:

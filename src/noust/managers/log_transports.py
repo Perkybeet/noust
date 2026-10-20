@@ -328,6 +328,65 @@ class AxiomTransport(HttpTransport):
         ]
 
 
+#: New Relic's Log API, by the region the account lives in.
+NEW_RELIC_ENDPOINTS = {
+    "us": "https://log-api.newrelic.com/log/v1",
+    "eu": "https://log-api.eu.newrelic.com/log/v1",
+}
+
+#: The longest message New Relic keeps whole.
+NEW_RELIC_MAX_MESSAGE = 4000
+
+
+class NewRelicTransport(HttpTransport):
+    """New Relic's Log API: a license key in ``Api-Key``, one block of common attributes."""
+
+    def __init__(
+        self,
+        *,
+        region: str,
+        secret: str | None,
+        labels: Mapping[str, str],
+        url: str | None = None,
+        opener: Any | None = None,
+    ) -> None:
+        """
+        Args:
+            region: ``us`` or ``eu``: where the account lives.
+            secret: The license key.
+            labels: Attributes added to every line.
+            url: An endpoint of its own (a regional or government one), instead of the region's.
+            opener: Opens a request; ``urllib.request.urlopen`` by default.
+        """
+        super().__init__(
+            url or NEW_RELIC_ENDPOINTS.get(region, NEW_RELIC_ENDPOINTS["us"]),
+            {"Api-Key": secret} if secret else {},
+            opener=opener,
+        )
+        self.labels = dict(labels)
+
+    def body(self, events: Sequence[LogEvent]) -> Any:
+        host = events[0].host if events else ""
+        return [
+            {
+                "common": {"attributes": {"service": "noust", "host": host, **self.labels}},
+                "logs": [
+                    {
+                        "timestamp": event.ts_ns // 1_000_000,
+                        "message": fit(event.message)[:NEW_RELIC_MAX_MESSAGE],
+                        "attributes": {
+                            "app": event.app,
+                            "process": event.process,
+                            "unit": event.unit,
+                            "level": event.level,
+                        },
+                    }
+                    for event in events
+                ],
+            }
+        ]
+
+
 class JsonTransport(HttpTransport):
     """Any endpoint that takes a JSON array of events: Fluent Bit's http input, Vector, Logstash."""
 

@@ -53,17 +53,19 @@ from starlette.websockets import WebSocketDisconnect
 from noust.core.exceptions import NodeError, NodeRefusedError
 from noust.core.sealing import SealError
 from noust.core.store import NodeRecord
+from noust.core.teams import ScopedStore
 from noust.fleet import expected as expected_outages
 from noust.fleet.client import load_httpx
 from noust.web.api import nodes as nodes_api
 from noust.web.api.deps import NoustErrorRoute, elevation_satisfied, ensure_elevated
 from noust.web.api.openapi import ELEVATION_EXTENSION
+from noust.web.api.scope import stream_refusal
 from noust.web.auth import (
     SAFE_METHODS,
     SCOPE_RANK,
     WS_CLOSE_FORBIDDEN,
     WS_CLOSE_UNAUTHORIZED,
-    WS_SUBPROTOCOL,
+    accepted_subprotocol,
     actor_label,
     credential_is_current,
     fleet_refusal,
@@ -74,6 +76,7 @@ from noust.web.auth import (
 from noust.web.events import CREDENTIAL_RECHECK_SECONDS, HEARTBEAT_SECONDS, shutting_down
 from noust.web.permissions.principal import permissions_of, scope_of
 from noust.web.permissions.roles import ROLE_PERMISSIONS, role_within
+from noust.web.permissions.team_roles import permissions_at
 from noust.web.versioning import API_PREFIX, canonical_api_path
 
 if TYPE_CHECKING:
@@ -212,7 +215,7 @@ def central_elevated(session: dict[str, Any]) -> bool:
     return elevation_satisfied(session)
 
 
-def forwarded_identity(session: dict[str, Any]) -> dict[str, Any]:
+def forwarded_identity(session: dict[str, Any], node: str | None = None) -> dict[str, Any]:
     """
     Say who a call to a node acts for, as every call from this central says it.
 
@@ -222,6 +225,11 @@ def forwarded_identity(session: dict[str, Any]) -> dict[str, Any]:
 
     Args:
         session: The central's authenticated payload.
+        node: The server the call is for. A member of a team reaches only a server
+            assigned to its team, and a node knows roles, not teams: it is named by
+            the widest role it holds every permission of *in that team*, so a team
+            operator is an operator there and a team viewer a viewer, whatever
+            its role on the central is.
 
     Returns:
         ``actor``, ``actor_scope``, ``actor_role`` and ``elevated``: the
@@ -239,6 +247,13 @@ def forwarded_identity(session: dict[str, Any]) -> dict[str, Any]:
     forwarded = (
         role_within(str(role), permissions_of(session)) if role in ROLE_PERMISSIONS else None
     )
+    member = scope_of(session)
+    if node is not None and member.restricted:
+        placed = ScopedStore(member).placement_of_node(node)
+        held = (
+            permissions_at(session, placed.team_id or None) if placed is not None else frozenset()
+        )
+        forwarded = role_within("admin", held)
     return {
         "actor": fleet_actor(actor_label(session)),
         "actor_scope": scope if scope in SCOPE_RANK else "read",
@@ -269,7 +284,7 @@ def open_upstream(node: NodeRecord, session: dict[str, Any], *, hold: bool = Fal
         SecretsLockedError: When this central is sealed and locked.
     """
     client = nodes_api.node_client(node)
-    headers = client.auth_headers(**forwarded_identity(session))
+    headers = client.auth_headers(**forwarded_identity(session, node.name))
     if not hold:
         return Upstream(base_url=client.base_url().rstrip("/"), headers=dict(headers))
     (host, port), release = client.tunnels.hold(node.name)
@@ -1282,7 +1297,7 @@ async def proxy_websocket(websocket: WebSocket, node: str, path: str) -> None:
     The handshake was authenticated by the central's middleware, like every
     WebSocket here. The node's is authenticated with the fleet token in the
     ``Authorization`` header, which the node's handshake accepts alongside
-    its cookie and its ``wasm.token.`` subprotocol; the browser's own
+    its cookie and its ``noust.token.`` subprotocol; the browser's own
     subprotocol is answered here and never forwarded.
 
     Args:
@@ -1295,14 +1310,6 @@ async def proxy_websocket(websocket: WebSocket, node: str, path: str) -> None:
     if not isinstance(session, dict):
         await websocket.close(code=WS_CLOSE_UNAUTHORIZED, reason="Authentication required")
         return
-    if scope_of(session).restricted:
-        # Nodes are the server's, and a team's scope does not travel to them: the
-        # node would take the central's token for an instance principal.
-        await _close_browser(
-            websocket, WS_CLOSE_FORBIDDEN, "A node's streams are for administrators of the server"
-        )
-        return
-
     try:
         target = node_path("/ws/", path)
         _refuse_path("GET", target)
@@ -1311,6 +1318,20 @@ async def proxy_websocket(websocket: WebSocket, node: str, path: str) -> None:
         reason = detail.get("detail", "") if isinstance(detail, dict) else str(detail)
         await _close_browser(websocket, WS_CLOSE_FORBIDDEN, str(reason))
         return
+
+    scope = scope_of(session)
+    if scope.restricted:
+        # The node takes the central's token for an instance principal, and a team's scope does
+        # not travel to it: a member opens a stream only of a server assigned to its team, and
+        # only one this central can name, held to the permission it needs in that team.
+        placed = ScopedStore(scope).placement_of_node(node)
+        if placed is None:
+            await _close_browser(websocket, WS_CLOSE_NODE_NOT_FOUND, f"Node not found: {node}")
+            return
+        refusal = stream_refusal(session, placed, target)
+        if refusal is not None:
+            await _close_browser(websocket, WS_CLOSE_FORBIDDEN, refusal)
+            return
 
     try:
         record, upstream = await _prepare(node, session, hold=True)
@@ -1387,8 +1408,7 @@ async def _relay_websocket(
         )
         return
 
-    offered = websocket.headers.get("sec-websocket-protocol", "")
-    await websocket.accept(subprotocol=WS_SUBPROTOCOL if WS_SUBPROTOCOL in offered else None)
+    await websocket.accept(subprotocol=accepted_subprotocol(websocket))
     _audit_stream(websocket, session, resource, "success")
     try:
         await _pump(websocket, connection, session)

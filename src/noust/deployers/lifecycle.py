@@ -4160,8 +4160,10 @@ class AppDeletion:
             Noust's apps directory and was kept for that reason (an adopted
             stack); None otherwise.
         kept: What was left in place on purpose (the operator's own site and
-            the servers files it includes), each with how to remove it. Not
-            failures: a deletion that kept them still succeeded.
+            the servers files it includes, a database it did not own), each with how
+            to remove it. Not failures: a deletion that kept them still succeeded.
+        databases_removed: The databases dropped with the application (``engine/name``).
+        database_dumps: The last dump taken of each before it was dropped.
     """
 
     domain: str
@@ -4173,6 +4175,71 @@ class AppDeletion:
     warnings: tuple[str, ...]
     kept_directory: str | None = None
     kept: tuple[str, ...] = ()
+    databases_removed: tuple[str, ...] = ()
+    database_dumps: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class DeletionDatabase:
+    """
+    A database an application's deletion has to decide about.
+
+    Attributes:
+        engine: The engine the database is on.
+        name: The database.
+        owned: Whether it belongs to this application (it was made for it, and its backups
+            include it) and so goes with it when the operator says so.
+        shared_with: The other applications that use it: a database one of them uses is never
+            dropped by deleting this application.
+    """
+
+    engine: str
+    name: str
+    owned: bool
+    shared_with: tuple[str, ...] = ()
+
+    @property
+    def will_drop(self) -> bool:
+        """Whether deleting the application with its databases drops this one."""
+        return self.owned and not self.shared_with
+
+
+def deletion_databases(domain: str, *, store: NoustStore | None = None) -> list[DeletionDatabase]:
+    """
+    List the databases deleting an application has to decide about.
+
+    What the confirmation shows before anything is asked, and what the deletion itself walks:
+    the ones the application owns, and the ones it merely uses. Only an owned database that no
+    other application uses is dropped, and only when the operator asks for it.
+
+    Args:
+        domain: The application's domain.
+        store: The store; the process-wide one when None.
+
+    Returns:
+        One entry per database, owned ones first; empty for an application that is not deployed.
+    """
+    from noust.managers.database.records import DatabaseRecords
+
+    target = store or get_store()
+    app = target.get_app(domain)
+    if app is None or app.id is None:
+        return []
+    records = DatabaseRecords(target)
+    owned = {(row.engine, row.name) for row in target.list_databases(app_id=app.id)}
+    linked = {(link.engine, link.db_name) for link in records.links(app_id=app.id)}
+    found: list[DeletionDatabase] = []
+    for engine, name in sorted(owned | linked, key=lambda pair: (pair not in owned, pair)):
+        others = sorted(
+            {
+                other.domain
+                for link in records.links(engine=engine, db_name=name)
+                if link.app_id != app.id
+                and (other := target.get_app_by_id(link.app_id)) is not None
+            }
+        )
+        found.append(DeletionDatabase(engine, name, (engine, name) in owned, tuple(others)))
+    return found
 
 
 def is_in_apps_directory(app_path: Path) -> bool:
@@ -4246,6 +4313,7 @@ def delete_app(
     remove_files: bool = True,
     remove_certificate: bool = True,
     remove_volumes: bool = False,
+    remove_databases: bool = False,
     remove_adopted_directory: str | None = None,
     on_phase: PhaseReporter | None = None,
     logger: Logger | None = None,
@@ -4266,8 +4334,12 @@ def delete_app(
         domain: The application's domain.
         remove_files: Also remove the application directory.
         remove_certificate: Also remove the domain's certificate.
-        remove_volumes: Also remove a Docker Compose stack's named volumes.
+        remove_volumes: Also remove a Docker Compose stack's named volumes (and a
+            container application's).
             Off unless asked for explicitly: they hold its databases.
+        remove_databases: Also drop the databases that belong to the application and that no
+            other application uses, each after a last dump. Off unless asked for explicitly;
+            a database it merely uses is never dropped.
         remove_adopted_directory: The application's directory, named by the
             operator, when it is outside Noust's apps directory (an adopted
             stack): only then is it removed with the files. Without it such a
@@ -4295,6 +4367,7 @@ def delete_app(
             remove_files=remove_files,
             remove_certificate=remove_certificate,
             remove_volumes=remove_volumes,
+            remove_databases=remove_databases,
             remove_adopted_directory=remove_adopted_directory,
             phase=on_phase or (lambda _index, _total, _message: None),
             log=log,
@@ -4324,6 +4397,7 @@ def _delete_app(
     remove_files: bool,
     remove_certificate: bool,
     remove_volumes: bool,
+    remove_databases: bool,
     remove_adopted_directory: str | None,
     phase: PhaseReporter,
     log: Logger,
@@ -4336,6 +4410,7 @@ def _delete_app(
         remove_files: Also remove the application directory.
         remove_certificate: Also remove the domain's certificate.
         remove_volumes: Also remove a Docker Compose stack's named volumes.
+        remove_databases: Also drop its own databases (see :func:`delete_app`).
         remove_adopted_directory: The directory named for removal when it is
             outside the apps directory (see :func:`delete_app`).
         phase: Reporter for the :data:`DELETE_PHASES` phases.
@@ -4412,6 +4487,12 @@ def _delete_app(
         except NoustError as exc:
             failed("Some of its previews were not removed", exc)
 
+    kept: list[str] = []
+    dropped: list[str] = []
+    dumps: list[str] = []
+    if app is not None and not is_rehearsal():
+        _decide_databases(domain, store, remove_databases, dropped, dumps, kept, failed, log)
+
     phase(2, DELETE_PHASES, "Removing its units")
     units = [s.name for s in store.list_services() if app is not None and s.app_id == app.id]
     if not units:
@@ -4468,7 +4549,6 @@ def _delete_app(
         delete_certificate=remove_certificate,
         keep_operator_sites=True,
     )
-    kept: list[str] = []
     for webserver in deletion.kept_operator:
         # The application goes; what the operator wrote by hand is theirs to
         # remove, and it may still serve something else or use the certificate.
@@ -4539,7 +4619,76 @@ def _delete_app(
         warnings=tuple(warnings),
         kept_directory=str(app_path) if keep_adopted and app_path.exists() else None,
         kept=tuple(kept),
+        databases_removed=tuple(dropped),
+        database_dumps=tuple(dumps),
     )
+
+
+def _decide_databases(
+    domain: str,
+    store: NoustStore,
+    remove_databases: bool,
+    dropped: list[str],
+    dumps: list[str],
+    kept: list[str],
+    failed: Callable[[str, BaseException], None],
+    log: Logger,
+) -> None:
+    """
+    Drop the databases that go with an application, and say what was left and why.
+
+    A database is dropped when it belongs to the application, no other application uses it and
+    the operator asked for it, after a last dump; everything else stays, and each is listed with
+    the command that would remove it.
+
+    Args:
+        domain: The application.
+        store: The store.
+        remove_databases: Whether the operator asked for the databases to go.
+        dropped: Receives ``engine/name`` of each database dropped.
+        dumps: Receives the last dump of each.
+        kept: Receives what was left in place, as a sentence.
+        failed: Reports a step that did not work, as the rest of the deletion does.
+        log: Where the details are reported.
+    """
+    from noust.managers.database.service import DatabaseService
+
+    service = DatabaseService(logger=log, store=store)
+    for database in deletion_databases(domain, store=store):
+        label = f"{database.engine}/{database.name}"
+        if database.shared_with:
+            kept.append(
+                f"The database {label} is also used by {', '.join(database.shared_with)}, so it "
+                "was kept."
+            )
+        elif not database.owned:
+            kept.append(
+                f"The database {label} is used by {domain} but does not belong to it, so it was "
+                f"kept. Drop it by hand if nothing needs it: noust db drop {database.name} "
+                f"--engine {database.engine}"
+            )
+        elif not remove_databases:
+            kept.append(
+                f"The database {label} belongs to {domain} and was kept. Drop it with: "
+                f"noust db drop {database.name} --engine {database.engine} (a last dump is "
+                f"taken first), or delete the application again with --remove-databases"
+            )
+        else:
+            try:
+                outcome = service.drop(
+                    database.engine, database.name, force=True, keep_backup=True, unlink=True
+                )
+            except NoustError as exc:
+                failed(f"The database {label} was not dropped", exc)
+                continue
+            dropped.append(label)
+            if outcome.safety_copy:
+                dumps.append(outcome.safety_copy)
+                log.substep(f"Dropped {label}; its last dump is {outcome.safety_copy}")
+            else:
+                log.substep(f"Dropped {label}")
+            continue
+        log.info(kept[-1])
 
 
 def _release_adopted(

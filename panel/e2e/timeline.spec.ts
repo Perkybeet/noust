@@ -53,10 +53,13 @@ test("an app chart investigates the dragged stretch: the busiest processes and w
 });
 
 test("a server chart investigates the window on screen, from every source", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/?window=1h");
+  // The seeded peak is forty minutes older than the server it was written for, so the last hour holds
+  // it only while the server is under twenty minutes old and a worker's server lives for the whole
+  // run; the last day holds it for as long as the suite can take.
+  await signIn(page, consoleServer, "/?window=24h");
   const machine = page.getByRole("region", { name: "Machine" });
   const cpu = machine.locator("figure").filter({ has: page.getByRole("heading", { name: "CPU", exact: true }) });
-  await expect(cpu.getByRole("img", { name: /^CPU, last hour/ })).toBeVisible();
+  await expect(cpu.getByRole("img", { name: /^CPU, last 24 hours/ })).toBeVisible();
   await cpu.getByRole("button", { name: "Expand CPU" }).click();
   const dialog = page.getByRole("dialog", { name: "CPU" });
   await dialog.getByRole("button", { name: "Investigate this stretch" }).click();
@@ -66,5 +69,5 @@ test("a server chart investigates the window on screen, from every source", asyn
   await expect(drawer.getByRole("table", { name: "The busiest process of each minute" })).toBeVisible();
   await expect(drawer.getByRole("search", { name: "Filter events" })).toBeVisible();
   await settle(page);
-  await expectNoA11yViolations(page, "the timeline of the server's last hour");
+  await expectNoA11yViolations(page, "the timeline of the server's last day");
 });

@@ -128,6 +128,18 @@ the upgrade (`apt-get -s`, `dnf` in test mode, `zypper --dry-run`) and whether a
 exists. A failed check stops the update with the tool's own words; a warning is shown and the update
 goes on. The same checks run when a central updates its servers.
 
+## What 4.0 wrote that an earlier release ignores
+
+- **Sealed channel secrets.** From 4.0 the credentials of the notification channels (a webhook URL, a
+  token, the signing secret, the headers) are kept in `/etc/noust/config.yaml` as `noust-channel:v1:`
+  values, sealed under `/etc/noust/secrets.key`. An earlier Noust reads them as the text they are, so
+  its channels would try to deliver to the sealed value and fail. Going back means opening them
+  first: keep the key with the file, and set the credentials again with the earlier release
+  (`noust config set notifications.channels.webhook.webhook_url ...`), or restore `config.yaml` from a
+  backup taken before the upgrade.
+- **`domains.enabled`** (schema v14) and the monitor's tables: the older release ignores the columns,
+  and a name that was switched off is served again by it.
+
 ## What an upgrade guide says about it
 
 Each minor's upgrade guide has a "Rolling back" section that is specific to what that release

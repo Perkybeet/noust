@@ -9,7 +9,7 @@ read-only - computed from what the engine says they can do. Read-only is the
 engine's own ``SELECT``-only grant on that database, never PostgreSQL's
 ``pg_read_all_data``, which reads every database in the cluster.
 
-The engine's own accounts and the read-only console's ``wasm_ro_`` accounts
+The engine's own accounts and the read-only console's ``noust_ro_`` accounts
 are listed and marked ``internal``; the service refuses to change them,
 whatever the request says.
 

@@ -88,6 +88,7 @@ def metrics_command(ctx: Context) -> None:
                     "bytes_s": "a rate: 2MB/s",
                     "number": "a number",
                     "per_min": "a count per minute",
+                    "ms": "a time: 500ms, 2s",
                 }[m.unit],
             ]
             for m in METRICS.values()

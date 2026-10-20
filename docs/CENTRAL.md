@@ -598,6 +598,7 @@ application ever will. The central can have **one server build it and the others
 noust fleet builder set shop.example.com build-1      # which server builds it (the central's note)
 noust fleet placement ship shop.example.com --plan    # the plan: who goes first, what is skipped
 noust fleet placement ship shop.example.com           # build once on build-1, run it on every member
+noust fleet placement rollout shop.example.com        # the same: an update follows the build server
 noust fleet placement ship shop.example.com --commit 3f9c2ab --to web-2 --serial 2
 noust fleet builder list
 noust fleet builder clear shop.example.com            # back to building where it runs
@@ -629,8 +630,17 @@ items of an application in Fleet > On several servers; in the API, `POST
   the schema needs `--schema-changed-ok` on the server that would refuse it, because Noust puts code
   back, never a database.
 - **The builder is not one of the servers it ships to.** A server that builds and runs the application
-  updates the ordinary way; ship to the others. A rollout of a placement whose application has a recorded
-  builder says so in its plan, and builds on each server as it always did.
+  updates the ordinary way; ship to the others.
+- **An update follows the builder.** Recording a build server is saying where the application is
+  compiled, so `noust fleet placement rollout` (and `POST /api/fleet/placements/{domain}/rollout`, and
+  the console's **Roll out**) builds there once and sends the release, exactly as `ship` does; the plan's
+  action says `placement_ship`. It does not when the build server cannot build that kind of update, and
+  then the plan names the reason and each server builds as it always did: a registry image tag
+  (`--image-tag`: the servers pull it, nothing is built), a git tag (`--tag`: the build server builds a
+  commit, so give `--commit`), or a build server that is itself one of the placement's servers.
+  `--build-on-each` (`build_on_each` over the API) builds on every server although one is recorded.
+  Nothing falls back silently: a build server that lacks the application, or is not on the release
+  layout, makes the update refuse before anything is built, with the command that puts it right.
 - **Every step is the server's own API call, as the same operator**, so each server's ceiling and
   permissions apply (`apps.deploy`; a `read` server is skipped with the reason), a server older than this
   is skipped as `unsupported`, and the builder is judged by the same rule before anything is built.
@@ -641,6 +651,54 @@ enrolled over the real SSH tunnels and the restricted key; the central ships a b
 target serves says which machine built it while the target's own repository cache never fetched the
 commit, an update whose application does not start is refused behind the target's health gate with what
 served still serving, and the target goes back to its previous release with one command.
+
+## Moving a database to another server
+
+A database can be moved from one server of the fleet to another in one step, from the central:
+
+```bash
+noust db transfer shop_db --from db-1 --to db-2 --plan       # what it would do, nothing else
+noust db transfer shop_db --from db-1 --to db-2              # asks, then does it
+noust db transfer shop_db -e postgresql@pg17 --from db-1 --to db-2 --to-engine postgresql@pg17 --as shop_copy
+noust db transfer shop_db --from db-1 --to db-2 --accounts   # and the accounts that had access to it
+noust db transfer shop_db --from db-1 --to db-2 --drop-source --replace
+```
+
+In the API it is `POST /api/fleet/databases/transfer` (see [api.md](api.md)), and any client of `POST
+/api/fleet/actions` can name the action `database_transfer`. Moving a database between engines of one
+server is `noust db move` ([databases.md](databases.md#moving-a-database-or-an-engine-to-a-newer-version)).
+
+- **The source dumps, the target loads, the central only carries.** The source takes the dump with its own
+  backups (checked and hashed there), the central reads it by ranges and writes it to the target as an upload
+  that resumes from where it stopped, through the two tunnels, a chunk at a time, and the target loads it with
+  its own import. Nothing of it is written on the central. The SHA-256 the source reports is declared when the
+  upload starts and checked when it completes. A dump made for the move is removed from the source when it
+  ends, whatever the outcome. The carrying is the same code as a release shipped from a build server.
+- **It loads as the database's owner, never as the superuser.** It is the import any dump from elsewhere gets
+  on the target (`noust db import`): a dump cannot run programs on the server as root because it came from the
+  fleet. `--as-superuser` stays a decision an operator takes on the target, not one the central takes for them.
+- **The accounts follow when asked (`--accounts`).** Those with access to the database on the source are made
+  on the target with the password the source holds for each and the profile they had, after the data; one the
+  source holds no password for is made with a new one the target keeps, and shows with sudo mode (the account's page
+  there, or `POST /api/databases/users/{engine}/{username}/password/reveal`).
+  The passwords pass through the central in memory and are kept nowhere: not in a log, not in the job's result,
+  not in an audit event. The account that owns the database on the source is made first and the target makes the database with it (PostgreSQL), so what the dump holds belongs to the account it belonged to and the other profiles are set against it. The engine's own accounts and those the target already has are left as they are. An
+  account that cannot be made fails the server after the others were tried, with the target's words; the data is
+  there by then, and the source is not dropped on the strength of half a move.
+- **The source keeps the database** unless `--drop-source` is given, and then the source itself drops it, after
+  a last dump kept there, and refuses while an application uses it (the move still counts: the database is on
+  the target, and the record says the source kept it). The copy is the database at the moment of the dump:
+  writes after it are not carried, so stop what writes first when that matters. The applications that use it are
+  not pointed at the new server: that is a decision about a network, not about a database.
+- **It is checked before anything is dumped:** the source holds the database and offers what moving needs, the
+  engine runs on both, the target is not older than the source (a dump of a newer server does not load into an
+  older one), it does not hold a database by that name (unless `--replace`, which takes a safety copy of it on
+  the target first), and the database is of an engine whose databases travel as a dump (PostgreSQL, MySQL,
+  MariaDB, MongoDB; a Redis snapshot is the whole instance). A source whose ceiling does not let this central
+  dump and read its dumps (`admin`) is refused with the reason.
+- **Every step is the server's own API call, as the same operator**, so each server's ceiling and permissions
+  apply, sudo mode is asked once for the job (the target's import marks it), and a server older than this is
+  skipped as `unsupported` like any bulk action.
 
 ## A fleet on different versions
 
@@ -675,15 +733,17 @@ own API and holds no shell and no copy of what they run.
   A mesh between servers, service discovery across machines and moving a running workload by itself
   are not part of it; a private network between your servers is yours to provide (a bastion in front
   of a server is [supported](#a-server-behind-a-bastion)).
-- **It does not build on a separate server.** Builds run on the server that serves the application, as an
-  unprivileged account in a sandbox, so the build and the run see the same machine and nothing has to
-  move between them. A dedicated build server with a registry between it and the rest is the shape
-  other platforms need because their builds are images; for an application that already ships an
-  image, **build it once and roll the tag out** (`noust fleet placement rollout --image-tag`): your CI
-  builds and pushes, and every server pulls the same tag. Noust does not run the registry. The
-  per-server side of building (how many builds at once, how many may wait, how long one may take) is
-  each server's own: `deploy.max_concurrent_builds`, `deploy.queue_limit` and `deploy.max_minutes`
-  (**Settings > General**, [CONFIG.md](CONFIG.md)).
+- **It does not run a registry between a build server and the rest.** By default builds run on the server
+  that serves the application, as an unprivileged account in a sandbox, so the build and the run see
+  the same machine. A dedicated build server is optional
+  ([building on one server and running on others](#building-on-one-server-and-running-on-others)): the
+  release it builds travels to the servers as a bundle checked against its SHA-256, through the tunnels, not as an
+  image through a registry, which is the shape other platforms need because their builds are images.
+  For an application that already ships an image, **build it once and roll the tag out** (`noust fleet
+  placement rollout --image-tag`): your CI builds and pushes, and every server pulls the same tag. Noust
+  does not run the registry. The per-server side of building (how many builds at once, how many may
+  wait, how long one may take) is each server's own: `deploy.max_concurrent_builds`,
+  `deploy.queue_limit` and `deploy.max_minutes` (**Settings > General**, [CONFIG.md](CONFIG.md)).
 - **It does not run your CI.** A runner executes code from a repository you may not control, with
   network and often the container socket, on a machine that also serves production. Noust keeps that
   out of the fleet: your CI runs where you trust it and calls Noust to deploy ([ci.md](ci.md)) with a
@@ -714,6 +774,19 @@ noust node rekey vps1 --join-code -   # on the central: paste the new code
 The central switches to the new key and token only once `vps1` answers with them; otherwise
 it keeps the old ones and the same code can be pasted again. Running `noust node rekey vps1`
 again before finishing prints the same command.
+
+The same two steps are an API, and the console's **Fleet > Servers** menu uses them (**Rotate its key**):
+
+```
+POST /api/nodes/vps1/rekey   {}                          # step 1: {"step": "authorize", "authorize_command": "..."}
+POST /api/nodes/vps1/rekey   {"join_code": "<the code>"}  # step 2: {"step": "done", "node": {...}}
+```
+
+Both need `fleet.manage`, sudo mode and, when approvals are on, a second person; they are the instance's,
+never a team's, because they decide who can reach the machine as root. The join code carries the server's
+token, so it is left out of the approval's fingerprint and of the audit trail, which records
+`fleet.node.rekey` with the account and address the server is now reached as, or as a failure with the
+reason. `POST /api/nodes/vps1/migrate-tunnel` is the same for the move below (`fleet.node.migrate`).
 
 ## Moving a server to another central
 

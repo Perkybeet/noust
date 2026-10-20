@@ -29,7 +29,7 @@ from noust.core.runner import FakeRunner
 from noust.core.store import App, NoustStore
 from noust.core.stream_store import CLOSING, OPEN, OPENING, StreamExposure, StreamStore
 from noust.core.teams.model import ResourceNotFoundError
-from noust.managers import stream_exposure as stream_module
+from noust.managers import port_claims as port_claims_module
 from noust.managers.server.security_firewall import DirectChange, RuleRequest
 from noust.managers.stream_exposure import (
     LOADER_NAME,
@@ -60,6 +60,8 @@ STREAM_MODULE = """
 # configuration file /etc/nginx/modules-enabled/50-mod-stream.conf:
 load_module modules/ngx_stream_module.so;
 """
+
+pytestmark = pytest.mark.real_listeners
 
 
 def dump(*, module: bool = True, extra: str = "", conf: str = NGINX_CONF) -> str:
@@ -94,7 +96,9 @@ class FakeFirewall:
 @pytest.fixture(autouse=True)
 def config(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        stream_module, "Config", lambda: SimpleNamespace(get=lambda key, default=None: default)
+        port_claims_module,
+        "Config",
+        lambda: SimpleNamespace(get=lambda key, default=None: default),
     )
 
 

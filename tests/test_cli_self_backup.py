@@ -402,6 +402,73 @@ class TestRestoreServer:
         assert seen["skip_state"] is True and seen["force"] is True
         assert seen["accept_schema_changes"] is True and seen["passphrase"] == PASSPHRASE
 
+    def test_install_and_the_databases_choice_reach_the_flow(
+        self, old: Server, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        seen: dict[str, Any] = {}
+
+        def run(self: RestoreServer, bundle: str, passphrase: str, **kwargs: Any) -> Any:
+            seen.update(kwargs)
+            return ServerRestoreReport()
+
+        monkeypatch.setattr(RestoreServer, "run", run)
+
+        invoke("restore-server", "--from", "b", "--yes")
+        assert seen["install"] is False and seen["databases"] is True
+
+        invoke("restore-server", "--from", "b", "--yes", "--install", "--no-databases")
+        assert seen["install"] is True and seen["databases"] is False
+
+    def test_the_report_says_what_was_installed_what_failed_and_what_became_of_each_database(
+        self, old: Server, monkeypatch: pytest.MonkeyPatch, logged: io.StringIO
+    ) -> None:
+        from noust.managers.restore_databases import DatabaseOutcome
+
+        report = ServerRestoreReport(
+            requirements=[
+                {"name": "nginx", "state": "installed", "detail": "", "command": ""},
+                {"name": "docker", "state": "failed", "detail": "no repository", "command": ""},
+                {
+                    "name": "apache",
+                    "state": "missing",
+                    "detail": "",
+                    "command": "apt-get install -y apache2",
+                },
+            ],
+            roles=[
+                {
+                    "engine": "postgresql",
+                    "state": "created",
+                    "created": ["shopper"],
+                    "present": [],
+                    "detail": "",
+                },
+                {
+                    "engine": "mysql",
+                    "state": "waiting",
+                    "created": [],
+                    "present": [],
+                    "detail": "not installed yet",
+                },
+            ],
+            databases=[
+                DatabaseOutcome("postgresql", "shared", "restored", source="nas", dump="s.dump"),
+                DatabaseOutcome("postgresql", "lost", "no_dump", error="No dump of it was found"),
+            ],
+        )
+        monkeypatch.setattr(RestoreServer, "run", lambda self, *a, **k: report)
+
+        result = invoke("restore-server", "--from", "x", "--yes")
+
+        text = result.output + logged.getvalue()
+        assert "nginx was installed" in text
+        assert "docker could not be installed: no repository" in text
+        assert "apt-get install -y apache2" in text and "--install" in text
+        assert "created shopper" in text
+        assert "postgresql/shared" in text and "back from nas: s.dump" in text
+        assert "NO DUMP" in text and "No dump of it was found" in text
+        assert result.exit_code == 1
+
     def test_the_bundle_is_given_one_way_or_the_other_not_both_nor_neither(
         self, old: Server, logged: io.StringIO
     ) -> None:

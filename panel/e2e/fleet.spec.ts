@@ -561,49 +561,73 @@ function foreignJoinCode(): string {
 // A fleet of three: one node answers, one is down, one runs an older Noust. The central's
 // views answer for every server, partially, never blank.
 
-test("a node that is down and one on an older Noust: the views answer partially, in the servers' own words", async ({ page, problems }) => {
-  const [up, down, older] = await Promise.all([
-    startConsoleServer([], { env: { NOUST_E2E_FLEET_APP: NODE_APP } }),
-    startConsoleServer([]),
-    startConsoleServer([], { env: { NOUST_E2E_OLDER_NODE: "3.0.0" } }),
-  ]);
-  const central = await startConsoleServer([
-    "--totp",
-    "--backup-codes",
-    "500",
-    "--fleet-node",
-    `web-2=127.0.0.1:${portOf(up)}`,
-    "--fleet-node",
-    `db-1=127.0.0.1:${portOf(down)}`,
-    "--fleet-node",
-    `old-1=127.0.0.1:${portOf(older)}`,
-  ]);
-  try {
-    problems.expect(/status of 50\d .*\/api\/nodes\/db-1\//);
-    problems.expect(/status of 404 .*\/api\/nodes\/old-1\//);
-    await down.stop();
-    await signInAt(page, central, "/fleet");
-    await expect(page.getByText("2 of 4 servers did not answer fully")).toBeVisible({ timeout: 20_000 });
-    const notice = page.getByRole("list", { name: "Servers that did not answer fully" });
-    await expect(notice.getByText("db-1", { exact: true })).toBeVisible();
-    await expect(notice.getByText("old-1", { exact: true })).toBeVisible();
-    await expect(notice.getByText("Older Noust", { exact: true })).toBeVisible();
-    await settle(page);
-    await expectNoA11yViolations(page, "a partial fleet's summary");
+interface PartialFleet {
+  central: RunningServer;
+}
 
-    await page.getByRole("navigation", { name: "Fleet views" }).getByRole("link", { name: "Applications" }).click();
-    // web-2 answered: its application is there, even though db-1 did not. Four servers' worth
-    // is more than one page of the list, so it is looked for as an operator would.
-    await page.getByRole("searchbox", { name: "Search applications" }).fill(NODE_APP);
-    await expect(page.getByRole("region", { name: "Applications on every server" }).getByRole("link", { name: NODE_APP, exact: true })).toBeVisible();
+/**
+ * A central with three nodes, booted for one test: one answers (and has an application of its
+ * own), one is stopped before the test begins (its address is the one the central keeps dialling),
+ * and one runs an older Noust. Booting four backends is what takes the time, and how long it takes
+ * depends on how many other workers are booting too, not on anything the test asserts, so it has a
+ * budget of its own instead of eating the test's: the same reason the shared pair above is a
+ * worker fixture with a longer timeout. Torn down with the page closed first, because an
+ * authenticated page keeps an /events stream and polls its session, and stopping the backend under
+ * it would fail those as console errors the "problems" fixture is still watching, wrongly.
+ */
+const withPartialFleet = test.extend<{ partialFleet: PartialFleet }>({
+  partialFleet: [
+    async ({ page }, use) => {
+      const [up, down, older] = await Promise.all([
+        startConsoleServer([], { env: { NOUST_E2E_FLEET_APP: NODE_APP } }),
+        startConsoleServer([]),
+        startConsoleServer([], { env: { NOUST_E2E_OLDER_NODE: "3.0.0" } }),
+      ]);
+      const central = await startConsoleServer([
+        "--totp",
+        "--backup-codes",
+        "500",
+        "--fleet-node",
+        `web-2=127.0.0.1:${portOf(up)}`,
+        "--fleet-node",
+        `db-1=127.0.0.1:${portOf(down)}`,
+        "--fleet-node",
+        `old-1=127.0.0.1:${portOf(older)}`,
+      ]);
+      try {
+        await down.stop();
+        await use({ central });
+      } finally {
+        await page.close();
+        await Promise.all([up.stop(), down.stop(), older.stop(), central.stop()]);
+      }
+    },
+    { timeout: 180_000 },
+  ],
+});
 
-    await page.getByRole("navigation", { name: "Fleet views" }).getByRole("link", { name: "Updates" }).click();
-    const updates = page.getByRole("region", { name: "Noust and system updates of every server" });
-    await expect(updates.getByRole("row").filter({ hasText: "old-1" })).toContainText("3.0.0");
-    await settle(page);
-    await expectNoA11yViolations(page, "a partial fleet's updates");
-  } finally {
-    await page.close();
-    await Promise.all([up.stop(), down.stop(), older.stop(), central.stop()]);
-  }
+withPartialFleet("a node that is down and one on an older Noust: the views answer partially, in the servers' own words", async ({ page, problems, partialFleet }) => {
+  const { central } = partialFleet;
+  problems.expect(/status of 50\d .*\/api\/nodes\/db-1\//);
+  problems.expect(/status of 404 .*\/api\/nodes\/old-1\//);
+  await signInAt(page, central, "/fleet");
+  await expect(page.getByText("2 of 4 servers did not answer fully")).toBeVisible({ timeout: 20_000 });
+  const notice = page.getByRole("list", { name: "Servers that did not answer fully" });
+  await expect(notice.getByText("db-1", { exact: true })).toBeVisible();
+  await expect(notice.getByText("old-1", { exact: true })).toBeVisible();
+  await expect(notice.getByText("Older Noust", { exact: true })).toBeVisible();
+  await settle(page);
+  await expectNoA11yViolations(page, "a partial fleet's summary");
+
+  await page.getByRole("navigation", { name: "Fleet views" }).getByRole("link", { name: "Applications" }).click();
+  // web-2 answered: its application is there, even though db-1 did not. Four servers' worth
+  // is more than one page of the list, so it is looked for as an operator would.
+  await page.getByRole("searchbox", { name: "Search applications" }).fill(NODE_APP);
+  await expect(page.getByRole("region", { name: "Applications on every server" }).getByRole("link", { name: NODE_APP, exact: true })).toBeVisible();
+
+  await page.getByRole("navigation", { name: "Fleet views" }).getByRole("link", { name: "Updates" }).click();
+  const updates = page.getByRole("region", { name: "Noust and system updates of every server" });
+  await expect(updates.getByRole("row").filter({ hasText: "old-1" })).toContainText("3.0.0");
+  await settle(page);
+  await expectNoA11yViolations(page, "a partial fleet's updates");
 });

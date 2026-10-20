@@ -230,8 +230,8 @@ class RcloneRunner(FakeRunner):
     """
     A fake runner that answers rclone out of a directory tree.
 
-    A remote reference such as ``nas:wasm-backups/databases/postgresql/shop``
-    is the directory ``<root>/nas/wasm-backups/databases/postgresql/shop``.
+    A remote reference such as ``nas:noust-backups/databases/postgresql/shop``
+    is the directory ``<root>/nas/noust-backups/databases/postgresql/shop``.
     Every other command behaves as :class:`FakeRunner` does, so a test scripts
     the engine's tools and leaves rclone to this.
 

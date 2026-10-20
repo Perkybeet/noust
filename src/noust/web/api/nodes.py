@@ -10,6 +10,11 @@ authorize. Registering and removing are destructive for the fleet and ask for
 sudo mode; the key is readable by an ``admin`` credential only, because the
 command that comes with it is what enrolls a server.
 
+A server can be assigned to a team (``PUT /{node}/team``): the team's members then
+list it, read it and test it, and work on it through the proxy
+(:mod:`noust.web.api.node_proxy`), and every other principal reads it as absent.
+Which servers a principal sees is the scoped store's answer, here and in the proxy.
+
 The fleet modules are imported where they are used, not at the top: the
 panel of a server that is only ever a node never opens a tunnel, and an
 import error in the fleet must not take the whole API down with it.
@@ -24,6 +29,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from noust.core.exceptions import NodeError
+from noust.core.teams import scoped_store
+from noust.core.teams.nodes import NodeAssignments
 from noust.web.api.deps import NoustErrorRoute, require_elevated, require_scope
 from noust.web.auth import actor_label, get_audit_logger, get_client_ip, require_auth
 from noust.web.pydantic_compat import field_validator
@@ -95,6 +102,10 @@ def find_node(name: str) -> NodeRecord:
     """
     Look a node up by name, or answer 404.
 
+    A node the principal does not see is answered as one that is not registered
+    (rule 4 of the teams): this is the one place a node is found for a request,
+    so a handler cannot forget to ask whose it is.
+
     Args:
         name: The node's name.
 
@@ -102,10 +113,10 @@ def find_node(name: str) -> NodeRecord:
         The node.
 
     Raises:
-        HTTPException: 404 when no node has that name, or the name could not
-            be one.
+        HTTPException: 404 when no node has that name, the name could not
+            be one, or the principal does not see it.
     """
-    if not _NODE_NAME.fullmatch(name):
+    if not _NODE_NAME.fullmatch(name) or not scoped_store().sees_node(name):
         raise HTTPException(status_code=404, detail=f"Node not found: {name}")
     try:
         return node_manager().get(name)
@@ -180,6 +191,8 @@ class NodeResponse(BaseModel):
         monitoring: How long it has been silent and whether its monitoring is
             paused; None when it answers and is watched as usual.
         link: Set for a server that dials in (no SSH address to reach it at).
+        team: The slug of the team the server is assigned to; null for the instance's.
+        labels: The labels the server carries (``PUT /api/fleet/servers/{node}/labels``).
     """
 
     name: str
@@ -196,6 +209,8 @@ class NodeResponse(BaseModel):
     tunnel: dict[str, Any] = Field(default_factory=dict)
     monitoring: NodeMonitoring | None = None
     link: NodeLink | None = None
+    team: str | None = None
+    labels: dict[str, str] = Field(default_factory=dict)
 
 
 class MonitoringRequest(BaseModel):
@@ -392,17 +407,56 @@ class NodeKeyResponse(BaseModel):
     authorize_command: str
 
 
-def describe(node: NodeRecord) -> NodeResponse:
+class NodeRotationRequest(BaseModel):
+    """
+    Body of ``POST /api/nodes/{node}/rekey`` and ``POST /api/nodes/{node}/migrate-tunnel``.
+
+    Attributes:
+        join_code: What ``noust fleet authorize`` printed on the node for the command the
+            first step gave. Omitted, the call is the first step and changes nothing there.
+    """
+
+    join_code: str | None = Field(default=None, min_length=1, max_length=8192)
+
+
+class NodeRotationResponse(BaseModel):
+    """
+    Response of either step of a rotation.
+
+    Attributes:
+        name: The node.
+        step: ``authorize`` while the command is still to be run on the node, ``done`` once
+            this central reaches it with the new key or account.
+        authorize_command: The command to run on the node, as root, in the first step.
+        node: The node as it is reached afterwards, in the second.
+    """
+
+    name: str
+    step: str
+    authorize_command: str | None = None
+    node: NodeResponse | None = None
+
+
+def describe(
+    node: NodeRecord,
+    teams: dict[str, str] | None = None,
+    labels: dict[str, dict[str, str]] | None = None,
+) -> NodeResponse:
     """
     Render a node with its tunnel's state.
 
     Args:
         node: The node.
+        teams: Node name to the slug of its team, read once for a whole list; read
+            for this node alone when omitted.
+        labels: Node name to its labels, read once for a whole list; read for this node
+            alone when omitted.
 
     Returns:
         The API representation.
     """
     from noust.fleet.aggregate import monitoring_of
+    from noust.fleet.labels import NodeLabels
     from noust.fleet.link.records import LinkRecords
 
     fields = node.to_dict()
@@ -423,6 +477,16 @@ def describe(node: NodeRecord) -> NodeResponse:
         )
         if link is not None
         else None,
+        team=(
+            teams.get(node.name)
+            if teams is not None
+            else NodeAssignments(node_store()).team_of(node.name)
+        ),
+        labels=(
+            labels.get(node.name, {})
+            if labels is not None
+            else NodeLabels(node_store()).of(node.name)
+        ),
     )
 
 
@@ -432,6 +496,7 @@ def _audit(
     action: str,
     node: str,
     detail: str | None = None,
+    result: str = "ok",
 ) -> None:
     """
     Record a fleet action with its node.
@@ -442,13 +507,14 @@ def _audit(
         action: What was done, such as ``fleet.node.add``.
         node: The node it was done to.
         detail: Extra context. Never a credential.
+        result: ``ok``, or ``failure`` for an attempt that changed nothing.
     """
     audit = get_audit_logger()
     if audit is None:
         return
     audit.record(
         action=action,
-        result="ok",
+        result=result,
         client_ip=get_client_ip(request),
         actor=actor_label(session),
         resource=f"node:{node}",
@@ -459,7 +525,9 @@ def _audit(
 @router.get("", response_model=NodeListResponse)
 def list_nodes(session: Annotated[dict[str, Any], Depends(require_auth)]) -> NodeListResponse:
     """
-    List every node with its status and its tunnel's.
+    List the nodes the caller sees with their status and their tunnel's.
+
+    The instance sees every server; a member of a team sees those assigned to it.
 
     Args:
         session: The authenticated session.
@@ -467,7 +535,19 @@ def list_nodes(session: Annotated[dict[str, Any], Depends(require_auth)]) -> Nod
     Returns:
         The nodes.
     """
-    return NodeListResponse(items=[describe(node) for node in node_manager().list()])
+    from noust.fleet.labels import NodeLabels
+
+    scoped = scoped_store()
+    visible = None if scoped.scope.sees_all else {node.name for node in scoped.list_nodes()}
+    teams = {row.node: row.team for row in NodeAssignments(node_store()).list()}
+    labels = NodeLabels(node_store()).all()
+    return NodeListResponse(
+        items=[
+            describe(node, teams, labels)
+            for node in node_manager().list()
+            if visible is None or node.name in visible
+        ]
+    )
 
 
 @router.post("", response_model=NodeResponse, status_code=201)
@@ -773,6 +853,170 @@ def test_node(
     result = dict(node_manager().test(record.name))
     _audit(request, session, "fleet.node.test", record.name)
     return result
+
+
+class NodeTeamRequest(BaseModel):
+    """
+    Body of ``PUT /api/nodes/{node}/team``.
+
+    Attributes:
+        team: The slug of the team to give the server to; null gives it back to
+            the instance.
+    """
+
+    team: str | None = Field(default=None, max_length=64)
+
+
+@router.put("/{node}/team", response_model=NodeResponse)
+def set_node_team(
+    node: str,
+    body: NodeTeamRequest,
+    request: Request,
+    session: Annotated[dict[str, Any], Depends(require_elevated)],
+) -> NodeResponse:
+    """
+    Assign a server to a team, or give it back to the instance.
+
+    The team's members then see the server and work on it through this central,
+    within what their roles hold in the team and never on anything that is about
+    the machine. Moving a server to another team takes it from the first at once.
+
+    Args:
+        node: The node's name.
+        body: The team's slug, or null.
+        request: The incoming request, for the audit record.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The node, with its team.
+
+    Raises:
+        TeamNotFoundError: 404 when the team does not exist.
+    """
+    record = find_node(node)
+    assignments = NodeAssignments(node_store())
+    if body.team is None:
+        assignments.unassign(record.name)
+    else:
+        assignments.assign(record.name, body.team, actor=actor_label(session))
+    _audit(request, session, "fleet.node.team", record.name, detail=f"team {body.team or 'none'}")
+    return describe(record)
+
+
+def _rotate(
+    node: str,
+    body: NodeRotationRequest,
+    request: Request,
+    session: dict[str, Any],
+    *,
+    what: str,
+) -> NodeRotationResponse:
+    """
+    Run either step of a key rotation or of the move to the tunnel account.
+
+    The same two steps as ``noust node rekey`` and ``noust node migrate-tunnel``, on the
+    same registry: the first prepares the command to run on the node, the second switches
+    to what the node printed once it answers. Only the second changes anything, so only it
+    is audited, and the join code, which carries the node's token, goes no further than the
+    manager.
+
+    Args:
+        node: The node's name.
+        body: The join code, or nothing for the first step.
+        request: The incoming request, for the audit record.
+        session: The authenticated, elevated session.
+        what: ``rekey`` or ``migrate``.
+
+    Returns:
+        The command to run, or the node as it is reached now.
+
+    Raises:
+        NodeError: 400 when the code is for another key or server, or still names root;
+            502 when the node does not answer (everything is put back first).
+    """
+    record = find_node(node)
+    manager = node_manager()
+    if body.join_code is None:
+        command = (
+            manager.rekey_command(record.name)
+            if what == "rekey"
+            else manager.migrate_tunnel_command(record.name)
+        )
+        return NodeRotationResponse(name=record.name, step="authorize", authorize_command=command)
+    action = f"fleet.node.{what}"
+    actor = actor_label(session)
+    try:
+        updated = (
+            manager.rekey(record.name, join_code=body.join_code, actor=actor)
+            if what == "rekey"
+            else manager.migrate_tunnel(record.name, join_code=body.join_code, actor=actor)
+        )
+    except NodeError as exc:
+        _audit(request, session, action, record.name, detail=exc.message, result="failure")
+        raise
+    _audit(
+        request,
+        session,
+        action,
+        record.name,
+        detail=f"{updated.ssh_user}@{updated.ssh_host}:{updated.ssh_port}",
+    )
+    return NodeRotationResponse(name=record.name, step="done", node=describe(updated))
+
+
+@router.post("/{node}/rekey", response_model=NodeRotationResponse)
+def rekey_node(
+    node: str,
+    body: NodeRotationRequest,
+    request: Request,
+    session: Annotated[dict[str, Any], Depends(require_elevated)],
+) -> NodeRotationResponse:
+    """
+    Give a server a new key, in two steps.
+
+    Without a join code, a new key pair is generated (once: asking again gives the same)
+    and the command that authorizes it is returned, to run on the server as root; that
+    also removes the old key there. With the join code it printed, this central switches
+    to the new key once the server answers with it and the new token; otherwise nothing
+    changes here and the same code can be sent again.
+
+    Args:
+        node: The node's name.
+        body: The join code, or nothing for the first step.
+        request: The incoming request, for the audit record.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The command to run, or the node reached with its new key.
+    """
+    return _rotate(node, body, request, session, what="rekey")
+
+
+@router.post("/{node}/migrate-tunnel", response_model=NodeRotationResponse)
+def migrate_node_tunnel(
+    node: str,
+    body: NodeRotationRequest,
+    request: Request,
+    session: Annotated[dict[str, Any], Depends(require_elevated)],
+) -> NodeRotationResponse:
+    """
+    Move a server a 3.0 central authorized as root onto the unprivileged tunnel account.
+
+    Without a join code, the command to run on the server as root is returned: it creates
+    the restricted account, installs this central's key for it and takes that key out of
+    root's authorized_keys. With the code it printed, this central switches to it once the
+    server answers; otherwise nothing changes here and the same code can be sent again.
+
+    Args:
+        node: The node's name.
+        body: The join code, or nothing for the first step.
+        request: The incoming request, for the audit record.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The command to run, or the node reached as the tunnel account.
+    """
+    return _rotate(node, body, request, session, what="migrate")
 
 
 @router.get("/{node}/key", response_model=NodeKeyResponse)

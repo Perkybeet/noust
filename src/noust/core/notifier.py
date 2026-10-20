@@ -655,7 +655,9 @@ _post = post
 _json_request = json_request
 
 
-def _webhook_request(url: str, notification: Notification, secret: str = "") -> Request:
+def _webhook_request(
+    url: str, notification: Notification, secret: str = "", extra_headers: str = ""
+) -> Request:
     """
     Build the generic webhook POST.
 
@@ -667,16 +669,19 @@ def _webhook_request(url: str, notification: Notification, secret: str = "") -> 
         url: The operator's endpoint.
         notification: The notification to deliver.
         secret: ``notifications.channels.webhook.secret``; empty for none.
+        extra_headers: ``notifications.channels.webhook.webhook_headers``: the receiver's own
+            headers, one ``Name: value`` per line.
 
     Returns:
         The request.
 
     Raises:
-        ValueError: When the URL is not HTTP(S).
+        ValueError: When the URL is not HTTP(S), or a header is not allowed.
     """
     _require_http_url(url, "notifications.channels.webhook.webhook_url")
+    custom = webhook.parse_headers(extra_headers)
     body = webhook.encode(webhook.render(notification))
-    return _post(url, body, webhook.headers(notification, body, secret))
+    return _post(url, body, webhook.headers(notification, body, secret, custom))
 
 
 def _slack_request(url: str, notification: Notification) -> Request:
@@ -1748,7 +1753,12 @@ class Notifier:
             return None
         token = str(settings.get("token") or "")
         if kind == "webhook":
-            return _webhook_request(url, notification, str(settings.get("secret") or ""))
+            return _webhook_request(
+                url,
+                notification,
+                str(settings.get("secret") or ""),
+                str(settings.get("webhook_headers") or ""),
+            )
         if kind == "discord":
             return _discord_request(url, notification, _discord_mention(settings))
         if kind == "ntfy":

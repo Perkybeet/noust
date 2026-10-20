@@ -26,6 +26,7 @@ that one at load time.
 from __future__ import annotations
 
 import json
+import shlex
 import sys
 from pathlib import Path
 from typing import Any
@@ -45,10 +46,11 @@ from noust.core.exceptions import ConfirmationRequired
 from noust.core.fs import is_rehearsal
 from noust.core.logger import Logger
 from noust.managers.database.instance_catalog import ALIASES, SPECS, offered
+from noust.managers.database.instance_launch import InstanceLaunch, LaunchPlan
 from noust.managers.database.instance_migration import InstanceMigrations, MigrationPlan
 from noust.managers.database.instance_tls import InstanceTls, TlsPlan
 from noust.managers.database.instance_tuning import InstanceTuning, TuningPlan
-from noust.managers.database.managed import InstancePlan, ManagedInstances
+from noust.managers.database.managed import InstancePlan, ManagedInstances, untested_warnings
 from noust.managers.database.moves import DatabaseMover, MovePlan
 from noust.managers.database.tls_authority import TlsAuthority
 
@@ -84,6 +86,50 @@ def _echo_json(data: Any) -> None:
     click.echo(json.dumps(data, indent=2, sort_keys=True, default=str))
 
 
+def _split(line: str | None, option: str) -> list[str] | None:
+    """
+    Split a line of words the way a shell would, without ever giving it to one.
+
+    Args:
+        line: What the operator typed after ``--args`` or ``--command``, or None.
+        option: The option, for the error.
+
+    Returns:
+        The words; None when the option was not given.
+
+    Raises:
+        click.BadParameter: A quote is never closed (a usage error naming the option).
+    """
+    if line is None:
+        return None
+    try:
+        return shlex.split(line)
+    except ValueError as exc:
+        raise click.BadParameter(
+            f"{exc}; quote it the way a shell would", param_hint=option
+        ) from exc
+
+
+def _require_acceptance(accepted: bool, what: str) -> None:
+    """
+    Refuse to go on without the operator saying in words that they accept the price.
+
+    ``--yes`` answers a question about doing something; it is not the acceptance that Noust
+    did not test it, so a script that wants this says so separately.
+
+    Args:
+        accepted: Whether ``--accept-untested`` was given.
+        what: What would be run, for the message.
+
+    Raises:
+        click.UsageError: It was not.
+    """
+    if not accepted:
+        raise click.UsageError(
+            f"{what} is not tested by Noust: add --accept-untested to accept that"
+        )
+
+
 def _show_plan(ctx: Context, plan: InstancePlan) -> None:
     """
     Print what making an instance would do.
@@ -100,6 +146,10 @@ def _show_plan(ctx: Context, plan: InstancePlan) -> None:
     logger.key_value("Addressed as", plan.key)
     if plan.init_scripts:
         logger.key_value("Runs on first start", ", ".join(plan.init_scripts))
+    if plan.command:
+        logger.key_value("Command (yours)", shlex.join(plan.command))
+    if plan.args:
+        logger.key_value("Arguments (yours)", shlex.join(plan.args))
     for warning in plan.warnings:
         logger.warning(warning)
 
@@ -269,6 +319,34 @@ def catalog_command(ctx: Context) -> None:
     help="A .sql file the engine runs, in name order, the first time it starts (PostgreSQL, MySQL "
     "and MariaDB; repeatable). It is not run again, and it is readable by the container: no secrets.",
 )
+@click.option(
+    "--image",
+    metavar="REFERENCE",
+    help="An image of your own instead of the catalog's: repository[:tag]@sha256:DIGEST. The digest "
+    "is mandatory (a tag can be moved after you looked; 'docker buildx imagetools inspect "
+    "REPO:TAG' prints it) and --version says which version it is. Noust has not tested it.",
+)
+@click.option(
+    "--args",
+    "args_line",
+    metavar="LINE",
+    help="Arguments added after the ones Noust passes the engine, such as '-c max_connections=200'. "
+    "Split like a shell would and never run by one. Not with --command. No secrets: a command "
+    "line is visible to every local user.",
+)
+@click.option(
+    "--command",
+    "command_line",
+    metavar="LINE",
+    help="The container's whole command, instead of the engine's: Noust adds nothing to it (the "
+    "memory share, TLS), so it is refused for an instance that serves TLS. Not with --args.",
+)
+@click.option(
+    "--accept-untested",
+    is_flag=True,
+    help="Accept that Noust has not tested an image, a command or arguments you chose. Needed "
+    "with --yes or --json for them; --yes alone answers the question, not this.",
+)
 @click.option("--yes", "-y", is_flag=True, help="Do not ask before making it.")
 @global_flags
 @json_option("Print the instance as JSON.")
@@ -282,6 +360,10 @@ def create_command(
     port: int | None,
     variant: str | None,
     init_scripts: tuple[Path, ...],
+    image: str | None,
+    args_line: str | None,
+    command_line: str | None,
+    accept_untested: bool,
     yes: bool,
 ) -> None:
     """
@@ -291,9 +373,15 @@ def create_command(
     published on 127.0.0.1 only, and gets a superuser whose password Noust
     generates and keeps where only the container reads it. It is then addressed
     as ENGINE@NAME.
+
+    An image of your own (--image, pinned by digest), a command or arguments are
+    allowed: Noust manages the instance the same way, and says before it goes ahead
+    that it has not tested what you chose.
     """
     managed = _managed(ctx)
     scripts = [(path.name, _read_script(path)) for path in init_scripts]
+    words = _split(command_line, "--command")
+    extra = _split(args_line, "--args")
     plan = managed.plan(
         name,
         engine,
@@ -302,12 +390,24 @@ def create_command(
         port=port,
         variant=variant,
         init_scripts=scripts,
+        image=image,
+        command=words,
+        args=extra,
     )
     if is_rehearsal():
         ctx.logger.info(f"Would make {plan.name} ({plan.display_name} {plan.version})")
         _show_plan(ctx, plan)
         return
-    if not yes and not ctx.json_output:
+    accepted = accept_untested
+    if plan.requires_confirmation and not accept_untested:
+        if yes or ctx.json_output:
+            _require_acceptance(False, "The image, the command or the arguments you chose")
+        _show_plan(ctx, plan)
+        click.confirm(
+            "Make it, knowing Noust has not tested what you chose?", default=False, abort=True
+        )
+        accepted = True
+    elif not yes and not ctx.json_output:
         _show_plan(ctx, plan)
         click.confirm("Make it?", default=True, abort=True)
     described = managed.create(
@@ -318,6 +418,10 @@ def create_command(
         port=port,
         variant=variant,
         init_scripts=scripts,
+        image=image,
+        command=words,
+        args=extra,
+        accept_untested=accepted,
     )
     if ctx.json_output:
         _echo_json(described)
@@ -359,6 +463,14 @@ def show_command(ctx: Context, name: str) -> None:
         else f"{described['swap_limit_mb']} MB",
     )
     logger.key_value("TLS", described["tls_mode"])
+    if described["custom_image"]:
+        logger.key_value(
+            "Image chosen by", "you (your own image: pinned by digest, not tested by Noust)"
+        )
+    if described["command"]:
+        logger.key_value("Command (yours)", shlex.join(described["command"]))
+    if described["args"]:
+        logger.key_value("Arguments (yours)", shlex.join(described["args"]))
     logger.key_value("Unit", described["unit"])
     logger.key_value("Data volume", described["volume"])
     logger.key_value("Files", described["directory"])
@@ -401,18 +513,38 @@ def stop_command(ctx: Context, name: str) -> None:
     is_flag=True,
     help="Do not dump every database first. Only when its data does not matter.",
 )
+@click.option(
+    "--image",
+    metavar="REFERENCE",
+    help="For an instance on an image of your own: the next one, repository[:tag]@sha256:DIGEST. "
+    "Noust never looks for a newer image of one you pinned.",
+)
+@click.option(
+    "--accept-untested",
+    is_flag=True,
+    help="Accept that Noust has not tested the image you name. Needed with --json.",
+)
 @global_flags
 @json_option("Print what changed as JSON.")
 @pass_context
-def upgrade_command(ctx: Context, name: str, no_backup: bool) -> None:
+def upgrade_command(
+    ctx: Context, name: str, no_backup: bool, image: str | None, accept_untested: bool
+) -> None:
     """
     Move an instance to the newest image of its version.
 
     The version does not change (PostgreSQL 17 stays 17): what moves is the build
     the registry serves for it. Every database is dumped first, the instance must
     become healthy, and when it does not the image it ran is put back.
+
+    An instance on an image of your own is moved only to the one you name (--image),
+    pinned by digest.
     """
-    outcome = _managed(ctx).upgrade(name, backup=not no_backup)
+    if image is not None and not accept_untested:
+        if ctx.json_output:
+            _require_acceptance(False, "The image you name")
+        _ask_untested(ctx)
+    outcome = _managed(ctx).upgrade(name, backup=not no_backup, image=image, accept_untested=True)
     if ctx.json_output:
         _echo_json(outcome.to_dict())
         return
@@ -647,6 +779,157 @@ def health_command(
         timeout=_words(timeout, "timeout", clear, words=("default",)),
         retries=_words(retries, "retries", clear, words=("default",)),
     )
+
+
+def _ask_untested(ctx: Context) -> None:
+    """
+    Say what running an image Noust did not choose costs, and ask whether to go on.
+
+    Args:
+        ctx: The invocation's context.
+
+    Raises:
+        click.Abort: The operator said no.
+    """
+    for warning in untested_warnings(image=True, command=False, args=False):
+        ctx.logger.warning(warning)
+    click.confirm("Go ahead, knowing Noust has not tested it?", default=False, abort=True)
+
+
+def _show_launch(ctx: Context, status: dict[str, Any]) -> None:
+    """
+    Print what an instance's container is started with.
+
+    Args:
+        ctx: The invocation's context.
+        status: What :meth:`InstanceLaunch.status` returned.
+    """
+    logger = ctx.logger
+    logger.key_value("Instance", status["name"])
+    logger.key_value("Started with", shlex.join(status["effective"]) or "the image's own command")
+    if status["command"]:
+        logger.key_value("Command (yours)", shlex.join(status["command"]))
+    if status["args"]:
+        logger.key_value("Arguments (yours)", shlex.join(status["args"]))
+    if not status["customised"]:
+        logger.info("Nothing here is yours: it is started with what Noust works out for its engine")
+
+
+def _show_launch_plan(ctx: Context, plan: LaunchPlan) -> None:
+    """
+    Print what a change of the container's command would do.
+
+    Args:
+        ctx: The invocation's context.
+        plan: The plan.
+    """
+    logger = ctx.logger
+    logger.key_value("Instance", plan.name)
+    for change in plan.changes:
+        before = shlex.join(change["from"]) or "Noust's own"
+        after = shlex.join(change["to"]) or "Noust's own"
+        logger.key_value(change["setting"].capitalize(), f"{before} -> {after}")
+    logger.key_value("Started with", shlex.join(plan.effective) or "the image's own command")
+    if plan.apps:
+        logger.key_value("Applications", ", ".join(plan.apps))
+    for warning in plan.warnings:
+        logger.warning(warning)
+    for blocker in plan.blockers:
+        logger.error(blocker)
+
+
+@instance.command(
+    "launch",
+    read_only=lambda params: (
+        bool(params.get("plan_only"))
+        or not (
+            params.get("args") is not None
+            or params.get("command") is not None
+            or params.get("reset")
+        )
+    ),
+)
+@click.argument("name")
+@click.option(
+    "--args",
+    "args",
+    metavar="LINE",
+    help="Arguments added after the ones Noust passes the engine, such as '-c work_mem=8MB'. Split "
+    "like a shell would and never run by one; no secrets.",
+)
+@click.option(
+    "--command",
+    "command",
+    metavar="LINE",
+    help="The container's whole command, instead of the engine's. Noust adds nothing to it.",
+)
+@click.option("--reset", is_flag=True, help="Take both back to what Noust passes the engine.")
+@click.option("--plan", "plan_only", is_flag=True, help="Only say what it would do.")
+@click.option(
+    "--accept-untested", is_flag=True, help="Accept that Noust has not tested your words."
+)
+@click.option("--yes", "-y", is_flag=True, help="Do not ask before restarting it.")
+@global_flags
+@json_option("Print the command, the plan or what was done as JSON.")
+@pass_context
+def launch_command(
+    ctx: Context,
+    name: str,
+    args: str | None,
+    command: str | None,
+    reset: bool,
+    plan_only: bool,
+    accept_untested: bool,
+    yes: bool,
+) -> None:
+    """
+    Show or change what an instance's container is started with.
+
+    --args adds arguments after the ones Noust passes the engine, --command writes the whole
+    command, --reset takes both back. The engine restarts on them, behind the same readiness
+    gate a creation passes; when it does not come up the previous words are put back, with the
+    container's own log. Without options it shows what it is started with.
+    """
+    launch = InstanceLaunch(_managed(ctx))
+    words = _split(command, "--command")
+    extra = _split(args, "--args")
+    if words is None and extra is None and not reset:
+        status = launch.status(name)
+        if ctx.json_output:
+            _echo_json(status)
+        else:
+            _show_launch(ctx, status)
+        return
+    plan = launch.plan(name, command=words, args=extra, reset=reset)
+    if plan_only or is_rehearsal():
+        if ctx.json_output:
+            _echo_json(plan.to_dict())
+        else:
+            _show_launch_plan(ctx, plan)
+        if plan.blockers:
+            raise click.exceptions.Exit(1)
+        return
+    if plan.blockers:
+        _show_launch_plan(ctx, plan)
+        raise click.ClickException("It cannot go ahead: see what is listed above.")
+    if not plan.changes:
+        ctx.logger.info(f"{name} is already started with these")
+        return
+    accepted = accept_untested
+    if plan.requires_confirmation and not accept_untested:
+        if yes or ctx.json_output:
+            _require_acceptance(False, "The command or the arguments you chose")
+        _show_launch_plan(ctx, plan)
+        click.confirm(f"Restart {name} on words Noust has not tested?", default=False, abort=True)
+        accepted = True
+    elif not yes and not ctx.json_output:
+        _show_launch_plan(ctx, plan)
+        click.confirm(f"Restart {name} on these?", default=False, abort=True)
+    status = launch.apply(name, command=words, args=extra, reset=reset, accept_untested=accepted)
+    if ctx.json_output:
+        _echo_json(status)
+        return
+    ctx.logger.success(f"{name} runs on the new command")
 
 
 @instance.command("remove")

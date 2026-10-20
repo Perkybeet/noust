@@ -31,6 +31,7 @@ import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.core.exceptions import NodeError
+from noust.core.teams.nodes import NodeAssignments
 
 if TYPE_CHECKING:
     from noust.core.store import NodeRecord
@@ -229,16 +230,26 @@ def add_command(
 @pass_context
 def list_command(ctx: Context) -> None:
     """List the nodes this central manages, with what it last learnt about each."""
-    records = _manager().list()
+    manager = _manager()
+    records = manager.list()
+    teams = {row.node: row.team for row in NodeAssignments(manager.store).list()}
     if ctx.json_output:
-        click.echo(json.dumps({"nodes": [record.to_dict() for record in records]}))
+        click.echo(
+            json.dumps(
+                {
+                    "nodes": [
+                        {**record.to_dict(), "team": teams.get(record.name)} for record in records
+                    ]
+                }
+            )
+        )
         return
     logger = ctx.logger
     if not records:
         logger.info("This central manages no nodes. Add one with 'noust node key NAME'.")
         return
     logger.table(
-        ["Name", "SSH", "Status", "Version", "Access", "Last seen"],
+        ["Name", "SSH", "Status", "Version", "Access", "Team", "Last seen"],
         [
             [
                 record.name,
@@ -246,6 +257,7 @@ def list_command(ctx: Context) -> None:
                 record.status,
                 record.version or "-",
                 _access_cell(record),
+                teams.get(record.name) or "-",
                 record.last_seen or "never",
             ]
             for record in records
@@ -283,10 +295,12 @@ def show_command(ctx: Context, name: str) -> None:
     record = manager.get(name)
     tunnel = manager.tunnels.status(name)
     public = manager.keys.public_key(name)
+    team = NodeAssignments(manager.store).team_of(name)
     payload = {
         **record.to_dict(),
         "tunnel": tunnel,
         "central_key_fingerprint": public.fingerprint if public else None,
+        "team": team,
     }
     if ctx.json_output:
         click.echo(json.dumps(payload))
@@ -304,6 +318,7 @@ def show_command(ctx: Context, name: str) -> None:
         _access_cell(record)
         + (" (the node enforces it)" if record.access_level else " (Noust 3.0, or not asked yet)"),
     )
+    logger.key_value("Team", team or "none (the instance's)")
     logger.key_value("Last seen", record.last_seen or "never")
     logger.key_value(
         "Tunnel", f"open on 127.0.0.1:{tunnel['local_port']}" if tunnel["open"] else "closed"
@@ -820,6 +835,61 @@ def pause_command(ctx: Context, name: str, reason: str | None) -> None:
     Liveness(manager.store).pause(name, reason=reason, actor=cli_actor())
     audit("fleet.node.pause", "success", resource=f"node:{name}", detail=reason)
     ctx.logger.success(f"{name} is not monitored until you resume it: noust node resume {name}")
+
+
+@cli.command("assign")
+@click.argument("name")
+@click.option("--team", required=True, help="The team's short name ('noust team list').")
+@json_option("Print the assignment as JSON.")
+@pass_context
+def assign_command(ctx: Context, name: str, team: str) -> None:
+    """
+    Give NAME to a team.
+
+    The team's members then see the server and work on it through this central,
+    within what their roles hold in the team and never on anything that is about the
+    machine; every other team reads it as absent. A server belongs to one team:
+    giving it to another takes it from the first.
+    """
+    from noust.fleet.audit import audit
+    from noust.fleet.nodes import cli_actor
+
+    manager = _manager()
+    manager.get(name)
+    if ctx.dry_run:
+        ctx.logger.info(f"would give {name} to the team {team}")
+        return
+    assignment = NodeAssignments(manager.store).assign(name, team, actor=cli_actor())
+    audit("fleet.node.team", "success", resource=f"node:{name}", detail=f"team {assignment.team}")
+    if ctx.json_output:
+        click.echo(json.dumps(assignment.to_dict()))
+        return
+    ctx.logger.success(f"{name} belongs to the team {assignment.team}")
+
+
+@cli.command("unassign")
+@click.argument("name")
+@json_option("Print the result as JSON.")
+@pass_context
+def unassign_command(ctx: Context, name: str) -> None:
+    """Give NAME back to the instance: no team sees it any more."""
+    from noust.fleet.audit import audit
+
+    manager = _manager()
+    manager.get(name)
+    if ctx.dry_run:
+        ctx.logger.info(f"would give {name} back to the instance")
+        return
+    had_a_team = NodeAssignments(manager.store).unassign(name)
+    if had_a_team:
+        audit("fleet.node.team", "success", resource=f"node:{name}", detail="team none")
+    if ctx.json_output:
+        click.echo(json.dumps({"node": name, "team": None, "changed": had_a_team}))
+        return
+    if had_a_team:
+        ctx.logger.success(f"{name} belongs to the instance again")
+    else:
+        ctx.logger.info(f"{name} had no team")
 
 
 @cli.command("resume")

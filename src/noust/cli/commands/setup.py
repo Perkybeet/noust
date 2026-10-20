@@ -42,7 +42,7 @@ from typing import TYPE_CHECKING, Any, NoReturn
 import click
 
 from noust.cli.app import Context, NoustGroup, global_flags, pass_context
-from noust.core import paths
+from noust.core import paths, retired_names
 from noust.core.config import (
     DEFAULT_APPS_DIR,
     DEFAULT_CONFIG_PATH,
@@ -1526,6 +1526,103 @@ def doctor(ctx: Context) -> None:
     Exits non-zero when something deployments depend on is missing.
     """
     _exit(_run_doctor(ctx.logger))
+
+
+def _run_rename(logger: Logger) -> int:
+    """
+    Finish the renaming 4.0 begins, as far as it can be finished without restarting anything.
+
+    Args:
+        logger: Logger used to report progress.
+
+    Returns:
+        Exit code: 1 when a step failed, 0 otherwise (what was kept on purpose is not a failure).
+    """
+    from noust.managers import name_migration
+
+    logger.header("Renaming what Noust keeps")
+    failed = False
+    for outcome in name_migration.NameMigration().run():
+        logger.section(outcome.step)
+        for item in outcome.changed:
+            logger.success(item)
+        for item in outcome.kept:
+            logger.warning(item)
+        for item in outcome.failed:
+            logger.error(item)
+            failed = True
+        if not (outcome.changed or outcome.kept or outcome.failed):
+            logger.info("Nothing to rename")
+    kept = name_migration.NameMigration().findings()
+    waiting = [finding for finding in kept if finding.waits_for_operator]
+    if waiting:
+        logger.blank()
+        logger.warning("These wait for you; Noust never edits what somebody else wrote:")
+        for finding in waiting:
+            logger.info(f"  {finding.text}")
+            for note in finding.notes:
+                logger.info(f"    {note}")
+            if finding.fix:
+                logger.info(f"    Fix: {finding.fix}")
+    return 1 if failed else 0
+
+
+@cli.command("rename")
+@global_flags
+@pass_context
+def rename(ctx: Context) -> None:
+    """
+    Finish the renaming that 4.0 begins, without restarting anything.
+
+    Renames what Noust holds and nothing needs to stop for: the upstream names of blue/green
+    and Compose relays (not those a site you wrote still names: it says which line to change),
+    the files in each application's tree, the read-only accounts of the databases, the image
+    tags of Compose stacks, and the first line of the sites and units written before 3.0.
+    Units are renamed by their application's next update, backups by the next backup.
+    Safe to repeat.
+    """
+    _exit(_run_rename(ctx.logger))
+
+
+def _run_retire_links(logger: Logger, *, rehearsal: bool) -> int:
+    """
+    Retire the links the 3.x upgrade left under the product's old names.
+
+    Args:
+        logger: Where to report.
+        rehearsal: Whether this is a ``--dry-run``: say what would go, remove nothing.
+
+    Returns:
+        0: a link that stays, and why, is a result and not a failure.
+    """
+    outcomes = retired_names.retire_links()
+    if not outcomes:
+        logger.info("Nothing to retire: 3.x left no link under the old names on this server.")
+        return 0
+    for outcome in outcomes:
+        if outcome.retired:
+            label = "would retire" if rehearsal else "retired"
+            logger.check(label, f"{outcome.link}: {outcome.reason}", "ok")
+        else:
+            logger.check("kept", f"{outcome.link}: {outcome.reason}", "info")
+    return 0
+
+
+@cli.command("retire-links")
+@global_flags
+@pass_context
+def retire_links(ctx: Context) -> None:
+    """
+    Remove the links an upgrade to 3.0 left under the product's old names.
+
+    Only a link that points exactly where 3.x pointed it, whose target is there and
+    that neither the configuration, an nginx site nor the store names is removed.
+    A real file or directory is never touched, and each link that stays says why.
+    Package upgrades run this by themselves; run it by hand after a pip install.
+
+    With --dry-run it only says what it would do.
+    """
+    _exit(_run_retire_links(ctx.logger, rehearsal=ctx.dry_run))
 
 
 @cli.command("railpack")

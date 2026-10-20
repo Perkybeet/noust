@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-985 operations.
+1047 operations.
 
 ## Access
 
@@ -63,10 +63,15 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/apps/{domain}/compose` | Get Compose Settings | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/compose` | Put Compose Settings | `apps.manage` | yes |  |
 | DELETE | `/api/apps/{domain}/compose` | Delete Compose Settings | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/compose/document` | Get Compose Document | `secrets.reveal` |  |  |
+| PUT | `/api/apps/{domain}/compose/document` | Put Compose Document | `apps.manage` | yes |  |
+| POST | `/api/apps/{domain}/compose/document/check` | Check Compose Document | `apps.manage` |  |  |
 | GET | `/api/apps/{domain}/compose/variables` | Get Compose Variables | `apps.read` |  |  |
 | GET | `/api/apps/{domain}/container` | Get App Container | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/container` | Put App Container | `apps.manage` |  |  |
+| POST | `/api/apps/{domain}/container/check` | Check App Image | `apps.deploy` |  |  |
 | GET | `/api/apps/{domain}/declaration` | Get Declaration | `secrets.reveal` |  |  |
+| GET | `/api/apps/{domain}/deletion` | Get Deletion Plan | `apps.read` |  |  |
 | POST | `/api/apps/{domain}/deploy` | Deploy App | `apps.deploy` |  |  |
 | GET | `/api/apps/{domain}/deploy-key` | Get Deploy Key | `apps.read` |  |  |
 | POST | `/api/apps/{domain}/deploy-key` | Create Deploy Key | `apps.manage` |  |  |
@@ -83,8 +88,10 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/apps/{domain}/env` | Get App Env | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/env` | Update App Env | `apps.manage` | yes |  |
 | PATCH | `/api/apps/{domain}/env` | Merge App Env | `apps.manage` | yes |  |
+| GET | `/api/apps/{domain}/env/file` | Get App Env File | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/env/marks` | Update App Env Marks | `apps.manage` | yes |  |
 | POST | `/api/apps/{domain}/env/resolve` | Resolve App Env | `apps.manage` | yes |  |
+| POST | `/api/apps/{domain}/env/sync` | Sync App Env | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/export` | Get App Export | `secrets.reveal` |  |  |
 | GET | `/api/apps/{domain}/files` | List Files | `apps.terminal` |  |  |
 | DELETE | `/api/apps/{domain}/files` | Delete File | `apps.terminal` | yes |  |
@@ -253,6 +260,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/auth/logout` | Logout | `self` |  |  |
 | POST | `/api/auth/notice/accept` | Accept Notice | `self` |  |  |
 | POST | `/api/auth/password` | Change Password | `self` |  |  |
+| POST | `/api/auth/password-reset/confirm` | Confirm Password Reset | `public` |  |  |
+| POST | `/api/auth/password-reset/request` | Request Password Reset | `public` |  |  |
 | GET | `/api/auth/roles` | List Roles | `self` |  |  |
 | GET | `/api/auth/session` | Get Session Info | `public` |  |  |
 | GET | `/api/auth/sessions` | Get Sessions | `self` |  |  |
@@ -298,6 +307,17 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/apps/{domain}/restore-drills` | Run Drill | `backups.run` |  |  |
 | GET | `/api/backups` | List Backups | `backups.read` |  |  |
 | POST | `/api/backups` | Create Backup | `backups.run` |  |  |
+| GET | `/api/backups/encryption` | Status | `backups.read` |  |  |
+| POST | `/api/backups/encryption/disable` | Disable | `backups.manage` | yes |  |
+| POST | `/api/backups/encryption/enable` | Enable | `backups.manage` | yes |  |
+| POST | `/api/backups/encryption/keys` | Import Key | `backups.manage` | yes |  |
+| GET | `/api/backups/encryption/keys/{key_id}` | Show Key | `secrets.reveal` | yes |  |
+| POST | `/api/backups/encryption/rotate` | Rotate | `backups.manage` | yes |  |
+| GET | `/api/backups/encryption/seal-existing` | Seal Plan | `backups.read` |  |  |
+| POST | `/api/backups/encryption/seal-existing` | Seal Existing | `backups.manage` | yes |  |
+| GET | `/api/backups/failures` | List Failures | `backups.read` |  |  |
+| GET | `/api/backups/failures/{failure_id}` | Failure Detail | `backups.read` |  |  |
+| GET | `/api/backups/failures/{failure_id}/output` | Failure Output | `backups.read` |  |  |
 | GET | `/api/backups/storage` | Get Storage Info | `backups.read` |  |  |
 | GET | `/api/backups/{backup_id}` | Get Backup | `backups.read` |  |  |
 | DELETE | `/api/backups/{backup_id}` | Delete Backup | `backups.manage` | yes |  |
@@ -453,6 +473,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/databases/backups/restore-remote` | Restore Remote Backup | `databases.manage` | yes |  |
 | GET | `/api/databases/backups/suggest-name` | Suggest Restore Name | `databases.read` |  |  |
 | DELETE | `/api/databases/backups/{name}` | Delete Backup | `backups.manage` | yes |  |
+| GET | `/api/databases/backups/{name}/data` | Dump Data | `databases.manage` | yes |  |
 | GET | `/api/databases/backups/{name}/download` | Download Backup | `databases.manage` | yes |  |
 | POST | `/api/databases/backups/{name}/push` | Push Backup | `backups.manage` |  |  |
 | POST | `/api/databases/backups/{name}/verify` | Verify Backup | `backups.run` |  |  |
@@ -490,8 +511,12 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/databases/databases/{engine}/{name}/rows/delete` | Delete Row | `databases.write` | yes | yes |
 | GET | `/api/databases/databases/{engine}/{name}/schemas` | List Schemas | `databases.read` |  |  |
 | GET | `/api/databases/databases/{engine}/{name}/slow-queries` | Slow Queries | `databases.read` |  |  |
+| GET | `/api/databases/databases/{engine}/{name}/tags` | Get Database Tags | `databases.read` |  |  |
+| PUT | `/api/databases/databases/{engine}/{name}/tags` | Put Database Tags | `databases.write` |  |  |
 | GET | `/api/databases/engines` | List Engines | `databases.read` |  |  |
 | GET | `/api/databases/engines/catalog` | Get Engine Catalog | `databases.read` |  |  |
+| GET | `/api/databases/engines/tls` | List Status | `databases.read` |  |  |
+| POST | `/api/databases/engines/tls/refresh` | Refresh | `databases.manage` | yes |  |
 | PUT | `/api/databases/engines/{engine}/credentials` | Set Engine Credentials | `databases.manage` | yes |  |
 | GET | `/api/databases/engines/{engine}/exposure` | Get Engine Exposure | `databases.read` |  |  |
 | POST | `/api/databases/engines/{engine}/install` | Install Engine | `databases.manage` | yes |  |
@@ -506,9 +531,15 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/databases/engines/{engine}/start` | Start Engine | `apps.operate` |  |  |
 | GET | `/api/databases/engines/{engine}/status` | Get Engine Status | `databases.read` |  |  |
 | POST | `/api/databases/engines/{engine}/stop` | Stop Engine | `apps.operate` |  |  |
+| GET | `/api/databases/engines/{engine}/tls` | Get Status | `databases.read` |  |  |
+| PUT | `/api/databases/engines/{engine}/tls` | Enable Tls | `databases.manage` | yes |  |
+| DELETE | `/api/databases/engines/{engine}/tls` | Disable Tls | `databases.manage` | yes |  |
+| POST | `/api/databases/engines/{engine}/tls/plan` | Plan Tls | `databases.read` |  |  |
 | POST | `/api/databases/engines/{engine}/uninstall` | Uninstall Engine | `databases.manage` | yes |  |
 | GET | `/api/databases/exposure` | Get Exposure | `databases.read` |  |  |
 | POST | `/api/databases/imports` | Import Dump | `databases.manage` | yes |  |
+| POST | `/api/databases/imports/cluster` | Import Cluster | `databases.manage` | yes |  |
+| POST | `/api/databases/imports/cluster/plan` | Plan Cluster Import | `databases.manage` |  |  |
 | POST | `/api/databases/imports/inspect` | Inspect Dump | `databases.manage` |  |  |
 | POST | `/api/databases/imports/uploads` | Start Upload | `databases.manage` |  |  |
 | GET | `/api/databases/imports/uploads/{upload_id}` | Upload Status | `databases.manage` |  |  |
@@ -526,6 +557,9 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/databases/instances/tls-authority` | Get Authority | `databases.read` |  |  |
 | GET | `/api/databases/instances/{name}` | Get Instance | `databases.read` |  |  |
 | DELETE | `/api/databases/instances/{name}` | Remove Instance | `databases.manage` | yes |  |
+| GET | `/api/databases/instances/{name}/launch` | Get Launch | `databases.read` |  |  |
+| PUT | `/api/databases/instances/{name}/launch` | Set Launch | `databases.manage` | yes |  |
+| POST | `/api/databases/instances/{name}/launch/plan` | Plan Launch | `databases.read` |  |  |
 | GET | `/api/databases/instances/{name}/remove-plan` | Plan Remove Instance | `databases.read` |  |  |
 | POST | `/api/databases/instances/{name}/start` | Start Instance | `apps.operate` |  |  |
 | POST | `/api/databases/instances/{name}/stop` | Stop Instance | `apps.operate` |  |  |
@@ -559,6 +593,15 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/databases/query` | Execute Query | `databases.read` |  | yes |
 | POST | `/api/databases/query/explain` | Explain Query | `databases.read` |  | yes |
 | POST | `/api/databases/query/export` | Export Query | `databases.read` |  |  |
+| GET | `/api/databases/replicas` | List Status | `databases.read` |  |  |
+| POST | `/api/databases/replicas/join` | Join | `databases.manage` | yes |  |
+| POST | `/api/databases/replicas/join/plan` | Plan Join | `databases.manage` |  |  |
+| GET | `/api/databases/replicas/{engine}` | Get Status | `databases.read` |  |  |
+| POST | `/api/databases/replicas/{engine}` | Prepare | `databases.manage` | yes |  |
+| POST | `/api/databases/replicas/{engine}/plan` | Plan Prepare | `databases.read` |  |  |
+| POST | `/api/databases/replicas/{engine}/promote` | Promote | `databases.manage` | yes |  |
+| DELETE | `/api/databases/replicas/{engine}/{name}` | Remove | `databases.manage` | yes |  |
+| POST | `/api/databases/replicas/{engine}/{name}/token` | Show Token | `databases.manage` | yes |  |
 | POST | `/api/databases/users` | Create User | `databases.write` |  |  |
 | POST | `/api/databases/users/grant` | Grant Privileges | `databases.write` |  |  |
 | POST | `/api/databases/users/revoke` | Revoke Privileges | `databases.write` |  |  |
@@ -599,6 +642,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | PUT | `/api/apps/{domain}/domains/canonical` | Put Canonical | `apps.manage` |  |  |
 | DELETE | `/api/apps/{domain}/domains/{name}` | Delete Domain | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/domains/{name}/dns` | Get Domain Dns | `apps.read` |  |  |
+| PUT | `/api/apps/{domain}/domains/{name}/enabled` | Put Domain Enabled | `apps.manage` |  |  |
 | PUT | `/api/apps/{domain}/domains/{name}/port` | Put Domain Port | `apps.manage` |  |  |
 | GET | `/api/apps/{domain}/http3` | Get Http3 | `apps.read` |  |  |
 | GET | `/api/apps/{domain}/policy` | Get Policy | `apps.read` |  |  |
@@ -654,6 +698,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/fleet/cloud/servers/{node}/link` | Link Machine | `fleet.manage` | yes |  |
 | DELETE | `/api/fleet/cloud/servers/{node}/link` | Unlink Machine | `fleet.manage` | yes |  |
 | POST | `/api/fleet/cloud/servers/{node}/power-on` | Power On Machine | `fleet.manage` | yes |  |
+| POST | `/api/fleet/databases/transfer` | Transfer Database | `fleet.manage` |  |  |
 | POST | `/api/fleet/enroll` | Enroll Server | `fleet.manage` | yes | yes |
 | POST | `/api/fleet/enroll/host-key` | Scan Host Key | `fleet.manage` |  |  |
 | GET | `/api/fleet/jobs` | List Jobs | `fleet.read` |  |  |
@@ -813,9 +858,12 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/nodes/{node}/inventory` | Get Node Inventory | `fleet.read` |  |  |
 | POST | `/api/nodes/{node}/inventory` | Apply Node Inventory | `fleet.manage` |  |  |
 | GET | `/api/nodes/{node}/key` | Get Node Key | `fleet.manage` |  |  |
+| POST | `/api/nodes/{node}/migrate-tunnel` | Migrate Node Tunnel | `fleet.manage` | yes | yes |
 | PUT | `/api/nodes/{node}/monitoring` | Set Node Monitoring | `fleet.manage` |  |  |
+| POST | `/api/nodes/{node}/rekey` | Rekey Node | `fleet.manage` | yes | yes |
 | GET | `/api/nodes/{node}/ssh` | Get Node Ssh | `fleet.read` |  |  |
 | PUT | `/api/nodes/{node}/ssh` | Set Node Ssh | `fleet.manage` | yes |  |
+| PUT | `/api/nodes/{node}/team` | Set Node Team | `fleet.manage` | yes |  |
 | POST | `/api/nodes/{node}/test` | Test Node | `fleet.read` |  |  |
 
 ## Notifications
@@ -829,6 +877,10 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/notifications/deliveries/sweep` | Sweep Deliveries | `settings.manage` |  |  |
 | POST | `/api/notifications/deliveries/{delivery_id}/retry` | Retry Delivery | `settings.manage` |  |  |
 | GET | `/api/notifications/events` | List Events | `settings.read` |  |  |
+| GET | `/api/teams/{team}/notifications/channels` | List Team Channels | `apps.read` |  |  |
+| PUT | `/api/teams/{team}/notifications/channels/{name}` | Save Team Channel | `apps.manage` | yes |  |
+| DELETE | `/api/teams/{team}/notifications/channels/{name}` | Remove Team Channel | `apps.manage` | yes |  |
+| POST | `/api/teams/{team}/notifications/channels/{name}/test` | Test Team Channel | `apps.operate` |  |  |
 
 ## OpenAPI
 
@@ -868,6 +920,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 |---|---|---|---|---|---|
 | GET | `/api/apps/{domain}/previews` | List Previews | `apps.read` |  |  |
 | POST | `/api/apps/{domain}/previews` | Create Preview | `apps.deploy` | yes |  |
+| GET | `/api/apps/{domain}/previews/dns` | Get Preview Dns | `apps.read` |  |  |
 | GET | `/api/apps/{domain}/previews/pull-requests` | List Pull Requests | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/previews/settings` | Put Preview Settings | `apps.manage` | yes |  |
 | DELETE | `/api/apps/{domain}/previews/settings` | Delete Preview Settings | `apps.manage` | yes |  |
@@ -988,6 +1041,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | DELETE | `/api/server/power/scheduled` | Cancel Scheduled | `server.manage` |  |  |
 | POST | `/api/server/power/shutdown` | Schedule Shutdown | `server.host_access` | yes |  |
 | GET | `/api/server/processes` | Get Processes | `server.read` |  |  |
+| POST | `/api/server/restore` | Restore | `backups.manage` | yes |  |
+| GET | `/api/server/restore/plan` | Plan Restore | `server.read` |  |  |
 | GET | `/api/server/security` | Get Overview | `server.read` |  |  |
 | GET | `/api/server/security/changes` | Get Changes | `server.read` |  |  |
 | POST | `/api/server/security/changes/{change_id}/confirm` | Confirm Change | `server.host_access` | yes |  |
@@ -1059,6 +1114,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/services/{name}/restart` | Restart Service | `apps.operate` |  |  |
 | POST | `/api/services/{name}/start` | Start Service | `apps.operate` |  |  |
 | POST | `/api/services/{name}/stop` | Stop Service | `apps.operate` |  |  |
+| GET | `/api/services/{name}/tags` | Get Service Tags | `server.read` |  |  |
+| PUT | `/api/services/{name}/tags` | Put Service Tags | `server.manage` |  |  |
 
 ## Single sign-on
 
@@ -1160,6 +1217,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | PUT | `/api/apps/{domain}/tags` | Put App Tags | `apps.manage` |  |  |
 | GET | `/api/tags` | List Tags | `apps.read` |  |  |
 | POST | `/api/tags/{tag}/deploy` | Deploy Tag | `apps.deploy` |  |  |
+| POST | `/api/tags/{tag}/restart` | Restart Tag | `apps.operate` |  |  |
 
 ## Teams
 
@@ -1277,6 +1335,10 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | DELETE | `/api/apps/{domain}/webhook-secret` | Delete Webhook Secret | `apps.manage` | yes |  |
 | GET | `/api/apps/{domain}/webhook/deliveries` | Webhook Deliveries | `apps.read` |  |  |
 | GET | `/api/apps/{domain}/webhook/received` | Webhook Received | `apps.read` |  |  |
+| GET | `/api/apps/{domain}/webhook/registry` | Registry Hook State | `apps.read` |  |  |
+| POST | `/api/apps/{domain}/webhook/registry/reveal` | Reveal Registry Hook | `secrets.reveal` | yes |  |
 | POST | `/api/apps/{domain}/webhook/reveal` | Reveal Webhook Secret | `secrets.reveal` | yes |  |
 | POST | `/hooks/deploy/{domain}` | Deliver | `public` |  |  |
 | POST | `/hooks/github` | Deliver | `public` |  |  |
+| POST | `/hooks/registry/{domain}` | Deliver Registry | `public` |  |  |
+| POST | `/hooks/registry/{domain}/{token}` | Deliver Registry | `public` |  |  |

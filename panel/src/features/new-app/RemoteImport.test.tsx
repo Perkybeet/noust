@@ -33,7 +33,7 @@ const PROPOSAL = {
 };
 
 const DOCUMENT = {
-  format: "wasm-app",
+  format: "noust-app",
   version: 1,
   secrets_included: false,
   app: { domain: "shop.example.com", app_type: "nextjs" },
@@ -53,6 +53,14 @@ function importer(extra: Record<string, RouteHandler> = {}) {
   return { backend, harness: renderConsole("/apps/new?start=import") };
 }
 
+/**
+ * The list's description. The announcer says it again, for assistive technology, a moment after the
+ * list is drawn, so a bare lookup finds one element or two depending on how fast the machine is.
+ */
+function listedOn(sentence: RegExp): Promise<HTMLElement> {
+  return screen.findByText(sentence, { ignore: 'script, style, [role="status"]' });
+}
+
 async function listThem(user: ReturnType<typeof renderConsole>["user"]) {
   await user.click(await screen.findByRole("button", { name: "Read it from Coolify or Dokploy" }));
   await user.type(await screen.findByLabelText(/^Address of the server/), "https://coolify.example.com");
@@ -68,7 +76,7 @@ describe("importing from Coolify or Dokploy", () => {
     await waitFor(() => expect(backend.callsTo("POST /api/import/applications")).toHaveLength(1));
     expect(backend.callsTo("POST /api/import/applications")[0]?.body).toEqual({ platform: "coolify", url: "https://coolify.example.com", token: "ro-token" });
     expect(backend.callsTo("POST /api/import/applications")[0]?.search.toString()).toBe("");
-    expect(await screen.findByText(/2 found on https:\/\/coolify\.example\.com/)).toBeInTheDocument();
+    expect(await listedOn(/2 found on https:\/\/coolify\.example\.com/)).toBeInTheDocument();
     await expectNoAxeViolations(document.body);
   });
 
@@ -77,7 +85,7 @@ describe("importing from Coolify or Dokploy", () => {
       "POST /api/import/proposal": () => json(200, { proposal: PROPOSAL, document: DOCUMENT, deployable: true }),
     });
     await listThem(harness.user);
-    await screen.findByText(/2 found on/);
+    await listedOn(/2 found on/);
     await harness.user.click(screen.getByRole("button", { name: "Read it" }));
 
     expect(await screen.findByText("storefront was read")).toBeInTheDocument();
@@ -104,7 +112,7 @@ describe("importing from Coolify or Dokploy", () => {
         }),
     });
     await listThem(harness.user);
-    await screen.findByText(/2 found on/);
+    await listedOn(/2 found on/);
     await harness.user.click(screen.getByRole("button", { name: "Read it" }));
 
     expect(await screen.findByText("storefront cannot be imported as it is")).toBeInTheDocument();
@@ -124,7 +132,7 @@ describe("importing from Coolify or Dokploy", () => {
       },
     });
     await listThem(harness.user);
-    await screen.findByText(/2 found on/);
+    await listedOn(/2 found on/);
     await harness.user.click(screen.getByRole("button", { name: "Read it" }));
     expect(await screen.findByText(/answered on no domain there/)).toBeInTheDocument();
 

@@ -79,6 +79,7 @@ from noust.core.notifications.model import Fact, Notification, Section, State
 from noust.deployers.deploy_events import DeployEvent, DeployEventKind
 from noust.deployers.helpers.hooks import compose_deploy_hook_failed
 from noust.deployers.helpers.sandbox_trial import compose_sandbox_trial_failed
+from tests.notifications_netobs import netobs_events
 
 FIXED_TS = datetime(2026, 9, 29, 10, 45, 51, tzinfo=timezone.utc)
 SERVER = "web-1"
@@ -394,6 +395,7 @@ def catalog(locale: Locale) -> dict[str, Notification]:
     out.update(_integration_events(ctx))
     out.update(_monitor_events(ctx, out))
     out.update(_watch_events(ctx))
+    out.update(netobs_events(ctx))
     return {
         code: _freeze(index, notification) for index, (code, notification) in enumerate(out.items())
     }
@@ -871,3 +873,15 @@ def dump(value: Any) -> str:
         The stable text a snapshot stores.
     """
     return json.dumps(value, ensure_ascii=False, indent=2) + "\n"
+
+
+def failure_id_of(notification: Any) -> int:
+    """
+    Args:
+        notification: The notice of a failed backup that names a record of its whole output.
+
+    Returns:
+        The record's id, read from the command the notice tells the operator to run.
+    """
+    assert notification.command is not None, "the notice names no record"
+    return int(notification.command.value.rsplit(" ", 1)[1])

@@ -312,6 +312,54 @@ on `POST /api/databases/instances` and its `/plan`, and the console's *New insta
 *Initialization script* box for the engines that run one. The engine's own free configuration file is not
 offered: an engine's settings stay the closed set Noust sizes to the instance's memory.
 
+**An image, a command or arguments of your own.** The catalog's images are the engines' official ones, pinned
+by digest by Noust. When you need another (your own build with an extension, a vendor's, a flag the engine needs),
+an instance can run it, with the price said and accepted first:
+
+```bash
+# Your own image, pinned by digest (docker buildx imagetools inspect ghcr.io/acme/pg-timescale:17.2 prints it)
+noust db instance create ts --engine postgresql --version 17 --memory 2g \
+    --image ghcr.io/acme/pg-timescale:17.2@sha256:4f1c...e9
+# The catalog's image with arguments of yours after the ones Noust passes the engine
+noust db instance create pg --engine postgresql --version 17 --memory 1g --args "-c max_connections=200"
+noust db instance launch pg                              # what its container is started with
+noust db instance launch pg --args "-c work_mem=16MB" --plan
+noust db instance launch pg --args "-c work_mem=16MB"    # asks, restarts the engine
+noust db instance launch pg --reset                      # back to what Noust passes; asks for nothing
+noust db instance upgrade ts --image ghcr.io/acme/pg-timescale:17.3@sha256:77a0...12
+```
+
+- **The image is pinned by you.** A reference without a digest is refused, saying how to read one: a tag is a
+  promise and a digest is a file. `--version` is mandatory with `--image` because Noust cannot read it from an
+  image it did not choose, and it decides where the data lives, what TLS the engine can serve and when its
+  support ends. An image and a `--variant` are two answers to one question. Noust never looks for a newer image
+  of one you pinned: `noust db instance upgrade NAME --image ...` names the next, and accepts again.
+- **Noust manages it as it manages an official one:** the data where the official image keeps it, the engine's
+  own port, the superuser's password in the variable the official image reads, the health probe, and dumps and
+  restores through the engine's own client inside the container. An image that does any of that differently will
+  not come up, or will not be managed correctly, and the plan says so. A private registry needs `docker login` on
+  the server.
+- **Arguments follow Noust's** (`postgres -c shared_buffers=... YOURS`), so where the engine lets the last flag
+  win, yours win. A **command** is the container's whole command: Noust adds nothing to it (the memory share it
+  sizes the engine with, the TLS arguments), so it replaces arguments and arguments replace it, and it is refused
+  for an instance that serves TLS. Words are an argument vector, split like a shell would and never given to one;
+  a quote that never closes is a usage error. None can carry a secret: `--requirepass` and its kin are refused,
+  because a command line is visible to every local user and the instance's password is in a file only root reads.
+- **The price is accepted in words.** A plan carries the warning, and making one without accepting it is refused
+  with every warning (interactively, saying yes to the question is accepting it; `--yes` and `--json` alone are
+  not, a script says `--accept-untested`; the API takes `accept_untested` and answers a 400
+  `confirmation_required` carrying the warnings). Taking the words back (`launch --reset`) asks for nothing.
+- **A change is a restart behind the same readiness gate** a creation and a change of limits pass: when the
+  engine does not come up on the new words, the previous ones are put back, the engine is started on them and the
+  error carries the container's log. The words are the instance's row, never an edited file; the audit trail
+  records `db.instance.create` with variant `custom` and `db.instance.launch` with what changed, never the words.
+- **Discovery.** A container is a database by what Noust wrote on it (`io.noust.managed`, `io.noust.db-instance`
+  and `io.noust.db-flavour` together) and not only by the name of its image, so an image of yours with any name is
+  listed, bound and managed like the rest. A major-version move (`noust db instance migrate`) refuses an instance
+  on an image of yours and says how to do it by hand (make a new instance from the newer image and `noust db
+  move` the databases to it); it makes the new instance without your arguments and says so, because a flag one
+  version takes another may not.
+
 **Limits and health.** An instance is held to a memory limit from the day it is made, and the other
 two limits a container can have are settings too, as is the probe that decides whether the engine is
 well:
@@ -353,14 +401,18 @@ application is given a database on it. `noust db instance remove NAME` cleans on
 refused, an instance's included.
 
 **What it does not do yet.** The engine's own settings are the ones above (`noust db settings` is for
-the host's engines, and says so for an instance). An instance can serve TLS ([below](#tls-for-an-instance-and-for-a-link)); Redis and Valkey
-cannot yet.
+the host's engines, and says so for an instance). An instance can serve TLS ([below](#tls-for-an-instance-and-for-a-link)); Redis, Valkey and KeyDB
+serve it as `required` only, and ClickHouse cannot yet.
 
 The API is under `/api/databases/instances`: `GET` the list, `GET .../catalog`, `POST .../plan` (what a
 creation would do, changing nothing), `POST` to make one (sudo mode, a job), `GET .../{name}`,
 `POST .../{name}/start` (a job), `POST .../{name}/stop`, `POST .../{name}/upgrade` (sudo mode, a job),
 `GET .../{name}/remove-plan` and `DELETE .../{name}?confirm=true` (sudo mode, a job),
-`GET .../{name}/tuning`, `POST .../{name}/tuning/plan` and `PUT .../{name}/tuning` (sudo mode, a job). They need
+`GET .../{name}/tuning`, `POST .../{name}/tuning/plan` and `PUT .../{name}/tuning` (sudo mode, a job),
+`GET .../{name}/launch`, `POST .../{name}/launch/plan` and `PUT .../{name}/launch` (sudo mode, a job; `command`,
+`args` as lists of words, `reset`, `accept_untested`). `image`, `command`, `args` and `accept_untested` are also
+fields of `POST .../plan` and `POST` to make one, and `POST .../{name}/upgrade` takes a body with `image` and
+`accept_untested` for an instance on an image of yours. They need
 `databases.read`, `databases.manage` (and `apps.operate` for start and stop), and are the server's: a
 team member does not see them, but picks one for its application's database through
 `GET /api/databases/provisioning/choices`.
@@ -394,6 +446,106 @@ The console shows the loaded extensions on the database's Overview and loads or 
 is `GET /api/databases/databases/{engine}/{name}/extensions`, `POST` to the same path (`name`, `cascade`) and
 `DELETE .../extensions/{extension}?cascade=` (sudo mode), with `databases.read` and `databases.manage`.
 
+## A dump from elsewhere, and a whole server's databases
+
+A dump is a script. `COPY ... FROM PROGRAM` runs a program for whoever loads it, and a superuser's
+session runs it as the `postgres` account. So Noust does not give a dump the superuser unless you say
+so.
+
+```bash
+noust db import shop /srv/dumps/shop.sql.gz -e postgresql          # as the database's owner
+noust db import shop /srv/dumps/shop.sql.gz -e postgresql --as-superuser     # the explicit way
+noust db restore shop /srv/dumps/shop.sql.gz -e postgresql --as-superuser    # a file, not a dump of Noust's
+```
+
+- **PostgreSQL loads a dump from outside as the database's owner.** The load signs in as a role made for
+  it (not a superuser, member of the owner, `VALID UNTIL` soon, dropped when it is done or swept by the
+  next load if the process died), so the server itself refuses what the owner may not do: `COPY ...
+  FROM PROGRAM`, an extension that needs a superuser, reading a server file. A script cannot hand the
+  superuser back from inside (`RESET ROLE` and `SET SESSION AUTHORIZATION` lead back to that role, not
+  to `postgres`). A database owned by the superuser (one made without an owner) is loaded by a login
+  that owns what it makes and hands it to the real owner afterwards. It signs in over `127.0.0.1` like
+  the read-only console, so `pg_hba.conf` needs the line the distribution's default has (`host all all
+  127.0.0.1/32 scram-sha-256`); when it does not, the error says so and says how to repeat the load
+  with `--as-superuser`.
+- **A refusal for want of rights says how to repeat it.** The server's own words come first, then the
+  way to load it as the superuser. `--as-superuser` asks twice on the command line; in the API it is
+  `as_superuser` with `confirm_superuser`, and sudo mode. It is on the audit trail
+  (`db.restore.superuser`). Use it for a dump you made or have read. With it no `SET ROLE` is written
+  into the script, so what the dump creates belongs to the superuser unless it names owners
+  (`--keep-owners`) or you run `noust db fix-owner` afterwards.
+- **Noust's own dumps go back as they were.** A backup restored by name, a download from a destination, the
+  safety copy put back after a failed restore, a database moved between engines and an application
+  backup's database are loaded as the superuser, because what is in them is what Noust took out of the
+  database (extensions that need a superuser, objects of several owners). So is a dump that sits in
+  the engine's own folder when you name it with `noust db restore`.
+- **MySQL, MariaDB and MongoDB are loaded as the administrative account.** Their dumps are checked for
+  the statements that leave the database (`USE`, `CREATE DATABASE`) but run with that account's rights;
+  `--as-superuser` is refused for them. Import only dumps you trust into those engines.
+
+### Every database of a server, and its accounts
+
+`pg_dumpall` writes the accounts and every database in one file. `noust db import-all` brings it in:
+
+```bash
+noust db import-all /srv/dumps/all.sql.gz -e postgresql --plan            # what would happen
+noust db import-all /srv/dumps/all.sql.gz -e postgresql                   # the databases
+noust db import-all /srv/dumps/all.sql.gz -e postgresql --users           # and the accounts
+noust db import-all /srv/dumps/all.sql.gz -e postgresql --users --replace -d shop
+```
+
+- **Read, never run.** The file is cut where psql would read each `\connect` (a row, a string or a
+  function body that looks like one is data). The accounts become data and the statements that create
+  them are written by Noust from it, so a role named `x; DROP ...` is only a name that is not used.
+  Each database's part is an ordinary dump that goes through the import above, with its own check, its
+  own safety copy and its own way back.
+- **The accounts only when you ask** (`--users`, `restore_users` in the API), after the plan shows them
+  and you accept. They keep the password hash the dump holds (the old password signs in), but not the
+  power the source gave them: superuser, `CREATEROLE`, replication and row-security bypass are left out
+  and listed. An account that exists is never touched, `postgres` and the server's own roles are not
+  created, and a membership is kept only between accounts made now. Per-role settings, tablespaces and
+  `DROP` statements are listed as not carried.
+- **Owners and privileges** are kept for the roles that exist and left out, statement by statement, for
+  the rest (the source's `postgres`): a database that is created is owned by the account that owned it
+  at the source, one that is replaced is recreated with it, and one that is loaded over is handed to it
+  afterwards. Objects owned by another account than the database's go to the database's owner: only the
+  owner can be handed an object by a loader that is not a superuser. `--as-superuser` keeps them all.
+- **Databases fail alone.** One that does not load is told with the engine's own words and dropped again
+  if this created it; the others load, and the exit status is 1.
+- **The server's own databases** (`postgres`, `template1`) are loaded only when named (`-d postgres`).
+
+The API is `POST /api/databases/imports/cluster/plan` (reads the file, changes nothing) and
+`POST /api/databases/imports/cluster` (a job with sudo mode; `restore_users` needs `confirm_users`).
+The upload and the path rules are the single import's, and a file that holds one database is refused with
+where to go.
+
+**MySQL and MariaDB.** `mysqldump --all-databases` (or `--databases`) is read the same way: each
+user database becomes a file of its own, both of mysqldump's passes included (a view is written twice,
+under a second `-- Current Database` marker), without the `CREATE DATABASE` and `USE` that name it, with
+the header the dump set up and the footer it restored; the database is made with the character set the
+dump gave it. The server's own schemas (`mysql`, `sys`) are never loaded: `mysql` holds the server's
+accounts and grants and loading it would overwrite them, root included. The accounts come from a file
+of their own, because a `mysqldump` carries them as table data, not statements: `--accounts-file`
+(`accounts_upload_id` or `accounts_path` in the API) takes the `CREATE USER` and `GRANT` lines that
+`SHOW CREATE USER` and `SHOW GRANTS` print (or `pt-show-grants`), one per line. They are read into data
+and written again by Noust: a password only as the `mysql_native_password` hash the server stores (the
+old password signs in), privileges only on a database or a table and only those about its data (never
+`FILE`, `SUPER`, `PROCESS`, `RELOAD`, `CREATE USER`, replication, a global grant or `WITH GRANT OPTION`:
+they are listed as not carried), `ACCOUNT LOCK` kept. A `caching_sha2_password` hash (MySQL 8.4's
+default) holds raw bytes a text file cannot carry exactly, so such an account is made **locked**, for you
+to give a password with `noust db user-password`. Accounts are made first and their privileges after the
+databases are loaded, because a grant on a table needs the table; one that exists is never touched.
+Unlike PostgreSQL, a MySQL or MariaDB dump is loaded with the administrative account (its views,
+triggers and routines are written with a `DEFINER` of the source's accounts, which an unprivileged login
+could not create), so import only dumps you trust into them.
+
+Tested against a real PostgreSQL 16 (`tests/integration/engines_run.py`, scenarios
+`restore_unprivileged` and `import_cluster_postgresql`): the server refuses `COPY ... FROM PROGRAM`,
+`RESET ROLE` and `SET SESSION AUTHORIZATION`, nothing runs and the database is put back, an ordinary
+dump's objects belong to the owner, an extension that needs a superuser needs `--as-superuser`, a
+dump of all databases brings the accounts with the passwords they had and none a superuser, a hostile
+database of the file fails alone, and no login of the loader is left.
+
 ## Moving a database, or an engine to a newer version
 
 Two commands move data between engines, and both leave the engine they move away from exactly as it
@@ -412,7 +564,7 @@ noust db instance rollback 3                                  # the applications
 
 **One database (`noust db move`).** It dumps the database, makes its accounts on the target with the
 passwords Noust keeps (an account whose password Noust never knew is made with a new one, named in the
-output and revealed with `noust db user-password --show`), loads the dump, gives each account its
+output and revealed in the console with sudo mode, or rotated with `noust db user-password`), loads the dump, gives each account its
 profile again, and points every application that uses it at the target, behind that application's
 health gate. The accounts arrive before the data, so an application's connection string changes in its
 host and port only. A backup policy follows the database. When an application does not come up on the
@@ -445,6 +597,15 @@ to a newer version*, and the Engines page lists the moves with the way back. The
 `POST /api/databases/instances/migrate/plan` and `POST /api/databases/instances/migrate` (sudo mode, jobs),
 `GET /api/databases/instances/migrations` and `POST .../migrations/{id}/rollback` (sudo mode, a job).
 
+### To another server of the fleet
+
+`noust db move` stays on one server. To take a database to another server of the fleet, from the central, use
+`noust db transfer shop_db --from db-1 --to db-2` (add `--accounts` for the accounts that had access to it,
+`--drop-source` to drop it from the first server after a last dump). The source dumps it, the central carries
+the dump in chunks that resume and keeps none of it, and the target loads it with its own import, as the
+database's owner and never as the superuser. How it works, what is checked before anything is dumped and what
+becomes of the accounts' passwords: [CENTRAL.md](CENTRAL.md#moving-a-database-to-another-server).
+
 ## TLS for an instance, and for a link
 
 An instance can serve TLS with a certificate signed by an authority of Noust's own, and an application
@@ -463,8 +624,16 @@ noust db link shop.example.com shop_db --engine postgresql@pg16 --tls verify-ful
   PostgreSQL refuses a connection that is not TLS, MySQL and MariaDB set `require_secure_transport`).
   Noust's own client inside the container keeps connecting through the engine's local socket, so
   `required` never locks Noust out. MongoDB serves TLS to those who ask (`optional`) and cannot refuse
-  the rest; MariaDB can refuse plaintext from 11.4. Redis and Valkey cannot serve TLS yet. A mode the
-  engine cannot serve is refused, naming why, before anything changes.
+  the rest; MariaDB can refuse plaintext from 11.4. Redis, Valkey and KeyDB serve TLS on a port of
+  their own, so Noust gives them one mode, `required`: the instance's one published port speaks TLS and
+  the plaintext port is shut (`optional` would need a second published port, and is refused with that
+  reason). Noust's own client inside the container, its health check, the key browser and the backups
+  are told to speak it, so everything goes on working; a link takes a TLS mode and the application
+  gets a `rediss://` URL with redis-py's `ssl_cert_reqs`, `ssl_ca_certs` and `ssl_check_hostname`
+  (`DB_SSL_MODE` and `DB_SSL_CA` with `--extra-vars`). A link without a mode to such an instance is
+  refused: its URL could not connect. Making such a database public no longer asks for
+  `--allow-plaintext`, because the port is TLS-only already. A mode the engine cannot serve is refused,
+  naming why, before anything changes. ClickHouse is not offered yet.
 - **The authority.** The first instance that serves TLS makes it: a P-256 key and a certificate in
   `/etc/noust/tls` (the key readable by root only). The certificate of an instance carries the names it
   is reached by (`localhost`, `127.0.0.1`, `::1`, its name, its container name and the server's
@@ -700,6 +869,14 @@ The engine does not require TLS of every client because of this; what a public d
 requires is in [Making a database public](#making-a-database-public-on-purpose). Redis, Valkey and
 MongoDB are not covered, and an instance has its own certificate (`noust db instance tls`).
 
+The API is `GET /api/databases/engines/tls` and `GET /api/databases/engines/{engine}/tls` (what an
+engine is given, what it presents now, days left, whether its source was renewed),
+`POST .../engines/{engine}/tls/plan` (checks the certificate and says whether the engine restarts) and,
+as jobs with sudo mode, `PUT .../engines/{engine}/tls`, `DELETE .../engines/{engine}/tls` and
+`POST /api/databases/engines/tls/refresh`. A restart is refused without `confirm`, as
+`confirmation_required`, before the job exists. Tested against real PostgreSQL and MariaDB
+(`host_tls`).
+
 ## Read replicas, over TLS
 
 A replica is another server's database that follows this one's changes and answers read-only queries:
@@ -864,6 +1041,16 @@ reading; a join with a wrong password or an untrusted certificate changes nothin
 refuses (`max_allowed_packet`) puts the databases back, restarting MySQL twice; the replica follows
 over `Master_SSL_Verify_Server_Cert: Yes`, holds the routines, refuses an ordinary account's write,
 receives new accounts and rows, and after `promote` and `remove` both servers are independent again.
+
+The API for all of this is `GET /api/databases/replicas` and `GET .../replicas/{engine}` (`postgresql`
+or `mysql`), `POST .../replicas/{engine}/plan`, and, with sudo mode, `POST .../replicas/{engine}` (make
+room for a replica; it answers with the join code, which holds the replication password and is
+therefore never a job's result), `POST .../replicas/{engine}/{name}/token` (show it again; audited as
+`db.replica.token`), `POST .../replicas/join/plan` and `POST .../replicas/join` (a job: the data of the
+replica is replaced by a copy of the primary's), `POST .../replicas/{engine}/promote` and
+`DELETE .../replicas/{engine}/{name}`. A restart, a replaced data directory and a promotion are refused
+without `confirm` (`replace_data` for the join) as `confirmation_required`, before anything is done.
+They are the server's: a team member does not reach them. The console does not show replicas yet.
 
 ## Making a database public, on purpose
 

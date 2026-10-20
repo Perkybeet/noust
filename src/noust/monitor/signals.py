@@ -100,8 +100,6 @@ KNOWN_SAFE_NAMES: frozenset[str] = frozenset(
         "noust",
         "noust-monitor",
         "uvicorn",
-        # The names WASM had before 3.0, still running until the migration.
-        "wasm",
         "yarn",
     }
 )

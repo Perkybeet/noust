@@ -7,7 +7,7 @@ import { createSiteBody } from "./CreateSiteDialog";
 import { issueRequest } from "./IssueCertificateDialog";
 import { byUrgency, certificateJobFor, certificateView, covers, issuerName } from "./certificates";
 import { configRejection, failingLine, lineOffset } from "./configErrors";
-import { dnsVerdict, isPrivateAddress, recordsToCreate } from "./dns";
+import { cdnName, dnsVerdict, isPrivateAddress, recordsToCreate } from "./dns";
 import { domainProblem, parseNames, truncatedNames, wwwOf } from "./names";
 import { validateCertificatesSearch, validateSitesSearch } from "./search";
 
@@ -274,5 +274,17 @@ describe("the tabs' search params", () => {
   it("keeps the sites' filter and drops anything else", () => {
     expect(validateSitesSearch({ q: " shop " })).toEqual({ q: "shop" });
     expect(validateSitesSearch({ q: "", tab: "sites" })).toEqual({});
+  });
+});
+
+describe("the name of a CDN", () => {
+  it("is written as its operator writes it, and an unknown one keeps the server's id", () => {
+    expect(cdnName("cloudflare")).toBe("Cloudflare");
+    expect(cdnName("fastly")).toBe("Fastly");
+    expect(cdnName("bunnycdn")).toBe("Bunny CDN");
+    expect(cdnName("arvancloud")).toBe("ArvanCloud");
+    expect(cdnName("somewhere-new")).toBe("somewhere-new");
+    expect(cdnName(null)).toBe("");
+    expect(cdnName(undefined)).toBe("");
   });
 });

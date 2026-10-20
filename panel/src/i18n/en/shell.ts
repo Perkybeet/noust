@@ -126,6 +126,7 @@ export const shell = {
     disk: "Disk",
     upFor: "up {duration}",
     unavailable: "Machine readings unavailable",
+    live: "Live",
     reconnecting: "Reconnecting",
     failedUnits: { one: "{count} failed service", other: "{count} failed services" },
   },
@@ -157,10 +158,5 @@ export const shell = {
     title: "Page not found",
     body: "Nothing lives at this address. Check the link, or go back to the {overview}.",
     overviewLink: "overview",
-  },
-  renameNotice: {
-    text: "WASM is now Noust — nothing else changed: same console, same applications.",
-    link: "What changed and why",
-    dismiss: "Dismiss",
   },
 } as const;

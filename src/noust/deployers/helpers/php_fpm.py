@@ -32,6 +32,7 @@ server only redirects, so every release would pass.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import socket
@@ -50,6 +51,9 @@ from noust.core.exceptions import DeploymentError, TemplateError, ValidationErro
 from noust.core.fs import FileSystem
 from noust.core.logger import Logger
 from noust.core.runner import CommandResult, CommandRunner
+from noust.deployers.helpers import tree_names
+
+_logger = logging.getLogger(__name__)
 
 #: The application type served by a PHP-FPM pool.
 PHP_FPM_TYPE = "php-fpm"
@@ -57,11 +61,6 @@ PHP_FPM_TYPE = "php-fpm"
 #: Every pool and socket Noust writes carries this prefix, so one never
 #: collides with the distribution's own ``www`` pool or another tool's.
 POOL_PREFIX = paths.PHP_POOL_PREFIX
-#: The prefix WASM gave them. A pool written before 3.0 keeps its names (file,
-#: pool, socket, and the socket its site passes requests to) until the
-#: migration from WASM renames all four together; until then every lookup
-#: below finds it under the old prefix.
-LEGACY_POOL_PREFIX = paths.LEGACY_PHP_POOL_PREFIX
 
 #: What a stopped application's pool file is renamed with: every
 #: distribution's FPM includes ``*.conf`` from the pool directory only, so the
@@ -107,7 +106,7 @@ _SIZE_UNITS = {"": 1, "k": 1024, "m": 1024**2, "g": 1024**3}
 #: another's session ids. It sits outside the application's tree on purpose:
 #: in place that tree belongs to the service user, who could swap the
 #: directory for a link to anything before root sets its owner and mode.
-PHP_TMP_ROOT = ".wasm-php-tmp"
+PHP_TMP_ROOT = tree_names.PHP_TMP
 
 #: Mode of the parent: root's, crossed by the workers, listed by nobody.
 PHP_TMP_ROOT_MODE = 0o711
@@ -155,22 +154,17 @@ class FpmInstallation:
     socket_dir: Path
     version: str | None = None
 
-    def prefix(self, app_name: str) -> str:
+    def pool_name(self, app_name: str) -> str:
         """
-        Say which prefix an application's pool carries.
+        Say how an application's pool is called.
 
         Args:
             app_name: The application name.
 
         Returns:
-            :data:`LEGACY_POOL_PREFIX` when only a pool WASM wrote exists
-            (enabled or stopped), else :data:`POOL_PREFIX`.
+            ``noust-<app_name>``: the pool section, the file and the socket share it.
         """
-        for prefix in (POOL_PREFIX, LEGACY_POOL_PREFIX):
-            pool = self.pool_dir / f"{prefix}{app_name}.conf"
-            if pool.is_file() or _disabled(pool).is_file():
-                return prefix
-        return POOL_PREFIX
+        return f"{POOL_PREFIX}{app_name}"
 
     def pool_file(self, app_name: str) -> Path:
         """
@@ -180,10 +174,9 @@ class FpmInstallation:
             app_name: The application name.
 
         Returns:
-            ``<pool_dir>/noust-<app_name>.conf`` (``wasm-`` for a pool Noust
-            wrote and the migration has not renamed).
+            ``<pool_dir>/noust-<app_name>.conf``.
         """
-        return self.pool_dir / f"{self.prefix(app_name)}{app_name}.conf"
+        return self.pool_dir / f"{self.pool_name(app_name)}.conf"
 
     def disabled_pool_file(self, app_name: str) -> Path:
         """
@@ -206,10 +199,9 @@ class FpmInstallation:
             app_name: The application name.
 
         Returns:
-            ``<socket_dir>/noust-<app_name>.sock`` (or ``wasm-``, as
-            :meth:`pool_file`).
+            ``<socket_dir>/noust-<app_name>.sock``.
         """
-        return self.socket_dir / f"{self.prefix(app_name)}{app_name}.sock"
+        return self.socket_dir / f"{self.pool_name(app_name)}.sock"
 
     def holds(self, app_name: str) -> bool:
         """
@@ -222,11 +214,8 @@ class FpmInstallation:
             True when its pool file, enabled or moved aside, is in this
             installation's pool directory.
         """
-        for prefix in (POOL_PREFIX, LEGACY_POOL_PREFIX):
-            pool = self.pool_dir / f"{prefix}{app_name}.conf"
-            if pool.is_file() or _disabled(pool).is_file():
-                return True
-        return False
+        pool = self.pool_file(app_name)
+        return pool.is_file() or _disabled(pool).is_file()
 
 
 def is_php_fpm(app: object) -> bool:
@@ -574,9 +563,32 @@ def pool_tmp_dir(app_path: Path) -> Path:
         app_path: The application directory.
 
     Returns:
-        ``<apps directory>/.wasm-php-tmp/<app name>``.
+        ``<apps directory>/.noust-php-tmp/<app name>``.
     """
     return app_path.parent / PHP_TMP_ROOT / app_path.name
+
+
+def _adopt_legacy_tmp_dir(path: Path, *, fs: FileSystem) -> None:
+    """
+    Bring an application's temporary files from the directory they had before 4.0.
+
+    Its sessions and uploads in flight are in there, and the pool that served them keeps
+    serving until the reload that follows this deployment: they are moved, not dropped.
+
+    Args:
+        path: What :func:`pool_tmp_dir` answered.
+        fs: Where the rename goes through.
+    """
+    legacy_root = path.parent.parent / tree_names.legacy_of(PHP_TMP_ROOT)
+    legacy = legacy_root / path.name
+    if legacy_root.is_symlink() or legacy.is_symlink() or not legacy.is_dir() or path.exists():
+        return
+    try:
+        fs.rename(legacy, path)
+        if not any(legacy_root.iterdir()):
+            fs.remove_tree(legacy_root)
+    except OSError as exc:
+        _logger.warning("Could not move %s to %s: %s", legacy, path, exc)
 
 
 def prepare_tmp_dir(
@@ -608,6 +620,8 @@ def prepare_tmp_dir(
             )
         fs.make_dir(directory, mode=mode, parents=True)
         fs.chmod(directory, mode)
+        if directory == path.parent:
+            _adopt_legacy_tmp_dir(path, fs=fs)
     result = runner.run(["chown", f"{user}:{group}", str(path)], timeout=FPM_CONTROL_TIMEOUT)
     if not result.success:
         raise DeploymentError(

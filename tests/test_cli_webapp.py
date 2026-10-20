@@ -282,6 +282,13 @@ class StoreSpy:
     # Tables other modules keep (extra copies, processes) hold nothing here.
     _transaction = staticmethod(empty_transaction)
 
+    def list_databases(self, engine: str | None = None, app_id: int | None = None) -> list[Any]:
+        """
+        Returns:
+            No databases: the application owns none.
+        """
+        return []
+
     def get_branch_pin(self, domain: str) -> str | None:
         """
         Args:

@@ -151,6 +151,8 @@ class PolicyFields(BaseModel):
         waf: The web application firewall: ``detect``, ``block`` or empty for none.
         waf_exclusions: Numbers of the rules the firewall leaves out for this site.
         routes: What happens at prefixes of the site, longest path first.
+        force_https: Whether port 80 is sent to HTTPS once the site has a certificate. False
+            leaves the site answering on both (nginx only).
     """
 
     basic_auth: bool = False
@@ -175,6 +177,7 @@ class PolicyFields(BaseModel):
     waf: str = ""
     waf_exclusions: list[int] = Field(default_factory=list)
     routes: list[RouteFields] = Field(default_factory=list)
+    force_https: bool = True
 
 
 class PolicyResponse(BaseModel):
@@ -237,6 +240,7 @@ class PolicyRequest(BaseModel):
         waf_exclusions: Replaces the numbers of the rules left out for this site whole.
         routes: Replaces the routes whole; an empty list clears them. A route that hands a
             prefix to a port no visible application listens on is the server's to ask for.
+        force_https: See :class:`PolicyFields`; refused on Apache and while HSTS is on.
         accept_lockout: Go ahead although the lists refuse the caller's own address.
         accept_unreachable_auth: Go ahead although the authentication service does not answer.
     """
@@ -263,6 +267,7 @@ class PolicyRequest(BaseModel):
     waf: str | None = None
     waf_exclusions: list[int] | None = None
     routes: list[RouteFields] | None = None
+    force_https: bool | None = None
     accept_lockout: bool = False
     accept_unreachable_auth: bool = False
 
@@ -397,6 +402,7 @@ def changes_from(request: PolicyRequest) -> dict[str, Any]:
         "client_certs",
         "waf",
         "waf_exclusions",
+        "force_https",
     ):
         value = getattr(request, name)
         if value is not None:

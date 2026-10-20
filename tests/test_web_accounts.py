@@ -808,7 +808,7 @@ class TestUpgradeFrom30:
         cookie = manager._encode(sid, "testclient", auth_module.utcnow(), auth_module.utcnow())
         legacy = manager._issue_api_token("ci-3.0", "deploy", None)
 
-        client.cookies.set("wasm_session", cookie)
+        client.cookies.set("noust_session", cookie)
         session = client.get("/api/auth/session").json()
         assert session["authenticated"] is True
         assert session["grant"] == "compat"

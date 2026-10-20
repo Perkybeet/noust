@@ -39,7 +39,7 @@ services:
   web:
     build: .
     ports:
-      - "127.0.0.1:8080:80"
+      - "127.0.0.1:18080:80"
     depends_on: [db]
   db:
     image: postgres:16
@@ -135,7 +135,7 @@ def stack_tree(root: Path, *, hooks: str | None = HOOKS) -> Path:
 def deployed(store: NoustStore, root: Path) -> App:
     """The stack's row."""
     return store.create_app(
-        App(domain=DOMAIN, app_type="docker-compose", app_path=str(root), port=8080)
+        App(domain=DOMAIN, app_type="docker-compose", app_path=str(root), port=18080)
     )
 
 

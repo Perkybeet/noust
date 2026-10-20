@@ -209,7 +209,7 @@ def test_the_env_config_directory_is_never_tightened_through_a_link(
     app.mkdir()
     host_dir = host_file.parent
     host_dir.chmod(0o755)
-    (app / ".wasm").symlink_to(host_dir)
+    (app / ".noust").symlink_to(host_dir)
     manager = EnvManager(fs=RealFileSystem())
 
     with pytest.raises(SecurityError):

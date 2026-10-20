@@ -17,7 +17,13 @@ route to what :mod:`noust.web.permissions.scopes` says it is about:
 - an **instance** route is refused (403 ``instance_scope_required``);
 - **open** routes are held to the permissions of the principal's instance role,
   as before teams, and **scoped** ones are left to their handler, which asks
-  the scoped store.
+  the scoped store;
+- a call **through the central to a server assigned to the principal's team**
+  (``/api/nodes/{node}/api/...``) is held twice: the server must be the team's
+  (404 otherwise), and the call it forwards is judged by this same table applied
+  to the server's own path. The server takes the central's token for an
+  instance principal, so what a team member may not do on the central
+  (anything about the machine) must be refused here, before it is forwarded.
 
 A principal that sees every team passes straight through: nothing here changes
 what the master token, a central, an ``admin`` or a server with one team does.
@@ -46,7 +52,12 @@ from noust.web.auth import ensure_permission, require_auth
 from noust.web.permissions import PUBLIC
 from noust.web.permissions.enforce import PermissionDenied, route_template
 from noust.web.permissions.principal import scope_of
-from noust.web.permissions.registry import permission_for_route
+from noust.web.permissions.registry import (
+    NODE_PROXY_TEMPLATE,
+    match_path,
+    permission_for_route,
+    proxied_path,
+)
 from noust.web.permissions.scopes import (
     APP,
     BODY,
@@ -55,6 +66,7 @@ from noust.web.permissions.scopes import (
     DOMAIN,
     INSTANCE,
     JOB,
+    NODE,
     OPEN,
     PATH,
     QUERY,
@@ -66,6 +78,7 @@ from noust.web.permissions.scopes import (
     rule_for,
 )
 from noust.web.permissions.team_roles import instance_permissions_of, permissions_at
+from noust.web.permissions.websockets import node_stream_permission
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +90,7 @@ _NOT_FOUND: Mapping[str, str] = {
     DEPLOYMENT: "Deployment not found: {value}",
     JOB: "Job not found: {value}",
     TEAM: "Team not found: {value}",
+    NODE: "Node not found: {value}",
 }
 
 
@@ -183,6 +197,9 @@ def _resolve(ref: Ref, values: list[str], scoped: ScopedStore) -> Target | None:
         if team is None or not scoped.scope.sees_team(team.id):
             return None
         return Target(team.id, 0, 0)
+    if ref.kind == NODE:
+        # A server nobody took is the instance's: a member is told it is not there.
+        return scoped.placement_of_node(values[0])
     raise ValueError(f"Unknown resource kind {ref.kind!r}")  # a typo in the table
 
 
@@ -303,6 +320,101 @@ async def _hold(
         if placed is None:
             raise not_found(ref.kind, "/".join(values))
         ensure_permission_at(request, session, placed, permission)
+        if ref.kind == NODE and route_template(request) == NODE_PROXY_TEMPLATE:
+            inner = proxied_path(str(request.scope.get("path", "")))
+            hold_node_call(request, session, placed, request.method.upper(), inner)
+
+
+def hold_node_call(
+    request: Request, session: dict[str, Any], placed: Target, method: str, inner: str | None
+) -> None:
+    """
+    Hold a call forwarded to a server of the principal's team to what a team may do.
+
+    The server answers to the central's token as it would to the instance, so
+    the table that holds a team member on the central is applied here to the
+    server's own path, with the resource being the team's whole server: a route
+    that is about the machine is refused, one that is about the team's own
+    resources needs the permission *in the server's team*, and a path this
+    central does not know (a server newer than it) is refused, because nothing
+    says what it reaches.
+
+    Args:
+        request: The request, for the audit record of a refusal.
+        session: The authenticated payload.
+        placed: The server's team.
+        method: The HTTP method.
+        inner: The server's own path, from ``/api`` on; None when it is not one.
+
+    Raises:
+        PermissionDenied: 403 ``instance_scope_required`` for a route that is the
+            machine's, ``scope_undeclared`` for a path this central does not
+            know, ``permission_denied`` for a permission the principal lacks in
+            the server's team.
+    """
+    matched = match_path(method, inner) if inner else None
+    if matched is None:
+        raise node_path_unknown(method, inner)
+    template, permission = matched
+    rule = rule_for(method, template)
+    if rule is None:
+        raise node_path_unknown(method, inner)
+    if rule.scoping == INSTANCE:
+        raise _refuse_instance(permission)
+    if rule.scoping == OPEN:
+        # About nobody's resources: what the instance role holds, as on the central.
+        ensure_permission(
+            request,
+            replace_permissions(session, instance_permissions_of(session)),
+            permission,
+        )
+        return
+    ensure_permission_at(request, session, placed, permission)
+
+
+def node_path_unknown(method: str, inner: str | None) -> PermissionDenied:
+    """
+    Args:
+        method: The HTTP method.
+        inner: The server's own path.
+
+    Returns:
+        The refusal of a path this central cannot classify.
+    """
+    return PermissionDenied(
+        "scope_undeclared",
+        "unknown",
+        f"{method} {inner or '?'} is not a path this central knows",
+        "The server is newer than this central, or the path does not exist. A team "
+        "uses only what the central can tell is its own; update the central, or an "
+        "administrator of the server makes the call.",
+    )
+
+
+def stream_refusal(session: dict[str, Any], placed: Target, inner_stream: str) -> str | None:
+    """
+    Say why a team member may not open a server's stream through the central.
+
+    The WebSocket twin of :func:`hold_node_call`: the handshake passes the
+    middleware, not the router, so the handler asks the same question here.
+
+    Args:
+        session: The authenticated payload.
+        placed: The server's team.
+        inner_stream: The server's own stream, from ``/ws`` on.
+
+    Returns:
+        A sentence when it is refused, None when it may open.
+    """
+    needed = node_stream_permission(inner_stream)
+    if needed is None:
+        return "This central does not know that stream of the server"
+    held = permissions_at(
+        session, placed.team_id or None, placed.project_id or None, placed.environment_id or None
+    )
+    if needed not in held:
+        return f"This needs the '{needed}' permission in the server's team"
+    return None
 
 
 def resolve_target_for(
@@ -409,8 +521,10 @@ __all__ = [
     "enforce_scope",
     "ensure_permission_at",
     "ensure_permission_in_team",
+    "hold_node_call",
     "not_found",
     "replace_permissions",
     "require_instance_scope",
     "resolve_target_for",
+    "stream_refusal",
 ]

@@ -52,6 +52,7 @@ from noust.core.fs import (
 )
 from noust.core.store import NoustStore
 from noust.deployers.helpers.env_manager import EnvConfig, EnvManager, EnvVariable
+from tests.config_files import planted
 
 
 @pytest.fixture(autouse=True)
@@ -508,7 +509,7 @@ def fill(path: str, marker: str) -> str:
         is refused unless it is an http(s) URL), so the marker still shows up
         wherever the value would leak.
     """
-    return f"https://example.test/{marker}" if path.endswith("webhook_url") else marker
+    return planted(path, marker)
 
 
 def _flat_paths(node: object, prefix: str = "") -> list[str]:
@@ -602,6 +603,7 @@ class TestSecretInventory:
             "databases.credentials.mongodb.password",
             "notifications.channels.webhook.webhook_url",
             "notifications.channels.webhook.secret",
+            "notifications.channels.webhook.webhook_headers",
             "notifications.channels.slack.webhook_url",
             "notifications.channels.discord.webhook_url",
             "notifications.channels.telegram.bot_token",
@@ -998,14 +1000,14 @@ class TestEnvFilePermissions:
         assert app_path.stat().st_mode & 0o777 == 0o755
 
     def test_env_config_json_is_owner_only(self, sandbox: Path) -> None:
-        """.wasm/env-config.json records the variable inventory and defaults."""
+        """.noust/env-config.json records the variable inventory and defaults."""
         app_path = sandbox / "app"
         app_path.mkdir()
         config = EnvConfig(variables=[EnvVariable(name="API_KEY", secret=True, value="sk-live")])
 
         EnvManager().save_config(app_path, config)
 
-        saved = app_path / ".wasm" / "env-config.json"
+        saved = app_path / ".noust" / "env-config.json"
         assert saved.stat().st_mode & 0o077 == 0
         assert saved.parent.stat().st_mode & 0o077 == 0
         assert json.loads(saved.read_text())["variables"][0]["name"] == "API_KEY"

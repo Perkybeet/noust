@@ -20,6 +20,8 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/auth/session"): PUBLIC,
     ("POST", "/api/auth/invitations/open"): PUBLIC,
     ("POST", "/api/auth/invitations/accept"): PUBLIC,
+    ("POST", "/api/auth/password-reset/request"): PUBLIC,
+    ("POST", "/api/auth/password-reset/confirm"): PUBLIC,
     ("POST", "/api/auth/elevate"): Permission.SELF,
     ("POST", "/api/auth/logout"): Permission.SELF,
     ("GET", "/api/auth/verify"): Permission.SELF,

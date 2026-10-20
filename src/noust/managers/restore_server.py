@@ -12,29 +12,36 @@ application. On a new machine with Noust installed, one command:
    the store with its applications, the secrets and the keys that open them, the
    configuration, the certificates and the units. The store now says which
    applications there were, how each is backed up and where the copies are.
-2. **Says what the machine still lacks** that the restore cannot bring: a
-   database engine an application's database lives on, with the command that
-   installs it.
-3. **Brings each application back, one after the other**, from the newest
+2. **Says what the machine still lacks** that the restore cannot bring, and with
+   ``--install`` installs it: the web server the configuration names, Docker when an
+   application or an instance needs it, and the database engines the databases live on.
+   Without ``--install`` it installs nothing and names the command.
+3. **Puts the PostgreSQL roles back** the bundle carries (``pg_dumpall --globals-only``), once
+   their engine is there and only the ones the server lacks, and **brings back the databases no
+   application owns** from their newest dump, here or on a destination.
+4. **Brings each application back, one after the other**, from the newest
    backup there is of it, on this server or on the destinations its own
    schedule sends to: the application backup (its release and ``shared/``,
    ``.env``, database dumps and volumes when it was taken with them) and then
    the data backups of its persistent paths and volumes that are newer than it.
-4. **Renders its web server site again** from the store, with the certificate
+5. **Renders its web server site again** from the store, with the certificate
    the bundle brought, and
-5. **starts it behind the same health gate as every deploy**, and records what
+6. **starts it behind the same health gate as every deploy**, and records what
    the gate said: the probes and the journal, verbatim, when it does not pass.
 
 An application that fails any step is reported and the next one goes on; there
 is a final report with each application's outcome and nothing is rolled back,
 because there is nothing to roll back to on a machine that was empty. The flow
 is resumable: with the state already restored (``--skip-state``) it only runs
-steps 2 to 5, so a destination that was unreachable can be tried again.
+steps 2 to 6, so a destination that was unreachable can be tried again. That is also
+the part the console can run: restoring the state replaces the store the console
+runs on, so it is a command at a terminal.
 
-What it does not do, said here and in the report: install the web server, Docker
-or the database engines (they are the operating system's, and the report names
-what is missing), and redeploy an application nothing backed up from its
-source (the report says so, and the application's definition is in the store).
+What it does not do, said here and in the report: add a repository for Docker on a
+distribution that does not carry it, make a database *instance* again (a container Noust ran:
+``noust db instance create``), put back the accounts of MySQL, MariaDB and MongoDB (only
+PostgreSQL has roles in a file of its own), and redeploy an application nothing backed up from
+its source (the report says so, and the application's definition is in the store).
 """
 
 from __future__ import annotations
@@ -44,20 +51,22 @@ import logging
 import sqlite3
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from noust.central import require_server_role
 from noust.core import audit
-from noust.core.exceptions import NoustError, ValidationError
+from noust.core.exceptions import DependencyError, NoustError, ValidationError
 from noust.core.logger import Logger
-from noust.core.store import App, NoustStore, get_store
+from noust.core.store import App, NoustStore, get_store, is_compose_backed
 from noust.core.utils import domain_to_app_name
 from noust.managers.backup_destinations import BackupDestinationManager
 from noust.managers.backup_manager import BackupManager, BackupMetadata
+from noust.managers.restore_databases import DatabaseOutcome, OrphanDatabases, parse_moment
 from noust.managers.self_backup import SelfBackupManager
 from noust.managers.self_restore import RestoreReport, SelfRestore
+from noust.managers.server_provision import ServerProvisioner
 from noust.managers.volume_backups import VolumeBackupManager, VolumeBackupMetadata
 
 __all__ = ["AppOutcome", "RestoreServer", "ServerRestoreReport"]
@@ -122,20 +131,34 @@ class ServerRestoreReport:
         apps: One outcome per application.
         engines_missing: Database engines the applications use that are not
             installed here, each with the command that installs it.
+        requirements: The software the server runs on (web server, Docker, engines): each
+            ``name``, ``state`` (``present``, ``installed``, ``missing`` or ``failed``),
+            ``detail`` and the ``command`` that installs it by hand.
+        roles: The PostgreSQL roles put back: ``engine``, ``state`` (``created``,
+            ``waiting`` for its engine, ``failed``), ``created``, ``present``, ``detail``.
+        databases: The databases no application owns, and what became of each.
         notes: Anything else.
     """
 
     state: RestoreReport | None = None
     apps: list[AppOutcome] = field(default_factory=list)
     engines_missing: list[dict[str, str]] = field(default_factory=list)
+    requirements: list[dict[str, Any]] = field(default_factory=list)
+    roles: list[dict[str, Any]] = field(default_factory=list)
+    databases: list[DatabaseOutcome] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
-        """Whether every application that was asked for is back and answering."""
-        return all(
-            outcome.status in (RESTORED, SKIPPED) and (outcome.healthy or outcome.status == SKIPPED)
-            for outcome in self.apps
+        """Whether every application is back and answering, the software is there and no database is lost."""
+        return (
+            all(
+                outcome.status in (RESTORED, SKIPPED)
+                and (outcome.healthy or outcome.status == SKIPPED)
+                for outcome in self.apps
+            )
+            and all(step["state"] in ("present", "installed") for step in self.requirements)
+            and all(database.status not in ("failed", "no_dump") for database in self.databases)
         )
 
     def counts(self) -> dict[str, int]:
@@ -159,31 +182,14 @@ class ServerRestoreReport:
             "state": self.state.to_dict() if self.state else None,
             "apps": [outcome.to_dict() for outcome in self.apps],
             "engines_missing": self.engines_missing,
+            "requirements": self.requirements,
+            "roles": self.roles,
+            "databases": [database.to_dict() for database in self.databases],
             "notes": self.notes,
         }
 
 
-def _moment(value: str | None) -> datetime:
-    """
-    Read a timestamp as an aware moment; the epoch when it cannot be read.
-
-    Args:
-        value: ISO 8601 (a backup's sidecar) or RFC 3339 (rclone), naive or not.
-
-    Returns:
-        The moment. A naive one is the server's local time.
-    """
-    if not value:
-        return datetime.min.replace(tzinfo=timezone.utc)
-    text = value.strip().replace("Z", "+00:00")
-    head, plus, tail = text.partition("+")
-    if "." in head and len(head.split(".")[1]) > 6:
-        head = head.split(".")[0] + "." + head.split(".")[1][:6]
-    try:
-        moment = datetime.fromisoformat(head + plus + tail)
-    except ValueError:
-        return datetime.min.replace(tzinfo=timezone.utc)
-    return moment.astimezone() if moment.tzinfo is None else moment
+_moment = parse_moment
 
 
 def _names(raw: str | None) -> list[str]:
@@ -227,6 +233,11 @@ class RestoreServer:
         refresh_site: Callable[[App], None] | None = None,
         engine_installed: Callable[[str], bool] | None = None,
         actor: audit.Actor | None = None,
+        provisioner: ServerProvisioner | None = None,
+        orphans: OrphanDatabases | None = None,
+        apply_roles: Callable[[str, Path], Any] | None = None,
+        install_engine: Callable[[str], str] | None = None,
+        webserver_name: Callable[[], str] | None = None,
     ) -> None:
         """
         Args:
@@ -240,6 +251,12 @@ class RestoreServer:
             refresh_site: Renders an application's site again from the store.
             engine_installed: Says whether a database engine is installed here.
             actor: Who acts, for the audit trail.
+            provisioner: Installs the web server and Docker.
+            orphans: Brings back the databases no application owns.
+            apply_roles: Creates the roles of a PostgreSQL server from a file: given the engine
+                and the file, returns the result, or None when the engine is not installed.
+            install_engine: Installs a database engine and says what it did.
+            webserver_name: Names the web server the restored configuration chooses.
         """
         self.logger = logger or Logger(verbose=False)
         self._manager = manager
@@ -250,6 +267,11 @@ class RestoreServer:
         self._refresh_site = refresh_site
         self._engine_installed = engine_installed
         self.actor = actor
+        self._provisioner = provisioner
+        self._orphans = orphans
+        self._apply_roles = apply_roles
+        self._install_engine = install_engine
+        self._webserver_name = webserver_name
 
     # ------------------------------------------------------------ collaborators
 
@@ -280,6 +302,72 @@ class RestoreServer:
         if self._volumes is None:
             self._volumes = VolumeBackupManager(logger=self.logger, actor=self.actor)
         return self._volumes
+
+    @property
+    def provisioner(self) -> ServerProvisioner:
+        """Installs the web server and Docker."""
+        if self._provisioner is None:
+            self._provisioner = ServerProvisioner(logger=self.logger)
+        return self._provisioner
+
+    @property
+    def orphans(self) -> OrphanDatabases:
+        """Brings back the databases no application owns."""
+        if self._orphans is None:
+            self._orphans = OrphanDatabases(logger=self.logger)
+        return self._orphans
+
+    def _webserver(self) -> str:
+        """
+        Returns:
+            The web server the restored configuration names: ``nginx`` or ``apache``.
+        """
+        if self._webserver_name is not None:
+            return self._webserver_name()
+        from noust.core.config import Config
+
+        name = Config().webserver
+        return "apache" if name.startswith(("apache", "httpd")) else "nginx"
+
+    def _install(self, engine: str) -> str:
+        """
+        Install a database engine.
+
+        Args:
+            engine: The engine's name.
+
+        Returns:
+            A sentence saying what was done.
+
+        Raises:
+            NoustError: The engine could not be installed.
+        """
+        if self._install_engine is not None:
+            return self._install_engine(engine)
+        from noust.managers.database.service import DatabaseService
+
+        outcome = DatabaseService(logger=self.logger).install_engine(engine)
+        return str(getattr(outcome, "message", "") or f"{engine} was installed")
+
+    def _roles_for(self, engine: str, source: Path) -> Any:
+        """
+        Create the roles of a PostgreSQL server from a file.
+
+        Args:
+            engine: The engine's name.
+            source: The file ``pg_dumpall --globals-only`` wrote.
+
+        Returns:
+            What the engine did, or None when it is not installed here.
+        """
+        if self._apply_roles is not None:
+            return self._apply_roles(engine, source)
+        from noust.managers.database.service import DatabaseService
+
+        manager = DatabaseService(logger=self.logger).manager(engine)
+        if not manager.is_installed() or not getattr(manager, "HAS_GLOBALS", False):
+            return None
+        return manager.restore_globals(source)
 
     def _gate_for(self, app: App) -> tuple[bool, str]:
         """
@@ -344,7 +432,9 @@ class RestoreServer:
 
         Returns:
             ``bundle`` (what it is), ``apps`` (each with its type, destinations
-            and whether it has a data policy) and ``engines``.
+            and whether it has a data policy), ``engines``, ``databases`` (the
+            ones no application owns, as ``engine/name``) and ``pg_globals`` (the
+            servers whose roles it carries).
 
         Raises:
             EnvelopeError: Wrong passphrase, or the bundle was altered.
@@ -360,6 +450,7 @@ class RestoreServer:
             snapshot = self.manager._snapshot_in(root, manifest)
             apps: list[dict[str, Any]] = []
             engines: set[str] = set()
+            orphans: list[str] = []
             if snapshot is not None:
                 connection = sqlite3.connect(f"file:{snapshot}?mode=ro", uri=True, timeout=30)
                 connection.row_factory = sqlite3.Row
@@ -390,6 +481,11 @@ class RestoreServer:
                         )
                     for row in connection.execute("SELECT DISTINCT engine FROM databases"):
                         engines.add(str(row["engine"]))
+                    for row in connection.execute(
+                        "SELECT engine, name FROM databases WHERE app_id IS NULL "
+                        "ORDER BY engine, name"
+                    ):
+                        orphans.append(f"{row['engine']}/{row['name']}")
                 except sqlite3.Error as exc:
                     raise ValidationError(
                         "The bundle's store could not be read", details=str(exc)
@@ -403,28 +499,36 @@ class RestoreServer:
             "noust_version": manifest.get("noust_version"),
             "apps": apps,
             "engines": sorted(engines),
+            "databases": orphans,
+            "pg_globals": [
+                str(entry.get("engine")) for entry in manifest.get("pg_globals", []) or []
+            ],
         }
 
     # --------------------------------------------------------------------- run
 
     def run(
         self,
-        name_or_path: str,
-        passphrase: str,
+        name_or_path: str = "",
+        passphrase: str = "",
         *,
         force: bool = False,
         skip_state: bool = False,
         only: Sequence[str] = (),
         skip: Sequence[str] = (),
         accept_schema_changes: bool = False,
+        install: bool = False,
+        databases: bool = True,
+        from_destination: str | None = None,
         on_step: Callable[[str], None] | None = None,
     ) -> ServerRestoreReport:
         """
         Restore Noust's state and then every application, and report.
 
         Args:
-            name_or_path: The bundle, by its name here or its path.
-            passphrase: Its passphrase.
+            name_or_path: The bundle, by its name here or its path; not needed with
+                ``skip_state``.
+            passphrase: Its passphrase; not needed with ``skip_state``.
             force: Restore over a server that already holds state.
             skip_state: The state is already back (a restore that stopped
                 half-way): only bring the applications up.
@@ -434,6 +538,12 @@ class RestoreServer:
                 deployments that changed its database's schema, when nothing
                 restores the database with them (see
                 :meth:`~noust.managers.backup_manager.BackupManager.require_restore_confirmed`).
+            install: Install the web server, Docker (when something needs it) and the
+                database engines the databases live on. Without it nothing is installed and
+                the report names what is missing.
+            databases: Also bring back the databases no application owns.
+            from_destination: The destination a move was prepared on: the databases no
+                application owns are looked for there too.
             on_step: Told what is happening, for a job's progress.
 
         Returns:
@@ -446,6 +556,12 @@ class RestoreServer:
                 applications was attempted.
         """
         require_server_role("Restoring a server")
+        if not skip_state and not (name_or_path and passphrase):
+            raise ValidationError(
+                "Restoring the state needs the bundle and its passphrase",
+                details="Give both, or pass skip_state when the state is already here.",
+                field="name_or_path",
+            )
 
         def step(text: str) -> None:
             self.logger.info(text)
@@ -470,9 +586,15 @@ class RestoreServer:
         for app in store.list_apps():
             if app.domain in skip or (only and app.domain not in only):
                 report.apps.append(AppOutcome(domain=app.domain, status=SKIPPED, healthy=True))
+        report.requirements = self._requirements(store, applications, install, step)
         report.engines_missing = self._missing_engines(store, applications)
+        self._install_engines(report, install, step)
         for engine in report.engines_missing:
             step(f"{engine['engine']} is not installed here: {engine['command']}")
+        report.roles = self._put_back_roles(step)
+        if databases:
+            step("Bringing back the databases no application owns")
+            report.databases = self.orphans.restore(store, from_destination=from_destination)
         for app in applications:
             step(f"Bringing {app.domain} back")
             report.apps.append(self._restore_app(store, app, accept_schema_changes))
@@ -490,6 +612,225 @@ class RestoreServer:
             details={"counts": report.counts(), "state": report.state is not None},
         )
         return report
+
+    def preview(self, *, from_destination: str | None = None) -> dict[str, Any]:
+        """
+        Say what bringing this server's applications and databases back would do. Changes nothing.
+
+        The state is already here (restoring it replaces the store the console runs on, which
+        only a terminal can do), so this reads the store: what is missing on the machine, the
+        roles waiting for their engine, the databases no application owns with the dump each
+        would be loaded from, and every application with its newest backup.
+
+        Args:
+            from_destination: The destination a move was prepared on.
+
+        Returns:
+            ``requirements`` (what the machine has and lacks, with the command that installs
+            each), ``engines_missing``, ``roles``, ``databases`` and ``apps``.
+        """
+        require_server_role("Restoring a server")
+        store = get_store()
+        applications = [app for app in store.list_apps() if not app.preview_parent]
+        requirements = self._requirements(store, applications, False, lambda text: None)
+        engines_missing = self._missing_engines(store, applications)
+        directory = self.manager.restore_targets().get("pg-globals")
+        waiting = (
+            sorted(path.stem for path in directory.glob("*.sql"))
+            if directory is not None and directory.is_dir()
+            else []
+        )
+        apps: list[dict[str, Any]] = []
+        for app in applications:
+            try:
+                found = self._newest_backup(store, app)
+            except NoustError as exc:
+                apps.append({"domain": app.domain, "type": app.app_type, "error": exc.message})
+                continue
+            apps.append(
+                {
+                    "domain": app.domain,
+                    "type": app.app_type,
+                    "source": found[0] if found else None,
+                    "backup_id": found[1].id if found else None,
+                    "created_at": found[1].created_at if found else None,
+                }
+            )
+        return {
+            "requirements": requirements,
+            "engines_missing": engines_missing,
+            "roles": waiting,
+            "databases": [
+                database.to_dict()
+                for database in self.orphans.plan(store, from_destination=from_destination)
+            ],
+            "apps": apps,
+        }
+
+    def _requirements(
+        self, store: NoustStore, apps: list[App], install: bool, step: Callable[[str], None]
+    ) -> list[dict[str, Any]]:
+        """
+        Check, and with ``install`` install, the web server and Docker.
+
+        Docker is a requirement only when an application runs in containers or the server ran a
+        database instance: installing it on a server that has neither would be software nobody
+        asked for.
+
+        Args:
+            store: The restored store.
+            apps: The applications being restored.
+            install: Whether to install what is missing.
+            step: Reports progress.
+
+        Returns:
+            One entry per requirement: ``name``, ``state``, ``detail`` and ``command``.
+        """
+        provisioner = self.provisioner
+        wanted: list[tuple[str, Callable[[], Any], Callable[[], Any]]] = []
+        webserver = self._webserver()
+        wanted.append(
+            (
+                webserver,
+                lambda: provisioner.check_webserver(webserver),
+                lambda: provisioner.ensure_webserver(webserver),
+            )
+        )
+        if any(is_compose_backed(app.app_type) for app in apps) or self._has_instances(store):
+            wanted.append(("docker", provisioner.check_docker, provisioner.ensure_docker))
+        found: list[dict[str, Any]] = []
+        for name, check, ensure in wanted:
+            try:
+                if install:
+                    step(f"Making sure {name} is installed")
+                done = ensure() if install else check()
+            except DependencyError as exc:
+                found.append(
+                    {
+                        "name": name,
+                        "state": "failed",
+                        "detail": f"{exc.message}\n{exc.details}".strip(),
+                        "command": "",
+                    }
+                )
+                continue
+            found.append(
+                {
+                    "name": name,
+                    "state": done.state,
+                    "detail": done.detail,
+                    "command": done.command,
+                }
+            )
+        return found
+
+    @staticmethod
+    def _has_instances(store: NoustStore) -> bool:
+        """
+        Args:
+            store: The restored store.
+
+        Returns:
+            Whether the old server ran database instances (containers Noust made).
+        """
+        from noust.core.db_instance_store import DbInstanceStore
+
+        try:
+            return bool(DbInstanceStore(store).all())
+        except sqlite3.Error:
+            return False
+
+    def _install_engines(
+        self, report: ServerRestoreReport, install: bool, step: Callable[[str], None]
+    ) -> None:
+        """
+        Install the engines the report found missing, when asked.
+
+        An engine that installs leaves ``engines_missing``; one that does not stays there and
+        has a line in ``requirements`` saying why.
+
+        Args:
+            report: The report being made.
+            install: Whether to install.
+            step: Reports progress.
+        """
+        if not install:
+            return
+        still: list[dict[str, str]] = []
+        for missing in report.engines_missing:
+            engine = missing["engine"]
+            step(f"Installing {engine}")
+            try:
+                detail = self._install(engine)
+            except NoustError as exc:
+                report.requirements.append(
+                    {
+                        "name": engine,
+                        "state": "failed",
+                        "detail": f"{exc.message}\n{exc.details or ''}".strip(),
+                        "command": missing["command"],
+                    }
+                )
+                still.append(missing)
+                continue
+            report.requirements.append(
+                {"name": engine, "state": "installed", "detail": detail, "command": ""}
+            )
+        report.engines_missing = still
+
+    def _put_back_roles(self, step: Callable[[str], None]) -> list[dict[str, Any]]:
+        """
+        Create the roles of the PostgreSQL servers the bundle carried.
+
+        The files were put in the state directory by the restore of the state. A file is
+        applied once its engine is installed and removed once it was (it holds password
+        hashes); one whose engine is not there yet, or that the server refused, stays for the
+        next run. A file of a database instance's server is left for the instance.
+
+        Args:
+            step: Reports progress.
+
+        Returns:
+            One entry per file.
+        """
+        directory = self.manager.restore_targets().get("pg-globals")
+        if directory is None or not directory.is_dir():
+            return []
+        found: list[dict[str, Any]] = []
+        for path in sorted(directory.glob("*.sql")):
+            engine = path.stem
+            entry: dict[str, Any] = {
+                "engine": engine,
+                "state": "waiting",
+                "created": [],
+                "present": [],
+                "detail": "",
+            }
+            found.append(entry)
+            if "." in engine or "@" in engine or "-" in engine:
+                entry["detail"] = (
+                    "It belongs to a database instance Noust ran: make the instance again, "
+                    f"then apply it with 'noust db globals restore {path}'."
+                )
+                continue
+            step(f"Creating the roles of {engine}")
+            try:
+                result = self._roles_for(engine, path)
+            except NoustError as exc:
+                entry["state"] = "failed"
+                entry["detail"] = f"{exc.message}\n{exc.details or ''}".strip()
+                continue
+            if result is None:
+                entry["detail"] = f"{engine} is not installed yet; the roles wait for it."
+                continue
+            entry.update(
+                state="created",
+                created=list(result.created),
+                present=list(result.present),
+                detail="; ".join([*result.left_out, *result.errors]),
+            )
+            self.manager.fs.remove(path)
+        return found
 
     def _missing_engines(self, store: NoustStore, apps: list[App]) -> list[dict[str, str]]:
         """

@@ -62,11 +62,13 @@ class ActionOut(BaseModel):
     Attributes:
         kind: ``project.create``, ``environment.create``, ``app.create``, ``app.move``,
             ``app.branch``, ``app.limits``, ``app.health``, ``app.domain``, ``app.database``,
-            ``app.env`` or ``app.backups``.
-        target: What it is done to.
-        summary: What it does, with no value of any variable.
+            ``app.env``, ``app.backups``, ``cron.set``, ``cron.state``, ``server.team``,
+            ``server.labels`` or ``placement.set``.
+        target: What it is done to (``SERVER:target`` when it is on another server).
+        summary: What it does, with no value of any variable and no cron command.
         elevated: Applying it needs sudo mode.
         unverified: Whether it is needed could not be checked.
+        server: The server of the fleet it is done on, through this central; null for this one.
     """
 
     kind: str
@@ -74,6 +76,7 @@ class ActionOut(BaseModel):
     summary: str
     elevated: bool = False
     unverified: bool = False
+    server: str | None = None
 
 
 class PlanResponse(BaseModel):
@@ -86,7 +89,8 @@ class PlanResponse(BaseModel):
             it is refused if the plan has changed since.
         actions: The changes, in the order they would run.
         warnings: Differences that are not reconciled, and what could not be checked.
-        unmanaged: Applications the caller sees that the manifest does not name.
+        unmanaged: Applications and cron jobs (``cron:NAME``) the caller sees that the
+            manifest does not name.
         counts: How many actions of each kind.
     """
 

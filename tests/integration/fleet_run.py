@@ -494,8 +494,8 @@ def log_api(sc: Scenario, method: str, url: str, status: int, note: str) -> None
 
 
 def csrf_headers(csrf_token: str) -> dict[str, str]:
-    """The header a session-authenticated mutation must carry (X-WASM-CSRF)."""
-    return {"X-WASM-CSRF": csrf_token}
+    """The header a session-authenticated mutation must carry (X-Noust-CSRF)."""
+    return {"X-Noust-CSRF": csrf_token}
 
 
 # ---------------------------------------------------------------------------

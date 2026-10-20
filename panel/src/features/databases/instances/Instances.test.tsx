@@ -261,7 +261,7 @@ describe("the instances Noust runs", { timeout: 60_000 }, () => {
     await user.click(within(dialog).getByRole("button", { name: "Make the instance" }));
 
     await waitFor(() => expect(backend.callsTo("POST /api/databases/instances")).toHaveLength(1));
-    expect(backend.callsTo("POST /api/databases/instances")[0]?.body).toEqual({ name: "pg18", engine: "postgresql", version: "18", memory_mb: 1024 });
+    expect(backend.callsTo("POST /api/databases/instances")[0]?.body).toEqual({ name: "pg18", engine: "postgresql", version: "18", memory_mb: 1024, accept_untested: false });
     expect(await screen.findByText("Making the instance pg18")).toBeInTheDocument();
   });
 
@@ -282,7 +282,7 @@ describe("the instances Noust runs", { timeout: 60_000 }, () => {
     await user.click(within(dialog).getByRole("button", { name: "Make the instance" }));
 
     await waitFor(() => expect(backend.callsTo("POST /api/databases/instances")).toHaveLength(1));
-    expect(backend.callsTo("POST /api/databases/instances")[0]?.body).toEqual({ name: "vec", engine: "postgresql", version: "18", variant: "pgvector", memory_mb: 1024 });
+    expect(backend.callsTo("POST /api/databases/instances")[0]?.body).toEqual({ name: "vec", engine: "postgresql", version: "18", variant: "pgvector", memory_mb: 1024, accept_untested: false });
   });
 
   it("takes a SQL script for the engines that run one, and sends it", async () => {
@@ -305,6 +305,7 @@ describe("the instances Noust runs", { timeout: 60_000 }, () => {
       engine: "postgresql",
       version: "18",
       memory_mb: 1024,
+      accept_untested: false,
       init_scripts: [{ name: "init.sql", content: "CREATE TABLE t (id int);" }],
     });
   });

@@ -719,7 +719,7 @@ def test_configure_writes_nothing_during_a_rehearsal(
     assert env_module._env_configure("example.com", verbose=False) == 0
 
     assert not (deployed / ".env").exists()
-    assert not (deployed / ".wasm").exists()
+    assert not (deployed / ".noust").exists()
 
 
 def test_configure_does_not_overwrite_the_running_env_during_a_rehearsal(
@@ -904,5 +904,5 @@ def test_configure_on_a_release_app_writes_shared_and_never_a_stray_file(
     assert not os.path.lexists(deployed / ".env")
     assert os.readlink(release / ".env") == "../../shared/.env"
     assert OwnershipChange(shared_env, "www-data", "www-data", 0o600) in ownership_changes
-    assert (deployed / "shared" / ".wasm" / "env-config.json").is_file()
-    assert not (deployed / ".wasm").exists()
+    assert (deployed / "shared" / ".noust" / "env-config.json").is_file()
+    assert not (deployed / ".noust").exists()

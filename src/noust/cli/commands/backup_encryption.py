@@ -4,10 +4,11 @@
 """
 ``noust backup encryption``: the backups kept on this server's disk, sealed (checklist H-08).
 
-The CLI of :mod:`noust.core.backup_files`. ``enable`` makes the key new backups are sealed with
-and shows it once; ``show-key`` shows one again; ``rotate`` starts a new key without stranding
-the backups the old one sealed; ``disable`` stops sealing and keeps every key; ``status`` says
-what is sealed and what is not.
+The CLI of :mod:`noust.core.backup_files` and :mod:`noust.managers.backup_sealing`. ``enable``
+makes the key new backups are sealed with and shows it once; ``show-key`` shows one again;
+``rotate`` starts a new key without stranding the backups the old one sealed; ``disable`` stops
+sealing and keeps every key; ``status`` says what is sealed and what is not; ``seal-existing``
+seals the backups that were already on the disk, in clear, and writes their records again.
 
 ``noust backup`` loads it through :func:`register`.
 """
@@ -20,8 +21,9 @@ from typing import Any
 import click
 
 from noust.cli.app import Context, NoustCommand, NoustGroup, json_option, pass_context
-from noust.core.backup_files import BackupKeys, inventory
-from noust.core.exceptions import NoustError
+from noust.core.backup_files import BackupKeys
+from noust.core.exceptions import BackupError, NoustError
+from noust.managers.backup_sealing import SealExisting, SealItem, encryption_status
 
 
 def _confirm(question: str, *, yes: bool) -> bool:
@@ -67,14 +69,8 @@ def encryption() -> None:
 @pass_context
 def status(ctx: Context) -> None:
     """Say whether new backups are sealed, with which key, and how many are in clear."""
-    keys = BackupKeys()
     try:
-        view: dict[str, Any] = {
-            "enabled": keys.enabled(),
-            "current_key": keys.current_id(),
-            "keys": [{"id": key.id, "current": key.current} for key in keys.keys()],
-            **inventory(),
-        }
+        view: dict[str, Any] = encryption_status()
     except NoustError as exc:
         ctx.logger.error(str(exc))
         click.get_current_context().exit(1)
@@ -90,7 +86,8 @@ def status(ctx: Context) -> None:
     if view["clear"] and view["enabled"]:
         click.echo(
             "The ones in clear were made before sealing was on: they stay as they are until "
-            "their retention removes them."
+            "their retention removes them, or until you seal them with: "
+            "noust backup encryption seal-existing"
         )
     click.echo(f"Keys held: {', '.join(k['id'] for k in view['keys']) or 'none'}")
 
@@ -113,10 +110,14 @@ def enable(ctx: Context, yes: bool) -> None:
     if not _confirm("Seal the backups made from now on?", yes=yes):
         click.echo("Nothing was changed.")
         return
-    key_id = keys.make_key()
+    key_id, _ = keys.enable()
     passphrase = keys.passphrase(key_id) or ""
     ctx.logger.success(f"New backups are sealed with key {key_id}")
     _show(ctx, key_id, passphrase)
+    ctx.logger.info(
+        "Backups already on this disk stay in clear; seal them with: "
+        "noust backup encryption seal-existing"
+    )
 
 
 @encryption.command("show-key")
@@ -124,15 +125,10 @@ def enable(ctx: Context, yes: bool) -> None:
 @pass_context
 def show_key(ctx: Context, key_id: str | None) -> None:
     """Show a key (the current one by default), to keep it somewhere else."""
-    keys = BackupKeys()
-    chosen = key_id or keys.current_id()
-    passphrase = keys.passphrase(chosen) if chosen else None
-    if chosen is None or passphrase is None:
-        ctx.logger.error(
-            "This server holds no such key"
-            if chosen
-            else "No key is current. Seal backups first: noust backup encryption enable"
-        )
+    try:
+        chosen, passphrase = BackupKeys().reveal(key_id)
+    except BackupError as exc:
+        ctx.logger.error(exc.message, exc.details or "")
         click.get_current_context().exit(1)
         return
     _show(ctx, chosen, passphrase)
@@ -185,7 +181,7 @@ def rotate(ctx: Context, yes: bool) -> None:
     if not _confirm("Make a new key for the backups made from now on?", yes=yes):
         click.echo("Nothing was changed.")
         return
-    key_id = keys.make_key()
+    key_id = keys.rotate()
     ctx.logger.success(f"New backups are sealed with key {key_id}")
     _show(ctx, key_id, keys.passphrase(key_id) or "")
 
@@ -204,6 +200,90 @@ def disable(ctx: Context, yes: bool) -> None:
         return
     keys.stop_sealing()
     ctx.logger.success("New backups are kept in clear; the keys are kept")
+
+
+def _progress(ctx: Context, item: SealItem) -> None:
+    """
+    Print one backup's outcome as it is done.
+
+    Args:
+        ctx: The command's context.
+        item: What became of it.
+    """
+    line = f"  {item.kind} {item.name}: {item.state.replace('_', ' ')}"
+    if item.detail:
+        ctx.logger.warning(f"{line} - {item.detail}")
+    else:
+        ctx.logger.info(line)
+
+
+@encryption.command("seal-existing")
+@click.option("--yes", "-y", is_flag=True, help="Do not ask.")
+@json_option("Print the report as JSON (needs --yes: nothing is asked).")
+@pass_context
+def seal_existing(ctx: Context, yes: bool) -> None:
+    """
+    Seal the backups already on this disk that were made in clear.
+
+    Applications' archives, their data, database dumps and the base backups of point-in-time
+    recovery keep their names and become encrypted, authenticated files, and their records (size,
+    checksum, the sidecar's MAC) are written again, so every check, restore and send goes on
+    working. A backup that does not match its record is left in clear and said. It can be stopped
+    and run again. It needs room for one more copy of the largest backup for a moment. Not covered:
+    the archived write-ahead log, files no record describes and what a destination already holds.
+    """
+    if ctx.json_output and not yes:
+        raise click.UsageError("--json asks nothing, so it needs --yes.")
+    sealer = SealExisting()
+    try:
+        plan = sealer.plan()
+    except NoustError as exc:
+        ctx.logger.error(exc.message, exc.details or "")
+        click.get_current_context().exit(1)
+        return
+    if not plan["sealing"]:
+        ctx.logger.error(
+            "Backups are not sealed on this server",
+            "Turn sealing on first: noust backup encryption enable",
+        )
+        click.get_current_context().exit(1)
+        return
+    if plan["total"] == 0:
+        if ctx.json_output:
+            click.echo(json.dumps({"ok": True, "counts": {}, "clear_left": 0, "items": []}))
+        else:
+            click.echo("Nothing is in clear that a record describes.")
+        return
+    if not ctx.json_output:
+        click.echo(
+            f"In clear: {plan['applications']} application archive(s), {plan['data']} data "
+            f"backup(s), {plan['databases']} database dump(s), {plan['pitr']} base backup(s)."
+        )
+        if not _confirm(f"Seal these {plan['total']} backup(s) now?", yes=yes):
+            click.echo("Nothing was changed.")
+            return
+    try:
+        report = sealer.run(on_item=None if ctx.json_output else lambda item: _progress(ctx, item))
+    except NoustError as exc:
+        ctx.logger.error(exc.message, exc.details or "")
+        click.get_current_context().exit(1)
+        return
+    if ctx.json_output:
+        click.echo(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+    else:
+        counts = report.counts()
+        ctx.logger.success(
+            f"Sealed {report.sealed}; already sealed {counts.get('already', 0)}; "
+            f"left as they were {len(report.items) - report.sealed - counts.get('already', 0)}"
+        )
+        if report.clear_left:
+            ctx.logger.info(
+                f"{report.clear_left} file(s) on the disk are still in clear: the ones left as "
+                "they were above, and files no record describes (a restore's safety copy, a dump "
+                "put there by hand)."
+            )
+    if not report.ok:
+        click.get_current_context().exit(1)
 
 
 def register(group: click.Group) -> None:

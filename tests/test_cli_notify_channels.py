@@ -25,6 +25,7 @@ from noust.core.config import Config
 from noust.core.notification_ledger import DeliveryLedger
 from noust.core.notifications.model import Notification, State
 from noust.core.store import NoustStore
+from tests.config_files import stored_config
 
 SLACK = "https://hooks.slack.test/services/T0/B0/prod-secret"
 
@@ -78,7 +79,11 @@ class TestChannelSet:
         assert result.exit_code == 0, result.output
         assert "configured" in result.output
         assert SLACK not in result.output
-        assert SLACK in config_path.read_text()
+        # Sealed in the file (K-12); the server reads it back in clear.
+        assert SLACK not in config_path.read_text()
+        assert (
+            stored_config(config_path)["notifications"]["channels"]["slack"]["webhook_url"] == SLACK
+        )
 
     def test_a_credential_can_be_piped_in(self, run, config_path: Path) -> None:  # type: ignore[no-untyped-def]
         result = run(

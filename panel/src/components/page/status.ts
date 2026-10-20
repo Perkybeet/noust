@@ -36,6 +36,11 @@ interface KnownState {
  * apps on purpose); a crash loop, a unit systemd gave up on, or a port nothing answers on is.
  * A stack running outside its unit serves, but nothing Noust does reaches it and a reboot would
  * not bring it back: it needs attention, in amber.
+ *
+ * `degraded` is an application of several units of which some serve and some do not: it works,
+ * in part, so it is amber, not red and not green. `running_no_healthcheck` serves with nothing
+ * checking that it keeps doing so; it is green, because nothing is wrong, and its word says what
+ * is missing.
  */
 const APP_STATES: Readonly<Record<string, KnownState>> = {
   running: { state: "running", labelKey: "common.appState.running", attention: false },
@@ -53,6 +58,9 @@ const APP_STATES: Readonly<Record<string, KnownState>> = {
   unknown: { state: "unknown", labelKey: "common.appState.unknown", attention: true },
   running_unmanaged: { state: "warning", labelKey: "common.appState.runningUnmanaged", attention: true },
   "running outside noust": { state: "warning", labelKey: "common.appState.runningUnmanaged", attention: true },
+  degraded: { state: "warning", labelKey: "common.appState.degraded", attention: true },
+  running_no_healthcheck: { state: "running", labelKey: "common.appState.runningNoHealthcheck", attention: false },
+  "running without healthcheck": { state: "running", labelKey: "common.appState.runningNoHealthcheck", attention: false },
 };
 
 function known(view: KnownState, locale: Locale): StatusView {

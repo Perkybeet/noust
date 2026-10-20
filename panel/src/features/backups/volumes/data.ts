@@ -11,7 +11,7 @@ import type { PlainKey } from "../../../i18n";
 import { calendarWords } from "../../cron/data";
 import { scheduleExpression, scheduleForm } from "../../databases/backups/schedule";
 import type { ScheduleForm } from "../../databases/backups/schedule";
-import { destinationBody, gbValue, limitText, limitValue } from "../policy/limits";
+import { destinationBody, gbValue, limitText, limitValue, remoteOnlyBody } from "../policy/limits";
 import type { DestinationDraft } from "../policy/limits";
 
 export type VolumeState = "none" | "paused" | "failed" | "scheduled" | "ok";
@@ -113,6 +113,8 @@ export interface VolumeForm {
   /** The most the scheduled backups kept here may weigh together, in gigabytes; empty for no limit. */
   gb: string;
   sends: DestinationDraft[];
+  /** Keep nothing on this server: a scheduled backup is deleted here once every destination holds it. */
+  remoteOnly: boolean;
   consistency: Consistency;
   enabled: boolean;
 }
@@ -124,7 +126,7 @@ function asConsistency(value: string | undefined): Consistency {
 /** The form's starting values: a stored policy's, or what a new one keeps unless changed. */
 export function formOf(domain: string, policy: VolumePolicy | null): VolumeForm {
   if (policy === null) {
-    return { domain, schedule: scheduleForm(null), everything: true, targets: [], extraPaths: "", count: "7", days: "30", gb: "", sends: [], consistency: "live", enabled: true };
+    return { domain, schedule: scheduleForm(null), everything: true, targets: [], extraPaths: "", count: "7", days: "30", gb: "", sends: [], remoteOnly: false, consistency: "live", enabled: true };
   }
   return {
     domain,
@@ -136,6 +138,7 @@ export function formOf(domain: string, policy: VolumePolicy | null): VolumeForm 
     days: limitText(policy.retention_days),
     gb: limitText(policy.retention_gb),
     sends: (policy.destinations ?? []).map((item) => ({ name: item.name, count: limitText(item.retention_count), days: limitText(item.retention_days), gb: limitText(item.retention_gb) })),
+    remoteOnly: policy.remote_only,
     consistency: asConsistency(policy.consistency),
     enabled: policy.enabled,
   };
@@ -161,6 +164,7 @@ export function bodyOf(form: VolumeForm): VolumePolicyBody {
     retention_days: limitValue(form.days),
     retention_gb: gbValue(form.gb),
     destinations: destinationBody(form.sends),
+    remote_only: remoteOnlyBody(form.remoteOnly, form.sends.length),
     consistency: form.consistency,
     enabled: form.enabled,
   };

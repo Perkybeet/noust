@@ -28,7 +28,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
 from noust import __version__
-from noust.core import paths
 from noust.core.access import AccessStore
 from noust.core.accounts import Account, AuthenticationFailed
 from noust.core.accounts.local_login import LOCAL_METHODS, LocalLoginRefused, refuse_local_sign_in
@@ -42,6 +41,7 @@ from noust.web.api.deps import NoustErrorRoute, ensure_elevated, require_elevate
 from noust.web.auth import (
     CSRF_COOKIE_NAME,
     CSRF_HEADER_NAME,
+    LEGACY_COOKIE_NAMES,
     SESSION_COOKIE_NAME,
     IssuedSession,
     actor_label,
@@ -137,7 +137,7 @@ class LoginResponse(BaseModel):
             is ``second_factor``: the password was right and the account's
             second factor comes next.
         expires_in: Session lifetime in seconds (0 before the second step).
-        csrf_token: Token to echo in the ``X-WASM-CSRF`` header on mutations
+        csrf_token: Token to echo in the ``X-Noust-CSRF`` header on mutations
             (empty before the second step).
         session_token: Session token, only present for ``bearer`` clients.
         account: The account signed in; None for the master token.
@@ -314,8 +314,6 @@ class SessionInfo(BaseModel):
         version: The installed Noust version; empty for an anonymous caller.
         csrf_header: Header name a mutation must echo the CSRF cookie in.
         csrf_cookie: Name of the readable CSRF cookie.
-        renamed_from_wasm: Whether this server ran WASM before Noust, so the
-            console tells the operator once that the product was renamed.
         central: This server's role and whether its sealed secrets are
             locked, so the console hides what a hub does not do and offers
             the unlock form; None for an anonymous caller.
@@ -353,7 +351,6 @@ class SessionInfo(BaseModel):
     version: str
     csrf_header: str = CSRF_HEADER_NAME
     csrf_cookie: str = CSRF_COOKIE_NAME
-    renamed_from_wasm: bool = False
     central: CentralInfo | None = None
     login_label: str | None = None
     account: AccountInfo | None = None
@@ -500,6 +497,20 @@ def _printable(value: str | None, limit: int = 64) -> str:
     return "".join(char for char in (value or "") if char.isprintable())[:limit]
 
 
+def expire_legacy_cookies(response: Response) -> None:
+    """
+    Expire the cookies a console from before 4.0 set.
+
+    They are never read, so a browser that held them signs in once; expiring them at the
+    sign-in and the sign-out is what stops two dead cookies riding on every request.
+
+    Args:
+        response: The response being returned to the browser.
+    """
+    for name in LEGACY_COOKIE_NAMES:
+        response.delete_cookie(name, path="/")
+
+
 def set_session_cookies(response: Response, session: IssuedSession, secure: bool) -> None:
     """
     Attach the session and CSRF cookies to a response.
@@ -529,6 +540,7 @@ def set_session_cookies(response: Response, session: IssuedSession, secure: bool
         secure=secure,
         path="/",
     )
+    expire_legacy_cookies(response)
 
 
 def _account_of(session: dict[str, Any]) -> Account | None:
@@ -1215,7 +1227,6 @@ def get_session_info(request: Request) -> SessionInfo:
         totp_enabled=account.has_mfa if account is not None else token_manager.totp_enabled(),
         hostname=socket.gethostname(),
         version=__version__,
-        renamed_from_wasm=paths.came_from_wasm(),
         central=session_central(),
         login_label=policy.login_label or None,
         account=AccountInfo.of(account) if account is not None else None,
@@ -1456,6 +1467,7 @@ def logout(
 
     response.delete_cookie(SESSION_COOKIE_NAME, path="/")
     response.delete_cookie(CSRF_COOKIE_NAME, path="/")
+    expire_legacy_cookies(response)
 
     audit_event(
         "auth.logout",
@@ -1595,6 +1607,7 @@ def revoke_all_sessions(
 
     response.delete_cookie(SESSION_COOKIE_NAME, path="/")
     response.delete_cookie(CSRF_COOKIE_NAME, path="/")
+    expire_legacy_cookies(response)
 
     audit_event(
         "auth.revoke_all",

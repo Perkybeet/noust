@@ -181,6 +181,42 @@ noust auth oidc set corp --group-sync \
 Providers that put too many groups in the token send a pointer instead (Microsoft Entra above 200); Noust reads
 only what is in the token and the userinfo answer.
 
+## GitHub
+
+GitHub is OAuth 2.0 without OpenID Connect: no ID token, no discovery document, no signing keys. Noust
+signs people in with it all the same, as a provider of `--kind github`, and everything after that is the
+admission every other source goes through (provisioning, linking by a verified address, groups, the
+second factor).
+
+```bash
+# 1. At GitHub: Settings > Developer settings > OAuth Apps > New. Its Authorization callback URL is the
+#    one 'noust auth oidc show github' prints (https://your-console/api/auth/oidc/callback).
+# 2. Here: the client id, and the client secret at a hidden prompt.
+noust auth oidc set github --kind github --client-id Iv1.abc123 --prompt-secret --label GitHub
+noust auth oidc test github
+noust auth oidc link github maria 583231       # her numeric GitHub id, not her login
+noust auth oidc set github --link-by-email     # or: link a first sign-in by a verified address
+```
+
+* **Endpoints are fixed**: github.com, or the GitHub Enterprise Server named with `--issuer
+  https://ghe.example.com` (HTTPS). The API is `https://api.github.com`, or `/api/v3` of the server.
+* **The person is `(issuer, numeric id)`.** A login can be renamed and then taken by somebody else, so it is
+  only ever a hint for the name of a new account. The id never changes.
+* **Only an address GitHub says is verified is believed, and only the primary one.** The address on a
+  profile is whatever its owner typed and is ignored. A person with no verified primary address is refused
+  while `--require-email-verified` is on (the default).
+* **The access token lives for one sign-in.** It is bought with the code (PKCE and the client secret),
+  used to read the profile, the addresses and, if asked, the organisations, and dropped: it is never
+  stored, logged or put in a ticket. The scopes are `read:user user:email`, and `read:org` when groups
+  are mapped; Noust never asks for one that writes.
+* **Groups** (`--group-sync`) are the organisations a person belongs to (`acme`) and their teams
+  (`acme/web`): `--map-role acme/web=operator`. A private organisation shows up only when the OAuth App
+  has been approved for it by the organisation.
+* `allow_signup=false` is sent: signing in here never makes anyone a GitHub account.
+* Providing a way in is not the same as letting everybody in. Provisioning is `off` until an
+  administrator changes it: with `auto`, restrict who can come with `--allowed-domain` or, better, by
+  mapping an organisation to the role.
+
 ## SAML 2.0
 
 For the provider that only speaks SAML: Microsoft Entra enterprise applications, Okta, Keycloak,
@@ -525,6 +561,7 @@ trust whose *Signature* is the assertion's and with no encryption certificate.
 | Auth0 | `https://TENANT.auth0.com/` | Ends in a slash. Groups need an Action adding a claim. |
 | Microsoft Entra | `https://login.microsoftonline.com/TENANT/v2.0` | Does not send `email_verified`: use `--assume-email-verified`. `email` is an optional claim to add. |
 | Google | `https://accounts.google.com` | Sends `email` and `email_verified`; restrict to a Workspace with `--allowed-domain`. No groups. |
+| GitHub | `--kind github` (no issuer) | An OAuth App; see [GitHub](#github). A GitHub Enterprise Server: `--issuer https://HOST`. |
 
 ## What is not here
 

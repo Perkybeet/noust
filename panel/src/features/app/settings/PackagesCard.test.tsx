@@ -49,6 +49,13 @@ describe("the system packages an application needs", () => {
     await expectNoAxeViolations(container);
   });
 
+  it("saves with a secondary button: the application's header holds the page's one primary", { timeout: 40_000 }, async () => {
+    await page(DECLARED);
+    await screen.findByRole("heading", { name: "System packages" });
+
+    expect(await within(card()).findByRole("button", { name: "Save the list" })).toHaveAttribute("data-variant", "secondary");
+  });
+
   it("shows each package and whether the host has it", { timeout: 40_000 }, async () => {
     await page(DECLARED);
     await screen.findByRole("heading", { name: "System packages" });

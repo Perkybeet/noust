@@ -67,9 +67,11 @@ from noust.core.notifier import fresh_config, notify_in_background
 from noust.core.tls_policy import TLS12_CIPHERS, harden_server_context
 from noust.deployers import deploy_events
 from noust.deployers.deploy_events import DeployEvent, DeployEventKind
-from noust.managers.database.backup_notifications import database_job_notification
+from noust.managers.backup_failures import record_failure
+from noust.managers.database.backup_notifications import database_job_notification, database_subject
 from noust.managers.database.uploads import MAX_CHUNK_BYTES
 from noust.web.auth import (
+    CSRF_HEADER_NAMES,
     SAFE_METHODS,
     SESSION_COOKIE_NAME,
     WS_CLOSE_FORBIDDEN,
@@ -432,6 +434,7 @@ AUTH_PATHS = frozenset(
         "/api/auth/password",
         "/api/auth/invitations/open",
         "/api/auth/invitations/accept",
+        "/api/auth/password-reset/confirm",
         "/api/auth/passkeys/login",
         "/api/auth/passkeys/elevate",
         "/api/auth/oidc/complete",
@@ -655,12 +658,25 @@ def deployment_notification(job: Any) -> Notification | None:
     # list itself still reads in English. What the tool said (job.error, its
     # own words) reaches the excerpt untouched.
     ctx = NotificationContext.from_config(fresh_config())
+    # The notice carries the end of the failure; the whole of it is kept for the
+    # command and the link the notice names. A job's own error is the only place
+    # the tool's words are, so this is where they are recorded.
+    failure_id = None
+    if backup:
+        engine = job.metadata.get("engine")
+        database = job.metadata.get("database")
+        subject = (
+            database_subject(str(engine), str(database))
+            if job.metadata.get("kind") == "database" and engine and database
+            else (domain_str or "")
+        )
+        failure_id = record_failure("backup", subject, job.error)
     if job.metadata.get("kind") == "database":
         # A dump or a restore of a database: the database is the subject, not an
         # application, and its page is the link.
-        return database_job_notification(job, ctx)
+        return database_job_notification(job, ctx, failure_id=failure_id)
     if backup:
-        return compose_backup_failed(domain_str, job.error, ctx)
+        return compose_backup_failed(domain_str, job.error, ctx, failure_id=failure_id)
     backup_id = job.metadata.get("backup_id")
     return compose_restore(
         ok=status == "completed",
@@ -880,6 +896,10 @@ async def lifespan(app: FastAPI):
     from noust.managers.backup_destinations import protect_credentials_at_start
 
     await asyncio.to_thread(protect_credentials_at_start)
+    # K-12: the secrets of the notification channels an earlier build stored as text.
+    from noust.core.channel_secrets import protect_at_start as protect_channel_secrets
+
+    await asyncio.to_thread(protect_channel_secrets)
     # What a console killed mid-inspection could not remove itself.
     remove_stale_checkouts()
     jobs = get_job_manager()
@@ -1077,7 +1097,7 @@ def create_app(config: SecurityConfig | None = None) -> FastAPI:
             allow_origins=security_config.cors_origins,
             allow_credentials=True,
             allow_methods=["GET", "POST", "PUT", "DELETE"],
-            allow_headers=["Authorization", "Content-Type", "X-WASM-CSRF"],
+            allow_headers=["Authorization", "Content-Type", *CSRF_HEADER_NAMES],
             # A script in a browser reads which API version answered, and a
             # deprecation notice, only if the response exposes the headers.
             expose_headers=[API_VERSION_HEADER, "Deprecation", "Sunset", "Link"],
@@ -1118,12 +1138,16 @@ def create_app(config: SecurityConfig | None = None) -> FastAPI:
     from noust.web.api.github_hooks import router as github_hooks_router
     from noust.web.api.hooks import admin_router as webhook_admin_router
     from noust.web.api.hooks import router as hooks_router
+    from noust.web.api.registry_hooks import router as registry_hooks_router
     from noust.web.api.scope import enforce_scope
 
     app.include_router(hooks_router, prefix="/hooks", tags=["Webhooks"])
     # GitHub App deliveries: one endpoint for every application, verified
     # with the App's own secret rather than a per-application one.
     app.include_router(github_hooks_router, prefix="/hooks", tags=["Webhooks"])
+    # A container registry's notification that an image was pushed: signed by GitHub with the
+    # application's secret, or carrying the token of the address Docker Hub is given.
+    app.include_router(registry_hooks_router, prefix="/hooks", tags=["Webhooks"])
     # Mounted beside the API router, not in it, so the teams' guard is stated here:
     # an application's webhook secret is not for anyone outside its team.
     app.include_router(

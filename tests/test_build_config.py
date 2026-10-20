@@ -446,6 +446,18 @@ class TestTypesThatCannotHonourTheBlock:
         with pytest.raises(ValidationError) as excinfo:
             refuse_unsupported(BuildConfig(start=("x",), source="operator"), "docker-compose")
 
+        assert excinfo.value.field == "build.start"
+
+    @pytest.mark.parametrize("kind", ["docker-compose", "container"])
+    def test_an_image_build_may_still_be_given_time_and_told_to_skip_the_cache(
+        self, kind: str
+    ) -> None:
+        refuse_unsupported(BuildConfig(timeout=7200, cache=False, source="operator"), kind)
+
+    def test_a_monorepo_is_built_by_its_own_tools(self) -> None:
+        with pytest.raises(ValidationError) as excinfo:
+            refuse_unsupported(BuildConfig(timeout=7200, source="operator"), "monorepo")
+
         assert excinfo.value.field == "build"
 
     def test_an_empty_block_is_acceptable_everywhere(self) -> None:
@@ -524,8 +536,24 @@ class TestComposeDoesNotTakeABuildBlock:
         with pytest.raises(ValidationError) as excinfo:
             deployer._resolve_hooks()
 
-        assert excinfo.value.field == "build"
+        assert excinfo.value.field == "build.start"
         assert "docker-compose" in excinfo.value.message
+
+    def test_a_stack_may_say_how_long_its_images_may_take_to_build(
+        self, tmp_path: Path, store: NoustStore
+    ) -> None:
+        from noust.core.runner import FakeRunner
+        from noust.deployers.docker_compose import DockerComposeDeployer
+
+        tree = tmp_path / "stack"
+        tree.mkdir()
+        (tree / "noust.yaml").write_text("build:\n  timeout: 7200\n")
+        deployer = DockerComposeDeployer(runner=FakeRunner())
+        deployer.configure("stack.example.com", "src", app_path=tree)
+
+        deployer._resolve_hooks()
+
+        assert deployer.build_timeout() == 7200
 
     def test_a_stack_with_only_hooks_is_as_it_was(self, tmp_path: Path, store: NoustStore) -> None:
         from noust.core.runner import FakeRunner

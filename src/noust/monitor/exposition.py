@@ -110,6 +110,10 @@ APPLICATION: dict[str, Family] = {
     "http.errors_5xx_per_min": _f(
         "app_http_errors_5xx_per_minute", "Responses with a 5xx status per minute."
     ),
+    "http.latency_p95_ms": _f(
+        "app_http_latency_p95_milliseconds",
+        "The p95 of the time requests took in the last minute, from the access log.",
+    ),
     "io.read_bytes_s": _f(
         "app_disk_read_bytes_per_second", "Bytes an application reads from disk per second."
     ),

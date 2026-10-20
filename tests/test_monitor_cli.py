@@ -147,9 +147,9 @@ def monitor_env(
 
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
-    wasm_bin = bin_dir / "wasm"
-    wasm_bin.write_text("#!/bin/sh\n")
-    wasm_bin.chmod(0o755)
+    noust_bin = bin_dir / "noust"
+    noust_bin.write_text("#!/bin/sh\n")
+    noust_bin.chmod(0o755)
     monkeypatch.setenv("PATH", str(bin_dir))
 
     monkeypatch.setattr(cli_monitor, "check_root", lambda: True)

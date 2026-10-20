@@ -232,6 +232,140 @@ describe("ScheduleDialog", () => {
   });
 });
 
+describe("a schedule that keeps nothing on this server", () => {
+  const STORED = {
+    domain: "shop.example.com",
+    app_name: "shop-example-com",
+    timer: "noust-backup-shop-example-com",
+    schedule: "daily",
+    on_calendar: "*-*-* 02:00:00",
+    next_run: "pending",
+    last_run: "never",
+    retention_count: 7,
+    retention_days: 30,
+    include_databases: true,
+    remote_only: true,
+    destinations: [{ name: "offsite", retention_count: null, retention_days: null }],
+  };
+  const PUT = "PUT /api/backup-schedules/shop.example.com";
+
+  async function editing(stored: Record<string, unknown>) {
+    const backend = fakeBackend(schedulesRoutes([stored], { [PUT]: () => json(200, { success: true, message: "Backup schedule updated for shop.example.com" }) }));
+    const { user } = renderConsole("/backups/schedules");
+    const table = await screen.findByRole("region", { name: "Backup schedules" });
+    await within(table).findByText("shop.example.com");
+    await user.click(within(table).getByRole("button", { name: /^Actions for the schedule on/ }));
+    await user.click(await screen.findByRole("menuitem", { name: "Edit" }));
+    const dialog = await screen.findByRole("dialog", { name: "Edit the schedule for shop.example.com" });
+    return { user, backend, dialog };
+  }
+
+  it("is given back as the server reported it when the schedule is saved from the console", async () => {
+    const { user, backend, dialog } = await editing(STORED);
+    expect(within(dialog).getByRole("checkbox", { name: "Keep nothing on this server" })).toBeChecked();
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(backend.callsTo(PUT)).toHaveLength(1));
+    expect(backend.callsTo(PUT)[0]?.body).toMatchObject({ remote_only: true, destinations: [{ name: "offsite" }] });
+  });
+
+  it("is turned off by the box, and the body says so", async () => {
+    const { user, backend, dialog } = await editing(STORED);
+    await user.click(within(dialog).getByRole("checkbox", { name: "Keep nothing on this server" }));
+    await expectNoAxeViolations(dialog);
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(backend.callsTo(PUT)).toHaveLength(1));
+    expect(backend.callsTo(PUT)[0]?.body).toMatchObject({ remote_only: false, destinations: [{ name: "offsite" }] });
+  });
+
+  it("is sent as off for a schedule that keeps its backups here", async () => {
+    const { user, backend, dialog } = await editing({ ...STORED, remote_only: false });
+    const box = within(dialog).getByRole("checkbox", { name: "Keep nothing on this server" });
+    expect(box).not.toBeChecked();
+    expect(box).not.toHaveAttribute("aria-disabled", "true");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(backend.callsTo(PUT)).toHaveLength(1));
+    expect(backend.callsTo(PUT)[0]?.body).toMatchObject({ remote_only: false });
+  });
+
+  it("is sent as on when the box of a schedule that kept its backups here is ticked", async () => {
+    const { user, backend, dialog } = await editing({ ...STORED, remote_only: false });
+    await user.click(within(dialog).getByRole("checkbox", { name: "Keep nothing on this server" }));
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(backend.callsTo(PUT)).toHaveLength(1));
+    expect(backend.callsTo(PUT)[0]?.body).toMatchObject({ remote_only: true });
+  });
+
+  it("is off and disabled, with the reason, until a destination is added; the tick comes back with it", async () => {
+    const { user, backend, dialog } = await editing(STORED);
+    const box = within(dialog).getByRole("checkbox", { name: "Keep nothing on this server" });
+    await user.click(within(dialog).getByRole("button", { name: "Remove offsite" }));
+    expect(box).not.toBeChecked();
+    expect(box).toHaveAttribute("aria-disabled", "true");
+    expect(within(dialog).getByText("Add at least one destination to turn this on; with none, the backups stay on this server.")).toBeInTheDocument();
+    await expectNoAxeViolations(dialog);
+
+    await user.click(within(dialog).getByRole("combobox", { name: "Add a destination" }));
+    await user.click(await screen.findByRole("option", { name: "offsite" }));
+    await user.click(within(dialog).getByRole("button", { name: "Add" }));
+    expect(box).not.toHaveAttribute("aria-disabled", "true");
+    expect(box).toBeChecked();
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(backend.callsTo(PUT)).toHaveLength(1));
+    expect(backend.callsTo(PUT)[0]?.body).toMatchObject({ remote_only: true, destinations: [{ name: "offsite" }] });
+  });
+
+  it("is sent as off when the last destination is taken off and the schedule is saved", async () => {
+    const { user, backend, dialog } = await editing(STORED);
+    await user.click(within(dialog).getByRole("button", { name: "Remove offsite" }));
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(backend.callsTo(PUT)).toHaveLength(1));
+    expect(backend.callsTo(PUT)[0]?.body).toMatchObject({ remote_only: false, destinations: [] });
+  });
+
+  it("is sent as off for a schedule the server reported without the field", async () => {
+    const older: Record<string, unknown> = { ...STORED };
+    delete older["remote_only"];
+    const { user, backend, dialog } = await editing(older);
+    expect(within(dialog).getByRole("checkbox", { name: "Keep nothing on this server" })).not.toBeChecked();
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(backend.callsTo(PUT)).toHaveLength(1));
+    expect(backend.callsTo(PUT)[0]?.body).toMatchObject({ remote_only: false });
+  });
+
+  it("is chosen for a new schedule once a destination is added", async () => {
+    const backend = fakeBackend(schedulesRoutes([], { "POST /api/backup-schedules": () => json(201, { success: true, message: "Backup schedule created for shop.example.com" }) }));
+    const { user } = renderConsole("/backups/schedules");
+    await screen.findByRole("heading", { level: 1, name: "Backups" });
+    await user.click(first(await screen.findAllByRole("button", { name: "New schedule" })));
+    const dialog = await screen.findByRole("dialog", { name: "New backup schedule" });
+    await user.click(within(dialog).getByRole("combobox", { name: "Application" }));
+    await user.click(await screen.findByRole("option", { name: "shop.example.com" }));
+    const box = within(dialog).getByRole("checkbox", { name: "Keep nothing on this server" });
+    expect(box).toHaveAttribute("aria-disabled", "true");
+
+    await user.click(within(dialog).getByRole("combobox", { name: "Add a destination" }));
+    await user.click(await screen.findByRole("option", { name: "offsite" }));
+    await user.click(within(dialog).getByRole("button", { name: "Add" }));
+    expect(box).not.toHaveAttribute("aria-disabled", "true");
+    expect(box).not.toBeChecked();
+    await user.click(box);
+    await user.click(within(dialog).getByRole("button", { name: "Create schedule" }));
+    await waitFor(() => expect(backend.callsTo("POST /api/backup-schedules")).toHaveLength(1));
+    expect(backend.callsTo("POST /api/backup-schedules")[0]?.body).toMatchObject({ remote_only: true, destinations: [{ name: "offsite" }] });
+  });
+
+  it("is read in Spanish", async () => {
+    fakeBackend(schedulesRoutes([]));
+    await act(() => setLocale("es"));
+    const { user } = renderConsole("/backups/schedules");
+    await screen.findByRole("heading", { level: 1, name: "Copias de seguridad" });
+    await user.click(first(await screen.findAllByRole("button", { name: "Nueva programación" })));
+    const dialog = await screen.findByRole("dialog", { name: "Nueva programación de copias de seguridad" });
+    expect(within(dialog).getByRole("checkbox", { name: "No guardar nada en este servidor" })).toHaveAttribute("aria-disabled", "true");
+    expect(within(dialog).getByText("Añade al menos un destino para activarlo; sin ninguno, las copias se quedan en este servidor.")).toBeInTheDocument();
+  });
+});
+
 describe("scheduling every application at once", () => {
   it("creates one schedule per application that has none, and names the one that failed", async () => {
     const backend = fakeBackend(

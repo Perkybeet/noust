@@ -15,11 +15,6 @@
 > server itself (updates, SSH, firewall, disks), fleet-wide views and bulk actions, databases
 > per application, and builds that no longer run as root
 > ([docs/CHANGELOG-3.1.md](docs/CHANGELOG-3.1.md)).
->
-> **WASM is now Noust** since 3.0.0: the command is `noust`, the paths are `/etc/noust`,
-> `/var/lib/noust` and `/var/backups/noust`, and `wasm` keeps working as an alias for the whole
-> 3.x series. Read [docs/UPGRADING-3.0.md](docs/UPGRADING-3.0.md) before upgrading a 2.x
-> server.
 
 <h1 align="center">
   <picture>
@@ -151,8 +146,7 @@ sudo apt install noust
 ```
 
 Replace `xUbuntu_26.04` with your release: `xUbuntu_24.04`, `xUbuntu_22.04`, `Debian_12` or
-`Debian_13`. A server that already has the WASM repository configured needs no new
-repository: it is the same one.
+`Debian_13`. A server that already has the repository configured needs no new one.
 
 The releases it is built for, and what has been tested on each, are listed in
 [docs/PLATFORMS.md](docs/PLATFORMS.md): Ubuntu 22.04, 24.04 and 26.04 LTS, Debian 12 and 13
@@ -189,10 +183,6 @@ pip install noust            # the CLI
 pip install 'noust[web]'     # with the console and the API (passkeys included)
 pip install 'noust[all]'     # with the console, the API and the monitor
 ```
-
-The packages WASM was published as, `wasm` (Debian, Ubuntu) and `wasm-cli` (Fedora,
-openSUSE, PyPI), are transitional in 3.x: upgrading one installs `noust`. See
-[docs/RENAME.md](docs/RENAME.md).
 
 ### A container, for a central
 
@@ -944,7 +934,6 @@ everything else goes to addresses you configured. [docs/PRIVACY.md](docs/PRIVACY
 | `noust monitor` | Watch processes, resources, units and certificates, record the metrics history, and report |
 | `noust config` | Read, set, upgrade and clean Noust's configuration |
 | `noust store` | Inspect, export and maintain Noust's database |
-| `noust migrate-from-wasm` | Move a server WASM ran onto Noust's names (`--dry-run` shows the plan) |
 | **Fleet** | |
 | `noust fleet authorize` | Run on a server: let a central manage it, and print the join code |
 | `noust fleet deauthorize` | Run on a server: stop trusting a central, revoke its key and tokens |
@@ -970,7 +959,7 @@ everything else goes to addresses you configured. [docs/PRIVACY.md](docs/PRIVACY
 
 Global options go before the command: `-v` (verbose), `--dry-run`, `--json`, `--no-color`,
 `--reason` (why, for the audit log), `-i` (interactive menu), `--changelog`, `-V` (version). Tab completion: `noust setup
-completions`. `wasm` runs the same program throughout 3.x.
+completions`.
 
 ---
 
@@ -1023,8 +1012,8 @@ Common keys: `apps_directory` (`/var/www/apps`), `webserver` (`nginx`), `service
 `backup.directory` (`/var/backups/noust`), `server.name`, `security.profile` (`standard` or
 `ens-medium`), `auth.*`, `audit.*`, `approval.*`, `notifications.*`, `monitor.*`. Every setting
 is documented in [docs/CONFIG.md](docs/CONFIG.md). `NOUST_APPS_DIR`,
-`NOUST_WEBSERVER`, `NOUST_SERVICE_USER` and `NOUST_SSL_EMAIL` override the matching keys (the
-`WASM_` spellings are still read). The reference configuration is
+`NOUST_WEBSERVER`, `NOUST_SERVICE_USER` and `NOUST_SSL_EMAIL` override the matching keys. The
+reference configuration is
 `/usr/share/noust/config.example.yaml`.
 
 ## Files
@@ -1043,10 +1032,10 @@ is documented in [docs/CONFIG.md](docs/CONFIG.md). `NOUST_APPS_DIR`,
                               noust-backup-*, noust-previews
 ```
 
-On a server upgraded from WASM, `/etc/wasm`, `/var/lib/wasm`, `/var/backups/wasm` and
-`/etc/nginx/wasm-upstreams` are symbolic links to their new names. When `/var/lib/noust` is
-not writable the store lives in `~/.local/share/noust/`; `noust store path` prints where it
+When `/var/lib/noust` is not writable the store lives in `~/.local/share/noust/`; `noust store path` prints where it
 is.
+A server that came through 3.x may still carry links under the product's old names beside these
+paths; `noust setup retire-links` removes the ones nothing uses.
 
 ## Requirements
 
@@ -1073,7 +1062,7 @@ is.
 - [docs/CHANGELOG-3.1.md](docs/CHANGELOG-3.1.md): what changed in 3.1
 - [docs/UPGRADING-3.1.md](docs/UPGRADING-3.1.md): upgrading a 3.0 server or fleet to 3.1, and rolling back
 - [docs/CHANGELOG-3.0.md](docs/CHANGELOG-3.0.md): what changed in 3.0
-- [docs/UPGRADING-3.0.md](docs/UPGRADING-3.0.md): upgrading a WASM 2.x server to Noust 3.0
+- [docs/UPGRADING-3.0.md](docs/UPGRADING-3.0.md): from WASM 2.x, upgrade to 3.3.x first
 - [docs/PLATFORMS.md](docs/PLATFORMS.md): the distributions and processors Noust installs on, what is tested where, and how to verify the installer
 - [docs/CENTRAL.md](docs/CENTRAL.md): running a central, adding a server, fleet views and bulk actions, sealing its secrets
 - [docs/CONFIG.md](docs/CONFIG.md): every setting, and the obsolete ones

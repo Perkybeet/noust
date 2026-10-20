@@ -55,6 +55,8 @@ export interface ApiOperation {
   body: ApiField[] | null;
   /** An example request body, or null when the route takes none. */
   example: unknown;
+  /** The route takes a body that is not JSON (a file, raw bytes): the page cannot compose one. */
+  rawBody: boolean;
   responses: ApiResponseInfo[];
 }
 
@@ -210,6 +212,7 @@ export function readDocument(source: unknown): ApiDocument {
         parameters: parametersOf(doc, operation, item["parameters"]),
         body: schema === undefined ? null : fieldsOf(doc, schema),
         example: schema === undefined ? null : exampleOf(doc, schema),
+        rawBody: isRecord(operation["requestBody"]) && json === null,
         responses: Object.entries(responses).map(([status, response]) => ({ status, description: isRecord(response) ? text(response["description"]) : "" })),
       });
     }

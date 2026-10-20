@@ -122,6 +122,7 @@ export const shell: Catalog<typeof en> = {
     disk: "Disco",
     upFor: "activo {duration}",
     unavailable: "Lecturas de la máquina no disponibles",
+    live: "En vivo",
     reconnecting: "Reconectando",
     failedUnits: { one: "{count} servicio con fallo", other: "{count} servicios con fallo" },
   },
@@ -152,10 +153,5 @@ export const shell: Catalog<typeof en> = {
     title: "Página no encontrada",
     body: "No hay nada en esta dirección. Comprueba el enlace o vuelve al {overview}.",
     overviewLink: "resumen",
-  },
-  renameNotice: {
-    text: "WASM ahora se llama Noust: nada más ha cambiado, la misma consola y las mismas aplicaciones.",
-    link: "Qué ha cambiado y por qué",
-    dismiss: "Descartar",
   },
 };

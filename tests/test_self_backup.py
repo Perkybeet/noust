@@ -42,12 +42,14 @@ from noust.core.ens.envelope import EnvelopeError
 from noust.core.exceptions import BackupError, ValidationError
 from noust.core.runner import SubprocessRunner, set_runner
 from noust.core.secrets import SecretStore
-from noust.core.store import App, NoustStore, get_store
+from noust.core.store import SCHEMA_VERSION, App, NoustStore, get_store
 from noust.managers import self_restore
 from noust.managers.backup_destination_files import DestinationFileManager
+from noust.managers.backup_failures import BackupFailureLog
 from noust.managers.self_backup import LABEL, SECRET_NAME, SelfBackupManager
 from noust.managers.self_restore import SelfRestore
 from tests.database_backup_support import RcloneRunner, age
+from tests.notifications_support import failure_id_of
 
 PASSPHRASE = "correct horse battery"
 pytestmark = pytest.mark.allow_subprocess
@@ -91,6 +93,13 @@ def runner(tmp_path: Path) -> Iterator[Runner]:
         set_runner(None)
 
 
+class NoRoles:
+    """A database service whose engines have no roles of their own to dump."""
+
+    def manager(self, engine: str) -> Any:
+        return object()
+
+
 @dataclass
 class Server:
     """One server's directories, and the database connection it keeps open."""
@@ -103,6 +112,10 @@ class Server:
     held: list[sqlite3.Connection] = field(default_factory=list)
 
     def manager(self, runner: Runner, **extra: Any) -> SelfBackupManager:
+        # A test server is isolated: the web server of the machine running the tests is not its own.
+        extra.setdefault("webservers", {})
+        # ...and so are its database servers: no engine of the machine running the tests is asked.
+        extra.setdefault("database_service", lambda: NoRoles())
         return SelfBackupManager(
             runner=runner,
             sources={"config": self.config, "state": self.state},
@@ -269,6 +282,8 @@ class TestCreate:
             "seal_header": False,
             "certificates": True,
             "units": 3,
+            "webservers": [],
+            "pg_globals": 0,
         }
 
     def test_what_regenerates_and_what_is_not_noust_s_is_left_out(
@@ -461,12 +476,12 @@ class TestVerify:
         made = manager.create(PASSPHRASE)
         from noust.managers import self_backup
 
-        monkeypatch.setattr(self_backup, "SCHEMA_VERSION", 13)
+        monkeypatch.setattr(self_backup, "SCHEMA_VERSION", SCHEMA_VERSION - 1)
 
         report = manager.verify(made.path.name, PASSPHRASE)
 
         assert report["ok"] is True and report["restorable_here"] is False
-        assert "schema v14" in report["warnings"][0]
+        assert f"schema v{SCHEMA_VERSION}" in report["warnings"][0]
 
     def test_a_file_that_does_not_match_its_digest_is_a_problem(
         self, old: Server, runner: Runner, tmp_path: Path
@@ -562,7 +577,7 @@ def forge(
         "created_at": "2026-10-06T00:00:00+00:00",
         "host": "forged",
         "noust_version": "3.4.0",
-        "schema_version": 14,
+        "schema_version": SCHEMA_VERSION,
         "sources": {"config": "/somewhere/else", "state": "/elsewhere/still", **(sources or {})},
         "files": files,
         "links": links or [],
@@ -585,7 +600,7 @@ class FakeTimers:
     def __init__(self) -> None:
         self.installed: str | None = None
 
-    def install_self_backup_timer(self, schedule: str) -> str:
+    def install_self_backup_timer(self, schedule: str, *, options: Any = None) -> str:
         self.installed = schedule
         return "noust-backup-self"
 
@@ -643,7 +658,7 @@ class TestRestore:
         assert store.db_path == new.state / "noust.db"
         app = store.get_app("shop.example.com")
         assert app is not None and app.branch == "only-in-the-wal"
-        assert report.schema_after == 14 and report.schema_before == 14
+        assert report.schema_after == SCHEMA_VERSION and report.schema_before == SCHEMA_VERSION
         for name, stale in (
             ("noust.db-wal", b"stale write-ahead log"),
             ("noust.db-shm", b"stale index"),
@@ -732,9 +747,9 @@ class TestRestore:
     ) -> None:
         made = old.manager(runner).create(PASSPHRASE)
         new = server(tmp_path, "new")
-        monkeypatch.setattr(self_restore, "SCHEMA_VERSION", 13)
+        monkeypatch.setattr(self_restore, "SCHEMA_VERSION", SCHEMA_VERSION - 1)
 
-        with pytest.raises(BackupError, match="schema v14") as failure:
+        with pytest.raises(BackupError, match=f"schema v{SCHEMA_VERSION}") as failure:
             self.restore(runner, made.path, new)
 
         assert "Nothing was changed" in failure.value.details
@@ -943,7 +958,9 @@ class TestSchedule:
         (entry,) = manager.entries()
         assert entry.scheduled is True and entry.name == result["file"]
         assert result["verification"]["ok"] is True
-        remote = tmp_path / "remote" / "nas" / "wasm-backups" / "self-backups" / manager.host_slug()
+        remote = (
+            tmp_path / "remote" / "nas" / "noust-backups" / "self-backups" / manager.host_slug()
+        )
         assert (remote / entry.name).is_file()
         sidecar = json.loads((remote / f"{entry.name}.json").read_text())
         assert sidecar["scheduled"] is True and sidecar["sha256"] == entry.sha256
@@ -1051,6 +1068,54 @@ class TestSchedule:
             manager.run_schedule(notify=True)
 
         assert len(sent) == 1 and sent[0].kind == "backup_failed"
+
+    def test_the_notices_of_a_failed_run_link_to_all_that_was_said(
+        self,
+        manager: SelfBackupManager,
+        runner: Runner,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        self.add_destination(runner, "nas")
+        runner.refusing["nas"] = "connection refused " * 100
+        manager.set_schedule(passphrase=PASSPHRASE, destinations=[{"name": "nas"}])
+        sent: list[Any] = []
+        monkeypatch.setattr(
+            "noust.core.notifier.Notifier.notify",
+            lambda self, notification: sent.append(notification),
+        )
+
+        with pytest.raises(BackupError):
+            manager.run_schedule(notify=True)
+
+        (notice,) = [n for n in sent if n.code == "backup.upload_failed"]
+        failure_id = failure_id_of(notice)
+        stored = BackupFailureLog().get(failure_id)
+        assert stored is not None and (stored.kind, stored.destination) == ("upload", "nas")
+        assert stored.subject == "Noust"
+        assert stored.output.count("connection refused") == 100
+
+    def test_a_run_that_could_not_take_the_bundle_links_to_its_report(
+        self, manager: SelfBackupManager, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        manager.set_schedule(passphrase=PASSPHRASE)
+        sent: list[Any] = []
+        monkeypatch.setattr(
+            "noust.core.notifier.Notifier.notify",
+            lambda self, notification: sent.append(notification),
+        )
+
+        def broken(*args: Any, **kwargs: Any) -> Any:
+            raise BackupError("disk full", details="no room for the bundle")
+
+        monkeypatch.setattr(manager, "create", broken)
+
+        with pytest.raises(BackupError):
+            manager.run_schedule(notify=True)
+
+        (notice,) = [n for n in sent if n.code == "backup.failed"]
+        failure_id = failure_id_of(notice)
+        stored = BackupFailureLog().get(failure_id)
+        assert stored is not None and "no room for the bundle" in stored.output
 
     def test_what_is_on_a_destination_is_listed_and_fetched_back_checked(
         self, manager: SelfBackupManager, runner: Runner, tmp_path: Path

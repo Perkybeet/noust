@@ -777,7 +777,7 @@ install_with_pip() {
         say "  [dry-run] a Python of 3.10 or later (installed with $T_FAMILY when missing)"
         say "  [dry-run] python -m venv $VENV_DIR"
         say "  [dry-run] $VENV_DIR/bin/pip install 'noust[all]${WANT_VERSION:+==$WANT_VERSION}'"
-        say "  [dry-run] link $VENV_DIR/bin/noust and wasm into /usr/local/bin"
+        say "  [dry-run] link $VENV_DIR/bin/noust into /usr/local/bin"
         return 0
     fi
     if ! python_bin=$(python_for_pip); then
@@ -798,7 +798,6 @@ install_with_pip() {
         "$VENV_DIR/bin/pip" install --quiet --upgrade "noust[all]"
     fi
     ln -sf "$VENV_DIR/bin/noust" /usr/local/bin/noust
-    ln -sf "$VENV_DIR/bin/wasm" /usr/local/bin/wasm
 }
 
 have_systemd() {
@@ -806,11 +805,11 @@ have_systemd() {
 }
 
 console_configured() {
-    [ -f /etc/systemd/system/noust-web.service ] || [ -f /etc/systemd/system/wasm-web.service ]
+    [ -f /etc/systemd/system/noust-web.service ]
 }
 
 setup_initialised() {
-    [ -f /etc/noust/config.yaml ] || [ -f /etc/wasm/config.yaml ]
+    [ -f /etc/noust/config.yaml ]
 }
 
 post_install() {
@@ -826,6 +825,11 @@ post_install() {
     have noust || die "noust is not on the PATH after the installation." \
         "Look at the output above; the package manager says why."
     say "Installed: $(noust --version 2>/dev/null || echo noust)"
+
+    # An upgrade of a server a 3.x release moved onto Noust's names: the links it left under the
+    # old names go when nothing uses them (noust setup retire-links says what it keeps). A
+    # release without the command, or one that refuses, leaves them where they are.
+    noust setup retire-links --reason "installer" >/dev/null 2>&1 || true
 
     if [ "$SKIP_SETUP" = 1 ]; then
         say "Skipping noust setup init (--skip-setup)."

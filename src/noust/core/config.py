@@ -70,9 +70,7 @@ logger = logging.getLogger(__name__)
 #: name is kept because the rest of the codebase imports it from here.
 SECRET_FILE_MODE = SECRET_MODE
 
-# Default paths. The directories come from noust.core.paths, which reads
-# WASM's /etc/wasm and /var/backups/wasm in place on a server that has not
-# been migrated yet (and through their compatibility symlinks after).
+# Default paths. The directories come from noust.core.paths.
 DEFAULT_CONFIG_PATH = paths.config_dir() / "config.yaml"
 DEFAULT_APPS_DIR = Path("/var/www/apps")
 #: Logs start afresh under the new name: nothing reads an old log file back,
@@ -136,6 +134,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # This server's public addresses when it cannot see them itself (behind NAT,
         # a cloud's 1:1 address). The check and the records Noust creates use them.
         "public_addresses": [],
+        # Whether the name of a preview about to be built is resolved first, and the log of its
+        # job says so when it points elsewhere (noust.managers.preview_dns).
+        "check_previews": True,
     },
     "deploy": {
         # Layout of applications created from now on: "releases" builds each
@@ -234,6 +235,29 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # An API token is announced this many days before it expires (0 turns
         # it off).
         "token_warning_days": 7,
+        # The web server (nginx or Apache) is looked at every this many seconds (0 turns
+        # it off). One that crashed is started again after its own configuration test
+        # passes, at most webserver_restart_limit times an hour; restart_webserver: false
+        # keeps the announcement and drops the restart.
+        "webserver_check_seconds": 60,
+        "restart_webserver": True,
+        "webserver_restart_limit": 3,
+        # The containers of the Compose stacks are read every container_check_seconds (0
+        # turns it off). One that Docker restarted container_restart_limit times since it
+        # was first seen is announced (0 turns that off); Docker's events (a death, an
+        # out-of-memory kill) are kept for the timeline.
+        "container_check_seconds": 60,
+        "container_restart_limit": 5,
+        # A Noust release that fixes a vulnerability is looked for every security_check_hours
+        # (0 turns it off) and repeated every security_renotify_hours while the server stays
+        # on a version below the fix (0: once).
+        "security_check_hours": 6,
+        "security_renotify_hours": 72,
+        # Installed recipes behind the catalogue are looked for every recipe_check_hours (0
+        # turns it off) and repeated every recipe_renotify_days while the list does not change
+        # (0: only when it changes).
+        "recipe_check_hours": 24,
+        "recipe_renotify_days": 7,
         "log_file": str(DEFAULT_LOG_DIR / "monitor.log"),
         "smtp": {
             "host": "",
@@ -334,6 +358,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "cron_missed": True,
             "probe_failed": True,
             "probe_recovered": True,
+            # A Noust release that fixes a vulnerability, a container Docker keeps
+            # restarting (monitor.container_restart_limit), and installed recipes with
+            # a newer version in the catalogue.
+            "security_release": True,
+            "container_restart_loop": True,
+            "recipe_outdated": True,
         },
         "channels": {
             # A webhook URL is a capability: Slack and Discord embed the
@@ -342,7 +372,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
             # marker covers them all by name.
             # "secret" signs every delivery (HMAC-SHA256 in X-Noust-Signature)
             # when set; the receiver verifies it with the same value.
-            "webhook": {"webhook_url": "", "secret": ""},
+            # "webhook_headers" are the receiver's own headers, one "Name: value" per line
+            # (an Authorization: Bearer for n8n or Home Assistant); a secret like the rest.
+            "webhook": {"webhook_url": "", "secret": "", "webhook_headers": ""},
             "slack": {"webhook_url": ""},
             # "mention_role_id" and "mention_user_id" name whom Discord pings
             # when a critical event (a failure) arrives; empty pings nobody.
@@ -418,6 +450,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # (and web.hooks_url) are always allowed. Empty allows any Host, as
         # every earlier version did - see _validate_allowed_hosts.
         "allowed_hosts": [],
+    },
+    "integrations": {
+        # Code hosts whose kind their address does not say: "git.example.com=gitea",
+        # "code.example.com=forgejo", "scm.example.com=gogs", "git.example.org=gitlab". A host
+        # named gitlab..., gitea..., forgejo..., gogs... or bitbucket... is known by its name, and
+        # codeberg.org and gitea.com by being what they are. See noust.integrations.forges.hosts.
+        "forge_hosts": [],
     },
     "github": {
         # The GitHub this server's GitHub App talks to: empty is github.com; a host
@@ -1389,6 +1428,24 @@ def _validate_github_host(value: Any) -> str:
     return validate_host(value)
 
 
+def _validate_forge_hosts(value: Any) -> list[str]:
+    """
+    Accept the code hosts whose kind is told here (``integrations.forge_hosts``).
+
+    Args:
+        value: The candidate list of ``host=kind``, from either front end.
+
+    Returns:
+        The normalised entries.
+
+    Raises:
+        ConfigError: When an entry is not ``host=kind`` with a kind Noust speaks.
+    """
+    from noust.integrations.forges.hosts import normalise_declared
+
+    return normalise_declared(value)
+
+
 def _validate_public_url(value: Any) -> str:
     """
     Accept the console's public URL, or leave it unset.
@@ -2005,8 +2062,30 @@ def _validate_control(control: Any) -> Callable[[Any], Any]:
     return validator
 
 
+def _validate_cpu_quota(value: Any) -> int | None:
+    """
+    Accept a CPU ceiling for the backups: a percent of one CPU, or none.
+
+    Args:
+        value: A whole number from 1 to 10000, or ``none``/``off`` for no ceiling.
+
+    Returns:
+        The percent, or None.
+
+    Raises:
+        ConfigError: When it is neither.
+    """
+    if value is None or str(value).strip().lower() in ("", "none", "off", "no"):
+        return None
+    return _int_range_validator("backup.cpu_quota", 1, 10000)(value)
+
+
 _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "webserver": _validate_webserver,
+    "backup.nice": _int_range_validator("backup.nice", 0, 19),
+    "backup.io_class": _validate_choice("backup.io_class", ("best-effort", "idle")),
+    "backup.io_priority": _int_range_validator("backup.io_priority", 0, 7),
+    "backup.cpu_quota": _validate_cpu_quota,
     "databases.import_max_bytes": _int_range_validator(
         "databases.import_max_bytes", 1024 * 1024, 1024**4
     ),
@@ -2068,7 +2147,9 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "web.session_timeout": _int_range_validator("web.session_timeout", 300, 86400),
     "web.public_url": _validate_public_url,
     "web.api_enabled": _validate_flag("web.api_enabled"),
+    "dns.check_previews": _validate_flag("dns.check_previews"),
     "github.host": _validate_github_host,
+    "integrations.forge_hosts": _validate_forge_hosts,
     "web.hooks_url": _validate_hooks_url,
     "web.allowed_hosts": _validate_allowed_hosts,
     "security.allow_private_hosts": _validate_private_hosts,
@@ -2100,6 +2181,28 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
         "monitor.os_patches_check_hours", 0, 720
     ),
     "monitor.token_warning_days": _int_range_validator("monitor.token_warning_days", 0, 365),
+    # The bounds noust.monitor.timeseries clamps to (MIN_RETENTION_DAYS, MAX_RETENTION_DAYS): a
+    # test pins that they agree, because this module cannot import the monitor.
+    "metrics.retention_days": _int_range_validator("metrics.retention_days", 35, 3650),
+    "monitor.webserver_check_seconds": _int_range_validator(
+        "monitor.webserver_check_seconds", 0, 3600
+    ),
+    "monitor.restart_webserver": _validate_flag("monitor.restart_webserver"),
+    "monitor.webserver_restart_limit": _int_range_validator(
+        "monitor.webserver_restart_limit", 1, 20
+    ),
+    "monitor.container_check_seconds": _int_range_validator(
+        "monitor.container_check_seconds", 0, 3600
+    ),
+    "monitor.container_restart_limit": _int_range_validator(
+        "monitor.container_restart_limit", 0, 1000
+    ),
+    "monitor.security_check_hours": _int_range_validator("monitor.security_check_hours", 0, 168),
+    "monitor.security_renotify_hours": _int_range_validator(
+        "monitor.security_renotify_hours", 0, 720
+    ),
+    "monitor.recipe_check_hours": _int_range_validator("monitor.recipe_check_hours", 0, 720),
+    "monitor.recipe_renotify_days": _int_range_validator("monitor.recipe_renotify_days", 0, 365),
     "monitor.smtp.host": _validate_smtp_host,
     "monitor.smtp.port": _int_range_validator("monitor.smtp.port", 1, 65535),
     "monitor.smtp.from_address": _validate_optional_email("monitor.smtp.from_address"),
@@ -2830,9 +2933,6 @@ def _apply_env_overrides(config: dict[str, Any]) -> None:
     """
     Apply the ``NOUST_*`` environment overrides to a configuration mapping.
 
-    The ``WASM_*`` spelling each had before 3.0 is still read when the new
-    one is absent, so an operator's existing environment keeps working.
-
     Args:
         config: The mapping being built; modified in place.
     """
@@ -2941,9 +3041,34 @@ class Config:
                 if isinstance(file_config, dict):
                     config = self._deep_merge(config, _strip_removed_keys(file_config))
                     _forget_blank_backup_directory(config)
+                    config = self._open_channel_secrets(config)
 
         _apply_env_overrides(config)
         return config
+
+    @staticmethod
+    def _open_channel_secrets(config: dict[str, Any]) -> dict[str, Any]:
+        """
+        Decrypt the channel secrets the file holds (checklist K-12).
+
+        Args:
+            config: The configuration merged from the file.
+
+        Returns:
+            It, with every secret that could be opened in clear. One that could not (the key
+            is missing, the text was altered or moved) stays as the encrypted text, so that a
+            save writes the same text back, and is named in the log.
+        """
+        from noust.core import channel_secrets
+
+        opened, problems = channel_secrets.open_sealed(
+            config, channel_secrets.key_path(DEFAULT_CONFIG_PATH)
+        )
+        for problem in problems:
+            logger.warning(
+                "A notification secret of %s cannot be opened: %s", DEFAULT_CONFIG_PATH, problem
+            )
+        return opened
 
     @classmethod
     def snapshot(cls) -> Config:
@@ -3252,11 +3377,17 @@ class Config:
 
         Raises:
             SecurityError: If the destination is a symlink.
-            OSError: If the file cannot be created or written.
+            OSError: If the file cannot be created or written, or a channel secret needs
+                encrypting and the key cannot be read or made: nothing is written in clear.
             yaml.YAMLError: If the configuration cannot be serialised.
         """
+        from noust.core import channel_secrets
+
         save_path = path or DEFAULT_CONFIG_PATH
-        secure_write(save_path, yaml.dump(self._config, default_flow_style=False), fs=self.fs)
+        # The channels' secrets are encrypted at this boundary and nowhere else: in memory they
+        # are text, in the file they never are (checklist K-12).
+        sealed = channel_secrets.seal(self._config, channel_secrets.key_path(save_path))
+        secure_write(save_path, yaml.dump(sealed, default_flow_style=False), fs=self.fs)
         return save_path
 
     def save(self, path: Path | None = None) -> bool:

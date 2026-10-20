@@ -35,7 +35,7 @@ SUMMARY = (
     "console over a JSON API."
 )
 INTRO = (
-    "Noust (previously WASM) is a Python 3.10+ command line, run as root on the server it manages, "
+    "Noust is a Python 3.10+ command line, run as root on the server it manages, "
     "with a browser console and a JSON API at /api (OpenAPI at /api/openapi.json). Other servers, "
     "scripts and MCP clients use the API with a bearer token: the command line can drive a server "
     "remotely (noust --context NAME ...), and POST /api/mcp speaks the Model Context Protocol. "

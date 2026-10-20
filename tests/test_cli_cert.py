@@ -78,7 +78,7 @@ class _Store:
         """
         return None
 
-    def list_domains(self, _domain: str) -> list[Any]:
+    def list_domains(self, _domain: str, *, include_disabled: bool = True) -> list[Any]:
         """
         List the domains of an application.
 

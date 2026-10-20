@@ -27,6 +27,7 @@ const FIELDS = {
   canonical: "",
   http3: false,
   client_certs: false,
+  force_https: true,
   waf: "",
   waf_exclusions: [] as number[],
   forward_auth: null,
@@ -488,6 +489,22 @@ describe("an application's access settings", () => {
       expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/policy`)).toHaveLength(1);
     });
     expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/policy`)[0]?.body).toEqual({ accept_lockout: false, accept_unreachable_auth: false, http3: true });
+  });
+
+  it("lets a site answer over HTTP as well from a checkbox that is on by default, and sends only that", async () => {
+    const { user, backend } = await access({
+      [`PUT /api/apps/${DOMAIN}/policy`]: () => json(200, policy({ force_https: false })),
+    });
+
+    const forced = await screen.findByRole("checkbox", { name: /Send visitors on port 80 to HTTPS/ });
+    expect(forced).toBeChecked();
+    await user.click(forced);
+    await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/policy`)).toHaveLength(1);
+    });
+    expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/policy`)[0]?.body).toEqual({ accept_lockout: false, accept_unreachable_auth: false, force_https: false });
   });
 
   it("says what is missing when the server cannot serve HTTP/3, and offers no way to turn it on", async () => {

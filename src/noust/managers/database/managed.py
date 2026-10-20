@@ -48,11 +48,13 @@ from typing import Any
 from noust.central import require_server_role
 from noust.core.database_exposures import ExposureStore
 from noust.core.db_instance_store import (
+    CUSTOM_VARIANT,
     READY,
     REMOVING,
     UPGRADING,
     DbInstanceStore,
     InstanceRecord,
+    check_launch,
 )
 from noust.core.exceptions import (
     ConfirmationRequired,
@@ -70,12 +72,15 @@ from noust.core.runner import CommandRunner, get_runner
 from noust.managers.database import instance_layout as layout
 from noust.managers.database.base import BaseDatabaseManager
 from noust.managers.database.eol import support_notice
-from noust.managers.database.exposure import listening_sockets
 from noust.managers.database.instance_catalog import (
+    CustomImage,
     EngineSpec,
     ImagePin,
+    custom_spec,
+    parse_custom_image,
     resolve_pin,
     spec_for,
+    spec_of_record,
     with_variant,
 )
 from noust.managers.database.instance_compose import (
@@ -88,6 +93,7 @@ from noust.managers.database.instance_records import key_of, stub_instance
 from noust.managers.database.instances import instance_key, storage_name
 from noust.managers.database.service import DatabaseService
 from noust.managers.database.settings import Resources, server_resources
+from noust.managers.port_claims import PortClaims
 from noust.managers.service_manager import ServiceManager
 from noust.validators.db_instance import (
     check_host_port,
@@ -164,6 +170,9 @@ class InstancePlan:
         variant: The image variant (``pgvector``), or None for the engine's own image.
         tag: The tag the digest was read from; the version when None.
         init_scripts: The names of the SQL scripts it runs when it first starts.
+        custom: The image is the operator's, pinned by them, and not the catalog's.
+        command: The whole command the operator made the container run, or empty.
+        args: What the operator adds after the arguments Noust passes, or empty.
     """
 
     name: str
@@ -180,6 +189,36 @@ class InstancePlan:
     variant: str | None = None
     tag: str | None = None
     init_scripts: tuple[str, ...] = ()
+    custom: bool = False
+    command: tuple[str, ...] = ()
+    args: tuple[str, ...] = ()
+
+    @property
+    def requires_confirmation(self) -> bool:
+        """Whether creating it needs the operator to accept that Noust did not test it."""
+        return self.custom or bool(self.command) or bool(self.args)
+
+    def require_accepted(self, accepted: bool) -> None:
+        """
+        Refuse a plan the operator has not accepted the price of.
+
+        The one place the question is asked, for the creation and for the API's check before it
+        queues one.
+
+        Args:
+            accepted: The operator accepted what running something Noust did not choose costs.
+
+        Raises:
+            ConfirmationRequired: The plan is the operator's and they did not; it carries
+                every warning.
+        """
+        if self.requires_confirmation and not accepted:
+            raise ConfirmationRequired(
+                untested_warnings(
+                    image=self.custom, command=bool(self.command), args=bool(self.args)
+                ),
+                field="accept_untested",
+            )
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -202,7 +241,51 @@ class InstancePlan:
             "variant": self.variant,
             "tag": self.tag or self.version,
             "init_scripts": list(self.init_scripts),
+            "custom": self.custom,
+            "command": list(self.command),
+            "args": list(self.args),
+            "requires_confirmation": self.requires_confirmation,
         }
+
+
+def untested_warnings(*, image: bool, command: bool, args: bool) -> list[str]:
+    """
+    Say what an operator accepts by running something Noust did not choose.
+
+    Args:
+        image: The image is theirs.
+        command: They wrote the container's whole command.
+        args: They added arguments to the engine's.
+
+    Returns:
+        One sentence each, in English.
+    """
+    said: list[str] = []
+    if image:
+        said.append(
+            "The image is yours: Noust did not choose it, has not tested it and cannot vouch for "
+            "it. It is pinned to the digest you gave, so what runs is exactly those bytes until "
+            "you name another. Noust manages the instance as it manages an official one (the "
+            "data where the official image keeps it, the engine's own port, the password in the "
+            "variable the official image reads, the health probe, dumps through the engine's "
+            "own client inside the container), so an image that does any of that differently "
+            "will not come up, or will not be managed correctly. A private registry needs "
+            "'docker login' on this server."
+        )
+    if command:
+        said.append(
+            "The command is yours and is not tested by Noust: you wrote the container's whole "
+            "command, Noust adds nothing to it, and the memory share it sizes the engine with, "
+            "the TLS arguments and the configuration file are yours to put in it."
+        )
+    if args:
+        said.append(
+            "Your arguments are not tested by Noust: they follow the ones it passes, where the "
+            "engine lets the last flag win they win, and one the engine does not know keeps the "
+            "instance from starting. An argument is visible to anyone who can run docker "
+            "inspect: nothing secret in one."
+        )
+    return said
 
 
 @dataclass(frozen=True)
@@ -402,7 +485,7 @@ class ManagedInstances:
             Docker has no container for it, or Docker's own word for one that
             exists and is not running), ``end_of_life`` and ``support``.
         """
-        spec = with_variant(spec_for(record.flavour), record.variant)
+        spec = spec_of_record(record)
         found = next(
             (item for item in self.service.instances() if item.managed == record.name), None
         )
@@ -473,6 +556,9 @@ class ManagedInstances:
         port: int | None = None,
         variant: str | None = None,
         init_scripts: Sequence[tuple[str, bytes]] = (),
+        image: str | None = None,
+        command: Sequence[str] | None = None,
+        args: Sequence[str] | None = None,
     ) -> InstancePlan:
         """
         Decide what creating an instance would do, changing nothing.
@@ -488,6 +574,11 @@ class ManagedInstances:
                 ``postgis``); the engine's own image when None.
             init_scripts: SQL scripts (name and content) the engine runs, in name order, the
                 first time it starts: PostgreSQL, MySQL and MariaDB only.
+            image: An image of the operator's own, ``repository[:tag]@sha256:digest``: the
+                engine from an image Noust did not choose, which the operator pins. It needs
+                ``version``, which says what the image is, and is not a ``variant``.
+            command: The whole command the container runs, instead of the engine's own.
+            args: Arguments added after the ones Noust passes the engine. Not with a command.
 
         Returns:
             The plan.
@@ -500,7 +591,8 @@ class ManagedInstances:
         """
         require_server_role("Database instances")
         check_instance_name(name)
-        spec = with_variant(spec_for(engine), variant)
+        words, extra = check_launch(command, args)
+        spec, chosen = self._spec_asked(engine, variant, version, image)
         pin = resolve_pin(spec, version)
         architecture = host_architecture()
         if architecture not in spec.platforms:
@@ -548,11 +640,65 @@ class ManagedInstances:
             digest=pin.digest,
             host_port=host_port,
             memory_limit_mb=megabytes,
-            warnings=self._warnings(spec, pin, host_port, variant=variant),
-            variant=variant.strip().lower() if variant and variant.strip() else None,
+            warnings=self._warnings(
+                spec,
+                pin,
+                host_port,
+                variant=variant,
+                custom=chosen is not None,
+                command=bool(words),
+                args=bool(extra),
+            ),
+            variant=CUSTOM_VARIANT
+            if chosen is not None
+            else (variant.strip().lower() if variant and variant.strip() else None),
             tag=pin.tag,
             init_scripts=tuple(name for name, _content in scripts),
+            custom=chosen is not None,
+            command=words,
+            args=extra,
         )
+
+    @staticmethod
+    def _spec_asked(
+        engine: str, variant: str | None, version: str | None, image: str | None
+    ) -> tuple[EngineSpec, CustomImage | None]:
+        """
+        Find the spec an instance is asked for: the catalog's, a variant's or the operator's image.
+
+        Args:
+            engine: The flavour.
+            variant: A variant of the catalog, or None.
+            version: The version asked for.
+            image: The operator's image, or None.
+
+        Returns:
+            The spec, and the operator's image when that is what it is made from.
+
+        Raises:
+            ValidationError: Both an image and a variant, or an image without its version, or
+                an image that is not a pinned reference.
+        """
+        spec = spec_for(engine)
+        if image is None or not str(image).strip():
+            return with_variant(spec, variant), None
+        if variant is not None and variant.strip():
+            raise ValidationError(
+                "An image of your own and a variant are two answers to one question",
+                details="A variant is an image Noust chose (pgvector, postgis); --image is one "
+                "you choose. Give one of them.",
+                field="image",
+            )
+        if version is None or not version.strip():
+            raise ValidationError(
+                "Say which version your image is",
+                details="Give --version (such as 17): it decides where the data lives, what the "
+                "engine can serve and when its support ends, and Noust cannot read it from an "
+                "image it did not choose.",
+                field="version",
+            )
+        chosen = parse_custom_image(str(image).strip())
+        return custom_spec(spec, chosen, version), chosen
 
     def _require_docker(self) -> None:
         """
@@ -648,10 +794,7 @@ class ManagedInstances:
             Every port something holds: an instance's, an open socket, the
             public port of a database made reachable.
         """
-        held = {record.host_port for record in self.records.all()}
-        held |= {listener.port for listener in listening_sockets(self.runner)}
-        held |= {exposure.port for exposure in ExposureStore(self.service.store).all()}
-        return held
+        return PortClaims(self.runner, self.service.store).taken_ports()
 
     def _choose_port(self, port: int | None, spec: EngineSpec) -> int:
         """
@@ -689,16 +832,27 @@ class ManagedInstances:
         return port
 
     def _warnings(
-        self, spec: EngineSpec, pin: ImagePin, host_port: int, *, variant: str | None = None
+        self,
+        spec: EngineSpec,
+        pin: ImagePin,
+        host_port: int,
+        *,
+        variant: str | None = None,
+        custom: bool = False,
+        command: bool = False,
+        args: bool = False,
     ) -> list[str]:
         """
         Say what an operator should know before going ahead.
 
         Args:
-            spec: The engine (a variant's, when one was asked for).
+            spec: The engine (a variant's, or the operator's image, when one was asked for).
             pin: The version.
             host_port: The port chosen.
             variant: The variant, when one was asked for.
+            custom: The image is the operator's.
+            command: The operator wrote the whole command.
+            args: The operator added arguments.
 
         Returns:
             Sentences in English.
@@ -711,6 +865,7 @@ class ManagedInstances:
             "server's packages: 'noust db instance upgrade' moves it to a newer image of the "
             "same version.",
         ]
+        warnings += untested_warnings(image=custom, command=command, args=args)
         if variant:
             warnings.append(
                 f"It runs {spec.repository}, the image of another project than the engine's: "
@@ -734,6 +889,10 @@ class ManagedInstances:
         port: int | None = None,
         variant: str | None = None,
         init_scripts: Sequence[tuple[str, bytes]] = (),
+        image: str | None = None,
+        command: Sequence[str] | None = None,
+        args: Sequence[str] | None = None,
+        accept_untested: bool = False,
     ) -> dict[str, Any]:
         """
         Make an instance, start it, and return once it answers.
@@ -751,12 +910,19 @@ class ManagedInstances:
             init_scripts: SQL scripts (name and content) the engine runs the first time it
                 starts, in name order. They are written beside the Compose file and are not
                 run again.
+            image: An image of the operator's own, pinned by digest (see :meth:`plan`).
+            command: The whole command the container runs instead of the engine's.
+            args: Arguments added after the ones Noust passes the engine.
+            accept_untested: The operator accepts what running an image, a command or arguments
+                Noust did not choose costs; without it, creating one is refused with the price.
 
         Returns:
             The instance, as :meth:`describe` says.
 
         Raises:
             ValidationError: Something asked for cannot be had.
+            ConfirmationRequired: An image, a command or arguments of the operator's own, without
+                ``accept_untested``; nothing was changed.
             DatabaseExistsError: The name is taken or left something behind.
             DatabaseEngineError: The image cannot be pulled, the unit fails or the
                 engine does not answer.
@@ -769,7 +935,11 @@ class ManagedInstances:
             port=port,
             variant=variant,
             init_scripts=init_scripts,
+            image=image,
+            command=command,
+            args=args,
         )
+        decided.require_accepted(accept_untested)
         password = BaseDatabaseManager.generate_password(32)
         record = self.records.create(
             name=decided.name,
@@ -783,6 +953,8 @@ class ManagedInstances:
             variant=decided.variant,
             image_tag=decided.tag if decided.tag != decided.version else None,
             init_scripts=decided.init_scripts,
+            command=decided.command,
+            args=decided.args,
         )
         self.logger.info(
             f"Creating {decided.display_name} {decided.version} as {decided.name} "
@@ -1218,7 +1390,69 @@ class ManagedInstances:
             output=(shown.stderr or shown.stdout).strip() or None,
         )
 
-    def upgrade(self, name: str, *, backup: bool = True) -> UpgradeOutcome:
+    def check_upgrade(
+        self, name: str, image: str | None, accept_untested: bool
+    ) -> CustomImage | None:
+        """
+        Judge what an upgrade is asked to do, before anything is pulled or stopped.
+
+        The one place the rules are, for the upgrade and for the API's check before it queues one:
+        an instance on an image the operator chose is moved only to one they name, pinned by
+        digest, with the price accepted again; the catalog's is moved by the registry and takes
+        no image.
+
+        Args:
+            name: The instance.
+            image: The image asked for, or None.
+            accept_untested: The operator accepted what running it costs.
+
+        Returns:
+            The image to move to; None for an instance on the catalog's, which follows its tag.
+
+        Raises:
+            DatabaseNotFoundError: No such instance.
+            ValidationError: An image for an instance on the catalog's, none for one on the
+                operator's, or one that is not pinned by a digest.
+            ConfirmationRequired: The operator's image, without ``accept_untested``.
+        """
+        record = self.get(name)
+        asked = image is not None and bool(str(image).strip())
+        if not record.custom_image:
+            if asked:
+                raise ValidationError(
+                    f"{name} runs the catalog's image, which a registry's newest digest moves",
+                    details=(
+                        "An image of your own is chosen when an instance is made: create one "
+                        "with --image, or move this one's databases to it (noust db move)."
+                    ),
+                    field="image",
+                )
+            return None
+        if not asked:
+            raise ValidationError(
+                f"{name} runs an image you chose, and Noust does not look for a newer one",
+                details=(
+                    "Say which image it moves to, pinned by its digest: noust db instance "
+                    f"upgrade {name} --image repository:tag@sha256:..."
+                ),
+                field="image",
+            )
+        chosen = parse_custom_image(str(image).strip())
+        if not accept_untested:
+            raise ConfirmationRequired(
+                untested_warnings(image=True, command=False, args=False),
+                field="accept_untested",
+            )
+        return chosen
+
+    def upgrade(
+        self,
+        name: str,
+        *,
+        backup: bool = True,
+        image: str | None = None,
+        accept_untested: bool = False,
+    ) -> UpgradeOutcome:
         """
         Move an instance to the newest image of its version.
 
@@ -1234,36 +1468,68 @@ class ManagedInstances:
         accept its superuser. When it does not, the previous image is put back and
         the error carries what the container said.
 
+        An instance on an image the operator chose is never moved to what a registry serves:
+        the operator pinned it, so the operator names the next one (``image``), pinned the same
+        way, and accepts again that Noust did not test it.
+
         Args:
             name: Its name.
             backup: Dump every database first. ``False`` only when the operator
                 says the data does not matter.
+            image: For an instance on an image of the operator's own: the next one,
+                ``repository[:tag]@sha256:digest``. Refused for any other.
+            accept_untested: The operator accepts what running that image costs.
 
         Returns:
             What changed.
 
         Raises:
             DatabaseNotFoundError: No such instance.
+            ValidationError: An image for an instance that runs the catalog's, or none for one
+                that runs the operator's.
+            ConfirmationRequired: An image of the operator's own, without ``accept_untested``.
             DatabaseEngineError: It is being changed, Docker cannot pull, or the
                 new image did not come up (the old one runs again).
             DatabaseBackupError: A dump failed, so nothing was touched.
         """
         record = self.get(name)
         self._require_ready(record, "upgrade")
-        newest = self._newest_digest(record)
-        if newest == record.digest:
-            self.logger.info(f"{name} already runs the newest {record.image}:{record.tag}")
-            return UpgradeOutcome(name, False, record.digest, record.digest)
+        target = record
+        chosen = self.check_upgrade(name, image, accept_untested)
+        if chosen is not None:
+            target = replace(
+                record, image=chosen.repository, image_tag=chosen.tag, digest=chosen.digest
+            )
+            newest = chosen.digest
+            if (target.image, target.tag, target.digest) == (
+                record.image,
+                record.tag,
+                record.digest,
+            ):
+                self.logger.info(f"{name} already runs {target.reference}")
+                return UpgradeOutcome(name, False, record.digest, record.digest)
+            self._pull(target)
+        else:
+            newest = self._newest_digest(record)
+            if newest == record.digest:
+                self.logger.info(f"{name} already runs the newest {record.image}:{record.tag}")
+                return UpgradeOutcome(name, False, record.digest, record.digest)
+            target = replace(record, digest=newest)
         dumps = self._dump_everything(record) if backup else []
         self.records.set_state(name, UPGRADING)
-        candidate = replace(record, digest=newest, state=UPGRADING)
+        candidate = replace(target, state=UPGRADING)
         try:
             self._write_compose(candidate)
             self.units().restart(layout.unit_name(name))
             self._wait_ready(candidate)
         except (NoustError, OSError) as exc:
             raise self._upgrade_failed(record, newest, exc) from exc
-        self.records.set_digest(name, newest)
+        if record.custom_image:
+            self.records.set_image(
+                name, image=target.image, tag=target.image_tag, digest=target.digest
+            )
+        else:
+            self.records.set_digest(name, newest)
         self.records.set_state(name, READY)
         self.service.refresh_instances()
         self.service.audit("db.instance.upgrade", name, from_digest=record.digest, to_digest=newest)

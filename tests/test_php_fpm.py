@@ -231,7 +231,7 @@ def spec(**overrides: Any) -> PoolSpec:
         "listen_group": "www-data",
         "socket": Path(f"/run/php/wasm-{APP}.sock"),
         "root": Path(f"/var/www/apps/{APP}"),
-        "tmp_dir": Path(f"/var/www/apps/.wasm-php-tmp/{APP}"),
+        "tmp_dir": Path(f"/var/www/apps/.noust-php-tmp/{APP}"),
         "env": {"DB_NAME": "blog", "SALT": 'a$b;c"d'},
     }
     values.update(overrides)

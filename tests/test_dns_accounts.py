@@ -479,5 +479,5 @@ def test_a_name_with_an_empty_label_is_never_sent() -> None:
 
 
 def test_stdlib_urllib_is_what_the_client_uses_by_default() -> None:
-    assert CloudflareClient(TOKEN)._opener is urllib.request.urlopen
+    assert CloudflareClient(TOKEN)._rest._opener is urllib.request.urlopen
     assert stat is not None and io is not None

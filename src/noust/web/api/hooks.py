@@ -604,20 +604,36 @@ def _verify_provider(secret: str, body: bytes, request: Request) -> str | None:
         request: The incoming request.
 
     Returns:
-        ``github``, ``gitea``, ``bitbucket`` or ``gitlab`` when a credential
-        verified, else None. Which header failed is deliberately not reported.
+        ``github``, ``forgejo``, ``gitea``, ``gogs``, ``bitbucket`` or ``gitlab`` when a
+        credential verified, else None. Which header failed is deliberately not reported.
     """
     headers = request.headers
+
+    # A host's own header is read before GitHub's: Gitea, Forgejo and Gogs also send
+    # ``X-Hub-Signature-256`` for the tools written for GitHub, and a delivery taken for GitHub's
+    # is a different forge to everything after it (its pull requests need GitHub's
+    # ``author_association``, and a preview's comment goes to GitHub's API). A delivery that is
+    # GitHub's carries none of these. Forgejo sends its own header and Gitea's too, so its own
+    # is read first: the log then says which of the two it was. Gitea sends Gogs's as well, so
+    # Gogs's is read last of the three.
+    forgejo = headers.get("X-Forgejo-Signature")
+    if forgejo and hmac.compare_digest(_hmac_hex(secret, body), forgejo.strip().lower()):
+        return "forgejo"
+
+    gitea = headers.get("X-Gitea-Signature")
+    if gitea and hmac.compare_digest(_hmac_hex(secret, body), gitea.strip().lower()):
+        return "gitea"
+
+    # Gogs signs the body the same way, in its own header, with no prefix.
+    gogs = headers.get("X-Gogs-Signature")
+    if gogs and hmac.compare_digest(_hmac_hex(secret, body), gogs.strip().lower()):
+        return "gogs"
 
     github = headers.get("X-Hub-Signature-256")
     if github and github.startswith(_GITHUB_SIGNATURE_PREFIX):
         presented = github[len(_GITHUB_SIGNATURE_PREFIX) :].strip().lower()
         if hmac.compare_digest(_hmac_hex(secret, body), presented):
             return "github"
-
-    gitea = headers.get("X-Gitea-Signature")
-    if gitea and hmac.compare_digest(_hmac_hex(secret, body), gitea.strip().lower()):
-        return "gitea"
 
     # Bitbucket Cloud signs with the secret too, in the header GitHub used
     # for its SHA-1 signature: only a ``sha256=`` value is ever accepted.
@@ -646,7 +662,9 @@ def _delivery_id(request: Request) -> str | None:
     """
     return (
         request.headers.get("X-GitHub-Delivery")
+        or request.headers.get("X-Forgejo-Delivery")
         or request.headers.get("X-Gitea-Delivery")
+        or request.headers.get("X-Gogs-Delivery")
         or request.headers.get("X-Gitlab-Event-UUID")
         or request.headers.get("X-Request-UUID")
     )
@@ -711,7 +729,8 @@ def _event_kind(provider: str, request: Request, payload: dict[str, Any]) -> str
     sends ``X-GitHub-Event`` for compatibility, which is read after its own.
 
     Args:
-        provider: ``github``, ``gitea``, ``gitlab`` or ``bitbucket``, as verified.
+        provider: ``github``, ``gitea``, ``forgejo``, ``gogs``, ``gitlab`` or ``bitbucket``,
+            as verified.
         request: The delivery.
         payload: Its parsed body.
 
@@ -729,8 +748,16 @@ def _event_kind(provider: str, request: Request, payload: dict[str, Any]) -> str
             return None
         lowered = named.strip().lower()
         return _GITLAB_EVENTS.get(lowered, lowered)
-    if provider == "gitea":
+    if provider == "forgejo":
+        named = (
+            headers.get("X-Forgejo-Event")
+            or headers.get("X-Gitea-Event")
+            or headers.get("X-GitHub-Event")
+        )
+    elif provider == "gitea":
         named = headers.get("X-Gitea-Event") or headers.get("X-GitHub-Event")
+    elif provider == "gogs":
+        named = headers.get("X-Gogs-Event") or headers.get("X-GitHub-Event")
     else:
         named = headers.get("X-GitHub-Event")
     if not named or not named.strip():
@@ -1486,7 +1513,7 @@ class WebhookReceivedOut(BaseModel):
         id: Row id; larger is newer.
         received_at: When it arrived (the last of a burst, for a folded row),
             with a UTC offset.
-        provider: ``github``, ``gitea``, ``gitlab``, ``bitbucket`` or ``github-app``; None
+        provider: ``github``, ``gitea``, ``forgejo``, ``gogs``, ``gitlab``, ``bitbucket`` or ``github-app``; None
             when no credential verified.
         event: The forge's name for the event.
         outcome: ``deploy_started``, ``preview_started``, ``ping``,
@@ -1737,3 +1764,116 @@ def reveal_webhook_secret(
         secret=secret,
         hook_url=f"{_hooks_base(request)}/deploy/{validated}",
     )
+
+
+class RegistryHookResponse(BaseModel):
+    """
+    Where a container registry delivers for one application.
+
+    Attributes:
+        domain: The application.
+        supported: Whether it runs an image from a registry; nothing else follows a tag.
+        reason: Why not, when it does not.
+        image: The image it runs.
+        pinned: Whether the image is pinned by digest, which a push never changes.
+        enabled: Whether the application has a webhook secret.
+        ghcr_url: Where GitHub Container Registry's ``registry_package`` event is sent.
+        ghcr_events: The events to enable on the GitHub repository's webhook.
+        dockerhub_url: Where Docker Hub's webhook is pointed. Its token is masked
+            (``<token>``) until ``POST .../webhook/registry/reveal`` returns it.
+        public: Whether the addresses are ones a registry can reach.
+    """
+
+    domain: str
+    supported: bool
+    reason: str | None = None
+    image: str | None = None
+    pinned: bool = False
+    enabled: bool = False
+    ghcr_url: str | None = None
+    ghcr_events: list[str]
+    dockerhub_url: str | None = None
+    public: bool = False
+
+
+def _registry_hook(request: Request, domain: str, *, reveal: bool) -> RegistryHookResponse:
+    """
+    Describe where a registry delivers for an application.
+
+    Args:
+        request: The incoming request, for the address it was opened at.
+        domain: A validated domain of an application.
+        reveal: Put the real token in the Docker Hub address.
+
+    Returns:
+        The answer.
+
+    Raises:
+        HTTPException: 404 when the application vanished.
+    """
+    from noust.integrations import registry_webhook
+
+    app = scoped_store().get_app(domain)
+    if app is None:
+        raise HTTPException(status_code=404, detail=f"Application not found: {domain}")
+    fallback = f"{str(request.base_url).rstrip('/')}/hooks"
+    return RegistryHookResponse(
+        **{**registry_webhook.describe(app, fallback_base=fallback, reveal=reveal).to_dict()}
+    )
+
+
+@admin_router.get("/{domain}/webhook/registry", response_model=RegistryHookResponse)
+def registry_hook_state(
+    domain: str, request: Request, session: Annotated[dict, Depends(get_current_session)]
+) -> RegistryHookResponse:
+    """
+    Say what to give a container registry so a push of the image deploys the application.
+
+    Args:
+        domain: Domain of the application.
+        request: The incoming request.
+        session: The authenticated session.
+
+    Returns:
+        The addresses; Docker Hub's carries ``<token>`` in place of its token.
+
+    Raises:
+        HTTPException: 404 when the application is unknown.
+    """
+    return _registry_hook(request, _known_app_domain(domain), reveal=False)
+
+
+@admin_router.post("/{domain}/webhook/registry/reveal", response_model=RegistryHookResponse)
+def reveal_registry_hook(
+    domain: str, request: Request, session: Annotated[dict, Depends(require_elevated)]
+) -> RegistryHookResponse:
+    """
+    Show the address Docker Hub is given, token included.
+
+    The token is made from the application's webhook secret and is a credential of the same
+    kind: sudo mode, the permission to reveal secrets, and an audit record.
+
+    Args:
+        domain: Domain of the application.
+        request: The incoming request, for the audit record.
+        session: An elevated session.
+
+    Returns:
+        The addresses, with the real token.
+
+    Raises:
+        HTTPException: 404 when the application is unknown.
+    """
+    validated = _known_app_domain(domain)
+    answer = _registry_hook(request, validated, reveal=True)
+    audit = get_audit_logger()
+    if audit:
+        audit.record(
+            action="hooks.registry.reveal",
+            result="success",
+            client_ip=get_client_ip(request),
+            actor=actor_label(session),
+            resource=f"/api/apps/{validated}/webhook/registry/reveal",
+            detail="registry webhook address shown",
+        )
+    return answer

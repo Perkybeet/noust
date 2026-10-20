@@ -84,8 +84,9 @@ noust token create dashboard --scope read --expires-hours 720
 curl -H "Authorization: Bearer $TOKEN" https://panel.example.com/api/apps
 ```
 
-API tokens start with `noust_tok_` (`wasm_tok_` for tokens issued before 3.0, which keep
-working), are shown once, and are stored only as a salted hash. Manage them with
+API tokens start with `noust_tok_` (the ones issued before 3.0 start with the old
+product's prefix and keep working until revoked; `noust health` names the ones still in use),
+are shown once, and are stored only as a salted hash. Manage them with
 `noust token list|revoke`, the console's Settings > API tokens, or `GET|POST /api/auth/tokens`
 and `DELETE /api/auth/tokens/{id}`. An account issues and lists its own tokens there; issuing
 one from a browser session needs sudo mode.
@@ -130,15 +131,15 @@ factor answers `success: false` and `second_factor: {challenge, expires_in, meth
 `challenge` to `POST /api/auth/passkeys/login/options` and `/login`. That is how the console signs
 in; the step is single use and lasts five minutes.
 `bearer` also returns the session token in the body, for a client without a cookie jar; it then
-sends `X-WASM-CSRF` like a browser does. Passkeys sign in with
+sends `X-Noust-CSRF` like a browser does. Passkeys sign in with
 `POST /api/auth/passkeys/login/options` and then `POST /api/auth/passkeys/login`. The answer is
 `{success, expires_in, csrf_token, session_token}`, and two cookies are set:
 
-- `wasm_session`: `HttpOnly`, `SameSite=Strict`, `Secure` over TLS.
-- `wasm_csrf`: readable by the page, holding the CSRF token.
+- `noust_session`: `HttpOnly`, `SameSite=Strict`, `Secure` over TLS.
+- `noust_csrf`: readable by the page, holding the CSRF token.
 
 Every `POST`, `PUT`, `PATCH` and `DELETE` made with a session, in the cookie or as a Bearer
-token, must echo the CSRF token in the `X-WASM-CSRF` header. `GET /api/auth/session` (no
+token, must echo the CSRF token in the `X-Noust-CSRF` header. `GET /api/auth/session` (no
 credential required) reports whether the caller is signed in, its account and role, its
 permissions, `expires_at`, `elevated_until`, whether a second factor is set up, and the CSRF
 header and cookie names. It also says what confirming sudo mode takes: `elevation_factors`
@@ -164,6 +165,15 @@ for 15 minutes.
 Accounts are managed under `/api/auth/accounts`, invitations under `/api/auth/invitations`
 (accepted at `/api/auth/invitations/open` and `/accept`, without a credential), passkeys under
 `/api/auth/passkeys`, and an account changes its own password with `POST /api/auth/password`.
+
+An account has an `email` (`PATCH /api/auth/accounts/{username}`), where mail goes and nothing else. An
+invitation with `email` is also mailed (`emailed`, and `email_error` when the mail failed and the code is
+to be handed over), and refused before anything is made when the server cannot send mail. A person who
+forgot the password asks for a link at `POST /api/auth/password-reset/request` (`identifier`: the name or
+the address; always `202`, the same whoever asks) and finishes at `POST /api/auth/password-reset/confirm`
+(`code`, `password`, `second_factor`), both without a credential. They answer `404 reset_unavailable`
+when the server has no mail channel or runs the ENS profile; `GET /api/auth/oidc/providers` says
+whether the sign-in page offers it (`password_reset`).
 
 Since 3.4 a person can also sign in through an identity provider (OpenID Connect), under
 `/api/auth/oidc` ([sso.md](sso.md)). `GET /api/auth/oidc/providers` lists the buttons the sign-in page
@@ -377,7 +387,10 @@ server's applications is planned and applied through it (`POST /api/manifest/pla
 project, an environment or a tag in one call, and `POST /api/mcp` speaks the Model Context Protocol for clients
 that inspect, deploy and control with an API token ([mcp.md](mcp.md)).
 
-The console lists every route with the permission it needs and can try a read: Settings > API reference.
+The console lists every route with the permission it needs and can try any of them: Settings > API
+reference sends the call with the session you are signed in with (a JSON body to edit, the status, the
+headers and the server's own words back), so your role, sudo mode and a second person's approval apply
+as on any page, and a change asks before it goes. It loads nothing from outside: no Swagger UI, no CDN.
 The same document is `GET /api/openapi.json`.
 A typed Python client generated from it is `sdk/python` ([sdk.md](sdk.md)), and a Terraform and OpenTofu
 provider written against it is `terraform-provider-noust/` ([terraform.md](terraform.md)).
@@ -421,7 +434,8 @@ A handshake authenticates with any one of:
 
 - the session cookie (a browser on the console's own origin);
 - `Authorization: Bearer <token>` (any client that can set headers);
-- the subprotocol header `Sec-WebSocket-Protocol: wasm.auth, wasm.token.<token>`;
+- the subprotocol header `Sec-WebSocket-Protocol: noust.auth, noust.token.<token>` (the
+  spelling of before 4.0 is still read, and answered in kind);
 - `?ticket=<ticket>`, from `POST /api/auth/ws-ticket` (answers `{ticket, expires_in}`): single
   use, valid for 30 seconds, and bound to the address it was issued to. This is how the
   console connects. Tickets are issued for cookie sessions; a script should use the header.
@@ -747,6 +761,8 @@ to send push events to `hook_url`, which is `https://<console>/hooks/deploy/{dom
 |---|---|
 | GitHub | `X-Hub-Signature-256: sha256=<HMAC-SHA256 of the body>` (set the webhook secret) |
 | Gitea | `X-Gitea-Signature: <HMAC-SHA256 of the body>` |
+| Forgejo (Codeberg) | `X-Forgejo-Signature: <HMAC-SHA256 of the body>`; it sends Gitea's headers too, and the delivery log says `forgejo` |
+| Gogs | `X-Gogs-Signature: <HMAC-SHA256 of the body>`, no prefix; the event is in `X-Gogs-Event` (and `X-GitHub-Event`) |
 | GitLab | `X-Gitlab-Token: <secret>` |
 | Bitbucket Cloud | `X-Hub-Signature: sha256=<HMAC-SHA256 of the body>` (set the webhook's secret); the event is in `X-Event-Key` |
 
@@ -767,7 +783,7 @@ pin, the branch its checkout is on in place or its recorded branch on releases) 
 deploys. A forge's ping is answered and recorded; a forge retry of the same delivery answers `"reason": "duplicate"`.
 An application that **follows tags** (`noust app follow-tags DOMAIN 'v*'`, `PATCH
 /api/apps/{domain}/follow-tags`) reads its deliveries differently (3.2): a published `release` of
-GitHub or Gitea (not a draft or a pre-release) and a pushed tag (GitHub, Gitea, GitLab or Bitbucket)
+GitHub, Gitea or Forgejo (not a draft or a pre-release) and a pushed tag (GitHub, Gitea, Forgejo, Gogs, GitLab or Bitbucket)
 deploy that tag, once even though a forge may send both for one version (`202 {job_id,
 status}`); a draft or a pre-release, a tag that does not match the pattern, is not a version,
 or is not newer than what is deployed answers `200 {"status":
@@ -1069,6 +1085,7 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/services/{name}/restart` | POST `apps.operate` |  |
 | `/api/services/{name}/start` | POST `apps.operate` |  |
 | `/api/services/{name}/stop` | POST `apps.operate` |  |
+| `/api/services/{name}/tags` | GET `server.read`; PUT `server.manage` | The unit's tags; `{tags}` makes it carry exactly those. `GET /api/services?tag=` filters the list |
 
 ### Backups
 
@@ -1123,6 +1140,7 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/databases/databases/{engine}/{name}/keys` | GET `databases.read` |  |
 | `/api/databases/databases/{engine}/{name}/metrics` | GET `databases.read` |  |
 | `/api/databases/databases/{engine}/{name}/overview` | GET `databases.read` |  |
+| `/api/databases/databases/{engine}/{name}/tags` | GET `databases.read`; PUT `databases.write` | The database's tags; `{tags}` makes it carry exactly those. `GET /api/databases/databases?tag=` filters the list, and every database carries its `tags` |
 | `/api/databases/databases/{engine}/{name}/relation` | GET `databases.read` |  |
 | `/api/databases/databases/{engine}/{name}/relations` | GET `databases.read` |  |
 | `/api/databases/databases/{engine}/{name}/rows` | GET `databases.read`; POST `databases.write`, sudo, four-eyes; PATCH `databases.write`, sudo, four-eyes |  |
@@ -1169,6 +1187,7 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/secret-providers/{name}/test` | POST `settings.manage`, sudo | Prove it answers and accepts its token |
 | `/api/tags` | GET `apps.read` | The tags your applications carry, with those applications |
 | `/api/tags/{tag}/deploy` | POST `apps.deploy` | Update every app that carries a tag, each as a job; `{force}` rebuilds those with nothing new. A pipeline's token calls this to redeploy a group |
+| `/api/tags/{tag}/restart` | POST `apps.operate` | Restart every application and service that carries a tag, one by one; `{dry_run}` says what would happen and restarts nothing. Databases that carry it are listed and left. A caller reaches what it sees: a team its own applications, only the instance the server's units |
 | `/api/variables/server` | GET `settings.read` (`?unmask=true`: `admin`, sudo, audited); POST `settings.manage`, sudo | The server's shared variables, which every application can refer to |
 | `/api/variables/server/{name}` | PUT `settings.manage`, sudo; DELETE `settings.manage`, sudo |  |
 | `/api/variables/server/{name}/usage` | GET `settings.read` |  |

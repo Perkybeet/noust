@@ -12,6 +12,12 @@ is given and writes the unit again when the file or the profiles changed, and
 ``docker compose build`` and ``up`` (see :mod:`noust.core.app_compose_store`),
 never a command line given to a shell. They run as root, so changing them asks
 for sudo mode.
+
+The document of a stack deployed from one (``.../compose/document``) is the stack's source, and
+is read, checked and replaced here like the file of a repository would be: ``GET`` reads it (it can
+hold a value typed into it, so it asks to reveal secrets), ``POST .../check`` judges a candidate
+without writing it, and ``PUT`` writes it; the stack runs it from its next update, which
+``POST /api/apps/{domain}/update`` starts.
 """
 
 from __future__ import annotations
@@ -24,7 +30,10 @@ from pydantic import BaseModel, Field
 from noust.core import app_compose_store
 from noust.core.app_compose_store import BUILD_SWITCHES, BUILD_VALUED, UP_SWITCHES, UP_VALUED
 from noust.core.exceptions import ValidationError
+from noust.core.store import get_store
 from noust.core.teams import scoped_store
+from noust.deployers import compose_document
+from noust.deployers.compose_paste import MAX_DOCUMENT_BYTES
 from noust.deployers.helpers import compose_variables
 from noust.deployers.helpers.compose_settings import (
     change_compose,
@@ -32,6 +41,7 @@ from noust.deployers.helpers.compose_settings import (
     reset_compose,
 )
 from noust.web.api.auth import get_current_session
+from noust.web.api.compose import ComposeAnalysisOut, analysis_out
 from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
 from noust.web.auth import actor_label
 from noust.web.pydantic_compat import dump_model
@@ -69,6 +79,44 @@ class ComposeSettingsRequest(BaseModel):
     build_args: list[str] | None = None
     up_args: list[str] | None = None
     services: list[str] | None = None
+
+
+class ComposeDocumentResponse(BaseModel):
+    """The Compose document a stack runs from, when Noust keeps one."""
+
+    domain: str
+    editable: bool = Field(description="Whether the stack has a document Noust keeps")
+    reason: str | None = Field(
+        default=None, description="Why not, and where its compose file is edited instead"
+    )
+    document: str | None = Field(default=None, description="The document; null when not editable")
+    path: str | None = Field(default=None, description="Where Noust keeps it")
+
+
+class ComposeDocumentRequest(BaseModel):
+    """A Compose document to check or to keep."""
+
+    document: str = Field(max_length=MAX_DOCUMENT_BYTES)
+
+
+class ComposeDocumentCheckResponse(BaseModel):
+    """What a document would do to a stack, judged and not written."""
+
+    domain: str
+    changed: bool = Field(description="Whether it differs from the document the stack has")
+    deployable: bool = Field(description="Whether nothing refuses it and nothing is missing")
+    missing: list[str] = Field(description="Variables it requires that the stack has no value for")
+    analysis: ComposeAnalysisOut
+
+
+class ComposeDocumentSavedResponse(BaseModel):
+    """A document, kept."""
+
+    domain: str
+    changed: bool = Field(description="False when the stack already had this document")
+    services: list[str]
+    warnings: list[str]
+    applies: str = Field(description="How the stack starts running it")
 
 
 class ComposeVariableModel(BaseModel):
@@ -257,3 +305,115 @@ def delete_compose_settings(
     validated = _known(domain)
     reset_compose(validated)
     return _response(validated, describe_compose(validated))
+
+
+@router.get("/{domain}/compose/document", response_model=ComposeDocumentResponse)
+def get_compose_document(
+    domain: str, session: Annotated[dict, Depends(get_current_session)]
+) -> ComposeDocumentResponse:
+    """
+    Read the Compose document a stack runs from.
+
+    A stack deployed from a document (pasted, or converted from a template) keeps it as its
+    source; one from a repository, one adopted where it runs and a recipe's have none, and say
+    where their file is edited instead.
+
+    Args:
+        domain: Domain of the application.
+        session: The authenticated session; reading asks to reveal secrets, because a document
+            can hold a value typed into it.
+
+    Returns:
+        The document and where it is, or why there is none.
+
+    Raises:
+        HTTPException: 404 when the application is unknown.
+    """
+    validated = _known(domain)
+    app = scoped_store().get_app(validated)
+    reason = None if app is None else compose_document.why_not_editable(app, get_store())
+    if reason is not None:
+        return ComposeDocumentResponse(domain=validated, editable=False, reason=reason)
+    found = compose_document.read_document(validated, actor=actor_label(session))
+    return ComposeDocumentResponse(
+        domain=validated, editable=True, document=found.text, path=found.path
+    )
+
+
+@router.post("/{domain}/compose/document/check", response_model=ComposeDocumentCheckResponse)
+def check_compose_document(
+    domain: str,
+    body: ComposeDocumentRequest,
+    session: Annotated[dict, Depends(get_current_session)],
+) -> ComposeDocumentCheckResponse:
+    """
+    Judge a document for this stack without writing it.
+
+    Runs the guard a creation runs and says which variables the document requires that the stack
+    has no value for. Nothing is written or run.
+
+    Args:
+        domain: Domain of the application.
+        body: The candidate document.
+        session: The authenticated session.
+
+    Returns:
+        What it is, what refuses or warns about it, and what the stack lacks to run it.
+
+    Raises:
+        HTTPException: 404 when the application is unknown.
+        ValidationError: The stack has no document Noust keeps, or the text is not a Compose
+            document at all (400).
+    """
+    validated = _known(domain)
+    check = compose_document.check_document(validated, body.document)
+    return ComposeDocumentCheckResponse(
+        domain=validated,
+        changed=check.changed,
+        deployable=check.deployable,
+        missing=check.missing,
+        analysis=analysis_out(check.analysis),
+    )
+
+
+@router.put("/{domain}/compose/document", response_model=ComposeDocumentSavedResponse)
+def put_compose_document(
+    domain: str,
+    body: ComposeDocumentRequest,
+    session: Annotated[dict, Depends(require_elevated)],
+) -> ComposeDocumentSavedResponse:
+    """
+    Keep a new Compose document as the one this stack runs from.
+
+    Nothing is rebuilt: the stack runs the document at its next update (``POST
+    /api/apps/{domain}/update``), and until then its pending changes say it is not running it.
+    The guard of a creation refuses what it refuses, and so does a variable the document requires
+    that the stack has no value for.
+
+    Args:
+        domain: Domain of the application.
+        body: The document.
+        session: An elevated session: the document decides what runs as root's containers.
+
+    Returns:
+        The services of the document and what is worth knowing about it.
+
+    Raises:
+        HTTPException: 404 when the application is unknown.
+        ValidationError: The stack has no document Noust keeps, or the document is refused (400,
+            the details name each reason).
+        DeploymentError: The document requires a variable the stack has no value for.
+    """
+    validated = _known(domain)
+    change = compose_document.replace_document(validated, body.document, actor=actor_label(session))
+    return ComposeDocumentSavedResponse(
+        domain=validated,
+        changed=change.changed,
+        services=list(change.services),
+        warnings=list(change.warnings),
+        applies=(
+            "at the next update of the stack"
+            if change.changed
+            else "it already runs from this document"
+        ),
+    )

@@ -40,6 +40,7 @@ from noust.cli.commands.auth_saml import saml
 from noust.cli.commands.auth_scim import scim
 from noust.core.accounts.oidc import OidcManager
 from noust.core.accounts.oidc_model import (
+    KINDS,
     PROVIDER_ROLES,
     PROVISIONING,
     OidcProvider,
@@ -87,9 +88,19 @@ def _describe(ctx: Context, provider: OidcProvider, has_secret: bool) -> None:
         f"{provider.name}: {provider.label} ({'enabled' if provider.enabled else 'disabled'})"
     )
     rows = [
+        ("kind", provider.kind),
         ("issuer", provider.issuer),
         ("client id", provider.client_id),
-        ("client secret", "set" if has_secret else "none (a public client: PKCE alone)"),
+        (
+            "client secret",
+            "set"
+            if has_secret
+            else (
+                "none (GitHub needs it to give a token)"
+                if provider.kind == "github"
+                else "none (a public client: PKCE alone)"
+            ),
+        ),
         ("scopes", provider.scopes),
         ("e-mail must be verified", "yes" if provider.require_email_verified else "no"),
         (
@@ -142,7 +153,16 @@ def oidc() -> None:
 @oidc.command("set")
 @click.argument("name")
 @click.option(
-    "--issuer", default=None, help="The provider's issuer URL, exactly as its tokens write it."
+    "--kind",
+    type=click.Choice(KINDS),
+    default=None,
+    help="oidc (the default) or github: OAuth 2.0 with GitHub, chosen when the provider is made.",
+)
+@click.option(
+    "--issuer",
+    default=None,
+    help="The provider's issuer URL, exactly as its tokens write it "
+    "(a GitHub Enterprise Server's address for --kind github).",
 )
 @click.option("--client-id", default=None, help="The client id Noust is registered as.")
 @click.option(
@@ -259,6 +279,7 @@ def oidc() -> None:
 def set_command(
     ctx: Context,
     name: str,
+    kind: str | None,
     issuer: str | None,
     client_id: str | None,
     client_secret_stdin: bool,
@@ -299,8 +320,15 @@ def set_command(
     first (an OpenID Connect client with the authorization code flow), give it
     the redirect URI 'noust auth oidc show NAME' prints, and copy its client id
     and secret here.
+
+    For GitHub: register an OAuth App (Settings > Developer settings), give it the
+    redirect URI as its Authorization callback URL, and run
+
+    \b
+      noust auth oidc set github --kind github --client-id ID --prompt-secret
     """
     changes: dict[str, Any] = {
+        "kind": kind,
         "issuer": issuer,
         "client_id": client_id,
         "label": label,

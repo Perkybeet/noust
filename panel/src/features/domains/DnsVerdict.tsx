@@ -6,7 +6,7 @@ import { ICONS } from "../../components/ui/icons";
 import { StatusGlyph } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
-import { dnsVerdict, isPrivateAddress, reachesServer, recordsToCreate } from "./dns";
+import { cdnName, dnsVerdict, isPrivateAddress, reachesServer, recordsToCreate } from "./dns";
 
 function AddressList({ label, addresses, matches, empty }: { label: string; addresses: readonly string[]; matches?: ReadonlySet<string>; empty: string }) {
   const t = useT();
@@ -55,7 +55,7 @@ export function DnsVerdict({ check, className }: { check: DnsCheck; className?: 
     verdict === "here"
       ? t("domains.dnsVerdict.pointsHere", { domain: check.domain })
       : verdict === "cdn"
-        ? t("network.dnsVerdict.behindCdn", { domain: check.domain, cdn: check.cdn ?? "" })
+        ? t("network.dnsVerdict.behindCdn", { domain: check.domain, cdn: cdnName(check.cdn) })
         : verdict === "unknown"
           ? t("network.dnsVerdict.cannotTell", { domain: check.domain })
           : verdict === "missing"

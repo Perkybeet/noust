@@ -5,7 +5,7 @@
 Where the logs of applications are shipped to, as the store keeps it.
 
 One row per destination in ``log_drains`` (``schema_v14.RUNTIME_SQL``): a Loki, an
-Axiom dataset, an HTTP endpoint, an OTLP collector or a remote syslog. What is not
+Axiom dataset, a New Relic account, an HTTP endpoint, an OTLP collector or a remote syslog. What is not
 secret is in ``settings``; the token or password is in the secret store, under
 :func:`secret_name`. ``cursors`` records how far each source was shipped, written
 only by the shipper after a destination accepted a batch: a destination that was
@@ -26,7 +26,7 @@ from typing import Any
 
 from noust.core.store import NoustStore, get_store
 
-KINDS = ("loki", "axiom", "http", "otlp", "syslog")
+KINDS = ("loki", "axiom", "newrelic", "http", "otlp", "syslog")
 
 #: A drain's name: it becomes part of a secret's name.
 NAME = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
@@ -56,7 +56,7 @@ class Drain:
 
     Attributes:
         name: Its name.
-        kind: ``loki``, ``axiom``, ``http``, ``otlp`` or ``syslog``.
+        kind: ``loki``, ``axiom``, ``newrelic``, ``http``, ``otlp`` or ``syslog``.
         settings: What is not secret: URL, labels, transport...
         apps: The applications it receives the logs of; empty is every one.
         enabled: Whether the shipper sends to it.

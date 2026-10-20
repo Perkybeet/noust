@@ -34,7 +34,7 @@ class DrainInfo(BaseModel):
     """A destination of logs and how the last attempt went."""
 
     name: str
-    kind: str = Field(description="loki, axiom, http, otlp or syslog")
+    kind: str = Field(description="loki, axiom, newrelic, http, otlp or syslog")
     settings: dict[str, Any] = Field(description="What is not secret: address, labels, transport")
     apps: list[str] = Field(description="The applications it receives; empty is every one")
     enabled: bool
@@ -61,7 +61,7 @@ class DrainList(BaseModel):
 class SaveDrainRequest(BaseModel):
     """A destination of logs."""
 
-    kind: str = Field(..., description="loki, axiom, http, otlp or syslog")
+    kind: str = Field(..., description="loki, axiom, newrelic, http, otlp or syslog")
     settings: dict[str, Any] = Field(
         default_factory=dict, description="Address, labels, transport...: see the kind"
     )

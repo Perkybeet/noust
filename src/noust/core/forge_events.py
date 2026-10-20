@@ -247,21 +247,36 @@ def _section(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def _family(provider: str) -> str:
+    """
+    Args:
+        provider: A host as the webhook named it.
+
+    Returns:
+        ``gitea`` for Forgejo, which is a fork of Gitea and sends the same payloads; the
+        name itself for any other (Gogs, from which Gitea was forked, differs in its pull
+        requests and keeps its own).
+    """
+    return "gitea" if provider == "forgejo" else provider
+
+
 def parse_pull_request(
     provider: str, payload: dict[str, Any], event_key: str | None = None
 ) -> PullRequestEvent | None:
     """
     Translate a pull (merge) request delivery into a :class:`PullRequestEvent`.
 
-    GitHub and Gitea send ``pull_request`` payloads of the same shape; GitLab
+    GitHub, Gitea and Forgejo send ``pull_request`` payloads of the same shape; GitLab
     sends ``merge_request`` with ``object_attributes``; Bitbucket Cloud sends a
-    ``pullrequest`` and names what happened in a header, not in the body. A
+    ``pullrequest`` and names what happened in a header, not in the body; Gogs sends a
+    ``pull_request`` whose branches and repositories are flat fields (``head_branch``,
+    ``head_repo``) and which names no commit. A
     branch is from a fork when the repository it lives in is not the one the
     request targets (GitHub: a deleted fork has no head repository at all, and
     counts).
 
     Args:
-        provider: ``github``, ``gitea``, ``gitlab`` or ``bitbucket``.
+        provider: ``github``, ``gitea``, ``forgejo``, ``gogs``, ``gitlab`` or ``bitbucket``.
         payload: The parsed body.
         event_key: What the delivery says it is, for the forge that says it
             outside the body: Bitbucket's ``X-Event-Key``
@@ -272,10 +287,13 @@ def parse_pull_request(
         reviews, a merge request edit that pushed nothing) or a payload that
         lacks what an event needs.
     """
+    provider = _family(provider)
     if provider == "gitlab":
         return _merge_request_event(payload)
     if provider == "bitbucket":
         return _bitbucket_pull_request(payload, event_key)
+    if provider == "gogs":
+        return _gogs_pull_request(payload)
     forge = Forge.GITHUB if provider == "github" else Forge.GITEA
     action = _PR_ACTIONS.get(_text(payload.get("action")))
     pull = _section(payload.get("pull_request"))
@@ -321,6 +339,56 @@ def parse_pull_request(
         sender=sender_login,
         bot=bot,
         author_association=association if forge is Forge.GITHUB and association else None,
+    )
+
+
+def _gogs_pull_request(payload: dict[str, Any]) -> PullRequestEvent | None:
+    """
+    Translate a Gogs pull request delivery.
+
+    Gogs names the branches and repositories of a pull request as flat fields and gives no
+    commit: the preview is built from the branch, as a push to it would be.
+
+    Args:
+        payload: The parsed body.
+
+    Returns:
+        The event, or None (see :func:`parse_pull_request`).
+    """
+    action = _PR_ACTIONS.get(_text(payload.get("action")))
+    pull = _section(payload.get("pull_request"))
+    number = payload.get("number", pull.get("number"))
+    base_repo = _section(pull.get("base_repo")) or _section(payload.get("repository"))
+    head_repo = _section(pull.get("head_repo"))
+    repository = _text(base_repo.get("full_name"))
+    branch = _text(pull.get("head_branch"))
+    if action is None or not isinstance(number, int) or isinstance(number, bool) or number < 1:
+        return None
+    if not repository or not branch:
+        return None
+    head_name = _text(head_repo.get("full_name"))
+    from_fork = not head_name or head_name.lower() != repository.lower()
+    user = _section(pull.get("user"))
+    sender = _section(payload.get("sender"))
+    author = _text(user.get("login")) or _text(sender.get("login"))
+    sender_login = _text(sender.get("login")) or author
+    bot = _is_bot(author, by_suffix=True) or _is_bot(sender_login, by_suffix=True)
+    return PullRequestEvent(
+        forge=Forge.GITEA,
+        action=action,
+        repository=repository,
+        clone_url=_text(head_repo.get("clone_url")) or _text(base_repo.get("clone_url")),
+        number=number,
+        title=_text(pull.get("title")),
+        branch=branch,
+        base_branch=_text(pull.get("base_branch")),
+        head_sha="",
+        from_fork=from_fork,
+        installation_id=None,
+        author=author,
+        sender=sender_login,
+        bot=bot,
+        author_association=None,
     )
 
 
@@ -544,12 +612,13 @@ def parse_push_change(provider: str, payload: dict[str, Any]) -> PushChange:
     empty, because a deployment skipped on a guess is lost.
 
     Args:
-        provider: ``github``, ``gitea``, ``gitlab`` or ``bitbucket``.
+        provider: ``github``, ``gitea``, ``forgejo``, ``gogs``, ``gitlab`` or ``bitbucket``.
         payload: The parsed body.
 
     Returns:
         The change; empty and unknown for a provider that is not one of those.
     """
+    provider = _family(provider)
     if provider == "bitbucket":
         messages: list[str] = []
         complete = True
@@ -564,7 +633,7 @@ def parse_push_change(provider: str, payload: dict[str, Any]) -> PushChange:
                 if isinstance(message, str):
                     messages.append(message)
         return PushChange(messages=tuple(messages), files=None, messages_complete=complete)
-    if provider not in ("github", "gitea", "gitlab"):
+    if provider not in ("github", "gitea", "gogs", "gitlab"):
         return PushChange()
     listed = payload.get("commits")
     commits = (
@@ -631,7 +700,7 @@ def parse_tag_event(provider: str, kind: str, payload: dict[str, Any]) -> TagEve
     push too, and deploys nothing.
 
     Args:
-        provider: ``github``, ``gitea``, ``gitlab`` or ``bitbucket``.
+        provider: ``github``, ``gitea``, ``forgejo``, ``gogs``, ``gitlab`` or ``bitbucket``.
         kind: ``push`` or ``release``, as the delivery says it is.
         payload: The parsed body.
 
@@ -641,7 +710,12 @@ def parse_tag_event(provider: str, kind: str, payload: dict[str, Any]) -> TagEve
         without what an event needs. A draft or a pre-release is returned with
         ``skip`` set, so the delivery log can say that is why it was ignored.
     """
-    forge = {"github": Forge.GITHUB, "gitea": Forge.GITEA, "gitlab": Forge.GITLAB}.get(provider)
+    forge = {
+        "github": Forge.GITHUB,
+        "gitea": Forge.GITEA,
+        "gogs": Forge.GITEA,
+        "gitlab": Forge.GITLAB,
+    }.get(_family(provider))
     if provider == "bitbucket":
         # Bitbucket has no release event, and names a pushed tag in its changes.
         return _bitbucket_tag_event(payload) if kind == "push" else None

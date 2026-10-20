@@ -30,6 +30,7 @@ AREAS = (
     "FEDERATION",
     "ROLLOUT",
     "SHIPPING",
+    "ACCESS6",
 )
 
 

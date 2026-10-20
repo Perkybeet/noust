@@ -74,6 +74,7 @@ from noust.deployers.lifecycle import (
     check_adopted_directory,
     check_upstream,
     delete_app,
+    deletion_databases,
     is_in_apps_directory,
     set_follow_tags,
     update_app,
@@ -87,6 +88,7 @@ from noust.managers.app_processes import ProcessManager
 from noust.managers.app_replicas import ReplicaManager
 from noust.managers.database.service import OWN_DATABASE_TYPES, DatabaseService
 from noust.managers.nginx_manager import NginxManager
+from noust.managers.port_claims import PortClaims
 from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.managers.source_manager import SourceManager
 from noust.recipes import RecipeError, get_recipe
@@ -98,7 +100,6 @@ from noust.recipes.deploy import (
 )
 from noust.validators.domain import should_include_www, validate_domain
 from noust.validators.environment import is_valid_env_name
-from noust.validators.port import find_available_port, validate_port, validate_unclaimed_port
 
 #: Larger than any environment file a person writes; a bigger one is an
 #: archive or a build artefact passed by mistake.
@@ -243,6 +244,8 @@ def _create_app(
     database_instance: str | None = None,
     no_cache: bool = False,
     registry_logins: tuple[str, ...] = (),
+    seed_files: dict[str, str] | None = None,
+    seed_modes: dict[str, int] | None = None,
 ) -> int:
     """
     Deploy an application.
@@ -300,6 +303,9 @@ def _create_app(
         registry_logins: Registry accounts (``noust registry add``) to log in
             for the first deployment of a Docker Compose or container
             application, and to attach to it once it exists (``--registry``).
+        seed_files: Text of files that must be in place before the first start, by path
+            relative to the application (an import's mounted files); written once.
+        seed_modes: Their permissions.
 
     Returns:
         Exit code.
@@ -324,13 +330,13 @@ def _create_app(
         choose_layout(None, layout, app_type=app_type, supports_releases=False)
 
     if port:
-        port = validate_unclaimed_port(validate_port(port), get_store().ports_owned_by_apps())
+        port = PortClaims().validated(port)
     elif app_type == "docker-compose":
         # A stack publishes its own ports, and the site goes to the one it publishes for `/`
         # (docs/compose.md); a free port Noust picked would be one nothing listens on.
         port = None
     else:
-        port = find_available_port(preferred=3000, exclude=get_store().ports_owned_by_apps())
+        port = PortClaims().choose(preferred=3000)
         if not port:
             raise DeploymentError(
                 "No available port found",
@@ -416,6 +422,9 @@ def _create_app(
         options["no_cache"] = True
     if registry_logins:
         options["registry_logins"] = list(registry_logins)
+    if seed_files:
+        options["seed_files"] = dict(seed_files)
+        options["seed_modes"] = dict(seed_modes or {})
     databases = DatabaseService(logger=logger) if database is not None else None
     new_database = None
     if databases is not None and database is not None:
@@ -723,11 +732,9 @@ def _create_from_recipe(
         )
 
     if port:
-        port = validate_unclaimed_port(validate_port(port), get_store().ports_owned_by_apps())
+        port = PortClaims().validated(port)
     else:
-        port = find_available_port(
-            preferred=chosen.port or 3000, exclude=get_store().ports_owned_by_apps()
-        )
+        port = PortClaims().choose(preferred=chosen.port or 3000)
         if not port:
             raise DeploymentError(
                 "No available port found",
@@ -1458,6 +1465,9 @@ def _delete_app(
     keep_files: bool = False,
     dry_run: bool = False,
     remove_adopted_directory: str | None = None,
+    keep_certificate: bool = False,
+    remove_volumes: bool = False,
+    remove_databases: bool = False,
 ) -> int:
     """
     Remove an application, its service, its site and its certificate.
@@ -1465,9 +1475,14 @@ def _delete_app(
     Args:
         domain: Application domain.
         logger: Logger of the current command.
-        force: Do not ask for confirmation.
+        force: Do not ask for confirmation. Without it, the application's name is typed to confirm.
         keep_files: Leave the application directory on disk.
         dry_run: Only report what would be removed.
+        keep_certificate: Leave the domain's certificate in place.
+        remove_volumes: Also remove the Docker volumes of a stack or a container, which hold its
+            data.
+        remove_databases: Also drop the databases that belong to the application and that nothing
+            else uses, each after a last dump.
         remove_adopted_directory: The application's directory, named, when it
             is outside Noust's apps directory (an adopted stack): only then is
             it removed with the files.
@@ -1523,22 +1538,38 @@ def _delete_app(
             keep_files=keep_files or keep_adopted,
             registered=app is not None,
             app_exists_on_disk=app_exists_on_disk,
+            keep_certificate=keep_certificate,
+            remove_volumes=remove_volumes,
+            remove_databases=remove_databases,
         )
 
     if not force:
-        consequences = [f"the {app_name} service", "its site configuration", "its certificate"]
+        consequences = [f"the {app_name} service", "its site configuration"]
+        consequences.append("(its certificate stays)" if keep_certificate else "its certificate")
         if not keep_files and not keep_adopted:
             consequences.append(str(app_path))
         if app:
             consequences.append("its database records")
         logger.warning(f"This removes {', '.join(consequences)}.")
+        if remove_volumes:
+            logger.warning(
+                "--remove-volumes: the Docker volumes of the stack or the container go too, "
+                "and with them the data in them."
+            )
+        _say_databases(logger, domain, remove_databases)
         if keep_adopted:
             logger.info(
                 f"{app_path} is outside Noust's apps directory and is kept; to remove it too: "
                 f"--remove-adopted-directory {app_path}"
             )
-        if not click.confirm(f"Delete the application {domain}?", default=False):
-            logger.info("Aborted")
+        # The name, typed: a stray 'y' does not delete an application.
+        typed = click.prompt(
+            f"Delete the application {domain}? Type its name to confirm",
+            default="",
+            show_default=False,
+        )
+        if typed.strip() != domain:
+            logger.info("Aborted: the name did not match")
             return 0
 
     logger.header(f"Deleting: {domain}")
@@ -1549,13 +1580,26 @@ def _delete_app(
     outcome = delete_app(
         domain,
         remove_files=not keep_files,
+        remove_certificate=not keep_certificate,
+        remove_volumes=remove_volumes,
+        remove_databases=remove_databases,
         remove_adopted_directory=remove_adopted_directory,
         on_phase=lambda index, total, message: logger.step(index, total, message),
         logger=logger,
     )
     logger.substep(
-        f"Certificate deleted: {domain}" if outcome.certificate_removed else "No certificate found"
+        f"Certificate deleted: {domain}"
+        if outcome.certificate_removed
+        else "Certificate kept"
+        if keep_certificate
+        else "No certificate found"
     )
+    if outcome.volumes_removed:
+        logger.substep("Docker volumes removed")
+    for removed, dump in zip(outcome.databases_removed, outcome.database_dumps, strict=False):
+        logger.substep(f"Database dropped: {removed} (last dump: {dump})")
+    for note in outcome.kept:
+        logger.info(note)
     if outcome.kept_directory is not None:
         logger.key_value("Kept", outcome.kept_directory)
     if outcome.warnings:
@@ -1564,6 +1608,31 @@ def _delete_app(
     logger.success(f"Application deleted: {domain}")
 
     return 0
+
+
+def _say_databases(logger: Logger, domain: str, remove_databases: bool) -> None:
+    """
+    Say what deleting an application does to the databases it uses.
+
+    Args:
+        logger: Logger of the current command.
+        domain: The application.
+        remove_databases: Whether the operator asked for them to go.
+    """
+    for database in deletion_databases(domain):
+        label = f"{database.name} on {database.engine}"
+        if database.shared_with:
+            logger.info(
+                f"Database {label} is also used by {', '.join(database.shared_with)}: kept."
+            )
+        elif not database.owned:
+            logger.info(f"Database {label} is used by {domain} but is not its own: kept.")
+        elif remove_databases:
+            logger.warning(f"Database {label} belongs to {domain}: dropped after a last dump.")
+        else:
+            logger.info(
+                f"Database {label} belongs to {domain}: kept (--remove-databases drops it)."
+            )
 
 
 def _forget_adopted(
@@ -1638,6 +1707,9 @@ def _preview_delete(
     keep_files: bool,
     registered: bool,
     app_exists_on_disk: bool,
+    keep_certificate: bool = False,
+    remove_volumes: bool = False,
+    remove_databases: bool = False,
 ) -> int:
     """
     Report what deleting an application would remove.
@@ -1650,6 +1722,9 @@ def _preview_delete(
         keep_files: Whether the files would be kept.
         registered: Whether the application has store records.
         app_exists_on_disk: Whether the application directory exists.
+        keep_certificate: Whether the certificate would be kept.
+        remove_volumes: Whether the Docker volumes would go.
+        remove_databases: Whether its own databases would be dropped.
 
     Returns:
         Exit code.
@@ -1681,7 +1756,11 @@ def _preview_delete(
         else:
             logger.key_value("Remove app files", str(app_path))
 
+    logger.key_value("Certificate", "keep" if keep_certificate else "remove")
+    if remove_volumes:
+        logger.key_value("Remove Docker volumes", "the stack's or the container's named volumes")
     if registered:
+        _say_databases(logger, domain, remove_databases)
         logger.key_value("Remove from database", f"App, Site, and Service records for {domain}")
 
     logger.blank()
@@ -2586,6 +2665,23 @@ def update(
 @click.option("-f", "-y", "--force", is_flag=True, help="Delete without asking for confirmation.")
 @click.option("--keep-files", is_flag=True, help="Leave the application directory on disk.")
 @click.option(
+    "--keep-certificate",
+    is_flag=True,
+    help="Leave the domain's certificate in place (it is removed with the application otherwise).",
+)
+@click.option(
+    "--remove-volumes",
+    is_flag=True,
+    help="Also remove the Docker volumes of a Compose stack or a container application: they "
+    "hold its data, so they are never removed unless asked for.",
+)
+@click.option(
+    "--remove-databases",
+    is_flag=True,
+    help="Also drop the databases that belong to the application and that no other application "
+    "uses, each after a last dump. Never unless asked for; one it merely uses is kept.",
+)
+@click.option(
     "--remove-adopted-directory",
     metavar="PATH",
     help="Also remove the application's directory when it is outside Noust's apps directory "
@@ -2598,13 +2694,20 @@ def delete(
     domain: str,
     force: bool,
     keep_files: bool,
+    keep_certificate: bool,
+    remove_volumes: bool,
+    remove_databases: bool,
     remove_adopted_directory: str | None,
 ) -> None:
     """
     Delete an application and everything deployed with it.
 
     Removes the service, the site configuration, the certificate, the
-    application directory and the database records. A directory outside
+    application directory and the database records; asks for the application's
+    name to be typed (-y skips it). The Docker volumes of a stack and the
+    databases it owns stay unless --remove-volumes and --remove-databases
+    say they go (a database is dumped first, and one another application
+    uses is never dropped). A directory outside
     Noust's apps directory, such as an adopted stack's, is kept unless
     --remove-adopted-directory names it. A site adopted with 'noust app
     adopt-site' is only forgotten: its unit, site, certificate and files stay.
@@ -2617,6 +2720,9 @@ def delete(
             keep_files=keep_files,
             dry_run=ctx.dry_run,
             remove_adopted_directory=remove_adopted_directory,
+            keep_certificate=keep_certificate,
+            remove_volumes=remove_volumes,
+            remove_databases=remove_databases,
         ),
     )
 

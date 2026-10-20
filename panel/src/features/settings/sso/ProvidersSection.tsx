@@ -7,6 +7,7 @@ import type { SsoProviderInfo, SsoTestResult } from "../../../api/queries/ssoAdm
 import { CommandHint } from "../../../components/page/CommandHint";
 import { ErrorBlock, QueryState } from "../../../components/page/QueryState";
 import { Section } from "../../../components/page/Section";
+import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { CopyValue } from "../../../components/ui/CopyValue";
@@ -69,7 +70,12 @@ function columnsFor(t: T): Column<SsoProviderInfo>[] {
       id: "issuer",
       header: t("ssoAdmin.providers.column.issuer"),
       hideBelow: "md",
-      cell: (provider) => <Mono tone="default">{provider.issuer}</Mono>,
+      cell: (provider) => (
+        <span className="flex flex-wrap items-center gap-2">
+          {provider.kind === "github" ? <Badge>{t("ssoAdmin.providers.kind.github")}</Badge> : null}
+          <Mono tone="default">{provider.issuer}</Mono>
+        </span>
+      ),
     },
     {
       id: "sign-up",

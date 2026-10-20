@@ -69,6 +69,7 @@ def test_the_table_only_moves_forward() -> None:
         ("3.2.0", 13),
         ("3.3.1", 13),
         ("v3.4.0", 14),
+        ("4.0.0", 15),
     ],
 )
 def test_a_release_understands_up_to_the_schema_it_or_an_earlier_one_wrote(
@@ -270,7 +271,8 @@ def test_opening_an_older_store_keeps_a_copy_that_a_later_open_can_use(tmp_path:
     copies = store_compat.kept_copies(db)
     assert copies and copies[0].schema == SCHEMA_VERSION - 1
     assert store_compat.read_schema(db) == SCHEMA_VERSION
-    plan_back = plan("3.3.1", SCHEMA_VERSION, copies, db_path=db)
+    # The release that wrote the schema one behind is the one that can use the copy.
+    plan_back = plan(SCHEMA_RELEASES[SCHEMA_VERSION - 1], SCHEMA_VERSION, copies, db_path=db)
     assert not plan_back.compatible
     assert plan_back.copy == copies[0]
     NoustStore.reset_instance()

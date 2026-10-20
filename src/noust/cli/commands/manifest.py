@@ -110,14 +110,26 @@ def validate_command(ctx: Context, file: Path) -> None:
         "valid": True,
         "projects": len(manifest.projects),
         "applications": [app.domain for app in manifest.applications],
+        "cron": [job.name for job in manifest.cron],
+        "servers": [server.name for server in manifest.servers],
+        "placements": [item.domain for item in manifest.placements],
         "secrets_read_from_here": secrets,
     }
     if ctx.json_output:
         click.echo(json.dumps(summary))
         return
-    ctx.logger.success(
-        f"Valid: {len(manifest.projects)} project(s), {len(manifest.applications)} application(s)."
-    )
+    held = [
+        f"{len(manifest.projects)} project(s)",
+        f"{len(manifest.applications)} application(s)",
+    ]
+    for count, label in (
+        (len(manifest.cron), "cron job(s)"),
+        (len(manifest.servers), "server(s)"),
+        (len(manifest.placements), "placement(s)"),
+    ):
+        if count:
+            held.append(f"{count} {label}")
+    ctx.logger.success("Valid: " + ", ".join(held) + ".")
     if secrets:
         ctx.logger.info(
             f"{len(secrets)} variable(s) are read from this machine when it is applied."

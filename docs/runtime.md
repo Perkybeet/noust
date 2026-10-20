@@ -23,6 +23,7 @@ what may be a secret: the text of a file, of a mount, or a download.
 - [Changes not applied yet](#changes-not-applied-yet)
 - [Scheduled tasks: what ran and what did not](#scheduled-tasks-what-ran-and-what-did-not)
 - [Reading a deployment's log](#reading-a-deployments-log)
+- [Deleting an application](#deleting-an-application)
 
 ## Processes
 
@@ -109,9 +110,14 @@ noust app hardening set shop.example.com off
 - Changing it restarts the application behind the health gate. When it does not answer, the
   previous unit is put back and the application is restarted as it was. `--no-restart` writes the
   unit and leaves the running process in the sandbox it has.
-- **Who is hardened:** an application whose unit runs its own code (Node, Python and the like).
-  Not a Compose stack or a container (their processes are Docker's), a monorepo (one unit per
-  workspace) or a PHP site (its pool lives in the PHP-FPM every PHP site shares).
+- **Who is hardened:** an application whose unit runs its own code (Node, Python and the like) and
+  a monorepo: every workspace's unit gets the profile (a Node one, so `strict` leaves writable
+  executable memory alone), they are rewritten together and restarted together behind the gate
+  that probes each workspace, and a workspace that does not answer puts all the previous units
+  back. A monorepo created from 4.0 is hardened from its first deploy; one from before keeps its
+  units until `noust app hardening set`. Not a Compose stack or a container (their processes are
+  Docker's, and Docker confines them) or a PHP site (its pool lives in the PHP-FPM every PHP site
+  shares).
 - `status` shows how exposed the unit is as `systemd-analyze security` scores it (a read-only
   probe), and `set` shows the score before and after.
 
@@ -336,6 +342,41 @@ Over the API: `GET`, `PUT` and `DELETE /api/apps/{domain}/mounts`, and `GET .../
 which needs the permission that reveals secrets (`secrets.reveal`) because a mounted file may be
 one. In the console it is **Mounts** in the application's settings.
 
+### Mounts in an export, a clone and a copy to another server
+
+The mounts travel with the application. `noust app export` writes them in a `mounts` section,
+`noust app import` and `noust app clone` make them again, and `noust fleet placement copy` (and the
+console's copy to another server) carries the same document, so a copy has the files its original
+has. What each part of the document says:
+
+- **A file** is its target, its mode and its text. The text may hold a token, so it is treated like
+  a secret variable: it is in the document only with `--with-secrets` (in sudo mode over the API),
+  and `null` with `"secret": true` otherwise. Reading it for the document is audited like any read
+  of a mounted file. A file that is not on the disk, is not text, or would take the document past
+  its size (about 600 KB of text in all) is named with a `note` that says why and the command to
+  copy it by hand, never cut.
+- **A path of the server** is its source, its target and whether it is read-only. The other server
+  must have the path: one it does not have, or one that is the server's own state, is skipped and
+  said so. A document that binds paths asks for a yes before it is imported, because a container
+  that writes there changes the server.
+- **When it exists.** A file is written before the application's first start, in `shared/` (or in
+  the tree in place), so an application that cannot start without its configuration still passes
+  its first health check; the import then records it as a mount. A container is bound to its
+  mounts when its compose file is written and a monorepo has no `shared/` to seed, so for those
+  two the mounts are made after the first start and the import says to run `noust update APP`
+  (container) or `noust service restart APP` (monorepo) to use them.
+- **What is not in it.** An export without `--with-secrets` lists each file as skipped with
+  `noust app mount file APP TARGET --from FILE --mode MODE` to give it afterwards. A type that
+  takes no mounts (a static site, a Compose stack) skips them with the reason.
+
+A container application's **settings** (image or Dockerfile, command and entrypoint, port, volumes,
+restart policy, build arguments) are in the same document, in a `container` section, so an imported
+container is created the way its original was. Its registry password and the values of its build
+secrets are Noust's own credentials and never go in: the registry account and the ids of the secrets
+are named, and the import lists each as skipped with the `noust app container set` command that
+gives it back. A clone takes the files of the original. A container is not cloned (it is on the
+in-place layout, which a clone refuses), so a clone never binds the paths of the original.
+
 ## Files
 
 The files of an application, from the console or the command line, as the application's own
@@ -368,8 +409,8 @@ Over the API: `GET /api/apps/{domain}/files` (list), `DELETE` (remove), `GET`/`P
 
 ## Log shipping
 
-The logs of applications, sent besides the journal to Grafana Loki, Axiom, an HTTP endpoint
-(Fluent Bit, Vector, Logstash), an OpenTelemetry collector or a remote syslog.
+The logs of applications, sent besides the journal to Grafana Loki, Axiom, New Relic, an HTTP
+endpoint (Fluent Bit, Vector, Logstash), an OpenTelemetry collector or a remote syslog.
 
 ```bash
 printf '%s' "$TOKEN" | noust logdrain add grafana --kind loki --url https://logs.example.com \
@@ -381,6 +422,10 @@ noust logdrain remove grafana
 noust logdrain service              # the unit that runs the shipper
 ```
 
+- **New Relic** (`--kind newrelic`) takes the license key as its token (sent as `Api-Key`) and
+  `--region us` or `eu` (the Log API of that region; `--url` overrides it for an endpoint of your own).
+  Each line carries its application, process, unit and level as attributes, and the `--label` pairs;
+  a message longer than 4000 characters is cut, because the API refuses it.
 - **The token is only written.** It is read from standard input (or a hidden prompt), kept in the
   secret store and never shown again; editing a destination without typing one keeps the one it
   has.
@@ -464,3 +509,34 @@ only looks like one (a connection string's password, a token, a key block) and s
 sequences, which is what the console's **Copy to share** does. `--level warn` keeps warnings
 and errors; the same filters are query parameters of `GET /api/deployments/{id}/log`. In the
 console a deployment's log has the same filters and says how many lines it hides.
+
+## Deleting an application
+
+```bash
+noust delete shop.example.com                       # asks for the name to be typed
+noust delete shop.example.com --remove-volumes --remove-databases
+noust delete shop.example.com --keep-files --keep-certificate -y
+noust --dry-run delete shop.example.com --remove-databases     # what it would do, and nothing else
+```
+
+Deleting stops the units (or takes the Docker stack down), removes the site, the application
+directory, the certificate and the records. What holds **data** is never removed by default, and
+each is its own choice:
+
+- **The Docker volumes** of a Compose stack or a container application go only with
+  `--remove-volumes` (`remove_volumes` in the API). Without it the stack comes down and the volumes
+  stay on the server.
+- **The databases** go only with `--remove-databases` (`remove_databases`), and only the ones that
+  **belong to the application** (made for it, backed up with it) **and that no other application
+  uses**. Each is dumped first and the dump is reported (`noust db drop` does the same for a
+  database on its own). A database the application merely uses, or that another application also
+  uses, stays, and the deletion says so with the command that would drop it.
+- **The certificate** goes with the application unless `--keep-certificate` says otherwise.
+- **The directory** goes unless `--keep-files`; one outside Noust's apps directory (an adopted
+  stack) stays unless it is named ([compose.md](compose.md#deleting-an-adopted-stack)).
+
+The command asks for the application's **name to be typed**, not a `y`; `-y` skips it for scripts.
+Over the API, `DELETE /api/apps/{domain}` takes the same choices as query parameters
+(`remove_files`, `remove_ssl`, `remove_volumes`, `remove_databases`) and `GET
+/api/apps/{domain}/deletion` lists what the dialog that confirms it should show: the directory,
+whether it has volumes, and each database with whether it would be dropped and who else uses it.

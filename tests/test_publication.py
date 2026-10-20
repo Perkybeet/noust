@@ -8,7 +8,7 @@ OBS builds one repository per distribution and publishes each when its own build
 so for a while after a tag some distributions serve the new version and others the old
 one. ``noust.managers.server.publication`` reads what the package managers read, and
 ``scripts/obs_published.py`` waits on it. These tests hold the judgement: which
-repositories are required, that the transitional package counts, that a best-effort
+repositories are required, that a best-effort
 release never blocks, and that the release workflow actually runs the gate.
 """
 
@@ -47,7 +47,7 @@ def reader_of(table: dict[tuple[str, str], str | None]):
 
 def everything_at(version: str) -> dict[tuple[str, str], str | None]:
     """
-    A table in which every repository serves both packages at one version.
+    A table in which every repository serves the product at one version.
 
     Args:
         version: The version.
@@ -118,30 +118,17 @@ def test_one_distribution_still_on_the_previous_version_holds_the_release_back()
     assert "`xUbuntu_24.04` still wait" in state.to_markdown()
 
 
-def test_the_transitional_package_counts_because_apt_upgrade_holds_back_without_it() -> None:
-    table = everything_at("3.4.0")
-    table[("Debian_12", "wasm")] = "3.3.1"
-
-    state = publication.check("3.4.0", reader=reader_of(table))
-
-    assert not state.ready
-    assert state.missing[0].lagging("3.4.0") == ["wasm (serves 3.3.1)"]
-
-
-def test_the_rpm_family_is_judged_by_wasm_cli_not_wasm() -> None:
-    table = everything_at("3.4.0")
-    table[("Fedora_43", "wasm-cli")] = None
-
-    state = publication.check("3.4.0", reader=reader_of(table))
-
-    assert [repo.repo for repo in state.missing] == ["Fedora_43"]
-    assert state.missing[0].lagging("3.4.0") == ["wasm-cli (not listed or unreadable)"]
+def test_only_the_product_is_judged() -> None:
+    assert publication.PACKAGES == {
+        "apt": ("noust",),
+        "dnf": ("noust",),
+        "zypper": ("noust",),
+    }
 
 
 def test_a_repository_that_cannot_be_read_is_waiting_not_published() -> None:
     table = everything_at("3.4.0")
-    for package in ("noust", "wasm"):
-        table[("Debian_13", package)] = None
+    table[("Debian_13", "noust")] = None
 
     state = publication.check("3.4.0", reader=reader_of(table))
 
@@ -151,8 +138,7 @@ def test_a_repository_that_cannot_be_read_is_waiting_not_published() -> None:
 
 def test_a_best_effort_release_that_lags_is_reported_but_never_blocks() -> None:
     table = everything_at("3.4.0")
-    for package in ("noust", "wasm-cli"):
-        table[("Fedora_42", package)] = "3.3.1"
+    table[("Fedora_42", "noust")] = "3.3.1"
 
     state = publication.check("3.4.0", reader=reader_of(table))
 
@@ -185,7 +171,7 @@ def serve(monkeypatch: pytest.MonkeyPatch, table: dict[str, bytes]) -> list[str]
 
 PACKAGES_INDEX = (
     "Package: noust\nVersion: 3.4.0-1\nArchitecture: all\n\n"
-    "Package: wasm\nVersion: 3.4.0-1\nArchitecture: all\n"
+    "Package: other\nVersion: 1.0-1\nArchitecture: all\n"
 )
 
 
@@ -198,7 +184,7 @@ def test_a_deb_repository_is_read_from_its_flat_packages_index(
     )
 
     assert publication.read_package("apt", "Debian_12", "noust") == "3.4.0"
-    assert publication.read_package("apt", "Debian_12", "wasm") == "3.4.0"
+    assert publication.read_package("apt", "Debian_12", "other") == "1.0"
     assert asked[0] == f"{OBS}/Debian_12/Packages.gz"
 
 
@@ -227,7 +213,7 @@ def test_an_rpm_repository_names_the_package_it_is_asked_after(
     primary = (
         b'<?xml version="1.0"?><metadata xmlns="http://linux.duke.edu/metadata/common">'
         b'<package><name>noust</name><version ver="3.4.0" rel="1"/></package>'
-        b'<package><name>wasm-cli</name><version ver="3.3.1" rel="1"/></package></metadata>'
+        b'<package><name>other</name><version ver="1.0" rel="1"/></package></metadata>'
     )
     serve(
         monkeypatch,
@@ -238,7 +224,7 @@ def test_an_rpm_repository_names_the_package_it_is_asked_after(
     )
 
     assert publication.read_package("dnf", "Fedora_43", "noust") == "3.4.0"
-    assert publication.read_package("dnf", "Fedora_43", "wasm-cli") == "3.3.1"
+    assert publication.read_package("dnf", "Fedora_43", "other") == "1.0"
 
 
 # -- the script that waits

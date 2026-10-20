@@ -51,6 +51,7 @@ export const ssoAdmin: Catalog<typeof en> = {
     description:
       "Cada uno es un botón en la página de acceso. El proveedor responde de quién es una persona; el segundo factor de la cuenta se pide después.",
     addProvider: "Añadir un proveedor",
+    kind: { github: "GitHub" },
     tableCaption: "Proveedores configurados",
     emptyTitle: "Aún no hay ningún proveedor de identidad",
     emptyDescription:
@@ -113,6 +114,13 @@ export const ssoAdmin: Catalog<typeof en> = {
     errorTitle: "No se pudo guardar el proveedor",
     mappingsLine: "La línea {line} no es una asignación. Escribe GRUPO=ROL, GRUPO=EQUIPO:ROL o GRUPO=ROL@EQUIPO/PROYECTO.",
     fields: {
+      kind: "Tipo de proveedor",
+      kindOidc: "OpenID Connect",
+      kindOidcHelp: "Keycloak, Entra, Okta, Google: cualquier proveedor con un documento de descubrimiento.",
+      kindGithub: "GitHub",
+      kindGithubHelp: "Una OAuth App en github.com o en un GitHub Enterprise Server. Solo necesita un ID de cliente y un secreto.",
+      githubHost: "GitHub Enterprise Server",
+      githubHostHelp: "Déjalo vacío para github.com. Para un Enterprise Server, su dirección, por HTTPS. Registra en la OAuth App la dirección de retorno de más abajo.",
       name: "Nombre",
       nameHelp: "Un nombre corto para el proveedor, en minúsculas, como corp o entra. No se puede cambiar después.",
       label: "Texto del botón",

@@ -17,6 +17,7 @@ from noust.web.permissions import Permission
 ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/apps/{domain}/previews"): Permission.APPS_READ,
     ("POST", "/api/apps/{domain}/previews"): Permission.APPS_DEPLOY,
+    ("GET", "/api/apps/{domain}/previews/dns"): Permission.APPS_READ,
     ("PUT", "/api/apps/{domain}/previews/settings"): Permission.APPS_MANAGE,
     ("DELETE", "/api/apps/{domain}/previews/settings"): Permission.APPS_MANAGE,
     ("GET", "/api/apps/{domain}/previews/pull-requests"): Permission.APPS_READ,

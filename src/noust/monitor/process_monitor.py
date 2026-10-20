@@ -79,11 +79,15 @@ from noust.monitor.reachability import (
 from noust.monitor.signals import observe_processes
 from noust.monitor.timeseries import EVENT_UNIT_FAILED, EVENT_UNIT_RECOVERED
 from noust.monitor.watch_backups import BackupWatch
+from noust.monitor.watch_containers import ContainerWatch
 from noust.monitor.watch_cron import CronWatch
 from noust.monitor.watch_destinations import DestinationWatch
 from noust.monitor.watch_patches import PatchWatch
 from noust.monitor.watch_probes import ProbeWatch
+from noust.monitor.watch_recipes import RecipeWatch
+from noust.monitor.watch_security import SecurityReleaseWatch
 from noust.monitor.watch_tokens import TokenWatch
+from noust.monitor.watch_webserver import WebServerWatch
 from noust.monitor.watches import Watch, WatchServices, run_due
 
 #: Seconds between scans. A minute is enough for capacity planning and cheap
@@ -486,6 +490,10 @@ class ProcessMonitor:
                 PatchWatch(),
                 TokenWatch(),
                 ProbeWatch(),
+                WebServerWatch(),
+                ContainerWatch(),
+                SecurityReleaseWatch(),
+                RecipeWatch(),
             ]
         )
         self._alert_engine = alert_engine
@@ -1590,22 +1598,20 @@ class ProcessMonitor:
         Locate the noust entry point for the unit's ExecStart.
 
         systemd has no PATH of its own, so a relative command in a unit file is
-        a service that fails to start. ``wasm``, the alias the same entry point
-        keeps through 3.x, is the fallback.
+        a service that fails to start.
 
         Returns:
             An absolute path to the noust executable.
 
         Raises:
-            MonitorError: When neither noust nor noust can be found on PATH.
+            MonitorError: When noust cannot be found on PATH.
         """
-        for name in (paths.NAME, paths.LEGACY_NAME):
-            for directory in os.environ.get("PATH", "").split(os.pathsep):
-                if not directory:
-                    continue
-                candidate = Path(directory) / name
-                if candidate.is_file() and os.access(candidate, os.X_OK):
-                    return str(candidate.resolve())
+        for directory in os.environ.get("PATH", "").split(os.pathsep):
+            if not directory:
+                continue
+            candidate = Path(directory) / paths.NAME
+            if candidate.is_file() and os.access(candidate, os.X_OK):
+                return str(candidate.resolve())
 
         raise MonitorError(
             "Could not find the noust executable to reference from the systemd unit",
@@ -1688,17 +1694,8 @@ WantedBy=multi-user.target
             True when the unit was installed.
 
         Raises:
-            MonitorError: When the unit cannot be written or systemd refuses,
-                or Noust's monitor unit is still installed.
+            MonitorError: When the unit cannot be written or systemd refuses.
         """
-        legacy = SYSTEMD_DIR / f"{paths.LEGACY_MONITOR_UNIT}.service"
-        if legacy.exists():
-            # Writing noust-monitor beside it would run two monitors; the
-            # migration replaces the one with the other, in the same state.
-            raise MonitorError(
-                f"WASM's monitor unit is still installed: {legacy}",
-                details="Move this server onto Noust's names first: noust migrate-from-wasm",
-            )
         if not write_file(self.unit_path, self._unit_content(), mode=0o644):
             raise MonitorError(
                 f"Failed to write {self.unit_path}",
@@ -1871,22 +1868,19 @@ WantedBy=multi-user.target
           (:meth:`_ran_here_before`): 3.0's ``noust monitor uninstall`` left
           no marker, and the first upgrade to 3.1 must not read its absence
           as "never had one";
-        - a server still on WASM's names is left to ``migrate-from-wasm``;
         - a machine without systemd (a container, a chroot) has nothing to
           install into.
 
         Returns:
             What happened: ``enabled``, ``installed`` (the unit is there),
             ``declined``, ``removed`` (it ran here before; now remembered as
-            declined), ``legacy``, ``no_systemd`` or ``no_psutil``.
+            declined), ``no_systemd`` or ``no_psutil``.
 
         Raises:
             MonitorError: When the unit cannot be written or started.
         """
         if not SYSTEMD_RUNTIME_DIR.is_dir():
             return "no_systemd"
-        if (SYSTEMD_DIR / f"{paths.LEGACY_MONITOR_UNIT}.service").exists():
-            return "legacy"
         if self.unit_path.exists():
             return "installed"
         if self.declined_path.exists():
@@ -1907,32 +1901,31 @@ WantedBy=multi-user.target
         Whether a monitor ran on this server before and has since been removed.
 
         Asked only when there is no unit and no marker. The journal keeps the
-        lines a monitor unit wrote after the unit file is deleted, under
-        either name; and only a running monitor writes observations. Both are
-        read, never changed. A journal rotated away and a monitor that never
-        flagged a process leave no evidence: ``touch`` the marker
-        (:meth:`declined_path`) to keep such a server's monitor off.
+        lines a monitor unit wrote after the unit file is deleted; and only a
+        running monitor writes observations. Both are read, never changed. A
+        journal rotated away and a monitor that never flagged a process leave
+        no evidence: ``touch`` the marker (:meth:`declined_path`) to keep such
+        a server's monitor off.
 
         Returns:
             True when either says a monitor ran here.
         """
-        for unit in (self.SERVICE_NAME, paths.LEGACY_MONITOR_UNIT):
-            result = self.runner.run(
-                [
-                    "journalctl",
-                    "--unit",
-                    f"{unit}.service",
-                    "--lines",
-                    "1",
-                    "--quiet",
-                    "--no-pager",
-                    "--output",
-                    "cat",
-                ],
-                timeout=SYSTEMCTL_TIMEOUT,
-            )
-            if result.success and result.stdout.strip():
-                return True
+        result = self.runner.run(
+            [
+                "journalctl",
+                "--unit",
+                f"{self.SERVICE_NAME}.service",
+                "--lines",
+                "1",
+                "--quiet",
+                "--no-pager",
+                "--output",
+                "cat",
+            ],
+            timeout=SYSTEMCTL_TIMEOUT,
+        )
+        if result.success and result.stdout.strip():
+            return True
         return self._has_observations()
 
     def _has_observations(self) -> bool:

@@ -10,19 +10,20 @@ operator's hand-written site that proxies to it, a Docker Compose stack on the r
 an S3 bucket, and an API token. It then installs this tree's wheel over it, as the packages do, and
 checks that every application stays healthy.
 
-Two kinds of check, because wave 5 of the 3.4 program (the rename of everything ``wasm``) has not
-run yet:
+Two kinds of check:
 
-- the **hard** ones are what the upgrade must not break whatever wave 5 does: every application
-  serves, nothing is restarted by the upgrade, the operator's site still loads, the old backup
-  restores, the old role still reads, the old token still signs in, an update of each application
-  works;
-- the **wave 5** ones state what the rename must leave once it has run (the unit renamed at its next
-  deploy, the generated upstream under its new name with the operator's line named by ``noust setup
-  doctor`` and never rewritten, the read-only role renamed, the next backup in the new folder with the
-  old ones still listed). They are expected to fail until it runs: each is reported ``XFAIL``, or
-  ``XPASS`` when it already holds, and none fails the run. Set :data:`WAVE5_DONE` when the rename
-  has landed and they become hard.
+- the **hard** ones are what the upgrade must not break: every application serves, nothing is
+  restarted by the upgrade, the operator's site still loads, the old backup restores, the old role
+  still reads, the old token still signs in, an update of each application works. The cookies of a
+  browser signed in under 3.3.1 are the one thing that does not survive, on purpose: the console
+  asks to sign in once;
+- the **wave 5** ones state what the rename (4.0) must leave: the unit renamed at its next deploy,
+  the generated upstreams under their new name with the old one defined beside it only for the
+  operator's site that names it (never rewritten, named by ``noust setup doctor`` with its line),
+  the whole thing completed by ``noust setup rename`` once the operator has changed their line,
+  the read-only role renamed, the next backup in the new folder with the old ones still listed,
+  the tree and the image tags renamed, ``noust health`` naming what only the operator can finish.
+  They were expected failures until the rename landed (:data:`WAVE5_DONE`); they are hard now.
 
 Docker: MinIO and the Compose stack run in the harness container's own Docker daemon.
 """
@@ -59,7 +60,7 @@ FROM_TAG = "v3.3.1"
 
 #: Flip to True when wave 5 (the rename of every ``wasm`` name) has landed: the expectations
 #: that are reported as expected failures until then become failures of the run.
-WAVE5_DONE = False
+WAVE5_DONE = True
 
 LEGACY_DOMAIN = "legacy.test"
 LEGACY_APP = "legacy-test"
@@ -69,6 +70,11 @@ LEGACY_DB = "legacydb"
 BG_DOMAIN = "bgapp.test"
 BG_APP = "bgapp-test"
 BG_UPSTREAM = "wasm_bg_bgapp_test"
+BG_UPSTREAM_NEW = "noust_bg_bgapp_test"
+STACK_UPSTREAM = "wasm_bg_stack_test_web"
+
+#: An application created after the upgrade from the repository that has wasm.nginx.yaml.
+YAML_DOMAIN = "yamlnote.test"
 
 EDGE_DOMAIN = "edge.test"
 EDGE_SITE = "/etc/nginx/sites-available/edge"
@@ -513,7 +519,13 @@ def seed_legacy_server(sc: Scenario) -> Seeded:
 
     # A server that has lived: one update of each application under 3.3.1, so the trees hold a
     # previous release, the runtime stamps and the image tags that an update leaves.
-    commit_to(sc, node_repo, "echo 1b > VERSION", "version 1b")
+    # A repository that carries its overrides file under the name it had before 4.0.
+    commit_to(
+        sc,
+        node_repo,
+        "echo 1b > VERSION && printf 'max_body_size: 5m\\n' > wasm.nginx.yaml",
+        "version 1b",
+    )
     sc.run(
         f"noust update {LEGACY_DOMAIN}",
         timeout=DEPLOY_TIMEOUT,
@@ -824,12 +836,14 @@ def run_upgrade_rehearsal(sc: Scenario, wheel: Path) -> None:
         timeout=120,
         label=f"{new} systemctl restart noust-web (the new code answers)",
     )
+    # The one thing that does not survive on purpose: the cookies keep their old names on the
+    # browser, the console looks for the new ones, and asks to sign in once.
     code, session = jar_get(
-        sc, "/api/auth/session", f"{new} GET /api/auth/session (the old cookies)"
+        sc, "/api/auth/session", f"{new} GET /api/auth/session (the cookies of 3.3.1)"
     )
     sc.check(
-        code == 200 and isinstance(session, dict) and session.get("authenticated") is True,
-        f"the session of a browser signed in under 3.3.1 does not survive the upgrade: {code} {session!r}",
+        code == 200 and isinstance(session, dict) and session.get("authenticated") is False,
+        f"the cookies of 3.3.1 must not be read by 4.0: {code} {session!r}",
     )
     for what, bearer in (
         ("the noust_tok_ token made under 3.3.1", seeded.token),
@@ -852,9 +866,16 @@ def run_upgrade_rehearsal(sc: Scenario, wheel: Path) -> None:
     sc.check(code == 200, f"the access token does not sign in after the upgrade: {code} {login!r}")
     fresh = jar_login(sc, seeded.master, f"{new} POST /api/auth/login (a new cookie jar)")
     wave5.expect(
-        "noust_session" in fresh and "wasm_session" not in fresh,
+        "noust_session" in fresh and "noust_csrf" in fresh and "wasm_session" not in fresh,
         "the console sets noust_session and noust_csrf, not the wasm_ cookies",
         f"cookies: {sorted(fresh)}",
+    )
+    code, session = jar_get(
+        sc, "/api/auth/session", f"{new} GET /api/auth/session (the new cookies)"
+    )
+    sc.check(
+        code == 200 and isinstance(session, dict) and session.get("authenticated") is True,
+        f"the session of the sign-in under 4.0 does not authenticate: {code} {session!r}",
     )
 
     # -- The doctor and the health report answer ---------------------------------------------------------
@@ -864,6 +885,25 @@ def run_upgrade_rehearsal(sc: Scenario, wheel: Path) -> None:
     sc.check("Traceback" not in doctor.stdout + doctor.stderr, "noust setup doctor crashed")
     health = sc.run("noust health --json", timeout=120, check=False, label=f"{new} noust health")
     sc.check("Traceback" not in health.stdout + health.stderr, "noust health crashed")
+    try:
+        said = " | ".join(json_of(health, "health").get("warnings", []))
+    except AssertionError:
+        said = health.stdout
+    wave5.expect(
+        WASM_TOKEN_NAME in said,
+        "noust health names the API token a script still signs in with under the old prefix",
+        said[-300:],
+    )
+    wave5.expect(
+        "wasm.nginx.yaml" in said,
+        "noust health names the repository that still has its overrides file under the old name",
+        said[-300:],
+    )
+    wave5.expect(
+        BG_UPSTREAM in said,
+        "noust health names the upstream a site the operator wrote still names",
+        said[-300:],
+    )
 
     # -- An update of each application is a deploy like any other ------------------------------------------
     commit_to(sc, seeded.node_repo, "echo 2 > VERSION", "version 2")
@@ -873,6 +913,19 @@ def run_upgrade_rehearsal(sc: Scenario, wheel: Path) -> None:
         label=f"{new} noust update {LEGACY_DOMAIN} (the unit is the legacy one)",
     )
     wait_page(sc, LEGACY_DOMAIN, "ok 2", f"{new} after its update")
+    # A deployment is what reads a repository's overrides file: it says the rename.
+    created = sc.run(
+        f"noust create -d {YAML_DOMAIN} -s {seeded.node_repo} -t nodejs --no-ssl --layout inplace",
+        timeout=DEPLOY_TIMEOUT,
+        check=False,
+        label=f"{new} noust create -d {YAML_DOMAIN} from a repository with wasm.nginx.yaml",
+    )
+    wave5.expect(
+        "git mv wasm.nginx.yaml noust.nginx.yaml" in created.stdout + created.stderr,
+        "a deployment that reads wasm.nginx.yaml says the git mv that renames it",
+        (created.stdout + created.stderr)[-300:],
+    )
+    wait_page(sc, YAML_DOMAIN, "ok 2", f"{new} {YAML_DOMAIN}")
     commit_to(sc, seeded.bg_repo, "echo 2 > VERSION", "version 2")
     sc.run(
         f"noust update {BG_DOMAIN}",
@@ -902,14 +955,38 @@ def run_upgrade_rehearsal(sc: Scenario, wheel: Path) -> None:
         "the legacy unit is renamed by the application's next deploy, and only by it",
         f"unit files: {units}",
     )
-    generated = sc.run(
-        "grep -rl 'Generated by Noust' /etc/nginx | xargs -r grep -l 'wasm_bg_' || true",
+    stack_still = sc.run(
+        f"grep -rl '{STACK_UPSTREAM}' /etc/nginx || true",
         timeout=15,
         check=False,
-        label=f"{new} generated nginx files that still say wasm_bg_",
+        label=f"{new} where nginx still knows {STACK_UPSTREAM}",
     ).stdout.split()
     wave5.expect(
-        generated == [], "no file Noust generated still says wasm_bg_", f"still in {generated}"
+        stack_still == [],
+        "the relay upstream of the Compose stack is renamed by its update",
+        f"still in {stack_still}",
+    )
+    bg_site = sc.run(
+        "cat /etc/nginx/sites-available/bgapp.test",
+        timeout=15,
+        check=False,
+        label=f"{new} the application's own site",
+    ).stdout
+    bg_upstream = sc.run(
+        "cat /etc/nginx/noust-upstreams/bgapp-test.conf",
+        timeout=15,
+        check=False,
+        label=f"{new} the upstream file",
+    ).stdout
+    wave5.expect(
+        BG_UPSTREAM not in bg_site and f"proxy_pass http://{BG_UPSTREAM_NEW};" in bg_site,
+        "the site of the blue/green application proxies to the new upstream",
+        bg_site[-300:],
+    )
+    wave5.expect(
+        f"upstream {BG_UPSTREAM_NEW} " in bg_upstream and f"upstream {BG_UPSTREAM} " in bg_upstream,
+        "the old upstream stays defined beside the new one while the operator's site names it",
+        bg_upstream[-300:],
     )
     operator = sc.run(
         f"grep -c '{BG_UPSTREAM}' {EDGE_SITE}",
@@ -932,13 +1009,22 @@ def run_upgrade_rehearsal(sc: Scenario, wheel: Path) -> None:
     wave5.expect(
         roles == [f"noust_ro_{LEGACY_DB}"], "the read-only role is renamed", f"roles: {roles}"
     )
-    after = sc.run(
-        f"noust backup run-schedule {LEGACY_DOMAIN}; noust backup remote-list {S3_DESTINATION} "
-        f"--app {LEGACY_APP} --json",
+
+    # -- The next backup goes to the new folder; the old ones stay listed and restorable ------------
+    sc.run(
+        f"noust backup run-schedule {LEGACY_DOMAIN}",
         timeout=300,
-        check=False,
-        label=f"{new} a backup after the upgrade, and the destination's listing",
+        label=f"{new} a backup after the upgrade",
     )
+    listing_after = json_of(
+        sc.run(
+            f"noust backup remote-list {S3_DESTINATION} --app {LEGACY_APP} --json",
+            timeout=120,
+            label=f"{new} the destination's listing after the backup",
+        ),
+        "remote-list",
+    )
+    ids_after = run.remote_ids(listing_after)
     buckets = sc.run(
         f"docker exec {S3_NAME} sh -c 'ls {scenarios_34.S3_DATA}'",
         timeout=30,
@@ -946,8 +1032,24 @@ def run_upgrade_rehearsal(sc: Scenario, wheel: Path) -> None:
     ).stdout.split()
     wave5.expect(
         "noust-backups" in buckets and S3_BUCKET in buckets,
-        "the next backup goes to the new folder and the old one stays listed",
-        f"buckets: {buckets}; {after.stdout[-200:]!r}",
+        "the next backup goes to the new folder and the old one stays",
+        f"buckets: {buckets}",
+    )
+    wave5.expect(
+        set(seeded.backup_ids) <= set(ids_after) and len(ids_after) > len(seeded.backup_ids),
+        "the backup made under 3.3.1 is still listed beside the new one",
+        f"listed: {ids_after}; seeded: {seeded.backup_ids}",
+    )
+
+    # -- noust setup rename: what can be finished without restarting anything -------------------
+    finished = sc.run(
+        "noust setup rename", timeout=300, check=False, label=f"{new} noust setup rename"
+    )
+    sc.check("Traceback" not in finished.stdout + finished.stderr, "noust setup rename crashed")
+    wave5.expect(
+        finished.returncode == 0,
+        "noust setup rename succeeds",
+        (finished.stdout + finished.stderr)[-400:],
     )
     wave5.expect(
         sc.run(
@@ -968,6 +1070,63 @@ def run_upgrade_rehearsal(sc: Scenario, wheel: Path) -> None:
         "no image is tagged wasm-previous: the stack's way back has the new name",
         f"{tags}",
     )
+    wave5.expect(
+        "These wait for you" in finished.stdout and EDGE_SITE in finished.stdout,
+        "noust setup rename says what waits for the operator, with the operator's site",
+        finished.stdout[-400:],
+    )
+    still = sc.run(
+        "cat /etc/nginx/noust-upstreams/bgapp-test.conf",
+        timeout=15,
+        check=False,
+        label=f"{new} the upstream file while the operator's line is as it was",
+    ).stdout
+    wave5.expect(
+        f"upstream {BG_UPSTREAM} " in still,
+        "the old upstream is not taken away while the operator's site names it",
+    )
+
+    # -- The operator changes their line; nothing is down at any moment -----------------------------
+    sc.run(
+        f"sed -i 's/{BG_UPSTREAM}/{BG_UPSTREAM_NEW}/' {EDGE_SITE} && nginx -t && "
+        "systemctl reload nginx",
+        timeout=60,
+        label=f"{new} the operator changes the line the doctor named, and reloads nginx",
+    )
+    wait_page(sc, EDGE_DOMAIN, "ok 2", f"{new} {EDGE_DOMAIN} on the new name")
+    sc.run(
+        "noust setup rename",
+        timeout=300,
+        label=f"{new} noust setup rename (the old name is not named by anyone now)",
+    )
+    generated = sc.run(
+        "grep -rl 'Generated by Noust' /etc/nginx | xargs -r grep -l 'wasm_bg_' || true",
+        timeout=15,
+        check=False,
+        label=f"{new} generated nginx files that still say wasm_bg_",
+    ).stdout.split()
+    wave5.expect(
+        generated == [], "no file Noust generated still says wasm_bg_", f"still in {generated}"
+    )
+    wait_page(sc, EDGE_DOMAIN, "ok 2", f"{new} {EDGE_DOMAIN} after the alias went")
+    wait_page(sc, BG_DOMAIN, "ok 2", f"{new} {BG_DOMAIN} after the alias went")
+    sc.run("nginx -t", timeout=30, label=f"{new} nginx -t (after the alias went)")
+    doctor_after = sc.run(
+        "noust setup doctor", timeout=300, check=False, label=f"{new} noust setup doctor (after)"
+    )
+    wave5.expect(
+        BG_UPSTREAM not in doctor_after.stdout,
+        "noust setup doctor has nothing to say about the upstream once the line is changed",
+    )
+
+    # -- The backup of before still restores, from the folder it is in ----------------------------------
+    sc.run(
+        f"noust backup restore {seeded.backup_ids[-1]} --from {S3_DESTINATION} -f",
+        timeout=300,
+        label=f"{new} restore the backup made under 3.3.1 (it is in the old folder)",
+    )
+    wait_page(sc, LEGACY_DOMAIN, "ok 1b", f"{new} after restoring the backup of 3.3.1")
+
     failed = wave5.report(sc)
     if failed:
         raise AssertionError("wave 5 left these undone:\n- " + "\n- ".join(failed))

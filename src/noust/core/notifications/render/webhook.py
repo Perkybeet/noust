@@ -40,6 +40,11 @@ body with that secret, as GitHub signs its own. The body carries ``id`` and
 ``ts``, so a receiver that wants replay protection has both inside what is
 signed. ``X-Noust-Event`` and ``X-Noust-Delivery`` repeat ``event`` and ``id``
 for a receiver that routes before it parses.
+
+A receiver that wants its own headers (an ``Authorization: Bearer`` for n8n or Home Assistant, an
+API key) gets them from ``notifications.channels.webhook.webhook_headers``, one ``Name: value``
+per line (:func:`parse_headers`). They are secrets: sealed in the file, redacted when read back.
+They add to the headers above and never replace one of them.
 """
 
 from __future__ import annotations
@@ -47,6 +52,8 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import re
+from collections.abc import Mapping
 from datetime import timezone
 from typing import Any
 
@@ -153,7 +160,81 @@ def sign(body: bytes, secret: str) -> str:
     return f"sha256={digest}"
 
 
-def headers(n: Notification, body: bytes, secret: str) -> dict[str, str]:
+#: The most headers a receiver may be given, and the longest value of one.
+MAX_CUSTOM_HEADERS = 20
+MAX_HEADER_VALUE = 4096
+
+#: A header name as RFC 9110 defines a token.
+_TOKEN = re.compile(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+")
+
+#: The headers the request already has, or that frame it: a receiver's headers add to these and
+#: never replace them, or a configured header could forge what Noust says about a delivery.
+_OWNED = frozenset(
+    {
+        "content-type",
+        "content-length",
+        "host",
+        "user-agent",
+        "transfer-encoding",
+        "connection",
+        "x-noust-event",
+        "x-noust-delivery",
+        "x-noust-signature",
+    }
+)
+
+
+def parse_headers(text: str | None) -> dict[str, str]:
+    """
+    Read the extra headers of a webhook: one ``Name: value`` per line.
+
+    The one parser of the setting, used when it is saved and when a request is built, so what was
+    accepted is what is sent. A value could otherwise split the request (a line break) or take a
+    header Noust sets itself.
+
+    Args:
+        text: ``notifications.channels.webhook.webhook_headers``.
+
+    Returns:
+        Name to value, in the order written. Blank lines are nothing.
+
+    Raises:
+        ValueError: A line is not a header, a name or value is not allowed, a name repeats, or
+            there are too many; the message names the line.
+    """
+    found: dict[str, str] = {}
+    seen: set[str] = set()
+    for number, line in enumerate((text or "").splitlines(), start=1):
+        if not line.strip():
+            continue
+        name, colon, value = line.partition(":")
+        name, value = name.strip(), value.strip()
+        if not colon or not name:
+            raise ValueError(f"line {number} is not 'Name: value'")
+        if _TOKEN.fullmatch(name) is None:
+            raise ValueError(f"line {number}: {name!r} is not a header name")
+        if name.lower() in _OWNED:
+            raise ValueError(f"line {number}: {name} is a header Noust sets itself")
+        if name.lower() in seen:
+            raise ValueError(f"line {number}: {name} is given twice")
+        if not value:
+            raise ValueError(f"line {number}: {name} has no value")
+        if len(value) > MAX_HEADER_VALUE:
+            raise ValueError(f"line {number}: the value is longer than {MAX_HEADER_VALUE}")
+        if not value.isascii() or any(
+            (ord(char) < 32 and char != "\t") or ord(char) == 127 for char in value
+        ):
+            raise ValueError(f"line {number}: the value must be printable ASCII (no control)")
+        if len(found) >= MAX_CUSTOM_HEADERS:
+            raise ValueError(f"at most {MAX_CUSTOM_HEADERS} headers may be added")
+        seen.add(name.lower())
+        found[name] = value
+    return found
+
+
+def headers(
+    n: Notification, body: bytes, secret: str, custom: Mapping[str, str] | None = None
+) -> dict[str, str]:
     """
     The headers that identify, and when there is a secret sign, a delivery.
 
@@ -161,12 +242,14 @@ def headers(n: Notification, body: bytes, secret: str) -> dict[str, str]:
         n: The notification being delivered.
         body: The exact request body.
         secret: The configured secret; empty for none.
+        custom: The receiver's own headers (:func:`parse_headers`).
 
     Returns:
-        ``X-Noust-Event``, ``X-Noust-Delivery`` and, only with a secret,
-        ``X-Noust-Signature``.
+        The receiver's headers, then ``X-Noust-Event``, ``X-Noust-Delivery`` and, only with a
+        secret, ``X-Noust-Signature``; Noust's win over a custom header of the same name.
     """
-    result = {"X-Noust-Event": n.kind, "X-Noust-Delivery": n.id}
+    result = dict(custom or {})
+    result.update({"X-Noust-Event": n.kind, "X-Noust-Delivery": n.id})
     if secret:
         result["X-Noust-Signature"] = sign(body, secret)
     return result

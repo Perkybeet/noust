@@ -16,7 +16,7 @@ and none of this existed:
   application that does not come back on it gets its previous variables;
 - a rotation that leaves an application down is undone, engine password
   first;
-- the engine's own accounts and the ``wasm_ro_`` accounts are never changed.
+- the engine's own accounts and the ``noust_ro_`` accounts are never changed.
 """
 
 from __future__ import annotations
@@ -478,7 +478,7 @@ def test_a_dump_is_named_never_pathed(service, name: str) -> None:
 # ============================================================ users
 
 
-@pytest.mark.parametrize("username", ["postgres", "wasm_ro_shop_db"])
+@pytest.mark.parametrize("username", ["postgres", "noust_ro_shop_db"])
 def test_internal_accounts_are_never_changed(service, state, username: str) -> None:
     state["users"][username] = "x"
     for action in (
@@ -494,7 +494,7 @@ def test_internal_accounts_are_never_changed(service, state, username: str) -> N
 
 def test_an_account_named_like_the_read_only_console_cannot_be_created(service) -> None:
     with pytest.raises(DatabaseUserError):
-        service.create_user("postgresql", "wasm_ro_shop_db")
+        service.create_user("postgresql", "noust_ro_shop_db")
 
 
 def test_a_new_user_gets_its_profile_and_noust_keeps_its_password(service, state) -> None:

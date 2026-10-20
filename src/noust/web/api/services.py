@@ -27,19 +27,23 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from noust.core import paths
+from noust.core import legacy_names, paths
+from noust.core.app_tags import MAX_TAGS, validate_tag
+from noust.core.audit import record as audit_record
 from noust.core.config import SYSTEMD_DIR, Config
 from noust.core.exceptions import NoustError, ServiceError, ValidationError
 from noust.core.exceptions import PermissionError as NoustPermissionError
 from noust.core.redact import scrubber_for
+from noust.core.resource_tags import KIND_SERVICE, ResourceTags
 from noust.core.store import get_store
 from noust.managers.service_manager import ServiceManager, readable_unit_name
 from noust.validators.names import resolve_within, validate_service_name
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, require_elevated
 from noust.web.auth import ensure_scope
+from noust.web.permissions.principal import actor_of
 
 # The error boundary: ValidationError and SecurityError from name/path
 # validation used to be caught by hand at every call site and turned into an
@@ -129,6 +133,7 @@ class ServiceInfo(BaseModel):
             ``auto-restart``, ...), the finer-grained half of the same story.
         result: Systemd's own ``Result`` for the last run (``success``,
             ``exit-code``, ``signal``, ...).
+        tags: The unit's tags, sorted.
     """
 
     name: str
@@ -143,6 +148,28 @@ class ServiceInfo(BaseModel):
     active_state: str | None = None
     sub_state: str | None = None
     result: str | None = None
+    tags: list[str] = Field(default_factory=list)
+
+
+class ServiceTagsResponse(BaseModel):
+    """
+    The tags of one unit.
+
+    Attributes:
+        service: The unit.
+        tags: Its tags, sorted.
+        max_tags: How many a unit may carry.
+    """
+
+    service: str
+    tags: list[str]
+    max_tags: int = MAX_TAGS
+
+
+class SetServiceTagsRequest(BaseModel):
+    """The tags a unit is to carry; any it has that are not here are removed."""
+
+    tags: list[str] = Field(default_factory=list)
 
 
 class ServiceListResponse(BaseModel):
@@ -506,8 +533,9 @@ def list_services(
     noust_only: bool | None = Query(
         default=None, description="Only show the units Noust manages (the default)"
     ),
-    wasm_only: bool | None = Query(
+    legacy_only: bool | None = Query(
         default=None,
+        alias=legacy_names.ONLY_PARAMETER,
         deprecated=True,
         description="The name noust_only had before 3.0; read when noust_only is absent",
     ),
@@ -518,12 +546,13 @@ def list_services(
             "systemd keeps restarting; the console's Services page filters the same way"
         ),
     ] = None,
+    tag: Annotated[str | None, Query(description="Only the units that carry this tag")] = None,
     session: dict = Depends(get_current_session),
 ):
     """
     List services.
 
-    ``noust_only`` (the default; ``wasm_only`` before 3.0, still read) lists
+    ``noust_only`` (the default; it had another name before 3.0, which is still read) lists
     the units Noust manages - the one
     definition in :meth:`~noust.managers.service_manager.ServiceManager.managed_units`
     the console's top bar counts too, so the two always agree. Set it to false
@@ -536,12 +565,17 @@ def list_services(
     is what a degraded server's security check sends the operator to: every failed
     unit on the host, Noust's or not.
     """
-    only = noust_only if noust_only is not None else wasm_only
+    only = noust_only if noust_only is not None else legacy_only
+    wanted = validate_tag(tag) if tag is not None else None
     statuses = ServiceManager(verbose=False).list_statuses(all_services=only is False, state=state)
     commands = {service.name: service.command for service in get_store().list_services()}
-    result = [
-        _service_info(status["name"], commands.get(status["name"]), status) for status in statuses
-    ]
+    tagged = ResourceTags().by_resource(KIND_SERVICE)
+    result = []
+    for status in statuses:
+        info = _service_info(status["name"], commands.get(status["name"]), status)
+        info.tags = tagged.get(info.name, [])
+        if wanted is None or wanted in info.tags:
+            result.append(info)
     return ServiceListResponse(services=result, total=len(result))
 
 
@@ -587,7 +621,81 @@ def get_service(name: str, request: Request, session: dict = Depends(get_current
 
     stored = get_store().get_service(info.unit)
     live_status = service_manager.get_status(info.unit)
-    return _service_info(info.unit, stored.command if stored else None, live_status)
+    described = _service_info(info.unit, stored.command if stored else None, live_status)
+    described.tags = ResourceTags().of(KIND_SERVICE, described.name)
+    return described
+
+
+def _taggable_unit(name: str) -> str:
+    """
+    Find the unit a tag is going to be attached to.
+
+    The same containment as the actions on a unit: the name is validated and resolved inside
+    the unit directory, and a unit with no file is a 404. Noust's own units are taggable (a
+    label changes nothing about them); a restart by tag refuses them where it acts.
+
+    Args:
+        name: Service name as supplied by the client.
+
+    Returns:
+        The unit's name, as the listing names it.
+
+    Raises:
+        ValidationError: For an unsafe name.
+        SecurityError: For a path that would leave the unit directory.
+        HTTPException: 404 when the unit does not exist.
+    """
+    service_name, service_path = _resolve_unit(name)
+    if not service_path.exists():
+        raise HTTPException(status_code=404, detail=f"Service not found: {service_name}")
+    return service_name
+
+
+@router.get("/{name}/tags", response_model=ServiceTagsResponse)
+def get_service_tags(
+    name: str, session: dict = Depends(get_current_session)
+) -> ServiceTagsResponse:
+    """
+    Read the tags of a service.
+
+    Args:
+        name: Service name.
+        session: The authenticated session.
+
+    Returns:
+        Its tags.
+    """
+    unit = _taggable_unit(name)
+    return ServiceTagsResponse(service=unit, tags=ResourceTags().of(KIND_SERVICE, unit))
+
+
+@router.put("/{name}/tags", response_model=ServiceTagsResponse)
+def put_service_tags(
+    name: str, body: SetServiceTagsRequest, session: dict = Depends(get_current_session)
+) -> ServiceTagsResponse:
+    """
+    Make a service carry exactly these tags.
+
+    Args:
+        name: Service name.
+        body: The tags.
+        session: The authenticated session.
+
+    Returns:
+        The tags it carries now.
+
+    Raises:
+        ValidationError: A tag is not one, or there are too many (400).
+    """
+    unit = _taggable_unit(name)
+    tags = ResourceTags().set(KIND_SERVICE, unit, body.tags)
+    audit_record(
+        "services.tags.set",
+        actor=actor_of(session),
+        target=f"service:{unit}",
+        details={"tags": tags},
+    )
+    return ServiceTagsResponse(service=unit, tags=tags)
 
 
 def _run_service_action(name: str, action: str, past_tense: str) -> ServiceActionResponse:
@@ -624,6 +732,45 @@ def _run_service_action(name: str, action: str, past_tense: str) -> ServiceActio
         message=f"Service {past_tense}: {service_name}",
         service=service_name,
     )
+
+
+def restart_refusal(name: str) -> str | None:
+    """
+    Say why a restart of a unit would be refused, without restarting anything.
+
+    Args:
+        name: Service name as supplied by the client.
+
+    Returns:
+        One sentence, or None when :func:`restart_unit` would go ahead.
+    """
+    try:
+        service_name, service_path = _resolve_unit(name)
+        _refuse_own_unit(_requested_name(name), service_name)
+    except NoustError as exc:
+        return exc.message
+    if not service_path.exists():
+        return f"There is no unit named {service_name} any more"
+    return None
+
+
+def restart_unit(name: str) -> None:
+    """
+    Restart a unit the way ``POST /api/services/{name}/restart`` does.
+
+    The one restart for a caller that is not a request for that route (restarting everything
+    that carries a tag), so Noust's own units are refused here as they are there.
+
+    Args:
+        name: Service name as supplied by the client.
+
+    Raises:
+        ValidationError: For an unsafe name.
+        NoustPermissionError: 403 for one of Noust's own units.
+        HTTPException: 404 when the unit does not exist.
+        ServiceError: When systemd refuses the operation.
+    """
+    _run_service_action(name, "restart", "restarted")
 
 
 @router.post("/{name}/start", response_model=ServiceActionResponse)

@@ -24,7 +24,7 @@ from typing import Any
 import pytest
 from jinja2 import Environment, PackageLoader
 
-from noust.core import app_build_store
+from noust.core import app_build_store, legacy_names
 from noust.core.exceptions import DeploymentError, ServiceError, SourceError
 from noust.core.fs import DryRunFileSystem, set_fs
 from noust.core.logger import Logger
@@ -879,7 +879,7 @@ def test_a_stamp_is_written_after_a_real_install(
     deploy_new(root, machine)
 
     stamp = json.loads(
-        (root / "releases" / active_id(root) / "node_modules" / ".wasm-runtime.json").read_text()
+        (root / "releases" / active_id(root) / "node_modules" / ".noust-runtime.json").read_text()
     )
     assert stamp == {"node": "v20.11.0", "npm": "10.2.4"}
 
@@ -910,6 +910,30 @@ def test_matching_runtime_reuses_dependencies(
         str(root / "releases" / first / "node_modules"),
         str(root / "releases" / second / "node_modules"),
     ) in machine.runner.calls
+    log = Path(store.list_deployments(DOMAIN)[0].log_path).read_text()
+    assert f"Dependencies reused from {first}" in log
+
+
+def test_a_stamp_written_before_4_0_still_lets_the_dependencies_be_reused(
+    tmp_path: Path,
+    root: Path,
+    store: NoustStore,
+    machine: SimpleNamespace,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The first update after the rename must not reinstall what the old stamp vouches for."""
+    machine.runner.script(["node", "--version"], stdout="v20.11.0\n")
+    machine.runner.script(["npm", "--version"], stdout="10.2.4\n")
+    machine.git.publish(node_tree(tmp_path / "v1"))
+    deploy_new(root, machine)
+    first = active_id(root)
+    modules = root / "releases" / first / "node_modules"
+    (modules / ".noust-runtime.json").rename(modules / legacy_names.TREE_RUNTIME_STAMP)
+
+    machine.git.publish(node_tree(tmp_path / "v2", server=GOOD_SERVER + "// v2\n"))
+    update(machine, monkeypatch)
+
+    assert machine.runner.cwd_of("npm", "ci") == [root / "releases" / first]
     log = Path(store.list_deployments(DOMAIN)[0].log_path).read_text()
     assert f"Dependencies reused from {first}" in log
 
@@ -969,7 +993,7 @@ def test_a_release_without_a_runtime_stamp_reinstalls(
     machine.git.publish(node_tree(tmp_path / "v1"))
     deploy_new(root, machine)
     first = active_id(root)
-    (root / "releases" / first / "node_modules" / ".wasm-runtime.json").unlink()
+    (root / "releases" / first / "node_modules" / ".noust-runtime.json").unlink()
 
     machine.git.publish(node_tree(tmp_path / "v2", server=GOOD_SERVER + "// v2\n"))
     update(machine, monkeypatch)

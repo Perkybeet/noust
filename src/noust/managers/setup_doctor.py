@@ -342,6 +342,9 @@ def collect(env: DoctorEnvironment | None = None) -> DoctorReport:
     relays = _relays_section()
     if relays is not None:
         sections.append(relays)
+    names = _names_section()
+    if names is not None:
+        sections.append(names)
     return DoctorReport(tuple(sections))
 
 
@@ -384,6 +387,39 @@ def _ssh_section(env: DoctorEnvironment) -> DoctorSection:
             )
         )
     return DoctorSection("SSH Configuration", tuple(items))
+
+
+def _names_section() -> DoctorSection | None:
+    """
+    Say what still has a name from before 4.0, and which of it waits for the operator.
+
+    Returns:
+        The section, or None when nothing carries an old name (or it could not be read: the
+        other checks still stand, and this one is only a list).
+    """
+    from noust.managers import name_migration
+
+    try:
+        found = name_migration.findings()
+    except (NoustError, OSError, sqlite3.Error) as exc:
+        logger.debug("The names from before 4.0 were not read: %s", exc)
+        return None
+    if not found:
+        return None
+    return DoctorSection(
+        "Names from before 4.0",
+        tuple(
+            DoctorItem(
+                "warn" if finding.waits_for_operator else "info",
+                finding.text,
+                fix=finding.fix,
+                notes=finding.notes,
+            )
+            for finding in found
+        ),
+        explain="Nothing here stops working: Noust accepts the old names while they are met. "
+        "'noust setup rename' finishes what can be finished without restarting anything.",
+    )
 
 
 def _relays_section() -> DoctorSection | None:

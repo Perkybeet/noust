@@ -138,6 +138,35 @@ describe("where the logs of applications are shipped", () => {
     expect(backend.calls.filter((call) => call.method === "PUT")).toHaveLength(0);
   });
 
+  it("takes New Relic's region and license key, and asks for no address", async () => {
+    const { user, backend } = await shipping([], {
+      "PUT /api/log-drains/relic": () => json(200, OFF),
+    });
+    await user.click(await screen.findByRole("button", { name: "Add a destination" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add a destination" });
+    await user.type(within(dialog).getByRole("textbox", { name: "Name" }), "relic");
+    await user.click(within(dialog).getByRole("combobox", { name: "Kind" }));
+    await user.click(await screen.findByRole("option", { name: "New Relic" }));
+
+    await user.click(within(dialog).getByRole("button", { name: "Save destination" }));
+    expect(within(dialog).getByText("A New Relic destination needs its license key.")).toBeInTheDocument();
+    expect(backend.calls.filter((call) => call.method === "PUT")).toHaveLength(0);
+
+    await user.click(within(dialog).getByRole("combobox", { name: "Region" }));
+    await user.click(await screen.findByRole("option", { name: "Europe" }));
+    await user.type(within(dialog).getByLabelText(/Token or password/), "eu01xx0123456789NRAL");
+    await user.click(within(dialog).getByRole("button", { name: "Save destination" }));
+
+    await waitFor(() => {
+      expect(backend.callsTo("PUT /api/log-drains/relic")[0]?.body).toMatchObject({
+        kind: "newrelic",
+        settings: { region: "eu" },
+        secret: "eu01xx0123456789NRAL",
+        keep_secret: false,
+      });
+    });
+  });
+
   it("takes a remote syslog's host, transport and port instead of an address", async () => {
     const { user, backend } = await shipping([], {
       "PUT /api/log-drains/central": () => json(200, OFF),

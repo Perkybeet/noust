@@ -140,6 +140,7 @@ class DatabaseInfoResponse(BaseModel):
             that Noust never recorded, which belongs to nobody.
         project: The slug of its project.
         environment: The slug of its environment.
+        tags: Its tags, sorted.
     """
 
     name: str
@@ -161,6 +162,7 @@ class DatabaseInfoResponse(BaseModel):
     team: str | None = None
     project: str | None = None
     environment: str | None = None
+    tags: list[str] = Field(default_factory=list)
 
     _iso_timestamps = iso_offset_validator("last_backup")
 

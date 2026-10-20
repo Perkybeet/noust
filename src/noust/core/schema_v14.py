@@ -127,6 +127,8 @@ BUILD_COLUMNS: list[tuple[str, str, str]] = []
 # volumes: JSON list of container paths kept in named volumes.
 # registry_*: the account the image (or a private base image) is pulled with.
 # digest: the digest the last deployment of a registry image resolved.
+# entrypoint, command: JSON lists of words that replace the image's ENTRYPOINT and CMD; NULL
+#   leaves the image's own, an empty list clears it (added in 4.0, as columns).
 CONTAINER_SQL = """
 CREATE TABLE IF NOT EXISTS app_container (
     app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
@@ -149,7 +151,10 @@ CREATE TABLE IF NOT EXISTS app_container (
     updated_at TEXT NOT NULL
 );
 """
-CONTAINER_COLUMNS: list[tuple[str, str, str]] = []
+CONTAINER_COLUMNS: list[tuple[str, str, str]] = [
+    ("app_container", "entrypoint", "TEXT"),
+    ("app_container", "command", "TEXT"),
+]
 
 # Owned by the recipes lane: which recipe an application was installed from,
 # and at which version. One row per application, in a table of its own so a
@@ -509,6 +514,11 @@ DBINSTANCES_COLUMNS: list[tuple[str, str, str]] = [
     # The names of the SQL scripts the engine ran the first time it started (a JSON list):
     # the Compose file mounts their directory only when there are some.
     ("db_instances", "init_scripts", "TEXT"),
+    # What the operator chose for the container beyond the catalog (a JSON list each, NULL for
+    # none): a command that replaces the engine's whole one, or arguments appended to it. The image
+    # an operator pins is the existing image, digest and image_tag, with variant 'custom'.
+    ("db_instances", "custom_command", "TEXT"),
+    ("db_instances", "custom_args", "TEXT"),
 ]
 
 # Owned by the backups lane: volume backups and the backup of Noust itself.
@@ -528,6 +538,9 @@ DBINSTANCES_COLUMNS: list[tuple[str, str, str]] = [
 # app_update_policy: whether an application's update is refused when its backup
 #   fails (noust.core.update_policy_store). No row means the default: required
 #   for an application with a database.
+# backup_timer_options: the time limit and the time zone of a backup timer, one row per unit
+#   (noust.managers.backup_timer_options). Apart from the policies on purpose: a policy is written
+#   whole by whoever saves it, and a limit set on a timer must not be put back by that write.
 # db_pitr: the continuous archiving of an engine's write-ahead log, which a point-in-time
 #   recovery is made from (noust.managers.database.pitr_records): one row per engine, with
 #   the cluster it archives (its system identifier), where the archive is, how often a base
@@ -586,6 +599,22 @@ CREATE TABLE IF NOT EXISTS app_update_policy (
     updated_by TEXT,
     updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS backup_timer_options (
+    unit TEXT PRIMARY KEY,
+    max_runtime_seconds INTEGER,
+    timezone TEXT,
+    updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS backup_failures (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    destination TEXT,
+    output TEXT NOT NULL,
+    truncated INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_backup_failures_subject ON backup_failures(subject, id DESC);
 CREATE TABLE IF NOT EXISTS db_pitr (
     engine TEXT PRIMARY KEY,
     system_id TEXT NOT NULL,
@@ -837,8 +866,13 @@ CREATE INDEX IF NOT EXISTS idx_client_certificates_app ON client_certificates(ap
 # The port an alias is proxied to, when it is not the application's own: a name
 # answered by another listener of the same application (an admin interface).
 # NULL is the application's port.
+#
+# Whether a name is served. A name that is switched off keeps its row, its kind, its port and its
+# DNS record, and the site and the certificate leave it out: the operator who wants a name to rest
+# does not have to delete it and add it back.
 NETWORK_COLUMNS: list[tuple[str, str, str]] = [
     ("domains", "port", "INTEGER"),
+    ("domains", "enabled", "INTEGER NOT NULL DEFAULT 1"),
 ]
 
 # Owned by the notifications lane (noust.core.notification_ledger and
@@ -1385,7 +1419,7 @@ CREATE TABLE IF NOT EXISTS app_mounts (
 CREATE TABLE IF NOT EXISTS log_drains (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
-    kind TEXT NOT NULL CHECK (kind IN ('loki', 'axiom', 'http', 'otlp', 'syslog')),
+    kind TEXT NOT NULL CHECK (kind IN ('loki', 'axiom', 'newrelic', 'http', 'otlp', 'syslog')),
     settings TEXT NOT NULL DEFAULT '{}',
     apps TEXT NOT NULL DEFAULT '[]',
     enabled INTEGER NOT NULL DEFAULT 1,
@@ -1719,6 +1753,61 @@ CREATE TABLE IF NOT EXISTS fleet_builders (
 SHIPPING_COLUMNS: list[tuple[str, str, str]] = []
 
 
+# Owned by the access lane of 4.0 (noust.core.teams.nodes, noust.core.accounts.reset,
+# noust.core.resource_tags, noust.core.accounts.oauth_github).
+#
+# node_teams: the team a server of the fleet is assigned to. One row per node, so a node
+#   belongs to one team or to nobody (the instance's); a row goes with its node, and a team
+#   that still has a server cannot be deleted (RESTRICT, and the manager says so first). It is
+#   a table of its own, not a column of ``nodes``, so that ``save_node`` (which rewrites the
+#   registry's columns whenever a node answers) can never put an owner back.
+# account_password_resets: a link mailed to an account's address to choose a new password.
+#   Like an invitation only the SHA-256 of the code is stored; ``used_at`` spends it, and a
+#   new request spends the ones before it.
+# resource_tags: the free labels a database or a systemd service carries (M-07), as ``app_tags``
+#   are carried by an application. ``kind`` is ``database`` (``name`` is ``engine/database``) or
+#   ``service`` (``name`` is the unit); nothing here is an application, so a team reaches a
+#   database's tags through the database and a service's through the server.
+# accounts.email: where an invitation and a password reset are mailed; never used to sign in
+#   or to link an identity (the identity providers vouch for their own addresses).
+# oidc_providers.kind: ``oidc`` (a provider with a discovery document) or ``github`` (OAuth 2.0
+#   without OpenID Connect: fixed endpoints, and the person read from the GitHub API).
+ACCESS6_SQL = """
+CREATE TABLE IF NOT EXISTS node_teams (
+    node TEXT PRIMARY KEY REFERENCES nodes(name) ON DELETE CASCADE,
+    team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE RESTRICT,
+    assigned_at TEXT NOT NULL,
+    assigned_by TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_node_teams_team ON node_teams(team_id);
+
+CREATE TABLE IF NOT EXISTS account_password_resets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    code_hash TEXT NOT NULL UNIQUE,
+    expires_at REAL NOT NULL,
+    used_at REAL,
+    created_at REAL NOT NULL,
+    requested_ip TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_account_password_resets_account
+    ON account_password_resets(account_id);
+
+CREATE TABLE IF NOT EXISTS resource_tags (
+    kind TEXT NOT NULL CHECK (kind IN ('database', 'service')),
+    name TEXT NOT NULL,
+    tag TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (kind, name, tag)
+);
+CREATE INDEX IF NOT EXISTS idx_resource_tags_tag ON resource_tags(tag);
+"""
+ACCESS6_COLUMNS: list[tuple[str, str, str]] = [
+    ("accounts", "email", "TEXT"),
+    ("oidc_providers", "kind", "TEXT NOT NULL DEFAULT 'oidc'"),
+]
+
+
 # Owned by the federation lane (noust.core.accounts.scim_store and its siblings for SAML
 # and LDAP): the identity sources that are not OpenID Connect.
 #
@@ -1900,6 +1989,7 @@ def _fragments() -> list[str]:
         FEDERATION_SQL,
         ROLLOUT_SQL,
         SHIPPING_SQL,
+        ACCESS6_SQL,
     ]
 
 
@@ -1925,6 +2015,7 @@ def _columns() -> list[tuple[str, str, str]]:
         *FEDERATION_COLUMNS,
         *ROLLOUT_COLUMNS,
         *SHIPPING_COLUMNS,
+        *ACCESS6_COLUMNS,
     ]
 
 

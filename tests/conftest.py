@@ -60,6 +60,10 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "real_requirements: let a recipe's install really ask what runtimes and engines exist",
     )
+    config.addinivalue_line(
+        "markers",
+        "real_listeners: let the registry of held ports read the sockets the runner reports",
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -142,6 +146,54 @@ def recipe_requirements_unchecked(
     if request.node.get_closest_marker("real_requirements"):
         return
     monkeypatch.setattr("noust.recipes.deploy.refuse_unmet", lambda *args, **kwargs: None)
+
+
+@pytest.fixture(autouse=True)
+def machine_ports_unread(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Keep a test that picks a port from asking the machine which sockets listen.
+
+    The registry of who holds which port (:class:`~noust.managers.port_claims.PortClaims`)
+    reads what the kernel says listens, through the runner, and the compose file of every
+    stack. A test about something else that creates an application or a preview neither has
+    a runner to answer nor wants the answer to depend on the machine it runs on, so by
+    default nothing listens, no stack publishes a port and SSH is on 22. The
+    tests of the registry and of the checks built on it read the sockets a ``FakeRunner``
+    reports and opt out with ``@pytest.mark.real_listeners``.
+
+    Args:
+        request: The pytest request, used to honour the opt-out marker.
+        monkeypatch: Patching helper, scoped to the test.
+    """
+    if request.node.get_closest_marker("real_listeners"):
+        return
+    monkeypatch.setattr("noust.managers.port_claims.listening_sockets", lambda *a, **k: [])
+    monkeypatch.setattr("noust.managers.port_claims.ssh_port", lambda *a, **k: 22)
+    monkeypatch.setattr("noust.managers.port_claims.stack_published_ports", lambda *a, **k: [])
+
+
+@pytest.fixture(autouse=True)
+def preview_dns_offline(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Keep the build of a preview from resolving its name through the public DNS.
+
+    The job of a preview resolves the name it is about to take
+    (:func:`noust.managers.preview_dns.problem_with`) so that the log says so when it points
+    elsewhere. A test of something else has no resolver to ask and no interest in what the
+    internet says that day, so by default the check cannot be made, which it treats as nothing to
+    say. The tests of the check pass their own, or replace ``_default_check``.
+
+    Args:
+        request: The pytest request, used to honour the opt-out marker.
+        monkeypatch: Patching helper, scoped to the test.
+    """
+    if request.node.get_closest_marker("allow_sockets"):
+        return
+
+    def unreachable(domain: str, **kwargs: object) -> object:
+        raise OSError("the test suite does not resolve " + domain)
+
+    monkeypatch.setattr("noust.managers.preview_dns._default_check", lambda: unreachable)
 
 
 @pytest.fixture(autouse=True)
@@ -366,9 +418,9 @@ def isolated_store_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Ite
     ``USER_DB_PATH`` is computed from ``Path.home()`` when the module is
     imported, so redirecting ``HOME`` inside a test is too late: a test that
     reached ``get_store()`` without a store fixture opened the developer's real
-    ``~/.local/share/wasm/wasm.db`` - and, on a machine that also ran a newer
-    WASM, failed on its schema. The system location is redirected too, so a
-    test run as root can never touch ``/var/lib/wasm``. Tests that pin their
+    ``~/.local/share/noust/noust.db`` - and, on a machine that also ran a newer
+    Noust, failed on its schema. The system location is redirected too, so a
+    test run as root can never touch ``/var/lib/noust``. Tests that pin their
     own paths still do; their monkeypatch runs after this one.
 
     Args:
@@ -379,14 +431,6 @@ def isolated_store_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Ite
 
     monkeypatch.setattr(store_module, "USER_DB_PATH", tmp_path / "user-store" / "noust.db")
     monkeypatch.setattr(store_module, "DEFAULT_DB_PATH", tmp_path / "system-store" / "noust.db")
-    # WASM's locations, read before the migration moves them, are redirected
-    # just as much: a test must never find the developer's real 2.x store.
-    monkeypatch.setattr(
-        store_module, "LEGACY_USER_DB_PATH", tmp_path / "legacy-user-store" / "wasm.db"
-    )
-    monkeypatch.setattr(
-        store_module, "LEGACY_DB_PATH", tmp_path / "legacy-system-store" / "wasm.db"
-    )
     # The class itself: a test may replace the name with a fake for its own
     # duration, and that fake is still in place when this teardown runs.
     store_class = store_module.NoustStore

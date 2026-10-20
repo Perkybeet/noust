@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { AlertMetric, AlertRule } from "../../../api/queries/alerts";
 import { bindT } from "../../../i18n";
-import { appliesTo, emptyRule, formatReading, limitText, metricLabel, ruleBody, ruleFormFrom, ruleSentence } from "./rules";
+import { appliesTo, emptyRule, formatReading, limitHint, limitText, metricLabel, ruleBody, ruleFormFrom, ruleSentence } from "./rules";
 
 const en = bindT("en");
 
@@ -50,6 +50,16 @@ describe("an alert rule's limit", () => {
     expect(formatReading("bytes_s", 2_097_152, "en")).toBe("2.0 MB/s");
     expect(formatReading("per_min", 119.6, "en")).toBe("120/min");
     expect(formatReading("number", 1.5, "en")).toBe("1.5");
+  });
+
+  it("reads a response time in milliseconds, and in seconds once it is a second or more", () => {
+    expect(formatReading("ms", 0.4, "en")).toBe("<1 ms");
+    expect(formatReading("ms", 250.4, "en")).toBe("250 ms");
+    expect(formatReading("ms", 2500, "en")).toMatch(/2\.5\s*s/);
+    // A plain number of milliseconds is how it is written back, and the server reads 500ms and 2s too.
+    expect(limitText("ms", 500)).toBe("500");
+    expect(metricLabel(en, "app_latency_p95")).toBe("Application response time (p95)");
+    expect(limitHint(en, "ms")).toMatch(/500ms/);
   });
 });
 

@@ -83,7 +83,7 @@ exit status 1, and a platform the table refuses is `{"status":"refused",...}` wi
 |--------|---------|
 | supported | A package from the repository of that release, installed by the system's package manager, and run by the installer matrix below |
 | best-effort | Installs, is not promised: an interim release, a release past its end of life, or a newer one that borrows the previous release's repository. The installer asks first, and `noust setup doctor` says so |
-| pip | No package exists for it: the installer builds a virtual environment in `/opt/noust` with pip and links `noust` and `wasm` into `/usr/local/bin` |
+| pip | No package exists for it: the installer builds a virtual environment in `/opt/noust` with pip and links `noust` into `/usr/local/bin` |
 | unsupported | Refused. The reason is in the table, or "not a release Noust declares support for" |
 
 A derivative that names a parent in `ID_LIKE` (Pop!_OS 22.04 says `ubuntu debian`) is judged as the
@@ -147,7 +147,7 @@ The `Tested` column of the table says where a release was actually run, with the
 - **install**: `tests/integration/install_matrix.py` (also `tests/integration/run.py
   --install-matrix`). One throwaway container per release: `--print-platform` and `--dry-run`, a
   repository key with another fingerprint is refused **and nothing is written**, the real install
-  from the real OBS repository with the key checked, `noust --version` and `wasm --version`, and
+  from the real OBS repository with the key checked, `noust --version`, and
   a second run that must succeed. The containers have no systemd, so `noust setup init` and the
   console are not part of it. `install:arm64` is run under QEMU on an amd64 host.
 - **harness**: the scenario suite of `tests/integration/run.py`, in a container with systemd as PID

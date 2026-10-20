@@ -205,7 +205,13 @@ def shop(store: NoustStore, tmp_path: Path, cron: FakeCron) -> App:
 def test_export_carries_the_definition(shop: App, cron: FakeCron) -> None:
     doc = export_app(DOMAIN, cron=cron)  # type: ignore[arg-type]
 
-    assert list(doc)[:5] == ["format", "version", "exported_at", "wasm_version", "secrets_included"]
+    assert list(doc)[:5] == [
+        "format",
+        "version",
+        "exported_at",
+        "noust_version",
+        "secrets_included",
+    ]
     assert doc["format"] == FORMAT and doc["version"] == VERSION
     app = doc["app"]
     assert app["domain"] == DOMAIN
@@ -570,7 +576,7 @@ def test_a_proposal_becomes_a_document_the_plan_accepts(store: NoustStore) -> No
     proposal = Proposal(
         platform="render",
         app_type="python",
-        port=8080,
+        port=18080,
         health_path="/healthz",
         health_timeout=120,
         persistent_paths=["uploads"],
@@ -580,7 +586,7 @@ def test_a_proposal_becomes_a_document_the_plan_accepts(store: NoustStore) -> No
             ProposedEnv(name="SESSION_SECRET", secret=True, generated=True),
             ProposedEnv(name="STRIPE_KEY", secret=True, required=True),
             ProposedEnv(name="OPTIONAL"),
-            ProposedEnv(name="PORT", value="8080"),
+            ProposedEnv(name="PORT", value="18080"),
         ],
     )
     doc = proposal_document(proposal, domain=NEW, source="https://github.com/acme/shop.git")
@@ -593,7 +599,7 @@ def test_a_proposal_becomes_a_document_the_plan_accepts(store: NoustStore) -> No
         plan_import(doc)
     plan = plan_import(doc, env={"STRIPE_KEY": STRIPE})
     assert plan.create.app_type == "python"
-    assert plan.create.port == 8080
+    assert plan.create.port == 18080
     assert plan.create.persistent_paths == ("uploads",)
     assert any(step.startswith("health check /healthz") for step in plan.steps)
     assert plan.create.initial_health == ("/healthz", None, 120)

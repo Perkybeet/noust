@@ -313,7 +313,7 @@ export function InstancesSection({ actions }: { actions: InstanceActions }) {
           description={t("databases.instances.upgradeDescription", { version: upgrading.version })}
           actionLabel={t("databases.instances.upgradeAction")}
           onConfirm={async () => {
-            const accepted = await request("post", "/api/databases/instances/{name}/upgrade", { params: { name: upgrading.name }, query: { backup: true } });
+            const accepted = await request("post", "/api/databases/instances/{name}/upgrade", { params: { name: upgrading.name }, query: { backup: true }, body: null });
             actions.follow(accepted.job_id, {
               running: t("databases.instances.upgrading", { name: upgrading.name }),
               succeeded: t("databases.instances.upgraded", { name: upgrading.name }),

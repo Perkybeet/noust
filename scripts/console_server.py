@@ -360,10 +360,6 @@ def prepare_environment(sandbox: Sandbox) -> None:
     os.environ["XDG_CONFIG_HOME"] = str(sandbox.home / ".config")
     os.environ["XDG_CACHE_HOME"] = str(sandbox.home / ".cache")
     os.environ["NOUST_WEB_STATE_DIR"] = str(sandbox.state_dir)
-    # Defensive: nothing seeded here models a server migrated from WASM, so
-    # the automatic migration noust.cli.app runs on a privileged invocation
-    # must never fire, even if some future code path reaches it.
-    os.environ["NOUST_NO_AUTO_MIGRATE"] = "1"
     # The repository's own code, never an installed copy, and tests.panel_factory.
     for entry in (str(REPO), str(REPO / "src")):
         if entry not in sys.path:
@@ -379,11 +375,9 @@ def redirect_system_paths(sandbox: Sandbox) -> None:
     several modules compute a path once at import time from its constants
     (``noust.core.config``'s ``DEFAULT_CONFIG_PATH``, ``noust.core.store``'s
     ``DEFAULT_DB_PATH``, ``noust.managers.webserver``'s
-    ``NGINX_UPSTREAMS_DIR``...), and ``paths.came_from_wasm()`` is read at
-    request time, on every ``/api/auth/session`` response. Patched after the
-    fact, any of those would keep resolving against the real ``/etc`` and
-    ``/var`` - exactly the developer's machine this script promises never to
-    touch, and on this one ``~/.local/share/wasm/wasm.db`` is real.
+    ``NGINX_UPSTREAMS_DIR``...). Patched after the fact, any of those would
+    keep resolving against the real ``/etc`` and ``/var`` - exactly the
+    developer's machine this script promises never to touch.
 
     Module constants are rebound on the module that reads them; class
     attributes on the class. A path this misses is still covered by
@@ -396,20 +390,11 @@ def redirect_system_paths(sandbox: Sandbox) -> None:
 
     etc, var = sandbox.etc, sandbox.var
 
-    # The legacy names are pointed at sandbox paths that are never created,
-    # exactly like a machine that has never run WASM: nothing seeded here
-    # models a migration, so paths.came_from_wasm() must always answer False,
-    # whatever /etc/wasm or /var/lib/wasm hold on the machine running this.
     paths_module.CONFIG_DIR = sandbox.state_dir
-    paths_module.LEGACY_CONFIG_DIR = etc / "wasm"
     paths_module.STATE_DIR = sandbox.store_file.parent
-    paths_module.LEGACY_STATE_DIR = var / "lib" / "wasm"
     paths_module.BACKUP_DIR = sandbox.backup_dir
-    paths_module.LEGACY_BACKUP_DIR = var / "backups" / "wasm"
     paths_module.LOG_DIR = var / "log" / "noust"
     paths_module.NGINX_UPSTREAMS_DIR = etc / "nginx" / "noust-upstreams"
-    paths_module.LEGACY_NGINX_UPSTREAMS_DIR = etc / "nginx" / "wasm-upstreams"
-    paths_module.MIGRATION_RECORD = paths_module.STATE_DIR / "migrated-from-wasm.json"
 
     import noust.core.config as config_module
     import noust.core.store as store_module
@@ -436,11 +421,6 @@ def redirect_system_paths(sandbox: Sandbox) -> None:
 
     store_module.DEFAULT_DB_PATH = sandbox.store_file
     store_module.USER_DB_PATH = sandbox.home / ".local" / "share" / "noust" / "noust.db"
-    # Never created, for the same reason as the paths.py constants above: a
-    # real WASM store at either legacy location - system or per-user - must
-    # never surface through store_module._store_candidates().
-    store_module.LEGACY_DB_PATH = var / "lib" / "wasm" / "wasm.db"
-    store_module.LEGACY_USER_DB_PATH = sandbox.home / ".local" / "share" / "wasm" / "wasm.db"
     # A backup is restored where the store says the application is, and the
     # seeded store records the paths a real server has (/var/www/apps/...):
     # outside the sandbox, a restore would write to the machine's own /var.
@@ -460,7 +440,9 @@ def redirect_system_paths(sandbox: Sandbox) -> None:
 
     retention_defaults = retention_module.LogRetention.__init__.__kwdefaults__
     if retention_defaults is not None:
-        retention_defaults["dropin"] = etc / "systemd" / "journald.conf.d" / "50-noust-retention.conf"
+        retention_defaults["dropin"] = (
+            etc / "systemd" / "journald.conf.d" / "50-noust-retention.conf"
+        )
         retention_defaults["journal_dir"] = var / "log" / "journal"
     timeseries_module.SYSTEM_DB_PATH = var / "lib" / "noust" / "metrics.db"
     observations_module.SYSTEM_DB_PATH = var / "lib" / "noust" / "observations.db"
@@ -6223,6 +6205,21 @@ def seed_settings_api_tokens() -> None:
             manager.revoke_api_token(int(issued["id"]))
 
 
+def warm_recipe_library() -> None:
+    """
+    Load the recipe library before the server says it is ready.
+
+    The first request that lists recipes imports the recipe schema and validates every file of the
+    library: a second and a half on an idle machine and several on a busy one. It is a cost of a
+    process that has just started, not of the page that asks, and the wizard's recipe start and the
+    catalog wait for it with a ten-second budget, so whichever test of a worker came first paid it
+    and failed when the machine was loaded.
+    """
+    from noust.recipes import search_recipes
+
+    search_recipes()
+
+
 def pin_settings_update_check() -> str:
     """
     Answer the update check from the sandbox instead of GitHub.
@@ -8260,6 +8257,7 @@ def seed_showcase_machine_metrics() -> None:
                 ("mem.used_bytes", mem_used),
                 ("mem.total_bytes", float(mem_total)),
                 ("swap.used_bytes", mem_total * 0.015),
+                ("swap.total_bytes", float(2 * 1024**3)),
                 ("disk.used_bytes", disk_used),
                 ("disk.total_bytes", float(disk_total)),
                 ("net.rx_bytes_s", net_rx),
@@ -10043,6 +10041,7 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     totp_secret, backup_codes = enable_totp(args.backup_codes) if args.totp else (None, [])
     seed_settings_api_tokens()
     pin_settings_update_check()
+    warm_recipe_library()
 
     sock = bind(args.host, args.port)
     host, port = sock.getsockname()[:2]

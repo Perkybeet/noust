@@ -4,9 +4,9 @@
 """
 The one way Noust talks to Cloudflare's API.
 
-A small JSON client over :mod:`urllib`, on purpose: no new dependency, one fixed
-host, a timeout on every request, a bound on what is read, and one error for every
-way a request can fail. Cloudflare's own words are kept verbatim in the error's
+A small JSON client over :mod:`urllib` (the one the other providers use, in
+:mod:`noust.managers.dns.rest`), on purpose: no new dependency, one fixed host, a timeout on
+every request, a bound on what is read, and one error for every way a request can fail. Cloudflare's own words are kept verbatim in the error's
 ``output``: "Authentication error" and "Invalid zone" tell the operator which
 permission the token lacks, and a paraphrase would hide exactly that.
 
@@ -27,13 +27,9 @@ caller and held here only for the life of the client.
 from __future__ import annotations
 
 import json
-import urllib.request
-from collections.abc import Callable, Mapping
-from typing import IO, Any
-from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from collections.abc import Mapping
+from typing import Any
 
-from noust import __version__
 from noust.managers.dns.provider import (
     AUTOMATIC_TTL,
     DnsProvider,
@@ -42,22 +38,16 @@ from noust.managers.dns.provider import (
     Zone,
     unquote,
 )
+from noust.managers.dns.rest import MAX_RESPONSE_BYTES, REQUEST_TIMEOUT, Opener, RestClient
+
+__all__ = ["API_URL", "MAX_RESPONSE_BYTES", "CloudflareClient", "CloudflareProvider", "Opener"]
 
 #: Cloudflare's API.
 API_URL = "https://api.cloudflare.com/client/v4"
 
-#: Seconds before a request is abandoned.
-REQUEST_TIMEOUT = 15
-
-#: Bytes of a response read at most.
-MAX_RESPONSE_BYTES = 4 * 1024 * 1024
-
 #: Zones per page, and pages read at most (Cloudflare's own limit is 50 per page).
 PAGE_SIZE = 50
 MAX_PAGES = 100
-
-#: Anything with urlopen's calling convention.
-Opener = Callable[..., IO[bytes]]
 
 
 def _hint(status: int) -> str:
@@ -89,6 +79,11 @@ class CloudflareClient:
     """
     JSON over HTTPS to Cloudflare, with one token.
 
+    The transport is the one every provider uses (:class:`~noust.managers.dns.rest.RestClient`:
+    the timeout, the bound on what is read, the refusal of a path that is not a path, the
+    error that keeps the provider's own words); what is Cloudflare's own is here: the bearer
+    token, the shape of its errors, and its envelope (``success``, ``result``, ``result_info``).
+
     Args:
         token: The API token. Sent as a bearer credential, never logged.
         base_url: The API root. Always :data:`API_URL` in Noust; tests pass a fake.
@@ -104,10 +99,17 @@ class CloudflareClient:
         timeout: float = REQUEST_TIMEOUT,
         opener: Opener | None = None,
     ) -> None:
-        self._token = token
-        self.base_url = base_url.rstrip("/")
+        self._rest = RestClient(
+            "Cloudflare",
+            base_url,
+            {"Authorization": f"Bearer {token}"},
+            opener=opener,
+            timeout=timeout,
+            explain=_explain,
+            hint=_hint,
+        )
+        self.base_url = self._rest.base_url
         self.timeout = timeout
-        self._opener: Opener = opener or urllib.request.urlopen
 
     def request(
         self,
@@ -133,40 +135,9 @@ class CloudflareClient:
             DnsProviderError: The path is not a path, Cloudflare could not be
                 reached, answered something that is not JSON, or said it failed.
         """
-        if not path.startswith("/") or path.startswith("//") or "://" in path:
-            raise DnsProviderError(f"Refusing to request {path!r} from Cloudflare")
-        url = f"{self.base_url}{path}"
-        if query:
-            url = f"{url}?{urlencode(query)}"
-        data = json.dumps(body).encode() if body is not None else None
-        headers = {
-            "Authorization": f"Bearer {self._token}",
-            "Accept": "application/json",
-            "User-Agent": f"noust/{__version__}",
-        }
-        if data is not None:
-            headers["Content-Type"] = "application/json"
-        request = urllib.request.Request(url, data=data, method=method.upper(), headers=headers)
-        try:
-            with self._opener(request, timeout=self.timeout) as response:
-                raw = response.read(MAX_RESPONSE_BYTES + 1)
-        except HTTPError as exc:
-            raise self._error(method, path, exc) from None
-        except (URLError, TimeoutError, OSError) as exc:
-            reason = getattr(exc, "reason", None) or exc
-            raise DnsProviderError(
-                "Cloudflare could not be reached",
-                details="Check this server's outbound HTTPS access to api.cloudflare.com.",
-                output=str(reason),
-            ) from None
-        if len(raw) > MAX_RESPONSE_BYTES:
-            raise DnsProviderError(f"Cloudflare's answer to {method.upper()} {path} is too large")
-        try:
-            answer = json.loads(raw) if raw.strip() else {}
-        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
-            raise DnsProviderError(
-                f"Cloudflare's answer to {method.upper()} {path} is not JSON", details=str(exc)
-            ) from None
+        answer = self._rest.json(method, path, body=body, query=query)
+        if answer is None:
+            answer = {}
         if not isinstance(answer, dict):
             raise DnsProviderError(f"Cloudflare's answer to {method.upper()} {path} is unexpected")
         if answer.get("success") is False:
@@ -176,32 +147,6 @@ class CloudflareClient:
                 output=_messages(answer),
             )
         return answer
-
-    def _error(self, method: str, path: str, exc: HTTPError) -> DnsProviderError:
-        """
-        Turn an error status into the error Noust raises, Cloudflare's words kept.
-
-        Args:
-            method: The request's method.
-            path: The request's path.
-            exc: urllib's error, carrying the response.
-
-        Returns:
-            The error to raise.
-        """
-        message = ""
-        try:
-            payload = json.loads(exc.read(64 * 1024) or b"{}")
-            if isinstance(payload, dict):
-                message = _messages(payload)
-        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
-            message = ""
-        return DnsProviderError(
-            f"Cloudflare refused {method.upper()} {path} ({exc.code})",
-            status=exc.code,
-            details=_hint(exc.code),
-            output=message or str(exc.reason),
-        )
 
     def paginate(self, path: str, *, query: Mapping[str, Any] | None = None) -> list[Any]:
         """
@@ -227,6 +172,23 @@ class CloudflareClient:
             if page >= int(info.get("total_pages") or 1) or not batch:
                 break
         return items
+
+
+def _explain(raw: bytes) -> str:
+    """
+    Read Cloudflare's error body into the words shown.
+
+    Args:
+        raw: The body of an error status.
+
+    Returns:
+        Its errors, verbatim; empty when the body is not Cloudflare's JSON.
+    """
+    try:
+        payload = json.loads(raw or b"{}")
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return ""
+    return _messages(payload) if isinstance(payload, dict) else ""
 
 
 def _messages(payload: Mapping[str, Any]) -> str:

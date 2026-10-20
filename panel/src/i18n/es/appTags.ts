@@ -27,6 +27,37 @@ export const appTags: Catalog<typeof en> = {
     label: "Tag",
     every: "Todos los tags",
   },
+  /** Las bases de datos y los servicios llevan tags también: las mismas reglas, editados desde sus listas. */
+  resource: {
+    chips: "Tags",
+    edit: "Editar tags...",
+    title: "Tags de {noun} {name}",
+    description: "Nombres que agrupan cosas, como web o client-acme. Una lleva hasta {max}. Guardarlos no reinicia nada.",
+    saved: "Tags de {name} guardados",
+    failed: "No se guardaron los tags de {name}",
+  },
+  restart: {
+    action: "Reiniciar con tag",
+    title: "¿Reiniciar todo lo que lleva el tag {tag}?",
+    description: {
+      one: "{count} app lleva {tag}, y también pueden llevarlo bases de datos y servicios del servidor. Cada servicio se reinicia, uno a uno, y se interrumpe mientras reinicia. Una base de datos se deja: reinicia con su motor.",
+      other: "{count} apps llevan {tag}, y también pueden llevarlo bases de datos y servicios del servidor. Cada servicio se reinicia, uno a uno, y se interrumpe mientras reinicia. Una base de datos se deja: reinicia con su motor.",
+    },
+    confirm: "Reiniciarlos",
+    done: {
+      one: "Se reinició {count} cosa con el tag {tag}",
+      other: "Se reiniciaron {count} cosas con el tag {tag}",
+    },
+    left: {
+      one: "{count} se dejó como estaba",
+      other: "{count} se dejaron como estaban",
+    },
+    failedTitle: {
+      one: "No se pudo reiniciar {count}",
+      other: "No se pudieron reiniciar {count}",
+    },
+    nothing: "No se reinició nada con el tag {tag}",
+  },
   update: {
     action: "Actualizar apps con tag",
     title: "¿Actualizar las apps con el tag {tag}?",

@@ -178,6 +178,46 @@ always|missing|never`. `--build` and `--no-build` are not on it: Noust decides w
 An update used to ignore the profiles in the unit, so a service under a profile was left out of
 every rebuild; it reads them now.
 
+## Editing the document of a stack deployed from one
+
+A stack created from a document (pasted into the console's **Docker Compose** form, converted from a
+Coolify template, or given as `compose_document` to `POST /api/apps`) has no repository: the
+document is its source, kept beside the store and fetched again by every update. It can be read and
+replaced without deleting the stack:
+
+```bash
+noust app compose document shop.example.com                    # print it
+noust app compose replace shop.example.com --from new.yml --check   # judge it, write nothing
+noust app compose replace shop.example.com --from new.yml           # keep it
+noust app compose replace shop.example.com --from new.yml --apply   # keep it and update now
+cat new.yml | noust app compose replace shop.example.com --from -
+```
+
+- **The guard is the creation's.** The same analysis that refuses a pasted document refuses a
+  replacement: root on the host (`privileged`, the Docker socket), a `build:` or an `env_file:` that
+  points at files a document does not have. A variable the document **requires**
+  (`${NAME:?message}`) that the stack has no value for is refused too, naming it and the
+  `noust env set` that gives it. Nothing is written until it all passes, and a document identical to
+  the one the stack has changes nothing.
+- **Writing rebuilds nothing.** The stack runs the new document at its next update
+  (`noust update`), and until then its pending changes list **Compose document** as needing a
+  build, without showing the text. With `--apply` the update runs now behind the health gate, and
+  when the new document does not come up the previous one is put back where the next update reads
+  it and the stack runs it again, the same way a failed recipe update is undone.
+- **Reading is a reveal.** A document can hold a value typed into it, so reading it asks for the
+  permission that reveals secrets and is audited (`apps.compose.document`); saving needs sudo
+  mode, because the document decides what runs as root's containers.
+- **Not every stack has one.** A stack from a repository keeps its compose file in git (edit it
+  there and update, or choose another file of the checkout with `noust app compose set --file`); an
+  adopted stack runs the file it already had; a stack installed from a recipe is the recipe's,
+  updated with `noust recipe update`. Each of them answers with that instead of an error, and
+  `GET /api/apps/{domain}/compose/document` says `editable: false` and why.
+
+Over the API: `GET /api/apps/{domain}/compose/document` reads it, `POST .../compose/document/check`
+judges a candidate (the services, the variables, what refuses it and which required variables the
+stack lacks) and `PUT .../compose/document` keeps it; the update that runs it is
+`POST /api/apps/{domain}/update`.
+
 ## Variables the compose file asks for
 
 A compose file interpolates `${NAME}` from the project's `.env` (and from the server's
@@ -709,6 +749,14 @@ says.
 **Volumes.** `noust backup create --include-docker-volumes` now copies the volumes Docker
 really has: `<project>_<key>` unless the volume names itself with `name:` (or is `external`),
 read from `docker compose config`. Before, it mounted the key, which is a new, empty volume.
+
+**Every night, and tried.** A recipe installed on Compose keeps its database in the stack, so the
+daily policy that protects the databases in Noust's store never reached it. The recipe's default
+backups now make the application's own schedule, which dumps each of those databases through its
+engine's client, and the [restore drill](disaster-recovery.md#does-a-backup-come-back) loads every dump
+into a throwaway container of the same image the service ran (the manifest records the image) and
+counts what it holds. The container has no network, a name and a label of its own, and is removed by
+name; a dump that does not load fails the drill with the engine's own words.
 
 ## Deploying by tag
 

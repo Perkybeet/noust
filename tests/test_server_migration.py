@@ -332,10 +332,13 @@ class TestPreparing:
 
         report = migration.prepare("nas", "pass phrase")
 
-        assert "noust db install postgresql" in report.next_steps
         assert (
-            f"noust restore-server --from-destination nas --name {report.bundle} --host {HOST}"
-            in report.next_steps
+            f"noust restore-server --install --from-destination nas --name {report.bundle} "
+            f"--host {HOST}" in report.next_steps
+        )
+        assert any(
+            "postgresql" in step and "installs the web server, Docker" in step
+            for step in report.next_steps
         )
         assert report.next_steps[-2:] == [
             "noust server migrate check",

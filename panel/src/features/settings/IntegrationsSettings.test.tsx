@@ -129,7 +129,7 @@ describe("Settings > Integrations", () => {
     expect(entry).toHaveTextContent("credentials_file: /etc/prometheus/noust.token");
     expect(within(section).getByRole("link", { name: "API tokens" })).toHaveAttribute("href", "/settings/tokens");
     expect(within(section).getByText("noust token create prometheus --scope read")).toBeInTheDocument();
-    expect(section.textContent).not.toMatch(/noust_tok_|wasm_tok_|Bearer [A-Za-z0-9]/);
+    expect(section.textContent).not.toMatch(/noust_tok_|Bearer [A-Za-z0-9]/);
   });
 
   it("explains what an App gives before there is one, and passes axe", { timeout: 20_000 }, async () => {

@@ -45,4 +45,9 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/databases/instances/{name}/tuning"): Permission.DATABASES_READ,
     ("POST", "/api/databases/instances/{name}/tuning/plan"): Permission.DATABASES_READ,
     ("PUT", "/api/databases/instances/{name}/tuning"): Permission.DATABASES_MANAGE,
+    # 4.0: what the container is started with, beyond what Noust works out (a command or
+    # arguments of the operator's own).
+    ("GET", "/api/databases/instances/{name}/launch"): Permission.DATABASES_READ,
+    ("POST", "/api/databases/instances/{name}/launch/plan"): Permission.DATABASES_READ,
+    ("PUT", "/api/databases/instances/{name}/launch"): Permission.DATABASES_MANAGE,
 }

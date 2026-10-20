@@ -327,6 +327,19 @@ default; only its digest is stored), which is also how a person who lost their a
 gets back in. Disabling an account ends its sessions and tokens at once. Each account's TOTP
 secret is encrypted at rest under a key kept beside the store, never in it.
 
+**By mail.** When the server can send mail (`monitor.smtp.*` or `monitor.email_api.*`) and the console has a
+public address (`web.public_url`), two things are mailed to an account's address (`noust user set-email`,
+or the account's page): an **invitation** (`noust user invite NAME --email ADDRESS`, or the address field
+of the invitation dialog) and a **link to choose a new password** ("Forgot your password?" on the sign-in
+page). The link carries its code after the `#`, which a browser never sends to a server, so no access
+log holds it. A reset link is good once and for 60 minutes, only its SHA-256 is stored, a new request
+spends the one before it, an account is sent at most three an hour, and it is issued only to an active
+account that has a password, an address and a second factor. Using it needs a code of that second factor
+as well, so an inbox alone is not an account, and it changes the password and leaves the authenticator
+as it was; it signs the account's other sessions out. The request is answered the same whether the
+account exists, and the mail is sent after the answer. The address is never a way to sign in. Under the
+ENS profile accounts are recovered by a security officer's invitation, and password reset by mail is off.
+
 **Passkeys.** WebAuthn with attestation `none`, ES256 and RS256 (and EdDSA when the installed
 `cryptography` supports it), resident keys and user verification required, several per account,
 a random user handle per server. A passkey signs in on its own and confirms sudo mode. The first
@@ -392,7 +405,8 @@ from 3.1 on is not accepted where sudo mode is asked unless it was issued with
 `allow_elevated` (refused under the ENS profile, where tokens also expire within
 `auth.tokens.max_days`, 90). Tokens issued before accounts existed keep their 3.0 scope and
 behaviour and are adopted by the first `admin` account; fleet tokens belong to a central and are
-never adopted. Tokens start with `noust_tok_` (`wasm_tok_` before 3.0; those keep working), are
+never adopted. Tokens start with `noust_tok_` (those issued before 3.0 start with the old product's
+prefix and keep working; `noust health` names the ones still in use), are
 shown once, and only their salted hash is kept. `noust token list` shows every token ever
 issued, live and revoked, without the token itself, and where each is accepted from;
 `noust token revoke ID` takes effect on the next request.
@@ -413,7 +427,7 @@ cannot be read leaves the API on rather than lock scripts out over a typo.
 
 **Sessions.** Signing in creates a server-side session in `/etc/noust/web-sessions.db`.
 
-- Cookie `wasm_session`: `HttpOnly`, `SameSite=Strict`, `Secure` whenever the request arrived
+- Cookie `noust_session`: `HttpOnly`, `SameSite=Strict`, `Secure` whenever the request arrived
   over TLS (directly or through a declared proxy).
 - 30 minutes without activity end a session (`auth.session.idle_minutes`; 15 under the ENS
   profile), and no session lasts more than 12 hours from sign-in
@@ -427,7 +441,7 @@ cannot be read leaves the API on rather than lock scripts out over a typo.
   console's Settings manage them.
 
 **CSRF.** Every `POST`, `PUT`, `PATCH` and `DELETE` made with a session must carry the
-session's CSRF token in the `X-WASM-CSRF` header; the console reads it from the `wasm_csrf`
+session's CSRF token in the `X-Noust-CSRF` header; the console reads it from the `noust_csrf`
 cookie. That holds whichever channel carries the session: a client that signed in with
 `bearer: true` and presents the session token as `Authorization: Bearer` sends the CSRF token
 it received in the same answer. The master token and API tokens are not sessions and have no
@@ -768,14 +782,14 @@ The console's SQL runner is read-only unless told otherwise, and that is enforce
 database server, not by inspecting the statement:
 
 - **PostgreSQL**: the statement runs in a `READ ONLY` transaction in a session that signs in
-  over `127.0.0.1`, with a password, as a dedicated role `wasm_ro_<database>`: not a
+  over `127.0.0.1`, with a password, as a dedicated role `noust_ro_<database>`: not a
   superuser, `default_transaction_read_only` on, granted only `CONNECT`, `USAGE` and `SELECT`.
   Because the login itself is the limit, `SET ROLE`, `RESET ROLE`, `set_config('role', ...)`
   and `SET SESSION AUTHORIZATION` have nothing to return to, and the server refuses
   superuser-only functions such as `pg_read_file` and `COPY ... TO PROGRAM`. The password is
   random, set as a SCRAM verifier, and kept in a 0600 root-owned file under
   `/var/lib/noust/secrets/postgresql/`. `pg_hba.conf` must allow
-  `host <database> wasm_ro_<database> 127.0.0.1/32 scram-sha-256` (the Debian and Ubuntu
+  `host <database> noust_ro_<database> 127.0.0.1/32 scram-sha-256` (the Debian and Ubuntu
   default `host all all 127.0.0.1/32` line does); if it does not, read mode fails with that
   line in the error and never falls back to the superuser.
 - **MySQL and MariaDB**: the statement runs in a `READ ONLY` transaction as a dedicated
@@ -902,7 +916,8 @@ is off by default and its runs are in the audit trail.
 | Path | Mode | Holds |
 |---|---|---|
 | `/etc/noust/` | `0700` | Configuration and the console's state |
-| `/etc/noust/config.yaml` | `0600` | Configuration, secrets included. `noust config get` and the API print secrets as `***`; `noust config show` prints them in clear |
+| `/etc/noust/config.yaml` | `0600` | Configuration; the notification channels' secrets are encrypted in it. `noust config get` and the API print secrets as `***`; `noust config show` prints them in clear |
+| `/etc/noust/secrets.key` | `0600` | The key of the encrypted secrets (the channels' in `config.yaml`, the backup destinations'). Keep it with the backup of `/etc/noust`: without it those secrets are entered again |
 | `/etc/noust/web-secret` | `0600` | Signing key for sessions and token hashes |
 | `/etc/noust/web-token` | `0600` | Hash of the master token |
 | `/etc/noust/web-totp` | `0600` | TOTP secret and backup code hashes |
@@ -925,7 +940,7 @@ is off by default and its runs are in the audit trail.
 
 The store falls back to `~/.local/share/noust/` when `/var/lib/noust` is not writable; `noust
 store path` prints where it is. The console state directory can be moved with
-`NOUST_WEB_STATE_DIR` (`WASM_WEB_STATE_DIR` is still read when it is not set).
+`NOUST_WEB_STATE_DIR`.
 
 Environment variables given when an application is created (`noust create --env-file`, or
 `env_vars` in `POST /api/apps`) are written into its `.env` file (`0600`, owned by the
@@ -1029,16 +1044,22 @@ goes (ENS mp.si.2, mp.info.6):
 
 ## Secrets at rest
 
-Noust keeps a secret in a file only root can read, beside the data it belongs to, and does **not**
-encrypt it under a key kept on the same machine: whoever reads the file as root reads the key as root,
-so that would be a claim and not a protection. The guarantee is about the copies:
+Noust keeps a secret in a file only root can read, beside the data it belongs to. Two kinds are also
+**encrypted** under a key in a file of its own (`/etc/noust/secrets.key`, 0600): the credentials of
+the backup destinations and the secrets of the notification channels in `config.yaml` (webhook URLs,
+bot tokens, the SMTP password, a mail provider's key, a webhook's headers). That protects against a
+copy: a `config.yaml` pasted in a ticket or kept in a backup that left the key out discloses nothing.
+It is not a protection against root on the same machine, who reads the key as well, and Noust does not
+say it is. The rest of the guarantee is about the copies too:
 
 - **Where they live.** Credentials Noust holds for itself (a registry's password, a backup
   destination's key, a GitHub App's private key, a node's token) are one 0600 file each under
   `secrets/` beside the store, and the database holds only their names. `/etc/noust/config.yaml`
-  holds the few that are configuration (the SMTP password, the notification channels' tokens, the
-  database administrators' passwords), 0600 as well. A central can seal the secret store under a
-  passphrase (`docs/CENTRAL.md`).
+  holds the few that are configuration: the notification channels' secrets encrypted as said, and
+  the database administrators' passwords as text, 0600 as well. `noust config protect` encrypts
+  what a file written before 4.0 still holds as text (the console does it when it starts), and
+  losing `secrets.key` makes those channels unreadable until their secrets are entered again.
+  A central can seal the secret store under a passphrase (`docs/CENTRAL.md`).
 - **They do not travel.** No read of the API returns one (the configuration, the variables and the
   exports show `***`; what reveals a secret on purpose needs a name or a parameter, a permission
   and sudo mode, and leaves an audit event); `noust app export` leaves them out unless

@@ -274,7 +274,7 @@ export function ImportDumpDialog({ open, onOpenChange, engine: presetEngine, dat
   const importMutation = useMutation({
     mutationFn: () =>
       request("post", "/api/databases/imports", {
-        body: { engine: engine ?? "", database, upload_id: upload.uploadId, path: null, replace, keep_owners: family === "postgresql" && keepOwners, safety_backup: safety },
+        body: { engine: engine ?? "", database, upload_id: upload.uploadId, path: null, replace, keep_owners: family === "postgresql" && keepOwners, safety_backup: safety, as_superuser: false, confirm_superuser: false },
       }),
     onSuccess: (accepted) => {
       void queryClient.invalidateQueries({ queryKey: jobKeys.active });

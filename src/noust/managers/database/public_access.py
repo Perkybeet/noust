@@ -83,12 +83,12 @@ from noust.core.exceptions import (
 )
 from noust.core.fs import FileSystem, get_fs, is_rehearsal
 from noust.core.runner import CommandRunner, get_runner
-from noust.core.stream_store import StreamStore
 from noust.managers.database.base import PROFILES, BaseDatabaseManager, is_loopback
-from noust.managers.database.exposure import listening_sockets, public_address, ssh_port
+from noust.managers.database.exposure import listening_sockets, public_address
 from noust.managers.database.instances import engine_of, storage_name
 from noust.managers.database.service import DatabaseService
 from noust.managers.database.urls import MASK, connection_url
+from noust.managers.port_claims import PortClaims
 from noust.managers.server.security_firewall import Firewall, RuleRequest
 from noust.managers.server.security_probe import SecurityProbe
 
@@ -123,6 +123,9 @@ DEFAULT_PROFILE = "owner"
 TLS_CLIENT_OPTIONS: dict[str, dict[str, str]] = {
     "postgresql": {"sslmode": "require"},
     "mysql": {"ssl-mode": "REQUIRED"},
+    # Encrypted, nothing checked: the certificate is Noust's authority's, which a client verifies
+    # with the CA file the Connect tab hands out.
+    "redis": {"ssl_cert_reqs": "none"},
 }
 
 _UNIT_MODE = 0o644
@@ -381,15 +384,11 @@ class PublicAccess:
         List the ports a public port may not be.
 
         Returns:
-            Every port something listens on, the engines' own, SSH's, and every
-            port an exposure holds.
+            Every port the registry says something holds, and the engines' own.
         """
-        reserved = {socket.port for socket in listening_sockets(self.runner)}
-        reserved.add(ssh_port(self.runner))
-        reserved.update(entry.port for entry in self.exposures.all())
-        # A TCP or UDP port published through nginx holds its number too (the same
-        # question, answered from the other table: noust stream).
-        reserved.update(StreamStore(self.exposures.store).ports())
+        # The registry knows who holds a port (E-44): what listens, SSH and the console, the
+        # applications and the Compose stacks, the published streams, and the other exposures.
+        reserved = PortClaims(self.runner, self.exposures.store).taken_ports()
         for manager in self.service.host_managers():
             reserved.add(manager.DEFAULT_PORT)
             if manager.is_installed():
@@ -1306,6 +1305,7 @@ class PublicAccess:
             host=host,
             port=record.port,
             options=options or None,
+            secure=record.tls == TLS_REQUIRED,
         )
         return {
             "host": host,

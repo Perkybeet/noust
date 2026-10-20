@@ -22,7 +22,7 @@ Engine and store:
   live in the secret store (``databases/<engine>/<user>``), never in a row.
 
 The guards live here, not in the endpoints (rule 4): an internal account
-(the engine's superuser, the read-only console's ``wasm_ro_`` accounts) is
+(the engine's superuser, the read-only console's ``noust_ro_`` accounts) is
 never altered or dropped; a database linked to an application is never
 dropped without unlinking it; a drop and a restore never destroy without a
 safety copy; a password rotation that leaves an application down is undone.
@@ -42,7 +42,7 @@ from typing import Any, cast
 from noust.core import audit
 from noust.core.config import Config
 from noust.core.database_exposures import ExposureStore
-from noust.core.db_instance_store import DbInstanceStore
+from noust.core.db_instance_store import TLS_REQUIRED, DbInstanceStore
 from noust.core.ens import profile as security_profile
 from noust.core.exceptions import (
     ConfigError,
@@ -58,6 +58,7 @@ from noust.core.exceptions import (
     ValidationError,
 )
 from noust.core.logger import Logger
+from noust.core.resource_tags import KIND_DATABASE, ResourceTags, database_key
 from noust.core.secrets import SecretStore
 from noust.core.store import App, Database, NoustStore, get_store
 from noust.core.utils import domain_to_app_name
@@ -71,6 +72,7 @@ from noust.deployers.helpers.databases import (
 from noust.managers.database.base import (
     PROFILES,
     READ_ONLY_ACCOUNT_PREFIX,
+    READ_ONLY_ACCOUNT_PREFIXES,
     AccessEntry,
     BackupInfo,
     BaseDatabaseManager,
@@ -283,6 +285,7 @@ class DatabaseView:
         username: The account Noust provisioned for it.
         engine_version: The engine's version.
         last_backup: When the newest dump of it was taken, ISO 8601.
+        tags: Its tags (:mod:`noust.core.resource_tags`), sorted.
     """
 
     name: str
@@ -301,6 +304,7 @@ class DatabaseView:
     username: str | None = None
     engine_version: str | None = None
     last_backup: str | None = None
+    tags: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -1263,6 +1267,7 @@ class DatabaseService:
         """
         engine = manager.ENGINE_NAME
         rows = {row.name: row for row in self.store.list_databases(engine=engine)}
+        tagged = ResourceTags(self.store).by_resource(KIND_DATABASE)
         linked: dict[str, list[str]] = {}
         for link in self.records.links(engine=engine):
             domain = self._domain_of(link.app_id)
@@ -1298,6 +1303,7 @@ class DatabaseService:
                     username=row.username if row else None,
                     engine_version=version,
                     last_backup=newest.get(info.name) or newest.get("all"),
+                    tags=tagged.get(database_key(engine, info.name), []),
                 )
             )
         for name, row in rows.items():
@@ -1316,6 +1322,7 @@ class DatabaseService:
                     username=row.username,
                     engine_version=version,
                     last_backup=newest.get(name),
+                    tags=tagged.get(database_key(engine, name), []),
                 )
             )
         return views
@@ -1714,7 +1721,7 @@ class DatabaseService:
             raise DatabaseUserError(
                 f"'{username}' is managed by {manager.DISPLAY_NAME} or by Noust itself",
                 details=(
-                    "The engine's own accounts and the read-only console's wasm_ro_ accounts "
+                    "The engine's own accounts and the read-only console's noust_ro_ accounts "
                     "are never changed through Noust."
                 ),
             )
@@ -1770,7 +1777,7 @@ class DatabaseService:
         """
         manager = self.running(engine)
         username = manager.validate_user_name(username)
-        if username.startswith(READ_ONLY_ACCOUNT_PREFIX):
+        if username.startswith(READ_ONLY_ACCOUNT_PREFIXES):
             raise DatabaseUserError(
                 f"Account names starting with {READ_ONLY_ACCOUNT_PREFIX} are Noust's own",
                 details="They belong to the read-only console. Pick another name.",
@@ -2312,6 +2319,7 @@ class DatabaseService:
             host="localhost",
             port=manager.server_port(),
             options=options,
+            secure=link.tls_mode is not None,
         )
 
     def _link_values(self, link: DatabaseLink, *, password: str | None) -> dict[str, str]:
@@ -2540,6 +2548,19 @@ class DatabaseService:
         manager = self.running(engine)
         engine_name = manager.ENGINE_NAME
         check_link_tls(engine_name, tls_mode, instances=DbInstanceStore(self.store))
+        if (
+            tls_mode is None
+            and engine_of(engine_name) == "redis"
+            and manager.instance is not None
+            and manager.instance.tls_mode == TLS_REQUIRED
+        ):
+            # Its one port serves TLS and refuses the rest: a plain URL would never connect.
+            raise ValidationError(
+                f"{manager.DISPLAY_NAME} in {manager.instance.managed} serves TLS only",
+                details="Link with a TLS mode (require, verify-ca or verify-full): the "
+                "application then gets a rediss:// URL and the authority to verify it with.",
+                field="tls",
+            )
         database = manager.validate_database_name(database)
         if not manager.database_exists(database):
             raise DatabaseNotFoundError(f"Database '{database}' does not exist")
@@ -3215,6 +3236,7 @@ class DatabaseService:
                 password=_PLACEHOLDER,
                 host="localhost",
                 port=port,
+                secure=manager.tls_only_port,
             ),
             _PLACEHOLDER,
         )
@@ -3369,7 +3391,7 @@ class DatabaseService:
             on_safety_copy: Called with the safety copy before anything is
                 dropped or loaded (see the manager's ``restore``).
             options: Engine-specific loader options an import passes
-                (``keep_owners``, ``owner_role``).
+                (``keep_owners``, ``as_superuser``).
 
         Returns:
             What was done.
@@ -3490,6 +3512,7 @@ class DatabaseService:
                 password=_PLACEHOLDER if password or user else None,
                 host="127.0.0.1",
                 port=tunnel.local_port,
+                secure=manager.tls_only_port,
             ),
             _PLACEHOLDER,
         )

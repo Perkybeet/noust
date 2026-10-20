@@ -5,9 +5,8 @@ Propagate the project version from pyproject.toml to every packaging file.
 The version used to live as a hand-edited literal in six places, kept in step
 by a checklist in CONTRIBUTING.md. Checklists fail, and this one already caused
 corrective releases. Here ``[project].version`` in pyproject.toml is the single
-source of truth and everything else is derived from it: the noust packages,
-the transitional wasm/wasm-cli packages that carry users of the old name over,
-and the container image.
+source of truth and everything else is derived from it: the noust packages and
+the container image.
 
 SECURITY.md is held to the same rule: its table of supported versions must list
 the release's major.minor line as supported, and ``--check`` fails when it does
@@ -48,23 +47,8 @@ MAINTAINER_EMAIL = "yago.lopez.adeje@gmail.com"
 
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
 
-#: The Debian source name of the product, and the one it had before 3.0.0.
+#: The Debian source name of the product.
 PACKAGE = "noust"
-FORMER_PACKAGE = "wasm"
-
-#: Written as the first changelog bullet of the first release under the new
-#: name, which is the one whose previous Debian entry still carries the old one.
-RENAME_ENTRY = (
-    "Renamed from wasm: the package, the command and the paths are noust now; "
-    "wasm remains a command alias for the whole 3.x series"
-)
-
-#: The transitional packages' changelogs say the same thing every release.
-TRANSITIONAL_ENTRY = (
-    "WASM is now Noust: this package only installs noust {version} and can be removed"
-)
-
-TRANSITIONAL_DIR = "packaging/transitional/wasm"
 
 #: The policy that says which versions get security fixes.
 SECURITY_FILE = "SECURITY.md"
@@ -184,39 +168,6 @@ SITES: tuple[Site, ...] = (
         group=3,
     ),
     Site(
-        path=f"{TRANSITIONAL_DIR}/wasm.spec",
-        pattern=r"^Version:(\s+)(\S+)",
-        template=r"Version:\g<1>{version}",
-        label="transitional RPM spec",
-        group=2,
-    ),
-    Site(
-        path=f"{TRANSITIONAL_DIR}/wasm.dsc",
-        pattern=r"^Version: (\S+)-\d+",
-        template="Version: {version}-1",
-        label="transitional Debian source control",
-    ),
-    Site(
-        path=f"{TRANSITIONAL_DIR}/wasm.dsc",
-        pattern=r"^ (\w{32}) (\d+) wasm-(\S+)\.tar\.gz",
-        template=r" \g<1> \g<2> wasm-{version}.tar.gz",
-        label="transitional Debian source tarball name",
-        group=3,
-    ),
-    Site(
-        path="packaging/transitional/wasm-cli/pyproject.toml",
-        pattern=r'^version = "([^"]+)"',
-        template='version = "{version}"',
-        label="transitional PyPI package",
-    ),
-    Site(
-        path="packaging/transitional/wasm-cli/pyproject.toml",
-        pattern=r'^(\s*)"noust==([^"]+)"',
-        template=r'\g<1>"noust=={version}"',
-        label="transitional PyPI dependency",
-        group=2,
-    ),
-    Site(
         path="packaging/container/Dockerfile",
         pattern=r"^ARG NOUST_VERSION=(\S+)",
         template="ARG NOUST_VERSION={version}",
@@ -232,10 +183,7 @@ SITES: tuple[Site, ...] = (
 )
 
 #: Debian changelogs, each with its top entry at the current version.
-DEBIAN_CHANGELOGS: tuple[str, ...] = (
-    "obs/debian.changelog",
-    f"{TRANSITIONAL_DIR}/debian.changelog",
-)
+DEBIAN_CHANGELOGS: tuple[str, ...] = ("obs/debian.changelog",)
 
 #: What the console shows of each release ("what's new"), generated from the product's Debian
 #: changelog so there is one place a release's summary is written (src/noust/core/changelog.py).
@@ -289,7 +237,7 @@ def sync_packaged_changelog() -> bool:
 
 
 #: RPM specs, each with a %changelog entry for the current version.
-RPM_SPECS: tuple[str, ...] = ("rpm/noust.spec", f"{TRANSITIONAL_DIR}/wasm.spec")
+RPM_SPECS: tuple[str, ...] = ("rpm/noust.spec",)
 
 DEBIAN_ENTRY = re.compile(r"^(\S+) \((\S+?)-\d+\)")
 
@@ -764,26 +712,13 @@ def _write_changelogs(version: str, entries: list[str]) -> None:
     """
     Write this release's entries into every changelog.
 
-    The product's changelogs get the operator's bullets, preceded by
-    :data:`RENAME_ENTRY` on the first release after the rename; the
-    transitional packages' get :data:`TRANSITIONAL_ENTRY`.
-
     Args:
         version: The version being released.
         entries: The operator's bullet lines.
     """
-    top = _top_debian_entry("obs/debian.changelog")
-    if top is not None and top[0] == FORMER_PACKAGE:
-        entries = [RENAME_ENTRY, *entries]
     _prepend_debian_changelog("obs/debian.changelog", PACKAGE, version, entries)
     _prepend_rpm_changelog("rpm/noust.spec", version, entries)
     sync_packaged_changelog()
-
-    transitional = [TRANSITIONAL_ENTRY.format(version=version)]
-    _prepend_debian_changelog(
-        f"{TRANSITIONAL_DIR}/debian.changelog", FORMER_PACKAGE, version, transitional
-    )
-    _prepend_rpm_changelog(f"{TRANSITIONAL_DIR}/wasm.spec", version, transitional)
 
 
 def bump(version: str, entries: list[str]) -> int:

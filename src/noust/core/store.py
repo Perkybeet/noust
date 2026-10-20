@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import Any, NoReturn, Optional, TypeVar
 from urllib.parse import quote
 
-from noust.core import paths, schema_v12, schema_v13, schema_v14
+from noust.core import paths, schema_v12, schema_v13, schema_v14, schema_v15
 from noust.core.exceptions import DomainConflictError, DomainError, NoustError, ValidationError
 from noust.core.fs import (
     SECRET_DIR_MODE,
@@ -51,12 +51,9 @@ from noust.core.teams import ownership as teams_ownership
 
 logger = logging.getLogger(__name__)
 
-# Database location. The legacy paths are where WASM kept the store until
-# 3.0; they are read in place until noust.core.migrate_from_wasm moves them.
+# Database location: the system store, and the one a non-root user falls back to.
 DEFAULT_DB_PATH = paths.STATE_DIR / paths.STORE_NAME
-LEGACY_DB_PATH = paths.LEGACY_STATE_DIR / paths.LEGACY_STORE_NAME
 USER_DB_PATH = paths.user_data_dir() / paths.STORE_NAME
-LEGACY_USER_DB_PATH = paths.legacy_user_data_dir() / paths.LEGACY_STORE_NAME
 
 
 def _writable_dir(directory: Path) -> bool:
@@ -76,33 +73,10 @@ def _store_candidates() -> list[tuple[Path, bool]]:
     """
     List every place a store may already be, most authoritative first.
 
-    WASM kept the store at ``/var/lib/wasm/wasm.db``. The migration renames
-    the file to ``noust.db`` inside that directory, then the directory to
-    ``/var/lib/noust``, and leaves ``/var/lib/wasm`` as a symlink; a run
-    interrupted between two of those steps leaves the file under any of the
-    four combinations, and every one is looked at before a new, empty store
-    is ever chosen. The same holds for the per-user store.
-
     Returns:
-        ``(path, is_system)`` pairs, without duplicates.
+        ``(path, is_system)`` pairs: the system store, then the user's.
     """
-    candidates: list[tuple[Path, bool]] = []
-    seen: set[Path] = set()
-    system_dirs = (DEFAULT_DB_PATH.parent, LEGACY_DB_PATH.parent)
-    system_names = (DEFAULT_DB_PATH.name, LEGACY_DB_PATH.name)
-    user_dirs = (USER_DB_PATH.parent, LEGACY_USER_DB_PATH.parent)
-    user_names = (USER_DB_PATH.name, LEGACY_USER_DB_PATH.name)
-    for dirs, names, system in (
-        (system_dirs, system_names, True),
-        (user_dirs, user_names, False),
-    ):
-        for directory in dirs:
-            for name in names:
-                path = directory / name
-                if path not in seen:
-                    seen.add(path)
-                    candidates.append((path, system))
-    return candidates
+    return [(DEFAULT_DB_PATH, True), (USER_DB_PATH, False)]
 
 
 class StoreError(NoustError):
@@ -746,6 +720,8 @@ class DomainRecord:
         created_at: When it was added, ISO 8601.
         port: The port of the application this name is proxied to, when it is
             not the application's own (schema v14); None for the application's.
+        enabled: Whether the name is served. A name that is switched off keeps its row and
+            its port, and the site and the certificate leave it out.
     """
 
     id: int | None = None
@@ -754,6 +730,11 @@ class DomainRecord:
     kind: str = DomainKind.PRIMARY.value
     created_at: str | None = None
     port: int | None = None
+    enabled: bool = True
+
+    def __post_init__(self) -> None:
+        """Read the flag the database stores as an integer."""
+        self.enabled = bool(self.enabled)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -1167,7 +1148,7 @@ def _decode_object(raw: Any) -> dict[str, Any]:
 
 
 # Schema version for migrations
-SCHEMA_VERSION = 14
+SCHEMA_VERSION = 15
 
 _DEPLOYMENT_STATUSES_SQL = ", ".join(f"'{status.value}'" for status in DeploymentStatus)
 _DEPLOYMENT_TRIGGERS_SQL = ", ".join(f"'{trigger.value}'" for trigger in DeploymentTrigger)
@@ -1968,6 +1949,11 @@ class NoustStore:
             if current >= schema_v13.VERSION:
                 # The same for the climb to v14, which may alter v13's tables.
                 self._complete_v13()
+            if current >= schema_v14.VERSION:
+                # A store a build of 3.4 stamped 14 before every area had its fragment is
+                # completed before it climbs on: after the climb it would no longer be "at v14"
+                # for the check below, and would keep its missing tables for good.
+                self._complete_v14()
             self._run_migrations(current)
         elif current >= schema_v12.VERSION:
             self._complete_v12()
@@ -2162,6 +2148,7 @@ class NoustStore:
             12: self._migrate_v11_to_v12,
             13: self._migrate_v12_to_v13,
             14: self._migrate_v13_to_v14,
+            15: self._migrate_v14_to_v15,
         }
 
         for version in range(from_version + 1, SCHEMA_VERSION + 1):
@@ -2380,6 +2367,15 @@ class NoustStore:
         # every row that exists. Idempotent, and run here rather than in the
         # schema module, which only declares tables and columns.
         teams_backfill.run(cursor)
+
+    def _migrate_v14_to_v15(self, cursor: sqlite3.Cursor) -> None:
+        """
+        Rename what the store holds that carried the old product's name (schema v15).
+
+        Args:
+            cursor: Cursor the migration runs on.
+        """
+        schema_v15.apply_v15(cursor)
 
     # =========================================================================
     # Application CRUD
@@ -2969,12 +2965,16 @@ class NoustStore:
     # Domains
     # =========================================================================
 
-    def list_domains(self, app_domain: str) -> list[DomainRecord]:
+    def list_domains(self, app_domain: str, *, include_disabled: bool = True) -> list[DomainRecord]:
         """
         List the domains an application answers on.
 
         Args:
             app_domain: The application's (primary) domain.
+            include_disabled: Also the names that are switched off. What renders the site
+                and orders the certificate passes False: a name that rests is neither
+                served nor named in a certificate, and everything else (the list the
+                operator reads, export, the DNS checks) sees it.
 
         Returns:
             The primary first, then the aliases, then the redirects, each in
@@ -3009,6 +3009,8 @@ class NoustStore:
                     created_at=app["created_at"],
                 ),
             )
+        if not include_disabled:
+            records = [record for record in records if record.enabled]
         return records
 
     def add_domain(self, app_domain: str, domain: str, kind: str) -> DomainRecord:
@@ -3112,6 +3114,60 @@ class NoustStore:
                 )
             cursor.execute("UPDATE domains SET port = ? WHERE id = ?", (port, row["id"]))
             return True
+
+    def set_domain_enabled(self, app_domain: str, domain: str, enabled: bool) -> bool:
+        """
+        Switch a name off or on without forgetting it.
+
+        Args:
+            app_domain: The application's (primary) domain.
+            domain: The alias or redirect.
+            enabled: True to serve it, False to let it rest.
+
+        Returns:
+            True when the application has that name, False when it does not.
+
+        Raises:
+            DomainError: When the name is the application's primary, which is what the
+                application answers on and cannot rest.
+        """
+        name = domain.strip().lower()
+        with self._transaction() as cursor:
+            cursor.execute(
+                "SELECT d.id, d.kind FROM domains d JOIN apps a ON a.id = d.app_id "
+                "WHERE a.domain = ? AND d.domain = ?",
+                (app_domain, name),
+            )
+            row = cursor.fetchone()
+            if row is None:
+                if name == app_domain and not enabled:
+                    self._refuse_switching_off_primary(name)
+                return False
+            if row["kind"] == DomainKind.PRIMARY.value and not enabled:
+                self._refuse_switching_off_primary(name)
+            cursor.execute(
+                "UPDATE domains SET enabled = ? WHERE id = ?", (1 if enabled else 0, row["id"])
+            )
+            return True
+
+    @staticmethod
+    def _refuse_switching_off_primary(domain: str) -> NoReturn:
+        """
+        Refuse to switch a primary domain off.
+
+        Args:
+            domain: The primary.
+
+        Raises:
+            DomainError: Always.
+        """
+        raise DomainError(
+            f"{domain} is the primary domain and cannot be switched off",
+            details=(
+                "The primary is the domain the application was deployed as. Stop the "
+                f"application to stop serving it: noust stop {domain}"
+            ),
+        )
 
     def remove_domain(self, app_domain: str, domain: str) -> bool:
         """
@@ -3559,10 +3615,12 @@ class NoustStore:
             return cursor.rowcount > 0
 
     def delete_service(self, name: str) -> bool:
-        """Delete a service."""
+        """Delete a service, and the tags it carried (a unit created again starts without)."""
         with self._transaction() as cursor:
             cursor.execute("DELETE FROM services WHERE name = ?", (name,))
-            return cursor.rowcount > 0
+            removed = cursor.rowcount > 0
+            cursor.execute("DELETE FROM resource_tags WHERE kind = 'service' AND name = ?", (name,))
+            return removed
 
     def service_exists(self, name: str) -> bool:
         """Check if a service exists."""
@@ -3674,10 +3732,20 @@ class NoustStore:
         )
 
     def delete_database(self, name: str, engine: str) -> bool:
-        """Delete a database record."""
+        """
+        Delete a database record, and the tags the database carried.
+
+        The tags go even when there was no record: a database an engine holds that Noust never
+        tracked can be tagged too, and dropping it ends its labels as well.
+        """
         with self._transaction() as cursor:
             cursor.execute("DELETE FROM databases WHERE name = ? AND engine = ?", (name, engine))
-            return cursor.rowcount > 0
+            removed = cursor.rowcount > 0
+            cursor.execute(
+                "DELETE FROM resource_tags WHERE kind = 'database' AND name = ?",
+                (f"{engine}/{name}",),
+            )
+            return removed
 
     def link_database_to_app(self, db_name: str, engine: str, app_domain: str) -> bool:
         """Link a database to an application."""
@@ -4647,28 +4715,44 @@ class NoustStore:
             )
             return cursor.rowcount > 0
 
+    def app_port_claims(self) -> list[tuple[int, str, str]]:
+        """
+        List every port an application holds, and whose it is.
+
+        The one reading of "which ports do the applications own": a port nothing listens on
+        can still be an application's (one that is stopped, or the idle instance of one in
+        zero-downtime mode, which answers on the port after its own). The registry of who
+        holds a port (:class:`~noust.managers.port_claims.PortClaims`) is built on this.
+
+        Returns:
+            ``(port, domain, detail)`` for every application's port, the second port of each
+            application in zero-downtime mode (``detail`` says ``idle copy``) and the ports of
+            the extra copies of the ones scaled out (``extra copy``); ``detail`` is empty for
+            an application's own port.
+        """
+        from noust.core.app_replica_store import reserved_ports_by_app
+
+        claims: list[tuple[int, str, str]] = []
+        for app in self.list_apps():
+            if app.port:
+                claims.append((app.port, app.domain, ""))
+                if app.zero_downtime:
+                    claims.append((app.port + 1, app.domain, "idle copy"))
+        claims.extend(reserved_ports_by_app(store=self))
+        return claims
+
     def ports_owned_by_apps(self) -> set[int]:
         """
         List the ports stored applications own, whether or not they listen now.
 
-        A port nothing listens on can still be an application's: one that is
-        stopped, or the idle instance of one in zero-downtime mode, which
-        answers on the port after its own. Every port picker skips these.
+        Every port picker skips these (see :meth:`app_port_claims`).
 
         Returns:
             Every application's port, the second port of each application
             in zero-downtime mode and the ports of the extra copies of the
             ones scaled out.
         """
-        from noust.core.app_replica_store import reserved_ports
-
-        taken: set[int] = set()
-        for app in self.list_apps():
-            if app.port:
-                taken.add(app.port)
-                if app.zero_downtime:
-                    taken.add(app.port + 1)
-        return taken | reserved_ports(store=self)
+        return {port for port, _domain, _detail in self.app_port_claims()}
 
     def set_zero_downtime(
         self, domain: str, enabled: bool, *, drain_seconds: int | None = None

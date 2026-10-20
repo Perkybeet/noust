@@ -314,7 +314,9 @@ def certificate_names(store: NoustStore, domain: str, *, include_www: bool = Fal
     Returns:
         The names, redirects included: they are served on 443 as well.
     """
-    names = [record.domain for record in store.list_domains(domain)] or [domain]
+    names = [record.domain for record in store.list_domains(domain, include_disabled=False)] or [
+        domain
+    ]
     if include_www and f"www.{domain}" not in names:
         names.append(f"www.{domain}")
     return names
@@ -432,7 +434,7 @@ def _report_kept(manager: WebServerManager, domain: str, logger: Logger) -> None
         "Check it still points at this application."
     )
     try:
-        records = manager.store.list_domains(domain)
+        records = manager.store.list_domains(domain, include_disabled=False)
     except (NoustError, sqlite3.Error) as exc:
         logger.debug(f"Could not read the domains of {domain}: {exc}")
         return

@@ -61,7 +61,7 @@ GLOBAL_FLAGS = frozenset({"--verbose", "-v", "--dry-run", "--json", "--no-color"
 class FakeStore(NetworkTables):
     """A store that accepts site records and forgets them."""
 
-    def list_domains(self, app_domain: str) -> list[Any]:
+    def list_domains(self, app_domain: str, *, include_disabled: bool = True) -> list[Any]:
         """
         List the domains of an application.
 

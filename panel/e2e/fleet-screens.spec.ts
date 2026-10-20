@@ -40,10 +40,10 @@ async function apiSignIn(page: Page, server: ConsoleServer): Promise<void> {
 
 async function apiElevate(page: Page, server: ConsoleServer): Promise<void> {
   const cookies = await page.context().cookies(server.url);
-  const csrf = cookies.find((cookie) => cookie.name === "wasm_csrf")?.value ?? "";
+  const csrf = cookies.find((cookie) => cookie.name === "noust_csrf")?.value ?? "";
   const response = await page.request.post(`${server.url}/api/auth/elevate`, {
     data: server.totpSecret === null ? { token: server.token } : { code: server.secondFactor() },
-    headers: { "X-WASM-CSRF": csrf },
+    headers: { "X-Noust-CSRF": csrf },
   });
   expect(response.ok(), await response.text()).toBe(true);
 }

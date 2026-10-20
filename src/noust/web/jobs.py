@@ -7,8 +7,8 @@ connection open for minutes and, when the handler is ``async``, would freeze
 the event loop for every other client at the same time. They are queued here
 and the endpoint answers ``202 Accepted`` with a job id.
 
-**These jobs call the managers directly.** They used to spawn the ``wasm``
-binary with :mod:`subprocess` and scrape its console output for progress, which
+**These jobs call the managers directly.** They used to spawn the
+command line with :mod:`subprocess` and scrape its console output for progress, which
 made the web layer a third implementation of the product: it needed the CLI
 installed on ``PATH``, it lost every typed error, it reported progress by
 matching English words in log lines, and it ran as whatever user the panel ran
@@ -2088,6 +2088,8 @@ def deploy_app_job(
     container: dict[str, Any] | None = None,
     build_document: str | None = None,
     env_audience: dict[str, str] | None = None,
+    seed_files: dict[str, str] | None = None,
+    seed_modes: dict[str, int] | None = None,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
     """
@@ -2164,6 +2166,9 @@ def deploy_app_job(
         env_audience: Name to ``build`` or ``runtime`` for the variables that
             are not for both the build and the running application; a
             ``build`` one is written to no file the unit loads.
+        seed_files: Text of files that must be in place before the first start, by path
+            relative to the application (an import's mounted files); written once.
+        seed_modes: Their permissions.
         job_context: Injected by the job manager.
 
     Returns:
@@ -2266,6 +2271,9 @@ def deploy_app_job(
         extra_options["build_document"] = build_document
     if env_audience:
         extra_options["env_audience"] = env_audience
+    if seed_files:
+        extra_options["seed_files"] = seed_files
+        extra_options["seed_modes"] = dict(seed_modes or {})
     deployer.configure(
         domain=domain,
         port=port,
@@ -2516,6 +2524,7 @@ def delete_app_job(
     remove_volumes: bool = False,
     remove_adopted_directory: str | None = None,
     job_context: JobContext | None = None,
+    remove_databases: bool = False,
 ) -> dict[str, Any]:
     """
     Remove an application, its service, its site and optionally its files.
@@ -2536,6 +2545,8 @@ def delete_app_job(
             it is outside Noust's apps directory: only then does it go with
             the files (see :func:`noust.deployers.lifecycle.delete_app`).
         job_context: Injected by the job manager.
+        remove_databases: Also drop the databases that belong to the application and that no
+            other uses, each after a last dump. Never unless asked for.
 
     Returns:
         Summary of what was removed.
@@ -2560,6 +2571,7 @@ def delete_app_job(
         remove_files=remove_files,
         remove_certificate=remove_ssl,
         remove_volumes=remove_volumes,
+        remove_databases=remove_databases,
         remove_adopted_directory=remove_adopted_directory,
         on_phase=lambda index, total, message: context.update(message, 100 * (index - 1) // total),
     )
@@ -2584,6 +2596,8 @@ def delete_app_job(
         "ssl_removed": remove_ssl,
         "containers_stopped": outcome.containers_stopped,
         "volumes_removed": outcome.volumes_removed,
+        "databases_removed": list(outcome.databases_removed),
+        "database_dumps": list(outcome.database_dumps),
     }
 
 

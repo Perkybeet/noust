@@ -1,7 +1,7 @@
 # Configuration reference
 
 Noust keeps its settings in one file, `/etc/noust/config.yaml` (mode `0600`, in a `0700`
-directory: it holds the database, SMTP and notification credentials). Nothing needs to be in it:
+directory: it holds the database credentials and, encrypted, the SMTP and notification ones). Nothing needs to be in it:
 every setting has a default, `noust config show` prints what is in effect, and the file only has
 to hold what you changed.
 
@@ -23,7 +23,7 @@ every secret that is set and an empty value for one that is not.
 
 The environment overrides a few settings for one process: `NOUST_APPS_DIR` (`apps_directory`),
 `NOUST_WEBSERVER` (`webserver`), `NOUST_SERVICE_USER` (`service_user`), `NOUST_SSL_EMAIL`
-(`ssl.email`) and `NOUST_CENTRAL_ROLE` (`central.role`). The `WASM_*` spelling of each still works.
+(`ssl.email`) and `NOUST_CENTRAL_ROLE` (`central.role`).
 
 A value that fails its check (a port out of range, a relative path, a host that is not a name) is
 refused in the same words by `noust config set`, the console and the API.
@@ -68,7 +68,7 @@ upgrade runs `noust config upgrade` and then `noust config clean`.
 | `service_group` | `www-data` | Its group. |
 | `deploy.layout` | `releases` | Layout of applications created from now on: `releases` builds each deploy in its own directory behind a health gate; `inplace` is the 1.x layout. An application keeps its layout until it is migrated explicitly. |
 | `deploy.zero_downtime` | `true` | Whether a new application on releases that runs a process behind nginx starts in zero-downtime mode (two instances, blue and green) right after its first deploy answered. Applications that exist keep how they update until `noust app zero-downtime DOMAIN on`; static and PHP sites never need it (see [releases.md](releases.md#zero-downtime-by-default)). |
-| `deploy.hardening` | `default` | The systemd sandbox the unit of a new application runs in: `off` (the unit as it was before 3.4), `default` (read-only filesystem but for the application's own tree, no home directories, no devices, no capabilities, a system-call filter) or `strict` (also bans the privileged and resource calls and, for runtimes without a JIT, writable executable memory). Applications that exist keep their unit until `noust app hardening set` moves them; Docker Compose stacks, containers, monorepos and PHP sites are not hardened this way (see [runtime.md](runtime.md#unit-security)). |
+| `deploy.hardening` | `default` | The systemd sandbox the unit of a new application runs in: `off` (the unit as it was before 3.4), `default` (read-only filesystem but for the application's own tree, no home directories, no devices, no capabilities, a system-call filter) or `strict` (also bans the privileged and resource calls and, for runtimes without a JIT, writable executable memory). Applications that exist keep their unit until `noust app hardening set` moves them; Docker Compose stacks, containers and PHP sites are not hardened this way (see [runtime.md](runtime.md#unit-security)). |
 | `deploy.drain_seconds` | `10` | Seconds the old instance keeps running after traffic moved, for the applications that start in zero-downtime mode (0 to 300). |
 | `deploy.max_concurrent_builds` | `2` | How many applications build at the same time (1 to 16). One application never builds two things at once, and anything that is not a build (a restore, an operating system update) runs alone; the rest wait in the queue (see [releases.md](releases.md#the-deploy-queue)). Read again every few seconds: no restart. |
 | `deploy.install_timeout` | `1800` | Seconds the install of an application's dependencies may take before it is stopped (60 to 86400). An application's build block (`timeout`) overrides it for itself; see [build.md](build.md#how-long-a-build-may-take). Read again every few seconds. |
@@ -85,6 +85,7 @@ upgrade runs `noust config upgrade` and then `noust config clean`.
 | `ssl.eab_kid` | empty | The key id of the external account ZeroSSL and Google ask for. Its HMAC key is not a setting: it is kept in the secret store (`noust cert acme --eab-hmac-key`). |
 | `ssl.reuse_wildcard` | `true` | Whether an application one label under a wildcard certificate that already exists is served with it instead of getting an order of its own. What keeps a preview per pull request from spending the authority's rate limit. |
 | `dns.resolvers` | `1.1.1.1`, `8.8.8.8` | The resolvers the check "does this name point here?" asks, in order: the public DNS the authority's validators ask, not the server's own cache. Empty means the server's resolver. At most 8 addresses. |
+| `dns.check_previews` | `true` | The job of a preview resolves the name it is about to take and says in its log when it points elsewhere ([previews.md](previews.md#turning-them-on)). The build goes on whatever it says. |
 | `dns.public_addresses` | empty | This server's public addresses when it cannot see them itself (behind NAT, or a cloud's 1:1 address). The DNS check compares with them, and the records Noust creates point at them. |
 | `backup.directory` | `/var/backups/noust` | Where backups are written. Empty means the default; a relative path is refused. Not in the defaults: it is read with its default in place. |
 | `backup.max_per_app` | `10` | Backups kept per application by rotation, 1 to 100. A schedule with its own retention ignores it. |
@@ -120,6 +121,7 @@ used, with their default in the code, so a file that lacks them behaves as docum
 | `web.public_url` | empty | Where the console is reachable from a browser (an absolute `https://` URL, no trailing slash). Deploy notifications link to it, and its host is always allowed by `web.allowed_hosts`. |
 | `web.hooks_url` | empty | The public base of `/hooks/` that code hosts deliver to. Written by `noust web expose-hooks`; unset while webhooks can only reach this server through an address of your own. |
 | `github.host` | empty | The GitHub the GitHub App talks to: empty is github.com, or the host of a GitHub Enterprise Server (`ghe.example.com`) or Enterprise Cloud with data residency (`acme.ghe.com`). Set it before the App is created (`noust github host set`): a server that has an App keeps its host unless forced. |
+| `integrations.forge_hosts` | empty | Code hosts whose kind their address does not say, as `host=kind` entries: `git.example.com=gitea`, `code.example.com=forgejo`, `scm.example.com=gogs`, `git.example.org=gitlab`. A host named `gitlab...`, `gitea...`, `forgejo...`, `gogs...` or `bitbucket...` is known by its name, and `codeberg.org` and `gitea.com` by being what they are. It is what lets a deployment mark its commit and a preview comment on its pull request there, and the webhook setup show the right page (see [sources.md](sources.md)). |
 | `web.allowed_hosts` | empty | The Host header values the console answers to, checked on every request: names, or `*.example.com` for every subdomain. A request for any other host gets a 400 saying so. Loopback and the hosts of `web.public_url` and `web.hooks_url` are always allowed. Empty allows any host, as every earlier version did. Names only: no scheme, port or path. |
 | `web.ip_whitelist` | empty | Client addresses or networks allowed to reach the console; empty allows any. `noust web start --allow-ip` overrides it, and a central's `NOUST_ALLOW_IP` too. |
 | `web.api_enabled` | `true` | Whether API tokens (`noust_tok_`) are accepted. Off, a script gets `403 api_disabled` while the console, which signs in with a session, and the command line carry on; a central's fleet token keeps working, since it is how a central reaches this node. Each token can also be restricted to networks: `noust token create --allow-ip` and `noust token set --allow-ip`. |
@@ -211,6 +213,15 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `monitor.backup_missing_renotify_hours` | `24` | While a backup stays missing, announce it again every this many hours. |
 | `monitor.os_patches_check_hours` | `24` | How often the monitor asks the package manager what is waiting (`os_patches`). 0 turns the check off. |
 | `monitor.token_warning_days` | `7` | An API token is announced (`token_expiring`) this many days before it expires. 0 turns the check off. |
+| `monitor.webserver_check_seconds` | `60` | How often the monitor looks at nginx (or Apache); 0 turns the watch off, 3600 at most. A web server that fell is started again after its configuration test passes ([MONITOR.md](MONITOR.md#the-web-server)). |
+| `monitor.restart_webserver` | `true` | Start the web server again when it fell. `false` announces it and does nothing else. |
+| `monitor.webserver_restart_limit` | `3` | Restarts of the web server in an hour; past it the monitor says so once and stops, 1 to 20. |
+| `monitor.container_check_seconds` | `60` | How often the monitor reads the containers of the Compose stacks (restart counters and Docker's events); 0 turns it off. |
+| `monitor.container_restart_limit` | `5` | A container Docker restarted this many times since it was first seen is announced (`container_restart_loop`). 0 turns the announcement off. |
+| `monitor.security_check_hours` | `6` | How often the monitor asks the update check whether a release fixes a vulnerability (`security_release`). 0 turns it off. |
+| `monitor.security_renotify_hours` | `72` | While the server stays below the fix, announce it again every this many hours. 0 says it once. |
+| `monitor.recipe_check_hours` | `24` | How often the monitor looks for installed recipes behind the catalogue (`recipe_outdated`). 0 turns it off. |
+| `monitor.recipe_renotify_days` | `7` | The same list of outdated recipes is repeated after this many days. 0 repeats nothing until the list changes. |
 | `monitor.log_file` | `/var/log/noust/monitor.log` | Where the monitor writes its own log. |
 | `monitor.smtp.host` | empty | The SMTP server email notifications go through. |
 | `monitor.smtp.port` | `465` | Its port, 1 to 65535. |
@@ -269,11 +280,15 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `notifications.events.cron_missed` | `true` | A scheduled task will not run when it should: its timer is gone, disabled or cannot be read. |
 | `notifications.events.probe_failed` | `true` | An external probe (`noust probe`) stopped answering as expected, once per outage. |
 | `notifications.events.probe_recovered` | `true` | A probe that was reported failing answers again. |
+| `notifications.events.security_release` | `true` | A Noust release that fixes a vulnerability is out and this server runs an earlier one. |
+| `notifications.events.container_restart_loop` | `true` | A container of a Compose stack keeps being restarted by Docker (`monitor.container_restart_limit`). |
+| `notifications.events.recipe_outdated` | `true` | Recipes installed from the catalogue have a newer version in it. |
 | `status_page.enabled` | `false` | The monitor writes the public status page of the probes (see [probes.md](probes.md#the-status-page)). |
 | `status_page.directory` | empty | Where its files are written, an absolute path; empty is `/var/lib/noust/status-page`. |
 | `status_page.title` | empty | The page's title, at most 80 characters; empty is `Status`. |
 | `notifications.channels.webhook.webhook_url` | empty | The generic endpoint notifications are posted to (a secret: it is a capability URL). |
 | `notifications.channels.webhook.secret` | empty | Signs every delivery with HMAC-SHA256 in `X-Noust-Signature` when set (a secret). |
+| `notifications.channels.webhook.webhook_headers` | empty | The receiver's own headers, one `Name: value` per line, at most 20 (an `Authorization: Bearer` for n8n or Home Assistant). A secret: its values are credentials. The names Noust sets itself (`Content-Type`, `X-Noust-*`) cannot be replaced. |
 | `notifications.channels.slack.webhook_url` | empty | A Slack incoming webhook (a secret). |
 | `notifications.channels.discord.webhook_url` | empty | A Discord webhook (a secret). The message is one embed (state colour, facts, timestamp, a link to the console when `web.public_url` is set); if Discord refuses it, the alert is sent once more as plain text. |
 | `notifications.channels.discord.mention_role_id` | empty | A Discord role to ping when a **critical** event arrives (a deploy, restore, backup, unit or node that failed; a certificate that expired; an application not answering). Only a failure pings; warnings, successes and the test message never do. The id is 17 to 20 digits: Developer Mode, right-click the role, Copy ID. |

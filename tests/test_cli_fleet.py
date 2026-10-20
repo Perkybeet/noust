@@ -602,7 +602,6 @@ class TestLoopbackService:
 
         captured: dict[str, Any] = {}
         monkeypatch.setattr(web, "_check_dependencies", lambda: (True, [], []))
-        monkeypatch.setattr(web, "_installed_web_unit", lambda: web.WEB_UNIT)
         monkeypatch.setattr(web, "_running_daemon_pid", lambda: None)
         monkeypatch.setattr(web, "_service_status", lambda verbose: None)
         monkeypatch.setattr(web, "_port_in_use", lambda host, port: False)
@@ -869,6 +868,7 @@ class TestNodeCommands:
             "access_level",
             "host_access",
             "access_read_at",
+            "team",
         }
 
         shown = json.loads(CliRunner().invoke(root_cli, ["node", "show", "web-2", "--json"]).output)

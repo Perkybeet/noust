@@ -26,7 +26,7 @@ import { ROLES, incompatible, roleDescription, roleLabel } from "./roles";
 import type { Role } from "./roles";
 import { samePerson } from "./data";
 
-const FIELDS = ["username", "role", "team", "team_role", "display_name", "person_ref", "expires_hours"] as const;
+const FIELDS = ["username", "role", "team", "team_role", "display_name", "person_ref", "email", "expires_hours"] as const;
 
 const EXPIRY_HOURS = ["24", "72", "168", "336"] as const;
 
@@ -54,6 +54,17 @@ function IssuedOnce({ t, issued, expiresAt }: { t: T; issued: InvitationIssued; 
   const expires = formatMoment(new Date(expiresAt), t.locale);
   return (
     <div className="flex flex-col gap-4">
+      {issued.emailed ? (
+        <Notice tone="success" title={t("accounts.invite.mailedTitle")}>
+          {t("accounts.invite.mailed", { address: issued.account.email ?? "" })}
+        </Notice>
+      ) : issued.email_error ? (
+        // The mail is the convenience, the link is the invitation: a failure is said, verbatim,
+        // and the link below still works.
+        <Notice tone="warning" title={t("accounts.invite.notMailedTitle")}>
+          {issued.email_error}
+        </Notice>
+      ) : null}
       <Notice tone="warning" title={t("accounts.invite.onceTitle")}>
         {t("accounts.invite.onceWarning", { when: expires })}
       </Notice>
@@ -99,6 +110,7 @@ export function InviteDialog({ open, onClose, accounts, recover = null, team = n
   const [username, setUsername] = useState(recover?.username ?? "");
   const [displayName, setDisplayName] = useState("");
   const [person, setPerson] = useState("");
+  const [mailTo, setMailTo] = useState("");
   const [role, setRole] = useState<Role>("operator");
   const [teamRole, setTeamRole] = useState<TeamRole>("viewer");
   const [expiry, setExpiry] = useState<(typeof EXPIRY_HOURS)[number]>("24");
@@ -115,6 +127,7 @@ export function InviteDialog({ open, onClose, accounts, recover = null, team = n
         ...(recover === null && team !== null ? { team: team.slug, team_role: teamRole } : {}),
         ...(recover === null && displayName.trim() !== "" ? { display_name: displayName.trim() } : {}),
         ...(recover === null && person.trim() !== "" ? { person_ref: person.trim() } : {}),
+        ...(mailTo.trim() !== "" ? { email: mailTo.trim() } : {}),
       }),
     onSuccess: (result) => {
       setIssued({ answer: result, expiresAt: Date.now() + result.expires_in * 1000 });
@@ -238,6 +251,17 @@ export function InviteDialog({ open, onClose, accounts, recover = null, team = n
             {t("accounts.invite.recoverNotice")}
           </Notice>
         )}
+        <Field label={t("accounts.invite.mailLabel")} optional description={t("accounts.invite.mailHint")} error={errors.fields.email}>
+          <Input
+            type="email"
+            autoComplete="off"
+            maxLength={254}
+            value={mailTo}
+            onValueChange={(value: string) => {
+              setMailTo(value);
+            }}
+          />
+        </Field>
         <Field label={t("accounts.invite.expiresLabel")} nativeLabel={false} error={errors.fields.expires_hours}>
           <Select
             options={EXPIRY_HOURS.map((value) => ({ value, label: expiryLabel(t, value) }))}

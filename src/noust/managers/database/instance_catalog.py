@@ -29,11 +29,16 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from noust.core.db_instance_store import CUSTOM_VARIANT, check_version
 from noust.core.exceptions import ValidationError
 from noust.managers.database.eol import support_notice
 from noust.managers.database.flavours import FLAVOURS
+from noust.validators.container import split_image_reference
+
+if TYPE_CHECKING:
+    from noust.core.db_instance_store import InstanceRecord
 
 #: When the digests below were read from the registries.
 PINNED_ON = "2026-10-06"
@@ -499,6 +504,106 @@ def with_variant(spec: EngineSpec, variant: str | None) -> EngineSpec:
         label=found.label,
         platforms=found.platforms,
     )
+
+
+@dataclass(frozen=True)
+class CustomImage:
+    """
+    An image the operator chose, with the digest the operator pinned it to.
+
+    Attributes:
+        repository: Where it is pulled from, registry included (``ghcr.io/acme/pg``).
+        tag: The tag the digest was read from, or None.
+        digest: The digest. Mandatory: a tag is a promise and a digest is a file, and the
+            official images are pinned by Noust so that the same row is the same software.
+    """
+
+    repository: str
+    tag: str | None
+    digest: str
+
+
+def parse_custom_image(reference: str) -> CustomImage:
+    """
+    Read the image an operator asked for.
+
+    Args:
+        reference: ``repository[:tag]@sha256:digest``.
+
+    Returns:
+        The image.
+
+    Raises:
+        ValidationError: It is not an image reference, or it has no digest (``field`` is
+            ``image``).
+    """
+    name, tag, digest = split_image_reference(reference if isinstance(reference, str) else "")
+    host, slash, path = name.partition("/")
+    is_registry = bool(slash) and ("." in host or ":" in host or host == "localhost")
+    if (path if is_registry else name) != (path if is_registry else name).lower():
+        raise ValidationError(
+            f"{name!r} is not an image repository",
+            details="A repository is lower case: only a registry's host name may have capitals.",
+            field="image",
+        )
+    if digest is None:
+        raise ValidationError(
+            "An image Noust did not choose has to be pinned by its digest",
+            details=(
+                "Write it as repository:tag@sha256:<64 hex digits>. 'docker buildx imagetools "
+                "inspect <repository:tag>' prints the digest of a tag, and the digest is what "
+                "is pulled: a tag can be moved after you looked, a digest cannot."
+            ),
+            field="image",
+        )
+    return CustomImage(repository=name, tag=tag, digest=digest)
+
+
+def custom_spec(spec: EngineSpec, image: CustomImage, version: str) -> EngineSpec:
+    """
+    Turn an engine into the same engine from an image the operator chose.
+
+    Args:
+        spec: The engine.
+        image: The image, pinned.
+        version: The version the operator says it is: it decides where the data lives, what
+            TLS the engine can serve and when its support ends.
+
+    Returns:
+        A spec with the image's repository and one version, and everything else the engine's.
+
+    Raises:
+        ValidationError: The version is not numbers and dots (``field`` is ``version``).
+    """
+    wanted = check_version(version)
+    return replace(
+        spec,
+        repository=image.repository,
+        pins=(ImagePin(wanted, image.digest, default=True, tag=image.tag),),
+        label=f"{spec.display_name} (your own image)",
+        variants=(),
+    )
+
+
+def spec_of_record(record: InstanceRecord) -> EngineSpec:
+    """
+    Find the spec an instance runs: the catalog's, a variant's, or the operator's own image.
+
+    Args:
+        record: The instance's row.
+
+    Returns:
+        Its spec.
+
+    Raises:
+        ValidationError: The row names a flavour or a variant the catalog does not have.
+    """
+    spec = spec_for(record.flavour)
+    if record.variant == CUSTOM_VARIANT:
+        return custom_spec(
+            spec, CustomImage(record.image, record.image_tag, record.digest), record.version
+        )
+    return with_variant(spec, record.variant)
 
 
 def resolve_pin(spec: EngineSpec, version: str | None) -> ImagePin:

@@ -37,6 +37,7 @@ from noust.core.config import (
 from noust.core.exceptions import ConfigError
 from noust.core.fs import DryRunFileSystem, set_fs
 from noust.core.logger import Logger
+from tests.config_files import stored_config
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -522,9 +523,9 @@ def test_set_reads_a_secret_from_a_pipe_when_asked_to(config_path: Path) -> None
 
     assert result.exit_code == 0, result.output
     assert "s3cret-from-stdin" not in result.output
-    assert yaml.safe_load(config_path.read_text())["monitor"]["smtp"]["password"] == (
-        "s3cret-from-stdin"
-    )
+    # The file holds it sealed (K-12); what the server reads back is the secret.
+    assert "s3cret-from-stdin" not in config_path.read_text()
+    assert stored_config(config_path)["monitor"]["smtp"]["password"] == "s3cret-from-stdin"
 
 
 def test_set_without_a_value_asks_hidden_on_a_terminal(
@@ -544,7 +545,8 @@ def test_set_without_a_value_asks_hidden_on_a_terminal(
     assert result.exit_code == 0, result.output
     assert prompts == [{"hide_input": True, "confirmation_prompt": True}]
     assert "typed-secret" not in result.output
-    stored = yaml.safe_load(config_path.read_text())
+    assert "typed-secret" not in config_path.read_text()
+    stored = stored_config(config_path)
     assert stored["notifications"]["channels"]["telegram"]["bot_token"] == "typed-secret"
 
 

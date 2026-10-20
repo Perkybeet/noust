@@ -17,7 +17,7 @@ import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
 import { useT } from "../../i18n";
-import { ChannelDrawer, ChannelRow, SecretInput, testReasonFor, useChannelTest, useRefreshConfig } from "./channelParts";
+import { ChannelDrawer, ChannelRow, SecretInput, SecretTextarea, testReasonFor, useChannelTest, useRefreshConfig } from "./channelParts";
 import { REDACTED, channelValue, isChannelConfigured } from "./notifications";
 import type { ChannelSpec } from "./notifications";
 import { FormFailure } from "./SettingsForm";
@@ -182,7 +182,18 @@ export function HttpChannel({ spec, stored, name = spec.id, label = spec.label, 
                 error={fieldError(save.error, field.key)}
                 {...(generate !== undefined ? { action: generate } : {})}
               >
-                {field.secret ? (
+                {field.secret && field.multiline === true ? (
+                  <SecretTextarea
+                    label={field.label}
+                    placeholder={field.placeholder}
+                    value={draft[field.key] ?? ""}
+                    configured={isStored && !forgetting}
+                    disabled={save.isPending || forgetting}
+                    onChange={(next) => {
+                      setDraft((current) => ({ ...current, [field.key]: next }));
+                    }}
+                  />
+                ) : field.secret ? (
                   <SecretInput
                     label={field.label}
                     placeholder={field.placeholder}
@@ -221,7 +232,7 @@ export function HttpChannel({ spec, stored, name = spec.id, label = spec.label, 
               ) : null}
               {field.optional === true && field.secret && isStored ? (
                 <Checkbox
-                  label={spec.id === "webhook" ? t("settings.notifications.channels.webhook.stopSigning") : t("settings.notifications.channels.forgetField", { label: field.label.toLowerCase() })}
+                  label={spec.id === "webhook" && field.key === "secret" ? t("settings.notifications.channels.webhook.stopSigning") : t("settings.notifications.channels.forgetField", { label: field.label.toLowerCase() })}
                   checked={forgetting}
                   disabled={save.isPending}
                   onCheckedChange={(next) => {

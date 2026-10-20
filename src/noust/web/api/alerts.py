@@ -50,7 +50,7 @@ class MetricModel(BaseModel):
     Attributes:
         id: What a rule names.
         scope: ``server`` or ``app``.
-        unit: ``percent``, ``bytes``, ``bytes_s``, ``number`` or ``per_min``.
+        unit: ``percent``, ``bytes``, ``bytes_s``, ``number``, ``per_min`` or ``ms``.
     """
 
     id: str

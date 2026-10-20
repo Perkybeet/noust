@@ -76,7 +76,7 @@ class NginxManager(WebServerManager):
 
         Args:
             domain: Domain name.
-            config: Parsed ``wasm.nginx.yaml`` configuration.
+            config: Parsed ``noust.nginx.yaml`` configuration.
             ssl: Whether the site serves TLS.
             app_path: Application directory, used as the document root.
 

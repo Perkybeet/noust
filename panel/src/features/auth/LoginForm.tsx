@@ -18,12 +18,13 @@ import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
+import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { signInWithPasskey } from "./passkeys";
 import { rememberSignIn } from "./signInFacts";
 import type { SignInFacts } from "./signInFacts";
-import { SsoButtons, useLocalSignIn, useSsoProviders } from "./SsoButtons";
+import { SsoButtons, useLocalSignIn, usePasswordReset, useSsoProviders } from "./SsoButtons";
 import type { SsoError } from "./sso";
 import { safeNext } from "./session";
 import { CeremonyError, browserLimit, conditionalMediationAvailable } from "./webauthn";
@@ -137,6 +138,7 @@ export function LoginForm({ next, expired, mode, onModeChange, sso, ssoError }: 
   const providers = useSsoProviders();
   // With passwords turned off for single sign-on, the account form is a way back, not the way in.
   const localSignIn = useLocalSignIn();
+  const resetOffered = usePasswordReset();
   // A directory is signed in against with a name and a password, in the form; a provider is a
   // button that leaves for it.
   const directories = providers.filter((provider) => provider.protocol === "ldap");
@@ -721,6 +723,11 @@ export function LoginForm({ next, expired, mode, onModeChange, sso, ssoError }: 
       <Button type="submit" variant="primary" size="lg" loading={pending} disabled={locked || passkeyPending} className="w-full">
         {t("auth.signIn")}
       </Button>
+      {resetOffered ? (
+        <TextLink to="/reset-password" size="ui" className="self-start">
+          {t("auth.reset.forgotLink")}
+        </TextLink>
+      ) : null}
     </form>
   );
 

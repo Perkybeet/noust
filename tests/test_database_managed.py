@@ -42,6 +42,8 @@ from noust.managers.database.instance_compose import render_compose
 from tests.database_instance_support import World, build_world, close_world
 from tests.test_database_instances import container
 
+pytestmark = pytest.mark.real_listeners
+
 NEW_DIGEST = "sha256:" + "c" * 64
 
 

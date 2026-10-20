@@ -890,6 +890,23 @@ class TimelineBuilder:
             )
 
         for event in self.readers.metrics.monitor_events(start, end, limit=MAX_MONITOR + 1):
+            if event.kind == "docker_event":
+                # What Docker did to a container of a stack: it belongs to the application the
+                # watch recorded it for, not to a unit.
+                if domain is not None and event.app != domain:
+                    continue
+                events.append(
+                    TimelineEvent(
+                        at=float(event.ts),
+                        source=SOURCE_MONITOR,
+                        kind=event.kind,
+                        level=LEVEL_NOTICE if event.reason == "restart" else LEVEL_WARNING,
+                        text=event.detail or "",
+                        app=event.app,
+                        details={"container": event.subject, "action": event.reason or ""},
+                    )
+                )
+                continue
             if units is not None and _bare_unit(event.subject) not in {
                 _bare_unit(u) for u in units
             }:

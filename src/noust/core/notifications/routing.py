@@ -105,8 +105,10 @@ class Placement:
         project: Its project's slug.
         environment: Its environment's slug.
         tags: The tags it carries.
+        team: Its team's slug.
     """
 
+    team: str | None = None
     project: str | None = None
     environment: str | None = None
     tags: frozenset[str] = frozenset()
@@ -658,6 +660,10 @@ class Routing:
             not name falls back to the server-wide switch.
         flood: The most it says in a stretch of time, if capped.
         summary: What waits for the periodic summary, if it has one.
+        team: The team the channel belongs to. A team's channel hears about the
+            applications of that team and about nothing else: not the server
+            itself, and not an application it cannot place, whatever its route
+            says, because the team brought it to hear about its own.
     """
 
     route: Route = field(default_factory=Route)
@@ -665,6 +671,7 @@ class Routing:
     events: Mapping[str, bool] = field(default_factory=dict)
     flood: Flood | None = None
     summary: Summary | None = None
+    team: str | None = None
 
 
 def decide(
@@ -705,7 +712,12 @@ def decide(
 
     route = routing.route
     placement = None
-    if route.needs_placement and route.narrows and notification.domain:
+    if routing.team is not None:
+        # A team's channel: the application must be provably the team's.
+        placement = placement_of(notification.domain) if notification.domain else None
+        if placement is None or placement.team != routing.team:
+            return Decision("skip", "outside the channel's team")
+    elif route.needs_placement and route.narrows and notification.domain:
         placement = placement_of(notification.domain)
     if not route.allows(notification, placement):
         return Decision("skip", "outside the channel's route")

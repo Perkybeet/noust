@@ -127,9 +127,12 @@ class TestTheBlockKey:
     def test_every_type_that_is_built_may_say_it(self) -> None:
         refuse_unsupported(BuildConfig(cache=False), "nodejs", {"start"}, set())
 
+    def test_a_stack_may_say_it_because_compose_builds_without_the_cache_too(self) -> None:
+        refuse_unsupported(BuildConfig(cache=False), "docker-compose", None, set())
+
     def test_a_type_with_no_build_block_still_refuses_it(self) -> None:
         with pytest.raises(ValidationError):
-            refuse_unsupported(BuildConfig(cache=False), "docker-compose", None, set())
+            refuse_unsupported(BuildConfig(cache=False), "monorepo", None, set())
 
 
 class TestAnUpdate:

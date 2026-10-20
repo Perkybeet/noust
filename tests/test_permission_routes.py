@@ -49,6 +49,9 @@ EXPECTED_PUBLIC = {
     ("GET", "/api/auth/session"),
     ("POST", "/api/auth/invitations/open"),
     ("POST", "/api/auth/invitations/accept"),
+    # A mailed link and a code of the second factor are the credential; a wrong one is counted.
+    ("POST", "/api/auth/password-reset/request"),
+    ("POST", "/api/auth/password-reset/confirm"),
     ("POST", "/api/auth/passkeys/login/options"),
     ("POST", "/api/auth/passkeys/login"),
     # Single sign-in: the provider's answer is the credential, counted by the lockout.
@@ -87,6 +90,10 @@ EXPECTED_PUBLIC = {
     ("DELETE", "/api/scim/v2/Groups/{group_id}"),
     ("POST", "/hooks/deploy/{domain}"),
     ("POST", "/hooks/github"),
+    # A container registry's push notification: signed with the application's secret, or carrying
+    # the token of the address Docker Hub is given.
+    ("POST", "/hooks/registry/{domain}"),
+    ("POST", "/hooks/registry/{domain}/{token}"),
     ("GET", "/health"),
     ("GET", "/{path}"),
 }

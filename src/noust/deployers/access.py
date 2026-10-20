@@ -40,6 +40,7 @@ from noust.managers import trusted_proxies
 from noust.managers.client_certs import ClientCertificates, IssuedClientCertificate
 from noust.managers.http3 import Http3, Http3Support
 from noust.managers.nginx_manager import NginxManager
+from noust.managers.port_claims import reserved_ports
 from noust.managers.site_forward_auth import check_service
 from noust.managers.site_policy import (
     MAX_USERS,
@@ -51,7 +52,6 @@ from noust.managers.site_policy import (
     response_headers,
     validated,
 )
-from noust.managers.stream_exposure import reserved_ports
 from noust.managers.waf import Waf, WafEvent, WafSupport, noisy_rules
 from noust.validators.domain import validate_domain
 
@@ -997,6 +997,13 @@ def _require_applicable(app: App, policy: SitePolicy, *, verbose: bool) -> None:
                 details="Asking it about every request would loop back into that service.",
                 field="forward_auth",
             )
+    if not policy.force_https and app.webserver == "apache":
+        raise ValidationError(
+            "Serving HTTP and HTTPS from one site is nginx's here",
+            details=f"{app.domain} is served by Apache, which redirects to HTTPS once it has a "
+            "certificate. Move it to nginx to leave it answering on both.",
+            field="force_https",
+        )
     if policy.http3 and app.webserver == "apache":
         raise ValidationError(
             "HTTP/3 is nginx's: Apache's stock builds have no QUIC",
