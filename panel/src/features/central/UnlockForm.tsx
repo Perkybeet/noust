@@ -9,6 +9,7 @@ import { ErrorBlock } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
+import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import { isWrongPassphrase, unlockCentral } from "./central";
 
@@ -59,8 +60,7 @@ export function UnlockForm({ onUnlocked, focusOnMount = false, formId, hideSubmi
     try {
       await unlockCentral(queryClient, passphrase);
       setPassphrase("");
-      // The page behind opens: what is said is for those who cannot see it.
-      announce(t("servers.lock.unlockedToast"));
+      toast.success(t("servers.lock.unlockedToast"));
       onUnlocked?.();
     } catch (error: unknown) {
       // Declining "Confirm it's you" is not a refusal: nothing was tried.

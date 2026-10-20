@@ -140,7 +140,7 @@ export function PolicySection() {
 
   return (
     <Section title={t("auth.security.policyTitle")} description={t("auth.security.policyDescription")} loading={pending}>
-      <Card padding="sm">{pending ? <KeyValueListSkeleton rows={4} /> : <KeyValueList items={facts} />}</Card>
+      <Card padding="sm">{pending ? <KeyValueListSkeleton rows={6} /> : <KeyValueList items={facts} />}</Card>
       <Button size="sm" variant="ghost" className="self-start" aria-expanded={showBaseline} onClick={() => setShowBaseline((value) => !value)}>
         {showBaseline ? t("auth.security.baselineHide") : t("auth.security.baselineShow")}
       </Button>
