@@ -24,6 +24,7 @@ import { IconButton } from "../../components/ui/IconButton";
 import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { StatusPill } from "../../components/ui/StatusPill";
 import { TextLink } from "../../components/ui/TextLink";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
@@ -40,6 +41,7 @@ import { DnsVerdict } from "./DnsVerdict";
 import { certificateJobFor, certificateView, coverageOf, covers, issuerName } from "./certificates";
 import { JobBanner } from "./JobBanner";
 import { useCertificateRefresh } from "./useCertificateJobs";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 
 function kindLabel(t: T, kind: string): string {
   if (kind === "primary") return t("domains.kindPrimary");
@@ -54,7 +56,7 @@ function Role({ entry, app }: { entry: AppDomain; app: string }) {
     return (
       <span className="inline-flex min-w-0 items-center gap-1.5">
         <Badge>{kindLabel(t, entry.kind)}</Badge>
-        {entry.temporary ? <Badge tone="warn">{t("domains.temporary.badge")}</Badge> : null}
+        {entry.temporary ? <StatusPill state="warning" label={t("domains.temporary.badge")} appearance="inline" size="sm" /> : null}
         {!entry.enabled ? <Badge>{t("domains.appTab.switchedOffBadge")}</Badge> : null}
         {entry.port ? (
           <Mono tone="muted">
@@ -106,11 +108,10 @@ function DnsDialog({ app, name, onClose }: { app: string; name: string | null; o
         ) : dns.isError ? (
           <ErrorBlock compact error={dns.error} title={t("domains.couldNotResolve", { name: name ?? "" })} />
         ) : (
-          <div aria-busy="true" className="flex flex-col gap-2">
-            <span className="sr-only">{t("domains.checkingDns")}</span>
+          <LoadingRegion label={t("domains.checkingDns")} className="flex flex-col gap-2">
             <Skeleton className="h-4 w-56" />
             <Skeleton className="h-12" />
-          </div>
+          </LoadingRegion>
         )}
       </div>
     </Dialog>
@@ -270,10 +271,9 @@ export function AppDomainsTab({ domain }: { domain: string }) {
         {list.isError && list.data === undefined ? (
           <ErrorBlock error={list.error} title={t("domains.appTab.couldNotLoadDomains", { domain })} onRetry={() => void list.refetch()} retrying={list.isRefetching} />
         ) : list.data === undefined ? (
-          <div aria-busy="true">
-            <span className="sr-only">{t("domains.appTab.loadingDomainsSr")}</span>
+          <LoadingRegion label={t("domains.appTab.loadingDomainsSr")}>
             <TableSkeleton />
-          </div>
+          </LoadingRegion>
         ) : (
           <DataTable
             caption={t("domains.appTab.tableCaption", { domain })}
@@ -414,7 +414,9 @@ export function AppDomainsTab({ domain }: { domain: string }) {
         }}
         title={removing ? t("domains.appTab.removeDialogTitle", { domain: removing.domain }) : t("domains.appTab.removeDomain")}
         description={removing ? t("domains.appTab.removeDialogDescription", { app: domain, removed: removing.domain }) : ""}
-        confirmText={removing?.domain ?? ""}
+        // A name can be added again in a moment: one question, not the name typed (DESIGN 6.2). The
+        // application's own deletion is the one that asks for its name.
+        friction="simple"
         actionLabel={t("domains.appTab.removeDomain")}
         onConfirm={async () => {
           if (!removing) return;
