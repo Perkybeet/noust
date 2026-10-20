@@ -88,6 +88,9 @@ class TestMovingAnEngine:
         monkeypatch.setattr(
             SubprocessRunner, "run", lambda self, argv, **kwargs: lab.world.host.run(argv, **kwargs)
         )
+        monkeypatch.setattr(
+            SubprocessRunner, "exists", lambda self, program: lab.world.host.exists(program)
+        )
         result = run(
             "instance",
             "migrate",
