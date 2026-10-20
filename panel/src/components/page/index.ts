@@ -41,6 +41,8 @@ export type { LeaveGuardProps } from "./LeaveGuard";
 export { ListPage } from "./ListPage";
 export type { ListPageProps } from "./ListPage";
 export { usePrimaryYielded, useYieldPrimary } from "./primaryYield";
+export { RowMenu } from "./RowMenu";
+export type { RowMenuProps } from "./RowMenu";
 export { SaveBar } from "./SaveBar";
 export type { SaveBarProps } from "./SaveBar";
 export { SettingsGroup } from "./SettingsGroup";
