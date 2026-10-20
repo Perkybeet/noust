@@ -16,6 +16,7 @@ import type { ReactNode } from "react";
 import { activeJobsQuery, isJobFinished, jobLogQuery, useFollowedJob } from "../../api/queries/jobs";
 import type { Job } from "../../api/queries/jobs";
 import { serviceKeys } from "../../api/queries/services";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { JobProgress } from "../../components/page/JobProgress";
 import type { JobState } from "../../components/page/JobProgress";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -202,10 +203,9 @@ function JobOutputDrawer({ job, open, onOpenChange, title }: { job: Job; open: b
       {finished && log.isError && log.data === undefined ? (
         <ErrorBlock compact error={log.error} title={t("server.job.outputFailed")} onRetry={() => void log.refetch()} />
       ) : finished && log.isPending ? (
-        <div aria-busy="true">
-          <span className="sr-only">{t("server.job.outputLoading")}</span>
+        <LoadingRegion label={t("server.job.outputLoading")}>
           <Skeleton className="h-80 w-full rounded-card" />
-        </div>
+        </LoadingRegion>
       ) : (
         <LogViewer lines={lines} label={t("server.job.outputLabel", { title })} filename={`${job.id}.log`} height={560} emptyMessage={t("server.job.outputEmpty")} />
       )}

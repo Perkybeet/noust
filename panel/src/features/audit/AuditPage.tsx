@@ -24,7 +24,7 @@ import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
-import { StatusGlyph, stateTextClass } from "../../components/ui/StatusPill";
+import { StatusGlyph, StatusPill, stateTextClass } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { Textarea } from "../../components/ui/Textarea";
 import { toast } from "../../components/ui/toast";
@@ -137,7 +137,7 @@ function EntryDrawer({ entry, onClose, onCorrelate }: { entry: AuditEntry; onClo
         : {})}
     >
       <div className="flex flex-col gap-5">
-        {entry.sensitive ? <Notice>{t("audit.drawer.sensitive")}</Notice> : null}
+        {entry.sensitive ? <p className="text-13 text-fg-muted">{t("audit.drawer.sensitive")}</p> : null}
         <KeyValueList items={items} />
         {entry.detail ? (
           <div className="flex flex-col gap-1.5">
@@ -198,18 +198,31 @@ function TrailNotice({ t }: { t: T }) {
       </Notice>
     );
   }
-  if (verify.data !== undefined) {
-    return (
-      <Notice tone="success" title={t("audit.trail.intactTitle")}>
+  return null;
+}
+
+/**
+ * That the chain verified, said as a state and not as a message: a pill and one line above the
+ * log. The banner above is for when it did not.
+ */
+function TrailLine({ t }: { t: T }) {
+  const verify = useQuery(verifyQuery());
+  const status = useQuery(statusQuery());
+  const problems = status.data?.problems ?? [];
+  const degraded = (status.data?.sinks ?? []).filter((sink) => sink.degraded || sink.error);
+  if (verify.data === undefined || !verify.data.ok || problems.length > 0 || degraded.length > 0 || status.data?.failing === true) return null;
+  return (
+    <p role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-13 text-fg-muted">
+      <StatusPill state="running" label={t("audit.trail.intactTitle")} />
+      <span>
         {t("audit.trail.intact", {
           count: verify.data.checked,
           checked: formatCount(verify.data.checked, t.locale),
           sinks: formatCount(status.data?.sinks?.length ?? 0, t.locale),
         })}
-      </Notice>
-    );
-  }
-  return null;
+      </span>
+    </p>
+  );
 }
 
 /** Recording that the log was reviewed for a period: the evidence the review happened. */
@@ -382,6 +395,7 @@ export function AuditPage({ search, onSearchChange }: AuditPageProps) {
         }
       >
         <div className="flex min-w-0 flex-col gap-4">
+          <TrailLine t={t} />
           <FilterBar
             label={t("audit.page.filterLabel")}
             search={{

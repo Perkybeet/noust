@@ -8,6 +8,7 @@ import { Button } from "../../../components/ui/Button";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Notice } from "../../../components/ui/Notice";
 import { Textarea } from "../../../components/ui/Textarea";
 import { toast } from "../../../components/ui/toast";
@@ -168,9 +169,9 @@ export function RoleDialog({ account, accounts, onClose }: RoleDialogProps) {
           </Notice>
         ) : null}
         {errors.fields.role !== undefined ? (
-          <Notice tone="error" live title={t("accounts.role.failed")}>
-            {errors.fields.role}
-          </Notice>
+          <InlineMessage tone="error" live>
+            <span className="font-medium">{t("accounts.role.failed")}</span> {errors.fields.role}
+          </InlineMessage>
         ) : errors.form !== null ? (
           <ErrorBlock live compact error={errors.form} title={t("accounts.role.failed")} />
         ) : null}

@@ -17,7 +17,6 @@ import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
-import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import { formatBytes, formatBytesPair } from "../../../lib/format";
@@ -98,9 +97,9 @@ export function SwapCard() {
         <KeyValueList items={items} />
         {!data.supported ? <p className="text-13 text-fg-muted">{data.reason}</p> : null}
         {data.supported && none && data.recommended ? (
-          <Notice tone="warning" title={t("server.swap.recommendedTitle")}>
-            {t("server.swap.recommended", { memory: formatBytes(data.memory_bytes, t.locale) })}
-          </Notice>
+          <p className="text-13 text-pretty text-fg-muted">
+            <span className="font-medium text-fg">{t("server.swap.recommendedTitle")}.</span> {t("server.swap.recommended", { memory: formatBytes(data.memory_bytes, t.locale) })}
+          </p>
         ) : null}
         {data.supported && none ? (
           <div>

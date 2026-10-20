@@ -127,7 +127,7 @@ function TryIt({ operation }: { operation: ApiOperation }) {
   return (
     <Subsection title={t("apiReference.drawer.tryIt")} description={changes ? t("apiReference.drawer.tryItChangeHelp") : t("apiReference.drawer.tryItHelp")}>
       {operation.rawBody ? (
-        <Notice>{t("apiReference.drawer.tryItRawBody")}</Notice>
+        <p className="text-13 text-fg-muted">{t("apiReference.drawer.tryItRawBody")}</p>
       ) : (
         <form
           noValidate

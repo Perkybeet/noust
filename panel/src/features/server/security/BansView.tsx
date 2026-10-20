@@ -18,7 +18,6 @@ import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Mono } from "../../../components/ui/Mono";
-import { Notice } from "../../../components/ui/Notice";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
@@ -132,14 +131,13 @@ export function BansView() {
         ) : null}
       </div>
       {state.error !== "" ? <ServerErrorBlock compact error={{ detail: state.error }} title={t("server.bans.readFailed")} /> : null}
-      {state.substitutes.length > 0 ? <Notice>{t.rich("server.bans.substitutes", { tools: <Mono>{state.substitutes.join(", ")}</Mono> })}</Notice> : null}
+      {state.substitutes.length > 0 ? <p className="text-13 text-fg-muted">{t.rich("server.bans.substitutes", { tools: <Mono>{state.substitutes.join(", ")}</Mono> })}</p> : null}
       {!state.installed ? (
-        <Notice title={t("server.bans.whyTitle")}>
-          <div className="flex flex-col gap-1.5">
-            <p>{t("server.bans.why")}</p>
-            {!state.install_supported && state.install_hint !== "" ? <p>{state.install_hint}</p> : null}
-          </div>
-        </Notice>
+        <div className="flex flex-col gap-1 text-13 text-fg-muted">
+          <p className="font-medium text-fg">{t("server.bans.whyTitle")}</p>
+          <p>{t("server.bans.why")}</p>
+          {!state.install_supported && state.install_hint !== "" ? <p>{state.install_hint}</p> : null}
+        </div>
       ) : (
         <Jails state={state} />
       )}

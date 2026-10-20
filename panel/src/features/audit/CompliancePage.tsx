@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useDocumentTitle } from "../../app/documentTitle";
 import { CommandHint } from "../../components/page/CommandHint";
 import { KeyValueList } from "../../components/page/KeyValueList";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Section, Sections } from "../../components/page/Section";
@@ -15,7 +16,7 @@ import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { Skeleton } from "../../components/ui/Skeleton";
 import type { Status } from "../../components/ui/StatusPill";
-import { StatusGlyph, stateTextClass } from "../../components/ui/StatusPill";
+import { StatusGlyph, StatusPill, stateTextClass } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
@@ -232,7 +233,6 @@ export function CompliancePage() {
   const result = query.data;
   const groups = result !== undefined ? groupFindings(result.findings) : [];
 
-  const verdictTone = result?.verdict === "fail" ? "error" : result?.verdict === "warning" ? "warning" : "success";
   const counts = result?.counts ?? {};
   const errors = result?.errors ?? {};
   const indicators = result?.indicators ?? {};
@@ -265,31 +265,34 @@ export function CompliancePage() {
         {query.isError && result === undefined ? (
           <ErrorBlock error={query.error} title={t("compliance.page.loadFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} />
         ) : result === undefined ? (
-          <div aria-busy="true" className="flex flex-col gap-4">
-            <span className="sr-only">{t("compliance.page.loading")}</span>
-            <Skeleton className="h-16 w-full" />
+          <LoadingRegion label={t("compliance.page.loading")} className="flex flex-col gap-4">
+            <Skeleton className="h-6 w-full" />
             <Skeleton className="h-40 w-full" />
-          </div>
+          </LoadingRegion>
         ) : (
           <div className="flex flex-col gap-6">
-            <Notice
-              tone={verdictTone}
-              title={
-                result.verdict === "fail"
-                  ? t("compliance.verdict.fail", { count: counts["fail"] ?? 0 })
-                  : result.verdict === "warning"
-                    ? t("compliance.verdict.warning", { count: counts["warning"] ?? 0 })
-                    : t("compliance.verdict.ok")
-              }
-            >
-              {t.rich("compliance.verdict.summary", {
-                profile: profileLabel(t, result.profile),
-                ok: String(counts["ok"] ?? 0),
-                warning: String(counts["warning"] ?? 0),
-                fail: String(counts["fail"] ?? 0),
-                when: <RelativeTime key="when" value={result.checked_at} />,
-              })}
-            </Notice>
+            {/* The verdict is the state of the report, not a message about it: a pill and one line, a block of its own only when it fails. */}
+            <p role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-13 text-fg-muted">
+              <StatusPill
+                state={result.verdict === "fail" ? "failed" : result.verdict === "warning" ? "warning" : "running"}
+                label={
+                  result.verdict === "fail"
+                    ? t("compliance.verdict.fail", { count: counts["fail"] ?? 0 })
+                    : result.verdict === "warning"
+                      ? t("compliance.verdict.warning", { count: counts["warning"] ?? 0 })
+                      : t("compliance.verdict.ok")
+                }
+              />
+              <span>
+                {t.rich("compliance.verdict.summary", {
+                  profile: profileLabel(t, result.profile),
+                  ok: String(counts["ok"] ?? 0),
+                  warning: String(counts["warning"] ?? 0),
+                  fail: String(counts["fail"] ?? 0),
+                  when: <RelativeTime key="when" value={result.checked_at} />,
+                })}
+              </span>
+            </p>
             {Object.keys(errors).length > 0 ? (
               <Notice tone="warning" title={t("compliance.page.partialTitle")}>
                 <div className="flex flex-col gap-2">

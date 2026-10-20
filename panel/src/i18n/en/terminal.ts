@@ -32,6 +32,7 @@ export const terminal = {
     reconnecting: "Reconnecting",
     ended: "Ended",
     failed: "Not opened",
+    notOpen: "Not open",
   },
   actions: {
     open: "Open terminal",
@@ -39,6 +40,7 @@ export const terminal = {
     end: "End session",
     newSession: "Open a new terminal",
     copy: "Copy",
+    display: "Display",
     textView: "Text view",
     textViewHelp: "Show the screen as text, which a screen reader can read.",
     announce: "Read new output aloud",
@@ -51,13 +53,16 @@ export const terminal = {
   },
   /** Before the session opens. */
   start: {
+    how: "How this session works",
     app: {
       title: "A shell as {domain}",
+      summary: "As the account the application runs as, in its sandbox.",
       description:
         "You get a shell as the account the application runs as, in its sandbox and with its environment: the same files and the same secrets it has, and nothing else on the server. A stack's shell is a shell in its container.",
     },
     server: {
       title: "A root shell on the server",
+      summary: "The shell an administrator gets over SSH, as root.",
       description:
         "You get the shell an administrator gets over SSH, as root, with nothing in between. It can change anything on this machine.",
     },
@@ -121,6 +126,8 @@ export const terminal = {
     commandHelp:
       "The program and its arguments, separated by spaces; quotes keep spaces together. It is run as it is, not by a shell: a pipe, a redirection or a $variable is passed to the program as text.",
     unclosed: "A quote is open: the command ends inside it.",
+    required: "Type the command to run.",
+    timeoutInvalidForm: "The time limit is not valid: whole seconds, within the limit.",
     argvLabel: "Run as",
     shellSyntax: "These are passed as text, not interpreted: {words}",
     serviceLabel: "Service",

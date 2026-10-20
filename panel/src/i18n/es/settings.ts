@@ -8,6 +8,7 @@ export const settings: Catalog<typeof en> = {
     description: "Cómo funciona Noust en esta máquina y quién puede acceder a la consola.",
   },
   shared: {
+    required: "Obligatorio",
     cancel: "Cancelar",
     done: "Hecho",
     save: "Guardar",

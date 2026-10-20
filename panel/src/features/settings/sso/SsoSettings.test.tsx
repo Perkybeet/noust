@@ -312,7 +312,13 @@ describe("Settings > Single sign-on", () => {
     // Nothing OpenID Connect about it: no issuer to type, and no scopes to choose.
     expect(within(drawer).getByLabelText(/^GitHub Enterprise Server/)).toHaveValue("");
     expect(within(drawer).queryByLabelText(/^Issuer/)).not.toBeInTheDocument();
-    expect(within(drawer).getByRole("button", { name: "Add provider" })).toBeDisabled();
+    // Pressing it with nothing typed sends nothing: it says what is missing and goes to the first field.
+    await user.click(within(drawer).getByRole("button", { name: "Add provider" }));
+    expect(backend.callsTo("PUT /api/auth/oidc/config/github")).toHaveLength(0);
+    expect(within(drawer).getAllByText("Required").length).toBeGreaterThan(0);
+    await waitFor(() => {
+      expect(within(drawer).getByLabelText(/^Name/)).toHaveFocus();
+    });
     await user.type(within(drawer).getByLabelText(/^Name/), "github");
     await user.type(within(drawer).getByLabelText(/^Client ID/), "Iv1.abc123");
     await user.type(within(drawer).getByLabelText(/^Client secret/), "s3cret-value");
@@ -645,10 +651,11 @@ describe("Settings > Single sign-on", () => {
       const drawer = await screen.findByRole("dialog", { name: "Add a SAML provider" });
       const add = within(drawer).getByRole("button", { name: "Add provider" });
       await user.type(within(drawer).getByLabelText(/^Name/), "entra");
-      // Nothing yet says who the provider is: the button waits.
-      expect(add).toBeDisabled();
+      // Nothing yet says who the provider is: the button says so, and sends nothing.
+      await user.click(add);
+      expect(await within(drawer).findByText("Give the metadata, or the entity ID, the sign-on address and a certificate.")).toBeInTheDocument();
+      expect(backend.callsTo("PUT /api/auth/saml/config/entra")).toHaveLength(0);
       await user.type(within(drawer).getByRole("textbox", { name: /^Its metadata/ }), "<md:EntityDescriptor entityID='x'/>");
-      expect(add).toBeEnabled();
       await user.click(add);
 
       await waitFor(() => {

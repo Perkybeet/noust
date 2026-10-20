@@ -10,6 +10,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 
 import { machineQuery } from "../../../api/queries/system";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList, KeyValueListSkeleton } from "../../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../../components/page/KeyValueList";
@@ -160,12 +161,11 @@ function NeedsAttention({ items, loading }: { items: readonly AttentionItem[]; l
       }
     >
       {loading ? (
-        <div aria-busy="true" className="flex flex-col gap-3 px-5 pb-4">
-          <span className="sr-only">{t("server.attention.loading")}</span>
+        <LoadingRegion label={t("server.attention.loading")} className="flex flex-col gap-3 px-5 pb-4">
           {Array.from({ length: 3 }, (_, index) => (
             <Skeleton key={index} className="h-8 w-full" />
           ))}
-        </div>
+        </LoadingRegion>
       ) : items.length === 0 ? (
         <p className="flex items-center gap-2 px-5 pb-4 text-13 text-fg-muted">
           <ICONS.success aria-hidden="true" className="size-icon-sm text-ok" />
@@ -214,10 +214,9 @@ function Facts({ summary }: { summary: ServerSummary | undefined }) {
   if (summary === undefined) {
     return (
       <Card level={2} title={t("server.overview.factsTitle")} padding="sm">
-        <div aria-busy="true">
-          <span className="sr-only">{t("server.overview.loading")}</span>
+        <LoadingRegion label={t("server.overview.loading")}>
           <KeyValueListSkeleton rows={6} />
-        </div>
+        </LoadingRegion>
       </Card>
     );
   }

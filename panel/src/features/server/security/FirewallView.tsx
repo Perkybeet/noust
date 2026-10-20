@@ -284,11 +284,16 @@ export function FirewallView() {
           </div>
         </Notice>
       ) : null}
-      {[...state.warnings, ...state.others].map((warning) => (
-        <Notice key={warning} tone="warning">
-          {warning}
+      {state.warnings.length + state.others.length > 0 ? (
+        // What the firewall tool itself said, one condition among several: one notice, not a stack of them.
+        <Notice tone="warning">
+          <ul className="flex flex-col gap-1">
+            {[...state.warnings, ...state.others].map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
         </Notice>
-      ))}
+      ) : null}
       <Ports firewall={data} />
       {state.backend !== "none" ? <Rules firewall={data} onDelete={(target) => setOpened({ kind: "delete", rule: target })} /> : null}
       <Protected firewall={data} />

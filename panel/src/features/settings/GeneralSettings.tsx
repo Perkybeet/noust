@@ -19,6 +19,7 @@ import {
 import type { BackupSettings, ConsoleConfig, DeliverySettings, SslSettings, WebSettings } from "../../api/queries/config";
 import { machineQuery } from "../../api/queries/system";
 import { useDocumentTitle } from "../../app/documentTitle";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { CommandHint } from "../../components/page/CommandHint";
 import { KeyValueList, KeyValueListSkeleton } from "../../components/page/KeyValueList";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -267,7 +268,10 @@ function GeneralForm({ loaded, hostname }: { loaded: Loaded; hostname: string | 
       </Section>
 
       {hub ? (
-        <Notice title={t("settings.general.hub.title")}>{t("settings.general.hub.description")}</Notice>
+        <div className="flex flex-col gap-1 text-13 text-fg-muted">
+          <p className="font-medium text-fg">{t("settings.general.hub.title")}</p>
+          <p>{t("settings.general.hub.description")}</p>
+        </div>
       ) : (
         <Section title={t("settings.general.applications.title")} description={t("settings.general.applications.description")}>
           <Card>
@@ -423,8 +427,7 @@ function Details({ loaded }: { loaded: Loaded }) {
 function GeneralSkeleton() {
   const t = useT();
   return (
-    <div aria-busy="true" className="flex flex-col gap-8">
-      <span className="sr-only">{t("settings.general.loading")}</span>
+    <LoadingRegion label={t("settings.general.loading")} className="flex flex-col gap-8">
       <Section title={t("settings.general.server.title")} description={t("settings.general.server.description")}>
         <FieldsSkeleton rows={[2, 2, 1]} />
       </Section>
@@ -436,7 +439,7 @@ function GeneralSkeleton() {
           <KeyValueListSkeleton rows={3} />
         </Card>
       </Section>
-    </div>
+    </LoadingRegion>
   );
 }
 

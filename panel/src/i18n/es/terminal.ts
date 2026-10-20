@@ -27,6 +27,7 @@ export const terminal: Catalog<typeof en> = {
     reconnecting: "Reconectando",
     ended: "Terminada",
     failed: "No se abrió",
+    notOpen: "Sin abrir",
   },
   actions: {
     open: "Abrir terminal",
@@ -34,6 +35,7 @@ export const terminal: Catalog<typeof en> = {
     end: "Terminar sesión",
     newSession: "Abrir un terminal nuevo",
     copy: "Copiar",
+    display: "Pantalla",
     textView: "Vista de texto",
     textViewHelp: "Muestra la pantalla como texto, que un lector de pantalla puede leer.",
     announce: "Leer en voz alta la salida nueva",
@@ -45,13 +47,16 @@ export const terminal: Catalog<typeof en> = {
     serviceHelp: "El contenedor en el que abrirlo. Déjalo vacío cuando el stack ejecuta un solo servicio.",
   },
   start: {
+    how: "Cómo funciona esta sesión",
     app: {
       title: "Una shell como {domain}",
+      summary: "Con la cuenta con la que se ejecuta la aplicación, en su sandbox.",
       description:
         "Obtienes una shell con la cuenta con la que se ejecuta la aplicación, en su sandbox y con su entorno: los mismos archivos y los mismos secretos que ella tiene, y nada más del servidor. La shell de un stack es una shell dentro de su contenedor.",
     },
     server: {
       title: "Una shell de root en el servidor",
+      summary: "La shell que un administrador obtiene por SSH, como root.",
       description:
         "Obtienes la shell que un administrador obtiene por SSH, como root, sin nada en medio. Puede cambiar cualquier cosa de esta máquina.",
     },
@@ -110,6 +115,8 @@ export const terminal: Catalog<typeof en> = {
     commandHelp:
       "El programa y sus argumentos, separados por espacios; las comillas mantienen juntos los espacios. Se ejecuta tal cual, no con una shell: una tubería, una redirección o una $variable llegan al programa como texto.",
     unclosed: "Hay una comilla abierta: el comando termina dentro de ella.",
+    required: "Escribe el comando que ejecutar.",
+    timeoutInvalidForm: "El límite de tiempo no es válido: segundos enteros, dentro del límite.",
     argvLabel: "Se ejecuta como",
     shellSyntax: "Estos llegan como texto, no se interpretan: {words}",
     serviceLabel: "Servicio",

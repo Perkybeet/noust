@@ -338,6 +338,7 @@ export const server = {
     checkingAgain: "Checking again",
     notChecked: "The checks could not run. Run them again to see why.",
     summaryFailed: "Could not read the last checks.",
+    summaryLoading: "Loading the last checks",
     runChecks: "Run the checks again",
     viewsLabel: "Security view",
     views: {

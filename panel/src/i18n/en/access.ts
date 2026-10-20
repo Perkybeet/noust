@@ -6,11 +6,11 @@
  */
 export const access = {
   nav: {
-    label: "Roles and access",
+    label: "Roles",
     keywords: "roles permissions custom role grant binding team project environment scope access least privilege",
-    command: "Roles and access settings",
+    command: "Roles settings",
   },
-  documentTitle: "Roles and access",
+  documentTitle: "Roles",
   loadFailed: "Could not read the roles and grants",
   loading: "Reading the roles and grants",
   loadingLabel: "roles and grants",

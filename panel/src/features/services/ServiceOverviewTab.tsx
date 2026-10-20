@@ -1,3 +1,4 @@
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { CommandHint } from "../../components/page/CommandHint";
 import { KeyValueList, KeyValueListSkeleton } from "../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../components/page/KeyValueList";
@@ -16,10 +17,9 @@ export function ServiceOverviewTab({ name }: { name: string }) {
   if (data === undefined) {
     return (
       <Card level={2} title={t("services.detail.factsTitle")} padding="sm">
-        <div aria-busy="true">
-          <span className="sr-only">{t("services.detail.loading")}</span>
+        <LoadingRegion label={t("services.detail.loading")}>
           <KeyValueListSkeleton rows={5} />
-        </div>
+        </LoadingRegion>
       </Card>
     );
   }

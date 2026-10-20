@@ -112,7 +112,9 @@ function Result({ plan, apply }: { plan: ManifestPlan; apply: ReactNode }) {
         </Notice>
       ) : null}
       {plan.unmanaged.length > 0 ? (
-        <Notice title={t("manifestPreview.result.unmanagedTitle")}>{t("manifestPreview.result.unmanagedBody", { names: plan.unmanaged.join(", ") })}</Notice>
+        <p className="text-13 text-fg-muted">
+          <span className="font-medium text-fg">{t("manifestPreview.result.unmanagedTitle")}.</span> {t("manifestPreview.result.unmanagedBody", { names: plan.unmanaged.join(", ") })}
+        </p>
       ) : null}
       <p className="text-13 text-fg-muted">{t("manifestPreview.result.applyHint")}</p>
       {apply}

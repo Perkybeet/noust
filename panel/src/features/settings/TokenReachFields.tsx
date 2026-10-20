@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { environmentsQuery, myTeamsQuery, projectsQuery } from "../../api/queries/teams";
 import { ChoiceCards } from "../../components/ui/ChoiceCards";
 import { Field } from "../../components/ui/Field";
-import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
 import { useT } from "../../i18n";
 import { NO_REACH } from "./tokenReach";
@@ -87,7 +86,7 @@ export function TokenReachFields({ reach, onChange, errors }: TokenReachFieldsPr
           />
         </Field>
       ) : null}
-      {reach.kind !== "all" && named !== "" ? <Notice>{t("access.tokenReach.boundNotice", { where: named })}</Notice> : null}
+      {reach.kind !== "all" && named !== "" ? <p className="text-13 text-fg-muted">{t("access.tokenReach.boundNotice", { where: named })}</p> : null}
     </div>
   );
 }

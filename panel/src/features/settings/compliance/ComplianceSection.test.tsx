@@ -76,7 +76,11 @@ describe("Settings > Security > Compliance", () => {
     const { section, user, world } = await pageAt();
 
     await user.click(present(within(section).getAllByRole("button", { name: "What it turns on" })[1]));
-    const region = screen.getByText("Separation of duties", { selector: "span" }).closest("li");
+    // The control is named twice on the page: in what the framework turns on, and as a row of the controls.
+    const region = screen
+      .getAllByText("Separation of duties", { selector: "span" })
+      .map((span) => span.closest("li"))
+      .find((item) => item !== null);
     expect(region).not.toBeNull();
     expect(within(region as HTMLElement).getByText("A.5.3")).toBeInTheDocument();
     expect(within(section).getAllByText(/Stays organisational/).length).toBeGreaterThan(0);
@@ -146,7 +150,8 @@ describe("Settings > Security > Compliance", () => {
     const { section } = await pageAt(withFrameworksOn("ens-media"));
 
     const lock = await within(section).findByRole("switch", { name: "Approval by a second person" });
-    const approvals = lock.closest("li") as HTMLElement;
+    const approvals = lock.closest('[data-slot="setting"]');
+    if (!(approvals instanceof HTMLElement)) throw new Error("the switch is not in a setting row");
     expect(within(approvals).getByText("Required by ENS MEDIA")).toBeInTheDocument();
     expect(lock.hasAttribute("disabled") || lock.getAttribute("aria-disabled") === "true").toBe(true);
     const free = within(section).getByRole("switch", { name: "A reason for every change" });

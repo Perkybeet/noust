@@ -6,6 +6,7 @@ export const settings = {
     description: "How Noust runs on this machine and who can reach the console.",
   },
   shared: {
+    required: "Required",
     cancel: "Cancel",
     done: "Done",
     save: "Save",

@@ -478,9 +478,7 @@ function UpdatesView() {
   return (
     <div className="flex min-w-0 flex-col gap-6">
       <TabToolbar summary={data.supported ? <Summary updates={data} /> : t("server.updates.unmanaged")} actions={actions} />
-      {!data.supported ? (
-        <Notice title={t("server.updates.unsupportedTitle")}>{data.reason ?? t("server.updates.unsupportedNoReason")}</Notice>
-      ) : null}
+      {!data.supported ? <p className="max-w-measure text-13 text-pretty text-fg-muted">{data.reason ?? t("server.updates.unsupportedNoReason")}</p> : null}
       {data.error ? <ServerErrorBlock compact error={{ detail: data.error }} title={t("server.updates.listFailed")} /> : null}
       {data.broken ? (
         <Notice

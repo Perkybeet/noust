@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { cronLedgerQuery, cronRunsQuery } from "../../api/queries/cron";
 import type { CronLedger } from "../../api/queries/cron";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Card } from "../../components/ui/Card";
@@ -73,12 +74,11 @@ export function CronRunsDrawer({ name, onOpenChange }: CronRunsDrawerProps) {
       {name === null ? null : runs.isError && runs.data === undefined ? (
         <ErrorBlock error={runs.error} title={t("cron.runsDrawer.loadError")} onRetry={() => void runs.refetch()} retrying={runs.isRefetching} />
       ) : runs.data === undefined ? (
-        <div aria-busy="true" className="flex flex-col gap-3">
-          <span className="sr-only">{t("cron.runsDrawer.loading")}</span>
+        <LoadingRegion label={t("cron.runsDrawer.loading")} className="flex flex-col gap-3">
           {[0, 1, 2].map((i) => (
             <Skeleton key={i} className="h-16 w-full rounded-card" />
           ))}
-        </div>
+        </LoadingRegion>
       ) : runs.data.runs.length === 0 ? (
         <div className="flex flex-col gap-3">
           {ledger.data !== undefined ? <Ledger report={ledger.data} /> : null}

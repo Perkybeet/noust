@@ -13,6 +13,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { isApiError, request } from "../../../api/client";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { Button } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
@@ -85,10 +86,9 @@ function SshPlan({ fix }: { fix: string }) {
   if (plan.isError) return <ServerErrorBlock compact error={plan.error} title={t("server.fix.planFailed")} />;
   if (plan.data === undefined) {
     return (
-      <div aria-busy="true" className="flex flex-col gap-2">
-        <span className="sr-only">{t("server.fix.planLoading")}</span>
+      <LoadingRegion label={t("server.fix.planLoading")} className="flex flex-col gap-2">
         <Skeleton className="h-12 w-full rounded-control" />
-      </div>
+      </LoadingRegion>
     );
   }
   return (

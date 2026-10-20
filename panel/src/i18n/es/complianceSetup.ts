@@ -86,6 +86,7 @@ export const complianceSetup: Catalog<typeof en> = {
     ownSetting: "Tu propio ajuste",
     change: "Cambiar…",
     forced: "Forzado",
+    noPermission: "Tu rol no puede cambiar los ajustes de seguridad.",
     checkOnly: "Lo juzga la comprobación de cumplimiento: nada lo rechaza",
     changed: "{name} cambiado",
     group: {

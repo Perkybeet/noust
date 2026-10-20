@@ -12,6 +12,7 @@ import { useState } from "react";
 
 import { request } from "../../../api/client";
 import { CommandHint } from "../../../components/page/CommandHint";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -94,7 +95,8 @@ function Mounts({ mounts }: { mounts: readonly Mount[] | undefined }) {
   return (
     <Card level={2} title={t("server.storage.mountsTitle")} padding="none">
       {mounts === undefined ? (
-        <ul aria-busy="true" aria-label={t("server.storage.loading")} className="flex flex-col divide-y divide-border">
+        <LoadingRegion label={t("server.storage.loading")}>
+        <ul aria-hidden="true" className="flex flex-col divide-y divide-border">
           {Array.from({ length: TYPICAL_MOUNTS }, (_, index) => (
             // Each bar in a box of its line's height, so a row is as tall as the mount it stands for.
             <li key={index} className="grid min-w-0 gap-x-6 gap-y-2 px-5 py-3 md:grid-cols-2">
@@ -115,6 +117,7 @@ function Mounts({ mounts }: { mounts: readonly Mount[] | undefined }) {
             </li>
           ))}
         </ul>
+        </LoadingRegion>
       ) : mounts.length === 0 ? (
         <div className="px-5 pb-4">
           <EmptyState variant="inline" title={t("server.storage.noMounts")} />

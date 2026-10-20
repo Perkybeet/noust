@@ -99,7 +99,7 @@ describe("Settings > Console access", () => {
   it("is in the settings navigation, as the server's own section", async () => {
     await pageAt(PRIVATE);
     const nav = await screen.findByRole("navigation", { name: "Settings sections" });
-    expect(within(nav).getByRole("link", { name: "Console access" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getByRole("link", { name: "Console address" })).toHaveAttribute("aria-current", "page");
   });
 
   it("says every account is covered when they are, and leaves the check to the server when the accounts cannot be read", async () => {

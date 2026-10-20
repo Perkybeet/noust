@@ -12,7 +12,7 @@ import { Drawer } from "../../../components/ui/Drawer";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
-import { Notice } from "../../../components/ui/Notice";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Textarea } from "../../../components/ui/Textarea";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
@@ -134,9 +134,9 @@ export function RoleDrawer({ role, catalog, onClose }: RoleDrawerProps) {
             {!readOnly ? <p className="mt-0.5 max-w-measure text-13 text-fg-muted">{t("access.roles.drawer.permissionsHelp")}</p> : null}
           </div>
           {errors.fields.permissions !== undefined ? (
-            <Notice tone="error" live>
+            <InlineMessage tone="error" live>
               {errors.fields.permissions}
-            </Notice>
+            </InlineMessage>
           ) : null}
           {groups.map((group) => (
             <Subsection key={group.area} title={group.area}>

@@ -59,6 +59,7 @@ export const samlAdmin: Catalog<typeof en> = {
     idp: {
       title: "El proveedor de identidad",
       metadata: "Sus metadatos",
+      needed: "Indica los metadatos, o el ID de entidad, la dirección de inicio de sesión y un certificado.",
       metadataHelp: "Pega el XML que publica el proveedor: rellena los tres ajustes de abajo, y lo que escribas junto a él prevalece.",
       entityId: "Entity ID",
       entityIdHelp: "Lo que sus aserciones nombran como emisor.",

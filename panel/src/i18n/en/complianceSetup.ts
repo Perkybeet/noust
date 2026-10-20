@@ -81,6 +81,7 @@ export const complianceSetup = {
     ownSetting: "Your own setting",
     change: "Change…",
     forced: "Forced on",
+    noPermission: "Your role cannot change security settings.",
     checkOnly: "Judged by the compliance check: nothing refuses it",
     changed: "{name} changed",
     group: {

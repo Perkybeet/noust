@@ -61,6 +61,7 @@ export const samlAdmin = {
     idp: {
       title: "The identity provider",
       metadata: "Its metadata",
+      needed: "Give the metadata, or the entity ID, the sign-on address and a certificate.",
       metadataHelp: "Paste the XML the provider publishes: it fills the three settings below, and what you type beside it wins.",
       entityId: "Entity ID",
       entityIdHelp: "What its assertions name as their issuer.",

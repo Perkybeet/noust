@@ -351,6 +351,7 @@ export const server: Catalog<typeof en> = {
     checkingAgain: "Comprobando de nuevo",
     notChecked: "Las comprobaciones no se pudieron ejecutar. Vuelve a comprobar para ver por qué.",
     summaryFailed: "No se pudieron leer las últimas comprobaciones.",
+    summaryLoading: "Cargando las últimas comprobaciones",
     runChecks: "Volver a comprobar",
     viewsLabel: "Vista de seguridad",
     views: {

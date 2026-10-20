@@ -1,23 +1,26 @@
 import { useQuery } from "@tanstack/react-query";
-import { LogOut, Plus, SquareTerminal } from "lucide-react";
+import { LogOut, Plus, SlidersHorizontal, SquareTerminal } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { announce } from "../../app/Announcer";
 import { useNow } from "../../components/page/clock";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
-import { Disclosure } from "../../components/ui/Disclosure";
+import { Checkbox } from "../../components/ui/Checkbox";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Field } from "../../components/ui/Field";
+import { ICONS } from "../../components/ui/icons";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
+import { Popover } from "../../components/ui/Popover";
 import { Select } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
 import type { Status } from "../../components/ui/StatusPill";
-import { Switch } from "../../components/ui/Switch";
 import { TerminalScreen } from "../../components/ui/TerminalScreen";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
@@ -81,7 +84,10 @@ function SessionHeader({ state, t }: { state: SessionState; t: T }) {
   );
 }
 
-/** What is said under the screen while a limit is near, or after the connection came back. */
+/**
+ * What is said under the screen while a limit is near (a framed condition that asks for a key
+ * press), and after the connection came back (a line: it asks for nothing).
+ */
 function Notices({ state, t }: { state: SessionState; t: T }) {
   const now = useNow(() => 1000);
   const { notice } = state;
@@ -99,8 +105,8 @@ function Notices({ state, t }: { state: SessionState; t: T }) {
           {t(notice.kind === "idle" ? "terminal.notice.idle" : "terminal.notice.limit", { seconds: secondsUntil(notice.at, now) })}
         </Notice>
       ) : null}
-      {state.phase === "open" && state.lost ? <Notice tone="warning">{t("terminal.notice.lost")}</Notice> : null}
-      {state.phase === "open" && state.resumed ? <Notice>{t("terminal.notice.resumed")}</Notice> : null}
+      {state.phase === "open" && state.lost ? <InlineMessage>{t("terminal.notice.lost")}</InlineMessage> : null}
+      {state.phase === "open" && state.resumed ? <InlineMessage tone="info">{t("terminal.notice.resumed")}</InlineMessage> : null}
     </>
   );
 }
@@ -143,7 +149,35 @@ interface StartProps {
   t: T;
 }
 
-/** Before the session opens: what it is, what is kept of it, and the button. */
+/**
+ * How a session works, said once and kept out of the way: what the shell is, what is kept of it
+ * and when it ends, and that opening it asks to confirm it's you. Three paragraphs behind one
+ * button, where they were three paragraphs above the one that opens the terminal.
+ */
+function HowItWorks({ target, status, t }: { target: TerminalTarget; status: TerminalStatus; t: T }) {
+  const app = target.kind === "app";
+  return (
+    <Popover
+      trigger={
+        <Button size="sm" variant="ghost" icon={<ICONS.info aria-hidden="true" />}>
+          {t("terminal.start.how")}
+        </Button>
+      }
+      title={t("terminal.start.how")}
+      side="bottom"
+      align="start"
+      className="w-96"
+    >
+      <div className="flex flex-col gap-2 text-13 text-fg-muted">
+        <p>{app ? t("terminal.start.app.description") : t("terminal.start.server.description")}</p>
+        <p>{t("terminal.start.recorded", { idle: minutes(status.idle_seconds), max: minutes(status.max_seconds) })}</p>
+        <p>{t("terminal.start.sudo")}</p>
+      </div>
+    </Popover>
+  );
+}
+
+/** Before the session opens: its state and the button on one line, and what is behind them one press away. */
 function Start({ target, status, permitted, loading, onOpen, t }: StartProps) {
   const [shell, setShell] = useState(DEFAULT_SHELL);
   const [service, setService] = useState("");
@@ -155,32 +189,15 @@ function Start({ target, status, permitted, loading, onOpen, t }: StartProps) {
   return (
     <Card
       title={app ? t("terminal.start.app.title", { domain: target.domain }) : t("terminal.start.server.title")}
-      description={app ? t("terminal.start.app.description") : t("terminal.start.server.description")}
+      status={<StatusPill state="unknown" label={t("terminal.state.notOpen")} size="sm" />}
+      description={app ? t("terminal.start.app.summary") : t("terminal.start.server.summary")}
     >
-      <div className="flex flex-col gap-4">
-        <p className="max-w-measure text-13 text-fg-muted">
-          {t("terminal.start.recorded", { idle: minutes(status.idle_seconds), max: minutes(status.max_seconds) })}
-        </p>
-        <Disclosure label={t("terminal.actions.options")}>
-          <div className="flex max-w-xl flex-col gap-4">
-            <Field label={t("terminal.actions.shell")} nativeLabel={false}>
-              <Select options={shells} value={shell} onValueChange={setShell} />
-            </Field>
-            {app ? (
-              <Field label={t("terminal.actions.service")} description={t("terminal.actions.serviceHelp")} optional>
-                <Input mono value={service} onChange={(event) => setService(event.currentTarget.value)} />
-              </Field>
-            ) : null}
-          </div>
-        </Disclosure>
-        {permitted === false ? (
-          <Notice tone="warning">{t("terminal.start.permission", { permission: app ? "apps.terminal" : "server.terminal" })}</Notice>
-        ) : (
-          <p className="text-12 text-fg-faint">{t("terminal.start.sudo")}</p>
-        )}
-        <div>
+      <div className="flex flex-col gap-3">
+        {permitted === false ? <Notice tone="warning">{t("terminal.start.permission", { permission: app ? "apps.terminal" : "server.terminal" })}</Notice> : null}
+        <div className="flex flex-wrap items-center gap-2">
           <Button
-            variant="primary"
+            // The application's header already carries the page's primary action (Update).
+            variant={app ? "secondary" : "primary"}
             icon={<SquareTerminal aria-hidden="true" />}
             loading={loading}
             disabled={permitted !== true}
@@ -193,9 +210,64 @@ function Start({ target, status, permitted, loading, onOpen, t }: StartProps) {
           >
             {loading ? t("terminal.actions.opening") : t("terminal.actions.open")}
           </Button>
+          <Popover
+            trigger={
+              <Button size="sm" variant="ghost" icon={<SlidersHorizontal aria-hidden="true" />}>
+                {t("terminal.actions.options")}
+              </Button>
+            }
+            title={t("terminal.actions.options")}
+            side="bottom"
+            align="start"
+          >
+            <div className="flex flex-col gap-4">
+              <Field label={t("terminal.actions.shell")} nativeLabel={false}>
+                <Select options={shells} value={shell} onValueChange={setShell} />
+              </Field>
+              {app ? (
+                <Field label={t("terminal.actions.service")} description={t("terminal.actions.serviceHelp")} optional>
+                  <Input mono value={service} onChange={(event) => setService(event.currentTarget.value)} />
+                </Field>
+              ) : null}
+            </div>
+          </Popover>
+          <HowItWorks target={target} status={status} t={t} />
         </div>
       </div>
     </Card>
+  );
+}
+
+/** How the screen is shown: a view of the session, not a setting, so two checkboxes in a popover of the bar. */
+function DisplayOptions({
+  textView,
+  onTextView,
+  announceOutput,
+  onAnnounce,
+  t,
+}: {
+  textView: boolean;
+  onTextView: (next: boolean) => void;
+  announceOutput: boolean;
+  onAnnounce: (next: boolean) => void;
+  t: T;
+}) {
+  return (
+    <Popover
+      trigger={
+        <Button size="sm" variant="ghost" icon={<SlidersHorizontal aria-hidden="true" />}>
+          {t("terminal.actions.display")}
+        </Button>
+      }
+      title={t("terminal.actions.display")}
+      side="bottom"
+      align="end"
+    >
+      <div className="flex flex-col gap-3">
+        <Checkbox label={t("terminal.actions.textView")} description={t("terminal.actions.textViewHelp")} checked={textView} onCheckedChange={onTextView} />
+        <Checkbox label={t("terminal.actions.announce")} description={t("terminal.actions.announceHelp")} checked={announceOutput} onCheckedChange={onAnnounce} />
+      </div>
+    </Popover>
   );
 }
 
@@ -234,10 +306,9 @@ export function TerminalPanel({ target, injected }: TerminalPanelProps) {
   }
   if (status.data === undefined) {
     return (
-      <div aria-busy="true">
-        <span className="sr-only">{t("terminal.page.loading")}</span>
+      <LoadingRegion label={t("terminal.page.loading")}>
         <Skeleton className="h-40 w-full rounded-card" />
-      </div>
+      </LoadingRegion>
     );
   }
 
@@ -277,7 +348,29 @@ export function TerminalPanel({ target, injected }: TerminalPanelProps) {
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <SessionHeader state={state} t={t} />
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-6 gap-y-2">
+        <SessionHeader state={state} t={t} />
+        <div className="flex flex-wrap items-center gap-2">
+          <DisplayOptions textView={textView} onTextView={setTextView} announceOutput={announceOutput} onAnnounce={setAnnounceOutput} t={t} />
+          {live ? (
+            <Button icon={<LogOut aria-hidden="true" />} onClick={session.end}>
+              {t("terminal.actions.end")}
+            </Button>
+          ) : (
+            <Button
+              variant={target.kind === "app" ? "secondary" : "primary"}
+              icon={<Plus aria-hidden="true" />}
+              onClick={() => {
+                // A new terminal is the same one again: the options it was opened with are kept.
+                session.restart();
+                open(last);
+              }}
+            >
+              {t("terminal.actions.newSession")}
+            </Button>
+          )}
+        </div>
+      </div>
       <TerminalScreen
         source={source}
         label={label}
@@ -294,37 +387,7 @@ export function TerminalPanel({ target, injected }: TerminalPanelProps) {
         }}
       />
       <Notices state={state} t={t} />
-      {sentence !== null ? <Notice>{sentence}</Notice> : null}
-      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-        <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
-          <Switch label={t("terminal.actions.textView")} description={t("terminal.actions.textViewHelp")} checked={textView} onCheckedChange={setTextView} />
-          <Switch
-            label={t("terminal.actions.announce")}
-            description={t("terminal.actions.announceHelp")}
-            checked={announceOutput}
-            onCheckedChange={setAnnounceOutput}
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {live ? (
-            <Button icon={<LogOut aria-hidden="true" />} onClick={session.end}>
-              {t("terminal.actions.end")}
-            </Button>
-          ) : (
-            <Button
-              variant="primary"
-              icon={<Plus aria-hidden="true" />}
-              onClick={() => {
-                // A new terminal is the same one again: the options it was opened with are kept.
-                session.restart();
-                open(last);
-              }}
-            >
-              {t("terminal.actions.newSession")}
-            </Button>
-          )}
-        </div>
-      </div>
+      {sentence !== null ? <InlineMessage tone="info">{sentence}</InlineMessage> : null}
     </div>
   );
 }

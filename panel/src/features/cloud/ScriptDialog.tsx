@@ -8,7 +8,6 @@ import { ChoiceCards } from "../../components/ui/ChoiceCards";
 import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
-import { Notice } from "../../components/ui/Notice";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { Textarea } from "../../components/ui/Textarea";
 import { useT } from "../../i18n";
@@ -148,9 +147,9 @@ export function ScriptDialog({ name: existingName, copyOf, open, onOpenChange }:
           <Field label={t("cloud.scripts.content")} description={t("cloud.scripts.contentHelp")} error={tried && shownContent.trim() === "" ? t("cloud.scripts.contentRequired") : undefined}>
             <Textarea mono rows={14} value={shownContent} readOnly={builtin} onChange={(event) => setContent(event.target.value)} autoComplete="off" spellCheck={false} placeholder={shownKind === "script" ? "#!/bin/sh" : "#cloud-config"} />
           </Field>
-          <Notice tone="info" title={t("cloud.scripts.visibleTitle")}>
-            {t("cloud.scripts.visibleBody")}
-          </Notice>
+          <p className="text-13 text-pretty text-fg-muted">
+            <span className="font-medium text-fg">{t("cloud.scripts.visibleTitle")}.</span> {t("cloud.scripts.visibleBody")}
+          </p>
           {saveScript.isError ? <ErrorBlock live compact error={saveScript.error} title={t("cloud.scripts.saveFailed")} /> : null}
         </form>
       )}

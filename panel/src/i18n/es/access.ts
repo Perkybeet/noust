@@ -3,11 +3,11 @@ import type { Catalog } from "../types";
 
 export const access: Catalog<typeof en> = {
   nav: {
-    label: "Roles y accesos",
+    label: "Roles",
     keywords: "roles permisos rol propio conceder vincular equipo proyecto entorno ámbito acceso mínimo privilegio",
-    command: "Ajustes de roles y accesos",
+    command: "Ajustes de roles",
   },
-  documentTitle: "Roles y accesos",
+  documentTitle: "Roles",
   loadFailed: "No se pudieron leer los roles y las concesiones",
   loading: "Leyendo los roles y las concesiones",
   loadingLabel: "roles y concesiones",

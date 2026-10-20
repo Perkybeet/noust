@@ -121,7 +121,7 @@ export function ApiReference({ search, onSearchChange }: ApiReferenceProps) {
         query={query}
         label={t("apiReference.loadingLabel")}
         skeleton={
-          <div aria-busy="true" className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3">
             <Skeleton className="h-10 w-full rounded-control" />
             <Skeleton className="h-64 w-full rounded-card" />
           </div>

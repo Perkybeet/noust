@@ -64,20 +64,17 @@ function Capped({ t, scope, roles, own, owner }: { t: T; scope: TokenScope; role
   const kept = wanted.filter((permission) => own.includes(permission));
   const dropped = wanted.filter((permission) => !own.includes(permission));
   return (
-    <Notice title={owner === null ? t("accounts.tokens.cappedMaster") : t("accounts.tokens.capped", { name: owner })}>
-      <div className="flex flex-col gap-1.5">
-        <p className="flex flex-wrap gap-x-2 gap-y-1">
-          {kept.map((permission) => (
-            <Mono key={permission} tone="default">
-              {permission}
-            </Mono>
-          ))}
-        </p>
-        {dropped.length > 0 ? (
-          <p className="text-fg-muted">{t("accounts.tokens.dropped", { permissions: dropped.join(", ") })}</p>
-        ) : null}
-      </div>
-    </Notice>
+    <div className="flex flex-col gap-1.5 text-13">
+      <p className="font-medium text-fg">{owner === null ? t("accounts.tokens.cappedMaster") : t("accounts.tokens.capped", { name: owner })}</p>
+      <p className="flex flex-wrap gap-x-2 gap-y-1">
+        {kept.map((permission) => (
+          <Mono key={permission} tone="default">
+            {permission}
+          </Mono>
+        ))}
+      </p>
+      {dropped.length > 0 ? <p className="text-fg-muted">{t("accounts.tokens.dropped", { permissions: dropped.join(", ") })}</p> : null}
+    </div>
   );
 }
 
