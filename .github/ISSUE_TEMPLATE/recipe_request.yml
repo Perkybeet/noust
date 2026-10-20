@@ -1,0 +1,84 @@
+name: Recipe request
+description: Ask for an application to be added to the catalogue of ready-made services
+labels: ["recipe", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A recipe is a ready-made application in the catalogue (`noust recipe install NAME -d app.example.com`).
+        Please search the catalogue first (`noust recipe list -q NAME`, or the Catalog page: a recipe
+        that is listed as unavailable says why) and the open requests. The rules, and how to write the
+        recipe yourself, are in [contributing a recipe](https://github.com/Perkybeet/noust/blob/main/docs/contributing-recipes.md).
+        A request with a person who will write it is the fastest way to a merged recipe; reacting to an
+        existing request with a thumbs-up is the vote.
+  - type: input
+    id: project
+    attributes:
+      label: The project
+      description: Its name and the address of its repository (GitHub, or Codeberg for projects that live there).
+      placeholder: "Gotify - https://github.com/gotify/server"
+    validations:
+      required: true
+  - type: input
+    id: stars
+    attributes:
+      label: Stars, and the date of its latest release
+      description: The catalogue takes projects with at least 1,000 stars, a release in the last year, and not archived.
+      placeholder: "12k stars; 3.1.1 on 2026-09-30"
+    validations:
+      required: true
+  - type: input
+    id: license
+    attributes:
+      label: Licence
+      description: The SPDX name, or what it says. A licence that lets you run it for others is needed; a source-available one is said so in the description.
+      placeholder: MIT
+    validations:
+      required: true
+  - type: input
+    id: instructions
+    attributes:
+      label: Its container instructions
+      description: The page of its documentation, or its own Compose file, that names the image and the variables. It is what the recipe's comments cite.
+      placeholder: https://gotify.net/docs/install
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: What you would use it for
+      description: The job it does for you and what you use today instead. This is how requests are weighed against each other.
+    validations:
+      required: true
+  - type: textarea
+    id: needs
+    attributes:
+      label: What it needs beside itself
+      description: A database (which engine), a cache, a second container, a port that is not HTTP, a lot of memory.
+  - type: dropdown
+    id: pinning
+    attributes:
+      label: Does it publish release tags
+      description: A floating tag (`latest`, `stable`) cannot be a recipe, because a tag has to name a release to be a pin.
+      options:
+        - Yes, versioned tags on a registry
+        - Only latest or a rolling tag
+        - It publishes release archives, not images
+        - I do not know
+    validations:
+      required: true
+  - type: dropdown
+    id: help
+    attributes:
+      label: Will you write it
+      options:
+        - Yes, I will open the pull request
+        - I could, with some guidance
+        - No, I am only asking
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Noust version you are on
+      description: Output of `noust --version`.

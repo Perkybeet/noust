@@ -1,0 +1,12 @@
+{
+  "name": "noust-example-nodejs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The smallest Node.js server Noust deploys: no dependencies.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

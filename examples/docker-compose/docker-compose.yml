@@ -1,0 +1,10 @@
+# A Docker Compose application: Noust runs the project as Compose runs it. The web service publishes
+# its port on the loopback address through PORT, which Noust sets to the port its site proxies to.
+services:
+  web:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${PORT:-3000}:80"
+    volumes:
+      - ./html:/usr/share/nginx/html:ro

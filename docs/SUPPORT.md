@@ -10,6 +10,7 @@ report fixable in one pass, and what happens to an issue after you open it.
 | Report a **security** problem | A private advisory: <https://github.com/Perkybeet/noust/security/advisories/new>, or the email in [SECURITY.md](../SECURITY.md). Never a public issue. SECURITY.md says what happens next and when. |
 | Report a **bug** | [A bug report](https://github.com/Perkybeet/noust/issues/new?template=bug_report.yml) |
 | Ask for a **feature** | [A feature request](https://github.com/Perkybeet/noust/issues/new?template=feature_request.yml) |
+| Ask for an **application in the catalogue** | [A recipe request](https://github.com/Perkybeet/noust/issues/new?template=recipe_request.yml), and [how to write one](contributing-recipes.md) |
 | Ask **how to do something** | First [the documentation](../README.md), then [troubleshooting](troubleshooting.md). If it is not answered there, open an issue labelled `documentation`: the answer then goes into the page that should have had it. |
 | Contribute a **change** | [CONTRIBUTING.md](../CONTRIBUTING.md) (the four rules, the architecture and how to run the checks). |
 

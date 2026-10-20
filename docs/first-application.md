@@ -16,7 +16,9 @@ waiting for DNS.
   asking for a certificate and tells you if it does not resolve here; the certificate is the step
   that fails when it does not.
 - **A repository to deploy.** Any of [these stacks](frameworks.md). If you only want to try Noust,
-  a static page works: a repository with an `index.html` is deployed as a static site.
+  a static page works: a repository with an `index.html` is deployed as a static site, and
+  [`examples/`](../examples/README.md) has a minimal application for every type Noust deploys
+  (`noust create -d hello.example.com -s examples/nodejs` from a clone of the repository).
 - **Open the console.** It listens on `127.0.0.1:8080` of the server and nowhere else. From your
   computer: `ssh -N -L 8080:127.0.0.1:8080 root@server.example.com`, then
   <http://127.0.0.1:8080>, and sign in with the token `noust web enable` printed. A new server's
