@@ -56,6 +56,16 @@ export interface FleetTabItem extends TabItem {
   command: PlainKey;
 }
 
+const STRIP_LABEL: Readonly<Record<string, PlainKey>> = {
+  fleet: "fleet.tabs.summary",
+  "fleet.servers": "fleet.tabs.servers",
+  "fleet.apps": "fleet.tabs.apps",
+  "fleet.certificates": "fleet.tabs.certificates",
+  "fleet.backups": "fleet.tabs.backups",
+  "fleet.updates": "fleet.tabs.updates",
+  "fleet.activity": "fleet.tabs.activity",
+};
+
 /**
  * The strip the fleet's pages still draw above their content, for as long as they draw one: the
  * sidebar of the fleet scope has taken its place, and the page that draws it (features/fleet) is
@@ -63,5 +73,6 @@ export interface FleetTabItem extends TabItem {
  */
 export const FLEET_TABS: readonly FleetTabItem[] = FLEET_SCREENS.map((entry, index): FleetTabItem => {
   if (entry.command === undefined) throw new Error(`the fleet view "${entry.id}" has no palette phrase`);
-  return { ...tabItem(entry, index === 0), command: entry.command };
+  // The strip keeps the names it always had ("Noust and system updates"): the sidebar's are shorter, for a column of one word each.
+  return { ...tabItem(entry, index === 0), label: STRIP_LABEL[entry.id] ?? tabItem(entry, index === 0).label, command: entry.command };
 });
