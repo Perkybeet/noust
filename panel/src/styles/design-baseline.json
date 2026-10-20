@@ -27,7 +27,6 @@
       "components/ui/Mono.tsx": 1,
       "components/ui/Popover.tsx": 1,
       "components/ui/Skeleton.tsx": 1,
-      "components/ui/Switch.tsx": 2,
       "components/ui/Toast.tsx": 1,
       "lib/clipboard.ts": 1
     },
@@ -48,8 +47,7 @@
       "components/ui/Skeleton.tsx": 1
     },
     "colour-function": {
-      "components/ui/Button.tsx": 3,
-      "components/ui/Switch.tsx": 1
+      "components/ui/Button.tsx": 3
     },
     "confirm-hand-rolled": {},
     "dashed-empty": {},

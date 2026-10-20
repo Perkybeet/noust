@@ -31,7 +31,25 @@ export const common = {
     typeToConfirm: "Type {value} to confirm",
     failed: "The action failed. The system said:",
     whatSystemSaid: "What the system said",
+    couldNot: "Could not complete the action",
     onServer: "On {server}",
+  },
+  leaveGuard: {
+    title: "Discard unsaved changes?",
+    description: {
+      one: "Leaving this page discards {count} unsaved change.",
+      other: "Leaving this page discards {count} unsaved changes.",
+    },
+    discard: "Discard changes",
+    keep: "Keep editing",
+  },
+  setting: {
+    whatChanges: "What changes",
+    elevated: "Asks you to confirm it's you first",
+  },
+  rowActions: "Actions for {name}",
+  splitButton: {
+    more: "More options for {name}",
   },
   select: {
     placeholder: "Select",
@@ -151,6 +169,7 @@ export const common = {
   pageHeader: {
     moreActions: "More actions",
     server: "Server {server}",
+    place: "Where this lives",
   },
   filterBar: {
     search: "Search",
@@ -171,6 +190,9 @@ export const common = {
   },
   settingsLayout: {
     allSections: "All sections",
+    filter: "Filter sections",
+    filterPlaceholder: "Filter",
+    noMatches: "No section matches this filter.",
   },
   stepper: {
     label: "Steps",

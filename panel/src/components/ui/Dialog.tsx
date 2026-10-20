@@ -5,6 +5,7 @@ import type { ComponentType, ReactElement, ReactNode, RefObject } from "react";
 
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
+import { ResetPrimary } from "./demotePrimary";
 import { IconButton } from "./IconButton";
 import { useNeedsScrollFocus } from "./scrollable";
 
@@ -94,7 +95,7 @@ export function DialogFrame({
 }) {
   const titleId = useId();
   return (
-    <>
+    <ResetPrimary>
       <header className="flex shrink-0 items-start gap-4 px-5 pt-5 pb-1">
         <div className="min-w-0 flex-1">
           <Title id={titleId} className="title text-16 text-fg">
@@ -112,7 +113,7 @@ export function DialogFrame({
           {footer}
         </footer>
       ) : null}
-    </>
+    </ResetPrimary>
   );
 }
 

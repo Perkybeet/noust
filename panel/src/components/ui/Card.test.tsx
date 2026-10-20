@@ -5,6 +5,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { Button } from "./Button";
 import { Card } from "./Card";
 import { Skeleton } from "./Skeleton";
+import { StatusPill } from "./StatusPill";
 
 describe("Card", () => {
   it("titles its content with a heading at the requested level", () => {
@@ -80,6 +81,25 @@ describe("Card", () => {
     expect(container.firstElementChild).not.toHaveAttribute("aria-busy");
   });
 
+  it("puts a state right after the title, not among the actions", () => {
+    render(
+      <Card title="Instant rollback" status={<StatusPill state="running" label="On" size="sm" />} actions={<Button size="sm">Turn off…</Button>}>
+        <p>Body</p>
+      </Card>,
+    );
+    const heading = screen.getByRole("heading", { name: "Instant rollback" });
+    expect(heading.nextElementSibling).toHaveTextContent("On");
+    expect(screen.getByRole("button", { name: "Turn off…" }).parentElement).not.toContainElement(screen.getByText("On"));
+    // The heading is still the card's title and nothing but it.
+    expect(heading).toHaveTextContent(/^Instant rollback$/);
+  });
+
+  it("draws its title as before when it has no state", () => {
+    render(<Card title="Resources">x</Card>);
+    expect(screen.getByRole("heading", { name: "Resources" }).parentElement).toHaveClass("min-w-0");
+    expect(screen.getByRole("heading", { name: "Resources" }).nextElementSibling).toBeNull();
+  });
+
   it("has no accessibility violations", async () => {
     const { container } = render(
       <main>
@@ -88,6 +108,9 @@ describe("Card", () => {
         </Card>
         <Card padding="none">
           <p>Edge to edge</p>
+        </Card>
+        <Card title="Instant rollback" status={<StatusPill state="running" label="On" size="sm" />}>
+          <p>With a state</p>
         </Card>
       </main>,
     );

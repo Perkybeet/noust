@@ -79,11 +79,60 @@ describe("PageHeader", () => {
     expect(container.querySelector("header")).not.toHaveClass("mb-8");
   });
 
+  describe("place", () => {
+    it("says where the resource lives, in mono, above the title, each step a link to the list it filters", async () => {
+      await renderRouted(
+        <PageHeader
+          title="shop.example.com"
+          place={[
+            { label: "Acme", to: "/apps", search: { team: "acme" } },
+            { label: "Web", to: "/apps", search: { team: "acme", project: "web" } },
+            { label: "production", to: "/apps", search: { team: "acme", project: "web", environment: "production" } },
+          ]}
+        />,
+      );
+      const place = screen.getByRole("group", { name: "Where this lives" });
+      expect(within(place).getAllByRole("link").map((link) => link.textContent)).toEqual(["Acme", "Web", "production"]);
+      expect(within(place).getByRole("link", { name: "production" })).toHaveAttribute("href", expect.stringContaining("environment=production"));
+      expect(within(place).getByText("Acme")).toHaveAttribute("translate", "no");
+      expect(place).toHaveTextContent("Acme / Web / production");
+      // Above the title, not among the facts under it.
+      const heading = screen.getByRole("heading", { level: 1 });
+      expect(place.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("follows the server's name when the console manages several", async () => {
+      await renderRouted(<PageHeader title="shop.example.com" server="fra-1" place={[{ label: "Acme", to: "/apps" }]} />);
+      expect(screen.getByText("fra-1").closest("p")).toHaveTextContent("Server fra-1 · Acme");
+    });
+
+    it("draws nothing where there is nothing to tell apart", async () => {
+      await renderRouted(<PageHeader title="shop.example.com" place={[]} />);
+      expect(screen.queryByRole("group", { name: "Where this lives" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("puts what else is on the state's line after the state, on the same line as the title", async () => {
+    await renderRouted(
+      <PageHeader
+        title="shop.example.com"
+        status={<StatusPill state="running" />}
+        statusExtras={<button type="button">3 not applied</button>}
+      />,
+    );
+    const heading = screen.getByRole("heading", { level: 1 });
+    const chip = screen.getByRole("button", { name: "3 not applied" });
+    expect(chip.parentElement).toBe(heading.parentElement);
+    expect(heading.parentElement).toHaveTextContent(/Running\s*3 not applied/);
+  });
+
   it("has no accessibility violations", async () => {
     const { container } = await renderRouted(
       <PageHeader
         title="shop.example.com"
         mono
+        place={[{ label: "Acme", to: "/apps" }]}
+        statusExtras={<button type="button">3 not applied</button>}
         breadcrumbs={[{ label: "Applications", to: "/apps" }]}
         status={<StatusPill state="running" />}
         meta={<span>Next.js</span>}
