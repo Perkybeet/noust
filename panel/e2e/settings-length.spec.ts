@@ -28,7 +28,7 @@ import path from "node:path";
 
 import type { Page } from "@playwright/test";
 
-import { expect, settle, signIn, test } from "./fixtures";
+import { expect, settle, signIn, startConsoleServer, test } from "./fixtures";
 
 interface Entry {
   path: string;
@@ -184,7 +184,7 @@ async function heightOf(page: Page): Promise<number> {
   return last;
 }
 
-test("every settings subsection fits in a screen and a half, or says why not, and none grows", async ({ page, consoleServer }, testInfo) => {
+test("every settings subsection fits in a screen and a half, or says why not, and none grows", async ({ browser }, testInfo) => {
   // Heights do not depend on the theme: the dark project would measure the same.
   test.skip(testInfo.project.name !== "light", "the length of a page does not depend on the theme");
   test.setTimeout(420_000);
@@ -192,13 +192,24 @@ test("every settings subsection fits in a screen and a half, or says why not, an
   const routes = [...SERVER_SETTINGS, ...APPLICATION_SETTINGS];
   const measured: Record<string, { path: string; height: number; landed: string }> = {};
 
-  await signIn(page, consoleServer, routes[0]?.path);
-  for (const route of routes) {
-    await page.goto(route.path);
-    const height = await heightOf(page);
-    const landed = new URL(page.url()).pathname;
-    measured[route.id] = { path: route.path, height, landed };
-    console.log(`SETTINGS_LENGTH ${route.id} ${String(height)}${landed === route.path ? "" : ` (landed on ${landed})`}`);
+  // A server of its own, as the seed leaves it and set up as the suite's (two-factor sign-in): the audit trail and the
+  // list of sessions grow with whatever the worker's shared server was asked before (a save from another spec,
+  // another sign-in), and so would their pages.
+  const server = await startConsoleServer(["--totp", "--backup-codes", "20"]);
+  const context = await browser.newContext({ baseURL: server.url, viewport: { width: 1440, height: 900 } });
+  try {
+    const page = await context.newPage();
+    await signIn(page, server, routes[0]?.path);
+    for (const route of routes) {
+      await page.goto(route.path);
+      const height = await heightOf(page);
+      const landed = new URL(page.url()).pathname;
+      measured[route.id] = { path: route.path, height, landed };
+      console.log(`SETTINGS_LENGTH ${route.id} ${String(height)}${landed === route.path ? "" : ` (landed on ${landed})`}`);
+    }
+  } finally {
+    await context.close();
+    await server.stop();
   }
 
   if (WRITE) {
