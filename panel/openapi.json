@@ -2502,7 +2502,7 @@
         "type": "object"
       },
       "AppDomain": {
-        "description": "One domain an application answers on.\n\nAttributes:\n    domain: The domain.\n    kind: ``primary`` (the domain the application was deployed as),\n        ``alias`` (served the same) or ``redirect`` (sent permanently to\n        the primary).\n    created_at: When it was added, ISO 8601 with an explicit UTC offset.\n    port: The port of the application this name is proxied to, when it is not\n        the application's own.\n    temporary: Whether it is a name made of this server's address (sslip.io), good\n        for trying an application out and not for keeping.",
+        "description": "One domain an application answers on.\n\nAttributes:\n    domain: The domain.\n    kind: ``primary`` (the domain the application was deployed as),\n        ``alias`` (served the same) or ``redirect`` (sent permanently to\n        the primary).\n    created_at: When it was added, ISO 8601 with an explicit UTC offset.\n    port: The port of the application this name is proxied to, when it is not\n        the application's own.\n    temporary: Whether it is a name made of this server's address (sslip.io), good\n        for trying an application out and not for keeping.\n    enabled: Whether it is served. A name that is switched off keeps its row and its\n        port; the site and the certificate leave it out.",
         "properties": {
           "created_at": {
             "anyOf": [
@@ -2518,6 +2518,11 @@
           "domain": {
             "title": "Domain",
             "type": "string"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
           },
           "kind": {
             "title": "Kind",
@@ -17421,6 +17426,20 @@
         "title": "DoctorSectionOut",
         "type": "object"
       },
+      "DomainEnabledRequest": {
+        "description": "Whether a name is served.\n\nAttributes:\n    enabled: False lets the name rest (the site and the certificate leave it out, the\n        row and its DNS record stay); True serves it again.",
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "DomainEnabledRequest",
+        "type": "object"
+      },
       "DomainPortRequest": {
         "description": "The port of the application a name is proxied to.\n\nAttributes:\n    port: The port, 1 to 65535; null for the application's own.",
         "properties": {
@@ -17462,7 +17481,7 @@
             "type": "boolean"
           },
           "kind": {
-            "description": "loki, axiom, http, otlp or syslog",
+            "description": "loki, axiom, newrelic, http, otlp or syslog",
             "title": "Kind",
             "type": "string"
           },
@@ -29310,7 +29329,7 @@
         "type": "object"
       },
       "MetricModel": {
-        "description": "One measurement a rule may watch.\n\nAttributes:\n    id: What a rule names.\n    scope: ``server`` or ``app``.\n    unit: ``percent``, ``bytes``, ``bytes_s``, ``number`` or ``per_min``.",
+        "description": "One measurement a rule may watch.\n\nAttributes:\n    id: What a rule names.\n    scope: ``server`` or ``app``.\n    unit: ``percent``, ``bytes``, ``bytes_s``, ``number``, ``per_min`` or ``ms``.",
         "properties": {
           "id": {
             "title": "Id",
@@ -34046,7 +34065,7 @@
         "type": "object"
       },
       "PolicyFields": {
-        "description": "A site's policy, field by field.\n\nAttributes:\n    basic_auth: Ask visitors for a name and password.\n    realm: The sign-in prompt's title.\n    access: ``all`` (the password and the address list must both pass) or ``any``.\n    allow_ips: Addresses and networks allowed; everyone else is refused when there are any.\n    deny_ips: Addresses and networks refused first.\n    real_ip: ``off``, ``cloudflare`` or ``custom``.\n    real_ip_header: The header carrying the client address (``custom``).\n    trusted_proxies: The networks the header is believed from (``custom``).\n    rate_limit: Requests per client address, ``10r/s`` or ``300r/m``; empty for none.\n    rate_burst: Requests above the rate let through before refusing.\n    connection_limit: Concurrent connections per client address; 0 for none.\n    headers: Response headers set by the operator, over the defaults.\n    hidden_headers: Default headers the site does not send.\n    hsts: ``default`` (the server's setting), ``on`` or ``off``.\n    noindex: Tell search engines not to index the site.\n    canonical: ``www``, ``apex`` or empty.\n    forward_auth: The authentication service requests are asked about; None for none.\n    http3: Serve the site over HTTP/3 (QUIC) as well.\n    client_certs: Answer only a visitor with a certificate the site's own authority signed.\n    waf: The web application firewall: ``detect``, ``block`` or empty for none.\n    waf_exclusions: Numbers of the rules the firewall leaves out for this site.\n    routes: What happens at prefixes of the site, longest path first.",
+        "description": "A site's policy, field by field.\n\nAttributes:\n    basic_auth: Ask visitors for a name and password.\n    realm: The sign-in prompt's title.\n    access: ``all`` (the password and the address list must both pass) or ``any``.\n    allow_ips: Addresses and networks allowed; everyone else is refused when there are any.\n    deny_ips: Addresses and networks refused first.\n    real_ip: ``off``, ``cloudflare`` or ``custom``.\n    real_ip_header: The header carrying the client address (``custom``).\n    trusted_proxies: The networks the header is believed from (``custom``).\n    rate_limit: Requests per client address, ``10r/s`` or ``300r/m``; empty for none.\n    rate_burst: Requests above the rate let through before refusing.\n    connection_limit: Concurrent connections per client address; 0 for none.\n    headers: Response headers set by the operator, over the defaults.\n    hidden_headers: Default headers the site does not send.\n    hsts: ``default`` (the server's setting), ``on`` or ``off``.\n    noindex: Tell search engines not to index the site.\n    canonical: ``www``, ``apex`` or empty.\n    forward_auth: The authentication service requests are asked about; None for none.\n    http3: Serve the site over HTTP/3 (QUIC) as well.\n    client_certs: Answer only a visitor with a certificate the site's own authority signed.\n    waf: The web application firewall: ``detect``, ``block`` or empty for none.\n    waf_exclusions: Numbers of the rules the firewall leaves out for this site.\n    routes: What happens at prefixes of the site, longest path first.\n    force_https: Whether port 80 is sent to HTTPS once the site has a certificate. False\n        leaves the site answering on both (nginx only).",
         "properties": {
           "access": {
             "default": "all",
@@ -34086,6 +34105,11 @@
             },
             "title": "Deny Ips",
             "type": "array"
+          },
+          "force_https": {
+            "default": true,
+            "title": "Force Https",
+            "type": "boolean"
           },
           "forward_auth": {
             "anyOf": [
@@ -34182,7 +34206,7 @@
         "type": "object"
       },
       "PolicyRequest": {
-        "description": "Changes to a policy. A field left out is not changed.\n\nAttributes:\n    basic_auth: See :class:`PolicyFields`.\n    realm: See :class:`PolicyFields`.\n    access: See :class:`PolicyFields`.\n    allow_ips: See :class:`PolicyFields`.\n    deny_ips: See :class:`PolicyFields`.\n    real_ip: See :class:`PolicyFields`.\n    real_ip_header: See :class:`PolicyFields`.\n    trusted_proxies: See :class:`PolicyFields`.\n    rate_limit: See :class:`PolicyFields`; an empty string clears it.\n    rate_burst: See :class:`PolicyFields`.\n    connection_limit: See :class:`PolicyFields`.\n    headers: Replaces the operator's headers whole.\n    hidden_headers: Replaces the list of default headers left out.\n    hsts: ``default``, ``on`` or ``off``.\n    noindex: See :class:`PolicyFields`.\n    canonical: See :class:`PolicyFields`; an empty string clears it.\n    forward_auth: Ask this authentication service about every request; an empty ``url``\n        turns it off. The server's to name (it is an address nginx will call), and refused\n        while the service does not answer unless ``accept_unreachable_auth`` is set.\n    http3: Serve the site over HTTP/3 as well; refused where the server cannot.\n    client_certs: Answer only a visitor with a client certificate (``/client-certs`` makes\n        them); refused while none is valid unless ``accept_lockout`` is set, on Apache and\n        on a site with no HTTPS.\n    waf: ``detect`` (write down what the rules see), ``block`` (refuse what they score too\n        high), or ``off``; refused where the server has no ModSecurity.\n    waf_exclusions: Replaces the numbers of the rules left out for this site whole.\n    routes: Replaces the routes whole; an empty list clears them. A route that hands a\n        prefix to a port no visible application listens on is the server's to ask for.\n    accept_lockout: Go ahead although the lists refuse the caller's own address.\n    accept_unreachable_auth: Go ahead although the authentication service does not answer.",
+        "description": "Changes to a policy. A field left out is not changed.\n\nAttributes:\n    basic_auth: See :class:`PolicyFields`.\n    realm: See :class:`PolicyFields`.\n    access: See :class:`PolicyFields`.\n    allow_ips: See :class:`PolicyFields`.\n    deny_ips: See :class:`PolicyFields`.\n    real_ip: See :class:`PolicyFields`.\n    real_ip_header: See :class:`PolicyFields`.\n    trusted_proxies: See :class:`PolicyFields`.\n    rate_limit: See :class:`PolicyFields`; an empty string clears it.\n    rate_burst: See :class:`PolicyFields`.\n    connection_limit: See :class:`PolicyFields`.\n    headers: Replaces the operator's headers whole.\n    hidden_headers: Replaces the list of default headers left out.\n    hsts: ``default``, ``on`` or ``off``.\n    noindex: See :class:`PolicyFields`.\n    canonical: See :class:`PolicyFields`; an empty string clears it.\n    forward_auth: Ask this authentication service about every request; an empty ``url``\n        turns it off. The server's to name (it is an address nginx will call), and refused\n        while the service does not answer unless ``accept_unreachable_auth`` is set.\n    http3: Serve the site over HTTP/3 as well; refused where the server cannot.\n    client_certs: Answer only a visitor with a client certificate (``/client-certs`` makes\n        them); refused while none is valid unless ``accept_lockout`` is set, on Apache and\n        on a site with no HTTPS.\n    waf: ``detect`` (write down what the rules see), ``block`` (refuse what they score too\n        high), or ``off``; refused where the server has no ModSecurity.\n    waf_exclusions: Replaces the numbers of the rules left out for this site whole.\n    routes: Replaces the routes whole; an empty list clears them. A route that hands a\n        prefix to a port no visible application listens on is the server's to ask for.\n    force_https: See :class:`PolicyFields`; refused on Apache and while HSTS is on.\n    accept_lockout: Go ahead although the lists refuse the caller's own address.\n    accept_unreachable_auth: Go ahead although the authentication service does not answer.",
         "properties": {
           "accept_lockout": {
             "default": false,
@@ -34276,6 +34300,17 @@
               }
             ],
             "title": "Deny Ips"
+          },
+          "force_https": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Force Https"
           },
           "forward_auth": {
             "anyOf": [
@@ -34793,6 +34828,83 @@
           "preview"
         ],
         "title": "PreviewDetailResponse",
+        "type": "object"
+      },
+      "PreviewDnsResponse": {
+        "description": "Whether the names of an application's previews reach this server.\n\nAttributes:\n    app_domain: The application.\n    base_domain: The domain previews answer under.\n    probe: A name shaped like a preview's, which was resolved.\n    wildcard: The record that covers it.\n    verdict: ``here``, ``cdn``, ``elsewhere``, ``none`` or ``unknown``.\n    cdn: The CDN every address belongs to, when the verdict is ``cdn``.\n    resolved_addresses: What the probe resolves to.\n    expected_addresses: This server's addresses.\n    ok: Whether a preview would be reached.\n    advice: The record to add or change, when it would not.",
+        "properties": {
+          "advice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Advice"
+          },
+          "app_domain": {
+            "title": "App Domain",
+            "type": "string"
+          },
+          "base_domain": {
+            "title": "Base Domain",
+            "type": "string"
+          },
+          "cdn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cdn"
+          },
+          "expected_addresses": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Expected Addresses",
+            "type": "array"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "probe": {
+            "title": "Probe",
+            "type": "string"
+          },
+          "resolved_addresses": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Resolved Addresses",
+            "type": "array"
+          },
+          "verdict": {
+            "title": "Verdict",
+            "type": "string"
+          },
+          "wildcard": {
+            "title": "Wildcard",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_domain",
+          "base_domain",
+          "probe",
+          "wildcard",
+          "verdict",
+          "resolved_addresses",
+          "expected_addresses",
+          "ok"
+        ],
+        "title": "PreviewDnsResponse",
         "type": "object"
       },
       "PreviewLogsResponse": {
@@ -44733,7 +44845,7 @@
             "type": "boolean"
           },
           "kind": {
-            "description": "loki, axiom, http, otlp or syslog",
+            "description": "loki, axiom, newrelic, http, otlp or syslog",
             "title": "Kind",
             "type": "string"
           },
@@ -54262,11 +54374,33 @@
         "type": "object"
       },
       "TrafficPointModel": {
-        "description": "One hour (or day) of an application's traffic.\n\nAttributes:\n    ts: Where it starts, epoch seconds UTC.\n    requests: Requests.\n    s2xx: Answered 2xx.\n    s3xx: Answered 3xx.\n    s4xx: Answered 4xx.\n    s5xx: Answered 5xx.\n    bytes: Bytes of response bodies.",
+        "description": "One hour (or day) of an application's traffic.\n\nAttributes:\n    ts: Where it starts, epoch seconds UTC.\n    requests: Requests.\n    s2xx: Answered 2xx.\n    s3xx: Answered 3xx.\n    s4xx: Answered 4xx.\n    s5xx: Answered 5xx.\n    bytes: Bytes of response bodies.\n    latency_p50_ms: The median time a request took, in milliseconds; null when no request\n        of the step said how long it took (the site's log is from before it was written).\n    latency_p95_ms: The p95 of it.\n    visitors: How many different visitors there were; null when their sketches are gone\n        (they are kept 90 days) or were never made.",
         "properties": {
           "bytes": {
             "title": "Bytes",
             "type": "integer"
+          },
+          "latency_p50_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency P50 Ms"
+          },
+          "latency_p95_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency P95 Ms"
           },
           "requests": {
             "title": "Requests",
@@ -54291,6 +54425,17 @@
           "ts": {
             "title": "Ts",
             "type": "integer"
+          },
+          "visitors": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visitors"
           }
         },
         "required": [
@@ -67309,6 +67454,69 @@
         "x-noust-permission": "apps.read"
       }
     },
+    "/api/apps/{domain}/domains/{name}/enabled": {
+      "put": {
+        "description": "Switch a name off without deleting it, or serve it again.\n\nThe site is re-rendered and reloaded before this returns. When the site serves TLS,\nordering the certificate again (without the name, or with it) is queued as a job.\n\nArgs:\n    domain: The application's primary domain.\n    name: The alias or redirect.\n    data: Whether it is served.\n    session: Authenticated session, injected.\n\nReturns:\n    The application's domains afterwards.\n\nRaises:\n    DomainError: The name is the primary or the canonical pair, or not the application's.",
+        "operationId": "put_domain_enabled_api_apps__domain__domains__name__enabled_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainEnabledRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppDomainChange"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Domain Enabled",
+        "tags": [
+          "Domains"
+        ],
+        "x-noust-permission": "apps.manage"
+      }
+    },
     "/api/apps/{domain}/domains/{name}/port": {
       "put": {
         "description": "Choose which port of the application an alias is proxied to.\n\nArgs:\n    domain: The application's primary domain.\n    name: The alias.\n    data: The port, or null for the application's own.\n    session: Authenticated session, injected.\n\nReturns:\n    The application's domains afterwards.",
@@ -70237,6 +70445,50 @@
         ],
         "x-noust-permission": "apps.deploy",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/previews/dns": {
+      "get": {
+        "description": "Resolve the name the next preview would get, and say which record covers it.\n\nArgs:\n    domain: The application.\n    session: The authenticated session.\n\nReturns:\n    The verdict, and the record to add when the name does not reach this server.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: Previews are off for it (400).",
+        "operationId": "get_preview_dns_api_apps__domain__previews_dns_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewDnsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Preview Dns",
+        "tags": [
+          "Previews"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/apps/{domain}/previews/pull-requests": {

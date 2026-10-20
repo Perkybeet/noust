@@ -313,7 +313,7 @@ class _FakeStore(NetworkTables):
     def delete_site(self, domain: str) -> bool:
         return True
 
-    def list_domains(self, app_domain: str) -> list[Any]:
+    def list_domains(self, app_domain: str, *, include_disabled: bool = True) -> list[Any]:
         return []
 
     def domain_owner(self, domain: str) -> None:

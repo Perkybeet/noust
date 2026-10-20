@@ -50,6 +50,8 @@ from tests.database_public_support import (
     public_engine,
 )
 
+pytestmark = pytest.mark.real_listeners
+
 ENGINE = "postgresql"
 DATABASE = "appdb"
 PASSWORD = "Once-0nly-Generated-9!"
@@ -257,7 +259,20 @@ class TestThePlan:
         with pytest.raises(ValidationError, match="already the public port of postgresql/appdb"):
             world.access.plan(ENGINE, "second", port=6000)
 
-    def test_a_port_published_as_a_tcp_or_udp_stream_is_refused(self, world: World) -> None:
+    def test_a_port_published_as_a_tcp_stream_is_refused(self, world: World) -> None:
+        StreamStore(world.access.exposures.store).create(
+            StreamExposure(
+                name="game",
+                protocol="tcp",
+                listen_port=6100,
+                target_host="127.0.0.1",
+                target_port=19132,
+            )
+        )
+        with pytest.raises(ValidationError, match="Port 6100 is taken"):
+            world.access.plan(ENGINE, DATABASE, port=6100)
+
+    def test_the_same_number_published_over_udp_is_another_port(self, world: World) -> None:
         StreamStore(world.access.exposures.store).create(
             StreamExposure(
                 name="game",
@@ -267,8 +282,7 @@ class TestThePlan:
                 target_port=19132,
             )
         )
-        with pytest.raises(ValidationError, match="Port 6100 is taken"):
-            world.access.plan(ENGINE, DATABASE, port=6100)
+        assert world.access.plan(ENGINE, DATABASE, port=6100).port == 6100
 
     def test_the_next_suggestion_skips_what_is_open(self, world: World) -> None:
         open_it(world)

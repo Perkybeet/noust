@@ -2040,6 +2040,237 @@ Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
 Cambia lo que recibes en Ajustes > Notificaciones
 
 ========================================================================
+### webserver.restarted
+Subject: [Noust] Servidor web reiniciado: nginx (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: unit_failed
+X-Noust-Code: webserver.restarted
+X-Noust-Server: web-1
+
+▲ Servidor web reiniciado · nginx
+Había dejado de funcionar y Noust lo ha arrancado de nuevo tras pasar su prueba de configuración.
+
+Servidor: web-1
+Revísalo con: journalctl -u nginx -n 50
+
+Abrir en la consola: https://console.example.com/n/web-1/server
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### webserver.down
+Subject: [Noust] Servidor web caído: nginx (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: unit_failed
+X-Noust-Code: webserver.down
+X-Noust-Server: web-1
+
+✕ Servidor web caído · nginx
+No está en marcha y el reinicio automático está desactivado.
+
+Servidor: web-1
+Revísalo con: journalctl -u nginx -n 50
+
+Abrir en la consola: https://console.example.com/n/web-1/server
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### webserver.config_invalid
+Subject: [Noust] El servidor web no puede arrancar: nginx (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: unit_failed
+X-Noust-Code: webserver.config_invalid
+X-Noust-Server: web-1
+
+✕ El servidor web no puede arrancar · nginx
+No está en marcha y su configuración no pasa su propia prueba, así que Noust no lo ha reiniciado.
+
+Servidor: web-1
+Compruébalo con: nginx -t
+
+Lo que ha informado el sistema:
+  nginx: [emerg] unknown directive "servre_name" in /etc/nginx/sites-enabled/shop.example.com:4
+  nginx: configuration file /etc/nginx/nginx.conf test failed
+
+Abrir en la consola: https://console.example.com/n/web-1/server
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### webserver.restart_failed
+Subject: [Noust] Ha fallado el reinicio del servidor web: nginx (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: unit_failed
+X-Noust-Code: webserver.restart_failed
+X-Noust-Server: web-1
+
+✕ Ha fallado el reinicio del servidor web · nginx
+No está en marcha y arrancarlo de nuevo no ha funcionado.
+
+Servidor: web-1
+Revísalo con: journalctl -u nginx -n 50
+
+Lo que ha informado el sistema:
+  Job for nginx.service failed because the control process exited with error code.
+
+Abrir en la consola: https://console.example.com/n/web-1/server
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### webserver.limit
+Subject: [Noust] El servidor web sigue cayendo: nginx (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: unit_failed
+X-Noust-Code: webserver.limit
+X-Noust-Server: web-1
+
+✕ El servidor web sigue cayendo · nginx
+Ha caído 3 veces en la última hora, así que Noust ha dejado de arrancarlo de nuevo.
+
+Servidor: web-1
+Revísalo con: journalctl -u nginx -n 50
+
+Abrir en la consola: https://console.example.com/n/web-1/server
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### webserver.stopped
+Subject: [Noust] Servidor web detenido: nginx (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: unit_failed
+X-Noust-Code: webserver.stopped
+X-Noust-Server: web-1
+
+▲ Servidor web detenido · nginx
+Está detenido pero arranca con el sistema, así que todos los sitios de este servidor están caídos hasta que alguien lo arranque.
+
+Servidor: web-1
+Arráncalo con: systemctl start nginx
+
+Abrir en la consola: https://console.example.com/n/web-1/server
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### security.release
+Subject: [Noust] Versión de seguridad disponible: Noust 3.3.2 (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: security_release
+X-Noust-Code: security.release
+X-Noust-Server: web-1
+
+▲ Versión de seguridad disponible · Noust 3.3.2
+Noust 3.3.2 corrige una vulnerabilidad y este servidor sigue en la versión 3.3.1.
+
+Servidor: web-1
+En marcha: 3.3.1
+Corregida en: 3.3.2
+Aviso: https://github.com/Perkybeet/noust/security/advisories/GHSA-aaaa-bbbb-cccc
+Actualiza con: pipx upgrade noust
+
+Abrir en la consola: https://console.example.com/n/web-1/settings/about
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### container.restart_loop
+Subject: [Noust] Contenedor reiniciándose en bucle: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: container_restart_loop
+X-Noust-Code: container.restart_loop
+X-Noust-Server: web-1
+
+✕ Contenedor reiniciándose en bucle · shop.example.com
+Docker lo ha reiniciado 6 veces desde que se vio por primera vez, y el límite es 5.
+
+Servidor: web-1
+Contenedor: shop-worker-1
+Reinicios: 6
+Último código de salida: 1
+Revísalo con: docker logs --tail 50 shop-worker-1
+
+Lo que ha informado el sistema:
+  Error: connect ECONNREFUSED 10.0.0.4:5432
+      at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16)
+  worker exiting with status 1
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### container.recovered
+Subject: [Noust] Contenedor estable de nuevo: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: container_restart_loop
+X-Noust-Code: container.recovered
+X-Noust-Server: web-1
+
+● Contenedor estable de nuevo · shop.example.com
+Lleva 7 minutos en marcha sin reiniciarse.
+
+Servidor: web-1
+Contenedor: shop-worker-1
+Revísalo con: docker logs --tail 50 shop-worker-1
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### recipe.outdated
+Subject: [Noust] Actualizaciones de recetas disponibles (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: recipe_outdated
+X-Noust-Code: recipe.outdated
+X-Noust-Server: web-1
+
+○ Actualizaciones de recetas disponibles
+2 recetas instaladas tienen una versión más nueva en el catálogo.
+
+Servidor: web-1
+Receta: vault.example.com: 1.37.4 -> 1.38.0
+Receta: blog.example.com: 5.0.1 -> 5.1.0
+Actualiza con: noust recipe outdated
+
+Abrir en la consola: https://console.example.com/n/web-1/catalog
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
 ### hostile.deploy_failed
 Subject: [Noust] Despliegue fallido: shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
 Auto-Submitted: auto-generated

@@ -2524,6 +2524,251 @@
       }
     ]
   },
+  "webserver.restarted": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Web server restarted · nginx",
+        "color": "#e3a73c",
+        "title": "▲ Web server restarted · nginx",
+        "text": "It had stopped working and Noust started it again once its configuration test passed.\n\n**Inspect with:** `journalctl -u nginx -n 50`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "webserver.down": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Web server down · nginx",
+        "color": "#cf3a30",
+        "title": "✕ Web server down · nginx",
+        "text": "It is not running, and the automatic restart is switched off.\n\n**Inspect with:** `journalctl -u nginx -n 50`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "webserver.config_invalid": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Web server cannot start · nginx",
+        "color": "#cf3a30",
+        "title": "✕ Web server cannot start · nginx",
+        "text": "It is not running and its configuration does not pass its own test, so Noust did not restart it.\n\n**Check it with:** `nginx -t`\n\n*What the system reported*\n```\nnginx: [emerg] unknown directive \"servre_name\" in /etc/nginx/sites-enabled/shop.example.com:4\nnginx: configuration file /etc/nginx/nginx.conf test failed\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "webserver.restart_failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Web server restart failed · nginx",
+        "color": "#cf3a30",
+        "title": "✕ Web server restart failed · nginx",
+        "text": "It is not running and starting it again did not work.\n\n**Inspect with:** `journalctl -u nginx -n 50`\n\n*What the system reported*\n```\nJob for nginx.service failed because the control process exited with error code.\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "webserver.limit": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Web server keeps falling · nginx",
+        "color": "#cf3a30",
+        "title": "✕ Web server keeps falling · nginx",
+        "text": "It has fallen 3 times in the last hour, so Noust stopped starting it again.\n\n**Inspect with:** `journalctl -u nginx -n 50`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "webserver.stopped": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Web server stopped · nginx",
+        "color": "#e3a73c",
+        "title": "▲ Web server stopped · nginx",
+        "text": "It is stopped but starts at boot, so every site on this server is down until somebody starts it.\n\n**Start it with:** `systemctl start nginx`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "security.release": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Security release available · Noust 3.3.2",
+        "color": "#e3a73c",
+        "title": "▲ Security release available · Noust 3.3.2",
+        "text": "Noust 3.3.2 fixes a vulnerability and this server still runs 3.3.1.\n\n**Update with:** `pipx upgrade noust`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Running",
+            "value": "3.3.1"
+          },
+          {
+            "short": true,
+            "title": "Fixed in",
+            "value": "3.3.2"
+          },
+          {
+            "short": false,
+            "title": "Advisory",
+            "value": "`https://github.com/Perkybeet/noust/security/advisories/GHSA-aaaa-bbbb-cccc`"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/settings/about"
+      }
+    ]
+  },
+  "container.restart_loop": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Container restarting in a loop · shop.example.com",
+        "color": "#cf3a30",
+        "title": "✕ Container restarting in a loop · shop.example.com",
+        "text": "Docker has restarted it 6 times since it was first seen, and the limit is 5.\n\n**Inspect with:** `docker logs --tail 50 shop-worker-1`\n\n*What the system reported*\n```\nError: connect ECONNREFUSED 10.0.0.4:5432\n    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16)\nworker exiting with status 1\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Container",
+            "value": "`shop-worker-1`"
+          },
+          {
+            "short": true,
+            "title": "Restarts",
+            "value": "6"
+          },
+          {
+            "short": true,
+            "title": "Last exit code",
+            "value": "1"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ]
+  },
+  "container.recovered": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Container stable again · shop.example.com",
+        "color": "#4dc47e",
+        "title": "● Container stable again · shop.example.com",
+        "text": "It has run for 7 minutes without restarting.\n\n**Inspect with:** `docker logs --tail 50 shop-worker-1`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Container",
+            "value": "`shop-worker-1`"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ]
+  },
+  "recipe.outdated": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "○ Recipe updates available",
+        "color": "#9e9e9e",
+        "title": "○ Recipe updates available",
+        "text": "2 installed recipes have a newer version in the catalogue.\n\n**Update with:** `noust recipe outdated`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Recipe",
+            "value": "`vault.example.com: 1.37.4 -> 1.38.0`"
+          },
+          {
+            "short": true,
+            "title": "Recipe",
+            "value": "`blog.example.com: 5.0.1 -> 5.1.0`"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/catalog"
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "username": "Noust",
     "attachments": [

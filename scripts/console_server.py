@@ -8242,6 +8242,7 @@ def seed_showcase_machine_metrics() -> None:
                 ("mem.used_bytes", mem_used),
                 ("mem.total_bytes", float(mem_total)),
                 ("swap.used_bytes", mem_total * 0.015),
+                ("swap.total_bytes", float(2 * 1024**3)),
                 ("disk.used_bytes", disk_used),
                 ("disk.total_bytes", float(disk_total)),
                 ("net.rx_bytes_s", net_rx),

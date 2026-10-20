@@ -112,6 +112,8 @@ export const network: Catalog<typeof en> = {
       hstsOff: "No enviarla nunca",
       noindex: "Pedir a los buscadores que no indexen este sitio",
       noindexHelp: "Envía X-Robots-Tag: noindex. Buena idea para todo lo que no sea público.",
+      forceHttps: "Enviar a HTTPS a quien llegue por el puerto 80",
+      forceHttpsHelp: "Cuando el sitio tiene certificado. Desactívalo para un cliente que no sigue redirecciones: el sitio responde entonces en los dos puertos y nunca envía HSTS. Solo nginx.",
       custom: "Cabeceras que enviar",
       customHelp: "Una por línea como Nombre: valor. Sustituyen a las predeterminadas del mismo nombre.",
       hidden: "Cabeceras predeterminadas que omitir",

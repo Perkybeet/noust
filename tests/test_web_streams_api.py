@@ -24,7 +24,7 @@ from fastapi.testclient import TestClient
 
 from noust.core.runner import FakeRunner
 from noust.core.store import NoustStore
-from noust.managers import stream_exposure as stream_module
+from noust.managers import port_claims as port_claims_module
 from noust.managers.stream_exposure import StreamExposures
 from noust.web.api import streams as streams_api
 from noust.web.api.deps import install_error_handlers
@@ -35,6 +35,8 @@ from tests.test_stream_exposure import (
     FakeFirewall,
     dump,
 )
+
+pytestmark = pytest.mark.real_listeners
 
 BEARER = {"sid": "token", "scope": "admin", "source": "bearer", "type": "api_token"}
 COOKIE = {"sid": "s1", "scope": "admin", "source": "cookie", "type": "session"}
@@ -75,7 +77,7 @@ def wired(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        stream_module, "Config", lambda: SimpleNamespace(get=lambda key, default=None: default)
+        port_claims_module, "Config", lambda: SimpleNamespace(get=lambda key, default=None: default)
     )
     conf = tmp_path / "etc-nginx"
     (conf / "modules-enabled").mkdir(parents=True)

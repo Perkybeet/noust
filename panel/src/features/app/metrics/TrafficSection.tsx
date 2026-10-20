@@ -19,7 +19,7 @@ import { Chart, ChartSkeleton } from "../../../components/ui/Chart";
 import { Mono } from "../../../components/ui/Mono";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
-import { formatBytes, formatCount, formatPercent } from "../../../lib/format";
+import { formatBytes, formatCount, formatDuration, formatPercent } from "../../../lib/format";
 
 const CHART_HEIGHT = 180;
 const DAY_S = 86_400;
@@ -80,6 +80,16 @@ function TrafficBody({ traffic }: { traffic: AppTraffic }) {
         />
         <StatTile label={t("appTraffic.traffic.clientErrors")} value={formatCount(totals.s4xx, t.locale)} />
         <StatTile label={t("appTraffic.traffic.served")} value={formatBytes(totals.bytes, t.locale)} />
+        {totals.visitors !== null && totals.visitors !== undefined ? (
+          <StatTile label={t("appTraffic.traffic.visitors")} value={formatCount(totals.visitors, t.locale)} detail={t("appTraffic.traffic.visitorsDetail")} />
+        ) : null}
+        {totals.latency_p95_ms !== null && totals.latency_p95_ms !== undefined ? (
+          <StatTile
+            label={t("appTraffic.traffic.latency")}
+            value={formatDuration(totals.latency_p95_ms / 1000, t.locale)}
+            detail={t("appTraffic.traffic.latencyDetail", { median: formatDuration((totals.latency_p50_ms ?? 0) / 1000, t.locale) })}
+          />
+        ) : null}
       </div>
       {totals.requests === 0 ? (
         <p role="status" className="text-13 text-fg-muted">

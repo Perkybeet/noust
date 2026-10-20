@@ -916,7 +916,8 @@ is off by default and its runs are in the audit trail.
 | Path | Mode | Holds |
 |---|---|---|
 | `/etc/noust/` | `0700` | Configuration and the console's state |
-| `/etc/noust/config.yaml` | `0600` | Configuration, secrets included. `noust config get` and the API print secrets as `***`; `noust config show` prints them in clear |
+| `/etc/noust/config.yaml` | `0600` | Configuration; the notification channels' secrets are encrypted in it. `noust config get` and the API print secrets as `***`; `noust config show` prints them in clear |
+| `/etc/noust/secrets.key` | `0600` | The key of the encrypted secrets (the channels' in `config.yaml`, the backup destinations'). Keep it with the backup of `/etc/noust`: without it those secrets are entered again |
 | `/etc/noust/web-secret` | `0600` | Signing key for sessions and token hashes |
 | `/etc/noust/web-token` | `0600` | Hash of the master token |
 | `/etc/noust/web-totp` | `0600` | TOTP secret and backup code hashes |
@@ -1043,16 +1044,22 @@ goes (ENS mp.si.2, mp.info.6):
 
 ## Secrets at rest
 
-Noust keeps a secret in a file only root can read, beside the data it belongs to, and does **not**
-encrypt it under a key kept on the same machine: whoever reads the file as root reads the key as root,
-so that would be a claim and not a protection. The guarantee is about the copies:
+Noust keeps a secret in a file only root can read, beside the data it belongs to. Two kinds are also
+**encrypted** under a key in a file of its own (`/etc/noust/secrets.key`, 0600): the credentials of
+the backup destinations and the secrets of the notification channels in `config.yaml` (webhook URLs,
+bot tokens, the SMTP password, a mail provider's key, a webhook's headers). That protects against a
+copy: a `config.yaml` pasted in a ticket or kept in a backup that left the key out discloses nothing.
+It is not a protection against root on the same machine, who reads the key as well, and Noust does not
+say it is. The rest of the guarantee is about the copies too:
 
 - **Where they live.** Credentials Noust holds for itself (a registry's password, a backup
   destination's key, a GitHub App's private key, a node's token) are one 0600 file each under
   `secrets/` beside the store, and the database holds only their names. `/etc/noust/config.yaml`
-  holds the few that are configuration (the SMTP password, the notification channels' tokens, the
-  database administrators' passwords), 0600 as well. A central can seal the secret store under a
-  passphrase (`docs/CENTRAL.md`).
+  holds the few that are configuration: the notification channels' secrets encrypted as said, and
+  the database administrators' passwords as text, 0600 as well. `noust config protect` encrypts
+  what a file written before 4.0 still holds as text (the console does it when it starts), and
+  losing `secrets.key` makes those channels unreadable until their secrets are entered again.
+  A central can seal the secret store under a passphrase (`docs/CENTRAL.md`).
 - **They do not travel.** No read of the API returns one (the configuration, the variables and the
   exports show `***`; what reveals a secret on purpose needs a name or a parameter, a permission
   and sudo mode, and leaves an audit event); `noust app export` leaves them out unless

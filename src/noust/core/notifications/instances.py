@@ -48,7 +48,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from noust.core.notifications.model import EVENT_KINDS, Notification
-from noust.core.notifications.render import pagerduty
+from noust.core.notifications.render import pagerduty, webhook
 from noust.core.notifications.routing import Flood, QuietHours, Route, Routing, Summary
 from noust.core.notifier_requests import MATRIX_ROOM_ID
 from noust.validators.discord import validate_discord_id
@@ -147,7 +147,11 @@ TYPES: dict[str, ChannelType] = {
     for spec in (
         ChannelType(
             "webhook",
-            (ChannelField("webhook_url", True, True), ChannelField("secret", True)),
+            (
+                ChannelField("webhook_url", True, True),
+                ChannelField("secret", True),
+                ChannelField("webhook_headers", True),
+            ),
         ),
         ChannelType("slack", (ChannelField("webhook_url", True, True),)),
         ChannelType(
@@ -342,6 +346,14 @@ def _check_type_settings(kind: str, block: Mapping[str, Any], where: str) -> Non
         # the stored one takes its place when the block is written.
         if url and url != REDACTED and not re.match(r"https?://[^\s/]+", url, re.IGNORECASE):
             raise ValueError(f"{where}.{key} must be an http:// or https:// URL")
+    if kind == "webhook":
+        headers = str(block.get("webhook_headers") or "")
+        # "***" is the credential a form was shown redacted and sends back unchanged.
+        if headers.strip() and headers.strip() != REDACTED:
+            try:
+                webhook.parse_headers(headers)
+            except ValueError as exc:
+                raise ValueError(f"{where}.webhook_headers: {exc}") from exc
     if kind == "telegram":
         chat = str(block.get("chat_id") or "").strip()
         if chat:

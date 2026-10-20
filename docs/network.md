@@ -33,6 +33,7 @@ noust app policy ranges --refresh                                   # Cloudflare
 | Limits | Requests per client address (`10r/s`, `300r/m`, a burst) and concurrent connections. nginx only. |
 | Headers | The defaults (X-Frame-Options, nosniff, Referrer-Policy) stay unless hidden; yours replace those of the same name; HSTS follows the server or is forced on or off; `--noindex` sends `X-Robots-Tag: noindex`. |
 | Preferred spelling | `www` or the bare name is served and the other redirects to it, over TLS too. |
+| HTTP | `--no-force-https` leaves a site with a certificate answering on port 80 as well, with no redirect and no HSTS (nginx only; see [domains.md](domains.md#answering-over-http-as-well)). |
 
 **What is never closed.** The path certificates are checked on (`/.well-known/acme-challenge/`)
 keeps `auth_basic off; allow all;`, so a password does not stop renewals.
@@ -472,6 +473,15 @@ It publishes in this order, and stops at the first thing that is wrong:
 4. The **firewall** is told to allow the port for the sources given, through the one firewall
    manager: allow rules only, and only what Noust made is closed with the port. A rule that was
    already there stays.
+
+**Who holds a port** is one answer, kept by one registry (`managers/port_claims.py`): the ports of
+applications (and the second one of a zero-downtime pair), the ports a Compose stack publishes (read
+from its file, and from its running containers), streams, databases made public, the engines Noust runs
+itself, SSH's, the console's and what the kernel says listens. An application, a stream, a database
+and a Compose stack are all asked the same way, so a stack that publishes `18081` is refused, naming
+the holder and before Docker is asked, when anything else holds it; the stack that holds a port is not
+refused it on an update. Someone who sees every application is told whose port it is; a team's
+request is told only that it belongs to another application.
 
 The backend must be an IP address (a name would be looked up when nginx reads its configuration,
 and a lookup that fails keeps nginx from reloading). An exposure interrupted half way is finished by

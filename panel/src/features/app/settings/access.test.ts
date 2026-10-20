@@ -19,6 +19,7 @@ const POLICY: PolicyFields = {
   hidden_headers: [],
   hsts: "default",
   noindex: false,
+  force_https: true,
   canonical: "",
   http3: false,
   client_certs: false,
@@ -105,6 +106,17 @@ describe("changesOf", () => {
     const stored = { ...POLICY, allow_ips: ["10.0.0.1", "10.0.0.2"] };
 
     expect(changesOf({ ...draftOf(stored), allow: "10.0.0.1, 10.0.0.2\n" }, stored).count).toBe(0);
+  });
+});
+
+describe("forcing HTTPS", () => {
+  it("is on in the form of a stored policy that forces it, and sends only a change", () => {
+    expect(draftOf(POLICY).force_https).toBe(true);
+    expect(changesOf(draftOf(POLICY), POLICY)).toEqual({ count: 0, body: {} });
+    expect(changesOf({ ...draftOf(POLICY), force_https: false }, POLICY)).toEqual({ count: 1, body: { force_https: false } });
+    const open = { ...POLICY, force_https: false };
+    expect(draftOf(open).force_https).toBe(false);
+    expect(changesOf({ ...draftOf(open), force_https: true }, open).body).toEqual({ force_https: true });
   });
 });
 

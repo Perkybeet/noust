@@ -19,6 +19,19 @@ export function dnsVerdict(check: Pick<DnsCheck, "points_here" | "resolved_addre
   return check.resolved_addresses.length === 0 ? "missing" : "elsewhere";
 }
 
+/** The CDNs the server recognises, by the id it sends, as their operators write them. */
+const CDN_NAMES: Readonly<Record<string, string>> = {
+  cloudflare: "Cloudflare",
+  fastly: "Fastly",
+  bunnycdn: "Bunny CDN",
+  arvancloud: "ArvanCloud",
+};
+
+/** A CDN's name as a person reads it; one this console does not know keeps the server's id. */
+export function cdnName(id: string | null | undefined): string {
+  return id === null || id === undefined ? "" : (CDN_NAMES[id] ?? id);
+}
+
 /** Whether a verdict means visitors and the certificate authority can reach the server. */
 export function reachesServer(verdict: DnsVerdictKind): boolean {
   return verdict === "here" || verdict === "cdn";

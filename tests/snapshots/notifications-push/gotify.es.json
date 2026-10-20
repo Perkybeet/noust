@@ -936,6 +936,126 @@
     "message": "3 avisos desde el último resumen.\n\nServidor: web-1\nAvisos: 3\nEntre: 2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC\n\nDisco limpiado · /\n  Cuándo: 2026-09-29 10:45 UTC\n  Detalle: La política de limpieza del servidor se ha ejecutado y ha liberado espacio.\n\nLa tarea programada vuelve a ejecutarse · shop-sync\n  Cuándo: 2026-09-29 10:48 UTC\n  Detalle: El temporizador de la tarea vuelve a estar en marcha.\n\nLa dirección vuelve a responder · shop-site\n  Cuándo: 2026-09-29 10:51 UTC\n  Detalle: Contesta otra vez a lo que le pide la sonda.",
     "priority": 2
   },
+  "webserver.restarted": {
+    "title": "▲ Servidor web reiniciado · nginx",
+    "message": "Había dejado de funcionar y Noust lo ha arrancado de nuevo tras pasar su prueba de configuración.\n\nServidor: web-1\nRevísalo con: journalctl -u nginx -n 50",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/server"
+        }
+      }
+    }
+  },
+  "webserver.down": {
+    "title": "✕ Servidor web caído · nginx",
+    "message": "No está en marcha y el reinicio automático está desactivado.\n\nServidor: web-1\nRevísalo con: journalctl -u nginx -n 50",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/server"
+        }
+      }
+    }
+  },
+  "webserver.config_invalid": {
+    "title": "✕ El servidor web no puede arrancar · nginx",
+    "message": "No está en marcha y su configuración no pasa su propia prueba, así que Noust no lo ha reiniciado.\n\nServidor: web-1\nCompruébalo con: nginx -t\n\nLo que ha informado el sistema:\n  nginx: [emerg] unknown directive \"servre_name\" in /etc/nginx/sites-enabled/shop.example.com:4\n  nginx: configuration file /etc/nginx/nginx.conf test failed",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/server"
+        }
+      }
+    }
+  },
+  "webserver.restart_failed": {
+    "title": "✕ Ha fallado el reinicio del servidor web · nginx",
+    "message": "No está en marcha y arrancarlo de nuevo no ha funcionado.\n\nServidor: web-1\nRevísalo con: journalctl -u nginx -n 50\n\nLo que ha informado el sistema:\n  Job for nginx.service failed because the control process exited with error code.",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/server"
+        }
+      }
+    }
+  },
+  "webserver.limit": {
+    "title": "✕ El servidor web sigue cayendo · nginx",
+    "message": "Ha caído 3 veces en la última hora, así que Noust ha dejado de arrancarlo de nuevo.\n\nServidor: web-1\nRevísalo con: journalctl -u nginx -n 50",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/server"
+        }
+      }
+    }
+  },
+  "webserver.stopped": {
+    "title": "▲ Servidor web detenido · nginx",
+    "message": "Está detenido pero arranca con el sistema, así que todos los sitios de este servidor están caídos hasta que alguien lo arranque.\n\nServidor: web-1\nArráncalo con: systemctl start nginx",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/server"
+        }
+      }
+    }
+  },
+  "security.release": {
+    "title": "▲ Versión de seguridad disponible · Noust 3.3.2",
+    "message": "Noust 3.3.2 corrige una vulnerabilidad y este servidor sigue en la versión 3.3.1.\n\nServidor: web-1\nEn marcha: 3.3.1\nCorregida en: 3.3.2\nAviso: https://github.com/Perkybeet/noust/security/advisories/GHSA-aaaa-bbbb-cccc\nActualiza con: pipx upgrade noust",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/settings/about"
+        }
+      }
+    }
+  },
+  "container.restart_loop": {
+    "title": "✕ Contenedor reiniciándose en bucle · shop.example.com",
+    "message": "Docker lo ha reiniciado 6 veces desde que se vio por primera vez, y el límite es 5.\n\nServidor: web-1\nContenedor: shop-worker-1\nReinicios: 6\nÚltimo código de salida: 1\nRevísalo con: docker logs --tail 50 shop-worker-1\n\nLo que ha informado el sistema:\n  Error: connect ECONNREFUSED 10.0.0.4:5432\n      at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16)\n  worker exiting with status 1",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+        }
+      }
+    }
+  },
+  "container.recovered": {
+    "title": "● Contenedor estable de nuevo · shop.example.com",
+    "message": "Lleva 7 minutos en marcha sin reiniciarse.\n\nServidor: web-1\nContenedor: shop-worker-1\nRevísalo con: docker logs --tail 50 shop-worker-1",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+        }
+      }
+    }
+  },
+  "recipe.outdated": {
+    "title": "○ Actualizaciones de recetas disponibles",
+    "message": "2 recetas instaladas tienen una versión más nueva en el catálogo.\n\nServidor: web-1\nReceta: vault.example.com: 1.37.4 -> 1.38.0\nReceta: blog.example.com: 5.0.1 -> 5.1.0\nActualiza con: noust recipe outdated",
+    "priority": 2,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/catalog"
+        }
+      }
+    }
+  },
   "hostile.deploy_failed": {
     "title": "✕ Despliegue fallido · shop.example.com",
     "message": "Se ha detenido por un error antes de que la nueva versión tomara el relevo.\n\nServidor: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nVersión: 20260929-104449\nCommit: a1b2c3d (<b>x</b>&amp;<!channel> @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here <@U123> <#C1> red emoji 🚀\nIniciado por: Webhook\nDuración: 1 min 12 s\nRevísalo con: noust diagnose shop.example.com\n\nLo que ha informado el sistema:\n  Release did not pass <its> health & check\n  <urlopen error [Errno 111] Connection refused>\n  ```\n  @everyone <!channel> <@U123|admin> &lt;b&gt;\n  red *bold* _italic_ ~strike~ `code`\n  noitcnuf\n  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…",

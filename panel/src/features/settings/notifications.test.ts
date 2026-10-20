@@ -97,11 +97,20 @@ describe("the notification settings", () => {
       webhook_url: "https://hooks.example.com/x",
       // Left alone: the stored secret (none here) is kept.
       secret: REDACTED,
+      webhook_headers: REDACTED,
     });
     expect(channelValue(spec("webhook"), { webhook_url: REDACTED, secret: REDACTED }, {}, new Set(["secret"]))).toEqual({
       webhook_url: REDACTED,
       secret: "",
+      webhook_headers: REDACTED,
     });
+    // The receiver's own headers are typed one per line and sent as typed; cleared on request.
+    expect(channelValue(spec("webhook"), { webhook_url: REDACTED }, { webhook_headers: "Authorization: Bearer abc\nX-Check: 1 " })).toEqual({
+      webhook_url: REDACTED,
+      secret: REDACTED,
+      webhook_headers: "Authorization: Bearer abc\nX-Check: 1",
+    });
+    expect(channelValue(spec("webhook"), { webhook_url: REDACTED, webhook_headers: REDACTED }, {}, new Set(["webhook_headers"]))["webhook_headers"]).toBe("");
     expect(
       channelValue(spec("telegram"), { bot_token: REDACTED, chat_id: "-1001234" }, { chat_id: "42" }, new Set(["bot_token"])),
     ).toEqual({ bot_token: "", chat_id: "42" });
@@ -243,6 +252,9 @@ describe("the notification settings", () => {
       "cron_missed",
       "probe_failed",
       "probe_recovered",
+      "security_release",
+      "container_restart_loop",
+      "recipe_outdated",
     ]);
     const grouped = EVENT_GROUPS.flatMap((group) => group.kinds);
     expect([...grouped].sort()).toEqual([...EVENT_KINDS].sort());

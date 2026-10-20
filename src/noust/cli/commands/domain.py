@@ -38,6 +38,8 @@ from noust.deployers.domains import (
     DomainChange,
     add_domain,
     check_dns,
+    disable_domain,
+    enable_domain,
     issue_certificate,
     list_domains,
     reduce_certificate,
@@ -47,6 +49,23 @@ from noust.deployers.domains import (
 )
 from noust.deployers.temporary_domain import is_temporary, suggest
 from noust.validators.domain import is_wildcard
+
+
+def _shown(record: DomainRecord) -> str:
+    """
+    Args:
+        record: One of the domains.
+
+    Returns:
+        Its name, with what the operator should know beside it: that it is a temporary name,
+        that it is switched off.
+    """
+    marks = []
+    if is_temporary(record.domain):
+        marks.append("temporary")
+    if not record.enabled:
+        marks.append("off")
+    return f"{record.domain} ({', '.join(marks)})" if marks else record.domain
 
 
 def print_domains(logger: Logger, domains: list[DomainRecord]) -> None:
@@ -61,7 +80,7 @@ def print_domains(logger: Logger, domains: list[DomainRecord]) -> None:
         ["Domain", "Kind", "Port", "Added"],
         [
             [
-                f"{record.domain} (temporary)" if is_temporary(record.domain) else record.domain,
+                _shown(record),
                 record.kind,
                 str(record.port) if record.port else "-",
                 record.created_at or "-",
@@ -162,6 +181,7 @@ def list_command(ctx: Context, app_domain: str) -> None:
                             "port": r.port,
                             "created_at": r.created_at,
                             "temporary": is_temporary(r.domain),
+                            "enabled": r.enabled,
                         }
                         for r in domains
                     ],
@@ -335,6 +355,54 @@ def remove_command(ctx: Context, app_domain: str, domain: str) -> None:
         logger.info(f"Order it again later with: noust domain certificate {change.app} --reduce")
     elif change.tls and not change.certificate_reduced:
         logger.info("The certificate was not revoked; it covers the name until it is next issued")
+    _report(logger, change)
+
+
+@cli.command("disable")
+@click.argument("app_domain", metavar="APP")
+@click.argument("domain")
+@pass_context
+def disable_command(ctx: Context, app_domain: str, domain: str) -> None:
+    """
+    Stop APP answering on DOMAIN without forgetting it.
+
+    The name keeps its kind, its port and its DNS record; the site and the certificate leave
+    it out until 'noust domain enable'. The primary domain and the canonical www/apex pair
+    cannot be switched off. Nothing is revoked.
+    """
+    logger = ctx.logger
+    change = disable_domain(app_domain, domain, logger=logger, verbose=ctx.verbose)
+    if change.certificate_error is not None:
+        logger.error(
+            "The certificate still names the switched-off domain", details=change.certificate_error
+        )
+        logger.info(f"Order it again later with: noust domain certificate {change.app} --reduce")
+    _report(logger, change)
+
+
+@cli.command("enable")
+@click.argument("app_domain", metavar="APP")
+@click.argument("domain")
+@click.option(
+    "--no-cert", is_flag=True, help="Do not extend the certificate now. Run the command again to."
+)
+@pass_context
+def enable_command(ctx: Context, app_domain: str, domain: str, no_cert: bool) -> None:
+    """
+    Serve DOMAIN again, after 'noust domain disable'.
+
+    When APP is served over TLS its certificate is extended to cover DOMAIN; if that fails the
+    name stays on and the command can be run again once DNS points here.
+    """
+    logger = ctx.logger
+    change = enable_domain(
+        app_domain, domain, issue_cert=not no_cert, logger=logger, verbose=ctx.verbose
+    )
+    if change.certificate_error is not None:
+        logger.error(
+            "The certificate was not extended to cover it", details=change.certificate_error
+        )
+        logger.info(f"Once DNS points here, run again: noust domain enable {change.app} {domain}")
     _report(logger, change)
 
 

@@ -2323,6 +2323,9 @@ Serve the site over HTTP/3 (QUIC) as well (nginx 1.25 or later with the HTTP/3 m
 .B \-\-client\-certs, \-\-no\-client\-certs
 Answer only a visitor with a certificate this site's own authority signed (noust app policy clients issue makes them).
 .TP
+.B \-\-force\-https, \-\-no\-force\-https
+Send port 80 to HTTPS once the site has a certificate (the default). \-\-no\-force\-https leaves the site answering on both, for a client that cannot follow a redirect (nginx only).
+.TP
 .B \-\-waf
 The web application firewall (OWASP Core Rule Set): detect writes down what the rules see, block also refuses what they score too high.
 .TP
@@ -5553,6 +5556,21 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 
 .SS noust config path
 Show where the configuration file lives, and whether it exists.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust config protect
+Encrypt the secrets of the notification channels that config.yaml holds as text.
 .TP
 .B \-v, \-\-verbose
 Show the detail of each step.
@@ -8982,6 +9000,33 @@ Order it again with only the names the application answers on (after a removal).
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
+.SS noust domain disable
+Stop APP answering on DOMAIN without forgetting it.
+.TP
+.B Arguments
+.br
+\fIapp_domain\fR
+.br
+\fIdomain\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust domain enable
+Serve DOMAIN again, after 'noust domain disable'.
+.TP
+.B Arguments
+.br
+\fIapp_domain\fR
+.br
+\fIdomain\fR
+.TP
+.B \-\-no\-cert
+Do not extend the certificate now. Run the command again to.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust domain list
 List the domains APP answers on.
 .TP
@@ -10832,6 +10877,9 @@ http, otlp: how to authenticate.
 .B \-\-dataset
 Axiom: the dataset.
 .TP
+.B \-\-region
+New Relic: where the account lives (us by default).
+.TP
 .B \-\-transport
 Syslog: udp, tcp or tls.
 .TP
@@ -11914,6 +11962,19 @@ Never emit colour.
 .TP
 .B \-\-json
 Print the previews removed as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust preview dns
+Does the wildcard record of the previews of DOMAIN reach this server?
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the verdict as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.

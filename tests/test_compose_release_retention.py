@@ -45,7 +45,7 @@ services:
   web:
     build: .
     ports:
-      - "8080:80"
+      - "18080:80"
   db:
     image: postgres:16
 """
@@ -214,7 +214,7 @@ def stack(store: NoustStore, root: Path, *, git: bool = True) -> App:
             domain=DOMAIN,
             app_type="docker-compose",
             app_path=str(root),
-            port=8080,
+            port=18080,
             status="running",
         )
     )
@@ -292,7 +292,7 @@ def test_an_update_that_passes_keeps_the_images_it_serves_as_a_release(
 def test_a_failed_update_keeps_no_release(
     root: Path, store: NoustStore, docker: Docker, probe: Probe
 ) -> None:
-    probe.failing.add("http://127.0.0.1:8080/")
+    probe.failing.add("http://127.0.0.1:18080/")
     docker.after = list(NEW)
 
     with pytest.raises(DeploymentError):
@@ -554,7 +554,7 @@ def test_a_release_that_does_not_answer_goes_back_to_what_served_and_is_marked_f
     root: Path, store: NoustStore, docker: Docker, probe: Probe
 ) -> None:
     first, second = two_releases(root, docker, store)
-    probe.fail_next("http://127.0.0.1:8080/")
+    probe.fail_next("http://127.0.0.1:18080/")
 
     with pytest.raises(RolledBackError) as caught:
         deployer(root, docker).activate_release(first, went_back=True)

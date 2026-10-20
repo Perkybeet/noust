@@ -55,6 +55,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `deploy.max_minutes` | `60` |
 | `deploy.queue_limit` | `25` |
 | `deploy.zero_downtime` | `true` |
+| `dns.check_previews` | `true` |
 | `dns.public_addresses` | `[]` |
 | `dns.resolvers` | `["1.1.1.1", "8.8.8.8"]` |
 | `github.host` | `""` |
@@ -66,6 +67,8 @@ Every configuration key and the value it has until you change it. Set one with `
 | `monitor.backup_missing_days` | `2` |
 | `monitor.backup_missing_renotify_hours` | `24` |
 | `monitor.cert_warning_days` | `14` |
+| `monitor.container_check_seconds` | `60` |
+| `monitor.container_restart_limit` | `5` |
 | `monitor.cpu_threshold` | `80.0` |
 | `monitor.disk_check_seconds` | `0` |
 | `monitor.disk_renotify_hours` | `0` |
@@ -81,7 +84,12 @@ Every configuration key and the value it has until you change it. Set one with `
 | `monitor.log_file` | `"/var/log/noust/monitor.log"` |
 | `monitor.memory_threshold` | `80.0` |
 | `monitor.os_patches_check_hours` | `24` |
+| `monitor.recipe_check_hours` | `24` |
+| `monitor.recipe_renotify_days` | `7` |
+| `monitor.restart_webserver` | `true` |
 | `monitor.scan_interval` | `60` |
+| `monitor.security_check_hours` | `6` |
+| `monitor.security_renotify_hours` | `72` |
 | `monitor.smtp.from_address` | `""` |
 | `monitor.smtp.host` | `""` |
 | `monitor.smtp.password` | `""` |
@@ -90,6 +98,8 @@ Every configuration key and the value it has until you change it. Set one with `
 | `monitor.smtp.use_tls` | `false` |
 | `monitor.smtp.username` | `""` |
 | `monitor.token_warning_days` | `7` |
+| `monitor.webserver_check_seconds` | `60` |
+| `monitor.webserver_restart_limit` | `3` |
 | `notifications.channels.discord.mention_role_id` | `""` |
 | `notifications.channels.discord.mention_user_id` | `""` |
 | `notifications.channels.discord.webhook_url` | `""` |
@@ -114,6 +124,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `notifications.channels.telegram.bot_token` | `""` |
 | `notifications.channels.telegram.chat_id` | `""` |
 | `notifications.channels.webhook.secret` | `""` |
+| `notifications.channels.webhook.webhook_headers` | `""` |
 | `notifications.channels.webhook.webhook_url` | `""` |
 | `notifications.enabled` | `false` |
 | `notifications.events.alert_acknowledged` | `true` |
@@ -129,6 +140,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `notifications.events.cert_expiring` | `true` |
 | `notifications.events.cleanup_failed` | `true` |
 | `notifications.events.cleanup_success` | `false` |
+| `notifications.events.container_restart_loop` | `true` |
 | `notifications.events.cron_failed` | `true` |
 | `notifications.events.cron_missed` | `true` |
 | `notifications.events.cron_success` | `false` |
@@ -145,8 +157,10 @@ Every configuration key and the value it has until you change it. Set one with `
 | `notifications.events.os_patches` | `true` |
 | `notifications.events.probe_failed` | `true` |
 | `notifications.events.probe_recovered` | `true` |
+| `notifications.events.recipe_outdated` | `true` |
 | `notifications.events.restore_failed` | `true` |
 | `notifications.events.restore_success` | `true` |
+| `notifications.events.security_release` | `true` |
 | `notifications.events.server_back` | `true` |
 | `notifications.events.server_rebooted` | `true` |
 | `notifications.events.token_expiring` | `true` |

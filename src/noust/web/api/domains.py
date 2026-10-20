@@ -33,6 +33,8 @@ from noust.deployers.domains import (
     DomainChange,
     add_domain,
     check_dns,
+    disable_domain,
+    enable_domain,
     issue_certificate,
     list_domains,
     reduce_certificate,
@@ -73,6 +75,8 @@ class AppDomain(BaseModel):
             the application's own.
         temporary: Whether it is a name made of this server's address (sslip.io), good
             for trying an application out and not for keeping.
+        enabled: Whether it is served. A name that is switched off keeps its row and its
+            port; the site and the certificate leave it out.
     """
 
     domain: str
@@ -80,6 +84,7 @@ class AppDomain(BaseModel):
     created_at: str | None = None
     port: int | None = None
     temporary: bool = False
+    enabled: bool = True
 
     _iso_timestamps = iso_offset_validator("created_at")
 
@@ -208,6 +213,7 @@ def _entry(record: DomainRecord) -> AppDomain:
         created_at=record.created_at,
         port=record.port,
         temporary=is_temporary(record.domain),
+        enabled=record.enabled,
     )
 
 
@@ -401,6 +407,18 @@ class CanonicalRequest(BaseModel):
     canonical: str = Field(description="www, apex or none")
 
 
+class DomainEnabledRequest(BaseModel):
+    """
+    Whether a name is served.
+
+    Attributes:
+        enabled: False lets the name rest (the site and the certificate leave it out, the
+            row and its DNS record stay); True serves it again.
+    """
+
+    enabled: bool
+
+
 class DomainPortRequest(BaseModel):
     """
     The port of the application a name is proxied to.
@@ -473,6 +491,55 @@ def put_domain_port(
     """
     validated = _require_app(domain)
     return _changed(set_domain_port(validated, strict_server_name(name), data.port))
+
+
+@router.put("/{domain}/domains/{name}/enabled", response_model=AppDomainChange)
+def put_domain_enabled(
+    domain: str,
+    name: str,
+    data: DomainEnabledRequest,
+    session: Annotated[dict[str, Any], Depends(get_current_session)],
+) -> AppDomainChange:
+    """
+    Switch a name off without deleting it, or serve it again.
+
+    The site is re-rendered and reloaded before this returns. When the site serves TLS,
+    ordering the certificate again (without the name, or with it) is queued as a job.
+
+    Args:
+        domain: The application's primary domain.
+        name: The alias or redirect.
+        data: Whether it is served.
+        session: Authenticated session, injected.
+
+    Returns:
+        The application's domains afterwards.
+
+    Raises:
+        DomainError: The name is the primary or the canonical pair, or not the application's.
+    """
+    validated = _require_app(domain)
+    bare = strict_server_name(name)
+    if data.enabled:
+        change = enable_domain(validated, bare, issue_cert=False)
+        job_func, wording = certificate_job, f"Extending the certificate of {validated} to {bare}"
+    else:
+        change = disable_domain(validated, bare, reduce_cert=False)
+        job_func = reduce_certificate_job
+        wording = f"Ordering the certificate of {validated} again without {bare}"
+    job_id: str | None = None
+    if change.tls:
+        job = get_job_manager().create_job(
+            job_type=JobType.CERT_CREATE,
+            name=f"SSL for {validated}",
+            description=wording,
+            func=job_func,
+            kwargs={"app_domain": validated},
+            metadata={"domain": validated},
+            actor=actor_label(session),
+        )
+        job_id = job.id
+    return _changed(change, job_id)
 
 
 @router.get("/{domain}/domains/{name}/dns", response_model=DnsCheckResponse)

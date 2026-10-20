@@ -25,7 +25,7 @@ from noust.core.preview_store import DATA_MODES, FORK_POLICIES, INHERIT_MODES, P
 from noust.core.store import get_store
 from noust.core.variables.model import AUDIENCES, BOTH, PREVIEW
 from noust.core.variables.store import VariableStore
-from noust.managers import previews
+from noust.managers import preview_dns, previews
 from noust.validators.domain import validate_domain
 
 
@@ -245,7 +245,47 @@ def enable(
         risks.append("use the same databases, which a pull request can write into")
     if risks:
         logger.warning("Previews are built in the sandbox, and " + ", and ".join(risks) + ".")
-    logger.info(f"Point a wildcard record *.{stored.base_domain} at this server.")
+    try:
+        found = preview_dns.check_preview_dns(stored.app_domain)
+    except (OSError, ValidationError) as exc:
+        logger.warning(f"The DNS of the previews was not checked: {exc}")
+        return
+    if found.ok:
+        logger.info(f"{found.wildcard} reaches this server.")
+    else:
+        logger.warning(found.advice or f"{found.wildcard} does not reach this server.")
+
+
+@cli.command("dns", read_only=True)
+@click.argument("domain")
+@json_option("Print the verdict as JSON.")
+@pass_context
+def dns_command(ctx: Context, domain: str) -> None:
+    """
+    Does the wildcard record of the previews of DOMAIN reach this server?
+
+    Resolves a name shaped like a preview's (the application's own template, with a number no
+    pull request has) through the same public resolvers the certificate authority asks, and says
+    which record to add when it does not.
+    """
+    found = preview_dns.check_preview_dns(validate_domain(domain))
+    if ctx.json_output:
+        click.echo(json.dumps(found.to_dict()))
+        return
+    logger = ctx.logger
+    said = {
+        "here": "points at this server",
+        "cdn": f"is behind {found.cdn}'s proxy, which reaches this server",
+        "unknown": "resolves, but this server cannot tell its own public address (it sits behind NAT)",
+        "none": "does not resolve: there is no DNS record pointing at this server",
+        "elsewhere": "points somewhere else",
+    }
+    logger.key_value(found.probe, said.get(found.verdict, found.verdict))
+    logger.key_value("Record", found.wildcard)
+    logger.key_value("Resolves to", ", ".join(found.resolved_addresses) or "nothing")
+    logger.key_value("This server", ", ".join(found.expected_addresses) or "no address found")
+    if found.advice:
+        logger.warning(found.advice)
 
 
 @cli.command("disable")

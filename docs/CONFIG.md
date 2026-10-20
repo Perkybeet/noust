@@ -1,7 +1,7 @@
 # Configuration reference
 
 Noust keeps its settings in one file, `/etc/noust/config.yaml` (mode `0600`, in a `0700`
-directory: it holds the database, SMTP and notification credentials). Nothing needs to be in it:
+directory: it holds the database credentials and, encrypted, the SMTP and notification ones). Nothing needs to be in it:
 every setting has a default, `noust config show` prints what is in effect, and the file only has
 to hold what you changed.
 
@@ -85,6 +85,7 @@ upgrade runs `noust config upgrade` and then `noust config clean`.
 | `ssl.eab_kid` | empty | The key id of the external account ZeroSSL and Google ask for. Its HMAC key is not a setting: it is kept in the secret store (`noust cert acme --eab-hmac-key`). |
 | `ssl.reuse_wildcard` | `true` | Whether an application one label under a wildcard certificate that already exists is served with it instead of getting an order of its own. What keeps a preview per pull request from spending the authority's rate limit. |
 | `dns.resolvers` | `1.1.1.1`, `8.8.8.8` | The resolvers the check "does this name point here?" asks, in order: the public DNS the authority's validators ask, not the server's own cache. Empty means the server's resolver. At most 8 addresses. |
+| `dns.check_previews` | `true` | The job of a preview resolves the name it is about to take and says in its log when it points elsewhere ([previews.md](previews.md#turning-them-on)). The build goes on whatever it says. |
 | `dns.public_addresses` | empty | This server's public addresses when it cannot see them itself (behind NAT, or a cloud's 1:1 address). The DNS check compares with them, and the records Noust creates point at them. |
 | `backup.directory` | `/var/backups/noust` | Where backups are written. Empty means the default; a relative path is refused. Not in the defaults: it is read with its default in place. |
 | `backup.max_per_app` | `10` | Backups kept per application by rotation, 1 to 100. A schedule with its own retention ignores it. |
@@ -212,6 +213,15 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `monitor.backup_missing_renotify_hours` | `24` | While a backup stays missing, announce it again every this many hours. |
 | `monitor.os_patches_check_hours` | `24` | How often the monitor asks the package manager what is waiting (`os_patches`). 0 turns the check off. |
 | `monitor.token_warning_days` | `7` | An API token is announced (`token_expiring`) this many days before it expires. 0 turns the check off. |
+| `monitor.webserver_check_seconds` | `60` | How often the monitor looks at nginx (or Apache); 0 turns the watch off, 3600 at most. A web server that fell is started again after its configuration test passes ([MONITOR.md](MONITOR.md#the-web-server)). |
+| `monitor.restart_webserver` | `true` | Start the web server again when it fell. `false` announces it and does nothing else. |
+| `monitor.webserver_restart_limit` | `3` | Restarts of the web server in an hour; past it the monitor says so once and stops, 1 to 20. |
+| `monitor.container_check_seconds` | `60` | How often the monitor reads the containers of the Compose stacks (restart counters and Docker's events); 0 turns it off. |
+| `monitor.container_restart_limit` | `5` | A container Docker restarted this many times since it was first seen is announced (`container_restart_loop`). 0 turns the announcement off. |
+| `monitor.security_check_hours` | `6` | How often the monitor asks the update check whether a release fixes a vulnerability (`security_release`). 0 turns it off. |
+| `monitor.security_renotify_hours` | `72` | While the server stays below the fix, announce it again every this many hours. 0 says it once. |
+| `monitor.recipe_check_hours` | `24` | How often the monitor looks for installed recipes behind the catalogue (`recipe_outdated`). 0 turns it off. |
+| `monitor.recipe_renotify_days` | `7` | The same list of outdated recipes is repeated after this many days. 0 repeats nothing until the list changes. |
 | `monitor.log_file` | `/var/log/noust/monitor.log` | Where the monitor writes its own log. |
 | `monitor.smtp.host` | empty | The SMTP server email notifications go through. |
 | `monitor.smtp.port` | `465` | Its port, 1 to 65535. |
@@ -270,11 +280,15 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `notifications.events.cron_missed` | `true` | A scheduled task will not run when it should: its timer is gone, disabled or cannot be read. |
 | `notifications.events.probe_failed` | `true` | An external probe (`noust probe`) stopped answering as expected, once per outage. |
 | `notifications.events.probe_recovered` | `true` | A probe that was reported failing answers again. |
+| `notifications.events.security_release` | `true` | A Noust release that fixes a vulnerability is out and this server runs an earlier one. |
+| `notifications.events.container_restart_loop` | `true` | A container of a Compose stack keeps being restarted by Docker (`monitor.container_restart_limit`). |
+| `notifications.events.recipe_outdated` | `true` | Recipes installed from the catalogue have a newer version in it. |
 | `status_page.enabled` | `false` | The monitor writes the public status page of the probes (see [probes.md](probes.md#the-status-page)). |
 | `status_page.directory` | empty | Where its files are written, an absolute path; empty is `/var/lib/noust/status-page`. |
 | `status_page.title` | empty | The page's title, at most 80 characters; empty is `Status`. |
 | `notifications.channels.webhook.webhook_url` | empty | The generic endpoint notifications are posted to (a secret: it is a capability URL). |
 | `notifications.channels.webhook.secret` | empty | Signs every delivery with HMAC-SHA256 in `X-Noust-Signature` when set (a secret). |
+| `notifications.channels.webhook.webhook_headers` | empty | The receiver's own headers, one `Name: value` per line, at most 20 (an `Authorization: Bearer` for n8n or Home Assistant). A secret: its values are credentials. The names Noust sets itself (`Content-Type`, `X-Noust-*`) cannot be replaced. |
 | `notifications.channels.slack.webhook_url` | empty | A Slack incoming webhook (a secret). |
 | `notifications.channels.discord.webhook_url` | empty | A Discord webhook (a secret). The message is one embed (state colour, facts, timestamp, a link to the console when `web.public_url` is set); if Discord refuses it, the alert is sent once more as plain text. |
 | `notifications.channels.discord.mention_role_id` | empty | A Discord role to ping when a **critical** event arrives (a deploy, restore, backup, unit or node that failed; a certificate that expired; an application not answering). Only a failure pings; warnings, successes and the test message never do. The id is 17 to 20 digits: Developer Mode, right-click the role, Copy ID. |

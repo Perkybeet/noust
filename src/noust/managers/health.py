@@ -103,6 +103,8 @@ class HealthReport:
             that is out. Warnings only, each with its fix.
         accounts: How many applications still share one system account, so a
             compromised one could read the others' trees (3.4, B-59).
+        recipes: How many applications were installed from a recipe the catalogue has a newer
+            version of (D-15); informational, an old recipe is a choice.
         names: What still has a name from before 4.0 and waits for the operator: a token a
             script still signs in with, a repository's overrides file, a site that names an
             upstream. Warnings only, each with what to change.
@@ -122,6 +124,7 @@ class HealthReport:
     updates: HealthCheck | None = None
     security: HealthCheck | None = None
     accounts: HealthCheck | None = None
+    recipes: HealthCheck | None = None
     names: HealthCheck | None = None
 
     @property
@@ -140,6 +143,7 @@ class HealthReport:
                 self.accounts,
                 self.names,
                 self.updates,
+                self.recipes,
                 self.audit,
                 self.security,
                 self.hardening,
@@ -278,7 +282,7 @@ def _check_web_servers(
     if apache_installed:
         if apache.get_status().get("active"):
             apache_check = HealthCheck("Apache", "Running", "ok")
-        elif _apache_has_a_site(apache):
+        elif apache_in_use(apache):
             warnings.append("Apache is installed but not running")
             apache_check = HealthCheck("Apache", "Stopped", "warning")
         else:
@@ -299,7 +303,7 @@ def _check_web_servers(
     return nginx_check, apache_check
 
 
-def _apache_has_a_site(apache: ApacheManager) -> bool:
+def apache_in_use(apache: ApacheManager) -> bool:
     """
     Report whether anything is actually configured to run on Apache.
 
@@ -628,6 +632,45 @@ def _check_updates() -> HealthCheck | None:
     )
 
 
+def _check_recipes() -> HealthCheck | None:
+    """
+    Say which installed recipes have a newer version in the catalogue (checklist D-15).
+
+    Never a warning: an old version of a recipe is a choice and a working one. The monitor
+    announces a change of the list (``recipe_outdated``); this is the line anyone reads when
+    they run the report.
+
+    Returns:
+        The check; None when no application was installed from a recipe, so there is nothing
+        to say.
+    """
+    from noust.recipes.updates import installed_statuses
+
+    try:
+        statuses = installed_statuses()
+    except (NoustError, sqlite3.Error, OSError) as exc:
+        return HealthCheck("Recipes", f"Could not check: {exc}", "info")
+    if not statuses:
+        return None
+    behind = [status for status in statuses if status.update_available]
+    if not behind:
+        count = len(statuses)
+        noun = "recipe is" if count == 1 else "recipes are"
+        return HealthCheck("Recipes", f"{count} installed {noun} up to date", "ok")
+    shown = ", ".join(
+        f"{status.domain} ({status.installed_version} -> {status.latest_version})"
+        for status in behind[:3]
+    )
+    if len(behind) > 3:
+        shown += f" and {len(behind) - 3} more"
+    noun = "recipe has" if len(behind) == 1 else "recipes have"
+    return HealthCheck(
+        "Recipes",
+        f"{len(behind)} installed {noun} a newer version: {shown}; see: noust recipe outdated",
+        "info",
+    )
+
+
 def _check_audit(issues: list[str], warnings: list[str]) -> HealthCheck:
     """
     Report whether the audit trail records, from :func:`noust.core.audit.health`.
@@ -752,6 +795,7 @@ def collect_health_report(
     accounts = _check_accounts(warnings)
     names = _check_names(warnings)
     updates = _check_updates()
+    recipes = _check_recipes()
     audit_check = _check_audit(issues, warnings)
     security_check = _check_security_posture(warnings)
     hardening_check = _check_hardening(hardening, warnings)
@@ -770,6 +814,7 @@ def collect_health_report(
         accounts=accounts,
         names=names,
         updates=updates,
+        recipes=recipes,
         audit=audit_check,
         security=security_check,
     )

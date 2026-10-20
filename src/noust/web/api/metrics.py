@@ -274,6 +274,11 @@ class TrafficPointModel(BaseModel):
         s4xx: Answered 4xx.
         s5xx: Answered 5xx.
         bytes: Bytes of response bodies.
+        latency_p50_ms: The median time a request took, in milliseconds; null when no request
+            of the step said how long it took (the site's log is from before it was written).
+        latency_p95_ms: The p95 of it.
+        visitors: How many different visitors there were; null when their sketches are gone
+            (they are kept 90 days) or were never made.
     """
 
     ts: int
@@ -283,6 +288,9 @@ class TrafficPointModel(BaseModel):
     s4xx: int
     s5xx: int
     bytes: int
+    latency_p50_ms: float | None = None
+    latency_p95_ms: float | None = None
+    visitors: int | None = None
 
 
 class RankedKeyModel(BaseModel):
@@ -623,6 +631,9 @@ def app_traffic(
             s4xx=item.s4xx,
             s5xx=item.s5xx,
             bytes=item.bytes,
+            latency_p50_ms=item.latency_p50_ms,
+            latency_p95_ms=item.latency_p95_ms,
+            visitors=item.visitors,
         )
 
     traffic = status.traffic

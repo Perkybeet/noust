@@ -121,7 +121,7 @@ class FakeStore(NetworkTables):
         """
         return None
 
-    def list_domains(self, app_domain: str) -> list[DomainRecord]:
+    def list_domains(self, app_domain: str, *, include_disabled: bool = True) -> list[DomainRecord]:
         """
         List the domains of an application.
 
@@ -1392,7 +1392,7 @@ def test_a_site_is_still_written_when_the_store_cannot_be_read(
 ) -> None:
     """A rehearsal on a fresh machine has no database; the vhost never needed one."""
 
-    def unreadable(*_args: Any) -> Any:
+    def unreadable(*_args: Any, **_kwargs: Any) -> Any:
         raise StoreError("Cannot open the WASM database at /var/lib/wasm/wasm.db")
 
     monkeypatch.setattr(store, "list_domains", unreadable)

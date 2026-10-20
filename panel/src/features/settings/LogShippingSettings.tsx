@@ -35,8 +35,8 @@ import type { T } from "../../i18n";
 import { formatCount } from "../../lib/format";
 import { reportActionError } from "../apps/useAppActions";
 
-type Kind = "loki" | "axiom" | "http" | "otlp" | "syslog";
-const KINDS: readonly Kind[] = ["loki", "axiom", "http", "otlp", "syslog"];
+type Kind = "loki" | "axiom" | "newrelic" | "http" | "otlp" | "syslog";
+const KINDS: readonly Kind[] = ["loki", "axiom", "newrelic", "http", "otlp", "syslog"];
 
 function kindWords(t: T, kind: string): string {
   switch (kind) {
@@ -44,6 +44,8 @@ function kindWords(t: T, kind: string): string {
       return t("runtime.logShipping.kindLoki");
     case "axiom":
       return t("runtime.logShipping.kindAxiom");
+    case "newrelic":
+      return t("runtime.logShipping.kindNewRelic");
     case "http":
       return t("runtime.logShipping.kindHttp");
     case "otlp":
@@ -79,6 +81,7 @@ interface Draft {
   username: string;
   auth: string;
   dataset: string;
+  region: string;
   secret: string;
   transport: string;
   host: string;
@@ -101,6 +104,7 @@ function draftOf(drain: LogDrain | undefined): Draft {
     username: text(settings["username"]),
     auth: text(settings["auth"]),
     dataset: text(settings["dataset"]),
+    region: text(settings["region"]) || "us",
     secret: "",
     transport: text(settings["transport"]) || "tls",
     host: text(settings["host"]),
@@ -160,6 +164,12 @@ function build(draft: Draft, editing: boolean, hasSecret: boolean, t: T): { sett
     if (draft.dataset.trim() === "") problems.dataset = t("runtime.logShipping.datasetMissing");
     else settings["dataset"] = draft.dataset.trim();
     if (draft.secret.trim() === "" && !(editing && hasSecret)) problems.secret = t("runtime.logShipping.secretMissing");
+    return { settings, problems };
+  }
+  if (draft.kind === "newrelic") {
+    settings["region"] = draft.region;
+    if (draft.url.trim() !== "") settings["url"] = draft.url.trim();
+    if (draft.secret.trim() === "" && !(editing && hasSecret)) problems.secret = t("runtime.logShipping.licenseMissing");
     return { settings, problems };
   }
   if (draft.url.trim() === "") problems.url = t("runtime.logShipping.urlMissing");
@@ -287,7 +297,7 @@ function DrainDialog({ drain, open, onOpenChange }: { drain?: LogDrain; open: bo
             <Field
               label={t("runtime.logShipping.urlLabel")}
               description={t("runtime.logShipping.urlDescription")}
-              optional={draft.kind === "axiom"}
+              optional={draft.kind === "axiom" || draft.kind === "newrelic"}
               error={shown("url") ?? serverError("url")}
             >
               <Input
@@ -295,7 +305,7 @@ function DrainDialog({ drain, open, onOpenChange }: { drain?: LogDrain; open: bo
                 autoComplete="off"
                 autoCapitalize="off"
                 spellCheck={false}
-                placeholder={draft.kind === "axiom" ? "https://api.axiom.co" : draft.kind === "loki" ? "https://logs.example.com" : "https://collector.example.com"}
+                placeholder={draft.kind === "axiom" ? "https://api.axiom.co" : draft.kind === "newrelic" ? "https://log-api.newrelic.com/log/v1" : draft.kind === "loki" ? "https://logs.example.com" : "https://collector.example.com"}
                 value={draft.url}
                 onValueChange={set("url")}
               />
@@ -303,6 +313,18 @@ function DrainDialog({ drain, open, onOpenChange }: { drain?: LogDrain; open: bo
             {draft.kind === "axiom" ? (
               <Field label={t("runtime.logShipping.datasetLabel")} description={t("runtime.logShipping.datasetDescription")} error={shown("dataset") ?? serverError("dataset")}>
                 <Input mono autoComplete="off" autoCapitalize="off" spellCheck={false} value={draft.dataset} onValueChange={set("dataset")} />
+              </Field>
+            ) : null}
+            {draft.kind === "newrelic" ? (
+              <Field label={t("runtime.logShipping.regionLabel")} nativeLabel={false} description={t("runtime.logShipping.regionDescription")} error={serverError("region")}>
+                <Select
+                  value={draft.region}
+                  options={[
+                    { value: "us", label: t("runtime.logShipping.regionUs") },
+                    { value: "eu", label: t("runtime.logShipping.regionEu") },
+                  ]}
+                  onValueChange={set("region")}
+                />
               </Field>
             ) : null}
             {draft.kind === "loki" ? (
@@ -323,7 +345,7 @@ function DrainDialog({ drain, open, onOpenChange }: { drain?: LogDrain; open: bo
                 />
               </Field>
             ) : null}
-            {draft.kind !== "axiom" ? (
+            {draft.kind !== "axiom" && draft.kind !== "newrelic" ? (
               <Field label={t("runtime.logShipping.usernameLabel")} optional description={t("runtime.logShipping.usernameDescription")} error={serverError("username")}>
                 <Input mono autoComplete="off" autoCapitalize="off" spellCheck={false} value={draft.username} onValueChange={set("username")} />
               </Field>
@@ -333,7 +355,7 @@ function DrainDialog({ drain, open, onOpenChange }: { drain?: LogDrain; open: bo
         {secretLabel !== null ? (
           <Field
             label={secretLabel}
-            optional={draft.kind !== "axiom"}
+            optional={draft.kind !== "axiom" && draft.kind !== "newrelic"}
             description={editing && drain.has_secret ? t("runtime.logShipping.secretDescriptionKeep") : t("runtime.logShipping.secretDescriptionNew")}
             error={shown("secret") ?? serverError("secret")}
           >
