@@ -771,6 +771,7 @@ function Cards() {
         </div>
       </Card>
       <EmptyState
+        variant="firstUse"
         icon={<Boxes />}
         title="No applications yet"
         description="Deploy a repository and Noust builds it, runs it as a systemd unit and puts nginx and a certificate in front of it."

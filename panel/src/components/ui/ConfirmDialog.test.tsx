@@ -7,6 +7,7 @@ import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
+import type { ConfirmDialogProps } from "./ConfirmDialog";
 import { toast } from "./toast";
 
 function setup(onConfirm: () => Promise<void>) {
@@ -312,6 +313,140 @@ describe("ConfirmDialog", () => {
       });
       expect(error).not.toHaveBeenCalled();
       error.mockRestore();
+    });
+  });
+
+  // What the Server area's own dialog had and this one lacked: it is the only confirmation now.
+  describe("a plan that needs more than a sentence", () => {
+    function plan(extra: Record<string, unknown> = {}) {
+      const props = {
+        friction: "simple",
+        open: true,
+        title: "Turn on the firewall",
+        description: "Only the ports below stay open.",
+        actionLabel: "Turn on the firewall",
+        onConfirm: () => Promise.resolve(),
+        ...extra,
+      } as ConfirmDialogProps;
+      return (
+        <ConfirmDialog {...props}>
+          <ul>
+            <li>22/tcp: ssh</li>
+            <li>443/tcp: https</li>
+          </ul>
+        </ConfirmDialog>
+      );
+    }
+
+    it.each([
+      ["sm", "sm:max-w-dialog-sm"],
+      ["md", "sm:max-w-dialog-md"],
+      ["lg", "sm:max-w-dialog-lg"],
+    ] as const)("is as wide as its size says: %s", async (size, width) => {
+      render(plan({ size }));
+      expect(await screen.findByRole("alertdialog")).toHaveClass(width);
+    });
+
+    it("is a question of a sentence unless it is told otherwise", async () => {
+      render(plan());
+      expect(await screen.findByRole("alertdialog")).toHaveClass("sm:max-w-dialog-sm");
+    });
+
+    it("cannot be pressed while the plan says none of it can run from here (ready)", async () => {
+      render(plan({ ready: false }));
+      await screen.findByRole("alertdialog");
+      expect(screen.getByRole("button", { name: "Turn on the firewall" })).toBeDisabled();
+    });
+
+    it("takes the host name typed with a space left over from a paste", async () => {
+      const onConfirm = vi.fn(() => Promise.resolve());
+      render(plan({ friction: "type", confirmText: "web-2", onConfirm }));
+      await screen.findByRole("alertdialog");
+      const action = screen.getByRole("button", { name: "Turn on the firewall" });
+      await userEvent.type(screen.getByRole("textbox", { name: /Type web-2 to confirm/ }), "web-2 ");
+      expect(action).toBeEnabled();
+      await userEvent.click(action);
+      expect(onConfirm).toHaveBeenCalledOnce();
+    });
+
+    it("says what the other button does when the question is about leaving", async () => {
+      render(plan({ cancelLabel: "Keep editing" }));
+      await screen.findByRole("alertdialog");
+      expect(screen.getByRole("button", { name: "Keep editing" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
+    });
+
+    it("says a refusal in its own words, and the command to fix it under the failure", async () => {
+      const refusal = Object.assign(new Error("permission_denied"), { detail: "server.host_access is not allowed", hint: "" });
+      const explained = Object.assign(new Error("permission_denied"), {
+        detail: "server.host_access is not allowed",
+        hint: "web-2 does not let this console change how it is reached.",
+      });
+      const explainError = vi.fn(() => explained);
+      render(
+        plan({
+          onConfirm: () => Promise.reject(refusal),
+          explainError,
+          failureAction: (error: unknown) => <code>noust fleet access --host-access on ({(error as Error).message})</code>,
+        }),
+      );
+      await screen.findByRole("alertdialog");
+      await userEvent.click(screen.getByRole("button", { name: "Turn on the firewall" }));
+      const alert = await screen.findByRole("alert");
+      expect(explainError).toHaveBeenCalledWith(refusal);
+      // The fix above, the system's words verbatim below, the command under the block.
+      expect(alert).toHaveTextContent("web-2 does not let this console change how it is reached.");
+      expect(alert).toHaveTextContent("server.host_access is not allowed");
+      expect(screen.getByText(/noust fleet access --host-access on/)).toBeInTheDocument();
+      expect(alert).not.toContainElement(screen.getByText(/noust fleet access --host-access on/));
+      expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    });
+
+    it("draws a failure as the console draws every other: what failed, the fix, the system's words", async () => {
+      const failure = Object.assign(new Error("request failed"), { hint: "Check the unit, then try again.", detail: "Job for ufw.service failed." });
+      render(plan({ onConfirm: () => Promise.reject(failure) }));
+      await screen.findByRole("alertdialog");
+      await userEvent.click(screen.getByRole("button", { name: "Turn on the firewall" }));
+      const alert = await screen.findByRole("alert");
+      expect(alert).toHaveTextContent("Could not complete the action");
+      expect(alert).toHaveTextContent("Check the unit, then try again.");
+      expect(alert).toHaveTextContent("Job for ufw.service failed.");
+      await expectNoAxeViolations(screen.getByRole("alertdialog"));
+    });
+
+    it("explains the refusal of an action that runs at once too, in its toast", async () => {
+      const error = vi.spyOn(toast, "error");
+      const explained = Object.assign(new Error("x"), { detail: "blocked by 2 units", hint: "Stop them first." });
+      render(
+        <ConfirmDialog
+          friction="none"
+          title="Disable the job"
+          description="x"
+          actionLabel="Disable"
+          onConfirm={() => Promise.reject(new Error("preflight_failed"))}
+          explainError={() => explained}
+          trigger={<Button>Disable</Button>}
+        />,
+      );
+      await userEvent.click(screen.getByRole("button", { name: "Disable" }));
+      await waitFor(() => {
+        expect(error).toHaveBeenCalledOnce();
+      });
+      expect(error.mock.calls[0]?.[1]).toMatchObject({ description: "Stop them first.", detail: "blocked by 2 units" });
+      error.mockRestore();
+    });
+
+    it("resets the primary of the header behind it: a dialog has its own", async () => {
+      const { DemotePrimary } = await import("./demotePrimary");
+      render(
+        <DemotePrimary active>
+          <Button variant="primary">Update</Button>
+          <ConfirmDialog friction="simple" open title="Stop" description="x" actionLabel="Stop application" destructive={false} onConfirm={() => Promise.resolve()} />
+        </DemotePrimary>,
+      );
+      await screen.findByRole("alertdialog");
+      expect(screen.getByRole("button", { name: "Update", hidden: true })).toHaveAttribute("data-variant", "secondary");
+      expect(screen.getByRole("button", { name: "Stop application" })).toHaveAttribute("data-variant", "primary");
     });
   });
 });

@@ -1,6 +1,6 @@
 import { act, render, screen } from "@testing-library/react";
 import { Boxes } from "lucide-react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
@@ -83,5 +83,30 @@ describe("EmptyState", () => {
     });
     render(<EmptyState title="No applications yet" command={COMMAND} />);
     expect(screen.getByRole("button", { name: "Copiar comando" })).toBeInTheDocument();
+  });
+
+  describe("a missing variant", () => {
+    it("is said once in development, with the two it can be, and drawn as the framed block meanwhile", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const { rerender } = render(<EmptyState title="Nothing named here yet" />);
+      rerender(<EmptyState title="Nothing named here yet" description="Again." />);
+      expect(warn).toHaveBeenCalledOnce();
+      const message = String(warn.mock.calls[0]?.[0]);
+      expect(message).toContain("Nothing named here yet");
+      expect(message).toContain("firstUse");
+      expect(message).toContain("inline");
+      expect(screen.getByRole("heading", { name: "Nothing named here yet" })).toBeInTheDocument();
+    });
+
+    it("is not said of a variant that is given", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      render(
+        <>
+          <EmptyState variant="firstUse" title="Named first" />
+          <EmptyState variant="inline" title="Named inline" />
+        </>,
+      );
+      expect(warn).not.toHaveBeenCalled();
+    });
   });
 });

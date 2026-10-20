@@ -310,9 +310,10 @@ const WIDTHS: { token: string; value: string; use: string }[] = [
   { token: "--measure | --measure-help", value: "68ch / 52ch", use: "Prose / help under a field" },
 ];
 
-function TokenTable({ rows }: { rows: { token: string; value: string; use: string }[] }) {
+/** A table that scrolls sideways on a phone takes the keyboard and has a name, or a keyboard cannot reach what it hides. */
+function TokenTable({ label, rows }: { label: string; rows: { token: string; value: string; use: string }[] }) {
   return (
-    <div className="overflow-x-auto rounded-card border border-border bg-surface">
+    <div role="region" aria-label={label} tabIndex={0} className="overflow-x-auto rounded-card border border-border bg-surface">
       <table className="w-full text-left text-13">
         <thead>
           <tr className="border-b border-border bg-bg-sunken text-12 text-fg-muted">
@@ -451,14 +452,14 @@ export function Foundations() {
         title="Controls and layers"
         description="Every control reads its height from a token, so a coarse pointer grows them all to a thumb's target in one place. Stacking is named: nothing else sets a z-index."
       >
-        <TokenTable rows={SIZES} />
+        <TokenTable label="Sizes table" rows={SIZES} />
       </Section>
       <Section
         id="widths"
         title="Widths"
         description="The shell caps the page at 1600px and each template sets its inner grid from these tokens: a content column is never narrower than its own header."
       >
-        <TokenTable rows={WIDTHS} />
+        <TokenTable label="Widths table" rows={WIDTHS} />
       </Section>
       <Section
         id="icons"

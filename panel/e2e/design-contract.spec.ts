@@ -21,6 +21,7 @@
 
 import type { Page } from "@playwright/test";
 
+import type { ConsoleServer } from "./fixtures";
 import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
 
 const ROUTES = ["/", "/apps", "/apps/shop.example.net", "/apps/shop.example.net/settings", "/apps/shop.example.net/settings/build", "/backups", "/catalog", "/catalog/vaultwarden", "/domains", "/settings"];
@@ -204,20 +205,110 @@ for (const viewport of VIEWPORTS) {
   }
 }
 
+/**
+ * Opens the gallery in a theme and width, or skips the test when the build has none (only a
+ * development build includes it, see the header of this file).
+ */
+async function openGallery(page: Page, server: ConsoleServer, theme: "light" | "dark" | null, width: number): Promise<void> {
+  await page.setViewportSize({ width, height: 900 });
+  await signIn(page, server);
+  await page.goto(theme === null ? "/__design" : `/__design?theme=${theme}`);
+  // By CSS and not by role: below 1024px the gallery's own navigation is hidden, and a role
+  // locator does not see what is hidden, which would skip every phone-width test.
+  const gallery = page.locator('nav[aria-label="Design system"]');
+  const present = await gallery
+    .waitFor({ state: "attached", timeout: 5_000 })
+    .then(() => true)
+    .catch(() => false);
+  test.skip(!present, "The gallery is only in a development build (see the header of this file).");
+  await settle(page);
+}
+
 test.describe("the design gallery", () => {
   test("keeps to its own contract and passes axe, when the build includes it", async ({ page, consoleServer }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await signIn(page, consoleServer);
-    await page.goto("/__design");
-    const gallery = page.getByRole("navigation", { name: "Design system" });
-    const present = await gallery
-      .waitFor({ state: "attached", timeout: 5_000 })
-      .then(() => true)
-      .catch(() => false);
-    test.skip(!present, "The gallery is only in a development build (see the header of this file).");
-    await settle(page);
+    await openGallery(page, consoleServer, null, 1440);
     const broken = await audit(page);
     expect(broken, `The gallery breaks the design contract:\n${broken.slice(0, 40).join("\n")}`).toEqual([]);
     await expectNoA11yViolations(page, "the design gallery");
+  });
+
+  // The 4.0 kit, in both themes at both widths: every specimen is audited, the mistakes it
+  // prevents (the "Don't" column) are not.
+  for (const theme of ["light", "dark"] as const) {
+    for (const width of [1440, 390]) {
+      test(`keeps the 4.0 kit to the contract and to axe in the ${theme} theme at ${String(width)}`, async ({ page, consoleServer }) => {
+        await openGallery(page, consoleServer, theme, width);
+        const kit = page.locator('[data-gallery-section^="k40-"]');
+        expect(await kit.count()).toBeGreaterThanOrEqual(13);
+        const broken = await audit(page);
+        expect(broken, `The gallery breaks the design contract in ${theme} at ${String(width)}:\n${broken.slice(0, 40).join("\n")}`).toEqual([]);
+        await expectNoA11yViolations(page, `the 4.0 kit, ${theme} at ${String(width)}`);
+      });
+    }
+  }
+
+  test.describe("a setting row", () => {
+    for (const width of [1440, 390]) {
+      test(`is 44px without help and 60px with one line of help at ${String(width)}`, async ({ page, consoleServer }) => {
+        await openGallery(page, consoleServer, null, width);
+        const height = async (specimen: string): Promise<number> => {
+          const row = page.locator(`[data-gallery-specimen="${specimen}"] [data-slot="setting"]`);
+          await row.scrollIntoViewIfNeeded();
+          const box = await row.boundingBox();
+          if (box === null) throw new Error(`${specimen} has no box`);
+          return Math.round(box.height);
+        };
+        expect(await height("setting-plain")).toBe(44);
+        expect(await height("setting-help")).toBe(60);
+      });
+    }
+
+    test("keeps a small button from making its row taller than 60px", async ({ page, consoleServer }) => {
+      await openGallery(page, consoleServer, null, 1440);
+      const group = page.locator('[data-gallery-section="k40-setting"] [data-theme="light"] [data-slot="settings-group"]').last();
+      const row = group.locator('[data-slot="setting"]', { hasText: /^Instant rollback/ });
+      await row.scrollIntoViewIfNeeded();
+      const box = await row.boundingBox();
+      expect(Math.round(box?.height ?? 0)).toBe(60);
+    });
+  });
+
+  test("keeps one primary in the view while the form is dirty: the header's yields, Save takes it", async ({ page, consoleServer }) => {
+    await openGallery(page, consoleServer, null, 1440);
+    const specimen = page.locator('[data-gallery-specimen="primary-yield"]');
+    await specimen.scrollIntoViewIfNeeded();
+    const primaries = async (): Promise<string[]> => specimen.locator('[data-variant="primary"]').evaluateAll((nodes) => nodes.map((node) => node.textContent.trim()));
+    expect(await primaries()).toEqual(["Update"]);
+    const update = specimen.getByRole("button", { name: "Update" });
+    const before = await update.boundingBox();
+    await specimen.getByRole("button", { name: "Edit a field" }).click();
+    await expect.poll(primaries).toEqual(["Save"]);
+    // It changes colour and nothing else: the label is the same and so is the box.
+    await expect(update).toHaveAttribute("data-variant", "secondary");
+    expect(await update.boundingBox()).toEqual(before);
+    await specimen.getByRole("button", { name: "Discard" }).click();
+    await expect.poll(primaries).toEqual(["Update"]);
+  });
+
+  test("draws a split button as one control: the same height, one ring round the pair", async ({ page, consoleServer }) => {
+    await openGallery(page, consoleServer, "light", 1440);
+    const group = page.locator('[data-gallery-section="k40-split"] [data-theme="light"] [data-slot="split-button"]').first();
+    await group.scrollIntoViewIfNeeded();
+    const [main, arrow] = await group.locator("button").all();
+    if (main === undefined || arrow === undefined) throw new Error("a split button has two buttons");
+    const heights = await Promise.all([main.boundingBox(), arrow.boundingBox()]).then(([a, b]) => [a?.height, b?.height]);
+    expect(heights[0]).toBe(heights[1]);
+    expect(heights[0]).toBe(32);
+    // By keyboard, so the ring is the focus-visible one: out of the pair and back in at its first part.
+    await main.focus();
+    await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press("Tab");
+    await expect(main).toBeFocused();
+    const outline = await Promise.all([
+      group.evaluate((node) => getComputedStyle(node).outlineStyle),
+      main.evaluate((node) => getComputedStyle(node).outlineStyle),
+    ]);
+    // The pair draws the ring; the focused part draws none of its own.
+    expect(outline).toEqual(["solid", "none"]);
   });
 });
