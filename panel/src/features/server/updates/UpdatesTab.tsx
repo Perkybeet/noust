@@ -245,19 +245,18 @@ function Reboot({ updates }: { updates: Updates }) {
         tone="warning"
         title={reboot.since ? t.rich("server.updates.reboot.titleSince", { when: <RelativeTime value={reboot.since} /> }) : t("server.updates.reboot.title")}
         action={
-          <div className="flex flex-wrap items-center gap-2">
-            {packages.length > 0 || reasons.length > 0 ? (
-              <Button size="sm" variant="ghost" onClick={() => setWhy(true)}>
-                {t("server.updates.reboot.why")}
-              </Button>
-            ) : null}
-            <Button size="sm" onClick={() => power.open("reboot")}>
-              {t("server.updates.reboot.schedule")}
-            </Button>
-          </div>
+          <Button size="sm" onClick={() => power.open("reboot")}>
+            {t("server.updates.reboot.schedule")}
+          </Button>
         }
       >
-        {t("server.updates.reboot.description")}
+        {/* One action beside the text, so a phone keeps a readable line; the reasons are a button in the sentence. */}
+        {t("server.updates.reboot.description")}{" "}
+        {packages.length > 0 || reasons.length > 0 ? (
+          <Button size="sm" variant="ghost" className="align-baseline" onClick={() => setWhy(true)}>
+            {t("server.updates.reboot.why")}
+          </Button>
+        ) : null}
       </Notice>
       <Drawer open={why} onOpenChange={setWhy} size="md" title={t("server.updates.reboot.whyTitle")} description={t("server.updates.reboot.whyDescription")}>
         <div className="flex flex-col gap-4">

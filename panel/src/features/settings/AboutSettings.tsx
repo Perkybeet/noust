@@ -283,7 +283,7 @@ function LegalNotice() {
         <p>
           {t.rich("settings.about.legal.license", {
             license: (
-              <ExternalLink key="license" href={`${REPOSITORY}/blob/main/LICENSE`}>
+              <ExternalLink key="license" inline href={`${REPOSITORY}/blob/main/LICENSE`}>
                 {t("settings.about.legal.licenseName")}
               </ExternalLink>
             ),
@@ -294,7 +294,7 @@ function LegalNotice() {
         <p>
           {t.rich("settings.about.legal.source", {
             repository: (
-              <ExternalLink key="repository" href={REPOSITORY}>
+              <ExternalLink key="repository" inline href={REPOSITORY}>
                 {t("settings.about.legal.repositoryName")}
               </ExternalLink>
             ),
