@@ -56,7 +56,6 @@ export const ssoAdmin = {
     addDirectory: "Directory",
     addDirectoryHelp: "An LDAP or Active Directory server.",
     emptyTitle: "No sign-in connection yet",
-    emptyDescription: "Connect the identity provider or directory your organisation already has, and people sign in with it.",
     certificateUntil: "Certificate until",
     kind: { oidc: "OpenID Connect", saml: "SAML", directory: "Directory" },
     column: { connection: "Connection", type: "Type", state: "State", details: "Points at", signUp: "First sign-in" },

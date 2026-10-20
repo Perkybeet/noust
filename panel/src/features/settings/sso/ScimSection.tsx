@@ -1,9 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Users } from "lucide-react";
 import { useState } from "react";
 
 import { removeScimSource, scimKeys, scimSourcesQuery } from "../../../api/queries/scim";
 import type { ScimSource } from "../../../api/queries/scim";
+import { CommandHint } from "../../../components/page/CommandHint";
 import { QueryState } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { RowMenu } from "../../../components/page/RowMenu";
@@ -98,15 +98,10 @@ export function ScimSection() {
         skeleton={<DataTable caption={t("scimAdmin.tableCaption")} columns={columns} rows={[]} getRowId={(source) => source.name} loading mobile="cards" skeletonRows={1} />}
         isEmpty={(data) => data.sources.length === 0}
         empty={
-          <EmptyState
-            variant="firstUse"
-            level={3}
-            icon={<Users />}
-            title={t("scimAdmin.emptyTitle")}
-            description={t("scimAdmin.emptyDescription")}
-            action={add}
-            command="noust auth scim set entra --label 'Entra ID'"
-          />
+          <div className="flex flex-col gap-3">
+            <EmptyState variant="inline" title={t("scimAdmin.emptyTitle")} action={add} />
+            <CommandHint command="noust auth scim set entra --label 'Entra ID'" label={t("ssoAdmin.command")} />
+          </div>
         }
       >
         {(data) => (

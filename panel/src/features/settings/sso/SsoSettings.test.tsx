@@ -255,7 +255,7 @@ describe("Settings > Single sign-on", () => {
 
   it("offers to add the first connection, of three kinds, when there is none", async () => {
     const { user } = await pageAt({ providers: [], identities: [], local: { enabled: true, exempt: [], providers: 0, survivors: ["ana"] } });
-    expect(await screen.findByRole("heading", { name: "No sign-in connection yet" })).toBeInTheDocument();
+    expect(await screen.findByText("No sign-in connection yet")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Add a connection" }));
     expect(await screen.findByRole("menuitem", { name: "OpenID Connect provider" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "SAML provider" })).toBeInTheDocument();
@@ -414,7 +414,7 @@ describe("Settings > Single sign-on", () => {
     await waitFor(() => {
       expect(backend.callsTo("DELETE /api/auth/oidc/config/corp")).toHaveLength(1);
     });
-    expect(await screen.findByRole("heading", { name: "No sign-in connection yet" })).toBeInTheDocument();
+    expect(await screen.findByText("No sign-in connection yet")).toBeInTheDocument();
   });
 
   describe("passwords and passkeys", () => {
@@ -797,9 +797,9 @@ describe("Settings > Single sign-on", () => {
   describe("provisioning (SCIM)", () => {
     it("offers to add the first source, and says it signs nobody in", { timeout: 30_000 }, async () => {
       await pageAt();
-      const empty = await screen.findByRole("heading", { name: "No provisioning source" });
+      const empty = await screen.findByText("No provisioning source");
       const section = screen.getByRole("region", { name: "Provisioning (SCIM)" });
-      expect(within(section).getByRole("heading", { name: "No provisioning source" })).toBe(empty);
+      expect(within(section).getByText("No provisioning source")).toBe(empty);
       expect(within(section).getByText(/It does not sign anybody in/)).toBeInTheDocument();
       expect(within(section).getByRole("button", { name: "Add a source" })).toBeInTheDocument();
     });
@@ -901,7 +901,7 @@ describe("Settings > Single sign-on", () => {
       await waitFor(() => {
         expect(backend.callsTo("DELETE /api/auth/scim/sources/entra")).toHaveLength(1);
       });
-      expect(await screen.findByRole("heading", { name: "No provisioning source" })).toBeInTheDocument();
+      expect(await screen.findByText("No provisioning source")).toBeInTheDocument();
     });
 
     it("speaks Spanish", { timeout: 30_000 }, async () => {

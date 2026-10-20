@@ -1,5 +1,4 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { KeyRound } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
@@ -301,15 +300,12 @@ export function ConnectionsSection() {
         }
         isEmpty={(connections) => connections.length === 0}
         empty={
-          <EmptyState
-            variant="firstUse"
-            level={3}
-            icon={<KeyRound />}
-            title={t("ssoAdmin.connections.emptyTitle")}
-            description={t("ssoAdmin.connections.emptyDescription")}
-            action={add}
-            command={t("ssoAdmin.commandProviders")}
-          />
+          // One line and its action, so the section is about as tall empty as it is while it loads: three
+          // first-use blocks on one page would push every section under them by a screen.
+          <div className="flex flex-col gap-3">
+            <EmptyState variant="inline" title={t("ssoAdmin.connections.emptyTitle")} action={add} />
+            <CommandHint command={t("ssoAdmin.commandProviders")} label={t("ssoAdmin.command")} />
+          </div>
         }
       >
         {() => (

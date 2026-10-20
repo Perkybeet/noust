@@ -54,7 +54,6 @@ export const ssoAdmin: Catalog<typeof en> = {
     addDirectory: "Directorio",
     addDirectoryHelp: "Un servidor LDAP o Active Directory.",
     emptyTitle: "Aún no hay ninguna conexión de inicio de sesión",
-    emptyDescription: "Conecta el proveedor de identidad o el directorio que tu organización ya tiene, y la gente entra con él.",
     certificateUntil: "Certificado hasta",
     kind: { oidc: "OpenID Connect", saml: "SAML", directory: "Directorio" },
     column: { connection: "Conexión", type: "Tipo", state: "Estado", details: "Apunta a", signUp: "Primer acceso" },

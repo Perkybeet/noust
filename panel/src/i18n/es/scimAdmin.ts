@@ -9,8 +9,6 @@ export const scimAdmin: Catalog<typeof en> = {
   tableCaption: "Fuentes de aprovisionamiento",
   add: "Añadir una fuente",
   emptyTitle: "Ninguna fuente de aprovisionamiento",
-  emptyDescription:
-    "Añade una para que Microsoft Entra ID, Okta u otro proveedor cree cuentas y las apague cuando una persona se va.",
   endpoint: "Dirección SCIM",
   endpointHelp: "Dale al proveedor esta dirección y el token de la fuente.",
   column: {

@@ -11,8 +11,6 @@ export const scimAdmin = {
   tableCaption: "Provisioning sources",
   add: "Add a source",
   emptyTitle: "No provisioning source",
-  emptyDescription:
-    "Add one to let Microsoft Entra ID, Okta or another provider create accounts and switch them off when a person leaves.",
   endpoint: "SCIM endpoint",
   endpointHelp: "Give the provider this address and the source's token.",
   column: {
