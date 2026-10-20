@@ -1,0 +1,67 @@
+# Headscale from the image the project publishes (headscale/headscale on Docker Hub), run as its
+# container documentation describes (headscale.net "Setup > Container", read 2026-10-20): the
+# configuration is /etc/headscale/config.yaml (the file this recipe ships, a trimmed
+# config-example.yaml of the release: server_url is the public address, which Tailscale clients
+# must reach over HTTPS and which carries their control connection as a WebSocket; magic DNS's
+# base_domain must differ from the server's own domain), the database and keys are under
+# /var/lib/headscale, the command is `serve`, the image is run read-only with a tmpfs for the
+# CLI's socket under /var/run/headscale, and `headscale health` is its health check.
+# The embedded DERP relay is off (it needs a public UDP port and its own certificate), so the
+# clients use Tailscale's public relays, as the example does. /health answers without a key.
+# Users and keys are made with the headscale command inside the container.
+#
+# Pinned to the release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: headscale
+kind: compose
+title: Headscale
+slogan: "A self-hosted, open source implementation of the Tailscale control server."
+description: "Run your own coordination server for a Tailscale network: your devices join your tailnet with the official Tailscale clients, with users, pre-auth keys, ACL policies and routes managed by you. There is no web interface; you manage it with the headscale command."
+category: security
+tags: [vpn, tailscale, wireguard, mesh]
+logo: logo.svg
+version: "0.29.5"
+revision: 1
+updated: 2026-10-20
+homepage: https://headscale.net
+docs: https://headscale.net/stable/
+repository: https://github.com/juanfont/headscale
+license: BSD-3-Clause
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8081
+variables:
+  HEADSCALE_URL:
+    from: url
+    description: The address Tailscale clients connect to; it must be served over HTTPS.
+  HEADSCALE_BASE_DOMAIN:
+    required: true
+    description: "The domain devices get names under (magic DNS), for example tailnet.example.com. It must not be the server's own domain or a name that exists."
+health:
+  path: /health
+  expect: "200"
+  timeout: 90
+files:
+  config.yaml: {asset: config.yaml, render: true, mode: "0644"}
+  noust.nginx.yaml: noust.nginx.yaml
+compose: |
+  services:
+    headscale:
+      image: headscale/headscale:0.29.5@sha256:780ed2f9e85719a2211277433f2c8afb45105d0d25031949a6848a485f9e216d
+      restart: unless-stopped
+      command: serve
+      read_only: true
+      tmpfs:
+        - /var/run/headscale
+      volumes:
+        - ./config.yaml:/etc/headscale/config.yaml:ro
+        - headscale-data:/var/lib/headscale
+      ports:
+        - "127.0.0.1:${PORT}:8080"
+  volumes:
+    headscale-data:
+notes:
+  - "Create the first user with the headscale command in the application's terminal (the headscale service): headscale users create NAME. Then make a pre-auth key with headscale preauthkeys create --user ID, and join a device with tailscale up --login-server {{ url }} --authkey KEY."
+  - "The address {{ url }} must be reachable over HTTPS by your devices: clients refuse a plain HTTP control server. Policy, DNS and the other settings are in config.yaml in this application's directory."
+  - "Its database and keys are in the Docker volume headscale-data of this application: back it up before updating, and keep it: the noise and DERP keys identify the server to every device."
