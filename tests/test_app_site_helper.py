@@ -25,6 +25,7 @@ from noust.deployers.docker_compose import DockerComposeDeployer
 from noust.deployers.helpers.site import (
     ServesDomains,
     certificate_names,
+    load_app_site,
     remove_app_site,
     write_app_site,
     write_template_site,
@@ -179,6 +180,48 @@ def test_removing_a_noust_site_deletes_it_and_reloads(
     assert not web.site_exists(DOMAIN)
     assert not web.site_enabled(DOMAIN)
     assert any("reload" in " ".join(call) for call in runner.calls)
+
+
+def test_a_deployed_site_starts_the_web_server_nobody_started(
+    web: NginxManager, runner: FakeRunner
+) -> None:
+    # A deploy reloaded the web server and dropped the answer: on a server whose nginx was stopped
+    # it said "deployed" and nothing was served. Found taking over a server a Coolify ran.
+    runner.script(["systemctl", "reload", "nginx"], exit_code=1)
+    runner.script(["systemctl", "is-active", "nginx"], stdout="inactive\n", exit_code=3)
+    log = Log()
+
+    load_app_site(web, DOMAIN, log)
+
+    assert ("systemctl", "restart", "nginx") in runner.calls
+    assert log.warnings == []
+
+
+def test_a_web_server_that_will_not_start_is_quoted_in_the_deploys_warning(
+    web: NginxManager, runner: FakeRunner
+) -> None:
+    bind = "nginx: [emerg] bind() to 0.0.0.0:80 failed (98: Address already in use)"
+    runner.script(["systemctl", "reload", "nginx"], exit_code=1)
+    runner.script(["systemctl", "is-active", "nginx"], stdout="inactive\n", exit_code=3)
+    runner.script(["systemctl", "restart", "nginx"], exit_code=1)
+    runner.script(["journalctl", "-u", "nginx"], stdout=f"{bind}\n")
+    log = Log()
+
+    load_app_site(web, DOMAIN, log)
+
+    assert len(log.warnings) == 1
+    assert DOMAIN in log.warnings[0] and bind in log.warnings[0]
+
+
+def test_a_site_a_running_web_server_loads_says_nothing(
+    web: NginxManager, runner: FakeRunner
+) -> None:
+    log = Log()
+
+    load_app_site(web, DOMAIN, log)
+
+    assert log.warnings == []
+    assert ("systemctl", "restart", "nginx") not in runner.calls
 
 
 def test_removing_nothing_says_so(web: NginxManager) -> None:

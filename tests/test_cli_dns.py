@@ -187,6 +187,26 @@ def test_the_accounts_are_listed_without_their_credentials(wired: None) -> None:
     assert "token" not in result.output
 
 
+def test_verifying_an_account_prints_the_zones_it_manages(wired: None, log: list[str]) -> None:
+    # The command's help promises the zones; they were logged as sub-steps, which are shown with
+    # --verbose only, so `verify` said "works" and nothing else (found against a real provider).
+    result = invoke(["dns", "provider", "verify", "cf"])
+
+    assert result.exit_code == 0, result.output
+    assert any("cf works" in line for line in log)
+    assert any("example.com" in line for line in log)
+
+
+def test_verifying_an_account_can_print_the_zones_as_json(wired: None) -> None:
+    result = invoke(["dns", "provider", "verify", "cf", "--json"])
+
+    assert result.exit_code == 0, result.output
+    answer = json.loads(result.output)
+    assert answer["account"] == "cf" and [zone["name"] for zone in answer["zones"]] == [
+        "example.com"
+    ]
+
+
 def test_the_kinds_say_which_ones_do_records_and_which_only_the_challenge(wired: None) -> None:
     result = invoke(["dns", "provider", "kinds", "--json"])
 

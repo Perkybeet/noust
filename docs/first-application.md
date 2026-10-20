@@ -5,6 +5,13 @@ database it uses, a backup, and a ready-made service from the catalog. Each step
 console and as the command that does the same. Allow about ten minutes; the part that takes time is
 waiting for DNS.
 
+The machine's part has been measured (`tests/integration/network_run.py --scenario first_deploy`): from
+`apt install` on a bare Debian 13 server (no nginx, certbot, Node.js, git or Noust) through
+`noust setup init` to a Node.js application answering over HTTPS took 52 seconds on the machine that
+ran it (22 for the package, 19 for `setup init`, 10 for `noust create` with the certificate), with
+Pebble, Let's Encrypt's test server, as the authority and the package read from a file. The figures and
+what they leave out are in `tests/integration/results/first-deploy.json`; the budget is ten minutes.
+
 ## Before you start
 
 - **Noust is installed and the server is ready.** `noust setup doctor` lists what a deployment

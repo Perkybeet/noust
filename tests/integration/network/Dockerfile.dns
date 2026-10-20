@@ -1,0 +1,41 @@
+# The DNS side of the certificate scenarios (tests/integration/network_run.py, acme_*): a real BIND 9
+# that is authoritative for acme.test and takes dynamic updates (RFC 2136, TSIG), and a small
+# stand-in for Cloudflare's REST API in front of it (acme/provider.py), because the one thing no
+# test machine can have is an account at a DNS provider. Pebble resolves names and reads the
+# DNS-01 TXT records from this BIND, so what the stand-in publishes is what the authority sees.
+#
+# Debian 13 like the server, so a machine that built the server image has the base layers.
+#
+# Pebble, Let's Encrypt's own ACME server for tests, runs in this same container (its official
+# image supplies the binary and its certificates, pinned by digest like the harness pins it): the
+# harness is held to few containers at a time, and the authority and the DNS it asks are one
+# stack. It asks the BIND beside it, on 127.0.0.1, for the A record of a name and the TXT record of
+# a DNS-01 challenge, exactly as it did from a container of its own.
+
+ARG PEBBLE_IMAGE
+FROM ${PEBBLE_IMAGE} AS pebble
+
+FROM debian:13
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=C.UTF-8 \
+    PEBBLE_VA_NOSLEEP=1 \
+    PEBBLE_WFE_NONCEREJECT=0 \
+    PEBBLE_AUTHZREUSE=0
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        bind9 \
+        bind9-dnsutils \
+        openssl \
+        python3 \
+        ca-certificates \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=pebble /app /usr/local/bin/pebble
+COPY --from=pebble /test/certs /test/certs
+COPY acme/provider.py /opt/provider.py
+COPY acme/entrypoint.sh /opt/entrypoint.sh
+RUN chmod 0755 /opt/entrypoint.sh
+
+ENTRYPOINT ["/opt/entrypoint.sh"]

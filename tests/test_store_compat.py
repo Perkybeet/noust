@@ -155,9 +155,70 @@ def test_a_release_that_cannot_open_the_store_gets_the_newest_copy_it_can_open(
     assert result.copy == right
     joined = "\n".join(result.steps)
     assert "systemctl stop noust-web noust-monitor" in joined
-    assert f"cp {right.path} {db}" in joined
+    assert f"cp {right.path} {db} && chmod 600 {db}" in joined
     assert "before-downgrade" in joined
     assert "is not in it" in joined
+
+
+def _aside_command(tmp_path: Path) -> str:
+    """The command of the plan that keeps the store aside, as it is printed."""
+    right = copy(tmp_path, 13, "20261003T101500Z")
+    result = plan("3.3.1", 14, [right], db_path=tmp_path / "noust.db")
+    return next(step for step in result.steps if "before-downgrade" in step).split("): ", 1)[1]
+
+
+@pytest.mark.allow_subprocess
+def test_keeping_the_store_aside_works_when_the_write_ahead_log_is_not_there(
+    tmp_path: Path,
+) -> None:
+    # The text says "a missing -wal or -shm is fine", and `mv` of a file that is not there exits 1:
+    # a store that was closed cleanly has neither, and the command, run as printed (or chained
+    # with the next step), stopped the way back on the first try. Found running the steps for real.
+    import subprocess
+
+    (tmp_path / "noust.db").write_text("the store")
+    keep = copy(tmp_path, 13, "20261003T101500Z")
+
+    done = subprocess.run(
+        ["bash", "-c", _aside_command(tmp_path)], capture_output=True, text=True, check=False
+    )
+
+    assert done.returncode == 0, done.stderr
+    assert (tmp_path / "before-downgrade" / "noust.db").read_text() == "the store"
+    assert not (tmp_path / "noust.db").exists()
+    assert keep.path.exists(), "the copy is not the store's and stays where it is"
+
+
+@pytest.mark.allow_subprocess
+def test_keeping_the_store_aside_takes_the_write_ahead_log_with_it(tmp_path: Path) -> None:
+    import subprocess
+
+    for name in ("noust.db", "noust.db-wal", "noust.db-shm"):
+        (tmp_path / name).write_text(name)
+    command = _aside_command(tmp_path)
+
+    done = subprocess.run(["bash", "-c", command], capture_output=True, text=True, check=False)
+
+    assert done.returncode == 0, done.stderr
+    kept = sorted(path.name for path in (tmp_path / "before-downgrade").iterdir())
+    assert kept == ["noust.db", "noust.db-shm", "noust.db-wal"]
+
+
+@pytest.mark.allow_subprocess
+def test_a_store_in_a_directory_with_a_space_is_kept_aside_too(tmp_path: Path) -> None:
+    import subprocess
+
+    directory = tmp_path / "my noust"
+    directory.mkdir()
+    (directory / "noust.db").write_text("the store")
+    right = copy(directory, 13, "20261003T101500Z")
+    result = plan("3.3.1", 14, [right], db_path=directory / "noust.db")
+    command = next(step for step in result.steps if "before-downgrade" in step).split("): ", 1)[1]
+
+    done = subprocess.run(["bash", "-c", command], capture_output=True, text=True, check=False)
+
+    assert done.returncode == 0, done.stderr
+    assert (directory / "before-downgrade" / "noust.db").exists()
 
 
 def test_without_a_usable_copy_the_plan_says_so_and_suggests_the_self_backup(

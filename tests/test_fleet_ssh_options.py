@@ -516,6 +516,40 @@ class TestBastionAuthorizedLine:
         assert 'permitopen="[2001:db8::5]:22"' in line
 
 
+class TestBastionLineBeforeTheBastionIsSet:
+    # The documented order was `noust node ssh NAME --bastion ...` and then `--show`, but the first
+    # command opens the tunnel through a bastion that does not authorize the central yet, fails and
+    # puts the old options back, and `--show` then said "has no bastion": the operator could not
+    # learn the line without knowing to pass --no-test. Found with a real bastion and a real sshd.
+    def test_the_line_is_asked_for_a_bastion_that_is_not_set_yet(self, fleet):
+        fleet.added()
+        fleet.runner.calls.clear()
+
+        line = fleet.manager.bastion_authorization("web-2", bastion=bastion())
+
+        assert 'permitopen="web2.example.com:22"' in line
+        assert line.startswith("restrict,port-forwarding")
+        assert NodeSSHOptions(fleet.store).get("web-2").bastion is None
+        assert not any(call[0] == "ssh" for call in fleet.runner.calls)  # no tunnel was opened
+
+    def test_the_line_of_the_bastion_in_force_is_still_the_default(self, fleet):
+        fleet.added()
+        fleet.manager.set_ssh_options("web-2", bastion=bastion(), test=False)
+
+        assert fleet.manager.bastion_authorization("web-2") == fleet.manager.bastion_authorization(
+            "web-2", bastion=bastion()
+        )
+
+    def test_a_node_with_no_bastion_and_none_given_says_how_to_set_one(self, fleet):
+        fleet.added()
+
+        with pytest.raises(NodeError) as caught:
+            fleet.manager.bastion_authorization("web-2")
+
+        assert "has no bastion" in caught.value.message
+        assert "--show" in (caught.value.details or "")
+
+
 class TestFingerprint:
     def test_the_bastion_reports_its_fingerprint(self):
         assert bastion().fingerprint == fingerprint(BASTION_KEY)

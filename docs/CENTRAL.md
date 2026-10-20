@@ -335,8 +335,10 @@ bastion carries bytes it cannot read or change. It is a hop, not a trust.
 
 ```bash
 noust node ssh web-5 --bastion hop@bastion.example.com:22 \
-    --bastion-fingerprint SHA256:...                      # the bastion's host key, from its owner
-noust node ssh web-5 --show                               # the line the bastion's operator adds
+    --bastion-fingerprint SHA256:... --show               # the line the bastion's operator adds; changes nothing
+noust node ssh web-5 --bastion hop@bastion.example.com:22 \
+    --bastion-fingerprint SHA256:...                      # then set it, once the bastion lets the central in
+noust node ssh web-5 --show                               # the line of the bastion in force
 noust node ssh web-5 --timeout 30                         # wait longer for a slow link (1 to 300 seconds)
 noust node ssh web-5 --no-bastion                         # direct again
 noust node add web-5 --ssh noust-tunnel@10.0.0.5 --join-code - \
@@ -352,7 +354,8 @@ In the console it is **Fleet > Servers > the server's menu > Connection options*
   change closes the tunnel and says so, as for a server.
 - **The change is tried before it is kept.** With the new options the central opens the tunnel and checks
   the server answers; when it does not, the old options are put back (`--no-test` keeps them without
-  trying, for a server that is down now).
+  trying, for a server that is down now). A bastion that does not let the central in yet fails that
+  test, which is why the line is asked for first, with `--show` and the `--bastion` you mean to set.
 - **The central gets no shell on the bastion either.** `node ssh --show` prints an `authorized_keys`
   line for the account the central logs in as there, with `restrict` and a `permitopen` for this one
   server: one stream to it, no terminal, no command, no other destination. It uses the key the central
