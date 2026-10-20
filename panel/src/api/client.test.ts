@@ -62,17 +62,17 @@ describe("api", () => {
     expect(call?.raw).toBe(chunk);
   });
 
-  it("mirrors the wasm_csrf cookie into the X-WASM-CSRF header", async () => {
-    document.cookie = "wasm_csrf=token-from-cookie; path=/";
+  it("mirrors the noust_csrf cookie into the X-Noust-CSRF header", async () => {
+    document.cookie = "noust_csrf=token-from-cookie; path=/";
     const backend = fakeBackend({ "DELETE /api/apps/shop.example.com": () => json(202, { job_id: "j1" }) });
     await api("DELETE", "/api/apps/shop.example.com");
-    expect(backend.calls[0]?.headers.get("X-WASM-CSRF")).toBe("token-from-cookie");
+    expect(backend.calls[0]?.headers.get("X-Noust-CSRF")).toBe("token-from-cookie");
   });
 
   it("sends no CSRF header when there is no cookie to mirror", async () => {
     const backend = fakeBackend({ "GET /api/apps": () => json(200, { apps: [], total: 0 }) });
     await api("GET", "/api/apps");
-    expect(backend.calls[0]?.headers.has("X-WASM-CSRF")).toBe(false);
+    expect(backend.calls[0]?.headers.has("X-Noust-CSRF")).toBe(false);
   });
 
   it("surfaces a 422's fields for the form to show next to each control", async () => {

@@ -4,7 +4,7 @@
 """
 A migration leaves a PHP application's settings at the application root.
 
-``.wasm-php.json`` belongs to the application directory, whatever the layout:
+``.noust-php.json`` belongs to the application directory, whatever the layout:
 moved into the first release, it is no longer where
 :func:`~noust.deployers.php_fpm.load_php_settings` reads it, which then answers
 the defaults without a word, losing the web root and the refused paths.

@@ -84,8 +84,9 @@ noust token create dashboard --scope read --expires-hours 720
 curl -H "Authorization: Bearer $TOKEN" https://panel.example.com/api/apps
 ```
 
-API tokens start with `noust_tok_` (`wasm_tok_` for tokens issued before 3.0, which keep
-working), are shown once, and are stored only as a salted hash. Manage them with
+API tokens start with `noust_tok_` (the ones issued before 3.0 start with the old
+product's prefix and keep working until revoked; `noust health` names the ones still in use),
+are shown once, and are stored only as a salted hash. Manage them with
 `noust token list|revoke`, the console's Settings > API tokens, or `GET|POST /api/auth/tokens`
 and `DELETE /api/auth/tokens/{id}`. An account issues and lists its own tokens there; issuing
 one from a browser session needs sudo mode.
@@ -130,15 +131,15 @@ factor answers `success: false` and `second_factor: {challenge, expires_in, meth
 `challenge` to `POST /api/auth/passkeys/login/options` and `/login`. That is how the console signs
 in; the step is single use and lasts five minutes.
 `bearer` also returns the session token in the body, for a client without a cookie jar; it then
-sends `X-WASM-CSRF` like a browser does. Passkeys sign in with
+sends `X-Noust-CSRF` like a browser does. Passkeys sign in with
 `POST /api/auth/passkeys/login/options` and then `POST /api/auth/passkeys/login`. The answer is
 `{success, expires_in, csrf_token, session_token}`, and two cookies are set:
 
-- `wasm_session`: `HttpOnly`, `SameSite=Strict`, `Secure` over TLS.
-- `wasm_csrf`: readable by the page, holding the CSRF token.
+- `noust_session`: `HttpOnly`, `SameSite=Strict`, `Secure` over TLS.
+- `noust_csrf`: readable by the page, holding the CSRF token.
 
 Every `POST`, `PUT`, `PATCH` and `DELETE` made with a session, in the cookie or as a Bearer
-token, must echo the CSRF token in the `X-WASM-CSRF` header. `GET /api/auth/session` (no
+token, must echo the CSRF token in the `X-Noust-CSRF` header. `GET /api/auth/session` (no
 credential required) reports whether the caller is signed in, its account and role, its
 permissions, `expires_at`, `elevated_until`, whether a second factor is set up, and the CSRF
 header and cookie names. It also says what confirming sudo mode takes: `elevation_factors`
@@ -433,7 +434,8 @@ A handshake authenticates with any one of:
 
 - the session cookie (a browser on the console's own origin);
 - `Authorization: Bearer <token>` (any client that can set headers);
-- the subprotocol header `Sec-WebSocket-Protocol: wasm.auth, wasm.token.<token>`;
+- the subprotocol header `Sec-WebSocket-Protocol: noust.auth, noust.token.<token>` (the
+  spelling of before 4.0 is still read, and answered in kind);
 - `?ticket=<ticket>`, from `POST /api/auth/ws-ticket` (answers `{ticket, expires_in}`): single
   use, valid for 30 seconds, and bound to the address it was issued to. This is how the
   console connects. Tickets are issued for cookie sessions; a script should use the header.

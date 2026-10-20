@@ -23,7 +23,7 @@ import json
 import re
 import sqlite3
 import time
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -33,12 +33,13 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal
 import yaml
 
 from noust.central import require_server_role
-from noust.core import app_compose_store, audit, compose_release_store
+from noust.core import app_compose_store, audit, cancellation, compose_release_store, delivery
 from noust.core.applock import app_lock
 from noust.core.compose_yaml import load_compose
 from noust.core.config import Config
 from noust.core.exceptions import (
     DatabaseQueryError,
+    DeploymentCancelled,
     DeploymentError,
     DockerError,
     NoustError,
@@ -59,8 +60,10 @@ from noust.core.store import (
     get_store,
 )
 from noust.core.utils import domain_to_app_name
+from noust.core.variables.model import BUILD
+from noust.core.variables.predefined import RESERVED, Deployment
 from noust.deployers.helpers import compose_preview, compose_retention, compose_variables
-from noust.deployers.helpers.build_config import refuse_unsupported, resolve_build
+from noust.deployers.helpers.build_config import BuildConfig, refuse_unsupported, resolve_build
 from noust.deployers.helpers.compose_ports import (
     host_port_variables,
     is_headless_stack,
@@ -68,6 +71,9 @@ from noust.deployers.helpers.compose_ports import (
     web_root_service,
 )
 from noust.deployers.helpers.compose_retention import ImageRelease
+from noust.deployers.helpers.deployment_variables import DeploymentVariables, describe_deployment
+from noust.deployers.helpers.env_manager import EnvManager
+from noust.deployers.helpers.env_variables import refuse_reserved
 from noust.deployers.helpers.health import wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
 from noust.deployers.helpers.hooks import (
@@ -106,6 +112,7 @@ from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.service_manager import ServiceManager
 from noust.managers.source_manager import SourceManager
+from noust.managers.upstream_names import rename as rename_upstreams
 from noust.validators.names import resolve_within
 
 if TYPE_CHECKING:
@@ -118,11 +125,11 @@ BUILD_TIMEOUT = 1800
 COMPOSE_TIMEOUT = 300
 
 #: The tag the image each container ran before an update is kept under, as
-#: ``<project>-<service>:wasm-previous``. Recreating a container from a new
+#: ``<project>-<service>:noust_previous``. Recreating a container from a new
 #: build leaves its old image without a name, and ``docker image prune``
 #: deletes an image without a name; this one is what a failed update goes
 #: back to. Each update moves the tag, so one image per service is kept.
-PREVIOUS_TAG = "wasm-previous"
+PREVIOUS_TAG = compose_retention.PREVIOUS_TAG
 
 #: Lines of the containers' own output attached to a failed health gate.
 COMPOSE_LOG_LINES = 40
@@ -500,10 +507,24 @@ def keep_tag(project: str, service: str) -> str:
         service: The service.
 
     Returns:
-        ``<project>-<service>:wasm-previous``, restricted to what an image
+        ``<project>-<service>:noust_previous``, restricted to what an image
         name may hold.
     """
     return f"{compose_retention.repository_name(project, service)}:{PREVIOUS_TAG}"
+
+
+def legacy_keep_tag(project: str, service: str) -> str:
+    """
+    Name the tag an update before 4.0 kept the image that served under.
+
+    Args:
+        project: The Compose project.
+        service: The service.
+
+    Returns:
+        ``<project>-<service>:`` and the old tag.
+    """
+    return f"{compose_retention.repository_name(project, service)}:{compose_retention.LEGACY_PREVIOUS_TAG}"
 
 
 @dataclass
@@ -582,6 +603,11 @@ class DockerComposeDeployer(AppDeployer):
     APP_TYPE = "docker-compose"
     DISPLAY_NAME = "Docker Compose"
 
+    #: A stack is built by its compose file, so the build block may only say how long an image
+    #: build may take and whether it uses the layer cache (``timeout`` and ``cache``, which every
+    #: type that is built accepts); anything else would be read and never applied.
+    BUILD_KEYS: ClassVar[frozenset[str]] = frozenset()
+
     # A compose file states how the author wants the whole thing run, which
     # beats guessing from a package.json. See interface.py for the full order.
     DETECTION_PRIORITY = 80
@@ -649,6 +675,18 @@ class DockerComposeDeployer(AppDeployer):
         # its compose file that cannot collide with the original's.
         self.preview_parent: str | None = None
         self._env_secret_marks: dict[str, bool] = {}
+        #: Which part of a deployment each variable given at creation is for (``build`` or
+        #: ``runtime``; the rest are for both); see ``configure``.
+        self._env_audience: dict[str, str] = {}
+        #: The variables of this deployment (references, audiences, what the build is given),
+        #: the one implementation every type of application shares; built on first use.
+        self._deployment_variables: DeploymentVariables | None = None
+        #: What the ``.env`` said about the deployment before this one wrote its own, so a
+        #: deployment that is put back puts that back too (None until written).
+        self._predefined_before: dict[str, str] | None = None
+        #: The release this deployment will be, named before it builds so the containers can be
+        #: told (``NOUST_RELEASE``) and the retention keeps it under the same name.
+        self._planned_release: str | None = None
         # The commit the tree was on before the update pulled, which only the
         # caller that pulled can know: what a failed update checks out again.
         self.previous_commit: str | None = None
@@ -801,8 +839,9 @@ class DockerComposeDeployer(AppDeployer):
                 stack is a preview of (see
                 :mod:`noust.deployers.helpers.compose_preview`),
                 ``env_secret_marks`` are the secret marks a new row starts
-                with, ``database_env`` the variables of a database made for the
-                stack, and ``memory_max_mb``, ``cpu_quota_percent`` and
+                with, ``env_audience`` says which variables only the build or only
+                the containers are given, ``database_env`` the variables of a
+                database made for the stack, and ``memory_max_mb``, ``cpu_quota_percent`` and
                 ``tasks_max`` are refused rather than accepted (see raises).
 
         Raises:
@@ -847,6 +886,10 @@ class DockerComposeDeployer(AppDeployer):
         self.env_vars = {**(env_vars or {}), **(options.get("database_env") or {})}
         self.preview_parent = options.get("preview_parent")
         self._env_secret_marks = dict(options.get("env_secret_marks") or {})
+        self._env_audience = dict(options.get("env_audience") or {})
+        # Built again for this application: the domain and the audience just changed.
+        self._deployment_variables = None
+        self._planned_release = None
         compose_file = options.get("compose_file")
         # Checked here, before anything is fetched, because configure() is the
         # one call the CLI, the API's deploy job and the auto deployer share.
@@ -932,6 +975,8 @@ class DockerComposeDeployer(AppDeployer):
         timeout: int = COMPOSE_TIMEOUT,
         *,
         stream: bool = False,
+        env: Mapping[str, str] | None = None,
+        secrets: Sequence[str] = (),
     ) -> CommandResult:
         """
         Execute a command in the application directory.
@@ -940,21 +985,65 @@ class DockerComposeDeployer(AppDeployer):
             command: Program and arguments.
             timeout: Deadline in seconds.
             stream: Report output line by line, for image builds.
+            env: Environment for this command: what a build is given beyond the ``.env``.
+            secrets: Values to keep out of what is recorded of the command.
 
         Returns:
             The command outcome.
         """
-        # Set while a registry session is open (see _registry_session); docker reads
-        # the account from the configuration directory it names.
-        env = self._registry_env or None
+        # The registry session, while one is open (see _registry_session): docker reads the
+        # account from the configuration directory it names.
+        merged = {**self._registry_env, **(env or {})} or None
+        options: dict[str, Any] = {"secrets": list(secrets)} if secrets else {}
         if stream:
             return self.runner.stream(
-                command, on_line=self.logger.debug, cwd=self.app_path, timeout=timeout, env=env
+                command,
+                on_line=self.logger.debug,
+                cwd=self.app_path,
+                timeout=timeout,
+                env=merged,
+                **options,
             )
-        result = self.runner.run(command, cwd=self.app_path, timeout=timeout, env=env)
+        result = self.runner.run(command, cwd=self.app_path, timeout=timeout, env=merged, **options)
         # Printed only with --verbose, captured into the deployment log always.
         self.logger.command_output(result.stdout, result.stderr)
         return result
+
+    def _declared_build(self) -> BuildConfig:
+        """
+        Returns:
+            The build block that applies to this stack: the operator's, or the repository's.
+
+        Raises:
+            ValidationError: The block that applies is not valid.
+        """
+        app = self.store.get_app(self.domain) if self.domain else None
+        return resolve_build(app, self.app_path, self.store)
+
+    def build_timeout(self) -> int:
+        """
+        Say how long an image build may take, which is also how long a recreate may wait on one.
+
+        Returns:
+            The stack's own ``timeout`` (``noust app build set --timeout``), else the server's
+            ``deploy.build_timeout``: the same answer every other type gives (checklist A-48).
+
+        Raises:
+            ValidationError: The build block that applies is not valid.
+        """
+        declared = self._declared_build().timeout
+        return declared if declared is not None else delivery.current().build_timeout
+
+    def _builds_without_cache(self, no_cache: bool) -> bool:
+        """
+        Args:
+            no_cache: Whether this one build was asked to ignore the layer cache.
+
+        Returns:
+            Whether to build from scratch: asked for now, or declared by the stack
+            (``cache: false``).
+        """
+        return no_cache or self._declared_build().cache is False
 
     def _is_headless(self) -> bool:
         """
@@ -1200,10 +1289,15 @@ class DockerComposeDeployer(AppDeployer):
             return True
 
         except Exception as e:
-            self.logger.error(f"Deployment failed: {e}")
+            cancelled = cancellation.is_cancellation(e)
+            if cancelled:
+                self.logger.warning(f"Deployment cancelled: {getattr(e, 'message', e)}")
+            else:
+                self.logger.error(f"Deployment failed: {e}")
             if self._is_new_deployment:
                 self._rollback()
-            else:
+            elif not cancelled:
+                # A cancelled redeployment touched nothing that serves: the row says what it said.
                 self.store.update_app_status(self.domain, AppStatus.FAILED.value)
             raise
 
@@ -1597,34 +1691,176 @@ class DockerComposeDeployer(AppDeployer):
         self._check_host_privileges(document, accepted=accepted)
 
     def _configure_environment(self) -> None:
-        """Configure environment variables using EnvManager."""
-        from noust.deployers.helpers.env_manager import EnvManager
+        """
+        Write the stack's ``.env`` and tell the containers what this deployment is.
 
+        What was given at creation is resolved first (a ``{{...}}`` reference becomes its
+        value and is remembered as the text it came from, so every deploy resolves it again),
+        the variables only the build is given are kept out of the file and handed to the build
+        instead, and ``NOUST_URL`` and the rest are written beside them.
+
+        Raises:
+            EnvironmentValidationError: A name Noust sets itself was given a value.
+            UnresolvedReferenceError: A reference that cannot be resolved.
+        """
         manager = EnvManager(verbose=self.verbose)
+        refuse_reserved(self.env_vars)
+        given, written_as = self._variables.expand(self.env_vars)
+        self.env_vars = given
+        build_only = {name for name, kind in self._env_audience.items() if kind == BUILD}
 
         # Discover variables from .env.example files
         variables = manager.discover(self.app_path)
 
+        values: dict[str, str] | None = None
         if variables:
             # Get existing values
             existing = manager.get_current_values(self.app_path)
-            existing.update(self.env_vars)
+            existing.update(given)
 
             # Use non-interactive mode (secrets auto-generated, defaults used)
             # What the .env or the request already give is not asked for.
             values = manager.prompt_non_interactive(variables, existing)
             values.update(existing)
-
-            # Write .env file
-            manager.write_env_files(self.app_path, values)
-            self.logger.substep(f"Configured {len(values)} environment variables")
-        elif self.env_vars:
-            # Write provided env vars
-            manager.write_env_files(self.app_path, self.env_vars)
-            self.logger.substep(f"Wrote {len(self.env_vars)} environment variables")
+            message = f"Configured {len(values)} environment variables"
+        elif given:
+            # Over what the file holds: a deployment that is asked for a few variables does not
+            # take away the ones the stack already has.
+            values = {**manager.get_current_values(self.app_path), **given}
+            message = f"Wrote {len(given)} environment variables"
         else:
-            self.logger.substep("No environment configuration needed")
+            message = "No environment configuration needed"
+
+        if values is not None:
+            manager.write_env_files(
+                self.app_path, {k: v for k, v in values.items() if k not in build_only}
+            )
+        self.logger.substep(message)
+        # A reference given before is resolved again, and what this deployment gave is
+        # remembered (once the application has a row, if it has none yet).
+        self._variables.remember(values or {}, written_as, names=set(given))
+        self._variables.refresh()
         self._own_the_port_variable(manager)
+        self._write_predefined()
+
+    @property
+    def _variables(self) -> DeploymentVariables:
+        """
+        Returns:
+            The variables of this deployment, the one implementation every type of application
+            shares (:mod:`noust.deployers.helpers.deployment_variables`).
+        """
+        if self._deployment_variables is None:
+            self._deployment_variables = DeploymentVariables(
+                store=self.store,
+                domain=self.domain,
+                logger=self.logger,
+                fs=lambda: self.fs,
+                manager=lambda: EnvManager(verbose=self.verbose, fs=self.fs),
+                row=lambda: self.store.get_app(self.domain) if self.domain else None,
+                deployment=self._deployment,
+                audience=self._env_audience,
+            )
+        return self._deployment_variables
+
+    def _deployment(self, *, of_release: ReleaseRecord | None = None) -> Deployment:
+        """
+        Describe this deployment for the references and the variables Noust sets.
+
+        Args:
+            of_release: The release a stack is being put back on: it is told that release's
+                commit and name instead of the checkout's.
+
+        Returns:
+            Where the application answers and what is being built.
+        """
+        read_commit, branch = self._git_info()()
+        row = self.store.get_app(self.domain) if self.domain else None
+        return describe_deployment(
+            self.store,
+            self.domain,
+            row=row,
+            ssl=self.ssl,
+            branch=self.branch or branch,
+            commit=of_release.git_commit if of_release is not None else read_commit,
+            release=(
+                of_release.id
+                if of_release is not None
+                else self.release_id or self._planned_release
+            ),
+            port=self.port or (row.port if row is not None else None),
+            preview=self.preview_parent is not None,
+        )
+
+    def _plan_release(self) -> str | None:
+        """
+        Name the release this deployment will be, before it builds.
+
+        The containers are told which release they are (``NOUST_RELEASE``) and the retention
+        that follows keeps the images under the same name, so the two cannot disagree.
+
+        Returns:
+            The release id; None when the stack keeps no releases or the tree has no commit
+            to name one after.
+        """
+        if self.release_id is not None or self._planned_release is not None:
+            return self.release_id or self._planned_release
+        if not self.RETAINS_RELEASES or self._rehearsing() or not (self.app_path / ".git").exists():
+            return None
+        commit = self._git_info()()[0]
+        if not commit:
+            return None
+        app = self.store.get_app(self.domain)
+        taken = {row.id for row in self.store.list_releases(app.id)} if app and app.id else set()
+        try:
+            self._planned_release = ReleaseManager(
+                self.app_path, fs=self._fs, runner=self._runner, logger=self.logger
+            ).next_release_id(str(commit), taken)
+        except DeploymentError as exc:
+            self.logger.debug(f"The release was not named before the build: {exc}")
+        return self._planned_release
+
+    def _write_predefined(self, *, of_release: ReleaseRecord | None = None) -> None:
+        """
+        Write ``NOUST_URL`` and the rest into the ``.env`` the containers read.
+
+        A stack's containers load the project's own file and nothing else reaches them, so this
+        is where the facts of the deployment go (checklist B-46). What the file said before is
+        kept, so a deployment that is put back puts it back too (:meth:`_restore_predefined`).
+
+        Args:
+            of_release: The release the stack is being put back on, when it is.
+        """
+        if self._rehearsing():
+            return
+        if of_release is None:
+            self._plan_release()
+        facts = self._deployment(of_release=of_release).environment()
+        env_file = self.app_path / ".env"
+        manager = EnvManager(verbose=self.verbose, fs=self.fs)
+        current = manager.read_env_file(env_file)
+        if self._predefined_before is None:
+            self._predefined_before = {n: v for n, v in current.items() if n in RESERVED}
+        manager.replace_managed(env_file, facts, RESERVED)
+
+    def _restore_predefined(self) -> list[str]:
+        """
+        Put the ``.env`` back as it was about the deployment before this one wrote its own.
+
+        Returns:
+            What could not be put back, one line each; empty when all was.
+        """
+        before = self._predefined_before
+        if before is None or self._rehearsing():
+            return []
+        env_file = self.app_path / ".env"
+        manager = EnvManager(verbose=self.verbose, fs=self.fs)
+        try:
+            manager.replace_managed(env_file, before, RESERVED)
+        except (NoustError, OSError) as exc:
+            return [f"The .env could not be put back as it was: {exc}"]
+        self._predefined_before = None
+        return []
 
     def _own_the_port_variable(self, manager: Any) -> None:
         """
@@ -1658,6 +1894,7 @@ class DockerComposeDeployer(AppDeployer):
         Raises:
             DockerError: When the build fails.
         """
+        no_cache = self._builds_without_cache(no_cache)
         extra = tuple(
             arg for arg in self.compose_build_args if not (no_cache and arg == "--no-cache")
         )
@@ -1665,8 +1902,20 @@ class DockerComposeDeployer(AppDeployer):
             "build", *(("--no-cache",) if no_cache else ()), *extra, *self.compose_services
         )
 
-        # Streamed: an image build is minutes of silence otherwise.
-        result = self._run(cmd, timeout=BUILD_TIMEOUT, stream=True)
+        # What the build is given beyond the .env: the variables only it gets, and the names
+        # the running containers alone get set to nothing, because Compose would otherwise
+        # fill them in from the file it reads.
+        built = self._variables.build_environment()
+        # Streamed: an image build is minutes of silence otherwise. An operator can stop it: the
+        # client is killed and the daemon stops the build with it, and what serves is untouched.
+        with cancellation.interruptible("building the images"):
+            result = self._run(
+                cmd,
+                timeout=self.build_timeout(),
+                stream=True,
+                env=built.blanked(),
+                secrets=[value for value in built.extra.values() if value],
+            )
         if not result.success:
             raise DockerError(
                 "Failed to build Docker images",
@@ -1761,6 +2010,9 @@ class DockerComposeDeployer(AppDeployer):
         # to the ports of the stack it is a preview of.
         config_path = None if self.preview_parent is not None else builder.detect(self.app_path)
         if config_path is not None:
+            notice = builder.rename_notice(config_path)
+            if notice:
+                self.logger.warning(notice)
             try:
                 config = builder.parse(config_path)
             except ValueError as exc:
@@ -2050,10 +2302,17 @@ class DockerComposeDeployer(AppDeployer):
                 ssl_enabled=self.ssl,
                 status=AppStatus.RUNNING.value,
                 is_static=False,
-                env_vars=self.env_vars,
+                env_vars={
+                    name: value
+                    for name, value in self.env_vars.items()
+                    if self._env_audience.get(name) != BUILD
+                },
                 preview_parent=self.preview_parent,
                 env_secret_marks=self._env_secret_marks,
             )
+            # What the variables given at creation are made of and for can be recorded now
+            # that the application has a row.
+            self._variables.flush()
             if self.preview_parent is not None and self._is_new_deployment:
                 # A preview's data is disposable: dumping its databases before every push would
                 # fill the backup directory with copies of what is thrown away with it.
@@ -2350,6 +2609,11 @@ class DockerComposeDeployer(AppDeployer):
             self._discover_compose_file()
         document = self._load_compose_document()
         self._check_update_privileges(document)
+        # A shared variable that changed or a secret that was rotated reaches the .env now,
+        # before the file is judged and the images are built, and the containers are told
+        # which commit and release they are (checklist B-46, B-48).
+        self._variables.refresh()
+        self._write_predefined()
         self._require_variables(document)
         # What the gate and the hooks need to know of the stack: whether it
         # is a web at all, and which service a hook without one runs in.
@@ -2362,17 +2626,26 @@ class DockerComposeDeployer(AppDeployer):
 
         report("Rebuilding Docker images")
         try:
+            cancellation.checkpoint()
             self._build_images(no_cache=self.no_cache)
-        except DockerError as exc:
+        except (DockerError, DeploymentCancelled) as exc:
             if not serving.images:
                 raise
             # The containers still run the old images, but the tree and some
             # image names already say otherwise: the next start of the unit
-            # would bring up whatever half of the stack did build.
-            self.logger.warning("The build failed; putting the tree and the image names back")
+            # would bring up whatever half of the stack did build. A build an operator
+            # stopped is put back the same way.
+            stopped = isinstance(exc, DeploymentCancelled)
+            self.logger.warning(
+                f"The build {'was cancelled' if stopped else 'failed'}; "
+                "putting the tree and the image names back"
+            )
             self._attempted_git = self._git_info()()
             problems = self._put_back_files(serving)
             if problems:
+                if stopped:
+                    exc.details = _paragraphs(exc.details, _problem_list(problems))
+                    raise
                 raise DockerError(
                     exc.message, details=_paragraphs(exc.details, _problem_list(problems))
                 ) from exc
@@ -2391,6 +2664,17 @@ class DockerComposeDeployer(AppDeployer):
                     exc.details = _paragraphs(exc.details, _problem_list(problems))
                 raise
 
+        # The point of no return of a cancellation: from here the containers are replaced
+        # behind the health gate, which finishes or puts back what served.
+        try:
+            cancellation.commit("recreating the containers")
+        except DeploymentCancelled:
+            if serving.images:
+                self._put_back_files(serving)
+            else:
+                self._restore_predefined()
+            raise
+
         report("Recreating containers")
         healthy, evidence = self._activate(self._recreate)
         if not healthy:
@@ -2399,6 +2683,7 @@ class DockerComposeDeployer(AppDeployer):
 
         self.store.update_app_status(self.domain, AppStatus.RUNNING.value)
         self._retain_release()
+        self._finish_upstream_names()
         if hooks.post_deploy:
             report("Running post_deploy hooks")
         self._run_post_deploy()
@@ -2414,6 +2699,38 @@ class DockerComposeDeployer(AppDeployer):
             schema_changed=self._hooks.schema_changed,
             warnings=tuple(self._hooks.warnings),
         )
+
+    def _finish_upstream_names(self) -> None:
+        """
+        Give the upstream of the relay its current name, now that the update has served.
+
+        A stack's site was written before 4.0 with the old spelling of the upstream; nothing
+        renders it again on an update, so this is where it changes, together with every other
+        file of Noust's that carries the old spelling and that nobody else names. A site the
+        operator wrote that names it keeps it. Nothing here can fail an update that already
+        serves: a refusal is reported with what nginx said, and the old names stay.
+        """
+        from noust.deployers.compose_relay import relay_enabled
+
+        if self._rehearsing() or not relay_enabled(self):
+            return
+        try:
+            outcomes = rename_upstreams(self.webserver_manager())
+        except (NoustError, OSError) as exc:
+            self.logger.warning(f"The upstream names were left as they are: {exc}")
+            return
+        for outcome in outcomes:
+            if outcome.status == "failed":
+                self.logger.warning(
+                    f"The upstream {outcome.name} was not renamed: {outcome.detail}"
+                )
+            elif outcome.status == "aliased":
+                where = ", ".join(f"{ref.path}:{ref.line}" for ref in outcome.references[:3])
+                self.logger.substep(
+                    f"{where} names the upstream {outcome.name}, which stays defined beside "
+                    f"{outcome.new_name}. Change that line to {outcome.new_name}, then run: "
+                    "noust setup rename"
+                )
 
     def _rehearsing(self) -> bool:
         """
@@ -2498,6 +2815,8 @@ class DockerComposeDeployer(AppDeployer):
                 self.logger.warning(
                     f"Could not tag {image.image_id} as {tag}: {kept.stderr.strip()}"
                 )
+                continue
+            self._forget_legacy_keep_tag(project or self.app_name, image.service)
         if images:
             self.logger.substep(
                 "Serving: " + ", ".join(f"{i.service} ({i.reference})" for i in images.values())
@@ -2505,6 +2824,28 @@ class DockerComposeDeployer(AppDeployer):
         return ServingState(
             project=project, commit=self.previous_commit, images=tuple(images.values())
         )
+
+    def _forget_legacy_keep_tag(self, project: str, service: str) -> None:
+        """
+        Remove the tag an update before 4.0 kept a service's image under.
+
+        The tag has just moved to the current name, and the old one would keep a second image
+        alive. Asked of docker first, so a stack that was updated under 4.0 already costs one
+        listing and no failed removal.
+
+        Args:
+            project: The Compose project.
+            service: The service.
+        """
+        tag = legacy_keep_tag(project, service)
+        listed = self._run(
+            ["docker", "image", "ls", "--filter", f"reference={tag}", "--format", "{{.ID}}"]
+        )
+        if not listed.success or not listed.stdout.strip():
+            return
+        removed = self._run(["docker", "image", "rm", tag])
+        if not removed.success:
+            self.logger.warning(f"Could not remove {tag}: {removed.stderr.strip()}")
 
     # -- Releases (B-16) ------------------------------------------------------------------
 
@@ -2546,7 +2887,8 @@ class DockerComposeDeployer(AppDeployer):
         if not running.images:
             return
         existing = {row.id for row in self.store.list_releases(app.id)}
-        release_id = ReleaseManager(
+        # The name the containers were told (NOUST_RELEASE) when it was planned before the build.
+        release_id = self._planned_release or ReleaseManager(
             self.app_path, fs=self._fs, runner=self._runner, logger=self.logger
         ).next_release_id(str(commit), existing)
         kept, problems = compose_retention.retain(
@@ -2766,6 +3108,8 @@ class DockerComposeDeployer(AppDeployer):
                 "\n".join(problems),
             )
 
+        # The containers run the images of that release: they are told its commit and its name.
+        self._write_predefined(of_release=record)
         self.release_id = release_id
         self._reuse_images = True
         try:
@@ -2850,7 +3194,7 @@ class DockerComposeDeployer(AppDeployer):
         flags = ["--no-build", "--remove-orphans"] if self._reuse_images else ["--remove-orphans"]
         result = self._run(
             self._compose("up", "-d", *flags, *self.compose_up_args, *self.compose_services),
-            timeout=BUILD_TIMEOUT,
+            timeout=self.build_timeout(),
         )
         if not result.success:
             raise DockerError("Failed to update containers", result.stderr)
@@ -2872,7 +3216,7 @@ class DockerComposeDeployer(AppDeployer):
         command = self._compose(
             "up", "-d", "--no-build", "--remove-orphans", project=serving.project
         )
-        result = self._run(command, timeout=BUILD_TIMEOUT)
+        result = self._run(command, timeout=self.build_timeout())
         if not result.success:
             raise DockerError("Failed to recreate the containers that were serving", result.stderr)
         relayed = self._relayed_services()
@@ -3016,7 +3360,7 @@ class DockerComposeDeployer(AppDeployer):
         Returns:
             What could not be put back, one line each; empty when all was.
         """
-        problems: list[str] = []
+        problems: list[str] = self._restore_predefined()
         if serving.commit:
             try:
                 full = self._source_manager().checkout_commit(self.app_path, serving.commit)
@@ -3046,6 +3390,9 @@ class DockerComposeDeployer(AppDeployer):
         """
         attempted = f"The update of {self.domain} did not pass its health check"
         self.logger.warning(attempted)
+        # The containers that served are not told this update's commit and release.
+        for problem in self._restore_predefined():
+            self.logger.warning(problem)
         # Read now: going back replaces the containers that wrote it.
         output = self._containers_output()
         evidence = _paragraphs(
@@ -3126,11 +3473,11 @@ class DockerComposeDeployer(AppDeployer):
 
     def remove_kept_images(self) -> list[str]:
         """
-        Remove the images updates kept under :data:`PREVIOUS_TAG` for this stack.
+        Remove the images updates kept under :data:`PREVIOUS_TAG` (or the tag before 4.0) for this stack.
 
         What :func:`noust.deployers.lifecycle.delete_app` calls once the stack
         is down. An update tags the image each service ran as
-        ``<project>-<service>:wasm-previous`` (see :func:`keep_tag`), and
+        ``<project>-<service>:noust_previous`` (see :func:`keep_tag`), and
         nothing else ever removes it. The tags this stack can have are derived
         from its compose file (every service, under every name its project can
         have had) and only those that exist are removed; another stack's are
@@ -3172,7 +3519,12 @@ class DockerComposeDeployer(AppDeployer):
             )
             if name
         }
-        wanted = {keep_tag(project, service) for project in projects for service in names}
+        wanted = {
+            tag
+            for project in projects
+            for service in names
+            for tag in (keep_tag(project, service), legacy_keep_tag(project, service))
+        }
         if not wanted:
             if released_failures:
                 raise DockerError(
@@ -3188,6 +3540,8 @@ class DockerComposeDeployer(AppDeployer):
                 "ls",
                 "--filter",
                 f"reference=*:{PREVIOUS_TAG}",
+                "--filter",
+                f"reference=*:{compose_retention.LEGACY_PREVIOUS_TAG}",
                 "--format",
                 "{{.Repository}}:{{.Tag}}",
             ]

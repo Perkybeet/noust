@@ -126,6 +126,10 @@ PUBLIC_PATHS = frozenset(
         "/api/auth/saml/acs",
         "/api/auth/saml/metadata/{provider}",
         "/hooks/deploy/{domain}",
+        # A registry's push notification: GHCR signs it with the application's webhook secret,
+        # Docker Hub signs nothing, so its address carries a token derived from that secret.
+        "/hooks/registry/{domain}",
+        "/hooks/registry/{domain}/{token}",
         # Verified with the GitHub App's own webhook secret instead.
         "/hooks/github",
         "/{path:path}",

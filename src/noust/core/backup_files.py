@@ -33,6 +33,7 @@ header of a few hundred bytes.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 import secrets as random
@@ -62,8 +63,10 @@ __all__ = [
     "CURRENT_KEY",
     "KEY_PREFIX",
     "BackupKeys",
+    "ResealOutcome",
     "is_sealed",
     "open_backup",
+    "reseal",
     "seal_in_place",
     "sealing_suspended",
 ]
@@ -162,6 +165,68 @@ class BackupKeys:
         self.store.write(CURRENT_KEY, key_id)
         audit.record("backup.encryption.key", target="backups:local", details={"key": key_id})
         return key_id
+
+    def enable(self) -> tuple[str, bool]:
+        """
+        Turn sealing on for the backups made from now on.
+
+        Returns:
+            The current key's id and whether it was made now (False when sealing was already on:
+            nothing is replaced, so turning it on twice never strands a backup).
+        """
+        current = self.current_id()
+        if current is not None:
+            return current, False
+        return self.make_key(), True
+
+    def rotate(self) -> str:
+        """
+        Make a new key for the backups made from now on; the old one stays and opens what it
+        sealed.
+
+        Returns:
+            The new key's id.
+
+        Raises:
+            BackupError: When sealing is off, because there is nothing to rotate.
+        """
+        if not self.enabled():
+            raise BackupError(
+                "Backups are not sealed: there is no key to rotate",
+                details="Turn sealing on first: noust backup encryption enable.",
+            )
+        return self.make_key()
+
+    def reveal(self, key_id: str | None = None) -> tuple[str, str]:
+        """
+        Show a key so it can be kept somewhere that is not this server, and record that it was.
+
+        The record names the key and never its value.
+
+        Args:
+            key_id: The key; the current one when None.
+
+        Returns:
+            The key's id and its value.
+
+        Raises:
+            BackupError: When no key is current and none was named, or this server holds no such
+                key.
+        """
+        chosen = key_id or self.current_id()
+        if chosen is None:
+            raise BackupError(
+                "No key is current",
+                details="Seal backups first: noust backup encryption enable.",
+            )
+        passphrase = self.passphrase(chosen)
+        if passphrase is None:
+            raise BackupError(
+                "This server holds no such key",
+                details="List the keys it holds with: noust backup encryption status.",
+            )
+        audit.record("backup.encryption.reveal", target="backups:local", details={"key": chosen})
+        return chosen, passphrase
 
     def import_key(self, key_id: str, passphrase: str) -> None:
         """
@@ -335,9 +400,146 @@ def seal_in_place(
         files.remove(partial)
         raise BackupError(
             f"Could not seal {path.name}",
-            details=f"{getattr(exc, 'details', None) or exc}. The backup was left as it was.",
+            details=f"{str(getattr(exc, 'details', None) or exc).rstrip('.')}. "
+            "The backup was left as it was.",
         ) from exc
     return True
+
+
+@dataclass(frozen=True)
+class ResealOutcome:
+    """
+    What became of one backup file when it was sealed after the fact.
+
+    Attributes:
+        state: ``sealed`` (it was in clear and is sealed now), ``repaired`` (it was sealed but
+            its record still described the clear file, and now opens to exactly that),
+            ``already`` (sealed and its record is current), ``would_seal`` and ``would_repair``
+            (a rehearsal), or one that left it as it was: ``off`` (no key is current),
+            ``missing``, ``damaged`` (it does not match its record), ``mismatch`` (sealed, and
+            opens to something else), ``unreadable`` (its key is not here, or it does not
+            open) and ``failed`` (sealing it did not work).
+        size: The stored file's size, when it is described.
+        sha256: Its SHA-256, when it is described.
+        detail: What to tell the operator, for a state that left the file alone.
+    """
+
+    state: str
+    size: int | None = None
+    sha256: str | None = None
+    detail: str = ""
+
+    @property
+    def changed(self) -> bool:
+        """Whether the record of the file now has to be written."""
+        return self.state in ("sealed", "repaired")
+
+
+def _sha256(path: Path) -> str:
+    """
+    Args:
+        path: A file.
+
+    Returns:
+        Its SHA-256, read in blocks (a backup is as large as the disk it is on).
+
+    Raises:
+        OSError: When it cannot be read.
+    """
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _sentence(error: BackupError) -> str:
+    """
+    Args:
+        error: A backup error.
+
+    Returns:
+        Its message and details as one line a report can carry.
+    """
+    message = error.message.rstrip(".")
+    return f"{message}. {error.details}".strip() if error.details else message
+
+
+def reseal(
+    path: Path,
+    recorded_sha256: str | None,
+    *,
+    keys: BackupKeys | None = None,
+    runner: CommandRunner | None = None,
+    fs: FileSystem | None = None,
+) -> ResealOutcome:
+    """
+    Seal a backup that was made in clear, and say what the stored file now is.
+
+    Sealing changes the bytes that a backup's sidecar or record describes (size and checksum), so
+    this is one step with the record: the clear file is checked against what was recorded first
+    (a damaged backup is never sealed into something that looks sound), then sealed; and a file that
+    is sealed but whose record still describes the clear one, because a run stopped between the two,
+    is repaired once it opens to exactly the recorded checksum. The caller writes the record.
+
+    Args:
+        path: The backup.
+        recorded_sha256: The checksum its record holds; None when it holds none.
+        keys: The keys. A default set when None.
+        runner: The command runner for openssl. The process-wide one when None.
+        fs: The filesystem seam. The process-wide one when None.
+
+    Returns:
+        What became of it; see :class:`ResealOutcome`. Never raises for a file that cannot be
+        sealed or opened: the state says why, so one such file does not stop a run over the rest.
+    """
+    if not path.is_file():
+        return ResealOutcome("missing", detail=f"{path.name} is not there")
+    keyring = keys or BackupKeys()
+    try:
+        digest = _sha256(path)
+    except OSError as exc:
+        return ResealOutcome("unreadable", detail=f"{path.name} cannot be read: {exc}")
+    if not is_sealed(path):
+        if not keyring.enabled():
+            return ResealOutcome("off", detail="Backups are not sealed on this server")
+        if recorded_sha256 and digest != recorded_sha256:
+            return ResealOutcome(
+                "damaged",
+                detail=(
+                    f"{path.name} does not match the checksum recorded when it was made "
+                    f"({digest} now, {recorded_sha256} then); it was left in clear as it is"
+                ),
+            )
+        if is_rehearsal():
+            return ResealOutcome("would_seal")
+        try:
+            sealed = seal_in_place(path, keys=keyring, runner=runner, fs=fs)
+        except BackupError as exc:
+            return ResealOutcome("failed", detail=_sentence(exc))
+        if not sealed:
+            return ResealOutcome("off", detail="Backups are not sealed on this server")
+        return ResealOutcome("sealed", path.stat().st_size, _sha256(path))
+    if recorded_sha256 is None or digest == recorded_sha256:
+        return ResealOutcome("already", path.stat().st_size, digest)
+    if is_rehearsal():
+        return ResealOutcome("would_repair")
+    try:
+        with open_backup(path, keys=keyring, runner=runner, fs=fs) as plain:
+            opened = _sha256(plain)
+    except (BackupError, OSError) as exc:
+        return ResealOutcome(
+            "unreadable", detail=_sentence(exc) if isinstance(exc, BackupError) else str(exc)
+        )
+    if opened != recorded_sha256:
+        return ResealOutcome(
+            "mismatch",
+            detail=(
+                f"{path.name} is sealed and does not open to what was recorded for it "
+                f"({opened} opened, {recorded_sha256} recorded); nothing was changed"
+            ),
+        )
+    return ResealOutcome("repaired", path.stat().st_size, digest)
 
 
 def _scratch_root() -> Path:

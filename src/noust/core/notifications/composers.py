@@ -56,6 +56,7 @@ from noust.core.notifications.model import (
     TEST_KIND,
     Excerpt,
     Fact,
+    Link,
     Notification,
     Section,
     State,
@@ -155,6 +156,7 @@ def build(
     ts: datetime | None = None,
     title: str | None = None,
     sections: Sequence[Section] = (),
+    extra_links: Sequence[Link] = (),
 ) -> Notification:
     """
     Assemble a notification: the one constructor every composer uses.
@@ -181,6 +183,7 @@ def build(
         ts: When it happened; now when None.
         title: The state as a phrase; the catalog's ``title.<code>`` when None.
         sections: Blocks of facts, for a report.
+        extra_links: Links after the console one (the page of a failure's whole output).
 
     Returns:
         The notification.
@@ -199,7 +202,7 @@ def build(
         facts=(server_fact(ctx), *facts),
         command=command,
         excerpt=excerpt,
-        links=(link,) if link else (),
+        links=(*((link,) if link else ()), *extra_links),
         sections=tuple(sections),
         domain=domain,
         **extra,
@@ -485,8 +488,47 @@ def compose_restore(
     )
 
 
+def failure_command(failure_id: int) -> str:
+    """
+    Args:
+        failure_id: The record of a failed backup's whole output.
+
+    Returns:
+        The command that prints it: the one place the notice, the command tree, the API and the
+        documentation agree on.
+    """
+    return f"noust backup failures show {failure_id}"
+
+
+def _whole_output(
+    failure_id: int | None, ctx: NotificationContext
+) -> tuple[Fact | None, tuple[Link, ...]]:
+    """
+    Point a failure's notice at the record that keeps all of what the tool said.
+
+    The excerpt is the end of it, bounded for a chat message; the record is the rest. The command
+    works from any terminal on the server and the link from a browser signed in to the console.
+
+    Args:
+        failure_id: The record, when one was kept.
+        ctx: The context.
+
+    Returns:
+        The command to run next and the links to add; nothing when no record was kept.
+    """
+    if failure_id is None:
+        return None, ()
+    link = ctx.output_link(f"/api/backups/failures/{failure_id}/output")
+    command = _fact("full_output", failure_command(failure_id), ctx, mono=True)
+    return command, ((link,) if link else ())
+
+
 def compose_backup_failed(
-    domain: str | None, error: str | None, ctx: NotificationContext
+    domain: str | None,
+    error: str | None,
+    ctx: NotificationContext,
+    *,
+    failure_id: int | None = None,
 ) -> Notification:
     """
     Compose the notification for a backup that did not complete.
@@ -495,12 +537,15 @@ def compose_backup_failed(
         domain: The application backed up, when known.
         error: The failure's text, ``message\\n  Details: ...``.
         ctx: The context.
+        failure_id: The record that keeps the whole output, when one was kept; the notice then
+            names the command that prints it and links to it.
 
     Returns:
         The notification.
     """
     code = "backup.failed"
     summary = message(f"summary.{code}", ctx.locale)
+    command, links = _whole_output(failure_id, ctx)
     return build(
         ctx,
         kind="backup_failed",
@@ -514,13 +559,20 @@ def compose_backup_failed(
             repeated=[_english(code, "title"), _english(code, "summary"), domain or ""],
             avoid=[summary],
         ),
+        command=command,
         path="/backups",
         domain=domain,
+        extra_links=links,
     )
 
 
 def compose_backup_upload_failed(
-    domain: str, destination: str, error: str | None, ctx: NotificationContext
+    domain: str,
+    destination: str,
+    error: str | None,
+    ctx: NotificationContext,
+    *,
+    failure_id: int | None = None,
 ) -> Notification:
     """
     Compose the notification for a backup that could not be uploaded.
@@ -532,6 +584,7 @@ def compose_backup_upload_failed(
         destination: The name of the destination that refused it.
         error: The failure's text; ``Details`` is rclone's own stderr.
         ctx: The context.
+        failure_id: The record that keeps the whole output, when one was kept.
 
     Returns:
         The notification.
@@ -539,6 +592,7 @@ def compose_backup_upload_failed(
     code = "backup.upload_failed"
     summary = message(f"summary.{code}", ctx.locale)
     facts = [_fact("destination", destination, ctx)]
+    command, links = _whole_output(failure_id, ctx)
     return build(
         ctx,
         kind="backup_failed",
@@ -553,8 +607,10 @@ def compose_backup_upload_failed(
             repeated=[_english(code, "title"), _english(code, "summary"), domain, destination],
             avoid=[summary, destination],
         ),
+        command=command,
         path="/backups",
         domain=domain,
+        extra_links=links,
     )
 
 

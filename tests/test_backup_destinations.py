@@ -73,7 +73,7 @@ class TestAdd:
         assert destination.backend == "sftp"
         assert destination.settings["host"] == "nas.example.com"
         assert destination.settings["user"] == "wasm"
-        assert destination.settings["path"] == "wasm-backups"
+        assert destination.settings["path"] == "noust-backups"
         assert "pass" not in destination.settings
 
     def test_secret_field_never_lands_in_the_settings_column(
@@ -223,7 +223,9 @@ class TestRemoteEnv:
         self, manager: BackupDestinationManager, runner: FakeRunner
     ) -> None:
         """rclone looks remote my-nas up as RCLONE_CONFIG_MY-NAS_* (found by the harness)."""
-        manager.add("my-nas", "b2", {"account": "acct123", "key": "topsecretkey"})
+        manager.add(
+            "my-nas", "b2", {"account": "acct123", "key": "topsecretkey", "path": "noust-backups"}
+        )
         env = manager.remote_env("my-nas")
         assert env["RCLONE_CONFIG_MY-NAS_TYPE"] == "b2"
         assert env["RCLONE_CONFIG_MY-NAS_ACCOUNT"] == "acct123"
@@ -261,7 +263,7 @@ class TestTarget:
 
     def test_default_path(self, manager: BackupDestinationManager) -> None:
         manager.add("nas", "sftp", _sftp_fields())
-        assert manager.target("nas") == "nas:wasm-backups"
+        assert manager.target("nas") == "nas:noust-backups"
 
 
 class TestTest:
@@ -269,7 +271,7 @@ class TestTest:
         manager.add("nas", "sftp", _sftp_fields())
         runner.script(("rclone", "obscure", "-"), stdout="OBSCURED\n")
         runner.script(
-            ("rclone", "lsf", "nas:wasm-backups", "--max-depth", "1"), stdout="shop-com/\n"
+            ("rclone", "lsf", "nas:noust-backups", "--max-depth", "1"), stdout="shop-com/\n"
         )
 
         result = manager.test("nas")
@@ -282,7 +284,7 @@ class TestTest:
         manager.add("nas", "sftp", _sftp_fields())
         runner.script(("rclone", "obscure", "-"), stdout="OBSCURED\n")
         runner.script(
-            ("rclone", "lsf", "nas:wasm-backups", "--max-depth", "1"),
+            ("rclone", "lsf", "nas:noust-backups", "--max-depth", "1"),
             stdout="",
             stderr="ssh: auth failed for password s3cr3t-password-value",
             exit_code=1,
@@ -301,12 +303,12 @@ class TestTestCreatesTheFolder:
         """A destination nobody pushed to yet has no folder; the test must not fail on that."""
         manager.add("nas", "sftp", _sftp_fields())
         runner.script(("rclone", "obscure", "-"), stdout="OBSCURED\n")
-        runner.script(("rclone", "lsf", "nas:wasm-backups", "--max-depth", "1"), stdout="")
+        runner.script(("rclone", "lsf", "nas:noust-backups", "--max-depth", "1"), stdout="")
 
         assert manager.test("nas") == {"ok": True, "entries": []}
         argvs = [tuple(call) for call in runner.calls]
-        mkdir = argvs.index(("rclone", "mkdir", "nas:wasm-backups"))
-        lsf = argvs.index(("rclone", "lsf", "nas:wasm-backups", "--max-depth", "1"))
+        mkdir = argvs.index(("rclone", "mkdir", "nas:noust-backups"))
+        lsf = argvs.index(("rclone", "lsf", "nas:noust-backups", "--max-depth", "1"))
         assert mkdir < lsf
 
     def test_a_refused_mkdir_is_the_error_shown(
@@ -315,7 +317,7 @@ class TestTestCreatesTheFolder:
         manager.add("nas", "sftp", _sftp_fields())
         runner.script(("rclone", "obscure", "-"), stdout="OBSCURED\n")
         runner.script(
-            ("rclone", "mkdir", "nas:wasm-backups"),
+            ("rclone", "mkdir", "nas:noust-backups"),
             stderr="permission denied",
             exit_code=1,
         )
@@ -376,7 +378,7 @@ class TestPushVerifyRetention:
         backup_id = "shop-example-com_20260101_000000"
         self._local_backup(backup_manager.backup_dir, "shop-example-com", backup_id, b"content")
 
-        target_dir = "nas:wasm-backups/shop-example-com"
+        target_dir = "nas:noust-backups/shop-example-com"
         runner.script(("rclone", "copyto"))
         # Verification lists the destination and compares sizes; script the
         # sidecar's real size so it is not mistaken for a mismatch.
@@ -411,7 +413,7 @@ class TestPushVerifyRetention:
         backup_id = "shop-example-com_20260101_000000"
         self._local_backup(backup_manager.backup_dir, "shop-example-com", backup_id, b"content")
 
-        target_dir = "nas:wasm-backups/shop-example-com"
+        target_dir = "nas:noust-backups/shop-example-com"
         runner.script(("rclone", "copyto"))
         runner.script(
             ("rclone", "lsjson", "--hash", target_dir),
@@ -457,7 +459,7 @@ class TestPushVerifyRetention:
         old_id = "shop-example-com_20260101_000000"
         self._local_backup(backup_manager.backup_dir, "shop-example-com", new_id, b"content")
 
-        target_dir = "nas:wasm-backups/shop-example-com"
+        target_dir = "nas:noust-backups/shop-example-com"
         runner.script(("rclone", "copyto"))
         json_bytes = len(
             (backup_manager.backup_dir / "shop-example-com" / f"{new_id}.json").read_bytes()
@@ -518,7 +520,7 @@ class TestRemoteListAndDownload:
         manager.add("nas", "sftp", _sftp_fields())
         runner.script(("rclone", "obscure", "-"), stdout="OBSCURED\n")
         runner.script(
-            ("rclone", "lsjson", "--hash", "nas:wasm-backups"),
+            ("rclone", "lsjson", "--hash", "nas:noust-backups"),
             stdout=json.dumps([{"Name": "shop-example-com", "IsDir": True}]),
         )
 
@@ -532,7 +534,7 @@ class TestRemoteListAndDownload:
     ) -> None:
         manager.add("nas", "sftp", _sftp_fields())
         runner.script(("rclone", "obscure", "-"), stdout="OBSCURED\n")
-        target_dir = "nas:wasm-backups/shop-example-com"
+        target_dir = "nas:noust-backups/shop-example-com"
         runner.script(
             ("rclone", "lsjson", "--hash", target_dir),
             stdout=json.dumps(
@@ -606,7 +608,7 @@ class TestRemoteListAndDownload:
         writing_runner.only_knows("rclone")
         writing_runner.script(("rclone", "obscure", "-"), stdout="OBSCURED\n")
         writing_runner.script(
-            ("rclone", "lsjson", "nas:wasm-backups/shop-example-com"),
+            ("rclone", "lsjson", "nas:noust-backups/shop-example-com"),
             stdout=json.dumps([{"Name": f"{backup_id}.tar.gz", "Size": len(archive_content)}]),
         )
         writing_manager = BackupDestinationManager(runner=writing_runner)
@@ -654,7 +656,7 @@ class TestRemoteListAndDownload:
         writing_runner.only_knows("rclone")
         writing_runner.script(("rclone", "obscure", "-"), stdout="OBSCURED\n")
         writing_runner.script(
-            ("rclone", "lsjson", "nas:wasm-backups/shop-example-com"),
+            ("rclone", "lsjson", "nas:noust-backups/shop-example-com"),
             stdout=json.dumps([{"Name": f"{backup_id}.tar.gz", "Size": 17}]),
         )
         writing_manager = BackupDestinationManager(runner=writing_runner)

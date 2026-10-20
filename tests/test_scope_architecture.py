@@ -98,6 +98,11 @@ UNSCOPED_ALLOWED: dict[tuple[str, str], str] = {
         "deliver",
     ): "the public deploy webhook: the application's own HMAC secret is its authentication",
     (
+        "src/noust/web/api/registry_hooks.py",
+        "deliver_registry",
+    ): "the public registry webhook: the application's own secret (or the token made from it) is "
+    "its authentication",
+    (
         "src/noust/web/api/server/lifecycle.py",
         "reattach_updates",
     ): "startup: the console picks the server's own update jobs back up, as the instance",

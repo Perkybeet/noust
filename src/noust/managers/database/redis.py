@@ -57,6 +57,7 @@ from noust.managers.database.base import (
     UserInfo,
     listen_address,
 )
+from noust.managers.database.instance_compose import TLS_MOUNT
 from noust.managers.database.registry import DatabaseRegistry
 
 if TYPE_CHECKING:
@@ -192,6 +193,79 @@ class RedisManager(BaseDatabaseManager):
         if self.runner.exists(self.VALKEY_CLIENT):
             return self.VALKEY_CLIENT
         return self.CLIENT_BINARY
+
+    @property
+    def tls_only_port(self) -> bool:
+        """
+        Whether this instance's one port serves TLS and refuses the rest.
+
+        Returns:
+            True for an instance Noust made to serve TLS; the host's server, and an instance that
+            does not, serve plaintext.
+        """
+        return self.instance is not None and self.instance.tls_mode == "required"
+
+    def remote_tls_blocker(self) -> str | None:
+        """
+        Say why this engine cannot be made to require TLS of one account.
+
+        Returns:
+            None for an instance whose one port already serves TLS only (public access is then
+            encrypted whatever the account); else why it cannot, as the base engine says.
+        """
+        if self.tls_only_port:
+            return None
+        return super().remote_tls_blocker()
+
+    def set_remote_tls(
+        self, username: str, database: str, required: bool, host: str = "localhost"
+    ) -> None:
+        """
+        Require TLS of an account, or stop: nothing to do where the port serves nothing else.
+
+        The requirement is the instance's (its mode), not the account's, so it is neither made
+        nor lifted here; making a database public or private leaves the instance's TLS as it is.
+
+        Args:
+            username: The account.
+            database: The database it is for.
+            required: Require TLS (True) or lift the requirement (False).
+            host: Ignored; Redis accounts have no host.
+
+        Raises:
+            DatabaseUserError: When the engine does not serve TLS only (see the base).
+        """
+        if self.tls_only_port:
+            return
+        super().set_remote_tls(username, database, required, host)
+
+    def _cli_tls(self) -> list[str]:
+        """
+        Name the options that make the client speak TLS to an instance that serves it.
+
+        An instance Noust made to serve TLS has no plaintext port (Redis, Valkey and KeyDB only
+        listen on one or the other here), and its certificate is signed by Noust's authority,
+        which the client is given from the same directory the engine reads.
+
+        Returns:
+            ``--tls --cacert <authority>``, or nothing for the host's server and an instance that
+            does not serve TLS.
+        """
+        if self.instance is not None and self.instance.tls_mode != "off":
+            return ["--tls", "--cacert", f"{TLS_MOUNT}/ca.crt"]
+        return []
+
+    def snapshot_programs(self) -> tuple[str, str]:
+        """
+        Name the programs a second server is started and asked with to load a snapshot.
+
+        Returns:
+            The server and the client of this engine's flavour: Valkey's for Valkey, Redis's
+            otherwise (KeyDB speaks Redis's protocol and reads its snapshots).
+        """
+        if self._is_valkey():
+            return "valkey-server", self.VALKEY_CLIENT
+        return "redis-server", self.CLIENT_BINARY
 
     def is_installed(self) -> bool:
         """
@@ -346,7 +420,7 @@ class RedisManager(BaseDatabaseManager):
         """
         env = self._client_env()
         result = self._exec(
-            [self._cli(), "-n", str(db), *args],
+            [self._cli(), *self._cli_tls(), "-n", str(db), *args],
             env=env,
             timeout=QUERY_TIMEOUT,
             secrets=tuple(env.values()) if env else (),
@@ -385,7 +459,7 @@ class RedisManager(BaseDatabaseManager):
         """
         env = self._client_env()
         result = self._exec(
-            [self._cli()],
+            [self._cli(), *self._cli_tls()],
             input=f"{command}\n",
             env=env,
             timeout=QUERY_TIMEOUT,
@@ -452,7 +526,7 @@ class RedisManager(BaseDatabaseManager):
             " ".join(self._quote_argument(argument) for argument in command) + "\n"
             for command in commands
         )
-        argv = [self._cli(), "-n", str(db), "--csv"]
+        argv = [self._cli(), *self._cli_tls(), "-n", str(db), "--csv"]
         if username is not None:
             argv[1:1] = ["--user", username]
             env: Mapping[str, str] | None = {"REDISCLI_AUTH": password or ""}
@@ -1524,7 +1598,7 @@ class RedisManager(BaseDatabaseManager):
         Returns:
             The argument vector.
         """
-        argv = [self._cli()]
+        argv = [self._cli(), *self._cli_tls()]
         if database is not None and str(database).isdigit():
             argv.extend(["-n", str(int(database))])
         if username:

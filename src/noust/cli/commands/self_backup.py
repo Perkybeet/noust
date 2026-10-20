@@ -30,6 +30,7 @@ import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.cli.commands.retention_options import KEEP_GB_HELP, add_size, gigabytes
+from noust.cli.commands.timer_options import describe_timer_options, timer_options
 from noust.core import paths
 from noust.core.exceptions import NoustError, ValidationError
 from noust.managers.database.base import format_size
@@ -472,6 +473,7 @@ def _destination(text: str) -> dict[str, Any]:
     help="Keep the passphrase already stored instead of asking for one.",
 )
 @click.option("--disable", is_flag=True, help="Keep the settings but install no timer.")
+@timer_options
 @PASSPHRASE_FILE
 @json_option("Print the schedule as JSON.")
 @pass_context
@@ -485,6 +487,8 @@ def set_command(
     remote_only: bool,
     keep_passphrase: bool,
     disable: bool,
+    max_runtime: str | None,
+    zone: str | None,
     passphrase_file: Path | None,
 ) -> None:
     """
@@ -509,6 +513,8 @@ def set_command(
             remote_only=remote_only,
             destinations=[_destination(text) for text in destinations],
             passphrase=passphrase,
+            max_runtime=max_runtime,
+            zone=zone,
             enabled=not disable,
         )
     except NoustError as exc:
@@ -539,6 +545,8 @@ def _print_schedule(data: dict[str, Any]) -> None:
     if data.get("retention_gb"):
         keep.append(f"{data['retention_gb']:g} GB")
     click.echo(f"  Schedule:     {data['schedule']}{'' if data['enabled'] else '  (disabled)'}")
+    for line in describe_timer_options(data["timer"]):
+        click.echo(line)
     click.echo(
         "  Keeps here:   nothing (each bundle goes once every destination holds it)"
         if data.get("remote_only")

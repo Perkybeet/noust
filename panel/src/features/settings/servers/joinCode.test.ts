@@ -48,9 +48,9 @@ describe("what was pasted as a join code", () => {
   it("tells each mistake apart, never repeating the value", () => {
     expect(classifyJoinCode("   ")).toEqual({ ok: false, problem: "empty" });
     expect(classifyJoinCode("noust_tok_abcdefghijklmnopqrstu")).toEqual({ ok: false, problem: "apiToken" });
-    expect(classifyJoinCode("wasm_tok_abcdefghijklmnopqrstu")).toEqual({ ok: false, problem: "apiToken" });
+    expect(classifyJoinCode("noust_tok_abcdefghijklmnopqrstu")).toEqual({ ok: false, problem: "apiToken" });
     expect(classifyJoinCode("noust_Zq9xY8wV7uT6sR5qP4oN3m")).toEqual({ ok: false, problem: "consoleToken" });
-    expect(classifyJoinCode("wasm_Zq9xY8wV7uT6sR5qP4oN3m")).toEqual({ ok: false, problem: "consoleToken" });
+    expect(classifyJoinCode("noust_Zq9xY8wV7uT6sR5qP4oN3m")).toEqual({ ok: false, problem: "consoleToken" });
     expect(classifyJoinCode("noust-join:v2:eyJ4Ijox")).toEqual({ ok: false, problem: "newer" });
     expect(classifyJoinCode("hello there")).toEqual({ ok: false, problem: "wrongPrefix" });
     expect(classifyJoinCode("noust-join:v1:bm90IGpzb24")).toEqual({ ok: false, problem: "unreadable" });

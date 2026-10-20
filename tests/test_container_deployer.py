@@ -28,11 +28,13 @@ from noust.core.container_store import (
 from noust.core.exceptions import DeploymentError, DockerError, RolledBackError
 from noust.core.secrets import SecretStore
 from noust.core.store import AppStatus, AppType, NoustStore, ReleaseStatus
+from noust.core.variables.predefined import RESERVED
 from noust.deployers import container as container_module
 from noust.deployers import docker_compose
 from noust.deployers.container import ContainerDeployer
 from noust.deployers.docker_compose import stack_deployer
 from noust.deployers.helpers.container_compose import COMPOSE_FILE, image_tag
+from noust.deployers.helpers.env_manager import EnvManager
 from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.webserver import NGINX_BACKEND
@@ -328,7 +330,9 @@ class TestADockerfile:
 
         env = tree / ".env"
         assert not env.is_symlink()
-        assert env.read_text() == ""
+        # What is in the file is Noust's own (what it says about the deployment), not the host's.
+        assert "ROOT_ONLY" not in env.read_text()
+        assert set(EnvManager().read_env_file(env)) <= RESERVED
         assert outside.read_text() == "ROOT_ONLY=1\n"
 
     def test_a_port_the_operator_gave_is_not_overridden(self, make, docker, tmp_path, tree):

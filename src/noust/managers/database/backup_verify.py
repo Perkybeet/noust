@@ -38,7 +38,7 @@ from pathlib import Path
 from noust.core.backup_files import open_backup
 from noust.core.exceptions import BackupError, DatabaseBackupError, DatabaseError
 from noust.core.runner import CommandResult
-from noust.managers.database.base import BaseDatabaseManager, backup_format
+from noust.managers.database.base import OWN_DUMP_OPTIONS, BaseDatabaseManager, backup_format
 from noust.managers.database.clickhouse import backup_problem
 from noust.managers.database.mongo_archive import (
     ARCHIVE_MAGIC,
@@ -105,12 +105,14 @@ class RestoreTest:
         detail: The evidence: tables found and how long it took, or the
             loader's own words when it failed.
         seconds: How long the load took.
+        skipped: It was not tried (``ok`` is then True) and ``detail`` says why.
     """
 
     ok: bool
     database: str
     detail: str
     seconds: float
+    skipped: bool = False
 
 
 def _fail(method: str, detail: str) -> DumpCheck:
@@ -149,6 +151,10 @@ def _plain_copy(manager: BaseDatabaseManager, path: Path) -> Iterator[Path]:
     if path.suffix != ".gz":
         yield path
         return
+    # The folder of dumps exists once a dump was taken here. A dump brought from another server
+    # (an import, a move) is checked before there is any, and the copy needs a place on the
+    # dumps' own filesystem.
+    manager._ensure_private_directory(manager.BACKUP_DIR)
     with tempfile.TemporaryDirectory(prefix="noust-verify-", dir=manager.BACKUP_DIR) as work:
         target = Path(work) / path.name.removesuffix(".gz")
         result = manager.runner.capture_to_file(
@@ -526,7 +532,14 @@ def restore_test(manager: BaseDatabaseManager, path: Path) -> RestoreTest:
     try:
         # Isolated: a dump taken with --databases names the database it came
         # from, and loading it into the temporary one would write there.
-        manager.restore(name, path, drop_existing=False, safety_backup=False, isolated=True)
+        manager.restore(
+            name,
+            path,
+            drop_existing=False,
+            safety_backup=False,
+            isolated=True,
+            **OWN_DUMP_OPTIONS,
+        )
         loaded = True
         try:
             tables = manager.get_database_info(name).tables

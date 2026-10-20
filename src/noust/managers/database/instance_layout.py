@@ -29,6 +29,10 @@ INSTANCE_LABEL = "io.noust.db-instance"
 #: The label every container and volume Noust makes carries.
 MANAGED_LABEL = "io.noust.managed"
 
+#: The label that says what engine a container Noust made runs. Discovery trusts it, with the two
+#: above, for an image whose name it does not know: an operator's own image has any name.
+FLAVOUR_LABEL = "io.noust.db-flavour"
+
 #: The one service of an instance's Compose project.
 SERVICE = "db"
 

@@ -111,6 +111,27 @@ class NotificationContext:
             public_url=str(config.get("web.public_url", "") or "").rstrip("/"),
         )
 
+    def output_link(self, path: str) -> Link | None:
+        """
+        Build the link to a plain-text page of this server's own API.
+
+        For the whole output of something that failed: a signed-in operator opens it in the
+        browser, with the same session the console uses, and reads exactly what the tool said.
+
+        Args:
+            path: The API path, starting with ``/api`` (``/api/backups/failures/42/output``).
+
+        Returns:
+            The link, or None when no public URL is configured.
+        """
+        if not self.public_url:
+            return None
+        return Link(
+            rel="output",
+            label=message("ui.full_output", self.locale),
+            url=f"{self.public_url}{quote(path, safe='/-._~')}",
+        )
+
     def link(self, path: str, *, node: str | None = None) -> Link | None:
         """
         Build the link to a console page.

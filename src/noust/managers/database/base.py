@@ -47,7 +47,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, NoReturn, TypeVar
 
 from noust.central import require_server_role
-from noust.core import paths
+from noust.core import legacy_names, paths
 from noust.core.backup_files import open_backup, seal_in_place
 from noust.core.exceptions import (
     DatabaseAccessError,
@@ -80,6 +80,7 @@ from noust.managers.database.instances import (
     mask_container_log,
     storage_name,
 )
+from noust.managers.database.pg_globals import GlobalsRestore
 from noust.managers.database.rpm_flavours import (
     default_rpm_plan,
     install_rpm_repository,
@@ -124,9 +125,23 @@ Profile = Literal["owner", "read_write", "read_only"]
 #: Every profile, in order of decreasing privilege.
 PROFILES: tuple[Profile, ...] = ("owner", "read_write", "read_only")
 
-#: Prefix of the least-privilege account the read-only console signs in as.
-#: A legacy name kept through 3.x: servers already hold roles called this.
-READ_ONLY_ACCOUNT_PREFIX = "wasm_ro_"
+#: Prefix of the least-privilege account the read-only console signs in as, and the one it had
+#: before 4.0. A server updated from before holds accounts under the old one until each
+#: database is read from again; both are Noust's own, so neither is listed as an account of
+#: somebody else or altered through Noust.
+READ_ONLY_ACCOUNT_PREFIX = "noust_ro_"
+LEGACY_READ_ONLY_ACCOUNT_PREFIX = legacy_names.READ_ONLY_PREFIX
+READ_ONLY_ACCOUNT_PREFIXES = (READ_ONLY_ACCOUNT_PREFIX, LEGACY_READ_ONLY_ACCOUNT_PREFIX)
+
+#: The prefix of the throw-away logins a PostgreSQL dump is loaded with (H-19).
+LOAD_ACCOUNT_PREFIX = "noust_load_"
+
+#: What a restore is told when the dump is one Noust itself wrote and keeps: a backup it took,
+#: the safety copy it put back, the dump of a move. PostgreSQL loads a dump from anywhere
+#: else as the database's owner, not as the superuser (H-19), so what Noust took out of a
+#: database (extensions that need a superuser, objects of several owners) is the one thing
+#: that is put back as it was.
+OWN_DUMP_OPTIONS: Mapping[str, Any] = {"as_superuser": True}
 
 #: Where apt is found, and the programs of the other two package managers an engine is
 #: installed through (see install()), by the name a plan gives its family.
@@ -534,7 +549,7 @@ class AccessEntry:
             grants that match none of the three.
         privileges: The grants behind the profile, in the engine's words.
         internal: The account belongs to the engine or to Noust itself (the
-            read-only console's ``wasm_ro_`` account, the superuser).
+            read-only console's account of either prefix, the superuser).
     """
 
     username: str
@@ -874,6 +889,9 @@ class BaseDatabaseManager(BaseManager):
 
     #: Where backups are written when the caller gives no path.
     BACKUP_DIR = paths.backup_dir() / "databases"
+    #: Whether the engine has roles of its own server to dump and put back
+    #: (``backup_globals``, ``restore_globals``): PostgreSQL's, which no database dump carries.
+    HAS_GLOBALS = False
 
     #: The container this manager drives, or None for the host's engine.
     #: Set by :meth:`bind`; see :mod:`noust.managers.database.instances`.
@@ -2252,7 +2270,7 @@ class BaseDatabaseManager(BaseManager):
 
         Such an account is listed but never altered or dropped through Noust:
         the superuser, the engine's maintenance accounts, and the read-only
-        console's ``wasm_ro_`` accounts, which Noust re-provisions on its own.
+        console's ``noust_ro_`` accounts, which Noust re-provisions on its own.
         In a container, the account Noust signs in as is one too: the image
         created it, and its compose file holds its password.
 
@@ -2264,7 +2282,50 @@ class BaseDatabaseManager(BaseManager):
         """
         if self.instance is not None and username == self.instance.admin_user:
             return True
-        return username in self.INTERNAL_USERS or username.startswith(READ_ONLY_ACCOUNT_PREFIX)
+        return username in self.INTERNAL_USERS or username.startswith(
+            (*READ_ONLY_ACCOUNT_PREFIXES, LOAD_ACCOUNT_PREFIX)
+        )
+
+    @property
+    def tls_only_port(self) -> bool:
+        """
+        Whether the one port clients reach serves TLS and nothing else.
+
+        True for a Redis, Valkey or KeyDB instance made to serve TLS: its URL then says so
+        (``rediss``), and a client that does not speak it cannot connect at all.
+
+        Returns:
+            False unless an engine says otherwise.
+        """
+        return False
+
+    def role_names(self) -> set[str]:
+        """
+        List every account the engine has, the engine's own included.
+
+        An import that creates the accounts of a dump asks first, so that it never
+        overwrites one.
+
+        Returns:
+            The names; empty for an engine with no accounts to import.
+        """
+        return set()
+
+    def create_accounts(self, script: str, *, secrets: Sequence[str] = ()) -> None:
+        """
+        Run the statements that make the accounts of an imported dump, all or none.
+
+        Args:
+            script: Statements Noust built from data it read, never the dump's own text.
+            secrets: Values in them (password hashes) to keep out of the logs.
+
+        Raises:
+            DatabaseUserError: Always here; an engine that can import accounts says how.
+        """
+        raise DatabaseUserError(
+            f"{self.DISPLAY_NAME} cannot create accounts from a dump",
+            details="Create them with 'noust db user-create'.",
+        )
 
     def apply_profile(
         self, username: str, database: str, profile: str, host: str = "localhost"
@@ -2321,13 +2382,29 @@ class BaseDatabaseManager(BaseManager):
         Remove the read-only console's account of a database that is gone.
 
         PostgreSQL roles and MySQL accounts are cluster-wide: dropping the
-        database leaves ``wasm_ro_<database>`` behind, and a database created
-        later under the same name would inherit it. Engines without such an
-        account have nothing to do.
+        database leaves ``noust_ro_<database>`` behind, and a database created
+        later under the same name would inherit it. The account an earlier
+        release made under the old prefix goes with it. Engines without such
+        an account have nothing to do.
 
         Args:
             database: The dropped database.
         """
+
+    def drop_legacy_read_only_account(self, database: str) -> bool:
+        """
+        Remove the account the read-only console had for a database before 4.0.
+
+        The next read provisions the account under the current name, so removing the old one
+        loses nothing: its password was never kept anywhere that survives a read.
+
+        Args:
+            database: The database.
+
+        Returns:
+            Whether an account was removed. Engines without such an account answer False.
+        """
+        return False
 
     def listen_addresses(self) -> ListenAddress | None:
         """
@@ -2850,7 +2927,9 @@ class BaseDatabaseManager(BaseManager):
                 back on record.
             **kwargs: Engine-specific options, handed to the checks and the
                 loader (``format`` for PostgreSQL; ``isolated`` for a load
-                beside a database, which must reach no other).
+                beside a database, which must reach no other; ``create_owner``,
+                the account a database that is replaced is recreated with instead
+                of the one it had, which a failed load still puts back).
 
         Returns:
             What was done, the safety copy included.
@@ -2894,7 +2973,7 @@ class BaseDatabaseManager(BaseManager):
                     self.drop_database(database, force=True)
                     dropped = True
                 if replaced or not exists:
-                    self._create_for_restore(database, owner)
+                    self._create_for_restore(database, kwargs.get("create_owner") or owner)
                 self._load_backup(database, loadable, **kwargs)
             except DatabaseError as exc:
                 failure = exc
@@ -2938,7 +3017,9 @@ class BaseDatabaseManager(BaseManager):
             ):
                 self.drop_database(database, force=True)
                 self._create_for_restore(database, owner)
-                self._load_backup(database, loadable)
+                # Noust's own dump, taken a moment ago from this very database: what it
+                # held (extensions, other owners) is put back as it was, not re-judged.
+                self._load_backup(database, loadable, as_superuser=True)
         except DatabaseError as again:
             return DatabaseBackupError(
                 f"Restoring '{database}' failed, and putting its previous contents back failed too",
@@ -3010,6 +3091,45 @@ class BaseDatabaseManager(BaseManager):
             DatabaseBackupError: When the engine's loader fails; the error
                 carries its output verbatim.
         """
+
+    def backup_globals(self, output_path: Path | None = None, compress: bool = True) -> BackupInfo:
+        """
+        Dump the roles of the server, for the engines that keep them apart from the databases.
+
+        Only PostgreSQL does (:attr:`HAS_GLOBALS`); the others' accounts are inside what they dump.
+
+        Args:
+            output_path: Where to write it.
+            compress: Pipe it through gzip.
+
+        Returns:
+            The file written.
+
+        Raises:
+            DatabaseBackupError: Always, for an engine without roles of its own.
+        """
+        raise DatabaseBackupError(
+            f"{self.DISPLAY_NAME} has no roles of its own to dump",
+            details="Only PostgreSQL keeps its roles apart from its databases.",
+        )
+
+    def restore_globals(self, source: Path) -> GlobalsRestore:
+        """
+        Create the roles of a file that this server does not have.
+
+        Args:
+            source: A file written by :meth:`backup_globals`.
+
+        Returns:
+            What was created, what was there and what was left out.
+
+        Raises:
+            DatabaseBackupError: Always, for an engine without roles of its own.
+        """
+        raise DatabaseBackupError(
+            f"{self.DISPLAY_NAME} has no roles of its own to restore",
+            details="Only PostgreSQL keeps its roles apart from its databases.",
+        )
 
     def list_backups(self, database: str | None = None) -> list[BackupInfo]:
         """
@@ -3205,6 +3325,7 @@ class BaseDatabaseManager(BaseManager):
             host=host,
             port=self.server_port(),
             options=self._url_options(username),
+            secure=self.tls_only_port,
         )
 
     def _url_options(self, username: str) -> dict[str, str] | None:

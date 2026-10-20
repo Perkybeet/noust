@@ -197,3 +197,186 @@ def test_the_install_command_offers_to_leave_them_out() -> None:
     result = CliRunner().invoke(cli, ["recipe", "install", "--help"])
 
     assert "--no-backups" in result.output
+
+
+@pytest.fixture
+def stack(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
+    """
+    The databases the application's Compose stack runs, and the scheduler that takes them.
+
+    ``found`` is what detection returns, ``error`` makes the scheduler refuse.
+    """
+    from noust.managers.stack_databases import StackDatabase
+
+    state = SimpleNamespace(
+        found=[StackDatabase("db", "postgres", "wiki", "wiki", "postgres:16-alpine")],
+        scheduled=[],
+        error=None,
+        detect_error=None,
+    )
+
+    class FakeScheduler:
+        def __init__(self, verbose: bool = False) -> None:
+            pass
+
+        def create_schedule(self, schedule: Any) -> bool:
+            if state.error is not None:
+                raise state.error
+            state.scheduled.append(schedule)
+            return True
+
+    def detect(app: App) -> list[Any]:
+        if state.detect_error is not None:
+            raise state.detect_error
+        return list(state.found)
+
+    monkeypatch.setattr("noust.managers.backup_scheduler.BackupScheduler", FakeScheduler)
+    monkeypatch.setattr("noust.recipes.backups.stack_databases_of", detect)
+    return state
+
+
+@pytest.fixture
+def compose_app(recipe_store: NoustStore) -> App:
+    """A Compose application whose database is inside its stack, so the store has no row for it."""
+    return recipe_store.create_app(
+        App(domain=DOMAIN, app_type="docker-compose", app_path="/srv/wiki")
+    )
+
+
+class TestADatabaseInsideTheStack:
+    def test_it_is_dumped_every_day_through_the_applications_own_schedule(
+        self,
+        compose_app: App,
+        recipe_store: NoustStore,
+        scheduled: SimpleNamespace,
+        stack: SimpleNamespace,
+    ) -> None:
+        result = apply_default_backups(DOMAIN, logger=Logger(), store=recipe_store)
+
+        [schedule] = stack.scheduled
+        assert schedule.domain == DOMAIN
+        assert schedule.schedule == DEFAULT_SCHEDULE
+        assert schedule.retention_count == DEFAULT_KEEP
+        assert schedule.retention_days == DEFAULT_DAYS
+        assert schedule.include_databases is True
+        assert result.stack == ("postgres/wiki (service db)",)
+
+    def test_the_operator_is_told_the_dump_is_tried_in_a_throwaway_container(
+        self,
+        compose_app: App,
+        recipe_store: NoustStore,
+        scheduled: SimpleNamespace,
+        stack: SimpleNamespace,
+    ) -> None:
+        result = apply_default_backups(DOMAIN, logger=Logger(), store=recipe_store)
+
+        [note] = [note for note in result.notes if "postgres/wiki" in note]
+        assert "dumped every day" in note
+        assert "throwaway container" in note
+        assert "noust backup drill" in note
+
+    def test_an_operators_schedule_is_never_replaced(
+        self,
+        compose_app: App,
+        recipe_store: NoustStore,
+        scheduled: SimpleNamespace,
+        stack: SimpleNamespace,
+    ) -> None:
+        from noust.core.store import BackupScheduleRecord
+
+        recipe_store.save_backup_schedule(
+            BackupScheduleRecord(
+                app_domain=DOMAIN,
+                schedule="weekly",
+                include_databases=True,
+                retention_count=3,
+                retention_days=None,
+                destinations=[],
+            )
+        )
+
+        result = apply_default_backups(DOMAIN, logger=Logger(), store=recipe_store)
+
+        assert stack.scheduled == []
+        assert result.stack == ("postgres/wiki (service db)",)
+        assert any("already has a backup schedule" in note for note in result.notes)
+
+    def test_a_schedule_that_leaves_the_databases_out_is_said(
+        self,
+        compose_app: App,
+        recipe_store: NoustStore,
+        scheduled: SimpleNamespace,
+        stack: SimpleNamespace,
+    ) -> None:
+        from noust.core.store import BackupScheduleRecord
+
+        recipe_store.save_backup_schedule(
+            BackupScheduleRecord(
+                app_domain=DOMAIN,
+                schedule="daily",
+                include_databases=False,
+                retention_count=7,
+                retention_days=None,
+                destinations=[],
+            )
+        )
+
+        result = apply_default_backups(DOMAIN, logger=Logger(), store=recipe_store)
+
+        assert result.stack == ()
+        assert any("leaves its databases out" in note for note in result.notes)
+
+    def test_a_stack_with_no_database_gets_no_schedule(
+        self,
+        compose_app: App,
+        recipe_store: NoustStore,
+        scheduled: SimpleNamespace,
+        stack: SimpleNamespace,
+    ) -> None:
+        stack.found = []
+
+        result = apply_default_backups(DOMAIN, logger=Logger(), store=recipe_store)
+
+        assert stack.scheduled == [] and result.stack == ()
+
+    def test_an_application_that_is_not_a_stack_is_not_asked(
+        self,
+        app: App,
+        recipe_store: NoustStore,
+        scheduled: SimpleNamespace,
+        stack: SimpleNamespace,
+    ) -> None:
+        apply_default_backups(DOMAIN, logger=Logger(), store=recipe_store)
+
+        assert stack.scheduled == []
+
+    def test_a_schedule_that_cannot_be_made_is_a_note_not_a_failed_install(
+        self,
+        compose_app: App,
+        recipe_store: NoustStore,
+        scheduled: SimpleNamespace,
+        stack: SimpleNamespace,
+    ) -> None:
+        stack.error = BackupError("systemd refused the timer")
+
+        result = apply_default_backups(DOMAIN, logger=Logger(), store=recipe_store)
+
+        assert result.stack == ()
+        assert any(
+            "databases inside its stack" in note and "systemd refused the timer" in note
+            for note in result.notes
+        )
+
+    def test_a_stack_that_cannot_be_read_is_a_note_not_a_failed_install(
+        self,
+        compose_app: App,
+        recipe_store: NoustStore,
+        scheduled: SimpleNamespace,
+        stack: SimpleNamespace,
+    ) -> None:
+        stack.detect_error = BackupError("Docker Compose could not resolve the stack")
+
+        result = apply_default_backups(DOMAIN, logger=Logger(), store=recipe_store)
+
+        assert result.stack == ()
+        assert any("could not resolve the stack" in note for note in result.notes)

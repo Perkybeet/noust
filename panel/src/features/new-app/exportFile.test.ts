@@ -16,8 +16,13 @@ import {
 import { EXPORT } from "./testFixtures";
 
 describe("reading an export file", () => {
-  it("reads a wasm-app document", () => {
+  it("reads a noust-app document", () => {
     expect(readExport(JSON.stringify(EXPORT))).toEqual({ document: EXPORT });
+  });
+
+  it("leaves to the server which names of an export it reads, so a file from an earlier release is not refused here", () => {
+    const earlier = { ...EXPORT, format: "older-app" };
+    expect(readExport(JSON.stringify(earlier))).toEqual({ document: earlier });
   });
 
   it("says clearly what is wrong with a file that is not one", () => {

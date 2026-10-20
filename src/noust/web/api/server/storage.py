@@ -181,7 +181,7 @@ def list_unused_images(
     """
     List the Docker images no container uses.
 
-    The ``wasm-previous`` image of a Compose application, its way back, is left
+    The ``noust_previous`` image of a Compose application, its way back, is left
     out even though nothing runs it.
 
     Args:

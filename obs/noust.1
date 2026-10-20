@@ -703,6 +703,41 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 .SS noust app compose
 The compose file, profiles and extra arguments of a Docker Compose stack.
 
+.SS noust app compose document
+Print the Compose document a stack runs from.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the document and where Noust keeps it as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust app compose replace
+Replace the Compose document a stack runs from.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-from
+The new document; \- reads standard input.
+.TP
+.B \-\-check
+Only judge it: write nothing and run nothing.
+.TP
+.B \-\-apply
+Update the stack to run it now, behind the health gate; without it the stack runs it at its next update.
+.TP
+.B \-\-json
+Print the outcome as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust app compose reset
 Forget the choices; the unit's own record of the file applies again.
 .TP
@@ -776,6 +811,19 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 .SS noust app container
 How a container application is built and run: see it, change it.
 
+.SS noust app container check
+Ask the registry whether the tag of an image application points at a new image.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the finding as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust app container set
 Change how a container application is built and run.
 .TP
@@ -812,6 +860,12 @@ A path in the container whose data survives every deployment, such as /data. Rep
 .TP
 .B \-\-restart
 Docker's restart policy: no, always, unless\-stopped (default) or on\-failure.
+.TP
+.B \-\-entrypoint
+Run this program instead of the image's ENTRYPOINT: the line is split into words the way a shell would, and no shell runs it. An empty line clears the image's entrypoint (its CMD is then the program). Setting one drops the image's CMD: give \-\-command too if it should still apply.
+.TP
+.B \-\-command
+Give the entrypoint these arguments instead of the image's CMD (split into words, no shell). Docker cannot clear a CMD: an empty line is refused; \-\-clear command goes back to the image's.
 .TP
 .B \-\-registry\-server
 The registry the account is for. Default: the image's own.
@@ -3017,6 +3071,31 @@ Never emit colour.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
+.SS noust app webhook registry
+Say what to give a container registry so a push of the image deploys the application.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-reveal
+Print the token of Docker Hub's address too (it is a credential, never shown otherwise).
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the addresses as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust app webhook rotate
 Create the webhook secret, or replace it.
 .TP
@@ -4118,6 +4197,9 @@ Wrap the remote in an rclone crypt backend; run 'show\-key' once to keep a copy.
 .B \-\-key\-stdin
 Encrypt with an existing key read from standard input, as 'show\-key' printed it (its text, its \-\-json, or the two passphrases on two lines). Implies \-\-encrypt.
 .TP
+.B \-\-skip\-test
+Keep the destination without trying the connection first. By default one that does not connect is not saved, and an object store's bucket must exist.
+.TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
@@ -4190,6 +4272,9 @@ Prompt for the backend's secret field.
 .TP
 .B \-\-encrypt, \-\-no\-encrypt
 Turn encryption on or off.
+.TP
+.B \-\-skip\-test
+Keep the change without trying the connection first. By default a change that does not connect leaves the destination as it was.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
@@ -4269,6 +4354,18 @@ Do not ask.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
+.SS noust backup encryption seal\-existing
+Seal the backups already on this disk that were made in clear.
+.TP
+.B \-\-yes, \-y
+Do not ask.
+.TP
+.B \-\-json
+Print the report as JSON (needs \-\-yes: nothing is asked).
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust backup encryption show\-key
 Show a key (the current one by default), to keep it somewhere else.
 .TP
@@ -4284,6 +4381,40 @@ Say whether new backups are sealed, with which key, and how many are in clear.
 .TP
 .B \-\-json
 Print the status as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust backup failures
+Read the whole output of the backups that failed.
+
+.SS noust backup failures list
+List the backups that failed, newest first, without their output.
+.TP
+.B \-\-subject
+Only the failures about this (a domain, Noust, engine/database).
+.TP
+.B \-\-limit
+How many to list, newest first. Default: 20.
+.TP
+.B \-\-json
+Print the list as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust backup failures show
+Print all that a failed backup said, the record a notice names.
+.TP
+.B Arguments
+.br
+\fIfailure_id\fR
+.TP
+.B \-\-raw
+Print only the output, exactly as it was recorded.
+.TP
+.B \-\-json
+Print the record, output included, as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
@@ -4338,6 +4469,48 @@ Print the panel URL for the backup list, opening it if a display is available.
 .TP
 .B \-\-json
 Print the backup list as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust backup priority
+How hard the backups lean on the server while they run: nice, disk class, CPU ceiling.
+
+.SS noust backup priority apply
+Bring the backup services on this server to the configured settings.
+.TP
+.B \-\-json
+Print the units that changed as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust backup priority set
+Change the settings and bring the backup services already on this server along.
+.TP
+.B \-\-nice
+Nice value, 0 to 19.
+.TP
+.B \-\-io\-class
+Disk scheduling class: best\-effort, or idle (only when nothing else wants the disk).
+.TP
+.B \-\-io\-priority
+Priority inside best\-effort: 0 first, 7 last.
+.TP
+.B \-\-cpu\-quota
+Ceiling in percent of one CPU (50 is half a core, 200 two), or 'none' for no ceiling.
+.TP
+.B \-\-json
+Print the result as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust backup priority show
+Show the settings every backup service is written with.
+.TP
+.B \-\-json
+Print the settings as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
@@ -4442,6 +4615,12 @@ Push each backup to this remote destination, with its own retention. Repeatable.
 .B \-\-remote\-only
 Keep nothing on this server: delete each backup here once every destination holds it and its upload was checked. For a small disk; needs a \-\-destination.
 .TP
+.B \-\-max\-runtime
+Stop a run that takes longer than this: 90m, 2h, 1d or a number of seconds (1 minute to 7 days). No limit by default.
+.TP
+.B \-\-timezone
+Read the schedule in this time zone, such as Europe/Madrid (timedatectl list\-timezones lists them). The server's clock by default.
+.TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
@@ -4495,6 +4674,12 @@ Push each backup to this remote destination, with its own retention. Repeatable.
 .B \-\-remote\-only, \-\-keep\-local
 Keep nothing on this server (delete each backup here once every destination holds it), or keep the local copies. Kept as it is when not given.
 .TP
+.B \-\-max\-runtime
+Stop a run that takes longer than this: 90m, 2h, 1d or a number of seconds (1 minute to 7 days). No limit by default.
+.TP
+.B \-\-timezone
+Read the schedule in this time zone, such as Europe/Madrid (timedatectl list\-timezones lists them). The server's clock by default.
+.TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
@@ -4503,6 +4688,15 @@ Show how much disk the backups take, per application.
 .TP
 .B \-\-json
 Print the storage usage as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust backup sweep
+Delete the backups beyond every policy's retention, without waiting for a run.
+.TP
+.B \-\-json
+Print the report as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
@@ -4699,6 +4893,12 @@ live, pause (freeze the application for the copy) or stop. Default: live.
 .TP
 .B \-\-disable
 Keep the settings but install no timer.
+.TP
+.B \-\-max\-runtime
+Stop a run that takes longer than this: 90m, 2h, 1d or a number of seconds (1 minute to 7 days). No limit by default.
+.TP
+.B \-\-timezone
+Read the schedule in this time zone, such as Europe/Madrid (timedatectl list\-timezones lists them). The server's clock by default.
 .TP
 .B \-\-json
 Print the policy as JSON.
@@ -5676,6 +5876,12 @@ A path in the container whose data survives every deployment, such as /data. Rep
 .B \-\-restart
 Docker's restart policy: no, always, unless\-stopped (default) or on\-failure.
 .TP
+.B \-\-entrypoint
+Run this program instead of the image's ENTRYPOINT: the line is split into words the way a shell would, and no shell runs it. An empty line clears the image's entrypoint (its CMD is then the program). Setting one drops the image's CMD: give \-\-command too if it should still apply.
+.TP
+.B \-\-command
+Give the entrypoint these arguments instead of the image's CMD (split into words, no shell). Docker cannot clear a CMD: an empty line is refused; \-\-clear command goes back to the image's.
+.TP
 .B \-\-registry\-server
 The registry the account is for. Default: the image's own.
 .TP
@@ -6027,6 +6233,12 @@ Keep no copy on this server: a scheduled dump is deleted once every \-\-to desti
 .TP
 .B \-\-disable
 Keep the settings but install no timer.
+.TP
+.B \-\-max\-runtime
+Stop a run that takes longer than this: 90m, 2h, 1d or a number of seconds (1 minute to 7 days). No limit by default.
+.TP
+.B \-\-timezone
+Read the schedule in this time zone, such as Europe/Madrid (timedatectl list\-timezones lists them). The server's clock by default.
 .TP
 .B \-\-json
 Print the policy as JSON.
@@ -6444,6 +6656,46 @@ Engine the database was on.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
+.SS noust db globals
+The roles of a PostgreSQL server, which no database dump carries.
+
+.SS noust db globals dump
+Dump the roles of the server with pg_dumpall \-\-globals\-only.
+.TP
+.B \-\-output, \-o
+Write the file here instead of the backup directory.
+.TP
+.B \-\-json
+Print the result as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust db globals list
+List the files of roles this server has dumped, newest first.
+.TP
+.B \-\-json
+Print the files as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust db globals restore
+Create the roles of a file that this server does not have.
+.TP
+.B Arguments
+.br
+\fIsource\fR
+.TP
+.B \-\-yes, \-y
+Do not ask for confirmation.
+.TP
+.B \-\-json
+Print the result as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust db grant
 Grant a user privileges on a database.
 .TP
@@ -6507,6 +6759,12 @@ PostgreSQL: keep the owners and privileges the dump names. By default they are l
 .B \-\-no\-safety\-copy
 Do not dump the database first when nothing is dropped.
 .TP
+.B \-\-owner
+PostgreSQL: the account a database this import makes belongs to (it must exist), instead of the default. A database that is loaded over keeps its owner.
+.TP
+.B \-\-as\-superuser
+PostgreSQL: load the dump as the server's superuser. By default it is loaded as the database's owner, so what a dump asks beyond that (COPY ... FROM PROGRAM, extensions that need a superuser) is refused. Use it only for a dump you made or have read. Audited.
+.TP
 .B \-\-inspect
 Say what the file is and whether the engine can load it, and stop.
 .TP
@@ -6515,6 +6773,46 @@ Do not ask for confirmation.
 .TP
 .B \-\-json
 Print what the import did as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust db import\-all
+Import a dump of every database of an engine, and its accounts when asked.
+.TP
+.B Arguments
+.br
+\fIfile\fR
+.TP
+.B \-\-engine, \-e
+Engine to import into.
+.TP
+.B \-\-users
+Also create the accounts of the dump (PostgreSQL: its roles, with the password hash it holds). Without superuser, role\-creating, replication or row\-security\-bypassing power, and never over an account that exists. The databases then keep the owners and privileges the dump names for those accounts.
+.TP
+.B \-\-accounts\-file
+MySQL and MariaDB: a file of CREATE USER and GRANT statements, one per line (SHOW CREATE USER and SHOW GRANTS print them, so does pt\-show\-grants); mysqldump does not write the accounts. Used with \-\-users.
+.TP
+.B \-\-database, \-d
+Load only this database (repeat for several). The server's own ones (postgres) are loaded only when named.
+.TP
+.B \-\-replace
+Drop each database that exists and load the dump into a fresh one. A safety copy is taken first and put back if its load fails.
+.TP
+.B \-\-no\-safety\-copy
+Do not dump a database first when it is loaded over rather than replaced.
+.TP
+.B \-\-as\-superuser
+Load every database as the server's superuser instead of as its owner. By default a database is loaded as its owner, so what a dump asks beyond that (COPY ... FROM PROGRAM, extensions that need a superuser) is refused. Use it only for a file you made or have read. Audited.
+.TP
+.B \-\-plan
+Say what would be created, loaded over, replaced or left out, and stop.
+.TP
+.B \-\-force, \-f, \-y
+Do not ask for confirmation.
+.TP
+.B \-\-json
+Print the plan or what was done as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
@@ -6594,6 +6892,18 @@ An image of the engine with something added, such as pgvector or postgis for Pos
 .B \-\-init\-script
 A .sql file the engine runs, in name order, the first time it starts (PostgreSQL, MySQL and MariaDB; repeatable). It is not run again, and it is readable by the container: no secrets.
 .TP
+.B \-\-image
+An image of your own instead of the catalog's: repository[:tag]@sha256:DIGEST. The digest is mandatory (a tag can be moved after you looked; 'docker buildx imagetools inspect REPO:TAG' prints it) and \-\-version says which version it is. Noust has not tested it.
+.TP
+.B \-\-args
+Arguments added after the ones Noust passes the engine, such as '\-c max_connections=200'. Split like a shell would and never run by one. Not with \-\-command. No secrets: a command line is visible to every local user.
+.TP
+.B \-\-command
+The container's whole command, instead of the engine's: Noust adds nothing to it (the memory share, TLS), so it is refused for an instance that serves TLS. Not with \-\-args.
+.TP
+.B \-\-accept\-untested
+Accept that Noust has not tested an image, a command or arguments you chose. Needed with \-\-yes or \-\-json for them; \-\-yes alone answers the question, not this.
+.TP
 .B \-\-yes, \-y
 Do not ask before making it.
 .TP
@@ -6645,6 +6955,46 @@ Never emit colour.
 .TP
 .B \-\-json
 Print the settings, the plan or what was done as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust db instance launch
+Show or change what an instance's container is started with.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-args
+Arguments added after the ones Noust passes the engine, such as '\-c work_mem=8MB'. Split like a shell would and never run by one; no secrets.
+.TP
+.B \-\-command
+The container's whole command, instead of the engine's. Noust adds nothing to it.
+.TP
+.B \-\-reset
+Take both back to what Noust passes the engine.
+.TP
+.B \-\-plan
+Only say what it would do.
+.TP
+.B \-\-accept\-untested
+Accept that Noust has not tested your words.
+.TP
+.B \-\-yes, \-y
+Do not ask before restarting it.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the command, the plan or what was done as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
@@ -6961,6 +7311,12 @@ Move an instance to the newest image of its version.
 .TP
 .B \-\-no\-backup
 Do not dump every database first. Only when its data does not matter.
+.TP
+.B \-\-image
+For an instance on an image of your own: the next one, repository[:tag]@sha256:DIGEST. Noust never looks for a newer image of one you pinned.
+.TP
+.B \-\-accept\-untested
+Accept that Noust has not tested the image you name. Needed with \-\-json.
 .TP
 .B \-v, \-\-verbose
 Show the detail of each step.
@@ -7624,6 +7980,9 @@ Restore into a new database of this name instead.
 .B \-\-no\-safety\-copy
 Do not dump the database first when nothing is dropped.
 .TP
+.B \-\-as\-superuser
+PostgreSQL: load a file Noust did not write as the server's superuser instead of the database's owner. A dump can run programs on this server (COPY ... FROM PROGRAM) with that account: use it only for a dump you made or have read, when the error says the owner may not do what it asks. Audited.
+.TP
 .B \-\-force, \-f, \-y
 Do not ask for confirmation.
 .TP
@@ -8160,6 +8519,49 @@ Print the status as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
+.SS noust db transfer
+Move DATABASE from one server of the fleet to another.
+.TP
+.B Arguments
+.br
+\fIdatabase\fR
+.TP
+.B \-\-engine, \-e
+The engine it is on at the source: postgresql, mysql (MariaDB too) or mongodb, or an instance such as postgresql@pg16. Default: postgresql.
+.TP
+.B \-\-from
+The server that holds the database.
+.TP
+.B \-\-to
+The server that receives it.
+.TP
+.B \-\-to\-engine
+The engine or instance on the target, when it is not the source's own.
+.TP
+.B \-\-as
+Its name on the target; the same by default.
+.TP
+.B \-\-replace
+Replace a database of that name the target holds, after a safety copy of it taken there.
+.TP
+.B \-\-accounts
+Also make the accounts with access to it, with the password the source holds for each and the profile they had. The passwords pass through this machine and are kept nowhere.
+.TP
+.B \-\-drop\-source
+Drop it from the source once it has moved, after a last dump kept there. Refused while an application uses it.
+.TP
+.B \-\-plan
+Only show what would happen.
+.TP
+.B \-y, \-\-yes
+Do not ask first.
+.TP
+.B \-\-json
+Print the plan, then the job's result, as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust db uninstall
 Remove a database engine from this server.
 .TP
@@ -8293,6 +8695,15 @@ Delete without asking for confirmation.
 .TP
 .B \-\-keep\-files
 Leave the application directory on disk.
+.TP
+.B \-\-keep\-certificate
+Leave the domain's certificate in place (it is removed with the application otherwise).
+.TP
+.B \-\-remove\-volumes
+Also remove the Docker volumes of a Compose stack or a container application: they hold its data, so they are never removed unless asked for.
+.TP
+.B \-\-remove\-databases
+Also drop the databases that belong to the application and that no other application uses, each after a last dump. Never unless asked for; one it merely uses is kept.
 .TP
 .B \-\-remove\-adopted\-directory
 Also remove the application's directory when it is outside Noust's apps directory (an adopted stack). Name it exactly; without this it is kept.
@@ -8885,6 +9296,34 @@ Print secret values in clear instead of hiding them.
 .TP
 .B \-\-json
 Print the variables as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust env sync
+Bring a real .env file into an application's variables.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-file, \-f
+The .env file to bring in; \- reads it from standard input.
+.TP
+.B \-\-prune
+Also remove the variables the file does not hold. Without it nothing is deleted.
+.TP
+.B \-\-build\-only
+Only the install and the build.
+.TP
+.B \-\-runtime\-only
+Not the install or the build.
+.TP
+.B \-\-both
+The build and the running application.
+.TP
+.B \-\-json
+Print what changed (names, never values) as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
@@ -9724,6 +10163,9 @@ For an application that runs a registry image: the tag every server pulls (build
 .TP
 .B \-\-force
 Rebuild even a server already on it.
+.TP
+.B \-\-build\-on\-each
+Build on every server even though DOMAIN has a build server (noust fleet builder).
 .TP
 .B \-\-canary
 The server that goes first and alone.
@@ -12708,6 +13150,12 @@ Noust's state is already back (a run that stopped): only bring the applications 
 .B \-\-force
 Restore over a server that already holds state.
 .TP
+.B \-\-install
+Install what this machine lacks: the web server, Docker (when an application or an instance needs it) and the database engines. Without it nothing is installed.
+.TP
+.B \-\-no\-databases
+Do not bring back the databases no application owns.
+.TP
 .B \-\-accept\-schema\-changes
 Restore an application's files even past a schema change nothing restores the database for.
 .TP
@@ -13004,6 +13452,12 @@ Keep the passphrase already stored instead of asking for one.
 .TP
 .B \-\-disable
 Keep the settings but install no timer.
+.TP
+.B \-\-max\-runtime
+Stop a run that takes longer than this: 90m, 2h, 1d or a number of seconds (1 minute to 7 days). No limit by default.
+.TP
+.B \-\-timezone
+Read the schedule in this time zone, such as Europe/Madrid (timedatectl list\-timezones lists them). The server's clock by default.
 .TP
 .B \-\-passphrase\-file
 Read the passphrase from this file (mode 600), not from a prompt.
@@ -14391,6 +14845,21 @@ Install Railpack, so container applications can be built without a Dockerfile.
 .TP
 .B \-\-force
 Install the pinned release again even when this version is already installed.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust setup rename
+Finish the renaming that 4.0 begins, without restarting anything.
 .TP
 .B \-v, \-\-verbose
 Show the detail of each step.

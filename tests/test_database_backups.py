@@ -62,6 +62,7 @@ from tests.database_backup_support import (
     make_engine,
     make_service,
 )
+from tests.notifications_support import failure_id_of
 
 
 @pytest.fixture(autouse=True)
@@ -141,7 +142,9 @@ class FakeScheduler:
         self.installed: dict[tuple[str, str], str] = {}
         self.removed: list[tuple[str, str]] = []
 
-    def install_database_timer(self, engine: str, database: str, schedule: str) -> str:
+    def install_database_timer(
+        self, engine: str, database: str, schedule: str, *, options: Any = None
+    ) -> str:
         self.installed[(engine, database)] = schedule
         return f"noust-backup-db-{engine}-{database}"
 
@@ -384,6 +387,24 @@ class TestChecksPerEngine:
 
         assert (ok, method) == (True, "trailer")
         assert runner.ran("gzip", "-dc")
+
+    def test_a_gzipped_dump_is_read_on_a_server_that_never_took_one(
+        self, tmp_path: Path, runner: RcloneRunner
+    ) -> None:
+        # The folder of dumps does not exist until the first dump: a dump imported into a server
+        # that came to be last week is still checked, and the check leaves the folder it made.
+        elsewhere = tmp_path / "taken-elsewhere"
+        elsewhere.mkdir()
+        cls = make_engine(elsewhere, suffix=".sql.gz", content=b"gz bytes")
+        info = cls().backup("shop")
+        never = tmp_path / "never-dumped-here"
+        cls.BACKUP_DIR = never
+        runner.script(("gzip", "-dc"), stdout=PG_PLAIN.decode())
+
+        outcome = check_dump(cls(), info.path)
+
+        assert (outcome.ok, outcome.method) == (True, "trailer")
+        assert never.is_dir() and list(never.iterdir()) == []
 
     def test_a_corrupt_gzip_fails_with_gzips_words(
         self, tmp_path: Path, runner: RcloneRunner
@@ -944,7 +965,9 @@ class TestRunPolicy:
         assert "could not be sent to: nas" in str(failure.value)
         assert "The local dump was kept" in str(failure.value)
         cloud = list(
-            (runner.root / "cloud" / "wasm-backups" / "databases" / "postgresql" / "shop").iterdir()
+            (
+                runner.root / "cloud" / "noust-backups" / "databases" / "postgresql" / "shop"
+            ).iterdir()
         )
         assert len(cloud) == 2  # the dump and its sidecar
         assert len(backups.list_dumps("postgresql", "shop")) == 1
@@ -1024,6 +1047,60 @@ class TestRunPolicy:
         assert notification.console_link.url.endswith("/databases/postgresql/shop")
         assert notification.excerpt is not None
         assert "bad header" in "\n".join(notification.excerpt.lines)
+
+    def test_the_failure_links_to_all_that_the_tool_said(
+        self, backups: DatabaseBackups, monkeypatch: pytest.MonkeyPatch, runner: RcloneRunner
+    ) -> None:
+        from noust.managers.backup_failures import BackupFailureLog
+
+        sent: list[Any] = []
+        monkeypatch.setattr("noust.managers.database.backups.deliver", sent.append)
+        said = (
+            "\n".join(f"pg_restore: warning {n}" for n in range(60))
+            + "\npg_restore: error: bad header"
+        )
+        runner.script(("pg_restore", "--list"), stderr=said, exit_code=1)
+
+        with pytest.raises(DatabaseBackupError):
+            backups.run_policy("postgresql", "shop", notify=True)
+
+        (build,) = sent
+        notification = build(NotificationContext("en", "web-1", "https://console.example.com"))
+        failure_id = failure_id_of(notification)
+        stored = BackupFailureLog().get(failure_id)
+        assert stored is not None
+        assert (stored.kind, stored.subject) == ("backup", "postgresql/shop")
+        assert "pg_restore: warning 0" in stored.output and "bad header" in stored.output
+        links = {link.rel: link.url for link in notification.links}
+        assert links["console"].endswith("/databases/postgresql/shop")
+        assert links["output"].endswith(f"/api/backups/failures/{failure_id}/output")
+
+    def test_a_refused_upload_links_to_what_the_destination_said(
+        self, backups: DatabaseBackups, monkeypatch: pytest.MonkeyPatch, runner: RcloneRunner
+    ) -> None:
+        from noust.managers.backup_failures import BackupFailureLog
+
+        sent: list[Any] = []
+        monkeypatch.setattr("noust.managers.database.backups.deliver", sent.append)
+        DestinationFileManager(runner=runner).add(
+            "nas", "sftp", {"host": "nas.example.com", "user": "noust", "pass": "s3cr3t"}
+        )
+        runner.refusing["nas"] = "connection refused " * 50
+        backups.set_policy("postgresql", "shop", destinations=[{"name": "nas"}])
+
+        with pytest.raises(BackupError):
+            backups.run_policy("postgresql", "shop", notify=True)
+
+        uploads = [
+            note
+            for note in (build(NotificationContext("en", "web-1", "")) for build in sent)
+            if note.code == "database.backup.upload_failed"
+        ]
+        (notice,) = uploads
+        failure_id = failure_id_of(notice)
+        stored = BackupFailureLog().get(failure_id)
+        assert stored is not None and (stored.kind, stored.destination) == ("upload", "nas")
+        assert stored.output.count("connection refused") == 50
 
 
 # ================================================================ restores
@@ -1243,7 +1320,8 @@ def test_a_restore_as_a_new_database_loads_isolated(
 
     backups.restore("postgresql", "shop", taken.name, new_name="shop_copy")
 
-    assert seen == [{"isolated": True}]
+    # Noust's own dump: loaded as the superuser, as ever.
+    assert seen == [{"isolated": True, "as_superuser": True}]
 
 
 def test_a_restore_over_the_database_itself_is_not_isolated(
@@ -1254,7 +1332,7 @@ def test_a_restore_over_the_database_itself_is_not_isolated(
 
     backups.restore("postgresql", "shop", taken.name)
 
-    assert seen == [{}]
+    assert seen == [{"as_superuser": True}]
 
 
 # ---------------------------------------------------------------------------

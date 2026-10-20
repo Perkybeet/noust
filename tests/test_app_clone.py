@@ -22,7 +22,7 @@ import pytest
 from click.testing import CliRunner
 
 from noust.cli.app import cli as root_cli
-from noust.core import app_build_store
+from noust.core import app_build_store, app_mount_store
 from noust.core.app_tags import AppTags
 from noust.core.exceptions import DomainConflictError, ValidationError
 from noust.core.logger import Logger
@@ -37,7 +37,9 @@ from noust.deployers.app_export import CreateSpec
 from noust.deployers.helpers import app_env as app_env_module
 from noust.deployers.helpers.app_env import write_app_env
 from noust.deployers.helpers.hooks import operator_hooks, set_operator_hooks
+from noust.managers.app_mounts import MountManager
 from noust.web.auth import STATE_DIR_ENV
+from tests.test_app_mounts import OwnerFs
 
 SOURCE = "shop.example.com"
 CLONE = "shop-copy.example.com"
@@ -279,6 +281,77 @@ class TestApplying:
             apply_clone(plan_clone(SOURCE, CLONE), deploy=deploy, logger=Logger())
 
         assert store.get_app(CLONE) is None
+
+
+class TestMounts:
+    """The files Noust keeps for the original are the clone's too (checklist B-80)."""
+
+    @pytest.fixture
+    def mounts(self, store: NoustStore, monkeypatch: pytest.MonkeyPatch) -> MountManager:
+        manager = MountManager(store=store, fs=OwnerFs())
+        monkeypatch.setattr(app_export, "MountManager", lambda log=None: manager)
+        return manager
+
+    def deploy(self, store: NoustStore, tmp_path: Path, specs: list[CreateSpec]):
+        def deploy(spec: CreateSpec) -> None:
+            specs.append(spec)
+            root = tmp_path / "apps" / spec.domain.replace(".", "-")
+            (root / "shared").mkdir(parents=True)
+            store.create_app(
+                App(
+                    domain=spec.domain,
+                    app_type=spec.app_type,
+                    source=spec.source,
+                    port=spec.port,
+                    app_path=str(root),
+                    layout="releases",
+                )
+            )
+
+        return deploy
+
+    def test_a_mounted_file_comes_with_its_text_and_is_there_for_the_first_start(
+        self, app: App, store: NoustStore, mounts: MountManager, tmp_path: Path
+    ) -> None:
+        text = '{"token": "from-the-original"}\n'
+        mounts.put_file(SOURCE, "config/production.json", text, mode=0o640)
+        specs: list[CreateSpec] = []
+
+        plan = plan_clone(SOURCE, CLONE)
+        report = apply_clone(plan, deploy=self.deploy(store, tmp_path, specs), logger=Logger())
+
+        assert specs[0].seed_files == {"config/production.json": text}
+        (record,) = app_mount_store.list_mounts(CLONE)
+        assert (record.kind, record.target, record.mode) == (
+            "file",
+            "config/production.json",
+            0o640,
+        )
+        assert mounts.read_file(CLONE, "config/production.json") == text
+        assert not [step for step in report.not_applied if "mount" in step.part]
+
+    def test_the_plan_says_which_files_it_copies(
+        self, app: App, store: NoustStore, mounts: MountManager
+    ) -> None:
+        mounts.put_file(SOURCE, "certs/ca.pem", "pem\n")
+
+        plan = plan_clone(SOURCE, CLONE)
+
+        assert any(line.startswith("file mount certs/ca.pem") for line in plan.plan.steps)
+
+    def test_the_original_keeps_its_own(
+        self, app: App, store: NoustStore, mounts: MountManager, tmp_path: Path
+    ) -> None:
+        mounts.put_file(SOURCE, "a.conf", "one\n")
+
+        apply_clone(
+            plan_clone(SOURCE, CLONE),
+            deploy=self.deploy(store, tmp_path, []),
+            logger=Logger(),
+        )
+        mounts.put_file(CLONE, "a.conf", "two\n")
+
+        assert mounts.read_file(SOURCE, "a.conf") == "one\n"
 
 
 class NoCron:

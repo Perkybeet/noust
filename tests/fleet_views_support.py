@@ -52,6 +52,24 @@ SCHEMA_31: dict[str, dict[str, Any]] = {
     "/api/apps/{domain}/releases/uploads/{upload_id}": {"get": {}, "put": {}, "delete": {}},
     "/api/apps/{domain}/releases/uploads/{upload_id}/complete": {"post": {}},
     "/api/apps/{domain}/releases/receive": {"post": {}},
+    # A database moved to another server (4.0): dumped on one, read by ranges, loaded on the other
+    # with its accounts.
+    "/api/databases/databases": {"get": {}},
+    "/api/databases/databases/{engine}/{name}": {"delete": {"x-noust-requires-elevation": True}},
+    "/api/databases/databases/{engine}/{name}/access": {"get": {}},
+    "/api/databases/engines": {"get": {}},
+    "/api/databases/backups": {"post": {}},
+    "/api/databases/backups/{name}": {"delete": {"x-noust-requires-elevation": True}},
+    "/api/databases/backups/{name}/data": {"get": {"x-noust-requires-elevation": True}},
+    "/api/databases/imports": {"post": {"x-noust-requires-elevation": True}},
+    "/api/databases/imports/uploads": {"post": {}},
+    "/api/databases/imports/uploads/{upload_id}": {"get": {}, "put": {}, "delete": {}},
+    "/api/databases/imports/uploads/{upload_id}/complete": {"post": {}},
+    "/api/databases/users": {"post": {}},
+    "/api/databases/users/{engine}": {"get": {}},
+    "/api/databases/users/{engine}/{username}/password/reveal": {
+        "post": {"x-noust-requires-elevation": True}
+    },
 }
 
 #: The paths 3.4 added for an application on several servers.
@@ -73,11 +91,18 @@ PLACEMENT_PATHS = frozenset(
     }
 )
 
+#: The paths 4.0 added for a database moved to another server.
+DATABASE_TRANSFER_PATHS = frozenset(
+    path for path in SCHEMA_31 if path.startswith("/api/databases/")
+)
+
 #: What a 3.0 node offers of the same: no self-update, no server area.
 SCHEMA_30 = {
     path: methods
     for path, methods in SCHEMA_31.items()
-    if not path.startswith(("/api/system/update", "/api/server")) and path not in PLACEMENT_PATHS
+    if not path.startswith(("/api/system/update", "/api/server"))
+    and path not in PLACEMENT_PATHS
+    and path not in DATABASE_TRANSFER_PATHS
 }
 
 

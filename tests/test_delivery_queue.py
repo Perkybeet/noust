@@ -592,10 +592,10 @@ def test_cancelling_a_build_that_is_not_started_to_activate_is_accepted_then_ref
     assert wait_until(lambda: building.status is JobStatus.COMPLETED)
 
 
-def test_a_deploy_of_a_type_built_by_its_own_tools_cannot_be_cancelled_while_it_runs(
+def test_a_deploy_of_a_compose_stack_can_be_cancelled_while_it_runs(
     manager: JobManager, log: list[str]
 ) -> None:
-    """A Compose stack builds inside the Docker daemon: the job says so instead of pretending."""
+    """A stack's build is a docker command whose client is killed: the console offers the stop."""
     running = Work("compose", log)
     job = queue_work(
         manager,
@@ -606,11 +606,7 @@ def test_a_deploy_of_a_type_built_by_its_own_tools_cannot_be_cancelled_while_it_
     )
     assert running.started.wait(20)
 
-    assert is_cancellable(job) is False
-    with pytest.raises(CancelRefused) as caught:
-        manager.cancel(job.id)
-
-    assert caught.value.reason == "unsupported"
+    assert is_cancellable(job) is True
     finish(running)
 
 

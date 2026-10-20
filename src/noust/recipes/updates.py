@@ -365,7 +365,7 @@ def update_recipe(
         )
     except NoustError as failure:
         if recipe.kind == "compose" and snapshot:
-            _put_stack_back(
+            put_stack_back(
                 domain, app_name, snapshot, failure, store=store, log=log, gate=health_gate_for
             )
         raise
@@ -432,7 +432,7 @@ def _snapshot_stack(recipe: Recipe, app_name: str, store: NoustStore) -> dict[st
     return files
 
 
-def _put_stack_back(
+def put_stack_back(
     domain: str,
     app_name: str,
     snapshot: Mapping[str, str],

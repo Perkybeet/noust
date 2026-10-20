@@ -1764,3 +1764,116 @@ def reveal_webhook_secret(
         secret=secret,
         hook_url=f"{_hooks_base(request)}/deploy/{validated}",
     )
+
+
+class RegistryHookResponse(BaseModel):
+    """
+    Where a container registry delivers for one application.
+
+    Attributes:
+        domain: The application.
+        supported: Whether it runs an image from a registry; nothing else follows a tag.
+        reason: Why not, when it does not.
+        image: The image it runs.
+        pinned: Whether the image is pinned by digest, which a push never changes.
+        enabled: Whether the application has a webhook secret.
+        ghcr_url: Where GitHub Container Registry's ``registry_package`` event is sent.
+        ghcr_events: The events to enable on the GitHub repository's webhook.
+        dockerhub_url: Where Docker Hub's webhook is pointed. Its token is masked
+            (``<token>``) until ``POST .../webhook/registry/reveal`` returns it.
+        public: Whether the addresses are ones a registry can reach.
+    """
+
+    domain: str
+    supported: bool
+    reason: str | None = None
+    image: str | None = None
+    pinned: bool = False
+    enabled: bool = False
+    ghcr_url: str | None = None
+    ghcr_events: list[str]
+    dockerhub_url: str | None = None
+    public: bool = False
+
+
+def _registry_hook(request: Request, domain: str, *, reveal: bool) -> RegistryHookResponse:
+    """
+    Describe where a registry delivers for an application.
+
+    Args:
+        request: The incoming request, for the address it was opened at.
+        domain: A validated domain of an application.
+        reveal: Put the real token in the Docker Hub address.
+
+    Returns:
+        The answer.
+
+    Raises:
+        HTTPException: 404 when the application vanished.
+    """
+    from noust.integrations import registry_webhook
+
+    app = scoped_store().get_app(domain)
+    if app is None:
+        raise HTTPException(status_code=404, detail=f"Application not found: {domain}")
+    fallback = f"{str(request.base_url).rstrip('/')}/hooks"
+    return RegistryHookResponse(
+        **{**registry_webhook.describe(app, fallback_base=fallback, reveal=reveal).to_dict()}
+    )
+
+
+@admin_router.get("/{domain}/webhook/registry", response_model=RegistryHookResponse)
+def registry_hook_state(
+    domain: str, request: Request, session: Annotated[dict, Depends(get_current_session)]
+) -> RegistryHookResponse:
+    """
+    Say what to give a container registry so a push of the image deploys the application.
+
+    Args:
+        domain: Domain of the application.
+        request: The incoming request.
+        session: The authenticated session.
+
+    Returns:
+        The addresses; Docker Hub's carries ``<token>`` in place of its token.
+
+    Raises:
+        HTTPException: 404 when the application is unknown.
+    """
+    return _registry_hook(request, _known_app_domain(domain), reveal=False)
+
+
+@admin_router.post("/{domain}/webhook/registry/reveal", response_model=RegistryHookResponse)
+def reveal_registry_hook(
+    domain: str, request: Request, session: Annotated[dict, Depends(require_elevated)]
+) -> RegistryHookResponse:
+    """
+    Show the address Docker Hub is given, token included.
+
+    The token is made from the application's webhook secret and is a credential of the same
+    kind: sudo mode, the permission to reveal secrets, and an audit record.
+
+    Args:
+        domain: Domain of the application.
+        request: The incoming request, for the audit record.
+        session: An elevated session.
+
+    Returns:
+        The addresses, with the real token.
+
+    Raises:
+        HTTPException: 404 when the application is unknown.
+    """
+    validated = _known_app_domain(domain)
+    answer = _registry_hook(request, validated, reveal=True)
+    audit = get_audit_logger()
+    if audit:
+        audit.record(
+            action="hooks.registry.reveal",
+            result="success",
+            client_ip=get_client_ip(request),
+            actor=actor_label(session),
+            resource=f"/api/apps/{validated}/webhook/registry/reveal",
+            detail="registry webhook address shown",
+        )
+    return answer

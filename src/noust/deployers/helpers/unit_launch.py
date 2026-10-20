@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
+from typing import Any
 
 from noust.core.exceptions import ServiceError
 from noust.validators.environment import (
@@ -234,4 +235,40 @@ def with_release_env(unit: str, line: str) -> str:
     return "\n".join(lines)
 
 
-__all__ = ["release_env_line", "systemd_command", "with_launch", "with_release_env"]
+def attach_release_env(services: Any, unit: str, directory: str) -> str | None:
+    """
+    Make a unit written before 3.4 load the variables Noust says about a deployment.
+
+    An update does not write the unit again, so an application created earlier gets the line
+    the first time it is updated, as a text edit that changes nothing else.
+
+    Args:
+        services: The service manager (anything that reads a unit and writes it back).
+        unit: The unit's name.
+        directory: Where the file is: the directory the unit runs in.
+
+    Returns:
+        The unit as it was, to put back when the change does not pass the health gate; None
+        when the unit has the line already, does not exist or is not Noust's to edit.
+
+    Raises:
+        ServiceError: The unit has no ``[Service]`` section, or cannot be written.
+        ValidationError: The directory cannot be written into a unit.
+    """
+    text = services.read_unit(unit)
+    if text is None:
+        return None
+    edited = with_release_env(text, release_env_line(directory, instance=False))
+    if edited == text:
+        return None
+    previous: str = services.update_config(unit, edited)
+    return previous
+
+
+__all__ = [
+    "attach_release_env",
+    "release_env_line",
+    "systemd_command",
+    "with_launch",
+    "with_release_env",
+]

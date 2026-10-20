@@ -123,6 +123,9 @@ DEFAULT_PROFILE = "owner"
 TLS_CLIENT_OPTIONS: dict[str, dict[str, str]] = {
     "postgresql": {"sslmode": "require"},
     "mysql": {"ssl-mode": "REQUIRED"},
+    # Encrypted, nothing checked: the certificate is Noust's authority's, which a client verifies
+    # with the CA file the Connect tab hands out.
+    "redis": {"ssl_cert_reqs": "none"},
 }
 
 _UNIT_MODE = 0o644
@@ -1306,6 +1309,7 @@ class PublicAccess:
             host=host,
             port=record.port,
             options=options or None,
+            secure=record.tls == TLS_REQUIRED,
         )
         return {
             "host": host,

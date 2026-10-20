@@ -5,7 +5,7 @@
 The Redis key browser: SCAN with a cursor and a pattern, and a bounded preview per type.
 
 **Read-only by the server's rules where it has them.** On Redis 6 and later
-(and Valkey) every read signs in as ``wasm_ro_redis``, an ACL user holding
+(and Valkey) every read signs in as ``noust_ro_redis``, an ACL user holding
 the read-only profile's rules (``-@all +@read +@connection -@dangerous
 allkeys``, the same :data:`~noust.managers.database.redis.PROFILE_RULES` an
 operator's read-only user gets), so the server refuses a write whatever the
@@ -36,13 +36,19 @@ from typing import Any
 
 from noust.core.exceptions import ConfigError, DatabaseQueryError, ValidationError
 from noust.core.sealing import SealError
+from noust.managers.database.base import (
+    LEGACY_READ_ONLY_ACCOUNT_PREFIX,
+    READ_ONLY_ACCOUNT_PREFIX,
+)
 from noust.managers.database.instances import storage_name
 from noust.managers.database.redis import PROFILE_RULES, RedisManager, RedisSignInError
 from noust.managers.database.service import DatabaseService
 
-#: The ACL user the browser reads as. A legacy prefix, like every read-only
-#: account Noust keeps, so the service's internal-account guard covers it.
-READ_ONLY_USER = "wasm_ro_redis"
+#: The ACL user the browser reads as. It carries the prefix of every read-only account Noust
+#: keeps, so the service's internal-account guard covers it, and the one it had before 4.0 is
+#: removed with its password the first time the new one is set up.
+READ_ONLY_USER = f"{READ_ONLY_ACCOUNT_PREFIX}redis"
+LEGACY_READ_ONLY_USER = f"{LEGACY_READ_ONLY_ACCOUNT_PREFIX}redis"
 
 #: Where its password is kept in the secret store.
 READ_ONLY_SECRET = f"databases/redis/{READ_ONLY_USER}"
@@ -387,6 +393,7 @@ class KeyBrowser:
             if manager.instance is None
             else f"databases/{storage_name(manager.ENGINE_NAME)}/{READ_ONLY_USER}"
         )
+        legacy_secret = secret.removesuffix(READ_ONLY_USER) + LEGACY_READ_ONLY_USER
         try:
             password = secret_store.read(secret)
         except (ConfigError, SealError) as exc:
@@ -420,9 +427,33 @@ class KeyBrowser:
                 return None
             raise
         secret_store.write(secret, password)
+        self._forget_legacy_user(manager, legacy_secret)
         with _state_lock:
             _provisioned_at[manager.ENGINE_NAME] = time.monotonic()
         return READ_ONLY_USER, password
+
+    def _forget_legacy_user(self, manager: RedisManager, legacy_secret: str) -> None:
+        """
+        Remove the ACL user the browser read as before 4.0, and its password.
+
+        Its password was kept in the secret store, which is how this knows there is a user to
+        remove: Noust never made one without storing it. The new user is already set up, so
+        a failure here leaves the browser working and the old user for the next time.
+
+        Args:
+            manager: The engine's manager.
+            legacy_secret: Where the old password is kept.
+        """
+        secret_store = self.service.secrets
+        try:
+            if secret_store.read(legacy_secret) is None:
+                return
+            manager.run_commands([["ACL", "DELUSER", LEGACY_READ_ONLY_USER]])
+            secret_store.delete(legacy_secret)
+        except (ConfigError, SealError, DatabaseQueryError, OSError) as exc:
+            self.service.logger.warning(
+                f"Could not remove the key browser's old Redis user {LEGACY_READ_ONLY_USER}: {exc}"
+            )
 
     def _batch(
         self, manager: RedisManager, slot: int, commands: Sequence[Sequence[str | bytes]]

@@ -36,6 +36,12 @@ def config(sandbox: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Config]:
     delivery.forget()
     monkeypatch.undo()  # the autouse stand-in of the settings is for the other tests
     monkeypatch.setattr("noust.core.config.DEFAULT_CONFIG_PATH", path)
+    # The undo also dropped the isolation of the store's paths (tests/conftest.py), which would
+    # leave every test that asks this fixture for a store reading the developer's own.
+    from noust.core import store as store_module
+
+    monkeypatch.setattr(store_module, "USER_DB_PATH", sandbox / "user-store" / "noust.db")
+    monkeypatch.setattr(store_module, "DEFAULT_DB_PATH", sandbox / "system-store" / "noust.db")
     try:
         yield Config()
     finally:

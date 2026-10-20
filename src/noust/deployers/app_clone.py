@@ -342,28 +342,6 @@ def deploy_through_job(job_context: Any) -> Callable[[CreateSpec], None]:
     def deploy(spec: CreateSpec) -> None:
         from noust.web.jobs import deploy_app_job
 
-        deploy_app_job(
-            domain=spec.domain,
-            source=spec.source,
-            app_type=spec.app_type,
-            port=spec.port,
-            branch=spec.branch,
-            env_vars=dict(spec.env_vars),
-            webserver=spec.webserver,
-            ssl=spec.ssl,
-            layout=spec.layout,
-            include_www=spec.include_www,
-            persistent_paths=list(spec.persistent_paths) or None,
-            memory_max_mb=spec.memory_max_mb,
-            cpu_quota_percent=spec.cpu_quota_percent,
-            tasks_max=spec.tasks_max,
-            env_secret_marks=dict(spec.env_secret_marks),
-            health_path=spec.health_path,
-            health_expect=spec.health_expect,
-            health_timeout=spec.health_timeout,
-            database=spec.database,
-            env_audience=dict(spec.env_audience) or None,
-            job_context=job_context,
-        )
+        deploy_app_job(**spec.job_arguments(), job_context=job_context)
 
     return deploy

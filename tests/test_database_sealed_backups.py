@@ -153,7 +153,7 @@ def test_what_is_recorded_and_sent_is_the_stored_file(
 
     summary = backups.push("postgresql", taken.name, "nas")
 
-    sent = runner.root / "nas" / "wasm-backups" / "databases" / "postgresql" / "shop" / taken.name
+    sent = runner.root / "nas" / "noust-backups" / "databases" / "postgresql" / "shop" / taken.name
     assert sent.read_bytes() == taken.info.path.read_bytes()
     assert summary["verified_by"] == "md5"
     assert file_sha256(sent) == file_sha256(taken.info.path)

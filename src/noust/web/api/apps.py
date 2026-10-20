@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import Response
+from fastapi.responses import PlainTextResponse, Response
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
@@ -64,6 +64,7 @@ from noust.deployers.helpers.app_env import (
 )
 from noust.deployers.helpers.build_config import describe_build
 from noust.deployers.helpers.env_manager import redact_url_credentials
+from noust.deployers.helpers.env_sync import plan_sync, render_view
 from noust.deployers.helpers.env_variables import predefined_for
 from noust.deployers.helpers.health_gate import HealthCheck
 from noust.deployers.helpers.layout import RELEASES, app_root
@@ -2102,6 +2103,180 @@ def merge_app_env(
     )
 
 
+@router.get("/{domain}/env/file", response_class=PlainTextResponse)
+def get_app_env_file(
+    domain: str,
+    request: Request,
+    session: Annotated[dict, Depends(get_current_session)],
+    unmask: Annotated[bool, Query()] = False,
+    download: Annotated[bool, Query(description="Offer it as a file to save")] = False,
+) -> Response:
+    """
+    Read an application's ``.env`` as the text of a file, to look at or to save.
+
+    The same file ``GET .../env`` reads, drawn as the text it is (comments above their variables,
+    sorted by name), for a viewer with a search box and a download. Secrets are masked, as in the
+    table; asking for them in clear needs an admin credential and sudo mode and is audited, like
+    ``unmask`` on ``GET .../env``. What only the build is given is in no file: it is named in a
+    comment at the end, with no value.
+
+    Args:
+        domain: Domain of the application.
+        request: The incoming request, for the audit record.
+        session: The authenticated session.
+        unmask: Put the values in clear.
+        download: Send it with a file name so a browser saves it.
+
+    Returns:
+        The text, ``text/plain``, never cached.
+
+    Raises:
+        HTTPException: 403 when unmasking with less than an admin credential, 404 when the
+            application is unknown.
+    """
+    if unmask:
+        ensure_scope(request, session, "admin")
+        ensure_elevated(request, session)
+    app = _env_app(domain)
+    environment = read_environment_of(app)
+    runtime = environment.runtime
+    shown = dict(runtime) if unmask else _redact_env(runtime, app.env_secret_marks)
+    text = render_view(
+        shown, read_comments_of(app), build_only=tuple(sorted(environment.build_only))
+    )
+    if unmask:
+        audit = get_audit_logger()
+        if audit:
+            audit.record(
+                action="apps.env.reveal",
+                result="success",
+                client_ip=get_client_ip(request),
+                actor=actor_label(session),
+                resource=f"/api/apps/{app.domain}/env/file",
+                detail=f"showed the .env in clear ({len(runtime)} variable(s))"
+                + (", as a download" if download else ""),
+            )
+    headers = {"Cache-Control": "no-store"}
+    if download:
+        headers["Content-Disposition"] = (
+            f'attachment; filename="{domain_to_app_name(app.domain)}.env"'
+        )
+    return Response(text, media_type="text/plain; charset=utf-8", headers=headers)
+
+
+class SyncAppEnvRequest(BaseModel):
+    """
+    The text of a ``.env`` file to bring into an application's variables.
+
+    Attributes:
+        content: The file's text.
+        prune: Also remove the variables the file does not hold.
+        audience: ``both``, ``build`` or ``runtime`` for the variables the file sets; omitted keeps
+            each one's.
+        dry_run: Say what would change and write nothing.
+    """
+
+    content: str = Field(max_length=262144, description="The text of a .env file")
+    prune: bool = Field(default=False, description="Also remove what the file does not hold")
+    audience: Literal["both", "build", "runtime"] | None = None
+    dry_run: bool = Field(default=False, description="Only say what would change")
+
+
+class SyncAppEnvResponse(BaseModel):
+    """
+    What bringing a ``.env`` in changed, or would change. Names only, never a value.
+
+    Attributes:
+        domain: Domain of the application.
+        created: Names the application did not have.
+        updated: Names whose value changed.
+        unchanged: Names the file sets to what they already are.
+        removed: Names taken out (only with ``prune``).
+        skipped: Names the file holds that Noust sets itself, with the reason.
+        duplicates: Names the file sets more than once (the last counts).
+        restart_required: Whether the running process needs a restart to pick the change up.
+        dry_run: Whether nothing was written.
+    """
+
+    domain: str
+    created: list[str]
+    updated: list[str]
+    unchanged: list[str]
+    removed: list[str]
+    skipped: dict[str, str]
+    duplicates: list[str]
+    restart_required: bool
+    dry_run: bool
+
+
+@router.post("/{domain}/env/sync", response_model=SyncAppEnvResponse)
+def sync_app_env(
+    domain: str,
+    body: SyncAppEnvRequest,
+    request: Request,
+    session: Annotated[dict, Depends(require_elevated)],
+) -> SyncAppEnvResponse:
+    """
+    Bring a ``.env`` file into an application's variables, creating and updating, never deleting.
+
+    What ``noust env sync --file`` does: quotes, ``export``, comments and values of several lines
+    are read as the application's own ``.env`` is; every variable the file sets is created or
+    updated and the others are kept unless ``prune``; ``PORT`` and ``NODE_ENV`` (the unit sets
+    them) and the ``NOUST_*`` names are skipped with the reason rather than refusing the file. With
+    ``dry_run`` it says what would change and writes nothing; the comparison needs the same sudo
+    mode a write does, because "same" or "different" about a secret is a way to guess it.
+
+    Args:
+        domain: Domain of the application.
+        body: The file and what to do with it.
+        request: The incoming request, for the audit record.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The names in each group.
+
+    Raises:
+        HTTPException: 404 when the application is unknown, 422 when the text is not a ``.env``
+            or a name or a value is not safe to write into a systemd unit.
+    """
+    from noust.core.exceptions import ValidationError
+
+    app = _env_app(domain)
+    current = read_environment_of(app)
+    try:
+        plan = plan_sync(
+            current.values, body.content, expressions=current.expressions, prune=body.prune
+        )
+        if body.dry_run:
+            check_app_env(app, plan.values)
+        elif plan.changed or plan.comments:
+            chosen = (
+                dict.fromkeys((*plan.created, *plan.updated, *plan.unchanged), body.audience)
+                if body.audience
+                else None
+            )
+            write_app_env(app, plan.values, audience=chosen, comments=plan.comments)
+    except (EnvironmentValidationError, ValidationError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if plan.changed and not body.dry_run:
+        audit = get_audit_logger()
+        if audit:
+            audit.record(
+                action="apps.env.update",
+                result="success",
+                client_ip=get_client_ip(request),
+                actor=actor_label(session),
+                resource=f"/api/apps/{app.domain}/env",
+                detail=f"synced from a .env file; changed keys: {', '.join(plan.changed)}",
+            )
+    return SyncAppEnvResponse(
+        domain=app.domain,
+        **plan.to_dict(),
+        restart_required=bool(plan.changed) and not body.dry_run,
+        dry_run=body.dry_run,
+    )
+
+
 @router.put("/{domain}/env/marks", response_model=AppEnvSecretsResponse)
 def update_app_env_marks(
     domain: str,
@@ -2223,12 +2398,113 @@ def resolve_app_env(
     )
 
 
+class DeletionDatabaseOut(BaseModel):
+    """
+    A database that deleting an application has to decide about.
+
+    Attributes:
+        engine: The engine it is on.
+        name: The database.
+        owned: Whether it belongs to the application.
+        shared_with: The other applications that use it.
+        will_drop: Whether ``remove_databases`` drops it: it is the application's and nothing
+            else uses it.
+    """
+
+    engine: str
+    name: str
+    owned: bool
+    shared_with: list[str]
+    will_drop: bool
+
+
+class DeletionPlanResponse(BaseModel):
+    """
+    What deleting an application would touch, for a confirmation dialog.
+
+    Attributes:
+        domain: The application.
+        path: Its directory.
+        keeps_directory: Whether the directory is outside Noust's apps directory (an adopted
+            stack) and is kept unless it is named.
+        has_volumes: Whether it runs in Docker, so it has volumes ``remove_volumes`` would remove.
+        databases: The databases it owns or uses, and what would become of each.
+    """
+
+    domain: str
+    path: str
+    keeps_directory: bool
+    has_volumes: bool
+    databases: list[DeletionDatabaseOut]
+
+
+@router.get("/{domain}/deletion", response_model=DeletionPlanResponse)
+def get_deletion_plan(
+    domain: str, session: Annotated[dict, Depends(get_current_session)]
+) -> DeletionPlanResponse:
+    """
+    Say what deleting an application would touch. Changes nothing.
+
+    The volumes and the databases hold data, so the dialog that confirms a deletion shows them
+    and lets the operator choose; this is what it shows: the same list the deletion walks.
+
+    Args:
+        domain: Domain of the application.
+        session: The authenticated session.
+
+    Returns:
+        The directory, whether it has Docker volumes, and each database with what would become
+        of it.
+
+    Raises:
+        HTTPException: 404 when the application is unknown.
+    """
+    from noust.deployers.lifecycle import deletion_databases, is_in_apps_directory
+
+    app = _env_app(domain)
+    path = app_root(app)
+    return DeletionPlanResponse(
+        domain=app.domain,
+        path=str(path),
+        keeps_directory=not is_in_apps_directory(path),
+        has_volumes=is_compose_backed(app.app_type),
+        databases=[
+            DeletionDatabaseOut(
+                engine=item.engine,
+                name=item.name,
+                owned=item.owned,
+                # The names of other teams' applications are not for this one to read.
+                shared_with=[
+                    other if scoped_store().get_app(other) is not None else "another application"
+                    for other in item.shared_with
+                ],
+                will_drop=item.will_drop,
+            )
+            for item in deletion_databases(app.domain)
+        ],
+    )
+
+
 @router.delete("/{domain}", response_model=JobAcceptedResponse, status_code=202)
 def delete_app(
     domain: str,
     session: Annotated[dict, Depends(require_elevated)],
     remove_files: Annotated[bool, Query()] = False,
     remove_ssl: Annotated[bool, Query()] = False,
+    remove_volumes: Annotated[
+        bool,
+        Query(
+            description="Also remove the Docker volumes of a Compose stack or a container "
+            "application, which hold its data. Never unless asked for"
+        ),
+    ] = False,
+    remove_databases: Annotated[
+        bool,
+        Query(
+            description="Also drop the databases that belong to the application and that no "
+            "other application uses, each after a last dump. Never unless asked for"
+        ),
+    ] = False,
     remove_adopted_directory: Annotated[
         str | None,
         Query(
@@ -2249,6 +2525,8 @@ def delete_app(
         domain: Domain of the application.
         remove_files: Also delete the application directory.
         remove_ssl: Also delete the certificate.
+        remove_volumes: Also remove its Docker volumes.
+        remove_databases: Also drop its own databases (after a last dump each).
         remove_adopted_directory: The directory named for removal when it is
             outside the apps directory.
         session: The authenticated session.
@@ -2279,6 +2557,8 @@ def delete_app(
             "domain": validated,
             "remove_files": remove_files,
             "remove_ssl": remove_ssl,
+            "remove_volumes": remove_volumes,
+            "remove_databases": remove_databases,
             "remove_adopted_directory": remove_adopted_directory,
         },
         metadata={"domain": validated},

@@ -37,22 +37,23 @@ def database_exists(runner: FakeRunner) -> None:
     runner.script(("runuser", "-u", "postgres", "--", "psql"), stdout="1")
 
 
-def test_pg_restore_is_told_no_owner_no_acl_and_the_role_to_create_as(
+def test_pg_restore_is_told_no_owner_no_acl_and_no_role_to_become(
     postgres: PostgresManager, runner: FakeRunner, tmp_path: Path, ownership_changes
 ) -> None:
     dump = tmp_path / "d.dump"
     dump.write_bytes(PG_CUSTOM)
 
-    postgres.restore("shop", dump, safety_backup=False, keep_owners=False, owner_role="app")
+    postgres.restore("shop", dump, safety_backup=False, keep_owners=False, as_superuser=True)
 
     argv = runner.calls[-1]
-    assert argv[argv.index("pg_restore") :][:5] == (
+    assert argv[argv.index("pg_restore") :][:4] == (
         "pg_restore",
         "--no-password",
         "--no-owner",
         "--no-acl",
-        "--role=app",
     )
+    # The superuser asked for by name is one: a role switched to is one RESET ROLE from gone.
+    assert not any(part.startswith("--role") for part in argv)
 
 
 def test_keeping_owners_is_what_pg_restore_always_did(
@@ -61,7 +62,7 @@ def test_keeping_owners_is_what_pg_restore_always_did(
     dump = tmp_path / "d.dump"
     dump.write_bytes(PG_CUSTOM)
 
-    postgres.restore("shop", dump, safety_backup=False)
+    postgres.restore("shop", dump, safety_backup=False, as_superuser=True)
 
     argv = runner.calls[-1]
     assert "--no-owner" not in argv and "--no-acl" not in argv
@@ -87,9 +88,9 @@ def test_a_plain_dump_is_cleaned_of_owners_before_psql_reads_it(
     dump = tmp_path / "d.sql"
     dump.write_text(DUMP_WITH_OWNERS)
 
-    postgres.restore("shop", dump, safety_backup=False, keep_owners=False, owner_role="app")
+    postgres.restore("shop", dump, safety_backup=False, keep_owners=False, as_superuser=True)
 
-    assert seen == {"role": "app", "source": "d.sql"}
+    assert seen == {"role": None, "source": "d.sql"}
     # psql reads the cleaned copy as its stdin: not the dump the operator gave.
     assert runner.stdin_paths[-1].name == "owners-stripped.sql"
     assert runner.stdin_paths[-1] != dump
@@ -109,7 +110,7 @@ def test_a_plain_dump_is_left_alone_when_owners_are_kept(
     dump = tmp_path / "d.sql"
     dump.write_text(DUMP_WITH_OWNERS)
 
-    postgres.restore("shop", dump, safety_backup=False, keep_owners=True)
+    postgres.restore("shop", dump, safety_backup=False, keep_owners=True, as_superuser=True)
 
     assert runner.stdin_paths[-1] == dump
     assert not runner.calls_to("cp")

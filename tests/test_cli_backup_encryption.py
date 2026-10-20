@@ -219,3 +219,128 @@ def test_importing_a_key_that_is_not_one_says_why(cli_runner: CliRunner, keys: B
     result = invoke(cli_runner, "import-key", "current", input="x" * 48 + "\n")
 
     assert result.exit_code == 1 and "is not the id of a key" in result.output
+
+
+# ------------------------------------------------------------------ sealing what is already there
+
+
+class TestSealExisting:
+    """``seal-existing`` over doubles that keep real files; the managers have their own tests."""
+
+    @pytest.fixture
+    def sealer(self, keys: BackupKeys, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
+        import hashlib
+
+        from noust.core.runner import SubprocessRunner
+        from noust.managers.backup_sealing import SealExisting
+        from tests.test_backup_sealing import Apps, Meta
+
+        monkeypatch.setattr(envelope, "SCRYPT_N", 2**10)
+        entries = []
+        for name in ("shop.a", "shop.b"):
+            archive = tmp_path / "backups" / f"{name}.tar.gz"
+            archive.write_bytes(b"clear archive " + name.encode())
+            entries.append(
+                Meta(name, "shop.example.com", hashlib.sha256(archive.read_bytes()).hexdigest())
+            )
+        apps = Apps(tmp_path / "backups", entries)
+        monkeypatch.setattr(
+            backup_encryption,
+            "SealExisting",
+            lambda: SealExisting(
+                keys=keys,
+                apps=apps,
+                volumes=None,
+                databases=None,
+                pitr=None,
+                runner=SubprocessRunner(),
+            ),
+        )
+        return apps
+
+    def test_it_refuses_while_sealing_is_off_and_points_at_enable(
+        self, cli_runner: CliRunner, keys: BackupKeys, sealer: Any
+    ) -> None:
+        result = invoke(cli_runner, "seal-existing", "--yes")
+
+        assert result.exit_code == 1
+        assert "not sealed" in result.output and "noust backup encryption enable" in result.output
+
+    @pytest.mark.allow_subprocess
+    def test_it_asks_and_a_no_changes_nothing(
+        self, cli_runner: CliRunner, keys: BackupKeys, sealer: Any
+    ) -> None:
+        keys.make_key()
+
+        result = invoke(cli_runner, "seal-existing", input="n\n")
+
+        assert result.exit_code == 0 and "Nothing was changed." in result.output
+        assert "2 application archive(s)" in result.output
+        assert not any(backup_files.is_sealed(sealer.local_files(m)[0]) for m in sealer.entries)
+
+    @pytest.mark.allow_subprocess
+    def test_yes_seals_every_one_and_says_what_it_did(
+        self, cli_runner: CliRunner, keys: BackupKeys, sealer: Any
+    ) -> None:
+        keys.make_key()
+
+        result = invoke(cli_runner, "seal-existing", "--yes")
+
+        assert result.exit_code == 0, result.output
+        assert "application shop.a: sealed" in result.output
+        assert "Sealed 2; already sealed 0; left as they were 0" in result.output
+        assert all(backup_files.is_sealed(sealer.local_files(m)[0]) for m in sealer.entries)
+
+    @pytest.mark.allow_subprocess
+    def test_json_is_the_report_and_asks_nothing(
+        self, cli_runner: CliRunner, keys: BackupKeys, sealer: Any
+    ) -> None:
+        keys.make_key()
+
+        result = invoke(cli_runner, "seal-existing", "--yes", "--json")
+
+        report = json.loads(result.output)
+        assert report["ok"] is True and report["counts"] == {"sealed": 2}
+
+    def test_json_without_yes_is_a_usage_error(
+        self, cli_runner: CliRunner, keys: BackupKeys, sealer: Any
+    ) -> None:
+        keys.make_key()
+
+        assert invoke(cli_runner, "seal-existing", "--json").exit_code == 2
+
+    @pytest.mark.allow_subprocess
+    def test_a_backup_that_does_not_match_its_record_is_said_and_the_exit_is_1(
+        self, cli_runner: CliRunner, keys: BackupKeys, sealer: Any
+    ) -> None:
+        keys.make_key()
+        sealer.entries[0].checksum = "0" * 64
+
+        result = invoke(cli_runner, "seal-existing", "--yes")
+
+        assert result.exit_code == 1
+        assert "shop.a: damaged" in result.output and "does not match" in result.output
+        assert "Sealed 1" in result.output
+
+    @pytest.mark.allow_subprocess
+    def test_nothing_in_clear_says_so(
+        self, cli_runner: CliRunner, keys: BackupKeys, sealer: Any
+    ) -> None:
+        keys.make_key()
+        invoke(cli_runner, "seal-existing", "--yes")
+
+        result = invoke(cli_runner, "seal-existing", "--yes")
+
+        assert result.exit_code == 0 and "Nothing is in clear" in result.output
+
+    def test_it_changes_things_so_it_is_recorded(self) -> None:
+        command = backup_encryption.encryption.commands["seal-existing"]
+
+        assert not is_read_only(command, "backup encryption seal-existing", {})
+
+    def test_enabling_points_at_it_for_what_is_already_there(
+        self, cli_runner: CliRunner, keys: BackupKeys
+    ) -> None:
+        result = invoke(cli_runner, "enable", "--yes")
+
+        assert "noust backup encryption seal-existing" in result.output

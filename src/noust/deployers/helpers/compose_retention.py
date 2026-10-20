@@ -23,11 +23,21 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 
+from noust.core import legacy_names
 from noust.core.compose_release_store import RetainedImage
 from noust.core.runner import CommandRunner
 
 #: What every tag that keeps a release's image starts with after the colon.
 TAG_PREFIX = "noust-"
+
+#: The tag the image each service ran before an update is kept under while the update runs
+#: (``<project>-<service>:noust_previous``, with an underscore because every tag that starts with
+#: ``noust-`` is a release's), and the one an update before 4.0 left: the next
+#: update of a stack retags what is under the old name and removes it, and nothing that lists
+#: unused images may offer either for removal.
+PREVIOUS_TAG = "noust_previous"
+LEGACY_PREVIOUS_TAG = legacy_names.PREVIOUS_IMAGE_TAG
+PREVIOUS_TAGS = (PREVIOUS_TAG, LEGACY_PREVIOUS_TAG)
 
 #: Deadline of one docker image command: they only touch names.
 IMAGE_TIMEOUT = 60
@@ -71,7 +81,7 @@ def repository_name(project: str, service: str) -> str:
     Returns:
         ``<project>-<service>`` restricted to what an image name may hold.
     """
-    return _NAME_INVALID.sub("-", f"{project}-{service}".lower()).strip("._-") or "wasm"
+    return _NAME_INVALID.sub("-", f"{project}-{service}".lower()).strip("._-") or "noust"
 
 
 def release_tag(project: str, service: str, release_id: str) -> str:

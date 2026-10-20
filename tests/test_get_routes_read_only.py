@@ -62,17 +62,26 @@ READS_THAT_SOUND_LIKE_ACTIONS = {
     # that /callback consumes, and the callback is held to the lockout like a sign-in.
     "/api/auth/oidc/start": "the redirect to the identity provider that begins a sign-in",
     "/api/auth/saml/start": "the redirect to the SAML identity provider that begins a sign-in",
+    "/api/server/restore/plan": "what restoring the server would do: it reads the store, the "
+    "machine and the destinations and changes nothing",
+    "/api/backups/encryption/seal-existing": "how many backups in clear sealing them would touch, "
+    "counted and not sealed; the POST seals",
 }
 
 #: Reads that ask for sudo mode. Template to why a GET and not a POST.
 SENSITIVE_READS = {
     "/api/databases/backups/{name}/download": "a download a browser makes with a link; "
     "it only reads the file, and asks for sudo mode because the file is a database",
+    "/api/databases/backups/{name}/data": "a range of the same dump, read by a central that "
+    "carries a database to another server; it only reads the file, with the download's sudo mode",
     "/api/apps/{domain}/files/content": "a file of the application's tree, which may hold "
     "what the application keeps from its operators; reading it is a terminal's power",
     "/api/apps/{domain}/files/download": "the same file, downloaded with a link",
     "/api/apps/{domain}/mounts/content": "the text of a mounted file, which is a secret "
     "as often as it is a configuration",
+    "/api/backups/encryption/keys/{key_id}": "a key the backups on the disk are sealed with, "
+    "shown to keep it elsewhere; it asks for sudo mode and the permission that reads secrets, "
+    "and the read is recorded without the value",
 }
 
 

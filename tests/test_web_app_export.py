@@ -118,7 +118,7 @@ def test_export_answers_the_document_without_secrets(session: TestClient) -> Non
 
     assert response.status_code == 200, response.text
     doc = response.json()
-    assert doc["format"] == "wasm-app"
+    assert doc["format"] == "noust-app"
     assert doc["app"]["domain"] == DOMAIN
     assert doc["env"]["STRIPE_KEY"] == {"secret": True, "value": None}
     assert STRIPE not in response.text
@@ -217,7 +217,7 @@ def test_import_queues_a_deploy_job_with_a_free_port(
     assert STRIPE not in response.text
 
     deployed: list[dict[str, Any]] = []
-    monkeypatch.setattr(api_module, "deploy_app_job", lambda **kwargs: deployed.append(kwargs))
+    monkeypatch.setattr("noust.web.jobs.deploy_app_job", lambda **kwargs: deployed.append(kwargs))
     result = api_module.import_app_job(plan)
     assert deployed[0]["domain"] == "store.example.org"
     assert deployed[0]["env_vars"] == {"APP_NAME": "Shop", "STRIPE_KEY": STRIPE}
@@ -244,3 +244,73 @@ def test_a_platform_proposal_translates_to_its_api_model() -> None:
     assert data["platform"] == "render" and data["health_path"] == "/healthz"
     assert data["env"][0]["generated"] is True
     assert data["warnings"] == ["something"]
+
+
+def mounted_file(store: NoustStore, text: str) -> None:
+    """Keep a file for the application, as the mounts API would."""
+    from noust.managers.app_mounts import MountManager
+    from tests.test_app_mounts import OwnerFs
+
+    row = store.get_app(DOMAIN)
+    assert row is not None
+    row.identity = "noust-app-shop"
+    store.update_app(row)
+    MountManager(store=store, fs=OwnerFs()).put_file(
+        DOMAIN, "config/production.json", text, mode=0o640
+    )
+
+
+def test_the_export_keeps_what_the_document_has_beyond_the_old_model(
+    elevated: TestClient, store: NoustStore
+) -> None:
+    """Delivery, source options, the build block and the mounts used to be dropped here."""
+    from noust.core import app_build_store, app_rollout_store, app_source_store
+
+    mounted_file(store, "token=abc\n")
+    app_build_store.set_document(DOMAIN, "build:\n  start: node server.js\n", updated_by="t")
+    app_rollout_store.set_history_keep(DOMAIN, 5, actor="t")
+    app_source_store.set_options(DOMAIN, submodules=True, actor="t")
+
+    response = elevated.get(f"/api/apps/{DOMAIN}/export", params={"with_secrets": "true"})
+
+    assert response.status_code == 200, response.text
+    doc = response.json()
+    assert doc["mounts"][0]["target"] == "config/production.json"
+    assert doc["mounts"][0]["content"] == "token=abc\n" and doc["mounts"][0]["mode"] == "640"
+    assert doc["app"]["build"] == "build:\n  start: node server.js\n"
+    assert doc["delivery"]["history_keep"] == 5
+    assert doc["source_options"]["submodules"] is True
+
+
+def test_a_mounted_files_text_needs_sudo_mode_like_any_secret(
+    session: TestClient, store: NoustStore
+) -> None:
+    mounted_file(store, "token=abc\n")
+
+    response = session.get(f"/api/apps/{DOMAIN}/export")
+
+    assert response.status_code == 200
+    (mount,) = response.json()["mounts"]
+    assert mount["content"] is None and mount["secret"] is True
+    assert "token=abc" not in response.text
+
+
+def test_importing_what_was_exported_brings_the_mounts_and_the_rest_to_the_job(
+    elevated: TestClient, store: NoustStore, queued: list[dict[str, Any]]
+) -> None:
+    from noust.core import app_build_store
+
+    mounted_file(store, "token=abc\n")
+    app_build_store.set_document(DOMAIN, "build:\n  start: node server.js\n", updated_by="t")
+    document = elevated.get(f"/api/apps/{DOMAIN}/export", params={"with_secrets": "true"}).json()
+
+    response = elevated.post(
+        "/api/apps/import", json={"document": document, "domain": "store.example.org"}
+    )
+
+    assert response.status_code == 202, response.text
+    plan = queued[0]["kwargs"]["plan"]
+    assert plan.create.seed_files == {"config/production.json": "token=abc\n"}
+    assert [m["target"] for m in plan.mounts] == ["config/production.json"]
+    assert plan.create.build_document == "build:\n  start: node server.js\n"
+    assert "token=abc" not in response.text

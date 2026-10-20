@@ -58,7 +58,7 @@ from noust.managers.database import (
     DatabaseRegistry,
     get_db_manager,
 )
-from noust.managers.database.backups import DatabaseBackups
+from noust.managers.database.backups import SUPERUSER_WARNING, DatabaseBackups
 from noust.managers.database.instances import is_instance_key, parse_instance_key
 from noust.managers.database.service import (
     MAX_QUERY_LENGTH,
@@ -1612,6 +1612,24 @@ def _choices(*, json_output: bool, logger: Logger) -> int:
 # ==================== Backup and restore ====================
 
 
+def _kept_by_noust(backups: DatabaseBackups, engine: str, path: Path) -> bool:
+    """
+    Tell a dump in the engine's own folder from a file from anywhere else.
+
+    Args:
+        backups: The backups of the service.
+        engine: The engine.
+        path: The file the operator named.
+
+    Returns:
+        True when it is the file of that name in the engine's dump directory.
+    """
+    try:
+        return backups.service.dump_path(engine, path.name).resolve() == path.resolve()
+    except NoustError:
+        return False
+
+
 def _backup(
     database: str,
     *,
@@ -1673,6 +1691,7 @@ def _restore(
     logger: Logger,
     new_name: str | None = None,
     safety_backup: bool = True,
+    as_superuser: bool = False,
 ) -> int:
     """
     Load a backup into a database, or into a new one beside it.
@@ -1687,6 +1706,8 @@ def _restore(
         logger: Logger for progress and errors.
         new_name: Restore into a new database instead.
         safety_backup: Dump the target first even when nothing is dropped.
+        as_superuser: PostgreSQL: load a file Noust did not write as the
+            server's superuser instead of the database's owner.
 
     Returns:
         Process exit code.
@@ -1711,17 +1732,34 @@ def _restore(
     if not _confirm(question, force=force):
         logger.info("Cancelled")
         return 0
+    if as_superuser and not _confirm(f"{SUPERUSER_WARNING} Load it as the superuser?", force=force):
+        logger.info("Cancelled")
+        return 0
 
     logger.step(1, 2, f"Restoring {new_name or database}...")
     try:
-        outcome = DatabaseBackups(_service(logger)).restore_file(
-            engine,
-            database,
-            backup_file,
-            drop_existing,
-            safety_backup,
-            new_name,
-        )
+        backups = DatabaseBackups(_service(logger))
+        if not as_superuser and _kept_by_noust(backups, engine, backup_file):
+            # A dump in the engine's own folder is one Noust took; it goes back as it was.
+            outcome = backups.restore(
+                engine,
+                database,
+                backup_file.name,
+                drop_existing=drop_existing,
+                safety_backup=safety_backup,
+                new_name=new_name,
+            )
+        else:
+            outcome = backups.restore_file(
+                engine,
+                database,
+                backup_file,
+                drop_existing,
+                safety_backup,
+                new_name,
+                as_superuser=as_superuser,
+                confirm_superuser=as_superuser,
+            )
     except NoustError as e:
         return _fail(logger, e)
 
@@ -2841,6 +2879,14 @@ def backup(
     is_flag=True,
     help="Do not dump the database first when nothing is dropped.",
 )
+@click.option(
+    "--as-superuser",
+    is_flag=True,
+    help="PostgreSQL: load a file Noust did not write as the server's superuser instead of the "
+    "database's owner. A dump can run programs on this server (COPY ... FROM PROGRAM) with that "
+    "account: use it only for a dump you made or have read, when the error says the owner may "
+    "not do what it asks. Audited.",
+)
 @click.option("--force", "-f", "-y", is_flag=True, help="Do not ask for confirmation.")
 @pass_context
 def restore(
@@ -2851,9 +2897,16 @@ def restore(
     drop: bool,
     new_name: str | None,
     no_safety_copy: bool,
+    as_superuser: bool,
     force: bool,
 ) -> None:
-    """Load a backup into a database, never losing what it held."""
+    """
+    Load a backup into a database, never losing what it held.
+
+    A dump Noust took (the files of its own folder) goes back as it was. Any
+    other file, a dump from another provider, is loaded as the database's owner
+    and not as the server's superuser, so what it asks beyond that is refused.
+    """
     _exit(
         _restore(
             database,
@@ -2864,6 +2917,7 @@ def restore(
             logger=ctx.logger,
             new_name=new_name,
             safety_backup=not no_safety_copy,
+            as_superuser=as_superuser,
         )
     )
 
@@ -3171,3 +3225,18 @@ def _attach_replica_commands() -> None:
 
 
 _attach_replica_commands()
+
+
+def _attach_transfer_command() -> None:
+    """
+    Add ``transfer``: a database moved to another server of the fleet.
+
+    It lives in :mod:`noust.cli.commands.db_transfer`, which imports this module only at call
+    time, like the other command modules.
+    """
+    from noust.cli.commands import db_transfer
+
+    db_transfer.register(cli)
+
+
+_attach_transfer_command()

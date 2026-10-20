@@ -136,6 +136,54 @@ def test_a_new_key_seals_what_comes_next_and_the_old_one_still_opens_the_old(
     assert {view.id: view.current for view in keys.keys()} == {old: False, new: True}
 
 
+def test_enabling_makes_a_key_once(keys: BackupKeys) -> None:
+    first, created = keys.enable()
+    again, created_again = keys.enable()
+
+    assert created is True and created_again is False
+    assert first == again == keys.current_id()
+
+
+def test_rotating_needs_sealing_to_be_on_and_then_keeps_the_old_key(keys: BackupKeys) -> None:
+    with pytest.raises(BackupError, match="not sealed"):
+        keys.rotate()
+    old, _ = keys.enable()
+
+    new = keys.rotate()
+
+    assert new != old and keys.current_id() == new
+    assert {view.id: view.current for view in keys.keys()} == {old: False, new: True}
+
+
+def test_revealing_a_key_gives_its_value_and_leaves_a_record_that_names_no_value(
+    keys: BackupKeys, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    key_id, _ = keys.enable()
+    events: list[tuple[str, dict[str, object]]] = []
+    monkeypatch.setattr(
+        backup_files.audit,
+        "record",
+        lambda event, **kwargs: events.append((event, kwargs.get("details", {}))),
+    )
+
+    shown_id, value = keys.reveal()
+
+    assert shown_id == key_id and value == keys.passphrase(key_id)
+    assert events == [("backup.encryption.reveal", {"key": key_id})]
+    assert value not in repr(events)
+
+
+def test_revealing_says_what_is_wrong_when_there_is_nothing_to_show(keys: BackupKeys) -> None:
+    with pytest.raises(BackupError, match="No key is current"):
+        keys.reveal()
+    keys.enable()
+
+    with pytest.raises(BackupError, match="holds no such key"):
+        keys.reveal("0123abcd")
+    with pytest.raises(BackupError, match="holds no such key"):
+        keys.reveal("../../etc")
+
+
 @pytest.mark.parametrize(
     "identifier", ["", "../x", "a/b", "a b", "current", "ABCDEF12", "0123456", "0123456789"]
 )

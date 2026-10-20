@@ -11,6 +11,7 @@ and quoting, privilege whitelists, ownership guards, the store and the runner
 all live below it.
 
 - :mod:`.engines`: install, start, stop, status, capabilities, support.
+- :mod:`.host_tls`: the certificate of a name that PostgreSQL, MySQL and MariaDB of the server present.
 - :mod:`.databases`: list, create, describe, drop, adopt, fix-owner.
 - :mod:`.extensions`: the PostgreSQL extensions of a database.
 - :mod:`.users`: accounts, access profiles, password rotation and reveal.
@@ -26,6 +27,7 @@ all live below it.
 - :mod:`.migrations`: moving a database to another engine, and an engine to a newer
   major version, with a way back.
 - :mod:`.tls`: an instance that serves TLS with a certificate of Noust's own authority.
+- :mod:`.launch`: what an instance's container is started with: arguments of the operator's, or the whole command.
 - :mod:`.tuning`: what an instance may use (memory, CPUs, swap) and how it is probed.
 - :mod:`.limits`: what an engine on the host may use (memory, CPUs, swap, tasks), proved.
 - :mod:`.query`: the SQL console (history, saved queries, EXPLAIN, export)
@@ -33,7 +35,9 @@ all live below it.
 - :mod:`.browse`: the data explorer, the row editor and the Redis key browser.
 - :mod:`.metrics`: engine and database metrics, slow queries.
 - :mod:`.pitr`: recover PostgreSQL to an instant: the log archived, base backups, the recovery.
+- :mod:`.replicas`: read replicas of PostgreSQL, MySQL and MariaDB: make room, join, watch, promote, remove.
 - :mod:`.tags`: free labels on a database.
+- :mod:`.transfer`: a dump read by ranges, for a central that moves a database to another server.
 - :mod:`.links`: ``/api/apps/{domain}/databases``, mounted under ``/apps``
   as :data:`apps_router`.
 
@@ -54,8 +58,10 @@ from noust.web.api.databases import (
     engines,
     exposure,
     extensions,
+    host_tls,
     imports,
     instances,
+    launch,
     limits,
     links,
     metrics,
@@ -63,8 +69,10 @@ from noust.web.api.databases import (
     pitr,
     public,
     query,
+    replicas,
     tags,
     tls,
+    transfer,
     tuning,
     users,
 )
@@ -76,11 +84,13 @@ from noust.web.api.deps import NoustErrorRoute
 #: The routers mounted under ``/api/databases``, in order.
 AREAS = (
     engines.router,
+    host_tls.router,
     databases.router,
     extensions.router,
     users.router,
     dumps.router,
     backups.router,
+    transfer.router,
     exposure.router,
     imports.router,
     # Literal paths before the parametrised ones they share a prefix with.
@@ -89,11 +99,13 @@ AREAS = (
     tuning.router,
     limits.router,
     instances.router,
+    launch.router,
     query.router,
     browse.router,
     metrics.router,
     public.router,
     pitr.router,
+    replicas.router,
     tags.router,
 )
 

@@ -105,7 +105,24 @@ class TestThePlan:
         assert described["strategy"]["canary"] == "web-1"
         assert any("commit it ends on" in note for note in described["notes"])
 
-    def test_a_recorded_build_server_is_pointed_out_and_not_used(self, central, shops) -> None:
+    def test_a_rollout_asked_for_directly_points_at_the_build_server_and_does_not_use_it(
+        self, central, shops
+    ) -> None:
+        """An update that follows the build server is the ship action (test_fleet_update_follows_builder)."""
+        from noust.fleet.builders import Builders
+
+        Builders(central.store).set(DOMAIN, "web-3")
+
+        described = plan(
+            request(nodes=["web-1", "web-2"]), manager=central.manager, asker=ADMIN
+        ).to_dict()
+
+        note = next(n for n in described["notes"] if "build server" in n)
+        assert "web-3" in note and f"noust fleet placement ship {DOMAIN}" in note
+
+    def test_a_build_server_that_is_also_a_server_of_the_rollout_says_so(
+        self, central, shops
+    ) -> None:
         from noust.fleet.builders import Builders
 
         Builders(central.store).set(DOMAIN, "web-3")
@@ -113,7 +130,7 @@ class TestThePlan:
         described = plan(request(), manager=central.manager, asker=ADMIN).to_dict()
 
         note = next(n for n in described["notes"] if "build server" in n)
-        assert "web-3" in note and f"noust fleet placement ship {DOMAIN}" in note
+        assert "web-3 is also one of the servers" in note
 
     def test_a_pinned_commit_needs_no_first_server(self, central, shops) -> None:
         described = plan(

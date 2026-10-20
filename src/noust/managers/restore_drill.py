@@ -14,7 +14,10 @@ archive is readable and unpackable; a drill goes on to what a bad day needs:
 3. **each database dump it carries is loaded into a temporary database** of the
    engine it came from, looked at, and dropped (the same test ``noust db
    backup-verify --restore-test`` runs, on the dumps inside the application's
-   archive);
+   archive). The dump of a database that lives in a **Compose stack's container** is
+   loaded into a throwaway container of the image it ran
+   (:mod:`noust.managers.stack_drill`), and a **Redis or Valkey snapshot** into a second
+   server on a private socket (:mod:`noust.managers.database.redis_drill`);
 4. a **dated report** is kept and, when something fails, said.
 
 What a drill never does: touch the application, its databases, its units or its
@@ -43,9 +46,13 @@ from noust.core.audit import Actor
 from noust.core.config import Config
 from noust.core.exceptions import DatabaseError, NoustError
 from noust.core.logger import Logger
+from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import NoustStore, get_store
 from noust.managers import sqlite_files
 from noust.managers.backup_manager import BackupManager
+from noust.managers.database.redis_drill import redis_restore_test
+from noust.managers.stack_databases import StackDatabase
+from noust.managers.stack_drill import restore_test_stack_dump
 
 #: How a drill was started.
 TRIGGER_MANUAL = "manual"
@@ -54,7 +61,7 @@ TRIGGER_SCHEDULE = "schedule"
 #: How many days between the drills a schedule runs, when ``backup.drill_days`` is unset.
 DEFAULT_DRILL_DAYS = 30
 
-#: Engines whose snapshot replaces the whole instance and cannot be tried on the side.
+#: Engines whose snapshot replaces the whole instance: it is loaded into a second server.
 _UNTESTABLE = frozenset({"redis", "valkey"})
 
 
@@ -308,6 +315,7 @@ class RestoreDrill:
         database_service: Builds the database service a dump is tried through;
             the real one by default.
         actor: Who runs it, for the audit trail.
+        runner: Runs the throwaway containers a stack's dumps are tried in.
     """
 
     def __init__(
@@ -318,12 +326,14 @@ class RestoreDrill:
         store: NoustStore | None = None,
         database_service: Callable[[], Any] | None = None,
         actor: Actor | None = None,
+        runner: CommandRunner | None = None,
     ) -> None:
         self.logger = logger or Logger()
         self.backups = backups or BackupManager()
         self.store = store or get_store()
         self._service = database_service
         self.actor = actor
+        self._runner = runner
 
     def run(
         self,
@@ -425,7 +435,7 @@ class RestoreDrill:
                 DrillStep("unpack", True, f"{files} files unpacked with a restore's own rules")
             )
             self._sqlite(report, unpacked.root, say)
-            self._databases(report, unpacked.dumps, unpacked.stack_dumps, say)
+            self._databases(report, unpacked.dumps, unpacked.stack, say)
         report.steps.append(
             DrillStep(
                 "application",
@@ -464,11 +474,39 @@ class RestoreDrill:
                 detail = f"SQLite's quick_check passes ({result.seconds:g} s)"
             report.steps.append(DrillStep(f"sqlite/{result.path}", result.ok, detail))
 
+    def _stack(
+        self,
+        report: DrillReport,
+        stack: tuple[tuple[StackDatabase, Path], ...],
+        say: Callable[[str], None],
+    ) -> None:
+        """
+        Load each dump of a Compose stack's own databases into a throwaway container.
+
+        The stack's containers are the real ones, so a dump is tried in a container of the
+        image it was taken from, on no network, and that container is removed
+        (:mod:`noust.managers.stack_drill`).
+
+        Args:
+            report: The report being made.
+            stack: Each database and the file holding its dump.
+            say: Reports progress.
+        """
+        runner = self._runner or get_runner()
+        for database, path in stack:
+            say(f"Loading {database.label} into a throwaway container")
+            outcome = restore_test_stack_dump(runner, database, path)
+            report.steps.append(
+                DrillStep(
+                    f"stack/{database.service}", outcome.ok, outcome.detail, skipped=outcome.skipped
+                )
+            )
+
     def _databases(
         self,
         report: DrillReport,
         dumps: tuple[tuple[str, str, Any], ...],
-        stack_dumps: int,
+        stack: tuple[tuple[StackDatabase, Path], ...],
         say: Callable[[str], None],
     ) -> None:
         """
@@ -477,22 +515,12 @@ class RestoreDrill:
         Args:
             report: The report being made.
             dumps: ``(engine, database, file)`` for each dump the backup carries.
-            stack_dumps: How many dumps of a Compose stack's own databases it
-                carries, which cannot be tried on the side.
+            stack: Each dump of a Compose stack's own databases, with its database.
             say: Reports progress.
         """
         from noust.managers.database.backup_verify import restore_test
 
-        if stack_dumps:
-            report.steps.append(
-                DrillStep(
-                    "stack databases",
-                    True,
-                    f"{stack_dumps} dump(s) of the stack's own databases are checked with the "
-                    "archive but loaded only by a real restore (they live in containers)",
-                    skipped=True,
-                )
-            )
+        self._stack(report, stack, say)
         if not dumps:
             return
         service = self._database_service()
@@ -507,14 +535,15 @@ class RestoreDrill:
                 )
                 continue
             if manager.engine_type in _UNTESTABLE:
+                # A snapshot replaces every key of its instance: it is loaded into a second
+                # server of its own, never into the real one.
+                programs = getattr(manager, "snapshot_programs", None)
+                server, client = programs() if programs else ("redis-server", "redis-cli")
+                loaded = redis_restore_test(
+                    self._runner or get_runner(), path, server=server, client=client
+                )
                 report.steps.append(
-                    DrillStep(
-                        label,
-                        True,
-                        "a snapshot replaces every key of the instance, so it cannot be loaded "
-                        "on the side; its file is checked with the archive",
-                        skipped=True,
-                    )
+                    DrillStep(label, loaded.ok, loaded.detail, skipped=loaded.skipped)
                 )
                 continue
             try:

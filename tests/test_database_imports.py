@@ -31,7 +31,7 @@ from typing import Any
 import pytest
 
 from noust.core.config import Config
-from noust.core.exceptions import DatabaseBackupError, ValidationError
+from noust.core.exceptions import ConfirmationRequired, DatabaseBackupError, ValidationError
 from noust.core.runner import set_runner
 from noust.core.store import NoustStore
 from noust.managers.database.base import BaseDatabaseManager
@@ -466,15 +466,85 @@ class TestImporting:
         assert event["details"]["keep_owners"] is True
 
 
+class TestTheSuperuser:
+    """PostgreSQL loads a dump from outside as the owner; the superuser is asked for (H-19)."""
+
+    def test_an_import_is_not_loaded_as_the_superuser(
+        self, imports: DatabaseImports, engine: type[BaseDatabaseManager], tmp_path: Path
+    ) -> None:
+        imports.run("postgresql", "shop", dump_file(tmp_path / "in"))
+
+        assert "as_superuser" not in engine.state["loaded"][0]["kwargs"]
+
+    def test_a_restore_from_a_path_is_not_either(
+        self, imports: DatabaseImports, engine: type[BaseDatabaseManager], tmp_path: Path
+    ) -> None:
+        imports.backups.restore_file(
+            "postgresql", "shop", dump_file(tmp_path / "in"), False, False, None
+        )
+
+        assert "as_superuser" not in engine.state["loaded"][0]["kwargs"]
+
+    def test_the_superuser_needs_the_operator_to_accept_what_it_costs(
+        self, imports: DatabaseImports, engine: type[BaseDatabaseManager], tmp_path: Path
+    ) -> None:
+        with pytest.raises(ConfirmationRequired) as raised:
+            imports.run("postgresql", "shop", dump_file(tmp_path / "in"), as_superuser=True)
+
+        assert "COPY ... FROM PROGRAM" in raised.value.warnings[0]
+        assert raised.value.field == "confirm_superuser"
+        # Nothing was dumped, dropped or loaded to find that out.
+        assert engine.state["calls"] == []
+
+    def test_confirmed_it_is_loaded_as_the_superuser_and_audited_twice(
+        self,
+        imports: DatabaseImports,
+        engine: type[BaseDatabaseManager],
+        tmp_path: Path,
+        audited: list[dict[str, Any]],
+    ) -> None:
+        imports.run(
+            "postgresql",
+            "shop",
+            dump_file(tmp_path / "in"),
+            as_superuser=True,
+            confirm_superuser=True,
+        )
+
+        assert engine.state["loaded"][0]["kwargs"]["as_superuser"] is True
+        decision = next(e for e in audited if e["event"] == "db.restore.superuser")
+        assert decision["target"] == "db:postgresql/shop"
+        done = next(e for e in audited if e["event"] == "db.import")
+        assert done["details"]["as_superuser"] is True
+
+    def test_an_engine_that_has_no_such_account_refuses_the_option(
+        self, tmp_path: Path, runner: RcloneRunner
+    ) -> None:
+        mysql = make_engine(tmp_path / "mdump", engine="mysql", suffix=".sql", databases=("shop",))
+        importer = DatabaseImports(
+            make_service(tmp_path / "svc", [mysql]), uploads=UploadStore(tmp_path / "uploads")
+        )
+
+        with pytest.raises(ValidationError, match="no superuser load"):
+            importer.run(
+                "mysql",
+                "shop",
+                dump_file(tmp_path / "in"),
+                as_superuser=True,
+                confirm_superuser=True,
+            )
+
+
 class TestOptions:
-    def test_owners_are_dropped_by_default_and_the_database_owner_takes_over(
+    def test_owners_are_dropped_by_default_and_the_loader_is_the_database_owner(
         self, imports: DatabaseImports, engine: type[BaseDatabaseManager], tmp_path: Path
     ) -> None:
         imports.run("postgresql", "shop", dump_file(tmp_path / "in"))
 
         kwargs = engine.state["loaded"][0]["kwargs"]
         assert kwargs["keep_owners"] is False
-        assert kwargs["owner_role"] == "app"
+        # Who the objects belong to is who loads them (pg_loader), not a role named here.
+        assert "owner_role" not in kwargs
 
     def test_keep_owners_asks_the_loader_to_keep_them(
         self, imports: DatabaseImports, engine: type[BaseDatabaseManager], tmp_path: Path
@@ -499,6 +569,64 @@ class TestOptions:
 
         assert outcome.safety_copy is None
         assert [call[0] for call in engine.state["calls"]] == ["load"]
+
+
+class TestTheOwnerOfADatabaseTheImportMakes:
+    def test_a_new_database_is_made_with_the_account_asked(
+        self, imports: DatabaseImports, engine: type[BaseDatabaseManager], tmp_path: Path
+    ) -> None:
+        imports.run("postgresql", "fresh", dump_file(tmp_path / "in"), create_owner="shopapp")
+
+        assert engine.state["dbs"]["fresh"]["owner"] == "shopapp"
+
+    def test_one_that_is_dropped_and_recreated_gets_it_too(
+        self, imports: DatabaseImports, engine: type[BaseDatabaseManager], tmp_path: Path
+    ) -> None:
+        imports.run(
+            "postgresql", "shop", dump_file(tmp_path / "in"), replace=True, create_owner="shopapp"
+        )
+
+        assert engine.state["dbs"]["shop"]["owner"] == "shopapp"
+
+    def test_one_that_is_loaded_over_keeps_the_owner_it_had(
+        self, imports: DatabaseImports, engine: type[BaseDatabaseManager], tmp_path: Path
+    ) -> None:
+        imports.run("postgresql", "shop", dump_file(tmp_path / "in"), create_owner="shopapp")
+
+        assert engine.state["dbs"]["shop"]["owner"] == "app"
+
+    def test_without_asking_the_default_stays(
+        self, imports: DatabaseImports, engine: type[BaseDatabaseManager], tmp_path: Path
+    ) -> None:
+        imports.run("postgresql", "fresh", dump_file(tmp_path / "in"))
+
+        assert engine.state["dbs"]["fresh"]["owner"] is None
+
+    def test_an_upload_carries_it_too(
+        self, imports: DatabaseImports, engine: type[BaseDatabaseManager]
+    ) -> None:
+        upload = imports.uploads.create("export.sql", len(SQL), owner="ana")
+        imports.uploads.append(upload.id, 0, SQL, owner="ana")
+        imports.uploads.complete(upload.id, owner="ana")
+
+        imports.run_upload("postgresql", "fresh", upload.id, create_owner="shopapp")
+
+        assert engine.state["dbs"]["fresh"]["owner"] == "shopapp"
+
+    def test_an_engine_whose_databases_belong_to_nobody_refuses_the_option(
+        self, tmp_path: Path, runner: RcloneRunner
+    ) -> None:
+        (tmp_path / "m").mkdir()
+        mysql = make_engine(tmp_path / "m", engine="mysql", suffix=".sql", content=SQL)
+        other = DatabaseImports(
+            make_service(tmp_path / "svc", [mysql]), uploads=UploadStore(tmp_path / "up")
+        )
+
+        with pytest.raises(ValidationError) as caught:
+            other.run("mysql", "fresh", dump_file(tmp_path / "in"), create_owner="shopapp")
+
+        assert caught.value.field == "owner"
+        assert "fresh" not in mysql.state["dbs"]
 
 
 class TestUploadedImports:

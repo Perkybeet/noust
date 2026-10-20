@@ -156,9 +156,14 @@ def test_the_family_follows_the_type(kind: str, family: str) -> None:
     assert unit_hardening.family_of(kind) == family
 
 
-@pytest.mark.parametrize("kind", ["docker-compose", "container", "monorepo", "php-fpm", "static"])
+@pytest.mark.parametrize("kind", ["docker-compose", "container", "php-fpm", "static"])
 def test_only_what_the_units_own_code_runs_is_hardened(kind: str) -> None:
     assert unit_hardening.ineligible(App(domain=DOMAIN, app_type=kind)) is not None
+
+
+def test_a_monorepos_workspaces_run_their_own_code_and_are_hardened_like_node() -> None:
+    assert unit_hardening.ineligible(App(domain=DOMAIN, app_type="monorepo")) is None
+    assert unit_hardening.family_of("monorepo") == "node"
 
 
 def test_a_node_application_can_be_hardened() -> None:
@@ -303,6 +308,67 @@ def test_the_unit_of_a_hardened_application_is_written_hardened(
     assert f"ReadWritePaths=-{ROOT}" in text
 
 
+def test_every_workspace_unit_of_a_monorepo_is_written_hardened(
+    manager: ServiceManager,
+    unit_dirs: dict[str, Path],
+    store: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = App(domain=DOMAIN, app_type="monorepo", port=3100, app_path=str(ROOT), id=1)
+    store.list_apps = lambda: [app]
+    monkeypatch.setattr(
+        unit_hardening,
+        "get_record",
+        lambda domain, **kw: hardening_store.HardeningRecord(profile="strict"),
+    )
+
+    for workspace in ("web", "api"):
+        manager.create_service(
+            name=f"shop-example-com-{workspace}",
+            command="/usr/bin/true",
+            working_directory=str(ROOT / "current" / "apps" / workspace),
+        )
+
+    for workspace in ("web", "api"):
+        text = (unit_dirs["managed"] / f"shop-example-com-{workspace}.service").read_text()
+        assert "ProtectSystem=strict" in text
+        assert f"ReadWritePaths=-{ROOT}" in text
+        # Next.js and the rest of a monorepo are Node: V8 maps writable executable memory.
+        assert "MemoryDenyWriteExecute" not in text
+
+
+def test_a_unit_named_like_a_monorepos_workspace_but_of_another_application_is_not_its_own(
+    manager: ServiceManager,
+    unit_dirs: dict[str, Path],
+    store: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``shop-example-com-api`` could be the monorepo's workspace or an application of its own."""
+    monorepo = App(domain=DOMAIN, app_type="monorepo", port=3100, app_path=str(ROOT), id=1)
+    other = App(
+        domain="shop-example-com-api.example.com",
+        app_type="nodejs",
+        port=3101,
+        app_path=str(ROOT.parent / "shop-example-com-api"),
+        id=2,
+    )
+    store.list_apps = lambda: [monorepo, other]
+    profiles = {DOMAIN: "strict", other.domain: "off"}
+    monkeypatch.setattr(
+        unit_hardening,
+        "get_record",
+        lambda domain, **kw: hardening_store.HardeningRecord(profile=profiles[domain]),
+    )
+
+    manager.create_service(
+        name="shop-example-com-api", command="/usr/bin/true", working_directory="/srv"
+    )
+
+    assert (
+        "ProtectSystem" not in (unit_dirs["managed"] / "shop-example-com-api.service").read_text()
+    )
+
+
 def test_the_unit_of_an_application_that_predates_hardening_is_written_as_it_was(
     manager: ServiceManager,
     unit_dirs: dict[str, Path],
@@ -430,7 +496,7 @@ def test_an_operators_choice_survives_the_first_deployment_code_running_again(
     assert record is not None and record.profile == "off" and record.changed_by == "ana"
 
 
-@pytest.mark.parametrize("kind", ["docker-compose", "container", "monorepo", "php-fpm"])
+@pytest.mark.parametrize("kind", ["docker-compose", "container", "php-fpm"])
 def test_an_application_that_cannot_be_hardened_gets_no_record(
     sqlite_store: NoustStore, kind: str
 ) -> None:
@@ -627,6 +693,47 @@ def test_the_units_are_rewritten_restarted_behind_the_gate_and_recorded(
     assert units.restarts == ["shop-example-com"]
     record = hardening_store.get_record(DOMAIN, store=sqlite_store)
     assert record is not None and (record.profile, record.changed_by) == ("default", "ana")
+
+
+def test_every_unit_of_a_monorepo_is_rewritten_and_all_of_them_restarted_behind_one_gate(
+    sqlite_store: NoustStore, runner: FakeRunner, gate: dict[str, Any]
+) -> None:
+    _app(sqlite_store, app_type="monorepo")
+    names = ["shop-example-com-api", "shop-example-com-web"]
+    units = FakeUnits(names)
+
+    change = engine.set_hardening(
+        DOMAIN,
+        "default",
+        store=sqlite_store,
+        services=units,
+        runner=runner,  # type: ignore[arg-type]
+    )
+
+    assert change.units == tuple(names)
+    assert all("ProtectSystem=strict" in units.bodies[name] for name in names)
+    assert units.restarts == names
+
+
+def test_a_monorepo_whose_workspace_does_not_answer_in_the_new_sandbox_gets_every_unit_back(
+    sqlite_store: NoustStore, runner: FakeRunner, gate: dict[str, Any]
+) -> None:
+    _app(sqlite_store, app_type="monorepo")
+    names = ["shop-example-com-api", "shop-example-com-web"]
+    units = FakeUnits(names)
+    gate["answers"] = [False, True]
+
+    with pytest.raises(DeploymentError, match="did not answer"):
+        engine.set_hardening(
+            DOMAIN,
+            "strict",
+            store=sqlite_store,
+            services=units,
+            runner=runner,  # type: ignore[arg-type]
+        )
+
+    assert units.bodies == {name: f"original of {name}" for name in names}
+    assert hardening_store.get_record(DOMAIN, store=sqlite_store) is None
 
 
 def test_an_application_that_does_not_answer_in_the_new_sandbox_gets_the_old_one_back(

@@ -208,6 +208,7 @@ class DestinationFileManager(BackupDestinationManager):
         """
         _require_rclone(self.runner)
         self.require_encrypted_upload(destination_name)
+        self.settle_folder(destination_name)
         if not local.is_file():
             raise BackupError(f"Cannot send {local}: it is not a file")
         env = self.remote_env(destination_name)
@@ -314,6 +315,7 @@ class DestinationFileManager(BackupDestinationManager):
         """
         _require_rclone(self.runner)
         self.require_encrypted_upload(destination_name)
+        self.settle_folder(destination_name)
         env = self.remote_env(destination_name)
         secrets_literal = self._secret_literals(destination_name)
         target_dir = self._folder_target(destination_name, folder)

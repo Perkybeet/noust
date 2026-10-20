@@ -92,6 +92,7 @@ from noust.core.utils import domain_to_app_name
 from noust.deployers.helpers.layout import RELEASES, app_root
 from noust.deployers.releases import SHARED_DIR, persistent_path
 from noust.managers.backup_destination_files import DestinationFileManager, file_sha256
+from noust.managers.backup_failures import record_failure
 from noust.managers.backup_manager import (
     SCHEDULED_TAG,
     BackupManager,
@@ -100,6 +101,7 @@ from noust.managers.backup_manager import (
     sign_sidecar,
 )
 from noust.managers.backup_scheduler import BackupScheduler, validate_calendar, verify_days
+from noust.managers.backup_timer_options import validate_options
 from noust.managers.docker_volumes import (
     DOCKER_VOLUME_NAME,
     docker_archive_argv,
@@ -110,6 +112,7 @@ from noust.managers.retention import (
     gigabytes_to_bytes,
     select_expired,
     with_gigabytes,
+    without_newest_good,
 )
 from noust.managers.service_manager import ServiceManager
 from noust.managers.source_manager import extract_archive
@@ -731,6 +734,8 @@ class VolumeBackupManager:
         enabled: bool = True,
         retention_gb: float | None = None,
         remote_only: bool = False,
+        max_runtime: int | str | None = None,
+        zone: str | None = None,
     ) -> VolumePolicyView:
         """
         Create or replace an application's data backup policy, and its timer.
@@ -756,6 +761,9 @@ class VolumeBackupManager:
                 limit by size.
             remote_only: Delete each scheduled backup from this server once every
                 destination holds it and its upload was checked. It needs a destination.
+            max_runtime: The longest a run may take (seconds, or ``90m``/``2h``); systemd stops
+                a run past it. None for no limit.
+            zone: The time zone the schedule is read in; None for the server's clock.
 
         Returns:
             The policy as stored, with its timer.
@@ -767,6 +775,7 @@ class VolumeBackupManager:
         require_server_role("Volume backups")
         domain = self._app(domain).domain
         calendar = validate_calendar(schedule)
+        timer_options = validate_options(max_runtime, zone)
         if consistency not in CONSISTENCY_MODES:
             raise ValidationError(
                 f"{consistency!r} is not a consistency mode",
@@ -794,7 +803,7 @@ class VolumeBackupManager:
                 field="remote_only",
             )
         if enabled:
-            self.scheduler.install_volume_timer(domain, calendar)
+            self.scheduler.install_volume_timer(domain, calendar, options=timer_options)
         else:
             self.scheduler.remove_volume_timer(domain)
         self.records.save_policy(
@@ -823,6 +832,8 @@ class VolumeBackupManager:
             retention_days=days,
             retention_gb=budget,
             remote_only=remote_only,
+            max_runtime_seconds=timer_options.max_runtime_seconds,
+            timezone=timer_options.timezone,
             enabled=enabled,
         )
         return self.get_policy(domain)
@@ -1528,6 +1539,33 @@ class VolumeBackupManager:
         """
         return self._directory(metadata.app_name) / f"{metadata.id}{ARCHIVE_SUFFIX}"
 
+    def record_resealed(
+        self, metadata: VolumeBackupMetadata, *, size_bytes: int, checksum: str
+    ) -> None:
+        """
+        Write a backup's sidecar again after its archive was sealed in place.
+
+        The MAC covers the checksum, so size, checksum and MAC are written together: the sidecar
+        authenticates the file that is on the disk, as for an archive sealed when it was made.
+
+        Args:
+            metadata: The backup.
+            size_bytes: The stored archive's size now.
+            checksum: Its SHA-256 now.
+
+        Raises:
+            BackupError: When the sidecar cannot be written; sealing again repairs it.
+        """
+        metadata.size_bytes = size_bytes
+        metadata.checksum = checksum
+        try:
+            self._write_sidecar(metadata)
+        except OSError as exc:
+            raise BackupError(
+                f"Could not write the metadata of {metadata.id} after sealing it",
+                details=f"{exc}. Seal the existing backups again: it repairs this.",
+            ) from exc
+
     def require(self, backup_id: str) -> VolumeBackupMetadata:
         """
         Find a backup or say how to list them.
@@ -1857,10 +1895,37 @@ class VolumeBackupManager:
                 max_bytes=retention_bytes,
                 sizes={e.id: e.size_bytes for e in entries},
             )
+            # The newest is kept; when it failed its verification, so is the newest that did not.
+            expired = without_newest_good(
+                expired,
+                [
+                    (e.id, datetime.fromisoformat(e.created_at), e.verified_ok is not False)
+                    for e in entries
+                ],
+            )
             for entry in entries:
                 if entry.id in expired:
                     self._remove(entry, reason="retention")
                     deleted.append(entry.id)
+        return deleted
+
+    def sweep_retention(self) -> dict[str, list[str]]:
+        """
+        Apply every policy's local retention now, whether or not its last run went well.
+
+        Returns:
+            For each application that lost archives, their ids.
+        """
+        deleted: dict[str, list[str]] = {}
+        for policy in self.records.policies():
+            removed = self.apply_retention(
+                policy.app_domain,
+                retention_count=policy.retention_count,
+                retention_days=policy.retention_days,
+                retention_bytes=policy.retention_bytes,
+            )
+            if removed:
+                deleted[policy.app_domain] = removed
         return deleted
 
     # --------------------------------------------------------------- restore
@@ -2369,7 +2434,14 @@ class VolumeBackupManager:
         }
         try:
             step(f"Backing up the data of {domain}")
-            taken = self._create_when_free(domain, policy)
+            try:
+                taken = self._create_when_free(domain, policy)
+            except NoustError:
+                # No archive was made (the disk is full, the application is gone): the retention
+                # of the archives there are is what frees room, so a failed run applies it.
+                if policy:
+                    self._prune_after_failure(domain, policy)
+                raise
             result["backups"] = [entry.id for entry in taken]
             for entry in taken:
                 days = verify_days(self.config)
@@ -2383,7 +2455,8 @@ class VolumeBackupManager:
         except NoustError as exc:
             text = str(exc)
             self.records.record_run(domain, ok=False, error=text, backup=None)
-            announce(lambda: compose_backup_failed(domain, text, context))
+            failure_id = record_failure("backup", domain, text)
+            announce(lambda: compose_backup_failed(domain, text, context, failure_id=failure_id))
             raise
 
         failures: list[tuple[str, str]] = []
@@ -2409,7 +2482,12 @@ class VolumeBackupManager:
                     failures.append((name, str(exc)))
                     announce(
                         functools.partial(
-                            compose_backup_upload_failed, domain, name, str(exc), context
+                            compose_backup_upload_failed,
+                            domain,
+                            name,
+                            str(exc),
+                            context,
+                            failure_id=record_failure("upload", domain, str(exc), destination=name),
                         )
                     )
         if policy:
@@ -2450,6 +2528,26 @@ class VolumeBackupManager:
                 )
             )
         return result
+
+    def _prune_after_failure(self, domain: str, policy: VolumePolicy) -> None:
+        """
+        Apply a policy's retention after a run that could not take its backup.
+
+        Args:
+            domain: The application.
+            policy: Its policy.
+        """
+        try:
+            self.apply_retention(
+                domain,
+                retention_count=policy.retention_count,
+                retention_days=policy.retention_days,
+                retention_bytes=policy.retention_bytes,
+            )
+        except (NoustError, OSError) as exc:
+            self.logger.warning(
+                f"Could not apply the retention of {domain} after a failed run: {exc}"
+            )
 
     def _create_when_free(
         self, domain: str, policy: VolumePolicy | None
