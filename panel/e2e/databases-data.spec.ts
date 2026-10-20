@@ -362,8 +362,12 @@ test("an upload can be cancelled while it goes, and the server throws away what 
   await dialog.getByLabel("Dump file").setInputFiles({ name: "big.sql", mimeType: "application/sql", buffer: sqlDump(17 * 1024 * 1024) });
   const upload = (await (await created).json()) as { id: string };
   await expect(dialog.getByRole("progressbar")).toBeVisible();
+  // The dialog says it as soon as it stops sending; the server has thrown the upload away once
+  // its DELETE has answered, and only then can the status be asked and found missing.
+  const discarded = page.waitForResponse((response) => response.request().method() === "DELETE" && new URL(response.url()).pathname === `/api/databases/imports/uploads/${upload.id}`);
   await dialog.getByRole("button", { name: "Cancel upload" }).click();
   await expect(dialog.getByText("Upload cancelled. The server threw away what it had.")).toBeVisible();
+  expect((await discarded).ok()).toBe(true);
   release();
   const gone = await page.request.get(`/api/databases/imports/uploads/${upload.id}`);
   expect(gone.ok()).toBe(false);

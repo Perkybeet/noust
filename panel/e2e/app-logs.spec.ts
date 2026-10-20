@@ -13,7 +13,7 @@ const PHONE = { width: 390, height: 844 };
 test("the journal streams in, `/` searches it and counts the matches", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/apps/${DOMAIN}/logs`);
   const journal = page.getByRole("region", { name: `Logs of ${DOMAIN}` });
-  await expect(page.getByText("Live", { exact: true })).toBeVisible();
+  await expect(page.locator("#main").getByText("Live", { exact: true })).toBeVisible();
   // Following: the newest lines are the ones in view.
   await expect(journal.getByText(/tienda-example-org\[\d+\]: /).last()).toBeVisible();
   const count = page.getByText(/^\d[\d,]* lines$/);
@@ -74,7 +74,7 @@ test("a static site says it has no process to log, and reads what its web server
 
 test("the web server's requests and errors for a site, with a token in a query string masked", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/apps/${DOMAIN}/logs`);
-  await expect(page.getByText("Live", { exact: true })).toBeVisible();
+  await expect(page.locator("#main").getByText("Live", { exact: true })).toBeVisible();
   await page.getByRole("radio", { name: "Web server requests" }).click();
   const access = page.getByRole("region", { name: `Web server access log of ${DOMAIN}` });
   await expect(access.getByText(/"POST \/api\/orders HTTP\/1\.1" 502/).first()).toBeVisible();

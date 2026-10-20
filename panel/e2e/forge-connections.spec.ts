@@ -238,7 +238,7 @@ test("the wizard reads an application from Coolify into the import review", asyn
   );
   await answer(page, "**/api/import/proposal", "POST", {
     proposal: { platform: "coolify", files: [], warnings: ["Preview deployments have no equivalent here: use Previews in Noust."], domains: ["shop.example.com"], app_type: "nextjs" },
-    document: { format: "wasm-app", version: 1, secrets_included: false, app: { domain: "shop.example.com", app_type: "nextjs" }, env: {} },
+    document: { format: "noust-app", version: 1, secrets_included: false, app: { domain: "shop.example.com", app_type: "nextjs" }, env: {} },
     deployable: true,
   });
   await signIn(page, consoleServer, "/apps/new?start=import");
