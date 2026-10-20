@@ -39,7 +39,7 @@ import { formatBytes, formatDuration, parseTimestamp } from "../../../lib/format
 import { hasUnit } from "../../apps/AppRowActions";
 import { displayAddress } from "../displayAddress";
 import { keptServing, servingDeployment } from "../rollback";
-import { buildLogEvents, failureExcerpt, jobEvents, logClockText, logSpan, mergeEvents, useLogLines } from "./buildLog";
+import { buildLogEvents, excerptText, failureExcerpt, jobEvents, logClockText, logSpan, mergeEvents, useLogLines } from "./buildLog";
 import { useDeploymentActions } from "./DeploymentActions";
 import { PhaseTimeline, phaseDoing } from "./PhaseTimeline";
 import { ShareLog } from "./ShareLog";
@@ -380,8 +380,9 @@ function FailureBlock({
 }) {
   const words = failureWords(t, phase);
   const readsEnvironment = phase !== null && (phase.key === "install" || phase.key === "build");
-  const tail = excerpt.tail.map((line) => line.text).join("\n");
-  const detail = deployment.error ?? excerpt.firstError?.text ?? t("appPages.deployments.page.noRecordedReason");
+  const text = excerptText(excerpt, deployment.error);
+  const tail = text.output;
+  const detail = text.detail ?? t("appPages.deployments.page.noRecordedReason");
   return (
     <div className="flex flex-col gap-3">
       <ServingLine domain={domain} deployment={deployment} phase={phase} t={t} />

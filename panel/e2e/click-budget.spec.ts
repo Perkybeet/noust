@@ -238,7 +238,7 @@ test.describe("an application's logs", () => {
     await startCounting(page);
     await page.getByRole("navigation", { name: "Application sections" }).getByRole("link", { name: "Deployments" }).click();
     const table = page.getByRole("region", { name: `Deploys of ${APP}, newest first` });
-    await table.getByRole("link").first().click();
+    await table.getByRole("button", { name: /^Deployment \d+$/ }).first().click();
     await expect(page.getByRole("region", { name: /^Build log of deployment \d+ of / })).toBeVisible();
     withinBudget("the build log of the last deploy", await clicks(page), 2);
 

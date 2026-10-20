@@ -8,6 +8,7 @@
 import { useState } from "react";
 
 import type { LogLine } from "../../../components/ui/LogViewer";
+import { stripAnsi } from "../../../lib/ansi";
 import type { PhaseEvent, PhaseKey } from "./phases";
 import { phaseOf, stepOf } from "./phases";
 
@@ -61,9 +62,6 @@ const JOB_LEVEL = /^\[(DEBUG|INFO|SUCCESS|WARNING|WARN|ERROR)\] ?(.*)$/;
 const ERROR =
   /npm err!|\berr!|\berror\b|✗|failed to compile|\btype error\b|\btraceback\b|\bexception\b|\bfatal\b|\bfailed with result\b|\/failure\b/i;
 const WARNING = /\bwarn(?:ing)?\b|⚠/i;
-// A terminal's control sequences, colours and cursor moves alike.
-// eslint-disable-next-line no-control-regex
-const ANSI = /\u001b\[[0-?]*[ -/]*[@-~]/g;
 
 /**
  * The level a line is drawn at. The tools do not say; the words do. Deliberately narrow: a
@@ -72,7 +70,7 @@ const ANSI = /\u001b\[[0-?]*[ -/]*[@-~]/g;
 export function levelOf(text: string): LogLine["level"] {
   // Colour codes sit against the words they colour ("\u001b[31mError"), which a word boundary
   // does not see through; the server reads the lines the same way (`deployers/logs.py`).
-  const plain = text.replace(ANSI, "");
+  const plain = stripAnsi(text);
   if (ERROR.test(plain)) return "error";
   if (WARNING.test(plain)) return "warn";
   return undefined;
@@ -206,4 +204,15 @@ export function failureExcerpt(lines: readonly BuildLogLine[], phase: PhaseKey |
   const scope = inPhase.length > 0 ? inPhase : lines;
   const firstError = scope.find((line) => line.level === "error") ?? lines.find((line) => line.level === "error") ?? null;
   return { firstError, tail: scope.slice(-max) };
+}
+
+/**
+ * The excerpt as text for a box that is not the log viewer: what the deployment recorded as its
+ * error (else the first error line) and the end of the phase, as a person would copy them from a
+ * terminal. The viewer turns a tool's colour codes into colour; a box has none, so it gets the
+ * same parse without them (`lib/ansi.ts`) and never `?[31m`.
+ */
+export function excerptText(excerpt: FailureExcerpt, recorded: string | null | undefined): { detail: string | null; output: string } {
+  const detail = recorded !== null && recorded !== undefined && recorded !== "" ? recorded : (excerpt.firstError?.text ?? null);
+  return { detail: detail === null ? null : stripAnsi(detail), output: excerpt.tail.map((line) => stripAnsi(line.text)).join("\n") };
 }

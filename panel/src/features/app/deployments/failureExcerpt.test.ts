@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { failureExcerpt, parseLog, phaseLines } from "./buildLog";
+import { excerptText, failureExcerpt, parseLog, phaseLines } from "./buildLog";
 
 const LOG = [
   "[2026-09-25 18:00:00] [1/9] Fetching source...",
@@ -62,5 +62,33 @@ describe("the part of a failed deploy's log worth reading first", () => {
     const excerpt = failureExcerpt(lines, "fetch");
     expect(excerpt.firstError?.text).toBe("npm ERR! code ELIFECYCLE");
     expect(excerpt.tail.map((line) => line.text)).toEqual(["[1/9] Fetching source...", "HEAD is now at c07d5e3 Bump deps"]);
+  });
+});
+
+describe("the excerpt as the text of a box", () => {
+  const COLOURED = [
+    "[2026-09-25 18:00:00] [3/9] Building application...",
+    "[2026-09-25 18:00:01] \u001b[1mNext.js 15.2.4\u001b[0m",
+    "[2026-09-25 18:00:02] \u001b[31mnpm ERR!\u001b[0m code ELIFECYCLE",
+    "[2026-09-25 18:00:03] \u001b[31mnpm ERR!\u001b[0m shop@1.0.0 build: `next build`",
+    "",
+  ].join("\n");
+
+  it("carries no colour code, in the error or in the end of the phase", () => {
+    const coloured = parseLog(COLOURED);
+    const text = excerptText(failureExcerpt(coloured, "build"), null);
+    // The first line read as an error is the cause, the way the viewer reads it through the codes.
+    expect(text.detail).toBe("npm ERR! code ELIFECYCLE");
+    expect(text.output).toBe(["[3/9] Building application...", "Next.js 15.2.4", "npm ERR! code ELIFECYCLE", "npm ERR! shop@1.0.0 build: `next build`"].join("\n"));
+    expect(`${text.detail ?? ""}${text.output}`).not.toMatch(/\u001b|\[\d+m/);
+  });
+
+  it("prefers what the deployment recorded, and strips it too", () => {
+    const text = excerptText(failureExcerpt(parseLog(COLOURED), "build"), "\u001b[31mnpm run build exited with status 1\u001b[0m");
+    expect(text.detail).toBe("npm run build exited with status 1");
+  });
+
+  it("has no detail when nothing was recorded and nothing read as an error", () => {
+    expect(excerptText(failureExcerpt(parseLog("[2026-09-25 18:00:00] [1/9] Fetching source...\n"), "fetch"), null).detail).toBeNull();
   });
 });

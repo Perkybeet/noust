@@ -112,6 +112,25 @@ describe("a deployment's page", { timeout: 20_000 }, () => {
     expect(boxes.some((box) => box.textContent.includes("Building application"))).toBe(true);
   });
 
+  it("shows the excerpt without the tool's colour codes, as the log viewer reads them", async () => {
+    const coloured = [
+      "[2026-09-25 18:00:00] [1/9] Fetching source...",
+      "[2026-09-25 18:00:05] [3/9] Building application...",
+      "[2026-09-25 18:00:06] \u001b[1mNext.js 15.2.4\u001b[0m",
+      "[2026-09-25 18:00:20] \u001b[31mnpm ERR!\u001b[0m code ELIFECYCLE",
+      "",
+    ].join("\n");
+    await pageAt(20, {
+      [`GET /api/deployments/${String(FAILED.id)}`]: () => json(200, { ...FAILED, error: null }),
+      [`GET /api/deployments/${String(FAILED.id)}/log`]: () => json(200, { content: coloured, truncated: false, missing_reason: null }),
+    });
+    expect(await screen.findByText("The deploy failed while building")).toBeInTheDocument();
+    const boxes = await screen.findAllByText(/npm ERR! code ELIFECYCLE/, { selector: "pre" });
+    expect(boxes.length).toBeGreaterThan(0);
+    for (const box of boxes) expect(box.textContent).not.toMatch(/\u001b|\[\d+m/);
+    expect(boxes.some((box) => box.textContent.includes("Next.js 15.2.4"))).toBe(true);
+  });
+
   it("opens the log on the line where it first went wrong", async () => {
     // The virtualizer sizes its window from offsetHeight, which jsdom reports as 0.
     vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);
