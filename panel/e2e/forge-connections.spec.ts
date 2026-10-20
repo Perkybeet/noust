@@ -243,7 +243,7 @@ test("the wizard reads an application from Coolify into the import review", asyn
   });
   await signIn(page, consoleServer, "/apps/new?start=import");
   await elevate(page, consoleServer);
-  await page.getByRole("button", { name: "Read it from Coolify or Dokploy" }).click();
+  await page.getByRole("button", { name: "Read it from Coolify, Dokploy or CapRover" }).click();
   await page.getByLabel(/^Address of the server/).fill("https://coolify.example.com");
   await page.getByLabel(/^API token/).fill("ro-token");
   await page.getByRole("button", { name: "List the applications" }).click();

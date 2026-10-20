@@ -390,7 +390,7 @@ def _clean(document: dict[str, Any], result: CoolifyImport) -> None:
 # -- the published port ------------------------------------------------------------------
 
 
-def _guess(services: dict[str, Any], result: CoolifyImport) -> tuple[str, int] | None:
+def _guess(services: dict[str, Any], result: ConvertedTemplate) -> tuple[str, int] | None:
     """
     Guess the service that serves the web, when the template does not say.
 

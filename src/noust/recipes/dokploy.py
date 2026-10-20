@@ -59,7 +59,7 @@ import yaml
 from noust.core.compose_yaml import load_compose
 from noust.core.exceptions import ValidationError
 from noust.core.secret_detection import name_looks_secret
-from noust.deployers.importers.toml_fallback import load_toml_fallback
+from noust.deployers.importers.railway import load_toml
 from noust.recipes.compose_template import (
     ConvertedTemplate,
     ConvertedVariable,
@@ -261,33 +261,10 @@ def _load_template(text: str | None) -> dict[str, Any]:
             details=f"A template.toml is a few KiB; the limit is {MAX_TOML_BYTES // 1024} KiB.",
         )
     try:
-        return _toml(text)
+        return load_toml(text, name="template.toml")
     except RecursionError as exc:
         raise ValidationError(
             "That template.toml nests too deeply to be read", field="template"
-        ) from exc
-
-
-def _toml(text: str) -> dict[str, Any]:
-    """
-    Args:
-        text: TOML.
-
-    Returns:
-        The document, read by ``tomllib`` where it exists and by Noust's own reader on Python 3.10.
-
-    Raises:
-        ValidationError: The text is not TOML.
-    """
-    try:
-        import tomllib
-    except ModuleNotFoundError:
-        return load_toml_fallback(text, name="template.toml")
-    try:
-        return tomllib.loads(text)
-    except tomllib.TOMLDecodeError as exc:
-        raise ValidationError(
-            "That template.toml is not valid TOML", details=str(exc)[:300], field="template"
         ) from exc
 
 

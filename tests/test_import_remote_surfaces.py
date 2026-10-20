@@ -189,7 +189,7 @@ class TestTheCommand:
         result = invoke(
             "import", "--from", "vercel", "--url", "https://x.example.com", str(tmp_path)
         )
-        assert result.exit_code != 0 and "for coolify and dokploy" in result.output
+        assert result.exit_code != 0 and "for coolify, dokploy, caprover and dokku" in result.output
 
     def test_a_dry_run_deploys_nothing_and_shows_the_plan(
         self, servers: dict, cli_config: Any, token_file: Path, store: NoustStore

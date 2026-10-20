@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Bringing an application over from Coolify or Dokploy, through their API.
+Bringing an application over from Coolify, Dokploy or CapRover, through their API.
 
 A client of :mod:`noust.deployers.importers`, like ``noust import --from
 coolify``. Two calls and no state: ``POST /api/import/applications`` lists what
@@ -39,9 +39,12 @@ router = APIRouter(route_class=NoustErrorRoute)
 class RemoteServer(BaseModel):
     """The server to read, and the token to read it with."""
 
-    platform: str = Field(description="coolify or dokploy")
+    platform: str = Field(description="coolify, dokploy or caprover")
     url: str = Field(description="Its address, https://coolify.example.com", max_length=300)
-    token: str = Field(description="A read-only API token. Not stored", max_length=512)
+    token: str = Field(
+        description="A read-only API token (CapRover: the dashboard's password). Not stored",
+        max_length=512,
+    )
 
 
 class RemoteApplicationOut(BaseModel):
