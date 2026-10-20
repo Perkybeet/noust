@@ -104,15 +104,17 @@ function UnitTally({ units, named }: { units: Machine["units"]; named: boolean }
  * What the live stream is doing, in a word and a shape: "Live" while the readings and the lists
  * are being kept current, "Reconnecting" while they are not. Before the first connection there
  * is nothing to say yet. The word gives way on a narrow strip, but the reconnecting state never
- * does: that is the one an operator must not miss.
+ * does: that is the one an operator must not miss. It sits at the end of the strip, not after
+ * the last reading: the stream is usually up before the machine has answered, and a badge that
+ * followed the readings would be pushed across the bar when they arrived.
  */
 export function StreamBadge({ stream }: { stream: StreamStatus }) {
   const t = useT();
   if (stream === "reconnecting") {
-    return <StatusPill state="deploying" label={t("shell.machine.reconnecting")} appearance="inline" size="sm" className="shrink-0" />;
+    return <StatusPill state="deploying" label={t("shell.machine.reconnecting")} appearance="inline" size="sm" className="ml-auto shrink-0" />;
   }
   if (stream === "live") {
-    return <StatusPill state="running" label={t("shell.machine.live")} appearance="inline" size="sm" className="hidden shrink-0 @min-[26rem]:inline-flex" />;
+    return <StatusPill state="running" label={t("shell.machine.live")} appearance="inline" size="sm" className="ml-auto hidden shrink-0 @min-[26rem]:inline-flex" />;
   }
   return null;
 }

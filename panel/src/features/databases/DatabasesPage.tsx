@@ -132,6 +132,10 @@ function RowActions({ database, engines, t }: { database: Database; engines: rea
 /** How long the rows wait for the notice above them once the list itself has answered. */
 const SETTLE_MS = 1_000;
 
+/** `ListPage`'s `arrival`: what is drawn while the list waits, and what replaces it all at once. */
+const WAITING = "waiting";
+const ANSWERED = "answered";
+
 /**
  * Every database on the server, as a T1 list: the name first and whether it is backed up
  * beside it, the engine, who uses it, its size and its newest dump. Above it, the filters and
@@ -229,15 +233,17 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
   const Add = ICONS.add;
   if (list.isError && list.data === undefined) {
     return (
-      <ListPage header={header} tabs={tabs}>
-        <ErrorBlock error={list.error} title={t("databases.list.couldNotLoad")} onRetry={() => void list.refetch()} retrying={list.isRefetching} />
+      <>
+        <ListPage header={header} tabs={tabs} arrival={ANSWERED}>
+          <ErrorBlock error={list.error} title={t("databases.list.couldNotLoad")} onRetry={() => void list.refetch()} retrying={list.isRefetching} />
+        </ListPage>
         {dialogs}
-      </ListPage>
+      </>
     );
   }
 
-  // The filters and the count above the table; the same bar while the rows are read, so
-  // nothing moves when they arrive.
+  // The filters and the count above the table, drawn with the rows (`arrival` below):
+  // nothing is there to be pushed when they come.
   const filterBar = (count?: string) => (
     <FilterBar
       label={t("databases.list.filterLabel")}
@@ -301,31 +307,36 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
 
   if (!loading && all.length === 0 && problems.length > 0) {
     return (
-      <ListPage header={header} tabs={tabs} notice={notice} footer={<CommandHint command="noust db list" label={t("databases.common.fromTerminal")} />}>
+      <>
+        <ListPage header={header} tabs={tabs} notice={notice} arrival={ANSWERED} footer={<CommandHint command="noust db list" label={t("databases.common.fromTerminal")} />}>
+          {null}
+        </ListPage>
         {dialogs}
-      </ListPage>
+      </>
     );
   }
 
   if (!loading && all.length === 0) {
     return (
-      <ListPage header={header} tabs={tabs} footer={<CommandHint command="noust db list" label={t("databases.common.fromTerminal")} />}>
-        <EmptyState
-          variant="firstUse"
-          icon={<DatabaseIcon />}
-          title={t("databases.list.emptyTitle")}
-          description={running ? t("databases.list.emptyDescription") : t("databases.list.emptyNoEngine")}
-          action={
-            running ? (
-              <Button icon={<Add aria-hidden="true" />} onClick={openCreate}>
-                {t("databases.page.newDatabase")}
-              </Button>
-            ) : undefined
-          }
-          command={running ? "noust db create postgresql shop_production" : "noust db install postgresql"}
-        />
+      <>
+        <ListPage header={header} tabs={tabs} arrival={ANSWERED} footer={<CommandHint command="noust db list" label={t("databases.common.fromTerminal")} />}>
+          <EmptyState
+            variant="firstUse"
+            icon={<DatabaseIcon />}
+            title={t("databases.list.emptyTitle")}
+            description={running ? t("databases.list.emptyDescription") : t("databases.list.emptyNoEngine")}
+            action={
+              running ? (
+                <Button icon={<Add aria-hidden="true" />} onClick={openCreate}>
+                  {t("databases.page.newDatabase")}
+                </Button>
+              ) : undefined
+            }
+            command={running ? "noust db create postgresql shop_production" : "noust db install postgresql"}
+          />
+        </ListPage>
         {dialogs}
-      </ListPage>
+      </>
     );
   }
 
@@ -333,40 +344,42 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
     filtered ? t("databases.list.countFiltered", { shown: shown.length, total: all.length }) : t("databases.list.count", { count: all.length });
 
   return (
-    <ListPage
-      header={header}
-      tabs={tabs}
-      {...(!loading && notice !== undefined ? { notice } : {})}
-      // The notice, the filters and the rows arrive together, as new elements: placeholders
-      // drawn under a notice not yet known would only be pushed down the page when it came.
-      {...(loading ? {} : { filters: filterBar(count) })}
-      // Drawn with the rows, not before: under a list of unknown length it would only be pushed
-      // down the page when they arrive.
-      {...(loading ? {} : { footer: <CommandHint command="noust db list" label={t("databases.common.fromTerminal")} /> })}
-    >
-      <DatabasesTable
-        key={loading ? "placeholder" : "rows"}
-        loading={loading}
-        databases={loading ? [] : shown}
-        owner={{ scope: owner.scope, labels: owner.labels }}
-        engines={engines.data?.engines}
-        policies={byPolicy}
-        dumps={newest}
-        caption={filtered ? t("databases.list.captionFiltered") : t("databases.list.caption")}
-        rowActions={(database) => <RowActions database={database} engines={engines.data?.engines} t={t} />}
-        empty={
-          <EmptyState
-            variant="inline"
-            title={t("databases.list.noMatch")}
-            action={
-              <Button size="sm" variant="ghost" onClick={clear}>
-                {t("databases.list.clearFilters")}
-              </Button>
-            }
-          />
-        }
-      />
+    <>
+      <ListPage
+        header={header}
+        tabs={tabs}
+        // The notice, the filters and the rows arrive together, as new elements: placeholders
+        // drawn under a notice not yet known would only be pushed down the page when it came.
+        arrival={loading ? WAITING : ANSWERED}
+        {...(!loading && notice !== undefined ? { notice } : {})}
+        {...(loading ? {} : { filters: filterBar(count) })}
+        // Drawn with the rows, not before: under a list of unknown length it would only be pushed
+        // down the page when they arrive.
+        {...(loading ? {} : { footer: <CommandHint command="noust db list" label={t("databases.common.fromTerminal")} /> })}
+      >
+        <DatabasesTable
+          loading={loading}
+          databases={loading ? [] : shown}
+          owner={{ scope: owner.scope, labels: owner.labels }}
+          engines={engines.data?.engines}
+          policies={byPolicy}
+          dumps={newest}
+          caption={filtered ? t("databases.list.captionFiltered") : t("databases.list.caption")}
+          rowActions={(database) => <RowActions database={database} engines={engines.data?.engines} t={t} />}
+          empty={
+            <EmptyState
+              variant="inline"
+              title={t("databases.list.noMatch")}
+              action={
+                <Button size="sm" variant="ghost" onClick={clear}>
+                  {t("databases.list.clearFilters")}
+                </Button>
+              }
+            />
+          }
+        />
+      </ListPage>
       {dialogs}
-    </ListPage>
+    </>
   );
 }

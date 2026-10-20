@@ -248,7 +248,15 @@ function LogSection({
         ) : undefined
       }
     >
-      {log.data !== undefined && shown.length > 0 ? <ShareLog deploymentId={deployment.id} /> : null}
+      {log.data === undefined && !log.isError ? (
+        // The button's place, held while the log is read: drawn when the log came, it pushed
+        // the viewer down by its own height.
+        <div aria-hidden="true">
+          <Skeleton className="h-control-sm w-32 rounded-control" />
+        </div>
+      ) : log.data !== undefined && (shown.length > 0 || running) ? (
+        <ShareLog deploymentId={deployment.id} disabled={shown.length === 0} />
+      ) : null}
       {log.data?.truncated ? (
         <p className="text-12 text-fg-muted">{t("appPages.deployments.page.logTruncated", { size: formatBytes(DEFAULT_TAIL, t.locale) })}</p>
       ) : null}
@@ -444,6 +452,10 @@ export function DeploymentPage({ domain, id }: { domain: string; id: string }) {
     // A deploy from the command line has no job to announce its end; this catches it.
     refetchInterval: (query) => (query.state.data && RUNNING.has(query.state.data.status) ? 3_000 : false),
   });
+  // Whether the app is a static site decides which phases the timeline has and whether a note
+  // sits under it, so the page waits for the answer (the header's own read, usually in already)
+  // instead of drawing the timeline and then rearranging it under the log.
+  const app = useQuery(appQuery(domain));
 
   const missing = numeric === null || (deployment.isError && isApiError(deployment.error) && deployment.error.status === 404);
   if (missing) {
@@ -460,7 +472,7 @@ export function DeploymentPage({ domain, id }: { domain: string; id: string }) {
       </div>
     );
   }
-  if (deployment.data === undefined) {
+  if (deployment.data === undefined || (app.isPending && !deployment.isError)) {
     return deployment.isError ? (
       <ErrorBlock
         error={deployment.error}

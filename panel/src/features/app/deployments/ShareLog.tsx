@@ -17,7 +17,7 @@ const WHOLE_LOG = 64 * 1024 * 1024;
  * is decided in one place. The level and the times are the log viewer's own (its chips and its
  * toggle); this copies the whole log.
  */
-export function ShareLog({ deploymentId }: { deploymentId: number }) {
+export function ShareLog({ deploymentId, disabled = false }: { deploymentId: number; disabled?: boolean }) {
   const t = useT();
   const { state, copy } = useCopyState(2000);
   const describedBy = useId();
@@ -38,6 +38,7 @@ export function ShareLog({ deploymentId }: { deploymentId: number }) {
         size="sm"
         variant="ghost"
         loading={share.isPending}
+        disabled={disabled}
         icon={state === "copied" ? <Check aria-hidden="true" className="text-ok" /> : <Share2 aria-hidden="true" />}
         aria-describedby={describedBy}
         onClick={() => share.mutate()}
