@@ -95,4 +95,33 @@ export const nav: Catalog<typeof en> = {
     about: { label: "Acerca de", keywords: "versión actualización about", command: "Acerca de Noust" },
     central: { label: "Central", keywords: "sellado frase de paso desbloquear hub rol flota seal", command: "Ajustes de esta central" },
   },
+  screens: {
+    account: { label: "Perfil y contraseña", keywords: "yo mi usuario perfil contraseña nombre correo me my user profile password", command: "Tu cuenta" },
+    accountSecurity: {
+      label: "Seguridad del inicio de sesión",
+      keywords: "verificación en dos pasos 2fa autenticador totp llaves de acceso sesiones two-factor passkeys sessions",
+      command: "Seguridad del inicio de sesión",
+    },
+    controls: {
+      label: "Controles",
+      keywords: "cumplimiento marcos ens perfil de seguridad política compliance frameworks policy",
+      command: "Ajustes de controles",
+    },
+    teams: { keywords: "personas miembros roles organizar agrupar espacio de trabajo people members group workspace" },
+    terminal: { keywords: "shell ssh consola línea de comandos console command line" },
+    files: { keywords: "explorar editar subir descargar carpeta browse edit upload download folder" },
+    diagnose: { keywords: "diagnosticar por qué caído roto salud comprobar troubleshoot why down broken health check" },
+  },
+  renamed: {
+    domains: "Dominios y certificados",
+    notifications: "Notificaciones",
+    alerts: "Alertas",
+    console: "Acceso a la consola",
+    about: "Acerca de",
+    access: "Roles y accesos",
+    compliance: "Cumplimiento",
+    probes: "Sondas",
+    logShipping: "Envío de logs",
+    security: "Seguridad",
+  },
 };

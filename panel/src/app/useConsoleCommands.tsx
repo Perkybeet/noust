@@ -298,7 +298,7 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
               keywords: t("shell.commands.newTeamKeywords"),
               kind: "navigate" as const,
               run: () => {
-                void navigate({ to: "/teams", search: { new: true } as never });
+                void navigate({ to: "/projects/teams", search: { new: true } as never });
               },
             },
           ]
