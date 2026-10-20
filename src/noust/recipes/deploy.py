@@ -25,7 +25,7 @@ at once, before a database exists.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
@@ -89,6 +89,7 @@ class PlannedEntrypoint:
         domain: The address, normalised.
         port: The loopback port its service publishes on.
         domain_variable: The variable the operator gave the address in.
+        present: The application already answers on it (an update of an install that has it).
     """
 
     name: str
@@ -96,6 +97,7 @@ class PlannedEntrypoint:
     domain: str
     port: int
     domain_variable: str
+    present: bool = False
 
 
 @dataclass(frozen=True)
@@ -377,9 +379,10 @@ def plan_recipe(
     refuse_unmet(recipe, install=install_requirements, logger=logger)
 
     # Still nothing exists: the extra addresses are judged and given their ports now.
-    entrypoints, overrides = _plan_entrypoints(
+    entrypoints, chosen = plan_entrypoints(
         recipe, domain, port=port, overrides=overrides, store=store
     )
+    overrides = {**overrides, **chosen}
 
     app_name = domain_to_app_name(domain)
     context = DeploymentContext(
@@ -428,20 +431,23 @@ def plan_recipe(
 _ENTRYPOINT_PORT_SPAN = 1000
 
 
-def _plan_entrypoints(
+def plan_entrypoints(
     recipe: Recipe,
     domain: str,
     *,
     port: int | None,
-    overrides: dict[str, str],
+    overrides: Mapping[str, str],
     store: NoustStore,
+    existing: Mapping[str, str] | None = None,
 ) -> tuple[tuple[PlannedEntrypoint, ...], dict[str, str]]:
     """
     Judge the extra addresses a recipe asks for and choose the port of each service.
 
     Done before anything is provisioned, written or generated: an address that is the
     application's own, belongs to another application or is not a domain stops the install here,
-    and so does a server with no free port. A port the operator gave is kept.
+    and so does a server with no free port. A port the operator gave is kept. For an update
+    (``existing`` is the application's environment), an address the application already answers
+    on is left as it is, and only a new one is judged and given a port.
 
     Args:
         recipe: The recipe.
@@ -449,18 +455,23 @@ def _plan_entrypoints(
         port: The port chosen for the application's web service.
         overrides: What the operator gave.
         store: The store.
+        existing: The environment of the installed application, for an update; None for an
+            install.
 
     Returns:
-        The entrypoints, and the overrides with each port variable set to the port chosen for it.
+        The entrypoints, and the variables decided here (each new address, normalised, and its
+        port) for the caller to add to what the operator gave.
 
     Raises:
         RecipeError: An address is the application's own, another entrypoint's or another
             application's, is not a domain, or no port is free.
     """
     if not recipe.entrypoints:
-        return (), overrides
-    given = dict(overrides)
+        return (), {}
+    given = {**(existing or {}), **overrides}
+    served = {record.domain: record for record in store.list_domains(domain)} if existing else {}
     planned: list[PlannedEntrypoint] = []
+    chosen: dict[str, str] = {}
     taken = {number for number in (port,) if number} | store.ports_owned_by_apps()
     seen = {domain: "the application's own address"}
     for entry in recipe.entrypoints:
@@ -470,6 +481,21 @@ def _plan_entrypoints(
                 f"{name} is {seen[name]}, so it cannot also be the {entry.name} address",
                 details=f"Give {entry.domain_variable} a name of its own.",
             )
+        seen[name] = f"the {entry.name} address"
+        record = served.get(name)
+        if record is not None and record.port:
+            taken.add(record.port)
+            planned.append(
+                PlannedEntrypoint(
+                    name=entry.name,
+                    title=entry.title,
+                    domain=name,
+                    port=record.port,
+                    domain_variable=entry.domain_variable,
+                    present=True,
+                )
+            )
+            continue
         owner = store.domain_owner(name)
         if owner is not None:
             raise RecipeError(
@@ -477,11 +503,10 @@ def _plan_entrypoints(
                 details=f"Give {entry.domain_variable} another name, or remove it from "
                 f"{owner[0]} first.",
             )
-        seen[name] = f"the {entry.name} address"
         number = _entrypoint_port(recipe, entry, given, taken)
         taken.add(number)
-        given[entry.domain_variable] = name
-        given[entry.port_variable] = str(number)
+        chosen[entry.domain_variable] = name
+        chosen[entry.port_variable] = str(number)
         planned.append(
             PlannedEntrypoint(
                 name=entry.name,
@@ -491,7 +516,7 @@ def _plan_entrypoints(
                 domain_variable=entry.domain_variable,
             )
         )
-    return tuple(planned), given
+    return tuple(planned), chosen
 
 
 def _entrypoint_domain(entry: Entrypoint, value: str) -> str:
@@ -1049,7 +1074,7 @@ def finish_recipe(
 
     record_install(plan.domain, plan.recipe, store=store)
     notes = list(plan.notes)
-    notes.extend(_add_entrypoints(plan, logger=logger))
+    notes.extend(add_entrypoints(plan.domain, plan.entrypoints, logger=logger))
     if default_backups:
         from noust.recipes.backups import apply_default_backups
 
@@ -1057,7 +1082,9 @@ def finish_recipe(
     return notes
 
 
-def _add_entrypoints(plan: RecipePlan, *, logger: Logger) -> list[str]:
+def add_entrypoints(
+    domain: str, entrypoints: Sequence[PlannedEntrypoint], *, logger: Logger
+) -> list[str]:
     """
     Make the application answer on each extra address its recipe asked for.
 
@@ -1066,10 +1093,11 @@ def _add_entrypoints(plan: RecipePlan, *, logger: Logger) -> list[str]:
     application answers on": the site, the certificate and the DNS record follow. The application
     is deployed and works on its own address, so an address that cannot be added (another site
     answers on it, the web server refuses it) is a note with the command that repeats it, never
-    a failed install.
+    a failed install. One the application already answers on is skipped.
 
     Args:
-        plan: What the recipe resolved to.
+        domain: The application's domain.
+        entrypoints: What the plan decided.
         logger: Where progress is reported.
 
     Returns:
@@ -1078,14 +1106,16 @@ def _add_entrypoints(plan: RecipePlan, *, logger: Logger) -> list[str]:
     from noust.deployers import domains
 
     notes: list[str] = []
-    for entry in plan.entrypoints:
+    for entry in entrypoints:
+        if entry.present:
+            continue
         try:
-            domains.add_domain(plan.domain, entry.domain, "alias", port=entry.port, logger=logger)
+            domains.add_domain(domain, entry.domain, "alias", port=entry.port, logger=logger)
         except NoustError as exc:
             logger.warning(f"{entry.domain} was not added: {exc.message}")
             notes.append(
                 f"{entry.title} address {entry.domain} was not added: {exc.message}. "
-                f"Once that is fixed, run: noust domain add {plan.domain} {entry.domain} "
+                f"Once that is fixed, run: noust domain add {domain} {entry.domain} "
                 f"--port {entry.port}"
             )
     return notes
