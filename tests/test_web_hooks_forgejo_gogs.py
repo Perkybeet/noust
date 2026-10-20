@@ -232,7 +232,9 @@ class TestTheRealServersAreNotTakenForGitHub:
         self, own: str, client: TestClient, secret: str, queued: list[dict[str, Any]]
     ) -> None:
         response = client.post(
-            f"/hooks/deploy/{DOMAIN}", content=PUSH_MAIN, headers=sends_everything(own, secret, PUSH_MAIN)
+            f"/hooks/deploy/{DOMAIN}",
+            content=PUSH_MAIN,
+            headers=sends_everything(own, secret, PUSH_MAIN),
         )
 
         assert response.status_code == 202, response.text
