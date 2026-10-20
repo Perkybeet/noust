@@ -1,0 +1,109 @@
+# Bugsink from the image the project publishes (bugsink/bugsink on Docker Hub) with MySQL, as its
+# Docker installation page describes (bugsink.com/docs/docker-install, "Proxy headers" and
+# "Settings", read 2026-10-20), which says plainly that SQLite on a Docker volume is not
+# recommended (it runs in WAL mode, which volumes do not guarantee) and asks for an external
+# database: here a MySQL of the stack. SECRET_KEY is at least 50 characters, CREATE_SUPERUSER
+# ("e-mail:password") makes the first user when the container starts, BASE_URL is the public
+# address, and BEHIND_HTTPS_PROXY makes it trust the headers nginx sets. The image migrates the
+# database when it starts. It speaks the Sentry protocol: point a Sentry SDK's DSN at it. The root
+# redirects to the sign-in page, which the health check takes as the answer.
+#
+# Licence: the PolyForm Shield License 1.0.0 (LICENSE, read 2026-10-20), source-available: free to
+# use, not to offer as a product that competes with Bugsink; the ee/ directory is not part of the
+# image.
+#
+# Pinned to the release tag and to the digests Docker Hub serves for it.
+schema: 2
+name: bugsink
+kind: compose
+title: Bugsink
+slogan: "Self-hosted error tracking that is compatible with the Sentry SDKs."
+description: "Collect the errors your applications raise with the Sentry SDKs you already use, group them into issues and get alerts, without Sentry's weight: one small container and a MySQL. Source-available under the PolyForm Shield License: free to use, not to offer as a competing product. Starts with the administrator you name."
+category: monitoring
+tags: [error-tracking, sentry-compatible, crash-reporting]
+logo: logo.svg
+version: "2.6.1"
+revision: 1
+updated: 2026-10-20
+homepage: https://www.bugsink.com
+docs: https://www.bugsink.com/docs/
+repository: https://github.com/bugsink/bugsink
+license: LicenseRef-PolyForm-Shield-1.0.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8800
+variables:
+  BASE_URL:
+    from: url
+    description: The address people use; DSNs and links are built from it.
+  SECRET_KEY:
+    generate: password64
+    description: Signs the sessions (at least 50 characters). Changing it signs everybody out.
+  ADMIN_EMAIL:
+    required: true
+    description: The e-mail address of the first user, which you sign in with.
+  ADMIN_PASSWORD:
+    generate: password32
+    description: The first user's password. Bugsink reads it only when it creates the user.
+  TIME_ZONE:
+    default: UTC
+    description: The time zone, such as Europe/Madrid.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's MySQL account.
+  MYSQL_ROOT_PASSWORD:
+    generate: password32
+    description: The password of the MySQL root account, which stays inside the stack.
+health:
+  path: /
+  expect: "200-399"
+  timeout: 300
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    bugsink:
+      image: bugsink/bugsink:2.6.1@sha256:c5e3657451f4ba1ddb145a5118a4347314206cc5ba98f40e5f268c6c0975963e
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        PORT: "8000"
+        BASE_URL: "${BASE_URL}"
+        SECRET_KEY: "${SECRET_KEY}"
+        CREATE_SUPERUSER: "${ADMIN_EMAIL}:${ADMIN_PASSWORD}"
+        DATABASE_URL: "mysql://bugsink:${DB_PASSWORD}@db/bugsink"
+        BEHIND_HTTPS_PROXY: "True"
+        TIME_ZONE: "${TIME_ZONE}"
+        EMAIL_HOST:
+        EMAIL_PORT:
+        EMAIL_HOST_USER:
+        EMAIL_HOST_PASSWORD:
+        EMAIL_USE_TLS:
+        DEFAULT_FROM_EMAIL:
+      ports:
+        - "127.0.0.1:${PORT}:8000"
+    db:
+      image: mysql:8.4.11@sha256:6ea90827b1100f8f2ae306a539f86d2c264a26ed435a2a9f75551dd5c3aeb242
+      restart: unless-stopped
+      environment:
+        MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+        MYSQL_DATABASE: bugsink
+        MYSQL_USER: bugsink
+        MYSQL_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 30s
+      volumes:
+        - bugsink-db:/var/lib/mysql
+  volumes:
+    bugsink-db:
+notes:
+  - "Sign in at {{ url }} as {{ vars.ADMIN_EMAIL }}; the password is ADMIN_PASSWORD (noust env show {{ domain }} --unmask). It is read only when the user is created: change it in Bugsink afterwards."
+  - "Create a project and give its DSN to a Sentry SDK in your application. Bugsink prints e-mail to its log until you set EMAIL_HOST (and EMAIL_PORT, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD) in the application's Environment tab and restart it."
+  - "Bugsink is source-available under the PolyForm Shield License: you may use it, and may not offer it as a product that competes with it."
+  - "Everything it keeps is in the database, the Docker volume bugsink-db of this application (MySQL, dumped by Noust before every update): back it up before updating."

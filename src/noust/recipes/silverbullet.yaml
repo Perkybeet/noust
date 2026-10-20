@@ -1,0 +1,56 @@
+# SilverBullet from the image the project publishes (ghcr.io/silverbulletmd/silverbullet).
+# Configuration is what the project documents (silverbullet.md "Install/Configuration"):
+# SB_USER ("user:password") turns on authentication, the notes (the "space") are plain Markdown
+# files under /space, and the server listens on 3000. Its /.ping endpoint answers without a
+# login.
+#
+# Derived in part from Coolify's template "silverbullet" (Apache-2.0,
+# https://github.com/coollabsio/coolify/blob/next/templates/compose/silverbullet.yaml): the
+# variable and the volume. Pinned to the release tag and to the digest ghcr.io serves for it.
+schema: 2
+name: silverbullet
+kind: compose
+title: SilverBullet
+slogan: "A programmable note-taking app for Markdown, with notes stored as plain files."
+description: "A web notebook where every page is a Markdown file, with links between pages, queries over your notes and a plug-in system in Lua. Works offline in the browser and syncs back to the server. Starts behind a sign-in."
+category: productivity
+tags: [notes, markdown, pkm, wiki]
+logo: logo.svg
+version: "2.12.1"
+revision: 1
+updated: 2026-10-20
+homepage: https://silverbullet.md
+docs: https://silverbullet.md/Install/Configuration
+repository: https://github.com/silverbulletmd/silverbullet
+license: MIT
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SB_USERNAME:
+    default: admin
+    description: The user name you sign in with.
+  SB_PASSWORD:
+    generate: password32
+    description: The password you sign in with.
+health:
+  path: /.ping
+  expect: "200"
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    silverbullet:
+      image: ghcr.io/silverbulletmd/silverbullet:2.12.1@sha256:370a3bf2daa37b7dbba62183085c57d5d43862189ea127e0765646d230561d9d
+      restart: unless-stopped
+      environment:
+        SB_USER: "${SB_USERNAME}:${SB_PASSWORD}"
+      volumes:
+        - silverbullet-space:/space
+      ports:
+        - "127.0.0.1:${PORT}:3000"
+  volumes:
+    silverbullet-space:
+notes:
+  - "Sign in at {{ url }} as {{ vars.SB_USERNAME }}; the password is SB_PASSWORD (noust env show {{ domain }} --unmask)."
+  - "Your notes are Markdown files in the Docker volume silverbullet-space of this application: back it up before updating."

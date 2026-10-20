@@ -1,0 +1,85 @@
+# Transmission from the image linuxserver.io publishes (ghcr.io/linuxserver/transmission), run as
+# its documentation describes (docs.linuxserver.io/images/docker-transmission, read 2026-10-20):
+# USER and PASS protect the web interface with a password (without them it is open), PEERPORT is
+# the port peers connect to, /config holds the settings, /downloads what it fetches and /watch the
+# .torrent files it picks up. PUID and PGID of 0 run it as root inside the container so that a
+# directory the operator mounts is writable (the image changes the ownership of /config only).
+# The peer port is published on every address, tcp and udp, because peers must reach it: the
+# recipe declares it. Behind nginx the interface answers 401 to a request with no credentials,
+# which is the status the health check expects.
+#
+# Pinned to the release tag and to the digest ghcr.io serves for it.
+schema: 2
+name: transmission
+kind: compose
+title: Transmission
+slogan: "A fast, light BitTorrent client with a web interface."
+description: "Download and seed torrents on the server and manage them from the browser or a remote app. The web interface asks for a password; the peer port 51413 is open to the network so that others can connect to you."
+category: utilities
+tags: [torrent, bittorrent, downloads, p2p]
+logo: logo.svg
+version: "4.1.3"
+revision: 1
+updated: 2026-10-20
+homepage: https://transmissionbt.com
+docs: https://github.com/transmission/transmission/blob/main/docs/README.md
+repository: https://github.com/transmission/transmission
+license: GPL-2.0-or-later
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 9091
+variables:
+  TRANSMISSION_USER:
+    default: admin
+    description: The user name of the web interface.
+  TRANSMISSION_PASS:
+    generate: password32
+    description: The password of the web interface.
+  DOWNLOADS_PATH:
+    default: ./downloads
+    description: Where Transmission puts what it downloads. Inside the application by default; give an absolute path to share it with the applications that use the files.
+  PUID:
+    default: "0"
+    description: The user ID the process runs as inside the container. 0 is root; use the owner of your library to keep its files yours.
+  PGID:
+    default: "0"
+    description: The group ID the process runs as inside the container.
+  TZ:
+    default: UTC
+    description: The time zone, such as Europe/Madrid.
+public_ports:
+  - {port: 51413, protocol: tcp, purpose: "BitTorrent peers connect to it."}
+  - {port: 51413, protocol: udp, purpose: "The same for uTP and the DHT."}
+health:
+  path: /transmission/web/
+  expect: "401"
+  timeout: 120
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    transmission:
+      image: ghcr.io/linuxserver/transmission:4.1.3-r0-ls364@sha256:d6caecad406774a18511be7bfa99ba5070c17a3bdd7a5d73091651841603273c
+      restart: unless-stopped
+      environment:
+        PUID: "${PUID}"
+        PGID: "${PGID}"
+        TZ: "${TZ}"
+        USER: "${TRANSMISSION_USER}"
+        PASS: "${TRANSMISSION_PASS}"
+        PEERPORT: "51413"
+      volumes:
+        - transmission-config:/config
+        - "${DOWNLOADS_PATH}:/downloads"
+        - transmission-watch:/watch
+      ports:
+        - "127.0.0.1:${PORT}:9091"
+        - "51413:51413"
+        - "51413:51413/udp"
+  volumes:
+    transmission-config:
+    transmission-watch:
+notes:
+  - "Open {{ url }} and sign in as {{ vars.TRANSMISSION_USER }}; the password is TRANSMISSION_PASS (noust env show {{ domain }} --unmask)."
+  - "Port 51413, tcp and udp, is open to the network so that peers can reach you: open it in your firewall if this server has one."
+  - "Downloads go to {{ app_path }}/downloads, or to DOWNLOADS_PATH if you set it; restart the application after changing it: noust restart {{ domain }}. The settings are in the Docker volume transmission-config: back it up before updating."

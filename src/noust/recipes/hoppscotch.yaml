@@ -1,0 +1,124 @@
+# Hoppscotch Community Edition from the all-in-one image the project publishes
+# (hoppscotch/hoppscotch on Docker Hub) with PostgreSQL, as its self-hosting documentation
+# describes (docs.hoppscotch.io "Self-host > Community Edition > Install and build" and
+# "Environment variables", read 2026-10-20). ENABLE_SUBPATH_BASED_ACCESS=true makes the image serve the app, the admin
+# dashboard (/admin) and the backend (/backend) behind one address instead of three ports. The
+# project runs `prisma migrate deploy` as a separate job before the backend; the same command runs
+# first in this container (and does nothing once the database is current). JWT_SECRET,
+# SESSION_SECRET and DATA_ENCRYPTION_KEY (32 characters) are generated. Sign-in is by e-mail
+# link or OAuth, configured in the admin dashboard that the first visit opens, so the first note
+# says to open it now.
+#
+# Licence: MIT (LICENSE, read 2026-10-20). Pinned to the release tag and to the digests Docker
+# Hub serves for it.
+#
+# Derived in part from Coolify's template "hoppscotch" (Apache-2.0,
+# https://github.com/coollabsio/coolify/blob/next/templates/compose/hoppscotch.yaml): the
+# arrangement of the VITE_* addresses.
+schema: 2
+name: hoppscotch
+kind: compose
+title: Hoppscotch
+slogan: "An open source API development ecosystem: REST, GraphQL, WebSocket and more."
+description: "Design and test APIs in the browser with collections, environments, request history and team workspaces, as an open alternative to Postman. Sign-in is by e-mail link or OAuth, which you configure in its admin dashboard on the first visit."
+category: development
+tags: [api, rest, graphql, testing, postman-alternative]
+logo: logo.svg
+version: "2026.9.0"
+revision: 1
+updated: 2026-10-20
+homepage: https://hoppscotch.io
+docs: https://docs.hoppscotch.io/documentation/self-host/getting-started
+repository: https://github.com/hoppscotch/hoppscotch
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3680
+variables:
+  HOPPSCOTCH_URL:
+    from: url
+    description: The address people use.
+  HOPPSCOTCH_FQDN:
+    from: fqdn
+    description: The domain of that address, for the WebSocket address (wss, so the application is served over TLS).
+  JWT_SECRET:
+    generate: password64
+    description: Signs the access and refresh tokens. Changing it signs everybody out.
+  SESSION_SECRET:
+    generate: password64
+    description: Signs the sessions.
+  DATA_ENCRYPTION_KEY:
+    generate: hex32
+    description: Encrypts the data Hoppscotch stores (32 characters). Do not change it once any exists.
+  TOKEN_SALT_COMPLEXITY:
+    default: "10"
+    description: The cost of hashing the tokens (bcrypt rounds).
+  MAGIC_LINK_TOKEN_VALIDITY:
+    default: "3"
+    description: Days a sign-in link stays valid.
+  REFRESH_TOKEN_VALIDITY:
+    default: "604800000"
+    description: Milliseconds a refresh token stays valid (a week).
+  ACCESS_TOKEN_VALIDITY:
+    default: "86400000"
+    description: Milliseconds an access token stays valid (a day).
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /
+  expect: "200"
+  timeout: 300
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    hoppscotch:
+      image: hoppscotch/hoppscotch:2026.9.0@sha256:3160f5b3acf49478552a66a0785ee6c75f64311066f149f7d946fbd540f8388d
+      restart: unless-stopped
+      command: ["sh", "-c", "pnpx prisma migrate deploy && node /usr/src/app/aio_run.mjs"]
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        DATABASE_URL: "postgresql://hoppscotch:${DB_PASSWORD}@db:5432/hoppscotch"
+        JWT_SECRET: "${JWT_SECRET}"
+        SESSION_SECRET: "${SESSION_SECRET}"
+        DATA_ENCRYPTION_KEY: "${DATA_ENCRYPTION_KEY}"
+        TOKEN_SALT_COMPLEXITY: "${TOKEN_SALT_COMPLEXITY}"
+        MAGIC_LINK_TOKEN_VALIDITY: "${MAGIC_LINK_TOKEN_VALIDITY}"
+        REFRESH_TOKEN_VALIDITY: "${REFRESH_TOKEN_VALIDITY}"
+        ACCESS_TOKEN_VALIDITY: "${ACCESS_TOKEN_VALIDITY}"
+        REDIRECT_URL: "${HOPPSCOTCH_URL}"
+        WHITELISTED_ORIGINS: "${HOPPSCOTCH_URL}/backend,${HOPPSCOTCH_URL},${HOPPSCOTCH_URL}/admin"
+        VITE_ALLOWED_AUTH_PROVIDERS: EMAIL
+        MAILER_USE_CUSTOM_CONFIGS: "true"
+        VITE_BASE_URL: "${HOPPSCOTCH_URL}"
+        VITE_SHORTCODE_BASE_URL: "${HOPPSCOTCH_URL}"
+        VITE_ADMIN_URL: "${HOPPSCOTCH_URL}/admin"
+        VITE_BACKEND_GQL_URL: "${HOPPSCOTCH_URL}/backend/graphql"
+        VITE_BACKEND_WS_URL: "wss://${HOPPSCOTCH_FQDN}/backend/graphql"
+        VITE_BACKEND_API_URL: "${HOPPSCOTCH_URL}/backend/v1"
+        ENABLE_SUBPATH_BASED_ACCESS: "true"
+      ports:
+        - "127.0.0.1:${PORT}:80"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: hoppscotch
+        POSTGRES_DB: hoppscotch
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U hoppscotch -d hoppscotch"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - hoppscotch-db:/var/lib/postgresql/data
+  volumes:
+    hoppscotch-db:
+notes:
+  - "Open {{ url }}/admin now: the first person to sign in there becomes the administrator, and the dashboard is where you set up the mail server or the OAuth providers people sign in with. Until you do, anybody who reaches it can claim it."
+  - "Everything Hoppscotch keeps is in the database, the Docker volume hoppscotch-db of this application (PostgreSQL, dumped by Noust before every update): back it up before updating."

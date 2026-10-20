@@ -1,0 +1,5 @@
+# How nginx proxies this application. The interface keeps a WebSocket open and backups are uploaded.
+max_body_size: 100m
+routes:
+  - path: /
+    read_timeout: 3600

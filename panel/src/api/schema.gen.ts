@@ -48489,7 +48489,7 @@ export interface components {
             dump?: string | null;
             /**
              * Engine
-             * @description As noust db names it: postgresql, mysql, mariadb...
+             * @description The engine, by the name Noust gives it: postgresql, mysql, mariadb...
              */
             engine: string;
             /** Image */

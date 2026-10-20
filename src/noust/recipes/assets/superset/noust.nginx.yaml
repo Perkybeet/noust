@@ -1,0 +1,5 @@
+# How nginx proxies this application. Charts are exported and files uploaded, and queries run for a while.
+max_body_size: 100m
+routes:
+  - path: /
+    read_timeout: 600

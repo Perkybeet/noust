@@ -1,16 +1,83 @@
+# Home Assistant Container from the image the project publishes
+# (ghcr.io/home-assistant/home-assistant), run as its Docker installation page describes
+# (home-assistant.io/installation/linux, read 2026-10-20) without the three things that page adds
+# and a recipe may not have: --privileged (for USB radios and Bluetooth), --network=host (for the
+# discovery of devices by mDNS and SSDP on the local network) and /run/dbus. What is left is the
+# application on 8123 with its configuration under /config, which is what runs on a server
+# whose devices are reached by address or through the cloud and MQTT. Behind nginx it refuses
+# requests unless configuration.yaml trusts the proxy (http.use_x_forwarded_for and
+# trusted_proxies, its "Reverse proxy" documentation), so the entrypoint writes that file, and the
+# three files the UI's editors need, when /config lacks them: once, never again, so what the
+# operator or the interface changes afterwards stays. The first visit is the onboarding that
+# creates the owner, which the first note says. /manifest.json answers without a sign-in.
+#
+# Pinned to the release tag and to the digest ghcr.io serves for it.
 schema: 2
 name: home-assistant
 kind: compose
 title: Home Assistant
 slogan: "Open source home automation that puts local control and privacy first."
-description: "Control and automate lights, sensors and appliances from one place, with thousands of integrations. Listed because it needs the host's network and devices."
+description: "Control and automate lights, sensors and appliances from one place, with thousands of integrations. Runs in a container on a bridge network: devices are added by address or through the cloud and MQTT, and the automatic discovery of devices on the local network, Bluetooth and USB radios are not available. The first person to open it creates the owner."
 category: smart-home
-tags: [home-automation, iot, smart-home]
+tags: [home-automation, iot, smart-home, mqtt]
 logo: logo.svg
-updated: 2026-10-06
+version: "2026.10.2"
+revision: 1
+updated: 2026-10-20
 homepage: https://www.home-assistant.io
 docs: https://www.home-assistant.io/installation/linux/
 repository: https://github.com/home-assistant/core
 license: Apache-2.0
-available: false
-unavailable_reason: "The project's container instructions run it with --privileged, --network=host and /run/dbus mounted (www.home-assistant.io/installation/linux, read 2026-10-06); a recipe may use none of them, and in a bridged container it could not discover the devices on the network, which is most of what it is for. Not available in this release."
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8123
+variables:
+  TZ:
+    default: UTC
+    description: The time zone, such as Europe/Madrid.
+health:
+  path: /manifest.json
+  expect: "200"
+  timeout: 300
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    homeassistant:
+      image: ghcr.io/home-assistant/home-assistant:2026.10.2@sha256:33afb0659d786213264c2211f8d91c5fe87461c56eba6a3a546eb05fc71e89f4
+      restart: unless-stopped
+      entrypoint:
+        - sh
+        - -c
+        - |
+          if [ ! -f /config/configuration.yaml ]; then
+            cat > /config/configuration.yaml <<'YAML'
+          default_config:
+          http:
+            use_x_forwarded_for: true
+            trusted_proxies:
+              - 127.0.0.1
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+          automation: !include automations.yaml
+          script: !include scripts.yaml
+          scene: !include scenes.yaml
+          YAML
+          fi
+          [ -f /config/automations.yaml ] || echo '[]' > /config/automations.yaml
+          [ -f /config/scripts.yaml ] || echo '{}' > /config/scripts.yaml
+          [ -f /config/scenes.yaml ] || echo '[]' > /config/scenes.yaml
+          exec /init
+      environment:
+        TZ: "${TZ}"
+      volumes:
+        - homeassistant-config:/config
+      ports:
+        - "127.0.0.1:${PORT}:8123"
+  volumes:
+    homeassistant-config:
+notes:
+  - "Open {{ url }} now to finish the onboarding: until it is done, anybody who reaches the page can create the owner account."
+  - "This container is on a bridge network: add devices by their address, through the cloud or MQTT. Automatic discovery on the local network, Bluetooth and USB radios need the host's network and devices, which a recipe cannot have."
+  - "Everything Home Assistant keeps is in the Docker volume homeassistant-config of this application, configuration.yaml among it: back it up before updating."

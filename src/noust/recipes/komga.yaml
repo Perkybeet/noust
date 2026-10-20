@@ -1,0 +1,58 @@
+# Komga from the image the project publishes (gotson/komga on Docker Hub), run as its
+# documentation describes (komga.org "Installation > Docker", read 2026-10-20): the database and
+# settings under /config, the libraries (comics, manga, magazines, books) under /data, which is
+# the directory MEDIA_PATH names and is mounted read-only, and the interface on 25600. The first
+# visit creates the administrator, which the first note says. Komga is a Spring application and
+# takes a minute to start.
+#
+# Pinned to the release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: komga
+kind: compose
+title: Komga
+slogan: "A media server for comics, manga and magazines, with a reader and OPDS."
+description: "Browse and read your comics, manga, magazines and e-books from the browser or any OPDS or Kobo app, with reading progress, collections and per-user access. The first person to open it creates the administrator."
+category: media
+tags: [comics, manga, ebooks, opds]
+logo: logo.svg
+version: "1.29.1"
+revision: 1
+updated: 2026-10-20
+homepage: https://komga.org
+docs: https://komga.org/docs/
+repository: https://github.com/gotson/komga
+license: MIT
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 25600
+variables:
+  MEDIA_PATH:
+    default: ./media
+    description: The directory of comics and books to serve, read-only. Inside the application by default; give an absolute path to use a library elsewhere.
+  TZ:
+    default: UTC
+    description: The time zone, such as Europe/Madrid.
+health:
+  path: /
+  expect: "200"
+  timeout: 300
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    komga:
+      image: gotson/komga:1.29.1@sha256:9fa656e8259bbd75c0f654bdfa91abf2b4813cbf4f40e80eb292495446ffdf1f
+      restart: unless-stopped
+      environment:
+        TZ: "${TZ}"
+      volumes:
+        - komga-config:/config
+        - "${MEDIA_PATH}:/data:ro"
+      ports:
+        - "127.0.0.1:${PORT}:25600"
+  volumes:
+    komga-config:
+notes:
+  - "Open {{ url }} now and create the administrator: until you do, anybody who reaches it can."
+  - "Put your comics in {{ app_path }}/media, or set MEDIA_PATH to the directory that holds them and restart the application: noust restart {{ domain }}. Add it as a library under /data."
+  - "Its database and settings are in the Docker volume komga-config of this application: back it up before updating."

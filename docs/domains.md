@@ -46,8 +46,11 @@ noust domain certificate shop.example.com [--reduce]         # bring the certifi
   ([certificates.md](certificates.md)): `noust cert use APP --acme --dns ACCOUNT`.
 - **A port of its own.** An alias can be proxied to another port of the application than its own
   (an admin interface, an API on a second listener). It gets a server block of its own; the rest
-  of the site is unchanged. The port is checked against what the application can honour (a Docker
-  Compose stack routes by `noust.nginx.yaml`, where each route names its port).
+  of the site is unchanged. The port is checked against what the application can honour: a Docker
+  Compose stack may send a name to a port the stack publishes on the host (read from its `.env`, as
+  Compose reads it, so a recipe that gives a service an address of its own works this way,
+  [recipes.md](recipes.md#several-public-addresses)) and to no other, and routes by path with
+  `noust.nginx.yaml`, where each route names its port.
 - **Another site already answers on the name.** Adding it is refused, naming the site, unless
   `--force` says it is meant (a wildcard that covers the name counts). In the console it is a
   question with the other site's words in front, and an "Add it anyway" button.

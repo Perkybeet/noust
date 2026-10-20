@@ -1,0 +1,5 @@
+# How nginx proxies this application. Blobs are uploaded and the editor keeps a WebSocket open.
+max_body_size: 100m
+routes:
+  - path: /
+    read_timeout: 600

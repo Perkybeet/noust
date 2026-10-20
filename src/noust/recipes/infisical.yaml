@@ -1,0 +1,109 @@
+# Infisical from the image the project publishes (infisical/infisical on Docker Hub) with the
+# PostgreSQL and Redis-compatible store (Valkey) its self-hosting guide asks for
+# (infisical.com/docs/self-hosting/deployment-options/docker-compose, read 2026-10-20):
+# ENCRYPTION_KEY (16 bytes in hexadecimal: it encrypts the keys that encrypt your secrets),
+# AUTH_SECRET (signs the sessions), DB_CONNECTION_URI, REDIS_URL and SITE_URL (the public
+# address). The image migrates the database when it starts. The first person to open it creates
+# the administrator. /api/status answers without a sign-in.
+#
+# Licence (LICENSE, read 2026-10-20): MIT, except the directories named ee/, which are under a
+# commercial licence. The description says so.
+#
+# Pinned to the release tag and to the digests Docker Hub serves for it.
+schema: 2
+name: infisical
+kind: compose
+title: Infisical
+slogan: "An open source secrets manager for teams: keys, tokens and certificates in one vault."
+description: "Store and share secrets across environments, inject them into your applications and CI, rotate them and see who read what, with end-to-end encryption. An open core project: MIT for what it ships, with enterprise features sold separately. The first person to open it creates the administrator."
+category: security
+tags: [secrets, vault, kms, devops]
+logo: logo.svg
+version: "0.166.8"
+revision: 1
+updated: 2026-10-20
+homepage: https://infisical.com
+docs: https://infisical.com/docs/self-hosting/overview
+repository: https://github.com/Infisical/infisical
+license: LicenseRef-Infisical-MIT-and-EE
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8480
+variables:
+  SITE_URL:
+    from: url
+    description: The address people use; links in e-mails and the sign-in callbacks are built from it.
+  ENCRYPTION_KEY:
+    generate: hex32
+    description: Encrypts the keys that protect your secrets (16 bytes in hexadecimal). Losing or changing it makes every secret unreadable.
+  AUTH_SECRET:
+    generate: base64_32
+    description: Signs the sessions. Changing it signs everybody out.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /api/status
+  expect: "200"
+  timeout: 300
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    infisical:
+      image: infisical/infisical:v0.166.8@sha256:bb8352b71cea9e329af1216f7d43804598ede5208c5dd427fcd38bc26c098505
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      environment:
+        NODE_ENV: production
+        SITE_URL: "${SITE_URL}"
+        ENCRYPTION_KEY: "${ENCRYPTION_KEY}"
+        AUTH_SECRET: "${AUTH_SECRET}"
+        DB_CONNECTION_URI: "postgres://infisical:${DB_PASSWORD}@db:5432/infisical"
+        REDIS_URL: redis://redis:6379
+        TELEMETRY_ENABLED: "false"
+        SMTP_HOST:
+        SMTP_PORT:
+        SMTP_USERNAME:
+        SMTP_PASSWORD:
+        SMTP_FROM_ADDRESS:
+        SMTP_FROM_NAME:
+      ports:
+        - "127.0.0.1:${PORT}:8080"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: infisical
+        POSTGRES_DB: infisical
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U infisical -d infisical"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - infisical-db:/var/lib/postgresql/data
+    redis:
+      image: valkey/valkey:9.0.6-alpine@sha256:187679e3bd4036959631e3f03983ab2ba503ab21e6fd0454d508e909db2ee989
+      restart: unless-stopped
+      healthcheck:
+        test: ["CMD", "valkey-cli", "ping"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      volumes:
+        - infisical-cache:/data
+  volumes:
+    infisical-db:
+    infisical-cache:
+notes:
+  - "Open {{ url }} now and create the administrator: until you do, anybody who reaches it can."
+  - "Everything Infisical keeps is encrypted with ENCRYPTION_KEY (noust env show {{ domain }} --unmask): keep a copy of it apart from the backups, because without it the database is unreadable."
+  - "The database is in the Docker volume infisical-db of this application (PostgreSQL, dumped by Noust before every update): back it up before updating. Infisical sends no e-mail until you set the SMTP_* variables and restart it."
+  - "Infisical is an open core project: the enterprise features need a subscription from the project."

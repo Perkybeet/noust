@@ -631,3 +631,113 @@ def test_a_recipe_in_the_2_3_format_cannot_be_updated_through_the_catalogue(
 def test_the_changelog_entries_are_what_an_update_shows() -> None:
     """The records are plain."""
     assert ChangelogEntry("1.0.0", "x") == ChangelogEntry(version="1.0.0", summary="x")
+
+
+# ---------------------------------------------------------------------------
+# A new version that answers on another address (Typebot's viewer, Logto's console)
+# ---------------------------------------------------------------------------
+
+VIEWER = "view.example.com"
+
+
+def two_addresses(version: str) -> dict[str, Any]:
+    """A catalogue document with a second public address."""
+    from tests.recipes.test_entrypoints import two_address_recipe
+
+    return two_address_recipe(name="demo", version=version)
+
+
+def free_ports(monkeypatch: pytest.MonkeyPatch, *taken: int) -> None:
+    """Let the entrypoint ports be chosen on a machine where only ``taken`` are busy."""
+    from noust.recipes import deploy as deploy_module
+
+    def pick(
+        start: int = 3000, end: int = 9000, preferred: int | None = None, exclude: Any = ()
+    ) -> int:
+        return next(
+            port
+            for port in range(preferred or start, end)
+            if port not in exclude and port not in taken
+        )
+
+    monkeypatch.setattr(deploy_module, "find_available_port", pick)
+
+
+def test_an_update_that_adds_an_address_asks_for_it_and_adds_it_once_the_update_passed(
+    recipe_store: NoustStore, lifecycle: Lifecycle, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The new required variable stops it first; then the port is chosen and the name added."""
+    from noust.deployers import domains
+
+    stack(recipe_store, "1.0.0")
+    catalogue(monkeypatch, demo=two_addresses("1.1.0"))
+    lifecycle.env = {"SECRET": "kept", "PORT": "8123"}
+    free_ports(monkeypatch)
+    added: list[tuple[str, str, int | None]] = []
+    monkeypatch.setattr(
+        domains,
+        "add_domain",
+        lambda app, name, kind="alias", **kw: added.append((app, name, kw.get("port"))),
+    )
+
+    with pytest.raises(RecipeError, match="needs a value for VIEWER_DOMAIN"):
+        update_recipe(DOMAIN, store=recipe_store)
+    assert lifecycle.updates == [] and added == []
+
+    outcome = update_recipe(DOMAIN, overrides={"VIEWER_DOMAIN": VIEWER}, store=recipe_store)
+
+    written = lifecycle.env_writes[0]
+    assert written["VIEWER_DOMAIN"] == VIEWER and written["VIEWER_PORT"] == "3101"
+    assert written["VIEWER_URL"] == f"https://{VIEWER}"
+    assert added == [(DOMAIN, VIEWER, 3101)]
+    assert outcome.updated and outcome.notes == ()
+
+
+def test_an_update_leaves_an_address_the_application_already_answers_on_alone(
+    recipe_store: NoustStore, lifecycle: Lifecycle, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No second certificate order, no site rendered again, no variable rewritten."""
+    from noust.deployers import domains
+
+    stack(recipe_store, "1.0.0")
+    recipe_store.add_domain(DOMAIN, VIEWER, "alias")
+    recipe_store.set_domain_port(DOMAIN, VIEWER, 3101)
+    catalogue(monkeypatch, demo=two_addresses("1.1.0"))
+    lifecycle.env = {
+        "PORT": "8123",
+        "VIEWER_DOMAIN": VIEWER,
+        "VIEWER_PORT": "3101",
+        "VIEWER_URL": f"https://{VIEWER}",
+        "SCHEME": "https",
+    }
+    free_ports(monkeypatch)
+    monkeypatch.setattr(
+        domains, "add_domain", lambda *a, **k: pytest.fail("the address is already served")
+    )
+
+    outcome = update_recipe(DOMAIN, store=recipe_store)
+
+    assert outcome.updated and lifecycle.env_writes == []
+
+
+def test_an_address_that_cannot_be_added_after_an_update_is_a_note(
+    recipe_store: NoustStore, lifecycle: Lifecycle, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The update itself passed its gate: the rest is said with the command that repeats it."""
+    from noust.core.exceptions import DomainError
+    from noust.deployers import domains
+
+    stack(recipe_store, "1.0.0")
+    catalogue(monkeypatch, demo=two_addresses("1.1.0"))
+    lifecycle.env = {"PORT": "8123"}
+    free_ports(monkeypatch)
+
+    def refuse(*args: Any, **kwargs: Any) -> None:
+        raise DomainError("Another site of the web server already answers on view.example.com")
+
+    monkeypatch.setattr(domains, "add_domain", refuse)
+
+    outcome = update_recipe(DOMAIN, overrides={"VIEWER_DOMAIN": VIEWER}, store=recipe_store)
+
+    assert outcome.updated
+    assert any(f"noust domain add {DOMAIN} {VIEWER} --port 3101" in note for note in outcome.notes)

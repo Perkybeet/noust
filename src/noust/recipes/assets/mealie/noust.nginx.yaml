@@ -1,0 +1,5 @@
+# How nginx proxies this application. Recipes are imported from pages and photos are uploaded.
+max_body_size: 50m
+routes:
+  - path: /
+    read_timeout: 300

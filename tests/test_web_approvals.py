@@ -497,7 +497,10 @@ class TestAccountsCannotBeMadeWithoutASecondPerson:
     def test_nobody_recovers_another_account_of_theirs_with_a_role_they_may_not_hold(
         self, app: Any, real_config: Any
     ) -> None:
+        # Saved, as `noust config set` saves it: issuing an invitation reads the mail settings
+        # afresh from the file, which drops what was only ever set in memory.
         real_config.set("security.separation_of_duties", True)
+        real_config.save()
         accounts = get_token_manager().accounts
         accounts.add_exception("person-1", "Single operator for the migration", days=1)
         accounts.create("sam-ops", "admin", password=PASSWORD, person_ref="person-1")

@@ -1,0 +1,107 @@
+# AFFiNE from the community edition image the project publishes (ghcr.io/toeverything/affine),
+# arranged as its own self-host compose file does (.docker/selfhost/compose.yml of the repository,
+# read 2026-10-20): the server with PostgreSQL (pgvector), a Redis-compatible cache (Valkey), the
+# uploads under /root/.affine/storage and its configuration under /root/.affine/config. The
+# project runs `node ./scripts/self-host-predeploy.js` (the database migration) as a separate job
+# that the server waits for; a recipe cannot have a job that exits, so the same command runs
+# first in the server's own container, which is what that job does. AFFINE_SERVER_EXTERNAL_URL
+# is the public address, DEPLOYMENT_TYPE=selfhosted turns the cloud-only features off, and the
+# first account that signs up becomes the administrator. /info answers without a login.
+#
+# Licence (LICENSE and packages/backend/server/LICENSE, read 2026-10-20): the community edition is
+# MPL-2.0 for the parts it distributes and the rest is MIT; the enterprise edition's server code
+# needs a subscription and is not part of this image. The description says so.
+#
+# Derived in part from Coolify's template "affine" (Apache-2.0,
+# https://github.com/coollabsio/coolify/blob/next/templates/compose/affine.yaml). Pinned to the
+# release tag and to the digests the registries serve for it.
+schema: 2
+name: affine
+kind: compose
+title: AFFiNE
+slogan: "A workspace for notes, docs, whiteboards and databases that works offline."
+description: "A privacy-focused knowledge base that merges documents, whiteboards and tables on one canvas, local-first with real-time collaboration. The community edition is open core: MPL-2.0 for what it ships, with enterprise features sold separately. The first person to sign up becomes the administrator."
+category: productivity
+tags: [notes, whiteboard, docs, workspace, collaboration]
+logo: logo.svg
+version: "0.27.4"
+revision: 1
+updated: 2026-10-20
+homepage: https://affine.pro
+docs: https://docs.affine.pro/self-host-affine
+repository: https://github.com/toeverything/AFFiNE
+license: LicenseRef-AFFiNE-MPL-2.0-and-EE
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3010
+variables:
+  AFFINE_URL:
+    from: url
+    description: The address people use; AFFiNE builds its links and checks the origin of requests against it.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /info
+  expect: "200"
+  timeout: 300
+files: {noust.yaml: noust.yaml, noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    affine:
+      image: ghcr.io/toeverything/affine:0.27.4@sha256:b649f5ce2384ffdf13c23bccf81d759e15973d59d0b0058af65d895a84373099
+      restart: unless-stopped
+      command: ["sh", "-c", "node ./scripts/self-host-predeploy.js && node ./dist/main.js"]
+      depends_on:
+        db:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      environment:
+        REDIS_SERVER_HOST: redis
+        DATABASE_URL: "postgresql://affine:${DB_PASSWORD}@db:5432/affine"
+        DEPLOYMENT_TYPE: selfhosted
+        AFFINE_INDEXER_ENABLED: "false"
+        AFFINE_SERVER_EXTERNAL_URL: "${AFFINE_URL}"
+        NODE_ENV: production
+      volumes:
+        - affine-storage:/root/.affine/storage
+        - affine-config:/root/.affine/config
+      ports:
+        - "127.0.0.1:${PORT}:3010"
+    db:
+      image: pgvector/pgvector:0.8.1-pg17@sha256:3e8b3adfd27b5707128f60956f62a793c3c9326ea8cfaf0eab7adccb5d700b21
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: affine
+        POSTGRES_DB: affine
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+        POSTGRES_INITDB_ARGS: --data-checksums
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U affine -d affine"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - affine-db:/var/lib/postgresql/data
+    redis:
+      image: valkey/valkey:9.0.6-alpine@sha256:187679e3bd4036959631e3f03983ab2ba503ab21e6fd0454d508e909db2ee989
+      restart: unless-stopped
+      healthcheck:
+        test: ["CMD", "valkey-cli", "ping"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      volumes:
+        - affine-cache:/data
+  volumes:
+    affine-storage:
+    affine-config:
+    affine-db:
+    affine-cache:
+notes:
+  - "Open {{ url }} now and sign up: the first account becomes the administrator, and until you do anybody who reaches it can."
+  - "Uploads are in the Docker volume affine-storage, its configuration (config.json, for mail and other settings) in affine-config, and the database in affine-db (PostgreSQL with pgvector, dumped by Noust before every update). Back all of them up before updating: the uploads are not in the database dump."
+  - "AFFiNE's community edition is open core: the enterprise features need a subscription from the project."

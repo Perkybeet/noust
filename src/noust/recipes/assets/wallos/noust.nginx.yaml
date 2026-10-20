@@ -1,0 +1,2 @@
+# How nginx proxies this application. Logos and database backups are uploaded.
+max_body_size: 20m

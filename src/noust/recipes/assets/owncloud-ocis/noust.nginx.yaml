@@ -1,0 +1,5 @@
+# How nginx proxies this application. Files of any size are uploaded (it chunks them), and WebDAV requests stay open.
+max_body_size: 10g
+routes:
+  - path: /
+    read_timeout: 3600

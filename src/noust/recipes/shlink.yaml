@@ -1,0 +1,67 @@
+# Shlink from the image the project publishes (shlinkio/shlink on Docker Hub), run as its
+# documentation describes (shlink.io/documentation/install-docker-image, read 2026-10-20) with its
+# default SQLite database: DEFAULT_DOMAIN and IS_HTTPS_ENABLED (the short links it builds),
+# INITIAL_API_KEY (an API key made on the first start, so there is no unauthenticated way to
+# make one), the database under /etc/shlink/data, and the image listening on 8080. The short
+# links redirect to anybody who follows them, which is the point; creating, listing and deleting
+# them takes the API key. Shlink has no interface of its own: manage it from the project's web
+# client (app.shlink.io, or its own image) with this address and the key, or through the API.
+# /rest/health answers without a key.
+#
+# Pinned to the release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: shlink
+kind: compose
+title: Shlink
+slogan: "A self-hosted URL shortener with an API, QR codes and visit statistics."
+description: "Run your own short-link domain: create links with custom slugs and expiry, get QR codes and per-link visit statistics with geolocation. It is managed through its API and a web client (the project hosts one); redirects work for anybody who follows a link, creating them needs the API key."
+category: utilities
+tags: [url-shortener, links, analytics, qr-code]
+logo: logo.svg
+version: "5.1.7"
+revision: 1
+updated: 2026-10-20
+homepage: https://shlink.io
+docs: https://shlink.io/documentation/
+repository: https://github.com/shlinkio/shlink
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8780
+variables:
+  DEFAULT_DOMAIN:
+    from: fqdn
+    description: The domain short links are made on.
+  IS_HTTPS_ENABLED:
+    from: https
+    description: true when the domain is served over TLS, so short links are built with https.
+  INITIAL_API_KEY:
+    generate: password32
+    description: The API key made on the first start; the web client and your scripts send it.
+health:
+  path: /rest/health
+  expect: "200"
+  timeout: 120
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    shlink:
+      image: shlinkio/shlink:5.1.7@sha256:844e1f2b6455331c5b49207bad3a2455ccd65e62bb9daa09a6c57afff26bd9c8
+      restart: unless-stopped
+      environment:
+        DEFAULT_DOMAIN: "${DEFAULT_DOMAIN}"
+        IS_HTTPS_ENABLED: "${IS_HTTPS_ENABLED}"
+        INITIAL_API_KEY: "${INITIAL_API_KEY}"
+        TRUSTED_PROXIES: "127.0.0.1"
+        GEOLITE_LICENSE_KEY:
+      volumes:
+        - shlink-data:/etc/shlink/data
+      ports:
+        - "127.0.0.1:${PORT}:8080"
+  volumes:
+    shlink-data:
+notes:
+  - "Manage Shlink from the web client at https://app.shlink.io: add a server with the address {{ url }} and the API key INITIAL_API_KEY (noust env show {{ domain }} --unmask). Short links are served at {{ url }}/<slug>."
+  - "Visitor geolocation needs a GeoLite2 licence key from MaxMind: set GEOLITE_LICENSE_KEY in the application's Environment tab and restart it."
+  - "The links and their statistics are in the Docker volume shlink-data of this application (SQLite): back it up before updating."

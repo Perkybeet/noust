@@ -166,6 +166,9 @@ class TestMaking:
         monkeypatch.setattr(
             SubprocessRunner, "run", lambda self, argv, **kwargs: cli_world.host.run(argv, **kwargs)
         )
+        monkeypatch.setattr(
+            SubprocessRunner, "exists", lambda self, program: cli_world.host.exists(program)
+        )
 
         result = run(*CREATE, "--dry-run")
 

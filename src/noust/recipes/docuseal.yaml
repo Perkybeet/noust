@@ -1,0 +1,63 @@
+# DocuSeal from the image the project publishes (docuseal/docuseal on Docker Hub) with its
+# default SQLite database, as its self-hosting documentation (docuseal.com/on-premises, README
+# "Docker") describes: HOST is the public host name (links in e-mails and signing pages), the
+# data (database, uploads, signed documents) is under /data, and the image listens on 3000. It
+# asks whoever opens it first to create the administrator, so the first note says to do that now;
+# the root redirects to that page until it exists, which is why the health check takes a redirect.
+#
+# Licence: AGPL-3.0 with the additional terms of its LICENSE_ADDITIONAL_TERMS file (the
+# interface keeps the DocuSeal name and logo), read 2026-10-20.
+#
+# Derived in part from Coolify's template "docuseal" (Apache-2.0,
+# https://github.com/coollabsio/coolify/blob/next/templates/compose/docuseal.yaml). Pinned to the
+# release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: docuseal
+kind: compose
+title: DocuSeal
+slogan: "Create, fill and sign digital documents, with an open source e-signature platform."
+description: "Prepare PDF forms with a drag and drop builder, send them to be filled and signed from any device, and keep the signed documents on your server. Open source under the AGPL with additional terms about its name and logo. The first person to open it creates the administrator."
+category: business
+tags: [e-signature, documents, forms, pdf]
+logo: logo.svg
+version: "3.3.3"
+revision: 1
+updated: 2026-10-20
+homepage: https://www.docuseal.com
+docs: https://www.docuseal.com/on-premises
+repository: https://github.com/docusealco/docuseal
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3030
+variables:
+  DOCUSEAL_HOST:
+    from: fqdn
+    description: The public host name; DocuSeal builds the links in its e-mails and signing pages from it.
+  SECRET_KEY_BASE:
+    generate: hex64
+    description: Signs the sessions and encrypts what DocuSeal stores. Do not change it once documents exist.
+health:
+  path: /
+  expect: "200-399"
+  timeout: 180
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    docuseal:
+      image: docuseal/docuseal:3.3.3@sha256:28d0ca583860e2c73e5b068756023a93a325799a22da1f788355d566865dd051
+      restart: unless-stopped
+      environment:
+        HOST: "${DOCUSEAL_HOST}"
+        SECRET_KEY_BASE: "${SECRET_KEY_BASE}"
+      volumes:
+        - docuseal-data:/data
+      ports:
+        - "127.0.0.1:${PORT}:3000"
+  volumes:
+    docuseal-data:
+notes:
+  - "Open {{ url }} now and create the administrator: until you do, anybody who reaches it can."
+  - "DocuSeal is AGPL-3.0 with additional terms: the interface must keep the DocuSeal name and logo."
+  - "The database, the uploads and every signed document are in the Docker volume docuseal-data of this application: back it up before updating, and keep SECRET_KEY_BASE with the copy."

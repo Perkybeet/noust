@@ -1,0 +1,5 @@
+# How nginx proxies this application. Requests and collections are posted, and the realtime features use a WebSocket.
+max_body_size: 50m
+routes:
+  - path: /
+    read_timeout: 3600
