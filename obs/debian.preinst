@@ -1,0 +1,42 @@
+#!/bin/sh
+set -e
+
+# Noust 4.0 does not move a server onto its names. 3.x did that the first time root ran a
+# command, and left /etc/wasm, /var/lib/wasm and /var/backups/wasm as links. A server whose
+# configuration or store is still a real directory under the old name was never moved, and
+# unpacking 4.0 over it would point every command at empty directories. The files looked for
+# are the ones the product kept there (the name is also WebAssembly's, and a runtime's own
+# directory is not ours). This runs before anything is unpacked, so an install that stops
+# here leaves the version that is installed, if any, exactly as it was.
+case "$1" in
+    install|upgrade)
+        unmoved=
+        if [ -f /etc/wasm/config.yaml ] && [ ! -L /etc/wasm ]; then
+            unmoved="$unmoved /etc/wasm"
+        fi
+        if [ -f /var/lib/wasm/wasm.db ] && [ ! -L /var/lib/wasm ]; then
+            unmoved="$unmoved /var/lib/wasm"
+        fi
+        if [ -n "$unmoved" ]; then
+            {
+                echo "noust: this server still keeps Noust's data where it was kept before 3.0:$unmoved"
+                echo "Noust 4.0 does not move it, and nothing was changed. Install Noust 3.3.1 first,"
+                echo "run any command there as root (it moves the data onto Noust's names), check that"
+                echo "'noust list' shows your applications, then upgrade to 4.0."
+            } >&2
+            exit 1
+        fi
+        ;;
+
+    abort-upgrade)
+        ;;
+
+    *)
+        echo "preinst called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

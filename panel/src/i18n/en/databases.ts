@@ -485,6 +485,7 @@ export const databases = {
     title: "Install a database engine",
     description: "Noust installs it with the server's package manager and starts it. It runs as a job, so you can leave this page.",
     distribution: "The choices for {distribution}.",
+    distributionManager: "The choices for {distribution}, installed with {manager}.",
     engine: "Engine",
     version: "Version",
     flavourInstalled: "{engine} (installed)",

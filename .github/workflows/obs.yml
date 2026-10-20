@@ -1,5 +1,4 @@
-# Upload a release to OBS: home:Perkybeet/noust and the transitional
-# home:Perkybeet/wasm. Called by release.yml once the release is verified, and
+# Upload a release to OBS: home:Perkybeet/noust. Called by release.yml once the release is verified, and
 # runnable by hand for a tag that is already published elsewhere, when only
 # this upload failed (Actions > Publish to OBS > Run workflow, tag vX.Y.Z).
 name: Publish to OBS
@@ -84,20 +83,10 @@ jobs:
           fi
           echo "OBS connection verified successfully."
 
-      - name: Stage both packages
+      - name: Stage the package
         working-directory: release
-        run: |
-          packaging/obs/stage.sh noust /tmp/obs/noust
-          packaging/obs/stage.sh wasm /tmp/obs/wasm
+        run: packaging/obs/stage.sh noust /tmp/obs/noust
 
-      # noust first: the transitional package depends on it, and a repository
-      # that briefly has one without the other should be missing the
-      # transitional one, not the product.
       - name: Upload home:Perkybeet/noust
         run: tools/packaging/obs/publish.sh home:Perkybeet noust /tmp/obs/noust "Release ${{ inputs.tag }} from GitHub Actions"
-
-      - name: Upload home:Perkybeet/wasm (transitional)
-        run: |
-          tools/packaging/obs/publish.sh home:Perkybeet wasm /tmp/obs/wasm \
-            "${{ inputs.tag }}: transitional package, WASM is now Noust"
 

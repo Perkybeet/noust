@@ -22,17 +22,10 @@ Rules-Requires-Root: no
 
 Package: noust
 Architecture: all
-# Noust was called WASM until 3.0.0. The package that owned /usr/bin/wasm, the
-# man page and the completions before then was 'wasm'; it is now a transitional
-# package that depends on this one (packaging/transitional/wasm), so an ordinary
-# 'apt upgrade' brings noust in. Breaks+Replaces is the Debian way to take over
-# another package's files across a rename. The ~ takes in every 2.x and nothing
-# of 3.0.0, pre-releases included: a snapshot of the tree before its release
-# (packaging/obs/stage.sh --snapshot) is 3.0.0~dev, with a transitional wasm
-# of the same version that must be installable alongside it.
-Breaks: wasm (<< 3.0.0~)
-Replaces: wasm (<< 3.0.0~)
-Provides: wasm
+# A server still on the package this one replaced in 3.0 moves through 3.3 first
+# (docs/UPGRADING-3.0.md): 4.0 does not move its data, and apt would otherwise
+# put the two side by side. The ~ takes in every 2.x and no pre-release of 3.0.0.
+Conflicts: wasm (<< 3.0.0~)
 Depends: ${python3:Depends},
          ${misc:Depends},
          python3 (>= 3.10),
@@ -60,7 +53,7 @@ Depends: ${python3:Depends},
 # Debian 12 and Ubuntu 22.04, where a Depends built a package apt then refused
 # to install. On those two it is not even recommended (debian/rules decides,
 # through ${noust:Recommends}): an unsatisfiable Recommends made `apt upgrade`
-# keep wasm back instead of bringing noust in. apt installs Recommends by
+# keep noust back instead of bringing it in. apt installs Recommends by
 # default, so nothing changes on the releases that have it, and on the two that
 # do not the package installs and interactive mode explains what is missing.
 Recommends: python3-fastapi,
@@ -82,7 +75,3 @@ Description: deploy and manage web applications on Linux servers
  systemd services, manages databases and backups, and builds every deploy as
  a health-gated release with instant rollback. An optional browser console
  serves the same operations over a JSON API.
- .
- Noust was called WASM until 3.0.0. The command is noust; wasm remains an
- alias for the whole 3.x series, so existing scripts and cron lines keep
- working.

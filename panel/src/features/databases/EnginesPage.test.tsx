@@ -8,7 +8,7 @@ import { renderConsole } from "../../test/console";
 import { fakeBackend, json } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import { screenWidth } from "../app/testRoutes";
-import { CONTAINER_ENGINE, ENGINES, databaseRoutes } from "./testFixtures";
+import { CATALOG, CONTAINER_ENGINE, ENGINES, databaseRoutes } from "./testFixtures";
 
 /** A MongoDB in a Compose service: the server's own MongoDB is not installed (see ENGINES). */
 const MONGO_CONTAINER: Engine = {
@@ -162,7 +162,7 @@ describe("the engines tab", () => {
     });
     await user.click(screen.getByRole("button", { name: "Install engine" }));
     const dialog = await screen.findByRole("dialog", { name: "Install a database engine" });
-    expect(await within(dialog).findByText("The choices for Ubuntu 24.04.1 LTS.")).toBeInTheDocument();
+    expect(await within(dialog).findByText("The choices for Ubuntu 24.04.1 LTS, installed with apt.")).toBeInTheDocument();
     expect(within(dialog).getByRole("combobox", { name: "Engine" })).toHaveTextContent("PostgreSQL");
     expect(within(dialog).getByRole("combobox", { name: "Version" })).toHaveTextContent("16, from the distribution (default)");
     // MariaDB cannot run beside MySQL: listed, disabled, with the server's reason.
@@ -180,6 +180,29 @@ describe("the engines tab", () => {
     expect(backend.callsTo("POST /api/databases/engines/postgresql/install")[0]?.body).toEqual({ flavour: "postgresql", version: "17" });
     expect(await screen.findByText("Installing PostgreSQL")).toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: "Install a database engine" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["dnf", "The choices for Ubuntu 24.04.1 LTS, installed with dnf."],
+    ["zypper", "The choices for Ubuntu 24.04.1 LTS, installed with zypper."],
+    ["none", "The choices for Ubuntu 24.04.1 LTS."],
+  ])("names the package manager %s the choices are installed with, unless the server has none", async (manager, sentence) => {
+    const { user } = await enginesAt({
+      "GET /api/databases/engines/catalog": () => json(200, { ...CATALOG, apt: manager !== "none", package_manager: manager }),
+    });
+    await user.click(screen.getByRole("button", { name: "Install engine" }));
+    const dialog = await screen.findByRole("dialog", { name: "Install a database engine" });
+    expect(await within(dialog).findByText(sentence)).toBeInTheDocument();
+  });
+
+  it("names the package manager in Spanish too", async () => {
+    await act(() => setLocale("es"));
+    screenWidth(1440);
+    fakeBackend(databaseRoutes({ "GET /api/databases/engines": () => json(200, { engines: ENGINES }) }));
+    const { user } = renderConsole("/databases/engines");
+    await user.click(await screen.findByRole("button", { name: "Instalar motor" }));
+    const dialog = await screen.findByRole("dialog", { name: "Instalar un motor de bases de datos" });
+    expect(await within(dialog).findByText("Las opciones para Ubuntu 24.04.1 LTS, que se instalan con apt.")).toBeInTheDocument();
   });
 
   it("opens the installation on the flavour of the row it was chosen from", async () => {

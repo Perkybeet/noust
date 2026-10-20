@@ -27,10 +27,10 @@ CONTRACT = ROOT / "tests/contracts/cli_surface.json"
 #: Global flags. argparse declared these on the root *and* on many subparsers
 #: with the same dest, which is precisely the bug the migration removes: the
 #: subparser's default overwrote the value the user had already given, so
-#: 'wasm --dry-run monitor scan' ran a real scan. Their absence from a
+#: 'noust --dry-run monitor scan' ran a real scan. Their absence from a
 #: subcommand is the fix, not a regression.
 #:
-#: They are still accepted after a subcommand name, so 'wasm backup list
+#: They are still accepted after a subcommand name, so 'noust backup list
 #: --json' keeps working; Click just routes them to the shared context instead
 #: of to a per-command variable that can shadow it.
 DROPPED_OPTIONS = frozenset({"--verbose", "-v", "--dry-run", "--json", "--no-color"})
@@ -126,11 +126,11 @@ def compare(subtree: str | None) -> int:
         if not key or not in_scope(key):
             continue
         if key not in actual:
-            problems.append(f"missing command: wasm {key}")
+            problems.append(f"missing command: noust {key}")
             continue
         missing_options = set(expected["options"]) - set(actual[key]["options"]) - DROPPED_OPTIONS
         if missing_options:
-            problems.append(f"wasm {key}: options gone: {sorted(missing_options)}")
+            problems.append(f"noust {key}: options gone: {sorted(missing_options)}")
         for alias in expected["aliases"]:
             # Resolve the alias through the tree rather than looking it up in
             # the walked list: a group is free to accept an alias without
@@ -138,7 +138,7 @@ def compare(subtree: str | None) -> int:
             parent = key.split(" ")[:-1]
             alias_path = " ".join([*parent, alias])
             if resolve(cli, [*parent, alias]) is None:
-                problems.append(f"wasm {key}: alias 'wasm {alias_path}' does not resolve")
+                problems.append(f"noust {key}: alias 'noust {alias_path}' does not resolve")
 
     extra = {k for k in actual if k and in_scope(k)} - set(contract)
     if extra:

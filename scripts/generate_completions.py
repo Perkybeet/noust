@@ -32,15 +32,12 @@ ROOT = Path(__file__).resolve().parent.parent
 COMPLETIONS_DIR = ROOT / "src/noust/completions"
 
 #: (program, completion variable) to the file each shell expects, per shell.
-#: ``noust`` is the command; ``wasm`` is the name it had until 3.0 and keeps as
-#: an alias through 3.x, so it gets the same completions under its own name.
 #: The names are fixed rather than taken from argv0: asking the CLI through
 #: `python -m noust` names the function after the module and produces a
 #: different file from the one the installed script produces, so the check
 #: would fail depending on how it was invoked.
 PROGRAMS = {
     ("noust", "_NOUST_COMPLETE"): {"bash": "noust.bash", "zsh": "_noust", "fish": "noust.fish"},
-    ("wasm", "_WASM_COMPLETE"): {"bash": "wasm.bash", "zsh": "_wasm", "fish": "wasm.fish"},
 }
 
 

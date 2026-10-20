@@ -29,7 +29,6 @@ export const SESSION: SessionInfo = {
   version: "2.0.0",
   csrf_header: "X-WASM-CSRF",
   csrf_cookie: "wasm_csrf",
-  renamed_from_wasm: false,
   // The access token on a server whose accounts exist: everything but managing the audit trail.
   mfa_required: false,
   grant: "break_glass",

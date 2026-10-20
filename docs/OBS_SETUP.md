@@ -24,10 +24,7 @@ Go to **https://build.opensuse.org** and:
 In OBS web interface:
 1. Login → **"Home Project"** (auto-created as `home:your_username`)
 2. Click **"Create package"**
-3. Package name: `noust`. A second package in the same project, `wasm`, builds the empty
-   transitional packages (`wasm` for Debian and Ubuntu, `wasm-cli` for Fedora and openSUSE)
-   that pull in `noust`, so a server that has either upgrades onto it. See
-   [RENAME.md](RENAME.md).
+3. Package name: `noust`
 4. (Optional) Add description
 
 ### 3. Install OSC (OBS Command Line)

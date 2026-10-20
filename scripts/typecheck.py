@@ -41,7 +41,7 @@ BASELINE_FILE = ROOT / "scripts/typecheck.baseline.json"
 #: gate exists, so they are never allowed, baseline or not.
 #:
 #: ``import-not-found`` is here because it caught a real one: inquirer stayed
-#: imported after it stopped being a dependency, so ``wasm --interactive``
+#: imported after it stopped being a dependency, so ``noust --interactive``
 #: crashed on any clean install while the developer's machine, which still had
 #: the package, said nothing.
 FATAL_CODES = frozenset(

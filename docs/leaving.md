@@ -109,8 +109,8 @@ apt remove noust        # or: dnf remove noust, zypper remove noust, pip uninsta
 
 The package stops and disables the console and the monitor (`noust-web`, `noust-monitor`) and
 touches nothing else: your applications, their units and sites, the configuration, the store and
-the backups stay. `apt purge` goes one step further and removes `/etc/noust` (and the `/etc/wasm`
-link of a server that came from 2.x), `/var/log/noust` and the two unit files, and still leaves
+the backups stay. `apt purge` goes one step further and removes `/etc/noust`, `/var/log/noust` and the
+two unit files, and still leaves
 `/var/www/apps` and `/var/lib/noust`. Everything below stays until you remove it yourself:
 
 | Path | What it holds |
@@ -125,9 +125,8 @@ link of a server that came from 2.x), `/var/log/noust` and the two unit files, a
 | `noust-app-*`, `noust-build`, `noust-tunnel` | The accounts (`userdel`), when no unit runs as them |
 | `/etc/systemd/system/noust-*`, `wasm-*` | The units listed above that you chose to keep |
 
-On a server that came from a 2.x install the same paths exist under `wasm` names as links
-(`/etc/wasm` is a link to `/etc/noust`); remove both. The `wasm` command is an alias of `noust` and
-goes with it.
+A server that came through 3.x may still carry links under the product's old names beside these
+paths; `noust setup retire-links` removes the ones nothing uses, and `rm` removes any that is left.
 
 ## What a stopped Noust does
 

@@ -538,7 +538,6 @@ def _autoenable(verbose: bool = False) -> int:
         "removed": (
             "A monitor ran on this server before and was removed; left off (noust monitor enable)"
         ),
-        "legacy": "Monitor is still on WASM's names; noust migrate-from-wasm moves it",
         "no_systemd": "No systemd here; the console records the metrics history while it runs",
         "no_psutil": "psutil is not installed; the monitor was not enabled",
     }

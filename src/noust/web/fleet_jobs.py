@@ -797,8 +797,8 @@ def _update_run(run: NodeRun, job_id: Any) -> dict[str, Any] | None:
 #: What a server's step says in the plan when its update includes Noust.
 NOUST_PENDING_STEP = "Also updates Noust: the node's console will restart"
 
-#: The package names that are Noust, the transitional ones included.
-_NOUST_PACKAGES = frozenset({"noust", "wasm", "wasm-cli"})
+#: The package names that are Noust.
+_NOUST_PACKAGES = frozenset({"noust"})
 
 
 def _os_updates_precheck(run: NodeRun) -> None:
