@@ -26,7 +26,7 @@
     "i18n:missing": "node scripts/i18n.mjs missing",
     "i18n:check": "node scripts/i18n.mjs check",
     "i18n:routes": "node scripts/i18n-routes.mjs",
-    "design:baseline": "UPDATE_DESIGN_BASELINE=1 vitest run src/styles/design-rules.test.ts src/styles/design-structure.test.ts",
+    "design:baseline": "UPDATE_DESIGN_BASELINE=1 vitest run src/styles/design-rules.test.ts src/styles/design-structure.test.ts src/i18n/glossary.test.ts",
     "ux:counts": "node scripts/ux-counts.mjs",
     "screens": "node scripts/screens.mjs",
     "screens:shell": "node scripts/shell-screens.mjs"
