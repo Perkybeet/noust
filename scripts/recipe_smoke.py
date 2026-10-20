@@ -9,17 +9,23 @@ exists, is only known when the stack runs. This tool runs it, the way a deployme
 
 - the variables are resolved by Noust's own code (generated secrets included) and written
   to the stack's ``.env`` with ``PORT``, beside the document and the files the recipe ships;
-- the stack starts as ``noust-smoke-<recipe>``, a throwaway Compose project, with its web
-  service on ``127.0.0.1:<port>``;
+- the stack starts as ``<prefix><recipe>`` (``noust-smoke-`` unless ``--project-prefix`` says
+  otherwise), a throwaway Compose project, with its web service on ``127.0.0.1:<port>``, which
+  must be free: a port somebody listens on is a problem before anything is started;
+- everything the project creates (containers, volumes, the network) carries the label
+  ``noust.test=1`` through an override file, so a machine that shares its Docker can find what a
+  run made and remove it by that label and by the prefix, never by a prune;
 - the health gate's request is made exactly as the gate makes it: ``http://127.0.0.1:<port>``
   plus the recipe's path, the default ``Host`` header, no forwarded headers, and no redirect
   followed when the recipe states what it expects (an application that checks the host
   header answers the gate with a 400 or a 404, which is the finding this tool exists for);
 - the same path is asked the way nginx asks it (the domain as ``Host``, ``X-Forwarded-*``),
   for information;
-- after a settling time, every container is inspected for a restart loop and an out-of-memory
-  kill, and the log is searched for lines that look like errors;
-- the project and its volumes are removed, unless ``--keep`` says otherwise.
+- after a settling time, every container is inspected for a restart loop, an out-of-memory
+  kill and an exit with an error (a migration that failed), and the log is searched for lines
+  that look like errors;
+- the project and its volumes are removed, unless ``--keep`` says otherwise, and also when the
+  run is stopped with SIGTERM (``timeout`` sends it).
 
 It makes no change to a server and is meant for the machine of whoever writes a recipe:
 it needs Docker and the Compose plugin, pulls the recipe's images and uses the loopback
@@ -28,6 +34,7 @@ port you give it. It never touches a container it did not create.
 Usage:
     scripts/recipe_smoke.py NAME [--port N] [--wait SECONDS] [--var K=V ...] [--extra K=V ...]
                             [--domain D] [--http] [--evidence DIR] [--keep]
+                            [--project-prefix PREFIX]
 """
 
 from __future__ import annotations
@@ -36,6 +43,8 @@ import argparse
 import json
 import re
 import shutil
+import signal
+import socket
 import subprocess
 import sys
 import tempfile
@@ -51,6 +60,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
+import yaml  # noqa: E402
+
 from noust.recipes import get_recipe, read_asset  # noqa: E402
 from noust.recipes.model import Recipe  # noqa: E402
 from noust.recipes.variables import DeploymentContext, resolve_variables  # noqa: E402
@@ -62,6 +73,91 @@ ERROR_LINE = re.compile(r"\b(error|fatal|exception|traceback|panic)\b", re.IGNOR
 
 #: Seconds to let the stack settle after the gate passes, before looking for restarts.
 SETTLE_SECONDS = 25
+
+#: What a project is named when the operator does not say: the prefix, then the recipe.
+DEFAULT_PREFIX = "noust-smoke-"
+
+#: The label on everything a run creates, and the file that puts it there.
+TEST_LABEL = {"noust.test": "1"}
+LABEL_OVERRIDE = "noust-test.override.yml"
+
+#: What Compose accepts of a project name, with room for the recipe's name after the prefix.
+_PREFIX = re.compile(r"[a-z0-9][a-z0-9_-]{0,39}")
+
+
+def check_prefix(prefix: str) -> str:
+    """
+    Refuse a project prefix Compose would not take as part of a project name.
+
+    Args:
+        prefix: The text before the recipe's name.
+
+    Returns:
+        The prefix, unchanged.
+
+    Raises:
+        SystemExit: It is empty, has an upper-case letter, a space, a slash, or is too long.
+    """
+    if _PREFIX.fullmatch(prefix) is None:
+        raise SystemExit(
+            f"{prefix!r} cannot start a Compose project name: lower-case letters, digits, "
+            "dashes and underscores, 40 characters at most, starting with a letter or a digit"
+        )
+    return prefix
+
+
+def stop_on_sigterm() -> None:
+    """
+    Make SIGTERM leave through ``finally``, so a stopped run removes its project.
+
+    ``timeout`` ends a run with SIGTERM, which Python answers by dying where it stands:
+    the project and its volumes would stay on a machine that is shared.
+    """
+
+    def handler(signum: int, frame: Any) -> None:
+        raise SystemExit(128 + signum)
+
+    signal.signal(signal.SIGTERM, handler)
+
+
+def port_is_free(port: int) -> bool:
+    """
+    Tell whether nothing listens on a loopback port.
+
+    Args:
+        port: The port.
+
+    Returns:
+        True when it can be bound on 127.0.0.1. Connections the previous recipe's check left in
+        TIME_WAIT do not count (SO_REUSEADDR, as every server binds): only a listener does.
+    """
+    with socket.socket() as probe:
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            probe.bind(("127.0.0.1", port))
+        except OSError:
+            return False
+    return True
+
+
+def label_override(compose_text: str) -> str:
+    """
+    Write the override that puts ``noust.test=1`` on every container, volume and network.
+
+    Args:
+        compose_text: The recipe's Compose document.
+
+    Returns:
+        A Compose document with only labels, to be merged over the recipe's.
+    """
+    document = yaml.safe_load(compose_text) or {}
+    override: dict[str, Any] = {
+        "services": {name: {"labels": dict(TEST_LABEL)} for name in document.get("services", {})},
+        "networks": {"default": {"labels": dict(TEST_LABEL)}},
+    }
+    if document.get("volumes"):
+        override["volumes"] = {name: {"labels": dict(TEST_LABEL)} for name in document["volumes"]}
+    return yaml.safe_dump(override, sort_keys=True)
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -98,6 +194,8 @@ class SmokeReport:
         containers: One entry per container: name, state, restarts, whether it was killed
             for memory.
         error_lines: How many log lines look like errors, and the first few.
+        log_tail: The end of the stack's log, kept when the gate was not answered, so that the
+            report says why.
         problems: What stops the recipe from being accepted; empty when it passes.
     """
 
@@ -111,6 +209,7 @@ class SmokeReport:
     proxied_status: str = ""
     containers: list[dict[str, Any]] = field(default_factory=list)
     error_lines: dict[str, Any] = field(default_factory=dict)
+    log_tail: str = ""
     problems: list[str] = field(default_factory=list)
 
 
@@ -148,15 +247,19 @@ def write_project(
         port: The loopback port the web service publishes on.
         domain: The domain the application believes it has.
         ssl: Whether that domain is served over TLS, for ``from: url``.
-        given: What the operator gives: ``--var``, and every required variable's value.
+        given: What the operator gives (``--var``; the ones the recipe does not declare are
+            left out, so one list can serve a batch) and every required variable's value.
 
     Returns:
         The variables written to ``.env`` (``PORT`` included).
     """
-    overrides = dict(given)
+    # --var is for every recipe of a batch: each takes the ones it declares.
+    overrides = {name: value for name, value in given.items() if recipe.variable(name)}
+    # The extra address of a recipe with several (Typebot's viewer) is a name under the domain.
+    addresses = {entry.domain_variable: f"{entry.name}.{domain}" for entry in recipe.entrypoints}
     for variable in recipe.variables:
         if variable.is_required and variable.name not in overrides:
-            overrides[variable.name] = "given@example.com"
+            overrides[variable.name] = addresses.get(variable.name, "given@example.com")
     context = DeploymentContext(
         domain=domain,
         ssl=ssl,
@@ -169,6 +272,7 @@ def write_project(
     )
     values = {**resolved.values, "PORT": str(port)}
     (directory / "docker-compose.yml").write_text(recipe.compose or "", encoding="utf-8")
+    (directory / LABEL_OVERRIDE).write_text(label_override(recipe.compose or ""), encoding="utf-8")
     for path, asset in recipe.files.items():
         target = directory / path
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -207,13 +311,14 @@ def ask(
 class Project:
     """A throwaway Compose project of a recipe."""
 
-    def __init__(self, recipe: Recipe, directory: Path) -> None:
+    def __init__(self, recipe: Recipe, directory: Path, prefix: str = DEFAULT_PREFIX) -> None:
         """
         Args:
             recipe: The recipe.
-            directory: Where its document and ``.env`` are.
+            directory: Where its document, its labels' override and ``.env`` are.
+            prefix: The text before the recipe's name in the project's name.
         """
-        self.name = f"noust-smoke-{recipe.name}"
+        self.name = f"{prefix}{recipe.name}"
         self.directory = directory
         self._base = [
             "docker",
@@ -222,6 +327,8 @@ class Project:
             self.name,
             "-f",
             str(directory / "docker-compose.yml"),
+            "-f",
+            str(directory / LABEL_OVERRIDE),
             "--env-file",
             str(directory / ".env"),
         ]
@@ -251,7 +358,8 @@ class Project:
         Describe every container of the project.
 
         Returns:
-            Name, state, restart count and whether the kernel killed it for memory.
+            Name, state, restart count, whether the kernel killed it for memory, and the
+            status it exited with.
         """
         found: list[dict[str, Any]] = []
         for identifier in self.run("ps", "-q", "-a").stdout.split():
@@ -273,6 +381,7 @@ class Project:
                     "state": state.get("Status"),
                     "restarts": data.get("RestartCount", 0),
                     "oom_killed": bool(state.get("OOMKilled")),
+                    "exit_code": state.get("ExitCode", 0),
                     "health": (state.get("Health") or {}).get("Status"),
                 }
             )
@@ -283,12 +392,13 @@ def smoke(
     recipe: Recipe,
     *,
     port: int,
-    wait: int,
+    wait: int | None,
     given: Mapping[str, str],
     extra: Sequence[str],
     domain: str,
     ssl: bool,
     keep: bool,
+    prefix: str = DEFAULT_PREFIX,
 ) -> SmokeReport:
     """
     Run one recipe's stack and report what the health gate and the containers say.
@@ -296,12 +406,14 @@ def smoke(
     Args:
         recipe: A Compose recipe.
         port: The loopback port its web service publishes on.
-        wait: Seconds the gate may take to answer as the recipe expects.
+        wait: Seconds the gate may take to answer as the recipe expects; None for the recipe's
+            own health timeout, which is what a deployment would give it, else 300.
         given: Variables the operator gives.
         extra: ``K=V`` lines appended to ``.env`` as an operator editing it would.
         domain: The domain the application believes it has.
         ssl: Whether it is served over TLS.
         keep: Leave the project running when done.
+        prefix: The text before the recipe's name in the project's name.
 
     Returns:
         The report; ``problems`` is empty when the recipe passes.
@@ -314,8 +426,11 @@ def smoke(
     health = recipe.health
     report.gate_path = health.path if health else "/"
     report.gate_expected = health.expect if health else None
-    directory = Path(tempfile.mkdtemp(prefix=f"noust-smoke-{recipe.name}-"))
-    project = Project(recipe, directory)
+    if not port_is_free(port):
+        report.problems.append(f"127.0.0.1:{port} is already in use; pick a free port")
+        return report
+    directory = Path(tempfile.mkdtemp(prefix=f"{prefix}{recipe.name}-"))
+    project = Project(recipe, directory, prefix)
     try:
         write_project(recipe, directory, port=port, domain=domain, ssl=ssl, given=given)
         if extra:
@@ -328,7 +443,8 @@ def smoke(
         url = f"http://127.0.0.1:{port}{report.gate_path}"
         begin = time.monotonic()
         status: int | str = ""
-        while time.monotonic() - begin < wait:
+        limit = wait if wait is not None else (health.timeout if health and health.timeout else 300)
+        while time.monotonic() - begin < limit:
             status, _ = ask(url, follow=report.gate_expected is None)
             if isinstance(status, int) and gate_accepts(report.gate_expected, status):
                 break
@@ -340,6 +456,8 @@ def smoke(
                 f"the health gate's request to {report.gate_path} got {status}, "
                 f"the recipe expects {report.gate_expected or '200'}"
             )
+            report.containers = project.inspect()
+            report.log_tail = project.run("logs", "--no-color", "--tail", "40").stdout[-4000:]
             return report
         proxied = {
             "Host": domain,
@@ -362,6 +480,10 @@ def smoke(
                 )
             if container["oom_killed"]:
                 report.problems.append(f"{container['name']} was killed for memory")
+            if container["state"] == "exited" and container.get("exit_code"):
+                report.problems.append(
+                    f"{container['name']} exited with status {container['exit_code']}"
+                )
         lines = project.run("logs", "--no-color", "--tail", "400").stdout.splitlines()
         errors = [line[:240] for line in lines if ERROR_LINE.search(line)]
         report.error_lines = {"count": len(errors), "first": errors[:5]}
@@ -389,10 +511,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("names", nargs="+", help="the Compose recipes to start, one after another")
     parser.add_argument("--port", type=int, default=18080, help="loopback port for the web service")
-    parser.add_argument("--wait", type=int, default=300, help="seconds the gate may take")
+    parser.add_argument(
+        "--wait",
+        type=int,
+        default=None,
+        help="seconds the gate may take (default: the recipe's health timeout, else 300)",
+    )
     parser.add_argument("--var", action="append", default=[], help="NAME=VALUE the operator gives")
     parser.add_argument("--extra", action="append", default=[], help="NAME=VALUE appended to .env")
     parser.add_argument("--domain", default="smoke.example.com")
+    parser.add_argument(
+        "--project-prefix",
+        default=DEFAULT_PREFIX,
+        help="the text before the recipe's name in the Compose project (default noust-smoke-)",
+    )
     parser.add_argument("--http", action="store_true", help="serve the public address over http")
     parser.add_argument("--keep", action="store_true", help="leave the project running")
     parser.add_argument("--evidence", type=Path, help="write each report as JSON in this directory")
@@ -401,6 +533,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if shutil.which("docker") is None:
         print("docker is not installed", file=sys.stderr)
         return 2
+    prefix = check_prefix(args.project_prefix)
+    stop_on_sigterm()
     given = dict(item.split("=", 1) for item in args.var)
     failed = 0
     for name in args.names:
@@ -418,6 +552,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             domain=args.domain,
             ssl=not args.http,
             keep=args.keep,
+            prefix=prefix,
         )
         verdict = "ok" if not report.problems else "FAILS"
         print(
@@ -426,6 +561,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         for problem in report.problems:
             print(f"  {problem}")
+        if report.problems and report.log_tail:
+            tail = report.log_tail.splitlines()[-25:]
+            print("  log tail:\n" + "\n".join(f"    {line}" for line in tail))
         failed += bool(report.problems)
         if args.evidence is not None:
             args.evidence.mkdir(parents=True, exist_ok=True)

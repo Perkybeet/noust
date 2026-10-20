@@ -111,6 +111,12 @@ def print_recipe(logger: Logger, recipe: Recipe) -> None:
             logger.warning(
                 f"Opens {public.port}/{public.protocol} to the network: {public.purpose}"
             )
+        for entry in recipe.entrypoints:
+            logger.key_value(
+                "Also on",
+                f"{entry.title}: a second address, given as {entry.domain_variable} "
+                f"({entry.description or 'proxied to its own port'})",
+            )
     else:
         logger.key_value("Type", recipe.app_type)
         logger.key_value(

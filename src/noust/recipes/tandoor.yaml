@@ -1,0 +1,101 @@
+# Tandoor Recipes from the image the project publishes (vabene1111/recipes) with PostgreSQL, as
+# its plain Docker Compose installation does (docs.tandoor.dev "Installation > Docker", the
+# docker/plain compose file, read 2026-10-20): SECRET_KEY, the database through DB_ENGINE and
+# POSTGRES_*, TIMEZONE, CSRF_TRUSTED_ORIGINS (the public address, or sign-in fails behind a proxy),
+# and the media and static files under /opt/recipes, which the nginx inside the image serves on
+# port 80 (TANDOOR_PORT) in front of gunicorn. The first
+# visitor creates the administrator at the sign-up page, which the first note says; ENABLE_SIGNUP
+# closes sign-up afterwards.
+#
+# Licence: the GNU AGPL v3 with the Commons Clause condition (LICENSE.md, read 2026-10-20): free
+# to run for yourself, not to sell as a hosted service.
+#
+# Pinned to the release tag and to the digests Docker Hub serves for it.
+schema: 2
+name: tandoor
+kind: compose
+title: Tandoor Recipes
+slogan: "A recipe manager and meal planner with a shopping list that follows your plan."
+description: "Collect recipes from the web, plan your meals, scale and convert quantities, and keep a shopping list shared with your household. Source-available: the AGPL with the Commons Clause, free to run for yourself, not to sell as a hosted service. The first person to sign up becomes the administrator."
+category: productivity
+tags: [recipes, meal-planning, cooking, shopping-list]
+logo: logo.svg
+version: "2.6.15"
+revision: 1
+updated: 2026-10-20
+homepage: https://tandoor.dev
+docs: https://docs.tandoor.dev
+repository: https://github.com/TandoorRecipes/recipes
+license: LicenseRef-Tandoor-AGPL-3.0-Commons-Clause
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8380
+variables:
+  TANDOOR_URL:
+    from: url
+    description: The address people use; Tandoor trusts requests that come from it.
+  SECRET_KEY:
+    generate: password64
+    description: Signs the sessions. Changing it signs everybody out.
+  ENABLE_SIGNUP:
+    default: "1"
+    description: Whether the sign-up page creates accounts. Set it to 0 once yours exists.
+  TZ:
+    default: UTC
+    description: The time zone, such as Europe/Madrid.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /accounts/login/
+  expect: "200"
+  timeout: 300
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    tandoor:
+      image: vabene1111/recipes:2.6.15@sha256:2e759dd1478a2ed119ee474e28522079fb1cfa50b3fd25cba89f6b9a67abad72
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        SECRET_KEY: "${SECRET_KEY}"
+        TIMEZONE: "${TZ}"
+        DB_ENGINE: django.db.backends.postgresql
+        POSTGRES_HOST: db
+        POSTGRES_DB: tandoor
+        POSTGRES_USER: tandoor
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+        ALLOWED_HOSTS: "*"
+        CSRF_TRUSTED_ORIGINS: "${TANDOOR_URL}"
+        ENABLE_SIGNUP: "${ENABLE_SIGNUP}"
+      volumes:
+        - tandoor-media:/opt/recipes/mediafiles
+        - tandoor-static:/opt/recipes/staticfiles
+      ports:
+        - "127.0.0.1:${PORT}:80"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: tandoor
+        POSTGRES_DB: tandoor
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U tandoor -d tandoor"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - tandoor-db:/var/lib/postgresql/data
+  volumes:
+    tandoor-media:
+    tandoor-static:
+    tandoor-db:
+notes:
+  - "Open {{ url }} now and sign up: the first account becomes the administrator, and until you set ENABLE_SIGNUP to 0 (the application's Environment tab) and restart, anybody who reaches the page can sign up."
+  - "Tandoor is source-available: the AGPL with the Commons Clause, so you may run it for yourself and may not sell it as a hosted service."
+  - "The recipe images are in the Docker volume tandoor-media and the database in tandoor-db (PostgreSQL, dumped by Noust before every update). Back both up before updating: the images are not in the database dump."

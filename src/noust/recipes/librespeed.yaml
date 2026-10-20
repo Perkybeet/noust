@@ -1,0 +1,53 @@
+# LibreSpeed from the image the project publishes (ghcr.io/librespeed/speedtest), run as its
+# documentation describes (github.com/librespeed/speedtest/blob/master/doc_docker.md, read
+# 2026-10-20): MODE=standalone serves the speed test (download, upload, ping and jitter between
+# the visitor's browser and this server) and nothing else, TITLE is the page's title, TELEMETRY
+# stays off so no result is stored and no password is needed, and the image listens on 80.
+# It keeps nothing, so there is no volume. The test moves data, which counts against this
+# server's bandwidth; the description says so.
+#
+# Pinned to the release tag and to the digest ghcr.io serves for it.
+schema: 2
+name: librespeed
+kind: compose
+title: LibreSpeed
+slogan: "A self-hosted speed test: download, upload, ping and jitter to your own server."
+description: "Measure the connection between a visitor and this server with a no-Flash, no-Java speed test that stores nothing. Useful to check a link or to give your users a test that does not call a third party. The test moves data over this server's connection, and anybody who reaches the page can run it."
+category: utilities
+tags: [speedtest, network, bandwidth, latency]
+logo: logo.svg
+version: "6.3.0"
+revision: 1
+updated: 2026-10-20
+homepage: https://librespeed.org
+docs: https://github.com/librespeed/speedtest/blob/master/doc_docker.md
+repository: https://github.com/librespeed/speedtest
+license: LGPL-3.0-only
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8080
+variables:
+  TITLE:
+    default: LibreSpeed
+    description: The title of the page.
+health:
+  path: /
+  expect: "200"
+  timeout: 90
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    librespeed:
+      image: ghcr.io/librespeed/speedtest:6.3.0@sha256:af011d4fb5709c6e2b2f381925a6c290d53ce2ed35fa8860e7d33e20690d5065
+      restart: unless-stopped
+      environment:
+        MODE: standalone
+        TITLE: "${TITLE}"
+        TELEMETRY: "false"
+        DISABLE_IPINFO: "true"
+      ports:
+        - "127.0.0.1:${PORT}:80"
+notes:
+  - "Open {{ url }}: anybody who reaches it can run a test, and the test moves data over this server's connection. Keep the address to the people who need it."
+  - "Nothing is stored on this server, so there is nothing to back up. To keep results, turn telemetry on as the project's documentation describes."

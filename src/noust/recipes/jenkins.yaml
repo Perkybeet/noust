@@ -1,0 +1,63 @@
+# Jenkins from the image the project publishes (jenkins/jenkins on Docker Hub), long-term-support
+# line on Java 21, run as its documentation describes (github.com/jenkinsci/docker README, read
+# 2026-10-20): the web interface on 8080 and everything it keeps under /var/jenkins_home, a
+# named volume the unprivileged jenkins user (1000) owns. The inbound agent port 50000 is not
+# published: agents connect over WebSocket to the address of the interface, which is what a
+# controller behind a reverse proxy uses. A new Jenkins is closed by its setup: the page asks
+# for an initial password the container prints in its log and keeps in
+# /var/jenkins_home/secrets/initialAdminPassword, so nobody gets in before the operator does.
+# /login answers 200 in that state and afterwards, which is why the health check asks it.
+#
+# Licence: MIT (LICENSE.txt, read 2026-10-20). Pinned to the long-term-support tag and to the
+# digest Docker Hub serves for it.
+schema: 2
+name: jenkins
+kind: compose
+title: Jenkins
+slogan: "The automation server that builds, tests and deploys your projects."
+description: "Define pipelines in a file next to your code and let Jenkins run them on every push: build, test, package and deploy, on this server or on agents you connect. The long-term-support release, with thousands of plugins."
+category: development
+tags: [ci, cd, automation, pipelines, builds]
+logo: logo.svg
+version: "2.580.1"
+revision: 1
+updated: 2026-10-20
+homepage: https://www.jenkins.io
+docs: https://www.jenkins.io/doc/book/installing/docker/
+repository: https://github.com/jenkinsci/jenkins
+license: MIT
+architectures: ["amd64", "arm64", "riscv64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - At least 1 GB of free memory
+port: 8080
+variables:
+  JAVA_HEAP:
+    default: 1g
+    description: The most memory the Jenkins process may use for its heap, such as 1g or 2g.
+  TZ:
+    default: UTC
+    description: The time zone, such as Europe/Madrid.
+health:
+  path: /login
+  expect: "200"
+  timeout: 240
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    jenkins:
+      image: jenkins/jenkins:2.580.1-lts-jdk21@sha256:a660310e39ade10631f774bacd5219de767dfd08947ea5c32a739b5e5bb382c1
+      restart: unless-stopped
+      environment:
+        JENKINS_JAVA_OPTS: "-Xmx${JAVA_HEAP} -Duser.timezone=${TZ}"
+      volumes:
+        - jenkins-home:/var/jenkins_home
+      ports:
+        - "127.0.0.1:${PORT}:8080"
+  volumes:
+    jenkins-home:
+notes:
+  - "Open {{ url }}: Jenkins asks for the initial administrator password, which it prints in its log (noust logs {{ domain }}) and keeps in /var/jenkins_home/secrets/initialAdminPassword. Paste it, install the suggested plugins and create your account."
+  - "Set the Jenkins URL in Manage Jenkins > System to {{ url }}, so that links and webhooks use it."
+  - "Builds run on the controller, inside the container, which has no Docker. To build with Docker or on other machines, add an agent in Manage Jenkins > Nodes and connect it over WebSocket to {{ url }}."
+  - "Its jobs, plugins and credentials are in the Docker volume jenkins-home of this application: back it up before updating."

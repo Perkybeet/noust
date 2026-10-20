@@ -1,0 +1,55 @@
+# Gatus from the image the project publishes (ghcr.io/twin/gatus), configured as its README
+# describes (github.com/TwiN/gatus, "Usage" and "Docker"): the endpoints it checks are the file
+# config.yaml, mounted at /config/config.yaml, and its history is kept in SQLite under /data
+# (storage.type: sqlite), so it survives a restart. The page it serves is a public status page by
+# design: it shows the result of each check to whoever opens it, which the description says. The
+# file ships two checks as a starting point (the project's site and this server's own address),
+# to be replaced. /health answers {"status":"UP"} without a sign-in.
+#
+# Pinned to the release tag and to the digest ghcr.io serves for it.
+schema: 2
+name: gatus
+kind: compose
+title: Gatus
+slogan: "A status page that checks your services and shows how they are doing."
+description: "Describe what should answer, how fast and with what, in one YAML file; Gatus checks it on a schedule over HTTP, TCP, ICMP, DNS or TLS, keeps the history and alerts you. It serves a public status page: whoever opens the address sees every check."
+category: monitoring
+tags: [monitoring, status-page, uptime, health-checks]
+logo: logo.svg
+version: "5.37.0"
+revision: 1
+updated: 2026-10-20
+homepage: https://gatus.io
+docs: https://github.com/TwiN/gatus#usage
+repository: https://github.com/TwiN/gatus
+license: Apache-2.0
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8680
+variables:
+  GATUS_PUBLIC_URL:
+    from: url
+    description: This status page's own address, which the starting configuration checks.
+health:
+  path: /health
+  expect: "200"
+  timeout: 90
+files:
+  config.yaml: {asset: config.yaml, render: true, mode: "0644"}
+  noust.nginx.yaml: noust.nginx.yaml
+compose: |
+  services:
+    gatus:
+      image: ghcr.io/twin/gatus:v5.37.0@sha256:094eb186e55235db367e90e9d56140e5897b7044c41de23cde4cc18e6da1242e
+      restart: unless-stopped
+      volumes:
+        - ./config.yaml:/config/config.yaml:ro
+        - gatus-data:/data
+      ports:
+        - "127.0.0.1:${PORT}:8080"
+  volumes:
+    gatus-data:
+notes:
+  - "Open {{ url }}: the status page is public, so whoever reaches it sees every check. Edit config.yaml in this application's directory (the endpoints, the intervals, the alerts) and restart it: noust restart {{ domain }}."
+  - "The history of the checks is in the Docker volume gatus-data of this application: back it up before updating."

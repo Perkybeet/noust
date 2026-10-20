@@ -1,0 +1,47 @@
+# PrivateBin from the image the project publishes (privatebin/nginx-fpm-alpine, the nginx and
+# PHP-FPM build its documentation recommends). It is configured with cfg/conf.php, whose
+# defaults the image ships: pastes are encrypted in the browser, the server never sees the key,
+# and they are stored under /srv/data. The image listens on 8080 as an unprivileged user and
+# answers / without any sign-in.
+#
+# Derived in part from Coolify's template "privatebin" (Apache-2.0,
+# https://github.com/coollabsio/coolify/blob/next/templates/compose/privatebin.yaml): the volume.
+# Pinned to the release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: privatebin
+kind: compose
+title: PrivateBin
+slogan: "A minimalist pastebin where the server has zero knowledge of what is pasted."
+description: "Share text and files through a link: the paste is encrypted in the browser with a key that never reaches the server, and can expire or burn after reading. There is no sign-in, so anybody who reaches it can create pastes."
+category: security
+tags: [pastebin, encryption, sharing, privacy]
+logo: logo.svg
+version: "2.1.0"
+revision: 1
+updated: 2026-10-20
+homepage: https://privatebin.info
+docs: https://github.com/PrivateBin/PrivateBin/wiki
+repository: https://github.com/PrivateBin/PrivateBin
+license: Zlib
+architectures: ["386", "amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8080
+health:
+  path: /
+  expect: "200"
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    privatebin:
+      image: privatebin/nginx-fpm-alpine:2.1.0@sha256:b221c93dea1610380c5a64ca0318d1447f5197f7a4fc790467eb14e25eb15ba7
+      restart: unless-stopped
+      volumes:
+        - privatebin-data:/srv/data
+      ports:
+        - "127.0.0.1:${PORT}:8080"
+  volumes:
+    privatebin-data:
+notes:
+  - "Open {{ url }}: there is nothing to sign in to, so anybody who reaches it can create pastes. Keep the address to people you trust, or put access control in front of it."
+  - "The pastes are in the Docker volume privatebin-data of this application: back it up before updating. To change its settings (expiry times, file uploads, a password for creating pastes) put a cfg/conf.php in that volume, as the project's documentation describes."

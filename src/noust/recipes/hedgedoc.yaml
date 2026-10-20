@@ -1,0 +1,95 @@
+# HedgeDoc 1 from the image the project publishes (quay.io/hedgedoc/hedgedoc) with PostgreSQL, as
+# its container documentation describes (docs.hedgedoc.org/setup/docker, read 2026-10-20): the
+# settings are CMD_* variables (CMD_DB_URL, CMD_DOMAIN, CMD_PROTOCOL_USESSL, CMD_URL_ADDPORT
+# false because nginx serves 443, CMD_SESSION_SECRET), uploads under /hedgedoc/public/uploads, and
+# the image listens on 3000. Anonymous editing is turned off (CMD_ALLOW_ANONYMOUS and
+# CMD_ALLOW_ANONYMOUS_EDITS false): people register with an e-mail address and a password, and
+# CMD_ALLOW_EMAIL_REGISTER closes that page once the accounts exist. /status answers without a
+# sign-in. HedgeDoc 1.x is in maintenance while 2.0 is written; it is the release in use.
+#
+# Pinned to the release tag and to the digests the registries serve for it.
+schema: 2
+name: hedgedoc
+kind: compose
+title: HedgeDoc
+slogan: "Collaborative Markdown notes in real time, with slides and diagrams."
+description: "Write Markdown together in the browser and see the preview as you type: meeting notes, documentation, slide decks and diagrams, shared by a link with the permissions you choose. People register with an e-mail address; anonymous editing is off."
+category: productivity
+tags: [markdown, notes, collaboration, slides]
+logo: logo.svg
+version: "1.12.0"
+revision: 1
+updated: 2026-10-20
+homepage: https://hedgedoc.org
+docs: https://docs.hedgedoc.org
+repository: https://github.com/hedgedoc/hedgedoc
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3600
+variables:
+  HEDGEDOC_DOMAIN:
+    from: fqdn
+    description: The domain people use.
+  HEDGEDOC_USESSL:
+    from: https
+    description: true when the address is served over TLS.
+  CMD_SESSION_SECRET:
+    generate: password64
+    description: Signs the sessions. Changing it signs everybody out.
+  CMD_ALLOW_EMAIL_REGISTER:
+    default: "true"
+    description: Whether the registration page creates accounts. Set it to false once the accounts you need exist.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /status
+  expect: "200"
+  timeout: 180
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    hedgedoc:
+      image: quay.io/hedgedoc/hedgedoc:1.12.0@sha256:cd66986a2a49b57c9bd3677ec76409adf84f412263e8c0f96e6854863f1dd689
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        CMD_DB_URL: "postgres://hedgedoc:${DB_PASSWORD}@db:5432/hedgedoc"
+        CMD_DOMAIN: "${HEDGEDOC_DOMAIN}"
+        CMD_PROTOCOL_USESSL: "${HEDGEDOC_USESSL}"
+        CMD_URL_ADDPORT: "false"
+        CMD_SESSION_SECRET: "${CMD_SESSION_SECRET}"
+        CMD_ALLOW_ANONYMOUS: "false"
+        CMD_ALLOW_ANONYMOUS_EDITS: "false"
+        CMD_ALLOW_EMAIL_REGISTER: "${CMD_ALLOW_EMAIL_REGISTER}"
+        CMD_ALLOW_FREEURL: "true"
+        CMD_DEFAULT_PERMISSION: limited
+      volumes:
+        - hedgedoc-uploads:/hedgedoc/public/uploads
+      ports:
+        - "127.0.0.1:${PORT}:3000"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: hedgedoc
+        POSTGRES_DB: hedgedoc
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U hedgedoc -d hedgedoc"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - hedgedoc-db:/var/lib/postgresql/data
+  volumes:
+    hedgedoc-uploads:
+    hedgedoc-db:
+notes:
+  - "Open {{ url }} and register: until you set CMD_ALLOW_EMAIL_REGISTER to false (the application's Environment tab) and restart, anybody who reaches the page can create an account."
+  - "The notes are in the database, the Docker volume hedgedoc-db of this application (PostgreSQL, dumped by Noust before every update), and the images people upload in hedgedoc-uploads. Back both up before updating: the uploads are not in the database dump."

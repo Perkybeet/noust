@@ -1,0 +1,66 @@
+# SFTPGo from the image the project publishes (drakkan/sftpgo on Docker Hub), run as its Docker
+# documentation describes (docs.sftpgo.com "Docker", read 2026-10-20): SFTPGO_DEFAULT_ADMIN_USERNAME
+# and SFTPGO_DEFAULT_ADMIN_PASSWORD create the first administrator when there is none (so no
+# visitor can claim it), the web admin and the users' web client listen on 8080, the SFTP server on
+# 2022, the database and keys are under /var/lib/sftpgo, and the users' files under /srv/sftpgo.
+# SFTP is the reason to run it, so port 2022 is open to the network and the recipe declares it.
+# /healthz answers without a sign-in.
+#
+# Pinned to the release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: sftpgo
+kind: compose
+title: SFTPGo
+slogan: "An SFTP, FTPS and WebDAV server with virtual users, quotas and a web client."
+description: "Give people file access over SFTP, with users that are not system accounts: home directories, quotas, per-user permissions, public keys, and a web client and admin interface. The web interface needs a sign-in; port 2022 (SFTP) is open to the network."
+category: files
+tags: [sftp, file-transfer, webdav, ftp]
+logo: logo.svg
+version: "2.7.6"
+revision: 1
+updated: 2026-10-20
+homepage: https://sftpgo.com
+docs: https://docs.sftpgo.com
+repository: https://github.com/drakkan/sftpgo
+license: AGPL-3.0-only
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8080
+variables:
+  SFTPGO_DEFAULT_ADMIN_USERNAME:
+    default: admin
+    description: The first administrator's user name.
+  SFTPGO_DEFAULT_ADMIN_PASSWORD:
+    generate: password32
+    description: The first administrator's password. SFTPGo reads it only when it creates the account.
+public_ports:
+  - {port: 2022, protocol: tcp, purpose: "The SFTP server, which people connect to with an SFTP client."}
+health:
+  path: /healthz
+  expect: "200"
+  timeout: 90
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    sftpgo:
+      image: drakkan/sftpgo:v2.7.6@sha256:1edd28d80de2a008863fbfc58c8ff7db47b1b410bae48d4e6076192337809b11
+      restart: unless-stopped
+      environment:
+        SFTPGO_DEFAULT_ADMIN_USERNAME: "${SFTPGO_DEFAULT_ADMIN_USERNAME}"
+        SFTPGO_DEFAULT_ADMIN_PASSWORD: "${SFTPGO_DEFAULT_ADMIN_PASSWORD}"
+        SFTPGO_HTTPD__BINDINGS__0__PORT: "8080"
+        SFTPGO_SFTPD__BINDINGS__0__PORT: "2022"
+      volumes:
+        - sftpgo-data:/srv/sftpgo
+        - sftpgo-state:/var/lib/sftpgo
+      ports:
+        - "127.0.0.1:${PORT}:8080"
+        - "2022:2022"
+  volumes:
+    sftpgo-data:
+    sftpgo-state:
+notes:
+  - "The admin interface is {{ url }}/web/admin; sign in as {{ vars.SFTPGO_DEFAULT_ADMIN_USERNAME }} with SFTPGO_DEFAULT_ADMIN_PASSWORD (noust env show {{ domain }} --unmask). It is read only when the first account is created: change the password in SFTPGo afterwards."
+  - "People connect with an SFTP client to this server's address on port 2022, which is open to the network: open it in your firewall if this server has one. Users have their own web client at {{ url }}/web/client."
+  - "The users' files are in the Docker volume sftpgo-data and the database and host keys in sftpgo-state: back both up before updating. Keep the host keys: changing them makes every client warn about a man-in-the-middle."

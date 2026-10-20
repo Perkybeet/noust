@@ -1,0 +1,53 @@
+# Typesense from the image the project publishes (typesense/typesense). Configuration is what
+# the project documents (typesense.org/docs/guide/install-typesense.html): every command line
+# flag is a TYPESENSE_<FLAG> environment variable, --api-key is required (without it the
+# server refuses to start), the data directory is /data, and the API listens on 8108. GET
+# /health answers {"ok":true} without a key.
+#
+# Pinned to the release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: typesense
+kind: compose
+title: Typesense
+slogan: "A fast, typo-tolerant search engine for the things your application knows."
+description: "An open source search engine with typo tolerance, filtering, faceting, geo search and vector search, built to be easy to run. Every request needs the API key, which Noust generates."
+category: search
+tags: [search, engine, vector-search, typo-tolerance]
+logo: logo.svg
+version: "30.2"
+revision: 1
+updated: 2026-10-20
+homepage: https://typesense.org
+docs: https://typesense.org/docs/
+repository: https://github.com/typesense/typesense
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8108
+variables:
+  TYPESENSE_API_KEY:
+    generate: hex32
+    description: The admin key every request carries in the X-TYPESENSE-API-KEY header. Create scoped keys with it for your applications.
+health:
+  path: /health
+  expect: "200"
+  timeout: 90
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    typesense:
+      image: typesense/typesense:30.2@sha256:610f2d34b1f93d00762869da2c67736775e5798d19a2c8b91b014b8a0cc1e110
+      restart: unless-stopped
+      environment:
+        TYPESENSE_API_KEY: "${TYPESENSE_API_KEY}"
+        TYPESENSE_DATA_DIR: /data
+      volumes:
+        - typesense-data:/data
+      ports:
+        - "127.0.0.1:${PORT}:8108"
+  volumes:
+    typesense-data:
+notes:
+  - "The API is {{ url }}; the admin key is TYPESENSE_API_KEY (noust env show {{ domain }} --unmask), sent as the X-TYPESENSE-API-KEY header. Make a key limited to searching for anything a browser will carry."
+  - "Your collections are in the Docker volume typesense-data of this application: back it up before updating. Typesense keeps its index in memory, so size the server for the data."

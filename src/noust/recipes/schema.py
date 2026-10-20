@@ -43,6 +43,7 @@ from noust.recipes.model import (
     SOURCE_KINDS,
     SQL_REQUIREMENTS,
     ChangelogEntry,
+    Entrypoint,
     PublicPort,
     Recipe,
     RecipeBuild,
@@ -144,7 +145,12 @@ _V2_NATIVE = frozenset(
         "database_choices",
     }
 )
-_V2_COMPOSE = frozenset({"compose", "files", "digest_verified", "public_ports"})
+_V2_COMPOSE = frozenset({"compose", "files", "digest_verified", "public_ports", "entrypoints"})
+_ENTRYPOINT_KEYS = frozenset({"title", "description", "domain_variable", "port_variable"})
+#: The extra public addresses a recipe may have: each needs a DNS record and a place in the
+#: certificate, so a recipe that wants more is a different shape of application.
+_MAX_ENTRYPOINTS = 4
+_ENTRYPOINT_NAME = re.compile(r"[a-z][a-z0-9-]{0,19}")
 _FILE_KEYS = frozenset({"asset", "render", "mode"})
 #: The permissions a recipe's file may ask for: a rendered file may hold a secret.
 _FILE_MODES = {"0600": 0o600, "0640": 0o640, "0644": 0o644}
@@ -1196,6 +1202,86 @@ def _parse_public_ports(name: str, raw: Any) -> tuple[PublicPort, ...]:
     return tuple(ports)
 
 
+def _parse_entrypoints(
+    name: str, raw: Any, variables: tuple[RecipeVariable, ...], info: ComposeInfo
+) -> tuple[Entrypoint, ...]:
+    """
+    Read the extra public addresses of a Compose recipe.
+
+    Args:
+        name: The recipe.
+        raw: The ``entrypoints`` mapping, or None.
+        variables: The recipe's variables.
+        info: What its Compose document says.
+
+    Returns:
+        The entrypoints, in the order the file lists them.
+
+    Raises:
+        RecipeError: An entrypoint is malformed, names a variable that is not what it needs to
+            be, or shares a variable with another.
+    """
+    if raw is None:
+        return ()
+    if not isinstance(raw, dict):
+        raise recipe_error(name, "entrypoints must be a mapping")
+    if not raw:
+        raise recipe_error(name, "entrypoints needs at least one entry")
+    if len(raw) > _MAX_ENTRYPOINTS:
+        raise recipe_error(name, f"a recipe has at most {_MAX_ENTRYPOINTS} entrypoints")
+    by_name = {variable.name: variable for variable in variables}
+    found: list[Entrypoint] = []
+    used: dict[tuple[str, str], str] = {}
+    for key, item in raw.items():
+        entry = str(key)
+        if not _ENTRYPOINT_NAME.fullmatch(entry):
+            raise recipe_error(
+                name, f"entrypoint name {entry!r} must be lower-case letters, digits and dashes"
+            )
+        if not isinstance(item, dict):
+            raise recipe_error(name, f"entrypoint {entry} must be a mapping")
+        unknown = set(item) - _ENTRYPOINT_KEYS
+        if unknown:
+            raise recipe_error(
+                name, f"entrypoint {entry} has unknown keys: {', '.join(sorted(map(str, unknown)))}"
+            )
+        domain, port = (str(item.get("domain_variable", "")), str(item.get("port_variable", "")))
+        for label, variable in (("domain_variable", domain), ("port_variable", port)):
+            if variable not in by_name:
+                raise recipe_error(
+                    name, f"entrypoint {entry}: {label} {variable} is not a variable of the recipe"
+                )
+            if (label, variable) in used:
+                role = "address" if label == "domain_variable" else "port"
+                raise recipe_error(
+                    name, f"entrypoint {entry}: {variable} is the {role} of two entrypoints"
+                )
+            used[(label, variable)] = entry
+        chosen = by_name[domain]
+        if not chosen.required or chosen.generate or chosen.default is not None or chosen.secret:
+            raise recipe_error(
+                name,
+                f"entrypoint {entry}: {domain} must be a required variable the operator gives "
+                "(no default, nothing generated, not secret)",
+            )
+        if port not in info.local_port_variables:
+            raise recipe_error(
+                name,
+                f"entrypoint {entry}: {port} is not a loopback port the document publishes "
+                "(127.0.0.1:${NAME}:<container port>)",
+            )
+        found.append(
+            Entrypoint(
+                name=entry,
+                title=_string(name, item, "title"),
+                description=str(item.get("description", "")).strip(),
+                domain_variable=domain,
+                port_variable=port,
+            )
+        )
+    return tuple(found)
+
+
 def _parse_files(
     name: str, raw: Any, declared: set[str], *, kind: str
 ) -> tuple[dict[str, str], frozenset[str], dict[str, int], frozenset[str]]:
@@ -1375,6 +1461,7 @@ def _parse_v2(name: str, data: dict[str, Any]) -> Recipe:
         )
         variables = _parse_variables(name, data.get("variables"), requires, info, file_uses)
         _check_host_variables(name, variables, info)
+        entrypoints = _parse_entrypoints(name, data.get("entrypoints"), variables, info)
         return Recipe(
             name=name,
             schema=SCHEMA_VERSION,
@@ -1392,6 +1479,7 @@ def _parse_v2(name: str, data: dict[str, Any]) -> Recipe:
             images=info.images,
             digest_verified=digest_verified,
             public_ports=public_ports,
+            entrypoints=entrypoints,
             **metadata,
         )
 

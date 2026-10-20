@@ -1,0 +1,5 @@
+# How nginx proxies this application. Attachments are uploaded, and a large mailbox takes a while to list.
+max_body_size: 50m
+routes:
+  - path: /
+    read_timeout: 300

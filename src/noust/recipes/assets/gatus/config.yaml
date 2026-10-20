@@ -1,0 +1,24 @@
+# Gatus reads this file from /config/config.yaml.
+# Documentation: https://github.com/TwiN/gatus#configuration
+storage:
+  type: sqlite
+  path: /data/data.db
+
+ui:
+  title: Status
+  header: Status
+
+endpoints:
+  - name: This status page
+    group: Noust
+    url: "${GATUS_PUBLIC_URL}/health"
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+      - "[RESPONSE_TIME] < 1000"
+  - name: Gatus documentation
+    group: Examples
+    url: "https://github.com/TwiN/gatus"
+    interval: 15m
+    conditions:
+      - "[STATUS] == 200"

@@ -469,6 +469,47 @@ class PublicPort:
 
 
 @dataclass(frozen=True)
+class Entrypoint:
+    """
+    An extra public address of a Compose recipe, served by a service of its own.
+
+    Typebot is two applications that must answer on two names (its builder, and the viewer that
+    visitors open); the recipe's ``port`` is the first, and each entrypoint is another. The
+    address is a required variable, so that the console's wizard, the command line and the API
+    ask for it like any other input, and the service publishes on a loopback port variable.
+    The install proxies the address to that port as an alias of the application.
+
+    Attributes:
+        name: What the entrypoint is called (``viewer``).
+        title: The words the operator reads.
+        description: What visitors do at that address.
+        domain_variable: The required variable the operator gives the address in.
+        port_variable: The loopback port variable the service publishes on.
+    """
+
+    name: str
+    title: str
+    description: str
+    domain_variable: str
+    port_variable: str
+
+    def to_dict(self) -> dict[str, str]:
+        """
+        Describe the entrypoint for the CLI.
+
+        Returns:
+            Its name, words and the two variables.
+        """
+        return {
+            "name": self.name,
+            "title": self.title,
+            "description": self.description,
+            "domain_variable": self.domain_variable,
+            "port_variable": self.port_variable,
+        }
+
+
+@dataclass(frozen=True)
 class ChangelogEntry:
     """
     What a version of a recipe changed, for the operator deciding to update.
@@ -539,6 +580,7 @@ class Recipe:
         images: A Compose recipe's images, as pinned.
         digest_verified: Every image carries a digest read from its registry.
         public_ports: Ports a Compose recipe opens to the network.
+        entrypoints: The extra public addresses of a Compose recipe, each a service of its own.
         notes: Templates of what to tell the operator after the deploy.
         changelog: What the latest versions changed.
         origin: One of :data:`ORIGINS`: the package, a catalogue package, or
@@ -585,6 +627,7 @@ class Recipe:
     images: tuple[RecipeImage, ...] = ()
     digest_verified: bool = True
     public_ports: tuple[PublicPort, ...] = ()
+    entrypoints: tuple[Entrypoint, ...] = ()
     notes: tuple[str, ...] = ()
     changelog: tuple[ChangelogEntry, ...] = ()
     origin: str = "shipped"
@@ -706,6 +749,7 @@ class Recipe:
                 {"port": entry.port, "protocol": entry.protocol, "purpose": entry.purpose}
                 for entry in self.public_ports
             ],
+            "entrypoints": [entry.to_dict() for entry in self.entrypoints],
             "persistent_paths": list(self.persistent_paths),
             "health": (
                 {

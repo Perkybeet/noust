@@ -1,0 +1,70 @@
+# Pocket ID from the image the project publishes (ghcr.io/pocket-id/pocket-id), configured as its
+# documentation describes (pocket-id.org/docs/configuration/environment-variables, read
+# 2026-10-20): APP_URL (the public address, which the passkeys are bound to), TRUST_PROXY (it
+# sits behind nginx, so it reads the client's address from the forwarded headers),
+# ENCRYPTION_KEY (encrypts what it stores, required since version 1.x), and the data under
+# /app/data (SQLite, keys, uploads). The first administrator is created in the browser at
+# /setup, which the first note says to do at once. /healthz answers without a sign-in.
+#
+# Derived in part from Coolify's template "pocket-id" (Apache-2.0,
+# https://github.com/coollabsio/coolify/blob/next/templates/compose/pocket-id.yaml). Pinned to
+# the release tag and to the digest ghcr.io serves for it.
+schema: 2
+name: pocket-id
+kind: compose
+title: Pocket ID
+slogan: "A simple OpenID Connect provider where you sign in with passkeys."
+description: "Give your self-hosted applications single sign-on with passkeys, with no passwords to store or phish. An OpenID Connect provider with users, groups and per-client access rules. The first person to open it creates the administrator."
+category: security
+tags: [oidc, sso, passkeys, authentication]
+logo: logo.svg
+version: "2.18.0"
+revision: 1
+updated: 2026-10-20
+homepage: https://pocket-id.org
+docs: https://pocket-id.org/docs
+repository: https://github.com/pocket-id/pocket-id
+license: BSD-2-Clause
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 1411
+variables:
+  POCKET_ID_URL:
+    from: url
+    description: The address people use; passkeys are bound to it, so it cannot change once they exist.
+  ENCRYPTION_KEY:
+    generate: base64_32
+    description: Encrypts what Pocket ID stores. Do not change it once the instance has users.
+health:
+  path: /healthz
+  expect: "200"
+  timeout: 90
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    pocket-id:
+      image: ghcr.io/pocket-id/pocket-id:v2.18.0@sha256:323e7ef5bfacf7cf32f22f3d10ccdf48e0c97c94d67e7e40b0b996830deb5165
+      restart: unless-stopped
+      environment:
+        APP_URL: "${POCKET_ID_URL}"
+        TRUST_PROXY: "true"
+        ENCRYPTION_KEY: "${ENCRYPTION_KEY}"
+        ANALYTICS_DISABLED: "true"
+        SMTP_HOST:
+        SMTP_PORT:
+        SMTP_FROM:
+        SMTP_USER:
+        SMTP_PASSWORD:
+        SMTP_TLS:
+      volumes:
+        - pocket-id-data:/app/data
+      ports:
+        - "127.0.0.1:${PORT}:1411"
+  volumes:
+    pocket-id-data:
+notes:
+  - "Open {{ url }}/setup now and create the administrator: until you do, anybody who reaches it can."
+  - "Passkeys are bound to the address {{ url }}: move the application to another name and they stop working."
+  - "Its database, keys and uploads are in the Docker volume pocket-id-data of this application: back it up before updating, and keep ENCRYPTION_KEY with the copy."
+  - "Pocket ID sends no e-mail until you set the SMTP_* variables (the application's Environment tab) and restart it."

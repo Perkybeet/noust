@@ -1,0 +1,75 @@
+# Elasticsearch from the image Elastic publishes (docker.elastic.co/elasticsearch/elasticsearch),
+# run as a single node the way its Docker documentation describes
+# (elastic.co/docs/deploy-manage/deploy/self-managed/install-elasticsearch-with-docker, read
+# 2026-10-20): discovery.type=single-node (which also relaxes the bootstrap checks that need
+# kernel settings a container cannot change), ELASTIC_PASSWORD for the built-in elastic user,
+# security on, a heap set with ES_JAVA_OPTS, and the data under /usr/share/elasticsearch/data.
+# TLS on the HTTP port is turned off (xpack.security.http.ssl.enabled=false): the port is
+# published on 127.0.0.1 for nginx, which serves the TLS people connect to, and authentication
+# stays on. Every request needs the password, including GET /, which answers 401 when the node is
+# up; that is the status the health check expects.
+#
+# Elasticsearch is licensed under the AGPL v3 as well as the Elastic License 2.0 and the SSPL,
+# at the user's choice (LICENSE.txt, read 2026-10-20): the AGPL is the one named here.
+#
+# Derived in part from Coolify's template "elasticsearch" (Apache-2.0,
+# https://github.com/coollabsio/coolify/blob/next/templates/compose/elasticsearch.yaml). Pinned to
+# the release tag and to the digest Elastic's registry serves for it.
+schema: 2
+name: elasticsearch
+kind: compose
+title: Elasticsearch
+slogan: "The distributed search and analytics engine, as a single secured node."
+description: "Index and search documents and logs with full-text, structured and vector queries through a REST API. A single node with security on: every request needs the elastic user's password. Licensed under the AGPL (also the Elastic License and the SSPL, at your choice). Needs about 2 GB of memory."
+category: search
+tags: [search, analytics, logs, vector-search]
+logo: logo.svg
+version: "9.5.5"
+revision: 1
+updated: 2026-10-20
+homepage: https://www.elastic.co/elasticsearch
+docs: https://www.elastic.co/docs/deploy-manage/deploy/self-managed/install-elasticsearch-with-docker
+repository: https://github.com/elastic/elasticsearch
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 9200
+variables:
+  ELASTIC_PASSWORD:
+    generate: password32
+    description: The password of the elastic superuser. Elasticsearch reads it only when it first starts.
+  ES_JAVA_OPTS:
+    default: "-Xms1g -Xmx1g"
+    description: The Java heap. Half of the memory you give the node, and no more than that.
+health:
+  path: /
+  expect: "401"
+  timeout: 300
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    elasticsearch:
+      image: docker.elastic.co/elasticsearch/elasticsearch:9.5.5@sha256:13b4a40bb095774f5fda635e45fd5677cc6a26565e42b24997b0c72b88e75984
+      restart: unless-stopped
+      environment:
+        discovery.type: single-node
+        ELASTIC_PASSWORD: "${ELASTIC_PASSWORD}"
+        xpack.security.enabled: "true"
+        xpack.security.http.ssl.enabled: "false"
+        bootstrap.memory_lock: "true"
+        ES_JAVA_OPTS: "${ES_JAVA_OPTS}"
+      ulimits:
+        memlock:
+          soft: -1
+          hard: -1
+      volumes:
+        - elasticsearch-data:/usr/share/elasticsearch/data
+      ports:
+        - "127.0.0.1:${PORT}:9200"
+  volumes:
+    elasticsearch-data:
+notes:
+  - "The API is {{ url }}; authenticate as elastic with ELASTIC_PASSWORD (noust env show {{ domain }} --unmask), for example curl -u elastic:... {{ url }}/_cluster/health. Make API keys for your applications instead of handing out that password."
+  - "Elasticsearch needs vm.max_map_count of at least 262144 on a server that runs it in production; set it with sysctl on this machine if it is lower (the single-node mode starts without it, with a warning)."
+  - "Your indices are in the Docker volume elasticsearch-data of this application: back it up before updating (take a snapshot of the indices you cannot rebuild). There is no Kibana in this recipe."

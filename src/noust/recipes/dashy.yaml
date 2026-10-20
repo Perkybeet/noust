@@ -1,0 +1,48 @@
+# Dashy from the image the project publishes (lissy93/dashy on Docker Hub, the same release as
+# ghcr.io/lissy93/dashy). Configuration is what the project documents (docs/configuring.md,
+# docs/management.md): the dashboard is the file /app/user-data/conf.yml, the image listens on
+# 8080, and /status answers without a login. Dashy has no accounts of its own until the file
+# lists users with a hashed password, so the file this recipe ships is read-only for the
+# browser (preventWriteToDisk, preventLocalSave): the page is public and can only be changed by
+# editing the file on the server.
+#
+# Pinned to the release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: dashy
+kind: compose
+title: Dashy
+slogan: "A self-hosted start page for your services, with status checks and widgets."
+description: "A customisable dashboard for the services you run: sections of links with icons, live status checks, widgets and themes, all described in one YAML file. The page is public and read-only in the browser; you edit it on the server."
+category: productivity
+tags: [dashboard, start-page, homelab, bookmarks]
+logo: logo.svg
+version: "4.8.7"
+revision: 1
+updated: 2026-10-20
+homepage: https://dashy.to
+docs: https://dashy.to/docs
+repository: https://github.com/Lissy93/dashy
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8480
+health:
+  path: /status
+  expect: "200"
+  timeout: 120
+files: {conf.yml: {asset: conf.yml, mode: "0644"}}
+compose: |
+  services:
+    dashy:
+      image: lissy93/dashy:4.8.7@sha256:689a9a88b2368cfb7646458d176edf7fa378ad02218ef0cc8ccb53e1a8a3edbf
+      restart: unless-stopped
+      environment:
+        NODE_ENV: production
+      volumes:
+        - ./conf.yml:/app/user-data/conf.yml
+      ports:
+        - "127.0.0.1:${PORT}:8080"
+notes:
+  - "Open {{ url }}: the page is public and cannot be changed from the browser. Edit conf.yml in this application's directory (sections, links, widgets) and restart it: noust restart {{ domain }}."
+  - "To let people sign in and edit from the browser, add users with a hashed password to conf.yml as Dashy's documentation describes, and remove preventWriteToDisk."

@@ -1,0 +1,103 @@
+# EspoCRM from the image the project publishes (espocrm/espocrm on Docker Hub, the Apache build)
+# with MariaDB and the daemon the project's compose file runs, as its installation guide describes
+# (docs.espocrm.com "Installation with Docker", read 2026-10-20): ESPOCRM_DATABASE_* for the
+# database, ESPOCRM_ADMIN_USERNAME and ESPOCRM_ADMIN_PASSWORD (the administrator, made by the
+# installation on the first start, so no visitor can claim it), ESPOCRM_SITE_URL, and the
+# application under /var/www/html, shared with the daemon (the same image, started as
+# docker-daemon.sh, which runs scheduled jobs, workflows and e-mail). The WebSocket service of
+# the project's file is left out: live updates are optional.
+#
+# Pinned to the release tag and to the digests Docker Hub serves for it.
+schema: 2
+name: espocrm
+kind: compose
+title: EspoCRM
+slogan: "A customer relationship manager for sales, marketing and support."
+description: "Track leads, accounts, opportunities, cases and campaigns, with workflows, reports, e-mail integration and a calendar. A full CRM for a small team. Starts with the administrator you name."
+category: business
+tags: [crm, sales, support, marketing]
+logo: logo.svg
+version: "10.0.10"
+revision: 1
+updated: 2026-10-20
+homepage: https://www.espocrm.com
+docs: https://docs.espocrm.com
+repository: https://github.com/espocrm/espocrm
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8980
+variables:
+  ESPOCRM_SITE_URL:
+    from: url
+    description: The address people use; EspoCRM builds its links from it.
+  ESPOCRM_ADMIN_USERNAME:
+    default: admin
+    description: The administrator's user name.
+  ESPOCRM_ADMIN_PASSWORD:
+    generate: password32
+    description: The administrator's password. EspoCRM reads it only when it installs.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's MariaDB account.
+  MARIADB_ROOT_PASSWORD:
+    generate: password32
+    description: The password of the MariaDB root account, which stays inside the stack.
+health:
+  path: /
+  expect: "200"
+  timeout: 600
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    espocrm:
+      image: espocrm/espocrm:10.0.10-apache@sha256:debf48652fed511424825839185fd67e773081ee0d665ab62cbce985acb32636
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        ESPOCRM_DATABASE_PLATFORM: Mysql
+        ESPOCRM_DATABASE_HOST: db
+        ESPOCRM_DATABASE_NAME: espocrm
+        ESPOCRM_DATABASE_USER: espocrm
+        ESPOCRM_DATABASE_PASSWORD: "${DB_PASSWORD}"
+        ESPOCRM_ADMIN_USERNAME: "${ESPOCRM_ADMIN_USERNAME}"
+        ESPOCRM_ADMIN_PASSWORD: "${ESPOCRM_ADMIN_PASSWORD}"
+        ESPOCRM_SITE_URL: "${ESPOCRM_SITE_URL}"
+      volumes:
+        - espocrm-html:/var/www/html
+      ports:
+        - "127.0.0.1:${PORT}:80"
+    daemon:
+      image: espocrm/espocrm:10.0.10-apache@sha256:debf48652fed511424825839185fd67e773081ee0d665ab62cbce985acb32636
+      restart: unless-stopped
+      entrypoint: docker-daemon.sh
+      depends_on:
+        espocrm:
+          condition: service_started
+      volumes:
+        - espocrm-html:/var/www/html
+    db:
+      image: mariadb:11.8.9@sha256:6422478cb8e159f080fb1d8ccf65101e26fe51385787fde7d16c3b165a331f15
+      restart: unless-stopped
+      environment:
+        MARIADB_ROOT_PASSWORD: "${MARIADB_ROOT_PASSWORD}"
+        MARIADB_DATABASE: espocrm
+        MARIADB_USER: espocrm
+        MARIADB_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 30s
+      volumes:
+        - espocrm-db:/var/lib/mysql
+  volumes:
+    espocrm-html:
+    espocrm-db:
+notes:
+  - "The first start installs EspoCRM, which takes a few minutes. Then sign in at {{ url }} as {{ vars.ESPOCRM_ADMIN_USERNAME }}; the password is ESPOCRM_ADMIN_PASSWORD (noust env show {{ domain }} --unmask). It is read only when EspoCRM installs: change it in EspoCRM afterwards."
+  - "Its code, configuration, uploads and extensions are in the Docker volume espocrm-html and the database in espocrm-db (MariaDB, dumped by Noust before every update). Back both up before updating: the uploaded files are not in the database dump."

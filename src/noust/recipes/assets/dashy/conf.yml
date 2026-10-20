@@ -1,0 +1,25 @@
+# Dashy reads this file from /app/user-data/conf.yml.
+# Documentation: https://dashy.to/docs/configuring
+pageInfo:
+  title: Dashboard
+  description: Edit conf.yml on the server to change this page
+appConfig:
+  theme: colorful
+  statusCheck: true
+  statusCheckInterval: 300
+  # The browser cannot change what the server shows until users are configured.
+  preventWriteToDisk: true
+  preventLocalSave: true
+  disableConfigurationForNonAdmin: true
+sections:
+  - name: Getting started
+    icon: fas fa-rocket
+    items:
+      - title: Dashy documentation
+        description: How to configure this page
+        icon: hl-dashy
+        url: https://dashy.to/docs
+      - title: Noust
+        description: The server this runs on
+        icon: fas fa-server
+        url: https://github.com/Perkybeet/noust

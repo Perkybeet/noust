@@ -1,0 +1,65 @@
+# ConvertX from the image the project publishes (ghcr.io/c4illin/convertx), run as its
+# documentation describes (github.com/C4illin/ConvertX README, read 2026-10-20): a Bun server
+# on 3000 that converts files with FFmpeg, ImageMagick, Pandoc, LibreOffice and others, keeping
+# its accounts and the files in progress under /app/data. JWT_SECRET signs the session and is
+# generated. ALLOW_UNAUTHENTICATED and ACCOUNT_REGISTRATION stay at their defaults (false), so
+# after the first account nobody else can register or convert without signing in; the first
+# visit creates that account, which the first note says to do now. AUTO_DELETE_EVERY_N_HOURS
+# removes the files that are older than that. The image runs as root unless PUID is given.
+#
+# Licence: AGPL-3.0 (LICENSE, read 2026-10-20). Pinned to the release tag and to the digest
+# ghcr.io serves for it.
+schema: 2
+name: convertx
+kind: compose
+title: ConvertX
+slogan: "A self-hosted converter for files of more than a thousand formats."
+description: "Convert documents, images, audio, video, e-books and 3D models from the browser, with the tools you would otherwise install one by one: FFmpeg, ImageMagick, Pandoc, LibreOffice and more. Accounts are required, and files are deleted after a while."
+category: utilities
+tags: [converter, files, ffmpeg, documents, images]
+logo: logo.svg
+version: "0.19.0"
+revision: 1
+updated: 2026-10-20
+homepage: https://github.com/C4illin/ConvertX
+docs: https://github.com/C4illin/ConvertX#readme
+repository: https://github.com/C4illin/ConvertX
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  JWT_SECRET:
+    generate: password64
+    description: The key that signs the sessions of the people who sign in.
+  AUTO_DELETE_EVERY_N_HOURS:
+    default: "24"
+    description: Files older than this many hours are deleted. 0 keeps them.
+health:
+  path: /
+  expect: "200-399"
+  timeout: 120
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    convertx:
+      image: ghcr.io/c4illin/convertx:v0.19.0@sha256:8590a21a16adb8514a8be55b74ad0112bf58ba772328a53f7b40528fcf8fa013
+      restart: unless-stopped
+      environment:
+        JWT_SECRET: "${JWT_SECRET}"
+        AUTO_DELETE_EVERY_N_HOURS: "${AUTO_DELETE_EVERY_N_HOURS}"
+        ACCOUNT_REGISTRATION: "false"
+        ALLOW_UNAUTHENTICATED: "false"
+        HTTP_ALLOWED: "false"
+      volumes:
+        - convertx-data:/app/data
+      ports:
+        - "127.0.0.1:${PORT}:3000"
+  volumes:
+    convertx-data:
+notes:
+  - "Open {{ url }} now and create the first account: until you do, anybody who reaches the page can. After it, registration is closed (ACCOUNT_REGISTRATION=false) and nobody converts without signing in."
+  - "Sign in over https: ConvertX only sets its session cookie on a secure connection (HTTP_ALLOWED=false), so the address must have a certificate."
+  - "Converting is heavy: a large video or document can use all the processors of this server for a while."
+  - "Accounts and the files in progress are in the Docker volume convertx-data of this application: back it up before updating."
