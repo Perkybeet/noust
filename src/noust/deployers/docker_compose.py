@@ -79,6 +79,7 @@ from noust.deployers.helpers.hooks import (
 from noust.deployers.helpers.registration import StoreRegistrar
 from noust.deployers.helpers.site import (
     WriteOutcome,
+    load_app_site,
     refresh_app_site,
     remove_app_site,
     write_template_site,
@@ -1873,7 +1874,7 @@ class DockerComposeDeployer(AppDeployer):
                 "    - path: /\n      port: " + str(self._get_primary_port())
             )
         self._write_site(with_ssl=False)
-        self.webserver_manager().reload()
+        load_app_site(self.webserver_manager(), self.domain, self.logger)
         self.logger.substep(f"Nginx configured (port {self._get_primary_port()})")
 
     def has_certificate(self) -> bool:

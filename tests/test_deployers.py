@@ -99,6 +99,11 @@ class FakeWebServer:
         self.reloads += 1
         return True
 
+    def load_configuration(self) -> str | None:
+        # What a deploy asks after writing a site: the web server is running and loads it.
+        self.reloads += 1
+        return None
+
 
 class FakeServiceManager:
     """Stands in for ServiceManager."""

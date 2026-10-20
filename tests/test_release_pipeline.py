@@ -242,6 +242,9 @@ class FakeWeb:
     def reload(self) -> bool:
         return True
 
+    def load_configuration(self) -> str | None:
+        return None
+
 
 # ---------------------------------------------------------------------------
 # Fixtures

@@ -221,6 +221,16 @@ class RecordingManager:
         self.calls.append(("reload", None))
         return True
 
+    def load_configuration(self) -> str | None:
+        """
+        Record the web server loading a site it was just given, which a running one does by a reload.
+
+        Returns:
+            None: it loaded.
+        """
+        self.calls.append(("reload", None))
+        return None
+
     @property
     def names(self) -> list[str]:
         """The names of the operations performed, in order."""

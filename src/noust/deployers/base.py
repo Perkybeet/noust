@@ -127,6 +127,7 @@ from noust.deployers.helpers.seed_files import seed_files, seeded_paths
 from noust.deployers.helpers.site import (
     WriteOutcome,
     has_certificate,
+    load_app_site,
     refresh_app_site,
     remove_app_site,
     write_template_site,
@@ -2720,7 +2721,7 @@ class BaseDeployer(AppDeployer):
         self._record_requested_domains()
         manager = self._webserver_manager()
         self._write_site(manager, with_ssl=with_ssl)
-        manager.reload()
+        load_app_site(manager, self.domain, self.logger)
         return True
 
     def _write_site(self, manager: NginxManager | ApacheManager, *, with_ssl: bool) -> WriteOutcome:

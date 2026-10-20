@@ -43,6 +43,7 @@ __all__ = [
     "certificate_names",
     "has_certificate",
     "is_operator_site",
+    "load_app_site",
     "obtain_certificate",
     "reduce_certificate",
     "refresh_app_site",
@@ -242,6 +243,28 @@ def refresh_app_site(
             f"systemctl status {manager.backend.name}",
         )
     return outcome
+
+
+def load_app_site(manager: WebServerManager, domain: str, logger: Logger) -> None:
+    """
+    Make the web server load the site just written, and say so when it will not.
+
+    A deploy reloaded and dropped the answer, so on a server whose web server was stopped it
+    reported success and nothing was served. The web server is started when it is not running;
+    when it will not load the site (an address in use, a configuration it refuses) the deploy is
+    not undone, because the application itself is up, and the warning carries its own words.
+
+    Args:
+        manager: The web server manager the site was written through.
+        domain: The application's domain.
+        logger: Where the warning goes.
+    """
+    problem = manager.load_configuration()
+    if problem is not None:
+        logger.warning(
+            f"{manager.backend.name} did not load the site of {domain}, so nothing serves it "
+            f"yet:\n{problem}"
+        )
 
 
 def remove_app_site(
