@@ -911,7 +911,14 @@ class TestRehearsalChangesNothing:
         )
 
         assert scheduler.fs is recorder
-        assert [change[0] for change in recorder.changes] == ["write", "write"]
+        # The schedule's own pair of units, then the retention sweep's: every policy brings it.
+        assert [change[0] for change in recorder.changes] == ["write"] * 4
+        written = [change[1].name for change in recorder.changes]
+        assert sorted(written[:2]) == [
+            "noust-backup-shop-example-com.service",
+            "noust-backup-shop-example-com.timer",
+        ]
+        assert sorted(written[2:]) == ["noust-backup-sweep.service", "noust-backup-sweep.timer"]
         assert BackupManager(runner=runner, fs=recorder).fs is recorder
 
 

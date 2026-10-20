@@ -195,7 +195,7 @@ def _stack_policy(app: App, store: NoustStore, notes: list[str], logger: Logger)
         notes.append(
             f"{app.domain} already has a backup schedule that leaves its databases out: the "
             f"databases inside its stack ({', '.join(labels)}) are not dumped. Change it with: "
-            f"noust backup schedule set {app.domain} (the databases are included by default)."
+            f"noust backup schedule update {app.domain} (the databases are included by default)."
         )
         return []
     from noust.core.utils import domain_to_app_name

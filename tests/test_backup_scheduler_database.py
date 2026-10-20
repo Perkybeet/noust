@@ -201,6 +201,9 @@ class TestState:
             "installed": True,
             "next_run": "Tue 2026-09-30 02:03:11 UTC",
             "last_run": None,
+            # What the timer was given besides the policy (checklist H-01): none here.
+            "max_runtime_seconds": None,
+            "timezone": None,
         }
 
     def test_a_timer_systemd_does_not_have_is_not_installed(
