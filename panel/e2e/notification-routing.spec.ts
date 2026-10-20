@@ -106,12 +106,17 @@ test("a channel hears the events it was given instead of the server's, and the p
   const routing = page.getByRole("dialog", { name: "Routing for Slack" });
   await expect(routing.getByText("It hears every event switched on under What is sent.")).toBeVisible();
   await routing.getByRole("radio", { name: "Choose here" }).click();
+  // Every event the server can say is listed in groups headed "5 of 8"; their totals add up to
+  // the number the row repeats, whichever events a release adds.
+  const headings = await routing.locator("fieldset legend").allTextContents();
+  const events = headings.reduce((sum, heading) => sum + Number(/\d+ of (\d+)/.exec(heading)?.[1] ?? 0), 0);
+  expect(events).toBeGreaterThan(0);
   await routing.getByRole("checkbox", { name: "Deploy started" }).check();
   await routing.getByRole("checkbox", { name: "Backup finished" }).uncheck();
   await routing.getByRole("button", { name: "Save" }).click();
   await expect(routing.getByRole("button", { name: "Save" })).toBeDisabled();
   await routing.getByRole("button", { name: "Done" }).click();
-  await expect(row(page, "Slack")).toContainText("Own switches for 35 events");
+  await expect(row(page, "Slack")).toContainText(`Own switches for ${String(events)} events`);
 });
 
 test("the new channel types have a row each, and the record of deliveries says nothing has been sent on a fresh server", async ({

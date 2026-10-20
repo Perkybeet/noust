@@ -415,6 +415,10 @@ export const backups = {
     encryptWarningBold: "Losing it makes every backup on this destination unrecoverable.",
     errorCreate: "The destination was not created",
     errorSave: "The destination was not saved",
+    errorUnreachableCreate: "The destination did not answer, so it was not created",
+    errorUnreachableSave: "The destination did not answer, so the change was not saved",
+    keepAnyway: "Keep it anyway",
+    keepAnywayHelp: "It is saved without trying the connection. Test it later from its menu.",
   },
 
   showKeyDialog: {

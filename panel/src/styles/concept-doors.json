@@ -1,0 +1,103 @@
+{
+  "$comment": "NV-8: one home per concept. These are the concepts the console lets an operator change from more than one place, each with the places and the reason it is still so. The list may only get shorter: styles/concept-doors.test.ts fails on a concept added, and asks for `baseline` to go down when one is removed. Edit it by hand in the change that gives a concept a single home (the others become a link, the same component filtered to that scope, or a read-only summary that says where it is managed).",
+  "baseline": 13,
+  "concepts": [
+    {
+      "id": "logs",
+      "doors": [
+        "Logs (the sidebar: search across every application)",
+        "Server > Logs (the system journal)",
+        "Application > Logs",
+        "Service > Logs",
+        "Settings > Log shipping",
+        "the build log of each deployment"
+      ],
+      "reason": "Each reads a different source with the same toolbar; the register folds Server > Logs into /logs?source=system and the rest are scoped views of one component."
+    },
+    {
+      "id": "variables",
+      "doors": [
+        "Application > Environment",
+        "Application > Settings > Previews (the variables a preview gets)",
+        "Project and environment pages",
+        "Team > Variables",
+        "Settings > Variables",
+        "Settings > Secret managers"
+      ],
+      "reason": "Six scopes of one idea (who sees the value, from the narrowest to the whole instance); each scope is its owner's page and none can hold the others without hiding whose value it is."
+    },
+    {
+      "id": "people-and-roles",
+      "doors": [
+        "Settings > Accounts",
+        "Settings > Roles",
+        "Team > Members",
+        "Settings > Single sign-on (roles by group)",
+        "Settings > Approvals"
+      ],
+      "reason": "A person, what they may do, who they belong to and who must agree are four questions that grew five pages; the grouping 'People and access' puts them side by side before they are merged."
+    },
+    {
+      "id": "alerts-and-notices",
+      "doors": [
+        "Settings > Channels",
+        "Settings > Alert rules",
+        "Settings > Probes and status page",
+        "Settings > Logs and metrics export",
+        "the live toasts and the inbox"
+      ],
+      "reason": "Where the message goes, when it is sent and what is watched are separate subsections of Monitoring; each is longer than a screen on its own (NV-9)."
+    },
+    {
+      "id": "activity-and-audit",
+      "doors": ["Activity (jobs)", "Settings > Audit log", "Fleet > Activity", "Overview > Recent activity"],
+      "reason": "Activity is what happened to the machine and the audit log is what was done and by whom; they cross-link instead of merging because their permissions and retention differ."
+    },
+    {
+      "id": "servers",
+      "doors": ["the scope selector", "Fleet > Servers", "Settings > Servers", "Settings > Cloud providers", "Settings > Central"],
+      "reason": "Settings > Servers redirects to Fleet > Servers once the register ships; Cloud providers and Central configure how servers come to exist and are not the list."
+    },
+    {
+      "id": "updates",
+      "doors": ["Server > System updates (the operating system's packages)", "Settings > About Noust (Noust's own update)", "Fleet > Noust and system updates"],
+      "reason": "Three different things are called updates: the system's packages, Noust itself and the fleet's rollout of both; the glossary keeps them apart by name."
+    },
+    {
+      "id": "security",
+      "doors": ["Server > Security (findings of the host)", "Account > Sign-in security", "Application > Settings > Service security"],
+      "reason": "The host's findings, the person's sign-in and one service's hardening are three subjects that share a word; the labels differ and Settings > Security is gone."
+    },
+    {
+      "id": "terminal",
+      "doors": ["Server > Terminal", "Application > Terminal"],
+      "reason": "The same terminal screen at two scopes (the machine, one application's directory); each is reached from its own header."
+    },
+    {
+      "id": "freeze-deploys",
+      "doors": ["Settings > General (freeze deployments)", "Application > Settings > Automation (freeze)"],
+      "reason": "The first freezes the server, the second one application; the application's page shows the server's freeze as read-only when it is on."
+    },
+    {
+      "id": "backups",
+      "doors": ["Backups (five tabs)", "Database > Backups", "Fleet > Backups", "Settings > General (the backup folder)"],
+      "reason": "A database's schedule is the database's own and the folder is a server setting; both link to the Backups area, which holds the policy."
+    },
+    {
+      "id": "automatic-deploys",
+      "doors": [
+        "Application > Settings > Releases and rollback",
+        "Application > Settings > Automation",
+        "Application > Settings > Deploy on push",
+        "Application > Settings > Deploy hooks",
+        "Application > Settings > Build"
+      ],
+      "reason": "Five adjacent subsections with near names; the application settings grouping (Code, Deploys, Triggers) separates them by what starts a deployment."
+    },
+    {
+      "id": "domains",
+      "doors": ["Domains (certificates, sites, DNS, tunnels, ports)", "Application > Domains", "Settings > Console address"],
+      "reason": "The area lists every name on the server; an application's tab edits its own names and the console's name is the one setting that publishes the console."
+    }
+  ]
+}

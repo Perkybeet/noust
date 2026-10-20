@@ -185,7 +185,7 @@ export const DESIGN_RULES: readonly DesignRule[] = [
   },
   {
     id: "confirm-hand-rolled",
-    fix: "Use ConfirmDialog with the friction the action deserves (none, simple, type).",
+    fix: "Use ConfirmDialog with the friction the action deserves (none, simple, type). Its twin ActionDialog and a danger Button written by hand in a dialog are counted by the structural rules action-dialog and danger-button-outside-confirm.",
     pattern: /\bAlertDialog\.Popup\b/g,
     applies: except("components/ui/ConfirmDialog.tsx"),
   },

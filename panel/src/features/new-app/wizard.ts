@@ -275,7 +275,10 @@ export function imageInspection(): Inspection {
     install_command: [],
     build_command: [],
     start_command: "",
-    default_port: 8080,
+    // The port on this machine, not the image's: 8080 is the console's own on a default
+    // install, which the server refuses to hand to an application, so every image would have
+    // started its first deploy with a refusal. 3000 is where the server itself starts looking.
+    default_port: 3000,
     env_keys: [],
     branch: "",
     commit: "",

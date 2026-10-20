@@ -228,3 +228,53 @@ class TestDetectedUse:
         assert found.engine == "postgresql"
         assert (root / ".env").read_text(encoding="utf-8").startswith("NODE_ENV=production\n")
         assert (root / ".env").stat().st_mode & 0o777 == 0o600
+
+
+class TestDumpLoader:
+    """A dump is loaded as the database's owner, and the modelled server answers who that is."""
+
+    DUMP = (
+        "-- PostgreSQL database dump\n\n"
+        "SET statement_timeout = 0;\n"
+        "CREATE TABLE greetings (id integer, said text);\n"
+        "INSERT INTO greetings VALUES (1, 'hola');\n"
+        "\n--\n-- PostgreSQL database dump complete\n--\n"
+    )
+
+    def test_it_says_who_owns_a_database_and_that_the_owner_is_no_superuser(
+        self, machine: FakeRunner
+    ) -> None:
+        manager = PostgresManager()
+        manager.create_database("imported_owner", owner="shop_owner")
+
+        facts = manager._loader_owner("imported_owner")
+
+        assert (facts.name, facts.privileged) == ("shop_owner", False)
+
+    def test_it_does_not_invent_an_owner_for_a_database_that_is_not_there(
+        self, machine: FakeRunner
+    ) -> None:
+        with pytest.raises(DatabaseError):
+            PostgresManager()._loader_owner("not_there_at_all")
+
+    def test_it_says_that_a_role_asked_about_is_no_superuser(self, machine: FakeRunner) -> None:
+        facts = PostgresManager()._loader_owner("any", role="shop_owner")
+
+        assert (facts.name, facts.privileged) == ("shop_owner", False)
+
+    def test_a_plain_dump_is_loaded_into_a_new_database_through_the_loader_login(
+        self, machine: FakeRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(PostgresManager, "BACKUP_DIR", tmp_path / "backups")
+        dump = tmp_path / "shop.sql"
+        dump.write_text(self.DUMP, encoding="utf-8")
+        manager = PostgresManager()
+        manager.create_database("imported_plain")
+
+        manager.restore("imported_plain", dump, safety_backup=False)
+
+        loads = [call for call in machine.calls if "-f" in call and "imported_plain" in call]
+        assert loads, "the dump was handed to psql"
+        assert any("-U" in call and "noust_load" in " ".join(call) for call in loads), (
+            "and psql signed in as the login made for the load, not as the superuser"
+        )
