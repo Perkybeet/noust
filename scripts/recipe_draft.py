@@ -17,6 +17,11 @@ What this tool does is the part that is a lookup:
         the registry serves for that tag, and print the architectures the recipe can claim.
         With ``--write`` the file is rewritten with ``@sha256:...`` on each image; with ``--to``
         the pinned recipe is written to another file and the draft is left as it was.
+    scripts/recipe_draft.py config REFERENCE
+        What an image says it runs, read from its registry without pulling it: the account it runs
+        as, its entrypoint and command, the ports it listens on and the volumes it declares. It is
+        what tells a recipe's author the port nginx must reach, whether a file the recipe mounts
+        has to be readable by that account, and which directories a named volume inherits.
     scripts/recipe_draft.py logo NAME TITLE
         Write the monogram ``recipes/assets/NAME/logo.svg`` the catalogue ships (two letters on a
         dark tile, drawn for Noust: a project's own mark needs a licence).
@@ -242,6 +247,91 @@ def common_architectures(archs: dict[str, set[str]]) -> list[str]:
     return [arch for arch in order if arch in shared]
 
 
+def describe_config(config: dict[str, Any]) -> str:
+    """
+    Say in a few lines what an image's configuration runs and listens on.
+
+    Args:
+        config: The ``config`` object of an image's configuration blob.
+
+    Returns:
+        The account, the entrypoint and command, the ports, the volumes and the working directory.
+    """
+    ports = ", ".join(sorted((config.get("ExposedPorts") or {}), key=_port_order)) or "none"
+    volumes = ", ".join(sorted(config.get("Volumes") or {})) or "none"
+    return (
+        f"user: {config.get('User') or 'root'}\n"
+        f"entrypoint: {config.get('Entrypoint')}\n"
+        f"command: {config.get('Cmd')}\n"
+        f"ports: {ports}\n"
+        f"volumes: {volumes}\n"
+        f"working directory: {config.get('WorkingDir') or '/'}\n"
+        f"health check: {'yes' if config.get('Healthcheck') else 'no'}"
+    )
+
+
+def _port_order(port: str) -> tuple[int, str]:
+    """
+    Sort ``8080/tcp`` by its number.
+
+    Args:
+        port: An exposed port as the configuration spells it.
+
+    Returns:
+        The number and the protocol.
+    """
+    number, _, protocol = port.partition("/")
+    return (int(number) if number.isdigit() else 0, protocol)
+
+
+def image_config(reference: str) -> dict[str, Any]:
+    """
+    Read an image's configuration from its registry, for linux/amd64, without pulling it.
+
+    Args:
+        reference: ``[registry/]repository:tag``, with or without a digest.
+
+    Returns:
+        The ``config`` object of the image's configuration blob.
+
+    Raises:
+        RuntimeError: The registry did not answer.
+    """
+    registry, repository, _tag = recipe_pins.split_reference(reference)
+    digest = (
+        reference.split("@", 1)[1]
+        if "@" in reference
+        else recipe_pins.resolve_digest(reference.split("@", 1)[0])
+    )
+    host = "registry-1.docker.io" if registry == "docker.io" else registry
+    bearer = recipe_pins._token(registry, repository)
+    headers = {"Accept": recipe_pins._MANIFESTS}
+    if bearer:
+        headers["Authorization"] = f"Bearer {bearer}"
+
+    def fetch(path: str) -> Any:
+        request = urllib.request.Request(f"https://{host}/v2/{repository}/{path}", headers=headers)
+        with urllib.request.urlopen(request, timeout=60) as response:
+            return json.load(response)
+
+    try:
+        manifest = fetch(f"manifests/{digest}")
+        if "manifests" in manifest:
+            chosen = next(
+                entry
+                for entry in manifest["manifests"]
+                if entry.get("platform", {}).get("os") == "linux"
+                and entry["platform"].get("architecture") == "amd64"
+            )
+            manifest = fetch(f"manifests/{chosen['digest']}")
+        blob = fetch(f"blobs/{manifest['config']['digest']}")
+    except (OSError, StopIteration, KeyError) as exc:
+        raise RuntimeError(
+            f"{reference}: the registry did not give its configuration ({exc})"
+        ) from exc
+    return dict(blob.get("config") or {})
+
+
 def monogram(title: str) -> str:
     """
     Make the two letters of a title's logo.
@@ -309,6 +399,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="ask the registry even for a tag another recipe already pins",
     )
+    config = commands.add_parser("config")
+    config.add_argument("reference")
     logo = commands.add_parser("logo")
     logo.add_argument("name")
     logo.add_argument("title")
@@ -346,6 +438,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     for line in pinned
                 ]
                 (args.to or args.file).write_text("\n".join(pinned) + "\n", encoding="utf-8")
+        elif args.command == "config":
+            print(describe_config(image_config(args.reference)))
         elif args.command == "logo":
             target = ASSETS / args.name
             target.mkdir(parents=True, exist_ok=True)

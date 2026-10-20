@@ -147,3 +147,30 @@ def test_a_tag_the_catalogue_already_pins_keeps_its_digest(
         "postgres:17-alpine": f"sha256:{one}",
         "valkey/valkey:9": f"sha256:{other}",
     }
+
+
+def test_an_image_s_configuration_is_told_in_the_words_a_recipe_needs(draft: ModuleType) -> None:
+    """The account, the command, the ports in numeric order and the volumes: what to mount and where."""
+    said = draft.describe_config(
+        {
+            "User": "1000:1000",
+            "Entrypoint": ["/sbin/tini", "--"],
+            "Cmd": ["node", "server.js"],
+            "ExposedPorts": {"9000/tcp": {}, "80/tcp": {}, "9000/udp": {}},
+            "Volumes": {"/var/lib/x": {}, "/data": {}},
+            "WorkingDir": "/app",
+            "Healthcheck": {"Test": ["CMD", "true"]},
+        }
+    )
+
+    assert said.splitlines() == [
+        "user: 1000:1000",
+        "entrypoint: ['/sbin/tini', '--']",
+        "command: ['node', 'server.js']",
+        "ports: 80/tcp, 9000/tcp, 9000/udp",
+        "volumes: /data, /var/lib/x",
+        "working directory: /app",
+        "health check: yes",
+    ]
+    assert "user: root" in draft.describe_config({})
+    assert "ports: none" in draft.describe_config({})
