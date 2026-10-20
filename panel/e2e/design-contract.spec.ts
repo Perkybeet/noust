@@ -213,7 +213,9 @@ async function openGallery(page: Page, server: ConsoleServer, theme: "light" | "
   await page.setViewportSize({ width, height: 900 });
   await signIn(page, server);
   await page.goto(theme === null ? "/__design" : `/__design?theme=${theme}`);
-  const gallery = page.getByRole("navigation", { name: "Design system" });
+  // By CSS and not by role: below 1024px the gallery's own navigation is hidden, and a role
+  // locator does not see what is hidden, which would skip every phone-width test.
+  const gallery = page.locator('nav[aria-label="Design system"]');
   const present = await gallery
     .waitFor({ state: "attached", timeout: 5_000 })
     .then(() => true)
@@ -264,7 +266,7 @@ test.describe("the design gallery", () => {
     test("keeps a small button from making its row taller than 60px", async ({ page, consoleServer }) => {
       await openGallery(page, consoleServer, null, 1440);
       const group = page.locator('[data-gallery-section="k40-setting"] [data-theme="light"] [data-slot="settings-group"]').last();
-      const row = group.locator('[data-slot="setting"]', { hasText: "Instant rollback" });
+      const row = group.locator('[data-slot="setting"]', { hasText: /^Instant rollback/ });
       await row.scrollIntoViewIfNeeded();
       const box = await row.boundingBox();
       expect(Math.round(box?.height ?? 0)).toBe(60);
