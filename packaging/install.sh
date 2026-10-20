@@ -25,7 +25,13 @@
 #      virtual environment in /opt/noust with pip instead, and says so;
 #   4. runs `noust setup init -y` (nginx, git, certbot, Node.js, Noust's
 #      directories) and `noust web enable` (the console, as a service, on the
-#      loopback address only) and prints how to reach it.
+#      loopback address only) and prints how to reach it, with the server's own
+#      address and the link that opens the sign-in on the access token.
+#
+# Before it touches anything it looks at the machine: memory, processors and free
+# disk against the sizes in docs/requirements.md (below the floor it stops, below
+# the minimum it asks), and who holds ports 80 and 443 (another proxy would keep
+# the web server from starting).
 #
 # It never downloads another script and never pipes anything it fetched into a
 # shell. Re-running it upgrades Noust and leaves an existing configuration and
@@ -48,6 +54,15 @@
 #                      NOUST_ADMIN_PASSWORD variable. The account enrols its
 #                      authenticator at its first sign-in.
 #   --admin-password-file FILE   where that password is read from
+#   --admin-email ADDRESS        the address that administrator's invitations and password
+#                      resets are mailed to (set again on every run, so it also fixes an
+#                      account made earlier)
+#   --auto-update[=CHANNEL]      let this server install Noust's own new releases: security,
+#                      patch (the default when the channel is left out) or stable. It stays
+#                      off without this option. A new major version is never installed by itself
+#   --auto-update-window HH:MM-HH:MM   the hours an automatic update may start in
+#                      (default 03:00-05:00, on the server's clock)
+#   --auto-update-days daily|mon,thu   the days that window opens on (default daily)
 #   --json             print one JSON document on standard output when done (or when it
 #                      fails) and everything else on standard error, for cloud-init
 #                      and configuration management
@@ -57,13 +72,17 @@
 # The same options as variables, for provisioning scripts: NOUST_VERSION,
 # NOUST_DRY_RUN=1, NOUST_NO_CONSOLE=1, NOUST_SKIP_SETUP=1, NOUST_METHOD,
 # NOUST_TARGET, NOUST_FORCE=1, NOUST_ASSUME_YES=1, NOUST_ADMIN_USER,
-# NOUST_ADMIN_PASSWORD_FILE, NOUST_ADMIN_PASSWORD and NOUST_JSON=1. NOUST_REPO_BASE points at a
+# NOUST_ADMIN_PASSWORD_FILE, NOUST_ADMIN_PASSWORD, NOUST_ADMIN_EMAIL, NOUST_AUTO_UPDATE (a channel,
+# or 1 for patch; 0 or empty for off), NOUST_AUTO_UPDATE_WINDOW, NOUST_AUTO_UPDATE_DAYS and
+# NOUST_JSON=1. NOUST_REPO_BASE points at a
 # mirror (https only) and NOUST_REPO_KEY_FPR replaces the pinned fingerprint
 # when the project key has been rotated and this file is older than that.
 # NOUST_OS_RELEASE and NOUST_ARCH replace /etc/os-release and `uname -m`, which
-# is how the platform table is tested without those machines.
+# is how the platform table is tested without those machines; NOUST_MEMORY_MB, NOUST_CPUS,
+# NOUST_DISK_FREE_MB and NOUST_PORT_HOLDERS ("80:caddy 443:nginx") do the same for what the
+# machine has, and NOUST_SERVER_ADDRESS names the address the console's link is printed for.
 #
-# Exit status: 0 done, 1 something failed, 2 wrong usage, 3 platform refused.
+# Exit status: 0 done, 1 something failed, 2 wrong usage, 3 platform or machine refused.
 
 set -eu
 
@@ -102,6 +121,15 @@ target_for() {
 }
 # END TARGETS
 
+# BEGIN REQUIREMENTS (generated: scripts/sync_install_targets.py; do not edit by hand)
+REQ_MEMORY_MB_FLOOR=512
+REQ_MEMORY_MB_MIN=1024
+REQ_CPUS_FLOOR=1
+REQ_CPUS_MIN=1
+REQ_DISK_MB_FLOOR=3072
+REQ_DISK_MB_MIN=10240
+# END REQUIREMENTS
+
 WANT_VERSION="${NOUST_VERSION:-}"
 DRY_RUN="${NOUST_DRY_RUN:-0}"
 NO_CONSOLE="${NOUST_NO_CONSOLE:-0}"
@@ -112,6 +140,10 @@ FORCE="${NOUST_FORCE:-0}"
 ASSUME_YES="${NOUST_ASSUME_YES:-0}"
 ADMIN_USER="${NOUST_ADMIN_USER:-}"
 ADMIN_PASSWORD_FILE="${NOUST_ADMIN_PASSWORD_FILE:-}"
+ADMIN_EMAIL="${NOUST_ADMIN_EMAIL:-}"
+AUTO_UPDATE="${NOUST_AUTO_UPDATE:-}"
+AUTO_UPDATE_WINDOW="${NOUST_AUTO_UPDATE_WINDOW:-}"
+AUTO_UPDATE_DAYS="${NOUST_AUTO_UPDATE_DAYS:-}"
 JSON="${NOUST_JSON:-0}"
 PRINT_PLATFORM=0
 REPO_BASE="${NOUST_REPO_BASE:-$REPO_BASE_DEFAULT}"
@@ -134,6 +166,12 @@ REPO_URL=""
 INSTALL_METHOD=""
 CONSOLE_STATE=skipped
 ADMIN_STATE=none
+EMAIL_STATE=none
+AUTO_UPDATE_STATE=off
+MACHINE_MEMORY_MB=""
+MACHINE_CPUS=""
+MACHINE_DISK_MB=""
+MACHINE_WARNINGS=""
 OS_ID=""
 OS_VERSION=""
 OS_LIKE=""
@@ -259,6 +297,26 @@ parse_args() {
                 shift
                 ;;
             --admin-password-file=*) ADMIN_PASSWORD_FILE="${1#--admin-password-file=}" ;;
+            --admin-email)
+                [ "$#" -ge 2 ] || usage_error "--admin-email needs a value"
+                ADMIN_EMAIL="$2"
+                shift
+                ;;
+            --admin-email=*) ADMIN_EMAIL="${1#--admin-email=}" ;;
+            --auto-update) AUTO_UPDATE="patch" ;;
+            --auto-update=*) AUTO_UPDATE="${1#--auto-update=}" ;;
+            --auto-update-window)
+                [ "$#" -ge 2 ] || usage_error "--auto-update-window needs a value"
+                AUTO_UPDATE_WINDOW="$2"
+                shift
+                ;;
+            --auto-update-window=*) AUTO_UPDATE_WINDOW="${1#--auto-update-window=}" ;;
+            --auto-update-days)
+                [ "$#" -ge 2 ] || usage_error "--auto-update-days needs a value"
+                AUTO_UPDATE_DAYS="$2"
+                shift
+                ;;
+            --auto-update-days=*) AUTO_UPDATE_DAYS="${1#--auto-update-days=}" ;;
             --json) JSON=1 ;;
             --print-platform) PRINT_PLATFORM=1 ;;
             -h | --help)
@@ -297,6 +355,7 @@ validate_inputs() {
         esac
     fi
     validate_admin
+    validate_auto_update
     case "$REPO_BASE" in
         https://*) ;;
         *) usage_error "the repository address must be https: $REPO_BASE" ;;
@@ -314,7 +373,20 @@ validate_admin() {
         if [ -n "$ADMIN_PASSWORD_FILE" ] || [ -n "${NOUST_ADMIN_PASSWORD:-}" ]; then
             usage_error "a password for the administrator was given, but no --admin-user to give it to"
         fi
+        if [ -n "$ADMIN_EMAIL" ]; then
+            usage_error "an address for the administrator was given, but no --admin-user to give it to"
+        fi
         return 0
+    fi
+    if [ -n "$ADMIN_EMAIL" ]; then
+        case "$ADMIN_EMAIL" in
+            *[!0-9A-Za-z._%+@-]* | *@*@* | @* | *@ | *@.* | *.@* | *..*)
+                usage_error "--admin-email is an address such as maria@example.com, not $ADMIN_EMAIL"
+                ;;
+            *@*.*) ;;
+            *) usage_error "--admin-email is an address such as maria@example.com, not $ADMIN_EMAIL" ;;
+        esac
+        [ "${#ADMIN_EMAIL}" -le 254 ] || usage_error "--admin-email is at most 254 characters"
     fi
     case "$ADMIN_USER" in
         *[!0-9A-Za-z._-]* | -* | .*) usage_error "--admin-user is a name of letters, digits, dots, dashes and underscores, not $ADMIN_USER" ;;
@@ -328,6 +400,44 @@ validate_admin() {
         [ -s "$ADMIN_PASSWORD_FILE" ] || usage_error "the password file $ADMIN_PASSWORD_FILE is empty"
     elif [ -z "${NOUST_ADMIN_PASSWORD:-}" ]; then
         usage_error "--admin-user needs its password: --admin-password-file FILE, or the NOUST_ADMIN_PASSWORD variable"
+    fi
+}
+
+# validate_auto_update: the channel, the hours and the days are checked here, before anything is
+# installed, because a typo would otherwise be found after the whole installation.
+validate_auto_update() {
+    case "$AUTO_UPDATE" in
+        "" | 0 | false | no | off) AUTO_UPDATE="" ;;
+        1 | true | yes | on) AUTO_UPDATE="patch" ;;
+        security | patch | stable) ;;
+        *) usage_error "--auto-update is security, patch or stable, not $AUTO_UPDATE" ;;
+    esac
+    if [ -z "$AUTO_UPDATE" ]; then
+        if [ -n "$AUTO_UPDATE_WINDOW" ] || [ -n "$AUTO_UPDATE_DAYS" ]; then
+            usage_error "--auto-update-window and --auto-update-days go with --auto-update"
+        fi
+        return 0
+    fi
+    if [ -n "$AUTO_UPDATE_WINDOW" ]; then
+        case "$AUTO_UPDATE_WINDOW" in
+            [01][0-9]:[0-5][0-9]-[01][0-9]:[0-5][0-9] | 2[0-3]:[0-5][0-9]-[01][0-9]:[0-5][0-9]) ;;
+            [01][0-9]:[0-5][0-9]-2[0-3]:[0-5][0-9] | 2[0-3]:[0-5][0-9]-2[0-3]:[0-5][0-9]) ;;
+            *) usage_error "--auto-update-window is hours such as 03:00-05:00, not $AUTO_UPDATE_WINDOW" ;;
+        esac
+    fi
+    if [ -n "$AUTO_UPDATE_DAYS" ] && [ "$AUTO_UPDATE_DAYS" != daily ]; then
+        old_ifs="$IFS"
+        IFS=,
+        # shellcheck disable=SC2086 # split on the commas on purpose
+        set -- $AUTO_UPDATE_DAYS
+        IFS="$old_ifs"
+        [ "$#" -ge 1 ] || usage_error "--auto-update-days is daily or days such as mon,thu"
+        for day in "$@"; do
+            case "$day" in
+                mon | tue | wed | thu | fri | sat | sun) ;;
+                *) usage_error "--auto-update-days is daily or days such as mon,thu, not $AUTO_UPDATE_DAYS" ;;
+            esac
+        done
     fi
 }
 
@@ -482,6 +592,268 @@ check_platform() {
             exit 3
             ;;
     esac
+}
+
+# mb_text MEGABYTES: 512 MB, 1 GB, 2.5 GB, the way docs/requirements.md spells them.
+mb_text() {
+    if [ "$1" -lt 1024 ]; then
+        printf '%s MB' "$1"
+    elif [ $(($1 % 1024)) -eq 0 ]; then
+        printf '%s GB' $(($1 / 1024))
+    else
+        printf '%s.%s GB' $(($1 / 1024)) $(((($1 % 1024) * 10) / 1024))
+    fi
+}
+
+# size_or_unknown MEGABYTES: the size, or "unknown" when it could not be read.
+size_or_unknown() {
+    if [ -n "$1" ]; then
+        mb_text "$1"
+    else
+        printf 'unknown'
+    fi
+}
+
+# number_or_empty VALUE: VALUE when it is a whole number, nothing otherwise.
+number_or_empty() {
+    case "$1" in
+        '' | *[!0-9]*) ;;
+        *) printf '%s' "$1" ;;
+    esac
+}
+
+# machine_memory_mb: the kernel's total memory, or the container's limit when that is lower (a
+# container shows the host's memory in /proc/meminfo and is killed at its own limit).
+machine_memory_mb() {
+    total=$(sed -n 's/^MemTotal: *\([0-9][0-9]*\) kB.*/\1/p' /proc/meminfo 2>/dev/null | head -n 1)
+    total=$(number_or_empty "$total")
+    [ -n "$total" ] || return 0
+    total=$((total / 1024))
+    for limit_file in /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory/memory.limit_in_bytes; do
+        [ -r "$limit_file" ] || continue
+        limit=$(number_or_empty "$(head -n 1 "$limit_file" 2>/dev/null)")
+        # "max" is not a number, and cgroup v1 spells "no limit" as a number near 2^63.
+        if [ -z "$limit" ] || [ "${#limit}" -gt 15 ]; then
+            continue
+        fi
+        limit=$((limit / 1048576))
+        if [ "$limit" -lt "$total" ]; then
+            total=$limit
+        fi
+        break
+    done
+    printf '%s' "$total"
+}
+
+# machine_cpus: the processors this process may run on.
+machine_cpus() {
+    if have nproc; then
+        number_or_empty "$(nproc 2>/dev/null)"
+    elif have getconf; then
+        number_or_empty "$(getconf _NPROCESSORS_ONLN 2>/dev/null)"
+    fi
+}
+
+# free_mb_of DIRECTORY: what a process that is not root may still write on its filesystem. A
+# directory that does not exist yet (a new server has no /var/www/apps) is judged by the closest
+# one that does.
+free_mb_of() {
+    directory="$1"
+    while [ ! -d "$directory" ] && [ "$directory" != / ]; do
+        directory=$(dirname "$directory")
+    done
+    # df -P: one line per filesystem, 1024-byte blocks; the fourth field is what is available.
+    df -Pk "$directory" 2>/dev/null | sed -n '2p' | {
+        read -r _device _blocks _used available _rest || exit 0
+        number=$(number_or_empty "$available")
+        if [ -n "$number" ]; then
+            printf '%s' "$((number / 1024))"
+        fi
+    }
+}
+
+# machine_disk_mb: the smallest free space among the places Noust writes.
+machine_disk_mb() {
+    lowest=""
+    for directory in /var/www/apps /var/lib/noust /usr; do
+        free=$(free_mb_of "$directory")
+        [ -n "$free" ] || continue
+        if [ -z "$lowest" ] || [ "$free" -lt "$lowest" ]; then
+            lowest="$free"
+        fi
+    done
+    printf '%s' "$lowest"
+}
+
+# holders_of PORT: the programs listening on a TCP port, separated by commas; nothing when none
+# does, or when ss is not installed (then nobody can tell, and the port is taken as free).
+holders_of() {
+    if [ -n "${NOUST_PORT_HOLDERS+x}" ]; then
+        for pair in $NOUST_PORT_HOLDERS; do
+            if [ "${pair%%:*}" = "$1" ]; then
+                printf '%s' "${pair#*:}"
+            fi
+        done
+        return 0
+    fi
+    have ss || return 0
+    ss -ltnp "sport = :$1" 2>/dev/null | grep -v '^State' | grep -o '("[^"]*"' | tr -d '("' |
+        sort -u | tr '\n' ',' | sed 's/,$//'
+}
+
+# kind_of_holders LIST: free, web-server, container or other:NAMES (what holds a web port).
+kind_of_holders() {
+    if [ -z "$1" ]; then
+        printf 'free'
+        return 0
+    fi
+    only_web=1
+    only_container=1
+    others=""
+    old_ifs="$IFS"
+    IFS=,
+    # shellcheck disable=SC2086 # split on the commas on purpose
+    set -- $1
+    IFS="$old_ifs"
+    for name in "$@"; do
+        case "$name" in
+            nginx | apache2 | httpd) only_container=0 ;;
+            docker-proxy | rootlesskit | podman | conmon)
+                only_web=0
+                others="${others:+$others,}$name"
+                ;;
+            *)
+                only_web=0
+                only_container=0
+                others="${others:+$others,}$name"
+                ;;
+        esac
+    done
+    if [ "$only_web" = 1 ]; then
+        printf 'web-server'
+    elif [ "$only_container" = 1 ]; then
+        printf 'container'
+    else
+        printf 'other:%s' "$others"
+    fi
+}
+
+add_warning() {
+    if [ -n "$MACHINE_WARNINGS" ]; then
+        MACHINE_WARNINGS="$MACHINE_WARNINGS
+$1"
+    else
+        MACHINE_WARNINGS="$1"
+    fi
+}
+
+# judge LABEL SIZE FLOOR MINIMUM ADVICE: a size under the floor refuses (unless --force), one under
+# the minimum warns; a size that could not be read judges nothing. Sets MACHINE_REFUSED.
+judge() {
+    [ -n "$2" ] || return 0
+    if [ "$2" -lt "$3" ]; then
+        MACHINE_REFUSED=1
+        add_warning "$1 is $(mb_text "$2"), under the $(mb_text "$3") Noust needs to run. $5"
+    elif [ "$2" -lt "$4" ]; then
+        add_warning "$1 is $(mb_text "$2"), under the $(mb_text "$4") a server is sized for. $5"
+    fi
+}
+
+# warn_about_port PORT KIND HOLDERS: a web port something other than the web server holds.
+warn_about_port() {
+    case "$2" in
+        container)
+            add_warning "Port $1 is published by a container ($3): the web server cannot listen on it until that stops (docker ps --filter publish=$1)."
+            ;;
+        other:*)
+            add_warning "Port $1 is held by ${2#other:}, not by the web server: nginx cannot start while it does. Stop it first, for example: systemctl disable --now ${2#other:}"
+            ;;
+    esac
+}
+
+# each_warning FUNCTION: call FUNCTION with every warning, one at a time.
+each_warning() {
+    while IFS= read -r line; do
+        [ -n "$line" ] || continue
+        "$1" "$line"
+    done <<EOF
+$MACHINE_WARNINGS
+EOF
+}
+
+# resources_json: what check_machine read, as one JSON object.
+resources_json() {
+    json_number() {
+        if [ -n "$1" ]; then printf '%s' "$1"; else printf 'null'; fi
+    }
+    json_holder() {
+        if [ -n "$1" ]; then printf '"%s"' "$(json_escape "$1")"; else printf 'null'; fi
+    }
+    printf '{"memory_mb":%s,"cpus":%s,"disk_free_mb":%s,' \
+        "$(json_number "$MACHINE_MEMORY_MB")" "$(json_number "$MACHINE_CPUS")" \
+        "$(json_number "$MACHINE_DISK_MB")"
+    printf '"ports":{"80":{"state":"%s","holders":%s},"443":{"state":"%s","holders":%s}},' \
+        "$(json_escape "${KIND_80%%:*}")" "$(json_holder "$HOLDERS_80")" \
+        "$(json_escape "${KIND_443%%:*}")" "$(json_holder "$HOLDERS_443")"
+    printf '"warnings":['
+    separator=""
+    while IFS= read -r line; do
+        [ -n "$line" ] || continue
+        printf '%s"%s"' "$separator" "$(json_escape "$line")"
+        separator=","
+    done <<EOF
+$MACHINE_WARNINGS
+EOF
+    printf ']}'
+}
+
+# check_machine: memory, processors, free disk and the web ports, against the sizes in
+# docs/requirements.md (the block above). The floor refuses; the minimum and a port held by another
+# program ask.
+check_machine() {
+    MACHINE_REFUSED=0
+    MACHINE_MEMORY_MB=$(number_or_empty "${NOUST_MEMORY_MB:-$(machine_memory_mb)}")
+    MACHINE_CPUS=$(number_or_empty "${NOUST_CPUS:-$(machine_cpus)}")
+    MACHINE_DISK_MB=$(number_or_empty "${NOUST_DISK_FREE_MB:-$(machine_disk_mb)}")
+    HOLDERS_80=$(holders_of 80)
+    HOLDERS_443=$(holders_of 443)
+    KIND_80=$(kind_of_holders "$HOLDERS_80")
+    KIND_443=$(kind_of_holders "$HOLDERS_443")
+
+    say "Machine: memory $(size_or_unknown "$MACHINE_MEMORY_MB"), ${MACHINE_CPUS:-unknown} processors, free disk $(size_or_unknown "$MACHINE_DISK_MB")"
+
+    judge "Memory" "$MACHINE_MEMORY_MB" "$REQ_MEMORY_MB_FLOOR" "$REQ_MEMORY_MB_MIN" \
+        "Builds are what need it; a swap file helps (noust server swap create)."
+    if [ -n "$MACHINE_CPUS" ] && [ "$MACHINE_CPUS" -lt "$REQ_CPUS_FLOOR" ]; then
+        MACHINE_REFUSED=1
+        add_warning "Processors: $MACHINE_CPUS, under the $REQ_CPUS_FLOOR Noust needs to run."
+    elif [ -n "$MACHINE_CPUS" ] && [ "$MACHINE_CPUS" -lt "$REQ_CPUS_MIN" ]; then
+        add_warning "Processors: $MACHINE_CPUS, under the $REQ_CPUS_MIN a server is sized for."
+    fi
+    judge "Free disk" "$MACHINE_DISK_MB" "$REQ_DISK_MB_FLOOR" "$REQ_DISK_MB_MIN" \
+        "The system packages take about a gigabyte and every release keeps its code."
+    warn_about_port 80 "$KIND_80" "$HOLDERS_80"
+    warn_about_port 443 "$KIND_443" "$HOLDERS_443"
+
+    if [ -z "$MACHINE_WARNINGS" ]; then
+        return 0
+    fi
+    each_warning warn
+    if [ "$MACHINE_REFUSED" = 1 ]; then
+        if [ "$FORCE" = 1 ]; then
+            warn "Going on because of --force."
+            return 0
+        fi
+        if [ "$JSON" = 1 ]; then
+            printf '{"status":"refused","error":"%s","resources":%s}\n' \
+                "$(json_escape "This machine is smaller than Noust can run on.")" \
+                "$(resources_json)" >&3
+        fi
+        printf 'error: %s\n' "This machine is smaller than Noust can run on." >&2
+        printf '%s\n' "The sizes are in docs/requirements.md. Run it again with --force to try anyway." >&2
+        exit 3
+    fi
+    confirm "Install on this machine anyway?"
 }
 
 require_root() {
@@ -891,6 +1263,69 @@ create_admin() {
     ADMIN_STATE=created
 }
 
+# set_admin_email: the address the administrator's invitations and password resets go to. It is set
+# on every run that gives one, so a re-run also repairs an account made without it.
+set_admin_email() {
+    [ -n "$ADMIN_USER" ] && [ -n "$ADMIN_EMAIL" ] || return 0
+    if [ "$DRY_RUN" = 1 ]; then
+        say "  [dry-run] noust user set-email $ADMIN_USER $ADMIN_EMAIL"
+        EMAIL_STATE=would-set
+        return 0
+    fi
+    say "Setting the address of $ADMIN_USER"
+    noust user set-email "$ADMIN_USER" "$ADMIN_EMAIL" ||
+        die "The address of $ADMIN_USER was not set." \
+            "Read what noust said above; set it with: noust user set-email $ADMIN_USER $ADMIN_EMAIL"
+    EMAIL_STATE="set"
+}
+
+# configure_auto_update: the server takes Noust's own new releases, inside the hours and days given,
+# only the kind of release asked for and never a new major version (docs/release-policy.md).
+configure_auto_update() {
+    [ -n "$AUTO_UPDATE" ] || return 0
+    if [ "$DRY_RUN" = 1 ]; then
+        say "  [dry-run] noust self-update set --enable --channel $AUTO_UPDATE${AUTO_UPDATE_WINDOW:+ --window $AUTO_UPDATE_WINDOW}${AUTO_UPDATE_DAYS:+ --days $AUTO_UPDATE_DAYS}"
+        AUTO_UPDATE_STATE=would-enable
+        return 0
+    fi
+    if ! have_systemd; then
+        warn "This machine is not running systemd, so the automatic update (a timer) cannot be set up here."
+        AUTO_UPDATE_STATE=skipped
+        return 0
+    fi
+    set -- self-update set --enable --channel "$AUTO_UPDATE"
+    if [ -n "$AUTO_UPDATE_WINDOW" ]; then
+        set -- "$@" --window "$AUTO_UPDATE_WINDOW"
+    fi
+    if [ -n "$AUTO_UPDATE_DAYS" ]; then
+        set -- "$@" --days "$AUTO_UPDATE_DAYS"
+    fi
+    say "Turning the automatic update on ($AUTO_UPDATE releases)"
+    noust "$@" ||
+        die "The automatic update was not turned on." \
+            "Read what noust said above; turn it on with: noust self-update set --enable"
+    AUTO_UPDATE_STATE=enabled
+}
+
+# server_address: the address the operator reached this server at (sshd records it), else the first
+# one the machine reports; nothing when neither is known, and a placeholder is printed instead.
+server_address() {
+    candidate="${NOUST_SERVER_ADDRESS:-}"
+    if [ -z "$candidate" ] && [ -n "${SSH_CONNECTION:-}" ]; then
+        # "client-address client-port server-address server-port"
+        # shellcheck disable=SC2086 # split on the blanks on purpose
+        set -- $SSH_CONNECTION
+        candidate="${3:-}"
+    fi
+    if [ -z "$candidate" ] && have hostname; then
+        candidate=$(hostname -I 2>/dev/null | cut -d' ' -f1) || candidate=""
+    fi
+    case "$candidate" in
+        *[!0-9A-Za-z.:-]* | -*) candidate="" ;;
+    esac
+    printf '%s' "$candidate"
+}
+
 # print_json: the one document --json promises, on the standard output kept in descriptor 3.
 print_json() {
     if [ "$DRY_RUN" = 1 ]; then
@@ -898,27 +1333,49 @@ print_json() {
     else
         installed=$(noust --version 2>/dev/null | sed -n 's/^[A-Za-z]* \([0-9][^ ]*\).*/\1/p' | head -n 1)
     fi
-    if [ "${CONSOLE_STATE:-skipped}" = new ] || [ "${CONSOLE_STATE:-skipped}" = existing ]; then
+    if [ "${CONSOLE_STATE:-skipped}" = new ] || [ "${CONSOLE_STATE:-skipped}" = existing ] ||
+        { [ "$DRY_RUN" = 1 ] && [ "$NO_CONSOLE" != 1 ]; }; then
         console_address='"127.0.0.1:8080"'
+        console_url='"'"$CONSOLE_URL"'"'
+        console_tunnel='"'"$(json_escape "$CONSOLE_TUNNEL")"'"'
     else
         console_address=null
+        console_url=null
+        console_tunnel=null
     fi
     if [ -n "$ADMIN_USER" ]; then
-        admin=$(printf '{"username":"%s","state":"%s"}' "$ADMIN_USER" "$ADMIN_STATE")
+        admin=$(printf '{"username":"%s","state":"%s"' "$ADMIN_USER" "$ADMIN_STATE")
+        if [ -n "$ADMIN_EMAIL" ]; then
+            admin=$(printf '%s,"email":"%s","email_state":"%s"' "$admin" "$ADMIN_EMAIL" "$EMAIL_STATE")
+        fi
+        admin="$admin}"
     else
         admin=null
     fi
-    printf '{"status":"ok","dry_run":%s,"version":"%s","method":"%s","platform":{"id":"%s","version_id":"%s","arch":"%s","support":"%s"},"console":{"state":"%s","address":%s},"admin":%s}\n' \
+    if [ -n "$AUTO_UPDATE" ]; then
+        auto_update=$(printf '{"state":"%s","channel":"%s","window":"%s","days":"%s"}' \
+            "$AUTO_UPDATE_STATE" "$AUTO_UPDATE" "${AUTO_UPDATE_WINDOW:-03:00-05:00}" \
+            "${AUTO_UPDATE_DAYS:-daily}")
+    else
+        auto_update='{"state":"off"}'
+    fi
+    printf '{"status":"ok","dry_run":%s,"version":"%s","method":"%s","platform":{"id":"%s","version_id":"%s","arch":"%s","support":"%s"},"resources":%s,"console":{"state":"%s","address":%s,"url":%s,"tunnel":%s},"admin":%s,"auto_update":%s}\n' \
         "$([ "$DRY_RUN" = 1 ] && echo true || echo false)" \
         "$(json_escape "$installed")" "$INSTALL_METHOD" "$(json_escape "$OS_ID")" \
-        "$(json_escape "$OS_VERSION")" "$ARCH_NAME" "$STATUS" "$CONSOLE_STATE" \
-        "$console_address" "$admin" >&3
+        "$(json_escape "$OS_VERSION")" "$ARCH_NAME" "$STATUS" "$(resources_json)" \
+        "$CONSOLE_STATE" "$console_address" "$console_url" "$console_tunnel" "$admin" \
+        "$auto_update" >&3
 }
 
 next_steps() {
     say ""
     if [ "$DRY_RUN" = 1 ]; then
         say "Dry run: nothing was changed."
+        if [ "$NO_CONSOLE" != 1 ]; then
+            say "After a real run the console would be reached with:"
+            say "  $CONSOLE_TUNNEL"
+            say "  then $CONSOLE_URL"
+        fi
         return 0
     fi
     say "Noust is installed."
@@ -931,8 +1388,9 @@ next_steps() {
             fi
             say ""
             say "To open it from your own computer, through SSH:"
-            say "  ssh -N -L 8080:127.0.0.1:8080 root@<this server's address>"
-            say "  then browse to http://127.0.0.1:8080 and sign in with the token."
+            say "  $CONSOLE_TUNNEL"
+            say "then open this link, which asks for the access token, and paste it:"
+            say "  $CONSOLE_URL"
             say ""
             say "To publish it on a name of your own, with a certificate (opt-in; it needs two-factor"
             say "sign-in on every account, so create yours first):"
@@ -944,7 +1402,12 @@ next_steps() {
     esac
     if [ "$ADMIN_STATE" = created ]; then
         say ""
-        say "Sign in as $ADMIN_USER: the console asks it to enrol its authenticator first."
+        say "Sign in as $ADMIN_USER at http://127.0.0.1:8080/login: the console asks it to enrol its"
+        say "authenticator first."
+    fi
+    if [ "$AUTO_UPDATE_STATE" = enabled ]; then
+        say ""
+        say "This server installs Noust's $AUTO_UPDATE releases by itself (noust self-update shows when)."
     fi
     say ""
     say "Then deploy something: noust create --help"
@@ -967,6 +1430,11 @@ main() {
     check_platform
     decide_method
     require_root
+    check_machine
+    address=$(server_address)
+    CONSOLE_URL="http://127.0.0.1:8080/login?with=token"
+    placeholder="<this server's address>"
+    CONSOLE_TUNNEL="ssh -N -L 8080:127.0.0.1:8080 root@${address:-$placeholder}"
     if [ "$DRY_RUN" = 1 ]; then
         say "Dry run: no file is written and no command that changes the system is run."
     else
@@ -985,6 +1453,8 @@ main() {
     fi
     post_install
     create_admin
+    set_admin_email
+    configure_auto_update
     next_steps
     if [ "$JSON" = 1 ]; then
         print_json

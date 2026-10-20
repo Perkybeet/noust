@@ -33,7 +33,17 @@ def machine(tmp_path: Path) -> dict[str, str]:
     """An Ubuntu 24.04 amd64 server, described to the script."""
     release = tmp_path / "os-release"
     release.write_text('ID=ubuntu\nVERSION_ID="24.04"\nPRETTY_NAME="Ubuntu 24.04 LTS"\n')
-    return {"NOUST_OS_RELEASE": str(release), "NOUST_ARCH": "x86_64"}
+    # The size of the machine and what listens on its web ports are described too: a test must not
+    # depend on the memory of the laptop it runs on or on a web server it happens to have.
+    return {
+        "NOUST_OS_RELEASE": str(release),
+        "NOUST_ARCH": "x86_64",
+        "NOUST_MEMORY_MB": "4096",
+        "NOUST_CPUS": "2",
+        "NOUST_DISK_FREE_MB": "51200",
+        "NOUST_PORT_HOLDERS": "",
+        "NOUST_SERVER_ADDRESS": "203.0.113.7",
+    }
 
 
 @pytest.fixture
