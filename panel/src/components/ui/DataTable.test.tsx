@@ -1,11 +1,11 @@
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import type { Column } from "./DataTable";
-import { DataTable } from "./DataTable";
+import { DEFAULT_MOBILE, DataTable } from "./DataTable";
 import { EmptyCell } from "./EmptyCell";
 import { IconButton } from "./IconButton";
 
@@ -33,7 +33,26 @@ function domains(): string[] {
     .map((row) => within(row).getAllByRole("cell")[0]?.textContent ?? "");
 }
 
+/** A window of this width; jsdom has no layout, and under 640px a table is cards by default. */
+function stubWidth(wide: boolean): void {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: wide,
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  }));
+}
+
 describe("DataTable", () => {
+  // These are a table's behaviours, read on a screen wide enough to have one.
+  beforeEach(() => {
+    stubWidth(true);
+  });
+
   it("sorts by a column and announces the order on its header", async () => {
     render(<DataTable caption="Applications" columns={COLUMNS} rows={ROWS} getRowId={(r) => r.domain} />);
     expect(domains()).toEqual(["shop.example.com", "api.example.com", "blog.example.com"]);
@@ -123,6 +142,29 @@ describe("DataTable", () => {
     expect(screen.getByText("No applications yet.")).toBeInTheDocument();
   });
 
+  describe("rows that have not arrived", () => {
+    it("are a wait and not an empty list: the skeleton, never the empty state", () => {
+      render(<DataTable caption="Applications" columns={COLUMNS} rows={undefined} getRowId={(row) => row.domain} empty={<p>No applications yet</p>} />);
+      expect(screen.getByRole("table")).toHaveAttribute("aria-busy", "true");
+      expect(screen.queryByText("No applications yet")).not.toBeInTheDocument();
+      expect(document.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0);
+    });
+
+    it("say 'none' only once the answer is an empty list", () => {
+      const { rerender } = render(<DataTable caption="Applications" columns={COLUMNS} rows={undefined} getRowId={(row) => row.domain} empty={<p>No applications yet</p>} />);
+      rerender(<DataTable caption="Applications" columns={COLUMNS} rows={[]} getRowId={(row) => row.domain} empty={<p>No applications yet</p>} />);
+      expect(screen.getByRole("table")).not.toHaveAttribute("aria-busy");
+      expect(screen.getByText("No applications yet")).toBeInTheDocument();
+    });
+
+    it("keep the skeleton of a phone's cards too", () => {
+      stubWidth(false);
+      render(<DataTable mobile="cards" caption="Applications" columns={COLUMNS} rows={undefined} getRowId={(row) => row.domain} empty={<p>No applications yet</p>} />);
+      expect(screen.getByRole("list", { name: "Applications" })).toHaveAttribute("aria-busy", "true");
+      expect(screen.queryByText("No applications yet")).not.toBeInTheDocument();
+    });
+  });
+
   it("draws as many placeholder rows as it is told to expect, five by default", () => {
     const { rerender } = render(<DataTable caption="Applications" columns={COLUMNS} rows={[]} getRowId={(r) => r.domain} loading />);
     // The header row and the placeholders.
@@ -201,18 +243,7 @@ describe("DataTable", () => {
       { id: "kind", header: "Type", cell: (row) => row.kind },
     ];
 
-    function wide(matches: boolean): void {
-      vi.stubGlobal("matchMedia", (query: string) => ({
-        matches,
-        media: query,
-        onchange: null,
-        addEventListener: () => undefined,
-        removeEventListener: () => undefined,
-        addListener: () => undefined,
-        removeListener: () => undefined,
-        dispatchEvent: () => false,
-      }));
-    }
+    const wide = stubWidth;
 
     it("turns each row into a card under 640px: state, name, the rest, and its actions always in view", () => {
       wide(false);
@@ -294,6 +325,26 @@ describe("DataTable", () => {
       expect(screen.getByRole("list", { name: "Applications" })).toHaveAttribute("aria-busy", "true");
       rerender(<DataTable mobile="cards" caption="Applications" columns={columns} rows={[]} getRowId={(row) => row.domain} empty={<p>Nothing here</p>} />);
       expect(screen.getByText("Nothing here")).toBeInTheDocument();
+    });
+
+    it("keeps the table on a phone when it is asked to, for columns that are the point", () => {
+      wide(false);
+      render(<DataTable mobile="scroll" caption="Applications" columns={columns} rows={rows} getRowId={(row) => row.domain} />);
+      expect(screen.getByRole("table", { name: "Applications" })).toBeInTheDocument();
+    });
+
+    it("says what a table does on a phone when it is not told, in one place", () => {
+      wide(false);
+      render(<DataTable caption="Applications" columns={columns} rows={rows} getRowId={(row) => row.domain} />);
+      const cards = DEFAULT_MOBILE === "cards";
+      expect(screen.queryByRole("table") === null).toBe(cards);
+      expect(screen.queryByRole("list", { name: "Applications" }) !== null).toBe(cards);
+    });
+
+    it("is a table from 640px, told or not", () => {
+      wide(true);
+      render(<DataTable caption="Applications" columns={columns} rows={rows} getRowId={(row) => row.domain} />);
+      expect(screen.getByRole("table", { name: "Applications" })).toBeInTheDocument();
     });
 
     it("has no accessibility violations", async () => {
