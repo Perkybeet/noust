@@ -263,8 +263,10 @@ below. The steps are exactly the scenario's.
    The stacks keep running (they restart `unless-stopped`) and ports 80 and 443 are free.
 3. **Give each stack a loopback port.** Coolify's publish none, and nginx reaches a stack by a port.
    Under the web service of the compose file add `ports: ["127.0.0.1:18080:80"]` and run
-   `noust update app.example.com`: only the services whose definition changed are recreated, so a
-   database or cache in the same stack, and its volume, are untouched.
+   `noust update app.example.com`. Noust writes the facts of the deployment (`NOUST_URL` and the
+   rest) into the stack's `.env`, which Coolify's services all read, so they are recreated, a cache or a
+   database in the same stack among them; their volumes are kept, and the data in the service's volume was
+   there afterwards.
 4. **Write the site.** `noust site create -d app.example.com -p 18080 --no-ssl`. If nginx was not
    running (a Coolify server normally has none), Noust starts it, and if it cannot (the address still in
    use) the command prints the web server's own output. The certificate comes the usual way once the

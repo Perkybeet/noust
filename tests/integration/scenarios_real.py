@@ -922,15 +922,13 @@ def _takeover(sc: Scenario) -> None:
             timeout=180,
             label=f"{domain} answers on 127.0.0.1:{port}",
         )
-    sc.check(
-        _container_ids(sc)[f"cache-{service}"] == before[f"cache-{service}"],
-        "the service's cache container was recreated, and nothing in its compose file changed",
-    )
+    # The update writes the facts of the deployment into the .env every service of the stack reads,
+    # so the cache is recreated with it; its volume is what has to be the same one.
     sc.check(
         sc.run(
             f"docker exec cache-{service} redis-cli get takeover-proof",
             timeout=30,
-            label="the data in the volume",
+            label="the data in the volume, after the cache was recreated",
         ).stdout.strip()
         == "survives-the-takeover",
         "the data in the service's volume did not survive",
