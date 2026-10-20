@@ -683,16 +683,35 @@ def forge_scenario(
         )
     )
     # Adding a commit to the branch of an open pull request is two deliveries, in either order:
-    # the push, and the pull request being synchronized.
-    arrived = [sink.next(), sink.next()]
+    # the push, and the pull request being synchronized. The server may also deliver, late, what
+    # the branch's creation and its first commit did (the hook was made after them), so each
+    # delivery is classified and the ones that are not these two are let go by.
     own_event = f"x-{kind}-event"
-    pushes = [d for d in arrived if d[0].get(own_event) == "push"]
-    syncs = [d for d in arrived if d[0].get(own_event) == "pull_request"]
+    pushes: list[tuple[dict[str, str], bytes]] = []
+    syncs: list[tuple[dict[str, str], bytes]] = []
+    seen_events: list[str] = []
+    for _ in range(8):
+        delivery = sink.next()
+        said = json.loads(delivery[1])
+        seen_events.append(f"{delivery[0].get(own_event)}:{said.get('ref') or said.get('action')}")
+        commits = " ".join(str(commit.get("message", "")) for commit in said.get("commits") or [])
+        if (
+            delivery[0].get(own_event) == "push"
+            and said.get("ref") == "refs/heads/feature"
+            and commits.startswith("More")
+        ):
+            pushes.append(delivery)
+        elif delivery[0].get(own_event) == "pull_request" and said.get("action") == "synchronized":
+            syncs.append(delivery)
+        if pushes and syncs:
+            break
     REPORT.check(
         f"{kind}: a commit on the branch of a pull request is a push and a synchronize",
         len(pushes) == 1 and len(syncs) == 1,
-        str([d[0].get(own_event) for d in arrived]),
+        str(seen_events),
     )
+    if not (pushes and syncs):
+        return
     headers, body = pushes[0]
     request = FakeRequest(headers)
     verified = hooks._verify_provider(SECRET, body, request)
@@ -746,9 +765,12 @@ def forge_scenario(
             body={"title": "Add a page (edited)"},
         )
     )
-    headers, body = sink.next()
+    for _ in range(4):
+        headers, body = sink.next()
+        payload = json.loads(body)
+        if payload.get("action") == "edited":
+            break
     request = FakeRequest(headers)
-    payload = json.loads(body)
     REPORT.check(
         f"{kind}: an edit of the title is delivered and left alone",
         payload.get("action") == "edited"
