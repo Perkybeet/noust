@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 import sqlite3
 import tarfile
@@ -21,9 +22,10 @@ from click.testing import CliRunner
 
 from noust.cli.app import cli
 from noust.core.exceptions import DatabaseError
+from noust.core.legacy_names import ARCHIVE_PAYLOAD_DIR
 from noust.core.runner import FakeRunner
 from noust.core.store import NoustStore
-from noust.managers.backup_manager import BackupManager
+from noust.managers.backup_manager import DATABASES_DIR, PAYLOAD_DIR, BackupManager
 from noust.managers.database.backup_verify import RestoreTest
 from noust.managers.restore_drill import (
     DEFAULT_DRILL_DAYS,
@@ -736,7 +738,8 @@ def take_with_stack(
                 {
                     "engine": entry["engine"],
                     "name": entry.get("database", ""),
-                    "archive_path": f"wasm-backup/databases/{name}",
+                    # Where the real writer puts it: the payload directory of the archive.
+                    "archive_path": f"{PAYLOAD_DIR}/{DATABASES_DIR}/{name}",
                     "size_bytes": 16,
                     "created": "2026-10-17T02:00:00",
                     "stack": entry,
@@ -826,3 +829,29 @@ class TestAStacksOwnDatabases:
             [(database, path)] = unpacked.stack
             assert database.image == "" and database.service == "db"
             assert path.is_file() and unpacked.stack_dumps == 1
+
+    def test_a_backup_taken_before_4_0_still_unpacks_its_stack_dumps(
+        self,
+        manager: BackupManager,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """An archive keeps the payload directory its release called it; the one reader finds it."""
+        backup = take_with_stack(manager, monkeypatch, POSTGRES_ENTRY)
+        archive = manager.local_files(backup)[0]
+        older = ARCHIVE_PAYLOAD_DIR
+        rewritten = archive.with_name("older.tar.gz")
+        with tarfile.open(archive, "r:gz") as source, tarfile.open(rewritten, "w:gz") as target:
+            for member in source.getmembers():
+                data = source.extractfile(member) if member.isfile() else None
+                if member.isfile() and member.name.endswith("manifest.json"):
+                    body = data.read().decode().replace(f"{PAYLOAD_DIR}/", f"{older}/").encode()
+                    member.size = len(body)
+                    data = io.BytesIO(body)
+                member.name = member.name.replace(PAYLOAD_DIR, older, 1)
+                target.addfile(member, data)
+        rewritten.replace(archive)
+
+        with manager.unpacked(backup.id) as unpacked:
+            [(database, path)] = unpacked.stack
+            assert database.service == "db"
+            assert path.is_file() and older in path.parts

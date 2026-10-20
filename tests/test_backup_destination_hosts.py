@@ -185,6 +185,40 @@ class TestConfiguringADestination:
 
         assert updated.settings["host"] == "nas.private.test"
 
+    def test_a_test_of_a_destination_in_transition_judges_the_host_before_it_writes_anywhere(
+        self, manager: BackupDestinationManager, runner: FakeRunner
+    ) -> None:
+        # A destination from before 4.0 that still has to make its new folder: that is a write
+        # to the host, and it must not happen to a host the operator has not accepted.
+        existing("nas", "sftp", host="nas.private.test", user="noust", legacy_path="old-backups")
+
+        with pytest.raises(BackupError, match=re.escape("security.allow_private_hosts")):
+            manager.test("nas")
+
+        assert not [call for call in runner.calls if call[:1] == ("rclone",)]
+
+    def test_changing_something_else_on_a_destination_in_transition_still_changes_it(
+        self, manager: BackupDestinationManager
+    ) -> None:
+        existing("nas", "sftp", host="nas.private.test", user="noust", legacy_path="old-backups")
+
+        updated = manager.update("nas", {"path": "elsewhere"})
+
+        assert updated.settings["host"] == "nas.private.test"
+        assert updated.settings["path"] == "elsewhere"
+
+    def test_a_new_host_is_judged_in_full_before_the_connection_is_tried(
+        self, manager: BackupDestinationManager, runner: FakeRunner
+    ) -> None:
+        existing("nas", "sftp", host="backup.example.com", user="noust")
+
+        with pytest.raises(BackupError, match=re.escape("security.allow_private_hosts")):
+            manager.update("nas", {"host": "nas.private.test"})
+
+        assert not [call for call in runner.calls if call[:1] == ("rclone",)]
+        stored = get_store().get_backup_destination("nas")
+        assert stored is not None and stored.settings["host"] == "backup.example.com"
+
 
 class TestUsingADestination:
     def test_a_destination_on_a_lan_made_before_keeps_working(

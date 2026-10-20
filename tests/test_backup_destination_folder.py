@@ -53,7 +53,8 @@ def in_transition(
     manager: BackupDestinationManager, name: str = "nas", *, encrypted: bool = False
 ) -> None:
     """Leave a destination the way the 4.0 migration leaves one made before: moved, old folder kept."""
-    manager.add(name, "sftp", fields(), encrypted=encrypted)
+    # One made before the connection was tried at saving: the setup makes no call of its own.
+    manager.add(name, "sftp", fields(), encrypted=encrypted, verify=False)
     record = get_store().get_backup_destination(name)
     assert record is not None
     record.settings["path"] = NEW
