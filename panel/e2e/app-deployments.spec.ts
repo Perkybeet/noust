@@ -1,9 +1,10 @@
 /**
- * An application's deployments against the real backend: the history with keyset "Load
- * more", a failed deploy's page with its error verbatim and the phase it stopped in, an
- * instant rollback of a release app, a live update streaming its build log until it
- * succeeds, and a deploy's own actions: rebuilding its commit and going back to it. Runs in
- * both themes, with the CSP and console gates of the `problems` fixture.
+ * An application's deployments against the real backend: the history as one list that marks
+ * what serves, filters that live in the address, a failed deploy's page with its error verbatim
+ * and the phase it stopped in, going back to a release through the one rollback dialog, a live
+ * update streaming its build log until it succeeds, and a deploy's own actions: rebuilding its
+ * commit and going back to it. Runs in both themes, with the CSP and console gates of the
+ * `problems` fixture.
  *
  * The seeded machine (scripts/console_server.py, "an application's tabs" and "a deploy's
  * actions"): tienda.example.org is on releases with thirteen deploys, two of whose releases are
@@ -57,6 +58,14 @@ function seededOnDisk(row: Row): boolean {
   return row.git_commit === "19d3f6e" && row.release_id !== null && row.rollback_available;
 }
 
+/** Waits for a job the console queued to end: the release is switched before the health gate has said its last word. */
+async function jobEnded(page: Page, queued: { json: () => Promise<unknown> }): Promise<void> {
+  const { job_id: id } = (await queued.json()) as { job_id: string };
+  await expect
+    .poll(async () => ((await (await page.request.get(`/api/jobs/${id}`)).json()) as { status: string }).status, { timeout: 60_000, intervals: [500] })
+    .toMatch(/^(completed|failed)$/);
+}
+
 async function activate(page: Page, domain: string, release: string): Promise<void> {
   const response = await page.request.post(`/api/apps/${domain}/releases/${release}/activate`, { headers: await csrf(page) });
   expect(response.ok(), await response.text()).toBe(true);
@@ -83,27 +92,47 @@ function phase(page: Page, key: string) {
   return page.getByRole("list", { name: "Deploy phases" }).locator(`[data-phase="${key}"]`);
 }
 
-test("the history pages by keyset, links each deploy to its page, and passes axe", async ({ page, consoleServer }) => {
+test("the history is one list with what serves marked Live, each deploy opening its page", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/apps/${RELEASES_APP}/deployments`);
   const table = page.getByRole("region", { name: `Deploys of ${RELEASES_APP}, newest first` });
-  await expect(table.getByRole("row")).toHaveCount(11);
-  const first = table.getByRole("link").first();
-  await expect(first).toHaveAttribute("href", new RegExp(`/apps/${RELEASES_APP.replace(/\./g, "\\.")}/deployments/\\d+$`));
+  // Every deploy the store keeps is in the list at once: no page to ask for, no second list of versions.
+  await expect.poll(async () => await table.getByRole("row").count()).toBeGreaterThan(11);
+  await expect(page.getByRole("button", { name: "Load more" })).toHaveCount(0);
+  // A row is a button that opens its page: the number is its name.
+  const first = table.getByRole("button", { name: /^Deployment \d+$/ }).first();
+  await expect(first).toBeVisible();
 
-  const older = page.waitForRequest((request) => request.url().includes("/api/deployments?") && request.url().includes("before_id="));
-  await page.getByRole("button", { name: "Load more" }).click();
-  expect(new URL((await older).url()).searchParams.get("domain")).toBe(RELEASES_APP);
-  await expect(page.getByRole("button", { name: "Load more" })).toBeHidden();
-  expect(await table.getByRole("row").count()).toBeGreaterThan(11);
-
-  const releases = page.getByRole("list", { name: `Versions of ${RELEASES_APP}, newest first` });
-  await expect(releases.getByText("Live", { exact: true })).toBeVisible();
-  await expect(releases.getByText("Removed from disk")).toBeVisible();
+  await expect(table.getByText("Live", { exact: true })).toBeVisible();
+  await expect(table.getByText("Removed from disk").first()).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "an app's deployments");
 
   await first.click();
   await expect(page.getByRole("heading", { level: 2, name: /^Deployment \d+$/ })).toBeVisible();
+});
+
+test("a row opens its deploy, and the filters narrow the list and stay in the address", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, `/apps/${RELEASES_APP}/deployments`);
+  const table = page.getByRole("region", { name: `Deploys of ${RELEASES_APP}, newest first` });
+  await expect.poll(async () => await table.getByRole("row").count()).toBeGreaterThan(11);
+  const all = await table.getByRole("row").count();
+
+  await page.getByRole("combobox", { name: "State" }).click();
+  await page.getByRole("option", { name: "Failed" }).click();
+  await expect(page).toHaveURL(/[?&]state=failed/);
+  await expect.poll(async () => await table.getByRole("row").count()).toBeLessThan(all);
+  await expect(table.getByText("Failed", { exact: true }).first()).toBeVisible();
+
+  // Typing replaces the history entry, and a reload comes back to the same list.
+  await page.getByRole("searchbox", { name: "Search deployments" }).fill("checkout");
+  await expect(page).toHaveURL(/[?&]q=checkout/);
+  await page.reload();
+  await expect(page.getByRole("searchbox", { name: "Search deployments" })).toHaveValue("checkout");
+  await expect(page.getByRole("combobox", { name: "State" })).toContainText("Failed");
+
+  await page.getByRole("button", { name: "Clear filters" }).first().click();
+  await expect(page).not.toHaveURL(/[?&](state|q)=/);
+  await expect.poll(async () => await table.getByRole("row").count()).toBe(all);
 });
 
 test("the table shows each deploy's commit message beside its hash", async ({ page, consoleServer }) => {
@@ -122,7 +151,8 @@ test("a failed deploy says where it stopped, the fix above and the error verbati
   const id = await deployment(page, RELEASES_APP, (row) => row.status === "failed" && (row.error ?? "").includes("Type error"));
   await page.goto(`/apps/${RELEASES_APP}/deployments/${String(id)}`);
   await expect(page.getByText("The deploy failed while building")).toBeVisible();
-  await expect(page.locator("pre").filter({ hasText: "Type error: Property 'total' does not exist on type 'Order'." })).toBeVisible();
+  // The error in its box above, and the end of the phase in its own: both say it.
+  await expect(page.locator("pre").filter({ hasText: "Type error: Property 'total' does not exist on type 'Order'." }).first()).toBeVisible();
   await expect(phase(page, "build")).toHaveAttribute("data-state", "failed");
   await expect(phase(page, "install")).toHaveAttribute("data-state", "done");
   await expect(phase(page, "activate")).toHaveAttribute("data-state", "unrecorded");
@@ -132,33 +162,31 @@ test("a failed deploy says where it stopped, the fix above and the error verbati
   await expectNoA11yViolations(page, "a failed deploy");
 });
 
-test("a release app rolls back to an earlier release in seconds, and forward again", async ({ page, consoleServer }) => {
+test("a release app rolls back to an earlier version in seconds, from a row, and forward again", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/apps/${RELEASES_APP}/deployments`);
-  const releases = page.getByRole("list", { name: `Versions of ${RELEASES_APP}, newest first` });
-  const serving = releases.getByRole("listitem").filter({ has: page.getByText("Live", { exact: true }) });
-  // Each version's id is its second line, in full in its title.
-  const idOf = async (row: ReturnType<typeof releases.getByRole>): Promise<string> => (await row.locator("[title]").first().getAttribute("title")) ?? "";
-  const before = await idOf(serving);
+  const before = await serving(page, RELEASES_APP);
+  const id = await deployment(page, RELEASES_APP, seededOnDisk);
 
-  // The newest version that is not live and still on disk: the one to go back to.
-  const target = releases.getByRole("listitem").filter({ has: page.getByRole("button", { name: /Go back to this version/ }) }).first();
-  const targetId = await idOf(target);
-  await target.getByRole("button", { name: /Go back to this version/ }).click();
-  const dialog = page.getByRole("alertdialog", { name: "Go back to this version?" });
+  const table = page.getByRole("region", { name: `Deploys of ${RELEASES_APP}, newest first` });
+  await table.getByRole("button", { name: `Actions for #${String(id)}` }).click();
+  await page.getByRole("menuitem", { name: "Roll back to this" }).click();
+  const dialog = page.getByRole("alertdialog", { name: `Roll back ${RELEASES_APP}` });
   await expect(dialog).toBeVisible();
+  await settle(page);
   await expectNoA11yViolations(page, "the rollback confirmation");
-  const activated = page.waitForResponse((response) => response.url().endsWith(`/releases/${targetId}/activate`));
-  await dialog.getByRole("button", { name: "Go back to this version" }).click();
-  expect((await activated).status()).toBe(200);
+  const queued = page.waitForResponse((response) => response.url().endsWith(`/api/apps/${RELEASES_APP}/deployments/${String(id)}/rollback`));
+  await dialog.getByRole("button", { name: `Go back to #${String(id)}` }).click();
+  const accepted = await queued;
+  expect(accepted.status()).toBe(202);
   await expect(dialog).toBeHidden();
-  await expect(serving.locator("[title]").first()).toHaveAttribute("title", targetId);
+  await jobEnded(page, accepted);
+  expect(await serving(page, RELEASES_APP)).toMatch(/-19d3f6e$/);
 
-  // Forward again, so the worker's machine is as it was for the next test.
-  await releases.getByRole("listitem").filter({ has: page.locator(`[title="${before}"]`) }).getByRole("button", { name: /Switch to this version/ }).click();
-  const forward = page.getByRole("alertdialog", { name: "Switch to this version?" });
-  await forward.getByRole("button", { name: "Switch to this version" }).click();
-  await expect(forward).toBeHidden();
-  await expect(serving.locator("[title]").first()).toHaveAttribute("title", before);
+  // Forward again, so the worker's machine is as it was for the next test. Going back also paused the
+  // app's automatic deploys (so the next push does not undo it): they run again too.
+  await activate(page, RELEASES_APP, before);
+  const resumed = await page.request.post(`/api/apps/${RELEASES_APP}/rollout/resume`, { headers: await csrf(page) });
+  expect(resumed.ok(), await resumed.text()).toBe(true);
 });
 
 test("an update streams its build log live and flips to success", async ({ page, consoleServer }) => {
@@ -217,21 +245,24 @@ test("rebuilding a deploy's commit says what it does first, then follows the job
   await expect(page.locator("pre").filter({ hasText: "Commit 19d3f6e does not exist in the repository" }).first()).toBeVisible();
 });
 
-test("a release app goes back to a deployment through its own endpoint, and forward again", async ({ page, consoleServer }) => {
+test("a release app goes back to a deployment from its page, through its own endpoint, and forward again", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/apps/${RELEASES_APP}/deployments`);
   const before = await serving(page, RELEASES_APP);
   const id = await deployment(page, RELEASES_APP, seededOnDisk);
   await page.goto(`/apps/${RELEASES_APP}/deployments/${String(id)}`);
 
   await page.getByRole("button", { name: "Go back to this version" }).click();
-  const dialog = page.getByRole("dialog", { name: `Go back to deployment ${String(id)}?` });
-  await expect(dialog.getByText(/is switched to in seconds and the app restarts/)).toBeVisible();
+  // The page asks the one rollback dialog, with this deployment chosen: what goes back is said in it.
+  const dialog = page.getByRole("alertdialog", { name: `Roll back ${RELEASES_APP}` });
+  await expect(dialog.getByRole("combobox", { name: "Version to go back to" })).toContainText(`#${String(id)}`);
+  await expect(dialog.getByText(/It starts behind a startup check/)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the rollback-to-a-deployment confirmation");
   const queued = page.waitForResponse((response) => response.url().endsWith(`/api/apps/${RELEASES_APP}/deployments/${String(id)}/rollback`));
-  await dialog.getByRole("button", { name: "Go back", exact: true }).click();
-  expect((await queued).status()).toBe(202);
-  await expect(page.getByText(`Went back to deployment ${String(id)}.`)).toBeVisible({ timeout: 30_000 });
+  await dialog.getByRole("button", { name: `Go back to #${String(id)}` }).click();
+  const accepted = await queued;
+  expect(accepted.status()).toBe(202);
+  await jobEnded(page, accepted);
   expect(await serving(page, RELEASES_APP)).toMatch(/-19d3f6e$/);
 
   // Forward again, so the worker's machine is as it was for the next test. Going back also paused the
@@ -251,8 +282,9 @@ test("the deploy that is live offers nothing to go back to; the header lists the
   await expect(page.getByRole("button", { name: "Go back to this version" })).toHaveCount(0);
   // Roll back is one of the header's daily verbs: on the surface, not in the menu.
   await page.locator("main header").filter({ has: page.getByRole("heading", { level: 1 }) }).getByRole("button", { name: "Roll back", exact: true }).click();
-  const chooser = page.getByRole("dialog", { name: `Roll back ${RELEASES_APP}` });
-  await expect(chooser.getByRole("button", { name: /^Go back to / }).first()).toBeVisible();
+  const chooser = page.getByRole("alertdialog", { name: `Roll back ${RELEASES_APP}` });
+  await expect(chooser.getByRole("combobox", { name: "Version to go back to" })).toBeVisible();
+  await expect(chooser.getByRole("button", { name: /^Go back to #/ })).toBeVisible();
   await chooser.getByRole("button", { name: "Cancel" }).click();
   await expect(chooser).toBeHidden();
 });
@@ -265,8 +297,9 @@ test("an in-place deploy whose snapshot still exists offers to go back to it", a
   if (!restorable?.snapshot_backup) throw new Error(`no seeded deployment of ${LIVE_APP} has a snapshot`);
   await page.goto(`/apps/${LIVE_APP}/deployments/${String(restorable.id)}`);
   await page.getByRole("button", { name: "Go back to this version" }).click();
-  const dialog = page.getByRole("dialog", { name: `Go back to deployment ${String(restorable.id)}?` });
-  await expect(dialog.getByText(new RegExp(`restored from backup ${restorable.snapshot_backup}.*A backup of the current state is taken first`))).toBeVisible();
+  const dialog = page.getByRole("alertdialog", { name: `Roll back ${LIVE_APP}` });
+  await expect(dialog.getByRole("combobox", { name: "Version to go back to" })).toContainText(`#${String(restorable.id)}`);
+  await expect(dialog.getByText(new RegExp(`from backup ${restorable.snapshot_backup}.*A backup of how it is now is taken first`))).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "an in-place rollback to a deployment");
   // Not confirmed: the worker's app keeps its files.
@@ -292,14 +325,15 @@ test.describe("in a browser five and a half hours from the server", () => {
   });
 });
 
-test("an in-place app offers its backups to roll back to", async ({ page, consoleServer }) => {
+test("an in-place app lists its backups under the history, and goes back to one through the dialog", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/apps/${LIVE_APP}/deployments`);
   const points = page.getByRole("list", { name: `Backups of ${LIVE_APP}, newest first` });
   // Two seeded, and one more for every update a test in this worker ran before.
   await expect(points.getByRole("listitem").nth(1)).toBeVisible();
-  await points.getByRole("button", { name: /Go back to this version/ }).first().click();
-  const dialog = page.getByRole("alertdialog", { name: "Go back to this backup?" });
+  await points.getByRole("button", { name: /^Go back/ }).first().click();
+  const dialog = page.getByRole("alertdialog", { name: `Roll back ${LIVE_APP}` });
   await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Go back to this backup" })).toBeVisible();
   await expectNoA11yViolations(page, "the backup rollback confirmation");
   // Not confirmed: the worker's app keeps its files.
   await dialog.getByRole("button", { name: "Cancel" }).click();

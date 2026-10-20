@@ -181,6 +181,8 @@ async function primaries(page: Page): Promise<string[]> {
     [...document.querySelectorAll('main [data-variant="primary"]')]
       .filter((button) => !button.closest('[role="dialog"], [role="alertdialog"], [data-design-exception]'))
       .filter((button) => button.getClientRects().length > 0 && getComputedStyle(button).visibility !== "hidden")
+      // A split button is one control of two buttons: its arrow is part of the primary beside it, not another.
+      .filter((button) => button.textContent.trim() !== "" || button.closest('[data-slot="split-button"]') === null)
       .map((button) => button.textContent.trim()),
   );
 }

@@ -194,12 +194,12 @@ test.describe("an application's daily verbs", () => {
   test("Restart is one click, Roll back one to reach its chooser, Stop two because it asks first", async ({ page, consoleServer }) => {
     await countClicks(page);
     await signIn(page, consoleServer, `/apps/${DOMAIN}`);
-    await expect(header(page).getByRole("button", { name: "Update" })).toBeVisible();
+    await expect(header(page).getByRole("button", { name: "Update", exact: true })).toBeVisible();
     await settle(page);
 
     await startCounting(page);
     await press(page, "Roll back", "Roll back…");
-    const chooser = page.getByRole("dialog", { name: `Roll back ${DOMAIN}` });
+    const chooser = page.getByRole("alertdialog", { name: `Roll back ${DOMAIN}` });
     await expect(chooser).toBeVisible();
     withinBudget("Roll back, to open its chooser", await clicks(page), 1);
     await page.keyboard.press("Escape");
@@ -297,7 +297,7 @@ test.describe("on a phone, the incident verbs", () => {
 
     await startCounting(page);
     await header(page).getByRole("button", { name: "Roll back", exact: true }).click();
-    const chooser = page.getByRole("dialog", { name: `Roll back ${DOMAIN}` });
+    const chooser = page.getByRole("alertdialog", { name: `Roll back ${DOMAIN}` });
     await expect(chooser).toBeVisible();
     withinBudget("Roll back on a phone, to open its chooser", await clicks(page), 1);
     await page.keyboard.press("Escape");
