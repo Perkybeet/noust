@@ -1993,11 +1993,14 @@ class DockerComposeDeployer(AppDeployer):
         ``--ignore-buildable``, or a registry that is down, is something ``up`` decides for itself
         and reports in its own words, and the images may already be here.
         """
-        result = self._run(
-            self._compose("pull", "--ignore-buildable", *self.compose_services),
-            timeout=BUILD_TIMEOUT,
-            stream=True,
-        )
+        # Like the build, a download can be stopped by the operator: the client is killed and the
+        # daemon stops with it, and what serves is untouched.
+        with cancellation.interruptible("downloading the images"):
+            result = self._run(
+                self._compose("pull", "--ignore-buildable", *self.compose_services),
+                timeout=BUILD_TIMEOUT,
+                stream=True,
+            )
         if not result.success:
             reason = (result.stderr or result.stdout).strip().splitlines()
             self.logger.warning(

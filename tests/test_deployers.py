@@ -699,7 +699,7 @@ class _ComposeCalls:
         self.deployer = deployer
         deployer._run = self._run  # type: ignore[method-assign]
 
-    def _run(self, command, timeout=0, *, stream=False):  # type: ignore[no-untyped-def]
+    def _run(self, command, timeout=0, *, stream=False, **_options):  # type: ignore[no-untyped-def]
         from noust.core.runner import CommandResult
 
         argv = tuple(command)
