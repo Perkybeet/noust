@@ -1084,7 +1084,9 @@ beside Try again, after the system's words ("View output"); `JobProgress` passes
 **`DangerZone`**, **`DangerAction`**. Irreversible actions, last, each saying what it destroys.
 
 **`SaveBar`** (`changes`, `onDiscard`, `onSave` or `form`, `saving`, `busy`, `saveLabel`,
-`secondary`, `guard`, `yieldPrimary`). The one way a form is saved. It owns two things so that no
+`saveMenu`, `secondary`, `guard`, `yieldPrimary`). The one way a form is saved. With `saveMenu` (the
+same save done another way, such as "Save only" beside "Save and restart") Save is a `SplitButton`
+whose main part is `onSave`. It owns two things so that no
 subsection writes its own: the question asked once before the page is left with changes (FM-3: a
 `LeaveGuard`, a `ConfirmDialog friction="simple"` "Discard unsaved changes?" with "Keep editing"
 focused, over `useLeaveGuard`, which blocks a navigation and warns the browser before the tab is
