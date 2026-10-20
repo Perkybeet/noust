@@ -315,6 +315,12 @@ A team keeps its own notification channels (Slack, ntfy, Telegram, a webhook...)
 applications of that team only. See [notifications.md](notifications.md#a-teams-own-channels):
 `noust notify channel set NAME --team acme ...` and `/api/teams/{team}/notifications/channels`.
 
+In the console it is the team's **Notifications** tab: its channels with whether each sends, **Add a
+channel** (a name, a type, the type's settings, and optionally the applications, projects, environments,
+tags and lowest severity it hears), a test whose answer is shown as the receiving side wrote it, and
+**Remove channel**. A credential is never shown: a stored one reads as saved, and typing replaces it.
+Any member sees the list; changing it takes the admin role in the team (and sudo mode).
+
 ## Servers of the fleet
 
 A central's servers (see [CENTRAL.md](CENTRAL.md)) are the instance's until one is **assigned to a team**.

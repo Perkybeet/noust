@@ -134,6 +134,7 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/teams", "/teams"],
   ["/teams/$team", "/teams/acme"],
   ["/teams/$team/members", "/teams/acme/members"],
+  ["/teams/$team/notifications", "/teams/acme/notifications"],
   ["/teams/$team/settings", "/teams/acme/settings"],
   ["/teams/$team/variables", "/teams/acme/variables"],
 ];

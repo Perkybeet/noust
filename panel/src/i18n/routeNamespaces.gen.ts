@@ -125,6 +125,7 @@ export const ROUTE_NAMESPACES: Readonly<Record<string, readonly Namespace[]>> = 
   "/_console/teams/$team": ["appPages", "apps", "nav", "queue", "teams", "variables"],
   "/_console/teams/$team/": ["appPages", "apps", "databases", "nav", "queue", "teams", "variables"],
   "/_console/teams/$team/members": ["accounts", "appPages", "apps", "nav", "queue", "settings", "teams", "variables"],
+  "/_console/teams/$team/notifications": ["appPages", "apps", "nav", "notifyRouting", "queue", "settings", "teams", "variables"],
   "/_console/teams/$team/settings": ["appPages", "apps", "nav", "queue", "teams", "variables"],
   "/_console/teams/$team/variables": ["access", "accounts", "apiReference", "appPages", "approvals", "apps", "audit", "cloud", "compliance", "consoleAccess", "environment", "fleet", "manifestPreview", "mcpSettings", "nav", "probes", "queue", "runtime", "servers", "settings", "ssoAdmin", "teams", "variables"],
   "/invite": ["accounts", "auth", "settings"],

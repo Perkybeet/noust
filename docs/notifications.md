@@ -186,6 +186,7 @@ team, and sudo mode to change one):
 * Another team's channels do not exist for a member: the team's path answers 404, the configuration a
   member reads leaves them out, and testing one by its key says there is no such channel. The
   administrator sees them all, with their team, in Settings and in `GET /api/notifications/channels`.
+* The team's own page has them too: **Teams > the team > Notifications**.
 
 ## Paging someone
 

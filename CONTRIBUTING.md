@@ -170,6 +170,9 @@ tests/integration/network_run.py      fail2ban, HTTP/3, forward-auth, prefix rou
                             Coolify templates and the private certificate authority against the real
                             programs and real clients (Debian server, Alpine client, AlmaLinux device);
                             not part of pytest
+tests/integration/forge_run.py        a real Gitea and a real Forgejo: a deployment's commit status, a
+                            preview's pull request comment and the signed webhooks the receiver reads
+                            (docs/sources.md); one loopback port, `noust-test-w6x-*`, not part of pytest
 packaging/install.sh        the one-line installer (POSIX sh, shellcheck-clean), published with a
                             signed SHA256SUMS; its platform table is generated, never edited
 ```
