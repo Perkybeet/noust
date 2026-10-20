@@ -359,8 +359,8 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **985** API operations. **947** need a permission (`x-noust-permission`) and **38** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **325** operations need sudo mode and **38** can need a second person.
+- **1007** API operations. **969** need a permission (`x-noust-permission`) and **38** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **336** operations need sudo mode and **38** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
@@ -378,10 +378,10 @@ only what recovering an account takes.
 | `backups.read` | 19 |
 | `backups.run` | 14 |
 | `compliance.read` | 4 |
-| `databases.manage` | 40 |
-| `databases.read` | 59 |
+| `databases.manage` | 53 |
+| `databases.read` | 67 |
 | `databases.write` | 12 |
-| `fleet.manage` | 41 |
+| `fleet.manage` | 42 |
 | `fleet.read` | 22 |
 | `public` | 38 |
 | `root_equivalent` | 18 |
@@ -485,14 +485,14 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **488** events.
+The catalogue holds **493** events.
 
 | Category | Events |
 |---|---|
 | access | 46 |
 | account | 36 |
 | config | 29 |
-| change | 317 |
+| change | 322 |
 | read | 20 |
 | denial | 16 |
 | system | 21 |

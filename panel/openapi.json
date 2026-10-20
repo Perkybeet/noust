@@ -9574,6 +9574,250 @@
         "title": "CloneRequest",
         "type": "object"
       },
+      "ClusterDatabasePlan": {
+        "description": "What would happen to one database of the dump.\n\nAttributes:\n    name: The database.\n    action: ``create``, ``load``, ``replace`` or ``skip``.\n    owner: The account that will own it when it is created.\n    reason: Why, when it is skipped.\n    size: Bytes of its dump.",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "size": {
+            "default": 0,
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "action"
+        ],
+        "title": "ClusterDatabasePlan",
+        "type": "object"
+      },
+      "ClusterPlanResponse": {
+        "description": "What importing a dump of all databases would do. Nothing has been done.\n\nAttributes:\n    engine: The engine.\n    format: What the file is.\n    restore_users: The accounts would be made.\n    roles: The accounts, each with what happens to it.\n    memberships: How many role-to-role grants would be kept.\n    databases: The databases, each with what happens to it.\n    ignored: What the dump holds that is not carried.\n    warnings: What the operator accepts by creating the accounts.",
+        "properties": {
+          "databases": {
+            "items": {
+              "$ref": "#/components/schemas/ClusterDatabasePlan"
+            },
+            "title": "Databases",
+            "type": "array"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "format": {
+            "$ref": "#/components/schemas/DumpFormatResponse"
+          },
+          "ignored": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ignored",
+            "type": "array"
+          },
+          "memberships": {
+            "default": 0,
+            "title": "Memberships",
+            "type": "integer"
+          },
+          "restore_users": {
+            "title": "Restore Users",
+            "type": "boolean"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/ClusterRolePlan"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "engine",
+          "format",
+          "restore_users"
+        ],
+        "title": "ClusterPlanResponse",
+        "type": "object"
+      },
+      "ClusterRequest": {
+        "description": "Request to plan or import a dump of all databases.\n\nAttributes:\n    engine: The engine (``postgresql``).\n    restore_users: Also create the accounts of the dump, without the power the source gave them\n        and never over one that exists; the databases then keep the owners and privileges the\n        dump names for them.\n    databases: Only these databases; the server's own are loaded only when named.\n    replace: Drop each database that exists and load a fresh one. A safety copy is taken first.\n    safety_backup: Dump a database first when it is loaded over rather than replaced.\n    confirm_users: The operator accepted creating the accounts (read them in the plan).\n        Without it, ``restore_users`` is a 400 ``confirmation_required`` and nothing is queued.\n    as_superuser: Load every database as the server's superuser instead of as its owner. A\n        dump can run programs on the server with that account, so it needs\n        ``confirm_superuser`` too; for a file the operator made or has read.\n    confirm_superuser: The operator accepted what ``as_superuser`` costs.\n    accounts_upload_id: MySQL and MariaDB: a finished upload of the accounts, a file of\n        ``CREATE USER`` and ``GRANT`` statements (``mysqldump`` does not write them).\n    accounts_path: Or a path on the server, held to the folders dumps are read from.",
+        "properties": {
+          "accounts_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accounts Path"
+          },
+          "accounts_upload_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accounts Upload Id"
+          },
+          "as_superuser": {
+            "default": false,
+            "title": "As Superuser",
+            "type": "boolean"
+          },
+          "confirm_superuser": {
+            "default": false,
+            "title": "Confirm Superuser",
+            "type": "boolean"
+          },
+          "confirm_users": {
+            "default": false,
+            "title": "Confirm Users",
+            "type": "boolean"
+          },
+          "databases": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Databases",
+            "type": "array"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "replace": {
+            "default": false,
+            "title": "Replace",
+            "type": "boolean"
+          },
+          "restore_users": {
+            "default": false,
+            "title": "Restore Users",
+            "type": "boolean"
+          },
+          "safety_backup": {
+            "default": true,
+            "title": "Safety Backup",
+            "type": "boolean"
+          },
+          "upload_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upload Id"
+          }
+        },
+        "required": [
+          "engine"
+        ],
+        "title": "ClusterRequest",
+        "type": "object"
+      },
+      "ClusterRolePlan": {
+        "description": "What would happen to one account of the dump.\n\nAttributes:\n    name: The account.\n    action: ``create``, ``exists`` (left exactly as it is) or ``skip``.\n    reason: Why, when it is not created.\n    dropped: Attributes it had at the source that are not carried.\n    has_password: The dump holds a password hash for it.\n    login: It can sign in.",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "dropped": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dropped",
+            "type": "array"
+          },
+          "has_password": {
+            "default": false,
+            "title": "Has Password",
+            "type": "boolean"
+          },
+          "login": {
+            "default": false,
+            "title": "Login",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "name",
+          "action"
+        ],
+        "title": "ClusterRolePlan",
+        "type": "object"
+      },
       "CollectorModel": {
         "description": "Whether history is being recorded, and by whom.\n\nAttributes:\n    recording: True while a collector holds a live lease.\n    host: ``daemon`` (``noust-monitor``) or ``console``; null when nobody\n        is recording.\n    since: When the collector started, epoch seconds.\n    last_sample_at: Its newest tick, epoch seconds.\n    interval_s: Seconds between its ticks.\n    last_error: The newest failure it logged, verbatim.\n    reason: Why nothing is being recorded, with the fix.\n    advice: A hint when recording works but could be better (it only runs\n        while the console does).\n    retention_days: How long the hourly tier is kept.",
         "properties": {
@@ -13515,6 +13759,77 @@
         "title": "DatabaseOverviewResponse",
         "type": "object"
       },
+      "DatabaseTransferIn": {
+        "description": "Move a database to another server.\n\nAttributes:\n    database: The database on the source.\n    engine: The engine it is on there: ``postgresql``, ``mysql`` (MariaDB too) or ``mongodb``,\n        or an instance (``postgresql@pg16``).\n    from_node: The server that holds it.\n    to: The server that receives it.\n    target_engine: The engine or instance on the target; the source's when absent.\n    new_name: Its name on the target; the same when absent.\n    replace: Replace a database of that name the target holds, after a safety copy there.\n    accounts: Also make the accounts with access to it, with the password the source holds\n        for each and the profile they had.\n    drop_source: Drop it from the source once it has moved, after a last dump kept there;\n        refused for a database an application still uses.\n    plan: Only say what would happen.",
+        "properties": {
+          "accounts": {
+            "default": false,
+            "title": "Accounts",
+            "type": "boolean"
+          },
+          "database": {
+            "title": "Database",
+            "type": "string"
+          },
+          "drop_source": {
+            "default": false,
+            "title": "Drop Source",
+            "type": "boolean"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "from_node": {
+            "title": "From Node",
+            "type": "string"
+          },
+          "new_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Name"
+          },
+          "plan": {
+            "default": false,
+            "title": "Plan",
+            "type": "boolean"
+          },
+          "replace": {
+            "default": false,
+            "title": "Replace",
+            "type": "boolean"
+          },
+          "target_engine": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Engine"
+          },
+          "to": {
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "database",
+          "engine",
+          "from_node",
+          "to"
+        ],
+        "title": "DatabaseTransferIn",
+        "type": "object"
+      },
       "DecisionBody": {
         "description": "A decision's comment.\n\nAttributes:\n    comment: What the decider says; shown to the requester.",
         "properties": {
@@ -16777,7 +17092,7 @@
         "type": "object"
       },
       "DumpFormatResponse": {
-        "description": "What a file was found to be.\n\nAttributes:\n    kind: ``pg-custom``, ``pg-tar``, ``sql``, ``tar-sql``, ``mongo-archive``,\n        ``mongo-tree`` or ``unknown``.\n    compression: ``none``, ``gzip``, ``bz2``, ``xz`` or ``zip`` around it.\n    description: One sentence to show.\n    engines: The engines that can load it.",
+        "description": "What a file was found to be.\n\nAttributes:\n    kind: ``pg-custom``, ``pg-tar``, ``sql``, ``tar-sql``, ``mongo-archive``,\n        ``mongo-tree`` or ``unknown``.\n    compression: ``none``, ``gzip``, ``bz2``, ``xz`` or ``zip`` around it.\n    description: One sentence to show.\n    engines: The engines that can load it.\n    scope: ``database`` for the dump of one database, ``cluster`` for a dump of every\n        database of an engine (``/imports/cluster``).",
         "properties": {
           "compression": {
             "title": "Compression",
@@ -16796,6 +17111,11 @@
           },
           "kind": {
             "title": "Kind",
+            "type": "string"
+          },
+          "scope": {
+            "default": "database",
+            "title": "Scope",
             "type": "string"
           }
         },
@@ -22454,6 +22774,176 @@
         "title": "HostKeyResponse",
         "type": "object"
       },
+      "HostTlsPlanResponse": {
+        "description": "What giving an engine a certificate would do. Nothing was changed.\n\nAttributes:\n    engine: The engine.\n    hostname: The name clients reach it by.\n    source: Where the certificate comes from.\n    certificate: The lineage's or the upload's name.\n    fullchain: The certificate chain that will be copied.\n    directory: The engine's own copy of it.\n    fingerprint: The certificate's SHA-256 fingerprint, which the engine is asked to present.\n    not_after: When it expires.\n    restart: Whether the engine restarts.",
+        "properties": {
+          "certificate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate"
+          },
+          "directory": {
+            "title": "Directory",
+            "type": "string"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "fullchain": {
+            "title": "Fullchain",
+            "type": "string"
+          },
+          "hostname": {
+            "title": "Hostname",
+            "type": "string"
+          },
+          "not_after": {
+            "title": "Not After",
+            "type": "string"
+          },
+          "restart": {
+            "title": "Restart",
+            "type": "boolean"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "engine",
+          "hostname",
+          "source",
+          "fullchain",
+          "directory",
+          "fingerprint",
+          "not_after",
+          "restart"
+        ],
+        "title": "HostTlsPlanResponse",
+        "type": "object"
+      },
+      "HostTlsRequest": {
+        "description": "The certificate to give an engine.\n\nAttributes:\n    hostname: The name clients reach the engine by; the certificate must cover it.\n    source: ``acme`` (the Let's Encrypt lineage named after the host), ``lineage`` (another\n        lineage) or ``custom`` (a certificate uploaded to Noust).\n    certificate: The lineage's or the upload's name, for ``lineage`` and ``custom``.\n    confirm: The operator accepted the engine's restart, where there is one (MySQL and MariaDB\n        read the certificate only when they start; PostgreSQL reloads).",
+        "properties": {
+          "certificate": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate"
+          },
+          "confirm": {
+            "default": false,
+            "title": "Confirm",
+            "type": "boolean"
+          },
+          "hostname": {
+            "maxLength": 253,
+            "minLength": 1,
+            "title": "Hostname",
+            "type": "string"
+          },
+          "source": {
+            "default": "acme",
+            "maxLength": 16,
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "hostname"
+        ],
+        "title": "HostTlsRequest",
+        "type": "object"
+      },
+      "HostTlsStatusResponse": {
+        "description": "What an engine is given, and whether it still matches its source.\n\nAttributes:\n    engine: The engine.\n    enabled: It serves a certificate of Noust's.\n    record: What was given: host name, source, fingerprint, expiry, last refresh.\n    warnings: What the operator should know (a renewal not loaded, an expiry near).\n    source_changed: The source certificate was renewed or replaced and the engine still serves\n        the old copy: refresh it.\n    served: The fingerprint the engine presents now, asked of the engine itself.\n    days_left: Days until the certificate expires.",
+        "properties": {
+          "days_left": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Left"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "record": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record"
+          },
+          "served": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Served"
+          },
+          "source_changed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Changed"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "engine",
+          "enabled"
+        ],
+        "title": "HostTlsStatusResponse",
+        "type": "object"
+      },
       "HostnameOut": {
         "description": "The names of the machine.",
         "properties": {
@@ -22901,8 +23391,18 @@
         "type": "object"
       },
       "ImportRequest": {
-        "description": "Request to import a dump.\n\nAttributes:\n    engine: The engine.\n    database: The database to load into; created when it does not exist.\n    replace: Drop and recreate it first. A safety copy is taken before and\n        put back when the load fails.\n    keep_owners: PostgreSQL: keep the owners and privileges the dump names\n        instead of giving everything to the database's owner.\n    safety_backup: Dump the database first when it is loaded over rather\n        than replaced.",
+        "description": "Request to import a dump.\n\nAttributes:\n    engine: The engine.\n    database: The database to load into; created when it does not exist.\n    replace: Drop and recreate it first. A safety copy is taken before and\n        put back when the load fails.\n    keep_owners: PostgreSQL: keep the owners and privileges the dump names\n        instead of giving everything to the database's owner.\n    safety_backup: Dump the database first when it is loaded over rather\n        than replaced.\n    as_superuser: PostgreSQL: load the dump as the server's superuser\n        instead of the database's owner. A dump can run programs on the\n        server with that account, so it needs ``confirm_superuser`` too.\n    confirm_superuser: The operator accepted what ``as_superuser`` costs.\n        Without it the answer is a 400 ``confirmation_required`` carrying\n        the warning, and nothing is queued.\n    owner: PostgreSQL: the account a database this import makes (a new one, or one it drops\n        and recreates) belongs to, instead of the default. It must exist; a database loaded\n        over keeps its owner.",
         "properties": {
+          "as_superuser": {
+            "default": false,
+            "title": "As Superuser",
+            "type": "boolean"
+          },
+          "confirm_superuser": {
+            "default": false,
+            "title": "Confirm Superuser",
+            "type": "boolean"
+          },
           "database": {
             "title": "Database",
             "type": "string"
@@ -22915,6 +23415,17 @@
             "default": false,
             "title": "Keep Owners",
             "type": "boolean"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
           },
           "path": {
             "anyOf": [
@@ -23476,12 +23987,59 @@
         "type": "object"
       },
       "InstanceRequest": {
-        "description": "An instance to make.\n\nAttributes:\n    name: What to call it: lower-case letters, digits and single dashes,\n        starting with a letter, up to 24 characters. It is the part of its\n        key after the ``@`` (``postgresql@pg16``).\n    engine: What to run: ``postgresql``, ``mysql``, ``mariadb``, ``redis``,\n        ``valkey`` or ``mongodb`` (``GET /api/databases/instances/catalog``).\n    version: Its version, such as ``16`` or ``8.4``; the catalog's default\n        when omitted. The image is pinned by tag and digest.\n    memory_mb: Its memory limit in megabytes: mandatory, enforced on the\n        container and used to size the engine's own caches.\n    port: The port on 127.0.0.1 it is published on; a free one just above\n        the engine's own when omitted.\n    variant: An image of the engine with something added, such as ``pgvector`` or\n        ``postgis`` for PostgreSQL (``GET /api/databases/instances/catalog`` lists\n        them); the engine's own image when omitted.\n    init_scripts: SQL scripts run, in name order, the first time the engine starts\n        (PostgreSQL, MySQL and MariaDB; at most ten).",
+        "description": "An instance to make.\n\nAttributes:\n    name: What to call it: lower-case letters, digits and single dashes,\n        starting with a letter, up to 24 characters. It is the part of its\n        key after the ``@`` (``postgresql@pg16``).\n    engine: What to run: ``postgresql``, ``mysql``, ``mariadb``, ``redis``,\n        ``valkey`` or ``mongodb`` (``GET /api/databases/instances/catalog``).\n    version: Its version, such as ``16`` or ``8.4``; the catalog's default\n        when omitted. The image is pinned by tag and digest.\n    memory_mb: Its memory limit in megabytes: mandatory, enforced on the\n        container and used to size the engine's own caches.\n    port: The port on 127.0.0.1 it is published on; a free one just above\n        the engine's own when omitted.\n    variant: An image of the engine with something added, such as ``pgvector`` or\n        ``postgis`` for PostgreSQL (``GET /api/databases/instances/catalog`` lists\n        them); the engine's own image when omitted.\n    init_scripts: SQL scripts run, in name order, the first time the engine starts\n        (PostgreSQL, MySQL and MariaDB; at most ten).\n    image: An image of your own instead of the catalog's, ``repository[:tag]@sha256:digest``.\n        The digest is mandatory (a tag can be moved after you looked) and ``version`` says\n        which version it is. Noust has not tested it; not with ``variant``.\n    command: The container's whole command, instead of the engine's: a list of words, never\n        a shell line. Noust adds nothing to it. Not with ``args``.\n    args: Arguments added after the ones Noust passes the engine, a list of words. A\n        password is never one: a command line is visible to every local user.\n    accept_untested: The operator accepts that Noust has not tested an image, a command or\n        arguments they chose. Without it, queueing one is a 400 ``confirmation_required``\n        carrying what is accepted, and nothing is queued.",
         "properties": {
+          "accept_untested": {
+            "default": false,
+            "title": "Accept Untested",
+            "type": "boolean"
+          },
+          "args": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 64,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Args"
+          },
+          "command": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 64,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Command"
+          },
           "engine": {
             "maxLength": 32,
             "title": "Engine",
             "type": "string"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
           },
           "init_scripts": {
             "items": {
@@ -23555,11 +24113,25 @@
         "type": "object"
       },
       "InstanceResponse": {
-        "description": "An instance Noust runs.\n\nAttributes:\n    name: Its name.\n    key: What it is addressed by wherever an engine is named.\n    engine: The manager that speaks it.\n    flavour: What it runs.\n    display_name: The flavour for a person.\n    version: The version it was made with.\n    image: The image's repository.\n    digest: The digest it runs; ``previous_digest`` is what ran before the\n        last upgrade.\n    reference: The image reference its container is started from.\n    host_port: The port on 127.0.0.1.\n    address: Always ``127.0.0.1``: it is reached through an SSH tunnel, or\n        made public one database at a time (``/api/databases/public``).\n    memory_limit_mb: Its memory limit.\n    state: ``creating``, ``ready``, ``upgrading`` or ``removing``: how far\n        the last change got.\n    running: Its container runs.\n    status: ``running``, ``stopped`` (it has no container) or Docker's own\n        word.\n    unit: The systemd unit that runs it.\n    container: Its container's name.\n    volume: The Docker volume that holds its data.\n    directory: The directory that holds its Compose file and its\n        environment file, which only root can read.\n    end_of_life: When its version's upstream support ends, where the project\n        publishes it; ``support`` is ``supported``, ``ending_soon``,\n        ``ended`` or ``unknown``.\n    tls_mode: ``off``, ``optional`` or ``required``: whether it serves TLS\n        (``GET .../{name}/tls`` says with which certificate).\n    variant: The image variant it runs (``pgvector``); null for the engine's own.\n    image_tag: The tag its digest was read from when that is not the version.\n    init_scripts: The names of the scripts it ran the first time it started.",
+        "description": "An instance Noust runs.\n\nAttributes:\n    name: Its name.\n    key: What it is addressed by wherever an engine is named.\n    engine: The manager that speaks it.\n    flavour: What it runs.\n    display_name: The flavour for a person.\n    version: The version it was made with.\n    image: The image's repository.\n    digest: The digest it runs; ``previous_digest`` is what ran before the\n        last upgrade.\n    reference: The image reference its container is started from.\n    host_port: The port on 127.0.0.1.\n    address: Always ``127.0.0.1``: it is reached through an SSH tunnel, or\n        made public one database at a time (``/api/databases/public``).\n    memory_limit_mb: Its memory limit.\n    state: ``creating``, ``ready``, ``upgrading`` or ``removing``: how far\n        the last change got.\n    running: Its container runs.\n    status: ``running``, ``stopped`` (it has no container) or Docker's own\n        word.\n    unit: The systemd unit that runs it.\n    container: Its container's name.\n    volume: The Docker volume that holds its data.\n    directory: The directory that holds its Compose file and its\n        environment file, which only root can read.\n    end_of_life: When its version's upstream support ends, where the project\n        publishes it; ``support`` is ``supported``, ``ending_soon``,\n        ``ended`` or ``unknown``.\n    tls_mode: ``off``, ``optional`` or ``required``: whether it serves TLS\n        (``GET .../{name}/tls`` says with which certificate).\n    variant: The image variant it runs (``pgvector``); null for the engine's own.\n    image_tag: The tag its digest was read from when that is not the version.\n    init_scripts: The names of the scripts it ran the first time it started.\n    custom_image: The image is the operator's own, pinned by their digest.\n    command: The whole command the operator made the container run; empty for the engine's.\n    args: What the operator added after the arguments Noust passes; empty for none.\n    customised: Anything about the container is the operator's.",
         "properties": {
           "address": {
             "title": "Address",
             "type": "string"
+          },
+          "args": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Args",
+            "type": "array"
+          },
+          "command": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Command",
+            "type": "array"
           },
           "container": {
             "title": "Container",
@@ -23579,6 +24151,16 @@
               }
             ],
             "title": "Created By"
+          },
+          "custom_image": {
+            "default": false,
+            "title": "Custom Image",
+            "type": "boolean"
+          },
+          "customised": {
+            "default": false,
+            "title": "Customised",
+            "type": "boolean"
           },
           "digest": {
             "title": "Digest",
@@ -25560,6 +26142,163 @@
           "status"
         ],
         "title": "LastDeploymentOut",
+        "type": "object"
+      },
+      "LaunchPlanResponse": {
+        "description": "What a change would do. Nothing was changed.\n\nAttributes:\n    changes: The settings that would change, each with ``setting``, ``from`` and ``to``.\n    effective: The command the container would be started with afterwards.\n    restarts: Whether the engine restarts.\n    requires_confirmation: The words are the operator's: ``accept_untested`` is needed.\n    apps: The applications that lose their connections while it restarts.\n    blockers: What stops the change.\n    warnings: What the operator should know first, what is not tested included.",
+        "properties": {
+          "apps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "changes": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "effective": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Effective",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "requires_confirmation": {
+            "title": "Requires Confirmation",
+            "type": "boolean"
+          },
+          "restarts": {
+            "title": "Restarts",
+            "type": "boolean"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "restarts",
+          "requires_confirmation"
+        ],
+        "title": "LaunchPlanResponse",
+        "type": "object"
+      },
+      "LaunchRequest": {
+        "description": "A change of what an instance's container is started with.\n\nExactly one of ``command``, ``args`` and ``reset`` is given.\n\nAttributes:\n    command: The container's whole command, instead of the engine's: Noust adds nothing to\n        it (the memory share, the TLS arguments), so it is refused for an instance that\n        serves TLS.\n    args: Arguments added after the ones Noust passes the engine. A password is never\n        one: a command line is visible to every local user.\n    reset: Take the command and the arguments back to what Noust passes.\n    accept_untested: The operator accepts that Noust has not tested their words. Without\n        it, setting them is a 400 ``confirmation_required`` carrying what is accepted;\n        taking them back needs nothing.",
+        "properties": {
+          "accept_untested": {
+            "default": false,
+            "title": "Accept Untested",
+            "type": "boolean"
+          },
+          "args": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 64,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Args"
+          },
+          "command": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 64,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Command"
+          },
+          "reset": {
+            "default": false,
+            "title": "Reset",
+            "type": "boolean"
+          }
+        },
+        "title": "LaunchRequest",
+        "type": "object"
+      },
+      "LaunchStatusResponse": {
+        "description": "What an instance's container is started with.\n\nAttributes:\n    command: The operator's whole command, or empty.\n    args: The operator's arguments, or empty.\n    customised: Anything about the container is the operator's: the image, the command or\n        the arguments.\n    custom_image: The image is the operator's.\n    effective: What the container runs; empty when the image's own command is left.",
+        "properties": {
+          "args": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Args",
+            "type": "array"
+          },
+          "command": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Command",
+            "type": "array"
+          },
+          "custom_image": {
+            "title": "Custom Image",
+            "type": "boolean"
+          },
+          "customised": {
+            "title": "Customised",
+            "type": "boolean"
+          },
+          "effective": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Effective",
+            "type": "array"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "key",
+          "customised",
+          "custom_image"
+        ],
+        "title": "LaunchStatusResponse",
         "type": "object"
       },
       "LdapLoginRequest": {
@@ -39236,6 +39975,18 @@
         "title": "RenewCertRequest",
         "type": "object"
       },
+      "ReplicaConfirmRequest": {
+        "description": "The operator's acceptance of a promotion.\n\nAttributes:\n    confirm: The operator accepts that this replica stops following its primary.",
+        "properties": {
+          "confirm": {
+            "default": false,
+            "title": "Confirm",
+            "type": "boolean"
+          }
+        },
+        "title": "ReplicaConfirmRequest",
+        "type": "object"
+      },
       "ReplicaCopyOut": {
         "description": "One copy of an application's web process.",
         "properties": {
@@ -39271,6 +40022,388 @@
           "serving"
         ],
         "title": "ReplicaCopyOut",
+        "type": "object"
+      },
+      "ReplicaJoinPlanRequest": {
+        "description": "A join code to check.\n\nAttributes:\n    token: The join code the primary gave. A secret.",
+        "properties": {
+          "token": {
+            "maxLength": 8192,
+            "minLength": 1,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "ReplicaJoinPlanRequest",
+        "type": "object"
+      },
+      "ReplicaJoinPlanResponse": {
+        "description": "What joining a primary would do to this server. Nothing was changed.\n\nAttributes:\n    name: The replica's name.\n    primary: The primary, ``host:port``.\n    account: The replication account.\n    slot: The slot (PostgreSQL).\n    data_directory: The data directory that is replaced or read.\n    saved_as: Where this server's own data is set aside.\n    databases: The databases on this server that the join replaces.\n    free_bytes: Free space where the copy is made.\n    needed_bytes: What the primary said it holds, with a margin.\n    capacity: The settings the replica starts with to match its primary.\n    problems: What stops it.\n    warnings: What the operator should know.\n    ok: There are no problems.",
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "capacity": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Capacity",
+            "type": "object"
+          },
+          "data_directory": {
+            "title": "Data Directory",
+            "type": "string"
+          },
+          "databases": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Databases",
+            "type": "array"
+          },
+          "free_bytes": {
+            "default": 0,
+            "title": "Free Bytes",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "needed_bytes": {
+            "default": 0,
+            "title": "Needed Bytes",
+            "type": "integer"
+          },
+          "ok": {
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "primary": {
+            "title": "Primary",
+            "type": "string"
+          },
+          "problems": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Problems",
+            "type": "array"
+          },
+          "saved_as": {
+            "title": "Saved As",
+            "type": "string"
+          },
+          "slot": {
+            "default": "",
+            "title": "Slot",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "primary",
+          "account",
+          "data_directory",
+          "saved_as"
+        ],
+        "title": "ReplicaJoinPlanResponse",
+        "type": "object"
+      },
+      "ReplicaJoinRequest": {
+        "description": "The join code of a primary, and what the operator accepts.\n\nAttributes:\n    token: The join code the primary gave. A secret.\n    replace_data: The operator accepts that this server's data is replaced by the primary's.\n        Without it the answer is a 400 ``confirmation_required`` and nothing is done.\n    discard_previous: Delete this server's old data directory once the replica streams.",
+        "properties": {
+          "discard_previous": {
+            "default": false,
+            "title": "Discard Previous",
+            "type": "boolean"
+          },
+          "replace_data": {
+            "default": false,
+            "title": "Replace Data",
+            "type": "boolean"
+          },
+          "token": {
+            "maxLength": 8192,
+            "minLength": 1,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "ReplicaJoinRequest",
+        "type": "object"
+      },
+      "ReplicaPlanResponse": {
+        "description": "What making room for a replica would do. Nothing was changed.\n\nAttributes:\n    name: The replica.\n    account: The replication account.\n    slot: The slot that keeps the log it has not read (PostgreSQL); empty for MySQL.\n    host: The name the replica connects to.\n    port: The engine's port.\n    source: Where the replica connects from.\n    listen: The address the engine is told to listen on, or null when it reaches the replica.\n    restart: Whether the engine restarts.\n    firewall: Whether a firewall rule is added.\n    settings: The settings the engine's configuration is given (MySQL and MariaDB).\n    steps: What will be done, in order.\n    problems: What stops it; nothing is done while there are any.\n    warnings: What the operator should know.\n    ok: There are no problems.",
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "firewall": {
+            "default": false,
+            "title": "Firewall",
+            "type": "boolean"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "listen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Listen"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "ok": {
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "problems": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Problems",
+            "type": "array"
+          },
+          "restart": {
+            "default": false,
+            "title": "Restart",
+            "type": "boolean"
+          },
+          "settings": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Settings",
+            "type": "object"
+          },
+          "slot": {
+            "default": "",
+            "title": "Slot",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "account",
+          "host",
+          "port",
+          "source"
+        ],
+        "title": "ReplicaPlanResponse",
+        "type": "object"
+      },
+      "ReplicaPrepareRequest": {
+        "description": "Where a replica will connect from, and what to do about the primary's address.\n\nAttributes:\n    name: The replica's name; it names its account and its slot.\n    source: Where the replica connects from: an address or a network.\n    host: The name or address it connects to; the engine's certificate must cover it.\n    listen: Make the engine listen here too (an address of this server, or ``*``), needed when\n        it listens on the loopback only; restarts it once.\n    ca_pem: The authority that signed the engine's certificate, PEM, when the replica does not\n        trust it already (a private authority).\n    open_firewall: Allow the engine's port from ``source`` in the firewall.\n    confirm: The operator accepted the engine's restart, where there is one.",
+        "properties": {
+          "ca_pem": {
+            "default": "",
+            "maxLength": 64000,
+            "title": "Ca Pem",
+            "type": "string"
+          },
+          "confirm": {
+            "default": false,
+            "title": "Confirm",
+            "type": "boolean"
+          },
+          "host": {
+            "maxLength": 253,
+            "minLength": 1,
+            "title": "Host",
+            "type": "string"
+          },
+          "listen": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Listen"
+          },
+          "name": {
+            "maxLength": 63,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "open_firewall": {
+            "default": false,
+            "title": "Open Firewall",
+            "type": "boolean"
+          },
+          "source": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "source",
+          "host"
+        ],
+        "title": "ReplicaPrepareRequest",
+        "type": "object"
+      },
+      "ReplicaPreparedResponse": {
+        "description": "A replica made room for, with the code the replica joins with.\n\nAttributes:\n    token: The join code. It holds the replication password: carry it over a channel you\n        trust, and do not keep it.\n    plan: What was done.\n    record: What Noust recorded.",
+        "properties": {
+          "plan": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan"
+          },
+          "record": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record"
+          },
+          "token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token"
+          }
+        },
+        "title": "ReplicaPreparedResponse",
+        "type": "object"
+      },
+      "ReplicaStatusResponse": {
+        "description": "How the replicas of one engine, and the engine as a replica, stand.\n\nAttributes:\n    engine: The engine.\n    role: ``primary``, ``replica`` or ``standalone``.\n    replicas: One entry per replica prepared here, with what the engine says about its\n        connection (state, TLS, lag, the log held for it).\n    follows: The primary this server follows, when it is a replica.\n    warnings: What the operator should know.",
+        "properties": {
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "follows": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Follows"
+          },
+          "replicas": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Replicas",
+            "type": "array"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "engine",
+          "role"
+        ],
+        "title": "ReplicaStatusResponse",
+        "type": "object"
+      },
+      "ReplicaTokenResponse": {
+        "description": "The join code of a replica prepared here.\n\nAttributes:\n    name: The replica.\n    token: The join code, a secret.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "token"
+        ],
+        "title": "ReplicaTokenResponse",
         "type": "object"
       },
       "ReplicasRequest": {
@@ -53746,6 +54879,30 @@
         "title": "UpdatesSummary",
         "type": "object"
       },
+      "UpgradeRequest": {
+        "description": "What an upgrade is asked to move an instance to.\n\nAttributes:\n    image: For an instance on an image of the operator's own: the next one,\n        ``repository[:tag]@sha256:digest``. Noust never looks for a newer image of one the\n        operator pinned. Refused for an instance on the catalog's.\n    accept_untested: The operator accepts that Noust has not tested that image.",
+        "properties": {
+          "accept_untested": {
+            "default": false,
+            "title": "Accept Untested",
+            "type": "boolean"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          }
+        },
+        "title": "UpgradeRequest",
+        "type": "object"
+      },
       "UploadRequest": {
         "description": "A certificate and its key to keep.\n\nAttributes:\n    name: What to call it: lower case letters, digits, dots, dashes, underscores.\n    certificate: PEM: the certificate, and its chain if it comes in the same text.\n    private_key: PEM: the key for it, not protected by a passphrase.\n    chain: PEM: the intermediates, when they come apart.",
         "properties": {
@@ -57754,8 +58911,27 @@
         "type": "object"
       },
       "noust__web__api__databases__instances__PlanResponse": {
-        "description": "What making an instance would do. Nothing was changed.\n\nAttributes:\n    warnings: What the operator should know before going ahead.",
+        "description": "What making an instance would do. Nothing was changed.\n\nAttributes:\n    warnings: What the operator should know before going ahead.\n    custom: The image is the operator's own.\n    command: The whole command the operator wrote, or empty.\n    args: The arguments the operator adds, or empty.\n    requires_confirmation: Making it needs ``accept_untested``: Noust has not tested what\n        the operator chose.",
         "properties": {
+          "args": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Args",
+            "type": "array"
+          },
+          "command": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Command",
+            "type": "array"
+          },
+          "custom": {
+            "default": false,
+            "title": "Custom",
+            "type": "boolean"
+          },
           "digest": {
             "title": "Digest",
             "type": "string"
@@ -57802,6 +58978,11 @@
           "reference": {
             "title": "Reference",
             "type": "string"
+          },
+          "requires_confirmation": {
+            "default": false,
+            "title": "Requires Confirmation",
+            "type": "boolean"
           },
           "tag": {
             "anyOf": [
@@ -79390,6 +80571,89 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/databases/backups/{name}/data": {
+      "get": {
+        "description": "Read a range of a dump, with sudo mode.\n\nA dump is the whole database, so this is the download's power: a sensitive read, of a dump in\nthe engine's own backup folder, by name. The reading is recorded where it begins (offset 0),\nonce, with the dump's size; a piece asked again in the middle records nothing more.\n\nArgs:\n    name: The dump's file name.\n    engine: The engine.\n    offset: Where to start.\n    session: The authenticated, elevated session.\n    length: How many bytes at most.\n\nReturns:\n    The raw bytes; fewer at the end of the dump, none past it.\n\nRaises:\n    DatabaseNotFoundError: 404 when the dump does not exist.",
+        "operationId": "dump_data_api_databases_backups__name__data_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The engine",
+            "in": "query",
+            "name": "engine",
+            "required": true,
+            "schema": {
+              "description": "The engine",
+              "title": "Engine",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Where to start in the dump",
+            "in": "query",
+            "name": "offset",
+            "required": true,
+            "schema": {
+              "description": "Where to start in the dump",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "How many bytes at most",
+            "in": "query",
+            "name": "length",
+            "required": false,
+            "schema": {
+              "default": 1048576,
+              "description": "How many bytes at most",
+              "maximum": 8388608,
+              "minimum": 1,
+              "title": "Length",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The bytes asked for: fewer at the end of the dump, none past it."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Dump Data",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/databases/backups/{name}/download": {
       "get": {
         "description": "Download a dump, streamed from disk, with sudo mode.\n\nA dump is the whole database: reading one is recorded as a sensitive read,\nwith the file's name and size. Only a dump in the engine's own backup\ndirectory can be named; a path is never accepted.\n\nArgs:\n    name: The dump's file name.\n    engine: The engine.\n    session: The authenticated, elevated session.\n\nReturns:\n    The file, as an attachment.\n\nRaises:\n    DatabaseNotFoundError: 404 when the dump does not exist.",
@@ -82033,6 +83297,57 @@
         "x-noust-permission": "databases.read"
       }
     },
+    "/api/databases/engines/tls": {
+      "get": {
+        "description": "Say which engines serve a certificate of Noust's, and whether each is current.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    One entry per engine Noust can give a certificate to; one that is not installed says so in\n    its warnings.",
+        "operationId": "list_status_api_databases_engines_tls_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HostTlsStatusResponse"
+                  },
+                  "title": "Response List Status Api Databases Engines Tls Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Status",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      }
+    },
+    "/api/databases/engines/tls/refresh": {
+      "post": {
+        "description": "Queue bringing each engine's copy up to its certificate and proving what it presents, with sudo mode.\n\ncertbot runs the same thing after every renewal that succeeds; run it after uploading a new\ncertificate.\n\nArgs:\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job; its result says, per engine, whether the renewed certificate was loaded.",
+        "operationId": "refresh_api_databases_engines_tls_refresh_post",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Refresh",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/databases/engines/{engine}/credentials": {
       "put": {
         "description": "Store the account Noust signs in to an engine with, once it works, with sudo mode.\n\nThe engine is asked first, through the code that will use the account:\na refusal answers with the engine's own message and saves nothing.\n\nArgs:\n    engine: Engine name.\n    request: The user and the password.\n    session: The authenticated, elevated session.\n\nReturns:\n    The outcome.",
@@ -82708,6 +84023,212 @@
         "x-noust-permission": "apps.operate"
       }
     },
+    "/api/databases/engines/{engine}/tls": {
+      "delete": {
+        "description": "Queue taking the certificate off an engine: its settings go back as they were. Sudo mode.\n\nArgs:\n    engine: ``postgresql`` or ``mysql``.\n    session: The authenticated, elevated session.\n    confirm: The operator accepted the engine's restart, where there is one.\n\nReturns:\n    The queued job.\n\nRaises:\n    ConfirmationRequired: 400 ``confirmation_required`` when the engine restarts and the\n        operator has not accepted it.",
+        "operationId": "disable_tls_api_databases_engines__engine__tls_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "engine",
+            "required": true,
+            "schema": {
+              "title": "Engine",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Accept the engine's restart",
+            "in": "query",
+            "name": "confirm",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Accept the engine's restart",
+              "title": "Confirm",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Disable Tls",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
+      },
+      "get": {
+        "description": "Say what an engine is given and whether it still matches its source.\n\nArgs:\n    engine: ``postgresql`` or ``mysql`` (MySQL and MariaDB).\n    session: The authenticated session.\n\nReturns:\n    The state, with the fingerprint the engine presents asked of the engine itself.\n\nRaises:\n    ValidationError: 400 for an engine Noust cannot give a certificate to.",
+        "operationId": "get_status_api_databases_engines__engine__tls_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "engine",
+            "required": true,
+            "schema": {
+              "title": "Engine",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostTlsStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Status",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      },
+      "put": {
+        "description": "Queue giving an engine the certificate of a host name, with sudo mode.\n\nThe certificate is copied for the engine's account and the engine is told to use the copy\n(PostgreSQL reloads; MySQL and MariaDB restart once); then the engine is asked what it presents.\nWhen it presents another, its settings are put back and the job fails.\n\nArgs:\n    engine: ``postgresql`` or ``mysql``.\n    request: The name, where the certificate comes from, and the restart accepted.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    ValidationError: 400 when a check fails.\n    ConfirmationRequired: 400 ``confirmation_required`` when the engine restarts and the\n        operator has not accepted it.",
+        "operationId": "enable_tls_api_databases_engines__engine__tls_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "engine",
+            "required": true,
+            "schema": {
+              "title": "Engine",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HostTlsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enable Tls",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/databases/engines/{engine}/tls/plan": {
+      "post": {
+        "description": "Check a certificate for an engine and say what giving it would do. Changes nothing.\n\nThe certificate and its key are checked (the key is its own, it covers the name, it has not\nexpired).\n\nArgs:\n    engine: ``postgresql`` or ``mysql``.\n    request: The name and where the certificate comes from.\n    session: The authenticated session.\n\nReturns:\n    The files, the fingerprint, the expiry and whether the engine restarts.\n\nRaises:\n    ValidationError: 400 when a check fails.\n    DatabaseEngineError: When the engine is not running.",
+        "operationId": "plan_tls_api_databases_engines__engine__tls_plan_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "engine",
+            "required": true,
+            "schema": {
+              "title": "Engine",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HostTlsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostTlsPlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan Tls",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      }
+    },
     "/api/databases/engines/{engine}/uninstall": {
       "post": {
         "description": "Queue the removal of an engine, with sudo mode.\n\nRemoving an engine can take every database it hosts with it.\n\nArgs:\n    engine: Engine name.\n    purge: Also remove configuration and data.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.",
@@ -82790,7 +84311,7 @@
     },
     "/api/databases/imports": {
       "post": {
-        "description": "Queue importing a dump, with sudo mode.\n\nWhat is checked here is checked before the job exists, so a mistake is an\nanswer and not a failed job: the upload is finished (or the path is in an\nallowed folder), the engine is running and the database name is valid.\n\nArgs:\n    request: The engine, the database, the dump and the options.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job; its result says what the file was and what was done.\n\nRaises:\n    ValidationError: 400 for an unfinished upload, a path outside the\n        allowed folders or an unusable name.\n    DatabaseEngineError: When the engine is not running.",
+        "description": "Queue importing a dump, with sudo mode.\n\nWhat is checked here is checked before the job exists, so a mistake is an\nanswer and not a failed job: the upload is finished (or the path is in an\nallowed folder), the engine is running and the database name is valid.\n\nArgs:\n    request: The engine, the database, the dump and the options.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job; its result says what the file was and what was done.\n\nRaises:\n    ValidationError: 400 for an unfinished upload, a path outside the\n        allowed folders or an unusable name.\n    ConfirmationRequired: 400 ``confirmation_required`` for\n        ``as_superuser`` without ``confirm_superuser``.\n    DatabaseEngineError: When the engine is not running.",
         "operationId": "import_dump_api_databases_imports_post",
         "requestBody": {
           "content": {
@@ -82830,6 +84351,93 @@
         ],
         "x-noust-permission": "databases.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/databases/imports/cluster": {
+      "post": {
+        "description": "Queue importing a dump of all databases, with sudo mode.\n\nWhat can be checked is checked before the job exists: the dump is a finished upload or a file\nin an allowed folder, the engine reads such a dump, and the accounts, when asked for, were\naccepted.\n\nArgs:\n    request: The engine, the dump and the options.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job; its result lists, per database, what happened.\n\nRaises:\n    ValidationError: 400 for an unfinished upload, a path outside the allowed folders or an\n        engine with no such dump.\n    ConfirmationRequired: 400 ``confirmation_required`` for ``restore_users`` without\n        ``confirm_users``.",
+        "operationId": "import_cluster_api_databases_imports_cluster_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClusterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Cluster",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/databases/imports/cluster/plan": {
+      "post": {
+        "description": "Say what importing a dump of all databases would do. Changes nothing.\n\nArgs:\n    request: An upload or a server path, the engine and the options.\n    session: The authenticated session.\n\nReturns:\n    The accounts and the databases, each with what happens to it, and what is not carried.\n\nRaises:\n    ValidationError: 400 for an engine with no such dump or a path outside the allowed folders.\n    DatabaseBackupError: 400 when the file is not a dump of all databases.",
+        "operationId": "plan_cluster_import_api_databases_imports_cluster_plan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClusterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClusterPlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan Cluster Import",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage"
       }
     },
     "/api/databases/imports/inspect": {
@@ -83125,7 +84733,7 @@
         "x-noust-permission": "databases.read"
       },
       "post": {
-        "description": "Queue making an instance, with sudo mode.\n\nIt is planned first, so a request that could not succeed is refused here\nrather than failing in the job. The job pulls the image, writes the\ninstance's files and unit, starts it, and returns once its engine accepts\nthe superuser Noust generated; whatever fails is undone.\n\nArgs:\n    request: What to make.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.",
+        "description": "Queue making an instance, with sudo mode.\n\nIt is planned first, so a request that could not succeed is refused here\nrather than failing in the job. The job pulls the image, writes the\ninstance's files and unit, starts it, and returns once its engine accepts\nthe superuser Noust generated; whatever fails is undone.\n\nArgs:\n    request: What to make.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    ConfirmationRequired: An image, a command or arguments of the operator's own, without\n        ``accept_untested``.",
         "operationId": "create_instance_api_databases_instances_post",
         "requestBody": {
           "content": {
@@ -83504,6 +85112,157 @@
           }
         },
         "summary": "Get Instance",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      }
+    },
+    "/api/databases/instances/{name}/launch": {
+      "get": {
+        "description": "Say what an instance's container is started with.\n\nArgs:\n    name: The instance.\n    session: The authenticated session.\n\nReturns:\n    The operator's command and arguments, and what the container runs.\n\nRaises:\n    DatabaseNotFoundError: There is no such instance.",
+        "operationId": "get_launch_api_databases_instances__name__launch_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaunchStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Launch",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      },
+      "put": {
+        "description": "Queue changing what an instance's container is started with, with sudo mode.\n\nThe engine restarts on the new words; when it does not come up the previous ones are put\nback and the job fails with the engine's own log. What cannot succeed, and words the\noperator did not accept the price of, are refused here and not in a failed job.\n\nArgs:\n    name: The instance.\n    request: The change.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    ValidationError: A word is not valid, or the instance cannot be changed now.\n    ConfirmationRequired: Words of the operator's, without ``accept_untested``.\n    DatabaseNotFoundError: There is no such instance.",
+        "operationId": "set_launch_api_databases_instances__name__launch_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LaunchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Launch",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/databases/instances/{name}/launch/plan": {
+      "post": {
+        "description": "Say what a change would do. Changes nothing.\n\nArgs:\n    name: The instance.\n    request: The change.\n    session: The authenticated session.\n\nReturns:\n    The plan, with the applications that lose their connections and what blocks it.\n\nRaises:\n    ValidationError: Nothing or more than one thing is asked, or a word is not valid.\n    DatabaseNotFoundError: There is no such instance.",
+        "operationId": "plan_launch_api_databases_instances__name__launch_plan_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LaunchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaunchPlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan Launch",
         "tags": [
           "Databases"
         ],
@@ -83991,7 +85750,7 @@
     },
     "/api/databases/instances/{name}/upgrade": {
       "post": {
-        "description": "Queue moving an instance to the newest image of its version, with sudo mode.\n\nThe tag does not change (PostgreSQL 17 stays 17); what moves is the build the\nregistry serves for it. A dump of every database is taken first (a failed\ndump stops it), the instance must become healthy and accept its superuser,\nand when it does not the previous image is put back.\n\nArgs:\n    name: Its name.\n    session: The authenticated, elevated session.\n    backup: Dump every database first; on by default.\n\nReturns:\n    The queued job.",
+        "description": "Queue moving an instance to the newest image of its version, with sudo mode.\n\nThe tag does not change (PostgreSQL 17 stays 17); what moves is the build the\nregistry serves for it. A dump of every database is taken first (a failed\ndump stops it), the instance must become healthy and accept its superuser,\nand when it does not the previous image is put back.\n\nAn instance on an image of the operator's own is never moved to what a registry serves:\nthe body names the next image (pinned by digest) and accepts again that Noust did not test\nit. The catalog's takes no body.\n\nArgs:\n    name: Its name.\n    session: The authenticated, elevated session.\n    backup: Dump every database first; on by default.\n    request: The image to move to, for an instance on one of the operator's own.\n\nReturns:\n    The queued job.\n\nRaises:\n    ValidationError: An image for an instance on the catalog's, none for one on the\n        operator's, or one that is not pinned by a digest.\n    ConfirmationRequired: The operator's image, without ``accept_untested``.",
         "operationId": "upgrade_instance_api_databases_instances__name__upgrade_post",
         "parameters": [
           {
@@ -84016,6 +85775,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/UpgradeRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Request"
+              }
+            }
+          }
+        },
         "responses": {
           "202": {
             "content": {
@@ -84996,6 +86772,462 @@
           "Databases"
         ],
         "x-noust-permission": "databases.read"
+      }
+    },
+    "/api/databases/replicas": {
+      "get": {
+        "description": "Say how the replicas of every engine installed here stand.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    One entry per engine that is installed; one that is not has no replicas to show.",
+        "operationId": "list_status_api_databases_replicas_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReplicaStatusResponse"
+                  },
+                  "title": "Response List Status Api Databases Replicas Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Status",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      }
+    },
+    "/api/databases/replicas/join": {
+      "post": {
+        "description": "Queue making this server a replica of a primary, with sudo mode.\n\nChecked before the job exists: the code is one, the plan has no problems, and the operator\naccepted that this server's data is replaced.\n\nArgs:\n    request: The join code and the confirmation.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    ValidationError: 400 when the code is not one or the plan has problems.\n    ConfirmationRequired: 400 ``confirmation_required`` when the data replaced is not accepted.",
+        "operationId": "join_api_databases_replicas_join_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplicaJoinRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Join",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/databases/replicas/join/plan": {
+      "post": {
+        "description": "Say what joining a primary would do to this server. Changes nothing.\n\nThe join code is a secret: it is checked, its password is not in the answer.\n\nArgs:\n    request: The join code.\n    session: The authenticated session.\n\nReturns:\n    The plan: where the copy goes, what is replaced, the space, and what stops it.\n\nRaises:\n    ValidationError: When it is not a join code, or for an engine that has no replicas.",
+        "operationId": "plan_join_api_databases_replicas_join_plan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplicaJoinPlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplicaJoinPlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan Join",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage"
+      }
+    },
+    "/api/databases/replicas/{engine}": {
+      "get": {
+        "description": "Say how the replicas of one engine, or the engine as a replica, stand.\n\nArgs:\n    engine: ``postgresql``, or ``mysql`` for MySQL and MariaDB.\n    session: The authenticated session.\n\nReturns:\n    The role, the replicas prepared here with their connection, and the primary it follows.\n\nRaises:\n    ValidationError: 400 for an engine with no replicas.\n    DatabaseEngineError: When the engine is not installed or not running.",
+        "operationId": "get_status_api_databases_replicas__engine__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "engine",
+            "required": true,
+            "schema": {
+              "title": "Engine",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplicaStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Status",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      },
+      "post": {
+        "description": "Make room for a replica on this server and give back its join code, with sudo mode.\n\nIt creates an account that can only replicate, a slot that keeps the log the replica has not\nread (PostgreSQL), and the line that lets that account in from ``source`` over TLS. The answer\nis the only place the join code is given besides ``.../token``: it is not the result of a job.\n\nArgs:\n    engine: ``postgresql`` or ``mysql``.\n    request: Where the replica connects from and to, and the restart accepted.\n    session: The authenticated, elevated session.\n\nReturns:\n    The join code, what was done and what was recorded.\n\nRaises:\n    ValidationError: 400 when the plan has problems or the name is not allowed.\n    ConfirmationRequired: 400 ``confirmation_required`` when the engine restarts and the\n        operator has not accepted it.",
+        "operationId": "prepare_api_databases_replicas__engine__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "engine",
+            "required": true,
+            "schema": {
+              "title": "Engine",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplicaPrepareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplicaPreparedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prepare",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/databases/replicas/{engine}/plan": {
+      "post": {
+        "description": "Check everything and say what making room for a replica would do. Changes nothing.\n\nBefore anything is changed the certificate the engine presents is checked the way the replica\nwill check it, for the name in ``host``.\n\nArgs:\n    engine: ``postgresql`` or ``mysql``.\n    request: Where the replica connects from and to.\n    session: The authenticated session.\n\nReturns:\n    The plan, with what stops it.\n\nRaises:\n    ValidationError: 400 for an engine with no replicas or a name that is not allowed.",
+        "operationId": "plan_prepare_api_databases_replicas__engine__plan_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "engine",
+            "required": true,
+            "schema": {
+              "title": "Engine",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplicaPrepareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplicaPlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan Prepare",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      }
+    },
+    "/api/databases/replicas/{engine}/promote": {
+      "post": {
+        "description": "Stop following the primary: this server becomes a primary and accepts writes. Sudo mode.\n\nArgs:\n    engine: ``postgresql`` or ``mysql``.\n    request: The operator's acceptance.\n    session: The authenticated, elevated session.\n\nReturns:\n    What was done, with the note about pointing applications at this server.\n\nRaises:\n    ConfirmationRequired: 400 ``confirmation_required`` without ``confirm``.",
+        "operationId": "promote_api_databases_replicas__engine__promote_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "engine",
+            "required": true,
+            "schema": {
+              "title": "Engine",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplicaConfirmRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Promote Api Databases Replicas  Engine  Promote Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Promote",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/databases/replicas/{engine}/{name}": {
+      "delete": {
+        "description": "Take a replica away: its account, its slot and its access line go. Sudo mode.\n\nArgs:\n    engine: ``postgresql`` or ``mysql``.\n    name: The replica.\n    session: The authenticated, elevated session.\n    confirm: The operator accepts that the replica stops streaming for good.\n    restore_listen: Put the address the engine listens on back as it was before.\n\nReturns:\n    What was removed, step by step.\n\nRaises:\n    ConfirmationRequired: 400 ``confirmation_required`` without ``confirm``.",
+        "operationId": "remove_api_databases_replicas__engine___name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "engine",
+            "required": true,
+            "schema": {
+              "title": "Engine",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Accept that it stops streaming for good",
+            "in": "query",
+            "name": "confirm",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Accept that it stops streaming for good",
+              "title": "Confirm",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Put the address the engine listens on back (restarts it)",
+            "in": "query",
+            "name": "restore_listen",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Put the address the engine listens on back (restarts it)",
+              "title": "Restore Listen",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Remove Api Databases Replicas  Engine   Name  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/databases/replicas/{engine}/{name}/token": {
+      "post": {
+        "description": "Show the join code of a replica prepared here again, with sudo mode. It is audited.\n\nArgs:\n    engine: ``postgresql`` or ``mysql``.\n    name: The replica.\n    session: The authenticated, elevated session.\n\nReturns:\n    The join code, a secret.\n\nRaises:\n    ValidationError: 400 when no replica of that name was prepared here.",
+        "operationId": "show_token_api_databases_replicas__engine___name__token_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "engine",
+            "required": true,
+            "schema": {
+              "title": "Engine",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplicaTokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Show Token",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/databases/users": {
@@ -88007,6 +90239,49 @@
         ],
         "x-noust-permission": "fleet.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/fleet/databases/transfer": {
+      "post": {
+        "description": "Move a database to another server: dump it there, carry it, load it here.\n\nThe source dumps the database and the central carries the dump through the two tunnels in\nchunks that resume, never keeping it; the target loads it with its own import, as the\ndatabase's owner and never as the superuser. The accounts follow when asked, with the passwords\nthat pass through the central and are kept nowhere. The source keeps the database unless told\nto drop it. Planned and queued like a bulk action: sudo mode when a server's schema asks for\nit, a job to follow, a record per server.\n\nArgs:\n    request: The request.\n    body: What to move, from where and to where.\n    session: The authenticated session.\n\nReturns:\n    The plan and, unless ``plan``, the job.\n\nRaises:\n    ValidationError: A server is not ready for it, the target holds the database, or a value is\n        invalid.",
+        "operationId": "transfer_database_api_fleet_databases_transfer_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseTransferIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__fleet__ActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Transfer Database",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.manage"
       }
     },
     "/api/fleet/enroll": {

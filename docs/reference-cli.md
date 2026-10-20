@@ -5470,7 +5470,7 @@ Install engines, and manage databases, users, backups and application links.
 noust db [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`access`](#noust-db-access), [`adopt`](#noust-db-adopt), [`backup`](#noust-db-backup), [`backup-delete`](#noust-db-backup-delete), [`backup-push`](#noust-db-backup-push), [`backup-remote`](#noust-db-backup-remote), [`backup-run`](#noust-db-backup-run), [`backup-schedule`](#noust-db-backup-schedule), [`backup-verify`](#noust-db-backup-verify), [`backups`](#noust-db-backups), [`catalog`](#noust-db-catalog), [`choices`](#noust-db-choices), [`config`](#noust-db-config), [`connect`](#noust-db-connect), [`connect-info`](#noust-db-connect-info), [`connection-string`](#noust-db-connection-string), [`create`](#noust-db-create), [`describe`](#noust-db-describe), [`drop`](#noust-db-drop), [`engines`](#noust-db-engines), [`explain`](#noust-db-explain), [`export`](#noust-db-export), [`exposure`](#noust-db-exposure), [`extension`](#noust-db-extension), [`fix-owner`](#noust-db-fix-owner), [`forget`](#noust-db-forget), [`grant`](#noust-db-grant), [`history`](#noust-db-history), [`import`](#noust-db-import), [`info`](#noust-db-info), [`install`](#noust-db-install), [`instance`](#noust-db-instance), [`key`](#noust-db-key), [`keys`](#noust-db-keys), [`limits`](#noust-db-limits), [`link`](#noust-db-link), [`links`](#noust-db-links), [`list`](#noust-db-list), [`metrics`](#noust-db-metrics), [`move`](#noust-db-move), [`pitr`](#noust-db-pitr), [`provision`](#noust-db-provision), [`public`](#noust-db-public), [`query`](#noust-db-query), [`replica`](#noust-db-replica), [`restart`](#noust-db-restart), [`restore`](#noust-db-restore), [`restore-remote`](#noust-db-restore-remote), [`revoke`](#noust-db-revoke), [`row`](#noust-db-row), [`rows`](#noust-db-rows), [`saved`](#noust-db-saved), [`settings`](#noust-db-settings), [`slow-queries`](#noust-db-slow-queries), [`sqlite`](#noust-db-sqlite), [`start`](#noust-db-start), [`status`](#noust-db-status), [`stop`](#noust-db-stop), [`tables`](#noust-db-tables), [`tls`](#noust-db-tls), [`uninstall`](#noust-db-uninstall), [`unlink`](#noust-db-unlink), [`user-create`](#noust-db-user-create), [`user-delete`](#noust-db-user-delete), [`user-list`](#noust-db-user-list), [`user-password`](#noust-db-user-password)
+Subcommands: [`access`](#noust-db-access), [`adopt`](#noust-db-adopt), [`backup`](#noust-db-backup), [`backup-delete`](#noust-db-backup-delete), [`backup-push`](#noust-db-backup-push), [`backup-remote`](#noust-db-backup-remote), [`backup-run`](#noust-db-backup-run), [`backup-schedule`](#noust-db-backup-schedule), [`backup-verify`](#noust-db-backup-verify), [`backups`](#noust-db-backups), [`catalog`](#noust-db-catalog), [`choices`](#noust-db-choices), [`config`](#noust-db-config), [`connect`](#noust-db-connect), [`connect-info`](#noust-db-connect-info), [`connection-string`](#noust-db-connection-string), [`create`](#noust-db-create), [`describe`](#noust-db-describe), [`drop`](#noust-db-drop), [`engines`](#noust-db-engines), [`explain`](#noust-db-explain), [`export`](#noust-db-export), [`exposure`](#noust-db-exposure), [`extension`](#noust-db-extension), [`fix-owner`](#noust-db-fix-owner), [`forget`](#noust-db-forget), [`grant`](#noust-db-grant), [`history`](#noust-db-history), [`import`](#noust-db-import), [`import-all`](#noust-db-import-all), [`info`](#noust-db-info), [`install`](#noust-db-install), [`instance`](#noust-db-instance), [`key`](#noust-db-key), [`keys`](#noust-db-keys), [`limits`](#noust-db-limits), [`link`](#noust-db-link), [`links`](#noust-db-links), [`list`](#noust-db-list), [`metrics`](#noust-db-metrics), [`move`](#noust-db-move), [`pitr`](#noust-db-pitr), [`provision`](#noust-db-provision), [`public`](#noust-db-public), [`query`](#noust-db-query), [`replica`](#noust-db-replica), [`restart`](#noust-db-restart), [`restore`](#noust-db-restore), [`restore-remote`](#noust-db-restore-remote), [`revoke`](#noust-db-revoke), [`row`](#noust-db-row), [`rows`](#noust-db-rows), [`saved`](#noust-db-saved), [`settings`](#noust-db-settings), [`slow-queries`](#noust-db-slow-queries), [`sqlite`](#noust-db-sqlite), [`start`](#noust-db-start), [`status`](#noust-db-status), [`stop`](#noust-db-stop), [`tables`](#noust-db-tables), [`tls`](#noust-db-tls), [`transfer`](#noust-db-transfer), [`uninstall`](#noust-db-uninstall), [`unlink`](#noust-db-unlink), [`user-create`](#noust-db-user-create), [`user-delete`](#noust-db-user-delete), [`user-list`](#noust-db-user-list), [`user-password`](#noust-db-user-password)
 
 ### noust db access
 
@@ -6056,9 +6056,35 @@ Arguments: `database`, `file`
 | `--replace` | Drop the database and load the dump into a fresh one. A safety copy is taken first and put back if the import fails. |  |
 | `--keep-owners` | PostgreSQL: keep the owners and privileges the dump names. By default they are left out, because they are the roles of the server it came from, and everything belongs to the database's owner. |  |
 | `--no-safety-copy` | Do not dump the database first when nothing is dropped. |  |
+| `--owner` | PostgreSQL: the account a database this import makes belongs to (it must exist), instead of the default. A database that is loaded over keeps its owner. |  |
+| `--as-superuser` | PostgreSQL: load the dump as the server's superuser. By default it is loaded as the database's owner, so what a dump asks beyond that (COPY ... FROM PROGRAM, extensions that need a superuser) is refused. Use it only for a dump you made or have read. Audited. |  |
 | `--inspect` | Say what the file is and whether the engine can load it, and stop. |  |
 | `--force`, `-f`, `-y` | Do not ask for confirmation. |  |
 | `--json` | Print what the import did as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust db import-all
+
+Import a dump of every database of an engine, and its accounts when asked.
+
+```
+noust db import-all [OPTIONS] FILE
+```
+
+Arguments: `file`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--engine`, `-e` | Engine to import into. |  |
+| `--users` | Also create the accounts of the dump (PostgreSQL: its roles, with the password hash it holds). Without superuser, role-creating, replication or row-security-bypassing power, and never over an account that exists. The databases then keep the owners and privileges the dump names for those accounts. |  |
+| `--accounts-file` | MySQL and MariaDB: a file of CREATE USER and GRANT statements, one per line (SHOW CREATE USER and SHOW GRANTS print them, so does pt-show-grants); mysqldump does not write the accounts. Used with --users. |  |
+| `--database`, `-d` | Load only this database (repeat for several). The server's own ones (postgres) are loaded only when named. |  |
+| `--replace` | Drop each database that exists and load the dump into a fresh one. A safety copy is taken first and put back if its load fails. |  |
+| `--no-safety-copy` | Do not dump a database first when it is loaded over rather than replaced. |  |
+| `--as-superuser` | Load every database as the server's superuser instead of as its owner. By default a database is loaded as its owner, so what a dump asks beyond that (COPY ... FROM PROGRAM, extensions that need a superuser) is refused. Use it only for a file you made or have read. Audited. |  |
+| `--plan` | Say what would be created, loaded over, replaced or left out, and stop. |  |
+| `--force`, `-f`, `-y` | Do not ask for confirmation. |  |
+| `--json` | Print the plan or what was done as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust db info
@@ -6100,7 +6126,7 @@ Run another version of an engine, or an engine the host lacks, in a container.
 noust db instance [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`catalog`](#noust-db-instance-catalog), [`create`](#noust-db-instance-create), [`health`](#noust-db-instance-health), [`limits`](#noust-db-instance-limits), [`list`](#noust-db-instance-list), [`migrate`](#noust-db-instance-migrate), [`migrations`](#noust-db-instance-migrations), [`remove`](#noust-db-instance-remove), [`renew-tls`](#noust-db-instance-renew-tls), [`rollback`](#noust-db-instance-rollback), [`show`](#noust-db-instance-show), [`start`](#noust-db-instance-start), [`stop`](#noust-db-instance-stop), [`tls`](#noust-db-instance-tls), [`tls-ca`](#noust-db-instance-tls-ca), [`upgrade`](#noust-db-instance-upgrade)
+Subcommands: [`catalog`](#noust-db-instance-catalog), [`create`](#noust-db-instance-create), [`health`](#noust-db-instance-health), [`launch`](#noust-db-instance-launch), [`limits`](#noust-db-instance-limits), [`list`](#noust-db-instance-list), [`migrate`](#noust-db-instance-migrate), [`migrations`](#noust-db-instance-migrations), [`remove`](#noust-db-instance-remove), [`renew-tls`](#noust-db-instance-renew-tls), [`rollback`](#noust-db-instance-rollback), [`show`](#noust-db-instance-show), [`start`](#noust-db-instance-start), [`stop`](#noust-db-instance-stop), [`tls`](#noust-db-instance-tls), [`tls-ca`](#noust-db-instance-tls-ca), [`upgrade`](#noust-db-instance-upgrade)
 
 ### noust db instance catalog
 
@@ -6136,6 +6162,10 @@ Arguments: `name`
 | `--port` | The port on 127.0.0.1. A free one just above the engine's own when omitted. |  |
 | `--variant` | An image of the engine with something added, such as pgvector or postgis for PostgreSQL ('noust db instance catalog'). The engine's own image when omitted. |  |
 | `--init-script` | A .sql file the engine runs, in name order, the first time it starts (PostgreSQL, MySQL and MariaDB; repeatable). It is not run again, and it is readable by the container: no secrets. |  |
+| `--image` | An image of your own instead of the catalog's: repository[:tag]@sha256:DIGEST. The digest is mandatory (a tag can be moved after you looked; 'docker buildx imagetools inspect REPO:TAG' prints it) and --version says which version it is. Noust has not tested it. |  |
+| `--args` | Arguments added after the ones Noust passes the engine, such as '-c max_connections=200'. Split like a shell would and never run by one. Not with --command. No secrets: a command line is visible to every local user. |  |
+| `--command` | The container's whole command, instead of the engine's: Noust adds nothing to it (the memory share, TLS), so it is refused for an instance that serves TLS. Not with --args. |  |
+| `--accept-untested` | Accept that Noust has not tested an image, a command or arguments you chose. Needed with --yes or --json for them; --yes alone answers the question, not this. |  |
 | `--yes`, `-y` | Do not ask before making it. |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
@@ -6164,6 +6194,30 @@ Arguments: `name`
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
 | `--json` | Print the settings, the plan or what was done as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust db instance launch
+
+Show or change what an instance's container is started with.
+
+```
+noust db instance launch [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--args` | Arguments added after the ones Noust passes the engine, such as '-c work_mem=8MB'. Split like a shell would and never run by one; no secrets. |  |
+| `--command` | The container's whole command, instead of the engine's. Noust adds nothing to it. |  |
+| `--reset` | Take both back to what Noust passes the engine. |  |
+| `--plan` | Only say what it would do. |  |
+| `--accept-untested` | Accept that Noust has not tested your words. |  |
+| `--yes`, `-y` | Do not ask before restarting it. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the command, the plan or what was done as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust db instance limits
@@ -6406,6 +6460,8 @@ Arguments: `name`
 | Option | What it does | Default |
 |---|---|---|
 | `--no-backup` | Do not dump every database first. Only when its data does not matter. |  |
+| `--image` | For an instance on an image of your own: the next one, repository[:tag]@sha256:DIGEST. Noust never looks for a newer image of one you pinned. |  |
+| `--accept-untested` | Accept that Noust has not tested the image you name. Needed with --json. |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
@@ -6962,6 +7018,7 @@ Arguments: `database`, `file`
 | `--drop` | Drop the database before restoring it. A safety copy is taken first and put back if the restore fails. |  |
 | `--as-new` | Restore into a new database of this name instead. |  |
 | `--no-safety-copy` | Do not dump the database first when nothing is dropped. |  |
+| `--as-superuser` | PostgreSQL: load a file Noust did not write as the server's superuser instead of the database's owner. A dump can run programs on this server (COPY ... FROM PROGRAM) with that account: use it only for a dump you made or have read, when the error says the owner may not do what it asks. Audited. |  |
 | `--force`, `-f`, `-y` | Do not ask for confirmation. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
@@ -7378,6 +7435,31 @@ noust db tls status [OPTIONS]
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print the status as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust db transfer
+
+Move DATABASE from one server of the fleet to another.
+
+```
+noust db transfer [OPTIONS] DATABASE
+```
+
+Arguments: `database`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--engine`, `-e` | The engine it is on at the source: postgresql, mysql (MariaDB too) or mongodb, or an instance such as postgresql@pg16. | `postgresql` |
+| `--from` | The server that holds the database. |  |
+| `--to` | The server that receives it. |  |
+| `--to-engine` | The engine or instance on the target, when it is not the source's own. |  |
+| `--as` | Its name on the target; the same by default. |  |
+| `--replace` | Replace a database of that name the target holds, after a safety copy of it taken there. |  |
+| `--accounts` | Also make the accounts with access to it, with the password the source holds for each and the profile they had. The passwords pass through this machine and are kept nowhere. |  |
+| `--drop-source` | Drop it from the source once it has moved, after a last dump kept there. Refused while an application uses it. |  |
+| `--plan` | Only show what would happen. |  |
+| `-y`, `--yes` | Do not ask first. |  |
+| `--json` | Print the plan, then the job's result, as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust db uninstall
