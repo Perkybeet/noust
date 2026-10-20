@@ -147,7 +147,7 @@ export function useComposeDocument(): ComposeDocumentState {
   const [converted, setConverted] = useState<{ adjustments: string[]; warnings: string[]; count: number } | null>(null);
   const [made, setMade] = useState<Record<string, string>>({});
   const convert = useMutation({
-    mutationFn: (sent: string) => request("post", "/api/compose/import", { body: { document: sent } }),
+    mutationFn: (sent: string) => request("post", "/api/compose/import", { body: { document: sent, format: "coolify" } }),
     onSuccess: (result) => {
       setDocument(result.document);
       setAnswered({ document: result.document, analysis: result.analysis });

@@ -12,6 +12,8 @@ the export endpoints, which import the applications router.
 
 from __future__ import annotations
 
+import dataclasses
+
 from pydantic import BaseModel, Field
 
 from noust.deployers.importers import Proposal
@@ -42,10 +44,48 @@ class ProposedCronResponse(BaseModel):
     command: str
 
 
+class ProposedStorageResponse(BaseModel):
+    """Data the application kept outside its image on the other platform."""
+
+    mount_path: str = Field(description="Where the application saw it, inside its container")
+    volume: str | None = Field(default=None, description="The Docker volume that held it")
+    host_path: str | None = Field(
+        default=None, description="The directory of the other server that held it"
+    )
+    persistent_path: str | None = Field(
+        default=None, description="The path --persist keeps for it here; null when there is none"
+    )
+    read_only: bool = False
+    export: str | None = Field(
+        default=None, description="The command to copy it out, for the other server. Not run"
+    )
+    restore: str | None = Field(default=None, description="The command that puts it back here")
+
+
+class ProposedDatabaseResponse(BaseModel):
+    """A database the application used on the other platform."""
+
+    engine: str = Field(description="As noust db names it: postgresql, mysql, mariadb...")
+    name: str
+    reference: str = Field(description="What names it there: a container, a service, a host")
+    image: str | None = None
+    version: str | None = None
+    database: str | None = None
+    user: str | None = None
+    linked: bool = Field(default=False, description="A variable of the application points at it")
+    dump: str | None = Field(
+        default=None, description="The command that dumps it, for the other server. Not run"
+    )
+    restore: str | None = Field(default=None, description="The command that loads the dump here")
+    note: str | None = None
+
+
 class PlatformProposalResponse(BaseModel):
     """What another platform's configuration says, in Noust's terms."""
 
-    platform: str = Field(description="vercel, railway, render, heroku, coolify or dokploy")
+    platform: str = Field(
+        description="vercel, railway, render, heroku, coolify, dokploy, caprover or dokku"
+    )
     files: list[str] = Field(default_factory=list, description="The files read")
     app_type: str | None = Field(default=None, description="Null: detection decides")
     install_command: str | None = None
@@ -75,6 +115,12 @@ class PlatformProposalResponse(BaseModel):
     memory_max_mb: int | None = None
     cpu_quota_percent: int | None = None
     cron: list[ProposedCronResponse] = Field(default_factory=list)
+    storage: list[ProposedStorageResponse] = Field(
+        default_factory=list, description="The data it kept outside its image, and how to bring it"
+    )
+    database_details: list[ProposedDatabaseResponse] = Field(
+        default_factory=list, description="The databases it used, and how to bring their data"
+    )
     equivalent: str | None = Field(
         default=None,
         description="The noust command that creates what a proposal cannot deploy "
@@ -131,6 +177,11 @@ def platform_proposal_response(proposal: Proposal | None) -> PlatformProposalRes
         cron=[
             ProposedCronResponse(name=job.name, schedule=job.schedule, command=job.command)
             for job in proposal.cron
+        ],
+        storage=[ProposedStorageResponse(**dataclasses.asdict(item)) for item in proposal.storage],
+        database_details=[
+            ProposedDatabaseResponse(**dataclasses.asdict(item))
+            for item in proposal.database_details
         ],
         equivalent=proposal.equivalent,
     )

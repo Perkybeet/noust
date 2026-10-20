@@ -26,12 +26,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
+from noust.core import paths
 from noust.core.config import DEFAULT_APPS_DIR, DEFAULT_CONFIG_PATH, DEFAULT_LOG_DIR
 from noust.core.exceptions import NoustError
 from noust.core.package_family import INSTALL_COMMANDS, detect_family
 from noust.core.runner import get_runner
 from noust.core.utils import command_exists, run_command
-from noust.managers.server import platforms
+from noust.managers.server import platforms, requirements
 
 logger = logging.getLogger(__name__)
 
@@ -147,6 +148,11 @@ class DoctorEnvironment:
         apps_dir: The applications directory.
         log_dir: The log directory.
         config_path: The configuration file.
+        data_dir: Noust's own data directory, whose filesystem has to have room for the store.
+        resources: Measures the machine's memory, processors and free disk; None reads the
+            real one.
+        listeners: ``(port, program names)`` of every listening TCP socket; None asks the
+            kernel through ``ss``.
         include_ssh: Whether to try the connection to GitHub. The console leaves it out: a
             handshake with another host does not belong in a page load.
     """
@@ -157,6 +163,9 @@ class DoctorEnvironment:
     apps_dir: Path = DEFAULT_APPS_DIR
     log_dir: Path = DEFAULT_LOG_DIR
     config_path: Path = DEFAULT_CONFIG_PATH
+    data_dir: Path = paths.STATE_DIR
+    resources: Callable[[], requirements.Resources] | None = None
+    listeners: Callable[[], list[tuple[int, tuple[str, ...]]]] | None = None
     include_ssh: bool = True
 
     @classmethod
@@ -217,6 +226,177 @@ def platform_section() -> DoctorSection:
     )
 
 
+def _human(megabytes: int) -> str:
+    """
+    Args:
+        megabytes: A size in megabytes.
+
+    Returns:
+        It as the documents spell it (``512 MB``, ``1 GB``, ``2.5 GB``).
+    """
+    return requirements.human_mb(megabytes)
+
+
+def _sized_item(
+    requirement: requirements.Requirement,
+    amount: int | None,
+    shown: str,
+    *,
+    unknown: str,
+    low_fix: str | None,
+    low_note: str,
+) -> DoctorItem:
+    """
+    Judge one measured value against its requirement.
+
+    Args:
+        requirement: The resource.
+        amount: What the machine has, or None when it could not be read.
+        shown: How to write what it has (``2 GB``).
+        unknown: What to say when it could not be read.
+        low_fix: The command that helps below the minimum, when there is one.
+        low_note: One line on why it matters, shown under a warning or a failure.
+
+    Returns:
+        ``ok``, ``warn`` (under the minimum) or ``fail`` (under the floor).
+    """
+    sizes = requirements.size_text
+    if amount is None:
+        return DoctorItem("info", unknown)
+    state = requirements.verdict(requirement, amount)
+    if state == "below-floor":
+        return DoctorItem(
+            "fail",
+            f"{requirement.label}: {shown}, under the {sizes(requirement, requirement.floor)} "
+            "Noust needs to run",
+            fix=low_fix,
+            notes=(low_note,),
+        )
+    if state == "below-minimum":
+        return DoctorItem(
+            "warn",
+            f"{requirement.label}: {shown}, under the {sizes(requirement, requirement.minimum)} "
+            "a server is sized for",
+            fix=low_fix,
+            notes=(low_note,),
+        )
+    return DoctorItem(
+        "ok",
+        f"{requirement.label}: {shown} (minimum {sizes(requirement, requirement.minimum)})",
+    )
+
+
+def _port_item(holder: requirements.PortHolder) -> DoctorItem:
+    """
+    Say who holds one of the web ports.
+
+    Args:
+        holder: The port and what holds it.
+
+    Returns:
+        ``ok`` for the web server, ``info`` for nothing, ``warn`` for anything else, with the
+        command that finds or frees it.
+    """
+    label = f"Port {holder.port}"
+    names = ", ".join(holder.processes)
+    if holder.kind == "free":
+        return DoctorItem("info", f"{label}: free (the web server is not listening on it yet)")
+    if holder.kind == "web-server":
+        return DoctorItem("ok", f"{label}: {names}")
+    if holder.kind == "container":
+        return DoctorItem(
+            "warn",
+            f"{label}: published by a container ({names})",
+            fix=f"docker ps --filter publish={holder.port}",
+            notes=(
+                "Another platform's proxy or a Compose stack holds it, so nginx cannot listen "
+                "on it until that stops.",
+            ),
+        )
+    program = holder.processes[0] if holder.processes else "the process holding it"
+    return DoctorItem(
+        "warn",
+        f"{label}: held by {names or program}, not by the web server",
+        fix=f"sudo systemctl disable --now {program}" if holder.processes else None,
+        notes=(
+            "A certificate is asked for on port 80 and sites are served on 443: the web server "
+            "cannot start while another program holds them.",
+        ),
+    )
+
+
+def resources_section(env: DoctorEnvironment) -> DoctorSection:
+    """
+    Judge the machine against the sizes Noust declares, and say who holds ports 80 and 443.
+
+    The sizes are :mod:`noust.managers.server.requirements`, the same ones the installer
+    carries and ``docs/requirements.md`` shows. Everything here only reads.
+
+    Args:
+        env: The environment.
+
+    Returns:
+        The ``Resources`` section.
+    """
+    machine = (
+        env.resources()
+        if env.resources is not None
+        else requirements.read_resources([env.apps_dir, env.data_dir])
+    )
+    items: list[DoctorItem] = []
+    memory = machine.memory_mb
+    swap = f", swap {_human(machine.swap_mb)}" if machine.swap_mb else ""
+    items.append(
+        _sized_item(
+            requirements.MEMORY,
+            memory,
+            f"{_human(memory)}{swap}" if memory is not None else "",
+            unknown="Memory: could not be read",
+            low_fix="sudo noust server swap create",
+            low_note="Builds are what need memory; a swap file lets one that needs more than "
+            "the server has finish slowly instead of being killed.",
+        )
+    )
+    items.append(
+        _sized_item(
+            requirements.CPU,
+            machine.cpus,
+            str(machine.cpus),
+            unknown="Processors: could not be read",
+            low_fix=None,
+            low_note="Noust and a build need at least one.",
+        )
+    )
+    if not machine.disks:
+        items.append(DoctorItem("info", "Free disk: could not be read"))
+    for disk in machine.disks:
+        item = _sized_item(
+            requirements.DISK,
+            disk.free_mb,
+            f"{_human(disk.free_mb)} free of {_human(disk.total_mb)} at {disk.path}",
+            unknown="Free disk: could not be read",
+            low_fix="noust server storage",
+            low_note="'noust server cleanup' removes what Noust can prove is unused; every "
+            "release on disk keeps its code and dependencies.",
+        )
+        items.append(item)
+
+    listening = env.listeners() if env.listeners is not None else _listening_programs()
+    items += [_port_item(holder) for holder in requirements.classify_port_holders(listening)]
+    return DoctorSection("Resources", tuple(items))
+
+
+def _listening_programs() -> list[tuple[int, tuple[str, ...]]]:
+    """
+    Returns:
+        ``(port, programs)`` for every TCP socket the kernel says listens, through ``ss``.
+        Empty when ``ss`` is missing, which reads as "free" rather than as a failure.
+    """
+    from noust.managers.database.exposure import listening_sockets
+
+    return [(socket.port, socket.processes) for socket in listening_sockets(get_runner())]
+
+
 def _unit_item(env: DoctorEnvironment, unit: str) -> DoctorItem:
     """
     Say whether a systemd unit is running.
@@ -262,7 +442,7 @@ def collect(env: DoctorEnvironment | None = None) -> DoctorReport:
     env = env or DoctorEnvironment.default()
     hint = env.install_hint or "your package manager"
     exists = env.command_exists
-    sections = [platform_section()]
+    sections = [platform_section(), resources_section(env)]
 
     core: list[DoctorItem] = []
     for command in ("git", "curl"):

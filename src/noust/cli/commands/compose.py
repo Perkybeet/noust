@@ -22,7 +22,14 @@ import click
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.core.fs import SECRET_MODE, get_fs
 from noust.deployers.compose_paste import MAX_DOCUMENT_BYTES, analyze_document
-from noust.recipes.coolify import MAX_TEMPLATE_BYTES, convert, default_host_port, values_file
+from noust.recipes import coolify, dokploy
+from noust.recipes.compose_template import (
+    ConvertedTemplate,
+    default_host_port,
+    env_file,
+    values_file,
+)
+from noust.recipes.coolify import MAX_TEMPLATE_BYTES
 from noust.validators.domain import validate_domain
 
 
@@ -104,9 +111,20 @@ def check_command(ctx: Context, file: Path) -> None:
 
 
 @cli.command("import")
-@click.argument("file", type=click.Path(path_type=Path, dir_okay=False, allow_dash=True))
+@click.argument("file", type=click.Path(path_type=Path, dir_okay=True, allow_dash=True))
 @click.option(
-    "--from", "origin", type=click.Choice(["coolify"]), default="coolify", show_default=True
+    "--from",
+    "origin",
+    type=click.Choice(["coolify", "dokploy"]),
+    default="coolify",
+    show_default=True,
+    help="Whose template FILE is.",
+)
+@click.option(
+    "--template",
+    "template_file",
+    type=click.Path(path_type=Path, dir_okay=False, exists=True),
+    help="dokploy: the template's template.toml (read from FILE's folder when FILE is a folder).",
 )
 @click.option(
     "--domain", help="The name the stack will be served on (fills its address variables)."
@@ -120,30 +138,52 @@ def check_command(ctx: Context, file: Path) -> None:
     "--out",
     "out",
     type=click.Path(path_type=Path, file_okay=False),
-    help="Write docker-compose.yml and .env (0600, with the generated secrets) into this folder.",
+    help="Write docker-compose.yml and .env (0600, with the generated secrets) into this folder, "
+    "and the files a Dokploy template mounts.",
 )
 @json_option("Print what was made as JSON (never the secrets).")
 @pass_context
 def import_command(
-    ctx: Context, file: Path, origin: str, domain: str | None, port: int | None, out: Path | None
+    ctx: Context,
+    file: Path,
+    origin: str,
+    template_file: Path | None,
+    domain: str | None,
+    port: int | None,
+    out: Path | None,
 ) -> None:
     """
-    Turn a Coolify service template into a Compose document Noust deploys.
+    Turn a Coolify or Dokploy service template into a Compose document Noust deploys.
 
     FILE is a template from Coolify's catalogue (a Compose file with SERVICE_URL_*,
-    SERVICE_PASSWORD_* and the like), or - for standard input. The variables keep their names; their
-    values are made here (new secrets) and written to .env, never printed. The routing entry becomes
-    a port on 127.0.0.1, the Traefik labels and the coolify network go, and what cannot be
-    translated is said. Nothing is run: the result is judged like any Compose file (a template that
-    mounts the Docker socket is refused). Then: noust create -d DOMAIN -s FOLDER.
+    SERVICE_PASSWORD_* and the like), or from Dokploy's (a docker-compose.yml with its
+    template.toml, or the folder that holds both), or - for standard input. The variables keep
+    their names; their values are made here (new secrets) and written to .env, never printed. The
+    routing entry becomes a port on 127.0.0.1, the Traefik labels and the proxy's network go, and
+    what cannot be translated is said. Nothing is run: the result is judged like any Compose file
+    (a template that mounts the Docker socket is refused). Then: noust create -d DOMAIN -s FOLDER.
     """
-    if str(file) == "-":
-        text = sys.stdin.read(MAX_TEMPLATE_BYTES + 1)
-    else:
-        text = file.read_text(encoding="utf-8")
     name = validate_domain(domain) if domain else None
-    result = convert(text, domain=name, port=port or default_host_port())
-    found = analyze_document(result.document)
+    result: ConvertedTemplate
+    files: dict[str, str] = {}
+    secret_files: set[str] = set()
+    if origin == "dokploy":
+        compose_text, template_text = _dokploy_inputs(file, template_file)
+        converted = dokploy.convert(
+            compose_text, template_text, domain=name, port=port or default_host_port()
+        )
+        result, files, secret_files = converted, converted.files, converted.secret_files
+    else:
+        if template_file is not None:
+            raise click.UsageError("--template goes with --from dokploy.")
+        if file.is_dir():
+            raise click.UsageError(f"{file} is a folder: a Coolify template is one Compose file.")
+        if str(file) == "-":
+            text = sys.stdin.read(MAX_TEMPLATE_BYTES + 1)
+        else:
+            text = file.read_text(encoding="utf-8")
+        result = coolify.convert(text, domain=name, port=port or default_host_port())
+    found = analyze_document(result.document, provided=files)
     # A variable with no default that nobody made a value for: Compose stops on a ${NAME:?}, and
     # starts the others with a blank. Saying so now is kinder than at the deploy. The addresses
     # asked for without a domain are reported on their own.
@@ -155,13 +195,22 @@ def import_command(
         fs = get_fs()
         fs.make_dir(out, mode=0o755, parents=True)
         fs.write_text(out / "docker-compose.yml", result.document, mode=0o644)
-        fs.write_text(out / ".env", values_file(result.values), mode=SECRET_MODE)
+        fs.write_text(
+            out / ".env",
+            env_file(result.values) if origin == "dokploy" else values_file(result.values),
+            mode=SECRET_MODE,
+        )
+        for relative, content in files.items():
+            target = out / relative
+            fs.make_dir(target.parent, mode=0o755, parents=True)
+            fs.write_text(target, content, mode=SECRET_MODE if relative in secret_files else 0o644)
     if ctx.json_output:
         click.echo(
             json.dumps(
                 {
                     "deployable": found.deployable,
                     "written": str(out) if out is not None else None,
+                    "files": sorted(files),
                     "routed": list(result.routed) if result.routed else None,
                     "variables": [variable.to_dict() for variable in result.variables],
                     "metadata": result.metadata,
@@ -210,6 +259,42 @@ def import_command(
         logger.warning(problem)
     if out is not None:
         logger.success(f"Wrote {out}/docker-compose.yml and {out}/.env (0600)")
+        if files:
+            logger.info(f"and {len(files)} file(s) the template mounts, under {out}/files")
         logger.info(f"Deploy it: noust create -d {name or 'DOMAIN'} -s {out}")
     else:
         logger.info("Nothing was written. Add --out FOLDER to write the document and its .env.")
+
+
+def _dokploy_inputs(file: Path, template_file: Path | None) -> tuple[str, str | None]:
+    """
+    Read a Dokploy template's two files.
+
+    Args:
+        file: The ``docker-compose.yml``, a folder that holds it and ``template.toml``, or ``-``.
+        template_file: The ``template.toml`` when it is not beside the Compose file.
+
+    Returns:
+        The Compose text and the template's text (None when there is none).
+
+    Raises:
+        click.UsageError: A folder with no ``docker-compose.yml``.
+    """
+    if str(file) == "-":
+        compose_text = sys.stdin.read(dokploy.MAX_TEMPLATE_BYTES + 1)
+        folder = None
+    elif file.is_dir():
+        compose = file / "docker-compose.yml"
+        if not compose.is_file():
+            raise click.UsageError(
+                f"{file} has no docker-compose.yml: it is not a Dokploy template."
+            )
+        compose_text = compose.read_text(encoding="utf-8")
+        folder = file
+    else:
+        compose_text = file.read_text(encoding="utf-8")
+        folder = file.parent
+    toml = template_file or (folder / "template.toml" if folder is not None else None)
+    if toml is not None and toml.is_file():
+        return compose_text, toml.read_text(encoding="utf-8")
+    return compose_text, None

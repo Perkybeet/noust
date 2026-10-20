@@ -13,10 +13,14 @@ answers with. It only issues GETs.
 What carries over: the repository and branch (GitHub, GitLab, Bitbucket or a
 plain git URL), the build path, the publish directory of a static site, the
 domains and the port, the variables, the watch paths, submodules and the
-memory and CPU limits. What is only said, with what to do instead: buildpacks
-and Swarm settings (replicas, placement, update configs), Docker image and
-Dockerfile applications, Gitea sources (the host lives in a Dokploy provider)
-and upload ("drop") applications, which have no repository.
+memory and CPU limits, the volumes and bind mounts (as ``--persist`` paths where they
+sit under ``/app``, with the commands that copy the data) and the databases of the same
+environment that a variable of the application names (a Dokploy database is a service
+whose name is the host the application connects to), with the commands that dump and
+load them. What is only said, with what to do instead: buildpacks and Swarm settings
+(replicas, placement, update configs), Docker image and Dockerfile applications, Gitea
+sources (the host lives in a Dokploy provider), upload ("drop") applications, which have
+no repository, and a file Dokploy writes and mounts.
 """
 
 from __future__ import annotations
@@ -26,10 +30,20 @@ from typing import Any
 
 from noust.core.exceptions import IntegrationError
 from noust.deployers.importers.base import (
+    INSTANCE_ENGINES,
     Proposal,
+    ProposedDatabase,
+    ProposedStorage,
     RemoteApplication,
+    database_commands,
+    database_name_for,
     declared_env,
+    directory_export,
+    persistent_path_for,
+    service_container,
+    tarball_restore,
     text_value,
+    volume_export,
 )
 from noust.deployers.importers.remote import Opener, RemoteClient, read_token
 
@@ -286,15 +300,154 @@ def read_application(client: RemoteClient, ref: str) -> Proposal:
     _by_source(app, proposal)
     _environment(app, proposal)
     _swarm(app, proposal)
-    for mount in _objects(app.get("mounts")):
-        target = text_value(mount, "mountPath")
-        if target and mount.get("type") in ("volume", "bind"):
-            proposal.warn(
-                f"A {mount.get('type')} is mounted at {target}. Noust keeps paths of the "
-                "application directory with --persist; copy the data over first."
-            )
+    _storage(app, proposal)
+    _databases(client, ref, text_value(app, "env") or "", proposal)
     proposal.note_commands()
     return proposal
+
+
+def _storage(app: dict[str, Any], proposal: Proposal) -> None:
+    """
+    Add the application's mounts to a proposal.
+
+    Args:
+        app: Dokploy's description of the application.
+        proposal: The proposal being made.
+    """
+    build = text_value(app, "buildType") or "nixpacks"
+    # The buildpack builders run the application in /app; a Dockerfile runs it wherever it says.
+    work_dir = (
+        "/app"
+        if build in ("nixpacks", "railpack", "static", "heroku_buildpacks", "paketo_buildpacks")
+        else ""
+    )
+    for mount in _objects(app.get("mounts")):
+        target = text_value(mount, "mountPath")
+        kind = mount.get("type")
+        if target is None:
+            continue
+        if kind == "file":
+            proposal.warn(
+                f"Dokploy writes a file and mounts it at {target}. Keep one with 'noust app "
+                "mount file DOMAIN TARGET --from FILE' (its text is in Dokploy's Advanced > "
+                "Volumes tab)."
+            )
+            continue
+        if kind not in ("volume", "bind"):
+            continue
+        volume = text_value(mount, "volumeName") if kind == "volume" else None
+        host = text_value(mount, "hostPath") if kind == "bind" else None
+        persistent = persistent_path_for(target, work_dir) if work_dir else None
+        storage = ProposedStorage(
+            mount_path=target,
+            volume=volume,
+            host_path=host,
+            persistent_path=persistent,
+            export=directory_export(host) if host else volume_export(volume) if volume else None,
+            restore=tarball_restore(persistent),
+        )
+        proposal.storage.append(storage)
+        if persistent and persistent not in proposal.persistent_paths:
+            proposal.persistent_paths.append(persistent)
+        proposal.warn(storage.describe())
+
+
+#: The lists ``project.all`` keeps each kind of database in, and what Noust calls its engine.
+_DATABASE_LISTS = {
+    "postgres": "postgresql",
+    "mysql": "mysql",
+    "mariadb": "mariadb",
+    "mongo": "mongodb",
+    "redis": "redis",
+}
+
+
+def _databases(client: RemoteClient, ref: str, env_text: str, proposal: Proposal) -> None:
+    """
+    Find the databases of the application's environment that its variables name.
+
+    A Dokploy database is a Swarm service named by its ``appName``, and that name is the host
+    every application of the environment connects to, so a variable that holds it is the link.
+
+    Args:
+        client: The client.
+        ref: The application's id.
+        env_text: The application's variables, ``NAME=value`` per line.
+        proposal: The proposal being made.
+    """
+    try:
+        projects = _objects(client.get(f"{API}/project.all"))
+    except IntegrationError as exc:
+        proposal.warn(f"The databases could not be listed ({exc.message}); check them by hand.")
+        return
+    for project in projects:
+        environments = [project, *_objects(project.get("environments"))]
+        for environment in environments:
+            if ref not in {
+                text_value(a, "applicationId") for a in _objects(environment.get("applications"))
+            }:
+                continue
+            for key, engine in _DATABASE_LISTS.items():
+                for item in _objects(environment.get(key)):
+                    _one_database(client, key, engine, item, env_text, proposal)
+            return
+
+
+def _one_database(
+    client: RemoteClient,
+    key: str,
+    engine: str,
+    item: dict[str, Any],
+    env_text: str,
+    proposal: Proposal,
+) -> None:
+    """
+    Add one database of the environment, when a variable names it.
+
+    Args:
+        client: The client.
+        key: The list it came from (``postgres``).
+        engine: As ``noust db`` names it.
+        item: Its entry of ``project.all``.
+        env_text: The application's variables.
+        proposal: The proposal being made.
+    """
+    service = text_value(item, "appName")
+    if service is None or service not in env_text:
+        return
+    detail: dict[str, Any] = {}
+    identifier = text_value(item, f"{key}Id")
+    if identifier is not None:
+        try:
+            answer = client.get(f"{API}/{key}.one", {f"{key}Id": identifier})
+        except IntegrationError:
+            answer = None
+        detail = answer if isinstance(answer, dict) else {}
+    name = text_value(item, "name") or service
+    image = text_value(detail, "dockerImage")
+    container = service_container(service)
+    commands = (
+        database_commands(engine, container, database_name_for(name), service)
+        if container is not None
+        else None
+    )
+    dump, restore = commands if commands is not None else (None, None)
+    entry = ProposedDatabase(
+        engine=engine,
+        name=name,
+        reference=service,
+        image=image,
+        version=image.rsplit(":", 1)[1] if image and ":" in image.rsplit("/", 1)[-1] else None,
+        database=text_value(detail, "databaseName"),
+        user=text_value(detail, "databaseUser"),
+        linked=True,
+        dump=dump,
+        restore=restore,
+    )
+    proposal.database_details.append(entry)
+    if engine not in INSTANCE_ENGINES:
+        proposal.need_database(engine)
+    proposal.warn(entry.describe())
 
 
 def _by_source(app: dict[str, Any], proposal: Proposal) -> None:

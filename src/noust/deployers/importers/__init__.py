@@ -17,10 +17,20 @@ from pathlib import Path
 from types import ModuleType
 
 from noust.core.exceptions import ValidationError
-from noust.deployers.importers import coolify, dokploy, heroku, railway, render, vercel
+from noust.deployers.importers import (
+    caprover,
+    coolify,
+    dokku,
+    dokploy,
+    heroku,
+    railway,
+    render,
+    vercel,
+)
 from noust.deployers.importers.base import Proposal, ProposedEnv
 
 __all__ = [
+    "COMMAND_PLATFORMS",
     "PLATFORMS",
     "PLATFORM_FILES",
     "REMOTE_PLATFORMS",
@@ -40,10 +50,18 @@ PLATFORMS: tuple[str, ...] = tuple(module.PLATFORM for module in _MODULES)
 
 #: Platforms that keep an application's configuration in their own database and
 #: are read through their API (:mod:`noust.deployers.importers.remote`), with a
-#: server's address and a read-only token instead of a repository.
+#: server's address and a read-only token instead of a repository (CapRover has no
+#: read-only credential: the token is its dashboard's password).
 REMOTE_PLATFORMS: dict[str, ModuleType] = {
     coolify.PLATFORM: coolify,
     dokploy.PLATFORM: dokploy,
+    caprover.PLATFORM: caprover,
+}
+
+#: Platforms whose only interface is a command line, on their server or over SSH:
+#: read by running their read-only commands (Dokku).
+COMMAND_PLATFORMS: dict[str, ModuleType] = {
+    dokku.PLATFORM: dokku,
 }
 
 #: Every file an importer reads, relative to the repository.
@@ -76,6 +94,12 @@ def _module(platform: str) -> ModuleType:
             f"{platform.capitalize()} is read through its API, not from a repository",
             details=f"Give the server's address and a read-only token: noust import --from "
             f"{platform} --url https://{platform}.example.com --token-file FILE.",
+        )
+    if platform in COMMAND_PLATFORMS:
+        raise ValidationError(
+            f"{platform.capitalize()} is read through its command line, not from a repository",
+            details=f"Run it on the {platform.capitalize()} server, or give --ssh "
+            f"dokku@host: noust import --from {platform}.",
         )
     if platform in UNSUPPORTED_PLATFORMS:
         raise ValidationError(
