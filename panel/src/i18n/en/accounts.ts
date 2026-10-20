@@ -57,7 +57,6 @@ export const accounts = {
     factor: "Second factor",
     lastSignIn: "Last sign-in",
     never: "Never",
-    actionsFor: "Actions for {name}",
   },
   email: {
     title: "Mail address of {name}",

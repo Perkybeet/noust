@@ -16,9 +16,9 @@ import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { IconButton } from "../../../components/ui/IconButton";
+import { RowMenu } from "../../../components/page/RowMenu";
 import { ICONS } from "../../../components/ui/icons";
-import { Menu, MenuItem, MenuSeparator } from "../../../components/ui/Menu";
+import { MenuItem, MenuSeparator } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
@@ -97,7 +97,7 @@ type Pending =
   | { kind: "exception"; person: string }
   | null;
 
-function RowActions({ t, account, self, onOpen }: { t: T; account: Account; self: boolean; onOpen: (pending: Pending) => void }) {
+function AccountActions({ t, account, self, onOpen }: { t: T; account: Account; self: boolean; onOpen: (pending: Pending) => void }) {
   const queryClient = useQueryClient();
   const status = accountStatus(account);
   const refresh = (): void => {
@@ -118,7 +118,7 @@ function RowActions({ t, account, self, onOpen }: { t: T; account: Account; self
     },
   });
   return (
-    <Menu align="end" trigger={<IconButton label={t("accounts.table.actionsFor", { name: account.username })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+    <RowMenu name={account.username}>
       {status === "locked" ? (
         <MenuItem icon={<LockOpen />} disabled={unlock.isPending} onClick={() => unlock.mutate()}>
           {t("accounts.actions.unlock")}
@@ -151,7 +151,7 @@ function RowActions({ t, account, self, onOpen }: { t: T; account: Account; self
       <MenuItem icon={<ICONS.delete />} destructive disabled={self} onClick={() => onOpen({ kind: "remove", account })}>
         {t("accounts.actions.remove")}
       </MenuItem>
-    </Menu>
+    </RowMenu>
   );
 }
 
@@ -392,7 +392,7 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
             rows={shown}
             getRowId={(account) => account.username}
             mobile="cards"
-            {...(canManage ? { rowActions: (account: Account) => <RowActions t={t} account={account} self={account.username === me} onOpen={setPending} /> } : {})}
+            {...(canManage ? { rowActions: (account: Account) => <AccountActions t={t} account={account} self={account.username === me} onOpen={setPending} /> } : {})}
             empty={
               <EmptyState
                 variant="inline"

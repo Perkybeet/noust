@@ -13,9 +13,9 @@ import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { EmptyCell } from "../../components/ui/EmptyCell";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { IconButton } from "../../components/ui/IconButton";
+import { RowMenu } from "../../components/page/RowMenu";
 import { ICONS } from "../../components/ui/icons";
-import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
+import { MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
@@ -76,14 +76,14 @@ function DeleteMachineDialog({ machine, open, onOpenChange }: { machine: CloudMa
   );
 }
 
-function RowActions({ machine }: { machine: CloudMachine }) {
+function MachineActions({ machine }: { machine: CloudMachine }) {
   const t = useT();
   const { powerOn, unlinkMachine } = useCloudActions();
   const [deleting, setDeleting] = useState(false);
   const gone = machine.state === "deleted";
   return (
     <>
-      <Menu align="end" trigger={<IconButton label={t("cloud.machines.actionsFor", { name: machine.node })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+      <RowMenu name={machine.node}>
         <MenuItem icon={<Power />} disabled={gone || powerOn.isPending} onClick={() => powerOn.mutate(machine.node)}>
           {t("cloud.machines.powerOn")}
         </MenuItem>
@@ -94,7 +94,7 @@ function RowActions({ machine }: { machine: CloudMachine }) {
         <MenuItem icon={<ICONS.delete />} destructive disabled={gone} onClick={() => setDeleting(true)}>
           {t("cloud.machines.delete")}
         </MenuItem>
-      </Menu>
+      </RowMenu>
       {deleting ? <DeleteMachineDialog machine={machine} open onOpenChange={setDeleting} /> : null}
     </>
   );
@@ -126,7 +126,7 @@ export function MachinesSection({ canCreate, onCreate }: { canCreate: boolean; o
           />
         }
       >
-        {(machines) => <DataTable caption={t("cloud.machines.caption")} columns={columns} rows={machines} getRowId={(machine) => machine.node} rowActions={(machine) => <RowActions machine={machine} />} />}
+        {(machines) => <DataTable caption={t("cloud.machines.caption")} columns={columns} rows={machines} getRowId={(machine) => machine.node} rowActions={(machine) => <MachineActions machine={machine} />} />}
       </QueryState>
       <CommandHint label={t("cloud.fromTerminal")} command="noust fleet cloud server list" />
     </Section>

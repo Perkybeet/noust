@@ -12,9 +12,9 @@ import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { EmptyCell } from "../../components/ui/EmptyCell";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { IconButton } from "../../components/ui/IconButton";
+import { RowMenu } from "../../components/page/RowMenu";
 import { ICONS } from "../../components/ui/icons";
-import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
+import { MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
@@ -82,14 +82,14 @@ function RemoveAccountDialog({ account, open, onOpenChange }: { account: CloudAc
   );
 }
 
-function RowActions({ account }: { account: CloudAccount }) {
+function AccountActions({ account }: { account: CloudAccount }) {
   const t = useT();
   const { verifyAccount } = useCloudActions();
   const [replacing, setReplacing] = useState(false);
   const [removing, setRemoving] = useState(false);
   return (
     <>
-      <Menu align="end" trigger={<IconButton label={t("cloud.accounts.actionsFor", { name: account.name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+      <RowMenu name={account.name}>
         <MenuItem icon={<RotateCw />} disabled={verifyAccount.isPending} onClick={() => verifyAccount.mutate(account.name)}>
           {t("cloud.accounts.verify")}
         </MenuItem>
@@ -100,7 +100,7 @@ function RowActions({ account }: { account: CloudAccount }) {
         <MenuItem icon={<ICONS.delete />} destructive onClick={() => setRemoving(true)}>
           {t("cloud.accounts.remove")}
         </MenuItem>
-      </Menu>
+      </RowMenu>
       {replacing ? <AccountDialog existing={account} open onOpenChange={setReplacing} /> : null}
       <RemoveAccountDialog account={account} open={removing} onOpenChange={setRemoving} />
     </>
@@ -132,7 +132,7 @@ export function AccountsSection({ adding, onAddingChange }: { adding: boolean; o
         isEmpty={(data) => data.length === 0}
         empty={<EmptyState icon={<KeyRound />} title={t("cloud.accounts.empty.title")} description={t("cloud.accounts.empty.description")} action={add} />}
       >
-        {(accounts) => <DataTable caption={t("cloud.accounts.caption")} columns={columns} rows={[...accounts].sort((a, b) => a.name.localeCompare(b.name))} getRowId={(account) => account.name} rowActions={(account) => <RowActions account={account} />} />}
+        {(accounts) => <DataTable caption={t("cloud.accounts.caption")} columns={columns} rows={[...accounts].sort((a, b) => a.name.localeCompare(b.name))} getRowId={(account) => account.name} rowActions={(account) => <AccountActions account={account} />} />}
       </QueryState>
       <CommandHint label={t("cloud.fromTerminal")} command="noust fleet cloud account list" />
       {adding ? <AccountDialog open onOpenChange={onAddingChange} /> : null}

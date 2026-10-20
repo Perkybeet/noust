@@ -46,7 +46,6 @@
       "features/domains/SiteHistoryDialog.tsx": 1,
       "features/domains/TunnelsPage.tsx": 1,
       "features/new-app/ComposeDocument.tsx": 1,
-      "features/server/security/FixDialogs.tsx": 1,
       "features/settings/EmailChannel.tsx": 1,
       "features/settings/TelegramChannel.tsx": 1
     },
@@ -55,7 +54,6 @@
       "features/app/settings/DiskSettings.tsx": 1,
       "features/app/settings/UpdateSchedule.tsx": 1,
       "features/databases/EngineLimits.tsx": 1,
-      "features/server/security/SshView.tsx": 1,
       "features/settings/github/GitHubHost.tsx": 1,
       "features/settings/probes/StatusPageSection.tsx": 1
     },
@@ -429,13 +427,9 @@
     "row-actions-local": {
       "features/backups/BackupsTable.tsx": 1,
       "features/backups/CoverageTable.tsx": 1,
-      "features/cloud/AccountsSection.tsx": 1,
-      "features/cloud/MachinesSection.tsx": 1,
-      "features/cloud/ScriptsSection.tsx": 1,
       "features/databases/DatabasesPage.tsx": 1,
       "features/fleet/ServersTab.tsx": 1,
       "features/fleet/UpdatesTab.tsx": 1,
-      "features/settings/accounts/AccountsSettings.tsx": 1,
       "features/settings/servers/ServersSettings.tsx": 1
     },
     "row-link-class": {
@@ -454,7 +448,6 @@
       "features/fleet/SummaryTab.tsx": 2,
       "features/overview/FleetSummary.tsx": 1,
       "features/overview/NeedsAttention.tsx": 1,
-      "features/services/ServicesTable.tsx": 1,
       "features/teams/ProjectPage.tsx": 2,
       "features/teams/ProjectsTable.tsx": 1,
       "features/teams/TeamsPage.tsx": 1
@@ -492,7 +485,6 @@
       "features/new-app/WorkspacesDialog.tsx": 2,
       "features/promotion/PromoteDialog.tsx": 1,
       "features/server/ActionDialog.tsx": 1,
-      "features/server/updates/ApplyDialog.tsx": 1,
       "features/settings/alerts/RuleDrawer.tsx": 1,
       "features/settings/alerts/RuleList.tsx": 1,
       "features/settings/ChannelRouting.tsx": 1,

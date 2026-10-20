@@ -56,7 +56,6 @@ export const accounts: Catalog<typeof en> = {
     factor: "Segundo factor",
     lastSignIn: "Último acceso",
     never: "Nunca",
-    actionsFor: "Acciones para {name}",
   },
   email: {
     title: "Dirección de correo de {name}",

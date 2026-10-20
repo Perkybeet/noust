@@ -98,6 +98,7 @@ export function ApplyDialog({ scope, keptBack, onClose }: ApplyDialogProps) {
           <Button disabled={apply.isPending} onClick={onClose}>
             {t("server.updates.apply.cancel")}
           </Button>
+          {/* design-exception: submit-disabled-invalid there is nothing to install until the plan is read, and nothing when it is empty */}
           <Button variant="primary" loading={apply.isPending} disabled={plan.data === undefined || plan.data.packages.length === 0} onClick={submit}>
             {t("server.updates.apply.install", { count: plan.data?.packages.length ?? 0 })}
           </Button>

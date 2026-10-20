@@ -41,6 +41,7 @@ export function DirectiveChanges({ plan }: { plan: FixPlan }) {
   const t = useT();
   if (plan.changes.length === 0) return null;
   return (
+    // design-exception: bordered-list one line per directive is a diff in sshd's words, 12px and dense, not a list of things a row is 44px for
     <ul aria-label={t("server.fix.changesLabel")} className="flex flex-col divide-y divide-border rounded-control border border-border bg-bg-sunken">
       {plan.changes.map((change) => (
         <li key={change.directive} className="flex min-w-0 flex-wrap items-baseline gap-x-2 px-3 py-1.5 text-12">

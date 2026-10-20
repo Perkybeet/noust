@@ -149,6 +149,7 @@ function Fixes({ ssh, hostname }: { ssh: SshStatus; hostname: string }) {
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
               <span className="text-13 font-medium text-fg">{fixLabel(t, fix, plan)}</span>
               {plan.allowed ? (
+                // design-exception: card-save applying a fix opens its own confirmation; nothing is saved from the card
                 <Button size="sm" onClick={() => setApplying({ fix, plan })}>
                   {t("server.ssh.apply")}
                 </Button>
