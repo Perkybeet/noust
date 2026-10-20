@@ -70,9 +70,7 @@ logger = logging.getLogger(__name__)
 #: name is kept because the rest of the codebase imports it from here.
 SECRET_FILE_MODE = SECRET_MODE
 
-# Default paths. The directories come from noust.core.paths, which reads
-# WASM's /etc/wasm and /var/backups/wasm in place on a server that has not
-# been migrated yet (and through their compatibility symlinks after).
+# Default paths. The directories come from noust.core.paths.
 DEFAULT_CONFIG_PATH = paths.config_dir() / "config.yaml"
 DEFAULT_APPS_DIR = Path("/var/www/apps")
 #: Logs start afresh under the new name: nothing reads an old log file back,
@@ -2855,9 +2853,6 @@ def _strip_removed_keys(config: dict[str, Any]) -> dict[str, Any]:
 def _apply_env_overrides(config: dict[str, Any]) -> None:
     """
     Apply the ``NOUST_*`` environment overrides to a configuration mapping.
-
-    The ``WASM_*`` spelling each had before 3.0 is still read when the new
-    one is absent, so an operator's existing environment keeps working.
 
     Args:
         config: The mapping being built; modified in place.

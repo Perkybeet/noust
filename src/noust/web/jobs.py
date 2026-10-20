@@ -7,8 +7,8 @@ connection open for minutes and, when the handler is ``async``, would freeze
 the event loop for every other client at the same time. They are queued here
 and the endpoint answers ``202 Accepted`` with a job id.
 
-**These jobs call the managers directly.** They used to spawn the ``wasm``
-binary with :mod:`subprocess` and scrape its console output for progress, which
+**These jobs call the managers directly.** They used to spawn the
+command line with :mod:`subprocess` and scrape its console output for progress, which
 made the web layer a third implementation of the product: it needed the CLI
 installed on ``PATH``, it lost every typed error, it reported progress by
 matching English words in log lines, and it ran as whatever user the panel ran

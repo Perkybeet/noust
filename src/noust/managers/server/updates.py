@@ -78,7 +78,7 @@ IMPACT_GROUPS: dict[str, tuple[str, ...]] = {
     "libc": ("libc6", "glibc*"),
     "kernel": ("linux-image*", "kernel", "kernel-core*", "kernel-default*"),
     "systemd": ("systemd*",),
-    "noust": ("noust", "wasm", "wasm-cli"),
+    "noust": ("noust",),
 }
 
 #: What dpkg prints about a configuration file it could not silently replace.

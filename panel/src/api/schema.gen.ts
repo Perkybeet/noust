@@ -51153,8 +51153,6 @@ export interface components {
          *         version: The installed Noust version; empty for an anonymous caller.
          *         csrf_header: Header name a mutation must echo the CSRF cookie in.
          *         csrf_cookie: Name of the readable CSRF cookie.
-         *         renamed_from_wasm: Whether this server ran WASM before Noust, so the
-         *             console tells the operator once that the product was renamed.
          *         central: This server's role and whether its sealed secrets are
          *             locked, so the console hides what a hub does not do and offers
          *             the unlock form; None for an anonymous caller.
@@ -51230,11 +51228,6 @@ export interface components {
             notice?: components["schemas"]["NoticeInfo"] | null;
             /** Permissions */
             permissions?: string[];
-            /**
-             * Renamed From Wasm
-             * @default false
-             */
-            renamed_from_wasm: boolean;
             /** Role */
             role?: string | null;
             /** Scope */

@@ -485,6 +485,7 @@ export const databases: Catalog<typeof en> = {
     title: "Instalar un motor de bases de datos",
     description: "Noust lo instala con el gestor de paquetes del servidor y lo arranca. Se hace como una tarea, así que puedes salir de esta página.",
     distribution: "Las opciones para {distribution}.",
+    distributionManager: "Las opciones para {distribution}, que se instalan con {manager}.",
     engine: "Motor",
     version: "Versión",
     flavourInstalled: "{engine} (instalado)",

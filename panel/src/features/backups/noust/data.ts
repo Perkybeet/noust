@@ -7,7 +7,7 @@
 import type { Bundle, SelfSchedule, SelfScheduleBody } from "../../../api/queries/selfBackup";
 import { scheduleExpression, scheduleForm } from "../../databases/backups/schedule";
 import type { ScheduleForm } from "../../databases/backups/schedule";
-import { destinationBody, gbValue, limitText, limitValue } from "../policy/limits";
+import { destinationBody, gbValue, limitText, limitValue, remoteOnlyBody } from "../policy/limits";
 import type { DestinationDraft } from "../policy/limits";
 import { isTrue, numberOf, textOf } from "../policy/record";
 
@@ -64,6 +64,8 @@ export interface SelfForm {
   /** The most the scheduled bundles kept here may weigh together, in gigabytes; empty for no limit. */
   gb: string;
   sends: DestinationDraft[];
+  /** Keep nothing on this server: a scheduled bundle is deleted here once every destination holds it. */
+  remoteOnly: boolean;
   passphrase: string;
   repeat: string;
   enabled: boolean;
@@ -72,7 +74,7 @@ export interface SelfForm {
 /** The form's starting values: the stored schedule's, or what a new one keeps unless changed. */
 export function formOf(schedule: SelfSchedule | undefined): SelfForm {
   if (!schedule?.configured) {
-    return { schedule: scheduleForm(null), count: "7", days: "30", gb: "", sends: [], passphrase: "", repeat: "", enabled: true };
+    return { schedule: scheduleForm(null), count: "7", days: "30", gb: "", sends: [], remoteOnly: false, passphrase: "", repeat: "", enabled: true };
   }
   return {
     schedule: scheduleForm(schedule.schedule),
@@ -85,6 +87,7 @@ export function formOf(schedule: SelfSchedule | undefined): SelfForm {
       days: limitText(numberOf(item, "retention_days")),
       gb: limitText(numberOf(item, "retention_gb")),
     })),
+    remoteOnly: schedule.remote_only,
     passphrase: "",
     repeat: "",
     enabled: schedule.enabled,
@@ -102,6 +105,7 @@ export function bodyOf(form: SelfForm): SelfScheduleBody {
     retention_days: limitValue(form.days),
     retention_gb: gbValue(form.gb),
     destinations: destinationBody(form.sends),
+    remote_only: remoteOnlyBody(form.remoteOnly, form.sends.length),
     passphrase: form.passphrase === "" ? null : form.passphrase,
     enabled: form.enabled,
   };

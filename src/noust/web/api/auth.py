@@ -28,7 +28,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
 from noust import __version__
-from noust.core import paths
 from noust.core.access import AccessStore
 from noust.core.accounts import Account, AuthenticationFailed
 from noust.core.accounts.local_login import LOCAL_METHODS, LocalLoginRefused, refuse_local_sign_in
@@ -314,8 +313,6 @@ class SessionInfo(BaseModel):
         version: The installed Noust version; empty for an anonymous caller.
         csrf_header: Header name a mutation must echo the CSRF cookie in.
         csrf_cookie: Name of the readable CSRF cookie.
-        renamed_from_wasm: Whether this server ran WASM before Noust, so the
-            console tells the operator once that the product was renamed.
         central: This server's role and whether its sealed secrets are
             locked, so the console hides what a hub does not do and offers
             the unlock form; None for an anonymous caller.
@@ -353,7 +350,6 @@ class SessionInfo(BaseModel):
     version: str
     csrf_header: str = CSRF_HEADER_NAME
     csrf_cookie: str = CSRF_COOKIE_NAME
-    renamed_from_wasm: bool = False
     central: CentralInfo | None = None
     login_label: str | None = None
     account: AccountInfo | None = None
@@ -1215,7 +1211,6 @@ def get_session_info(request: Request) -> SessionInfo:
         totp_enabled=account.has_mfa if account is not None else token_manager.totp_enabled(),
         hostname=socket.gethostname(),
         version=__version__,
-        renamed_from_wasm=paths.came_from_wasm(),
         central=session_central(),
         login_label=policy.login_label or None,
         account=AccountInfo.of(account) if account is not None else None,

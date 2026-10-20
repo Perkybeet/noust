@@ -159,9 +159,4 @@ export const shell = {
     body: "Nothing lives at this address. Check the link, or go back to the {overview}.",
     overviewLink: "overview",
   },
-  renameNotice: {
-    text: "WASM is now Noust — nothing else changed: same console, same applications.",
-    link: "What changed and why",
-    dismiss: "Dismiss",
-  },
 } as const;

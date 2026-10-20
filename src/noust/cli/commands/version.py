@@ -27,14 +27,13 @@ CHANGELOG_PATHS: tuple[Path, ...] = (
     Path(__file__).parent.parent.parent / "obs" / "debian.changelog",
     Path("/usr/share/doc/noust/changelog.gz"),
     Path("/usr/share/doc/noust/changelog"),
-    # The Debian package was called noust until the rename.
-    Path("/usr/share/doc/wasm/changelog.gz"),
-    Path("/usr/share/doc/wasm/changelog"),
 )
 
-#: Start of any release stanza, used to know where the current one ends. The
-#: package is ``noust`` from 3.0 and was ``wasm`` before.
-_ANY_VERSION = re.compile(r"(?:noust|wasm) \(\d+\.\d+\.\d+-\d+\)")
+#: The package a stanza of the changelog is headed with.
+_PACKAGE = "noust"
+
+#: Start of any release stanza, used to know where the current one ends.
+_ANY_VERSION = re.compile(rf"{_PACKAGE} \(\d+\.\d+\.\d+-\d+\)")
 
 
 def _read_changelog() -> str | None:
@@ -74,7 +73,7 @@ def get_current_version_changelog() -> str | None:
 
     # Debian format: "noust (VERSION-REVISION) ...", then the bullet list, then
     # the trailer line that starts with "--".
-    version_pattern = re.compile(rf"(?:noust|wasm) \({re.escape(__version__)}-\d+\)")
+    version_pattern = re.compile(rf"{_PACKAGE} \({re.escape(__version__)}-\d+\)")
 
     stanza: list[str] = []
     in_version = False
@@ -110,7 +109,7 @@ def show_changelog() -> None:
 
     for line in changelog.split("\n"):
         stripped = line.strip()
-        if stripped.startswith("--") or line.startswith(("noust (", "wasm (")):
+        if stripped.startswith("--") or line.startswith(f"{_PACKAGE} ("):
             # The stanza header and the maintainer trailer frame the entry.
             click.echo(f"\n{stripped}")
         elif stripped:

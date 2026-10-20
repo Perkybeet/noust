@@ -51,7 +51,7 @@ def token_manager() -> TokenManager:
     Returns:
         The manager, reading and writing the state directory
         :class:`~noust.web.auth.SecurityConfig` resolves by default -
-        ``NOUST_WEB_STATE_DIR`` (or ``WASM_WEB_STATE_DIR``), or ``/etc/noust``.
+        ``NOUST_WEB_STATE_DIR``, or ``/etc/noust``.
 
     Raises:
         DependencyError: When the console's dependencies are not installed.

@@ -40,6 +40,7 @@ function schedule(domain: string, preset: string): BackupSchedule {
     retention_count: 7,
     retention_days: 30,
     include_databases: true,
+    remote_only: false,
     destinations: [],
   };
 }

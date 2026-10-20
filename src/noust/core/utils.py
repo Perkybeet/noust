@@ -167,14 +167,13 @@ def find_noust_executable() -> str | None:
 
     systemd has no PATH of the operator's, so a unit needs the absolute path,
     and it is not always ``/usr/bin/noust``: ``pip install`` as root puts it in
-    ``/usr/local/bin``. ``wasm``, the name the same entry point had before
-    3.0 and still has as an alias, is the fallback.
+    ``/usr/local/bin``.
 
     Returns:
-        The absolute path ``shutil.which`` finds, or None when neither
-        ``noust`` nor ``wasm`` is on PATH.
+        The absolute path ``shutil.which`` finds, or None when ``noust`` is not
+        on PATH.
     """
-    found = shutil.which(paths.NAME) or shutil.which(paths.LEGACY_NAME)
+    found = shutil.which(paths.NAME)
     return os.path.abspath(found) if found else None
 
 

@@ -1,12 +1,10 @@
 #!/bin/sh
 # Lay out exactly the files an OBS package receives.
 #
-# Usage: packaging/obs/stage.sh [--snapshot] noust|wasm OUTDIR
+# Usage: packaging/obs/stage.sh [--snapshot] noust OUTDIR
 #
 #   noust  the product: noust-VERSION.tar.gz (git archive of HEAD), noust.spec,
 #          noust.dsc and every obs/debian.* file.
-#   wasm   the transitional package: wasm-VERSION.tar.gz (a README and the
-#          licence), the wasm-cli spec, wasm.dsc and its debian.* files.
 #
 # One implementation of "what OBS gets": the Release workflow uploads these
 # directories, and the build gates in ci.yml and release.yml build from them
@@ -17,19 +15,16 @@
 #
 # Only committed files ship: the tarball is `git archive HEAD`.
 #
-# A tree is released under its own name when obs/debian.changelog's top entry
-# is noust at the version in pyproject.toml: scripts/release.py writes the two
-# together. Between the rename and the release that makes it (3.0.0), the top
-# entry still says wasm, so dpkg refuses the source outright, and the
-# transitional packages would carry a 2.x version that noust itself Breaks and
-# Conflicts with. --snapshot, for builds that are tested and never published,
-# stages such a tree as a pre-release of the first version under the new name
-# (VERSION~dev, below the release it precedes in both dpkg and rpm), with a
-# changelog entry saying so. Without it, a tree that is not released is
-# refused, so a snapshot can never reach OBS.
+# A tree is released when obs/debian.changelog's top entry is noust at the
+# version in pyproject.toml: scripts/release.py writes the two together. A tree
+# between releases has a top entry for the previous one, so dpkg refuses the
+# source outright. --snapshot, for builds that are tested and never published,
+# stages such a tree as a pre-release (VERSION~dev, below the release it
+# precedes in both dpkg and rpm), with a changelog entry saying so. Without it,
+# a tree that is not released is refused, so a snapshot can never reach OBS.
 set -eu
 
-usage="usage: stage.sh [--snapshot] noust|wasm OUTDIR"
+usage="usage: stage.sh [--snapshot] noust OUTDIR"
 snapshot_allowed=no
 if [ "${1:-}" = --snapshot ]; then
     snapshot_allowed=yes
@@ -51,11 +46,7 @@ if [ "$top" != "noust ${version}-1" ]; then
         echo "--snapshot to stage it for a build that is not published." >&2
         exit 1
     fi
-    # The first version under the new name, from the one place that states it.
-    renamed=$(sed -n 's/^Breaks: wasm (<< \([0-9.]*\)~)$/\1/p' "$root/obs/debian.control")
-    [ -n "$renamed" ] || { echo "No 'Breaks: wasm (<< X~)' in obs/debian.control" >&2; exit 1; }
-    base=$(printf '%s\n%s\n' "$version" "$renamed" | sort -V | tail -n 1)
-    snapshot="${base}~dev"
+    snapshot="${version}~dev"
 fi
 tree_version=$version
 version=${snapshot:-$version}
@@ -74,24 +65,8 @@ case "$package" in
         cp "$root/rpm/noust.spec" "$root/obs/noust.dsc" "$out/"
         cp "$root"/obs/debian.* "$out/"
         ;;
-    wasm)
-        dir="$root/packaging/transitional/wasm"
-        work=$(mktemp -d)
-        trap 'rm -rf "$work"' EXIT
-        mkdir "$work/wasm-${version}"
-        cp "$dir/README" "$root/LICENSE" "$work/wasm-${version}/"
-        # Reproducible: the same commit gives the same tarball, so OBS sees no
-        # change (and rebuilds nothing) when a release does not touch it.
-        stamp=$(git -C "$root" log -1 --format=%ct HEAD)
-        tar --sort=name --mtime="@${stamp}" --owner=0 --group=0 --numeric-owner \
-            -C "$work" -cf - "wasm-${version}" | gzip -n > "$out/wasm-${version}.tar.gz"
-        cp "$dir/wasm.spec" "$dir/wasm.dsc" "$out/"
-        cp "$dir"/debian.* "$out/"
-        # The licence text Debian requires, from the one copy of it.
-        cp "$root/obs/debian.copyright" "$out/debian.copyright"
-        ;;
     *)
-        echo "Unknown package '$package': noust or wasm" >&2
+        echo "Unknown package '$package': noust" >&2
         exit 1
         ;;
 esac
