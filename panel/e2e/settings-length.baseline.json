@@ -1,0 +1,117 @@
+{
+  "$comment": "How tall each settings subsection is at 1440 by 900: what its content column holds (e2e/settings-length.spec.ts). It may only go down: whoever splits or shortens a route lowers its entry, and whoever adds a route adds its entry (NOUST_E2E_SETTINGS_BASELINE=write measures it). A route over `limit` needs a `reason`, which says what makes it long and what shortens it; the reasons are the exceptions, and they only get fewer.",
+  "viewport": { "width": 1440, "height": 900 },
+  "limit": 1400,
+  "tolerance": 24,
+  "slack": 120,
+  "routes": {
+    "settings-general": {
+      "path": "/settings",
+      "height": 1471,
+      "reason": "One form holds the server's identity, the console address, the folders, the limits, the web server and the deploy freeze; the console address has its own section, and what stays is measured again when it leaves."
+    },
+    "settings-variables": { "path": "/settings/variables", "height": 342 },
+    "settings-secret-managers": { "path": "/settings/secret-managers", "height": 441 },
+    "settings-console": { "path": "/settings/console", "height": 462 },
+    "settings-integrations": {
+      "path": "/settings/integrations",
+      "height": 2749,
+      "reason": "Seven sections on one page: the webhook address, GitHub, GitLab and the other forges, deploy keys, host keys, container registries and the metrics export. The metrics export moves to Logs and metrics export and each forge gets its own space."
+    },
+    "settings-about": {
+      "path": "/settings/about",
+      "height": 1795,
+      "reason": "Seven sections (version, this installation, the project, automatic updates, the check, the support report, what is new) that are three subjects: version and updates, this installation and support, news."
+    },
+    "settings-notifications": {
+      "path": "/settings/notifications",
+      "height": 2000,
+      "reason": "The switch, thirteen channels, more channels, the events, their language, private hosts and the delivery log on one page. The channels and the events are different subjects, and the delivery log is a list of its own."
+    },
+    "settings-alerts": {
+      "path": "/settings/alerts",
+      "height": 1551,
+      "reason": "The rules and the built-in checks, which are turned off by writing 0 in a field; each check becomes a row with its threshold (SW-8)."
+    },
+    "settings-probes": { "path": "/settings/probes", "height": 844 },
+    "settings-log-shipping": { "path": "/settings/log-shipping", "height": 521 },
+    "settings-tokens": { "path": "/settings/tokens", "height": 427 },
+    "settings-api": { "path": "/settings/api", "height": 1163 },
+    "settings-manifest": { "path": "/settings/manifest", "height": 568 },
+    "settings-mcp": {
+      "path": "/settings/mcp",
+      "height": 2115,
+      "reason": "The connection, the groups of tools and the tools on one page, under a block of colour that says whether the server is on; it becomes setting rows."
+    },
+    "settings-accounts": { "path": "/settings/accounts", "height": 480 },
+    "settings-access": { "path": "/settings/access", "height": 763 },
+    "settings-sso": {
+      "path": "/settings/sso",
+      "height": 2244,
+      "reason": "Providers, SAML, directories, local sign-in, identities and SCIM in six sections of one page; they become one list of connections with drawers, or two sections of the same group."
+    },
+    "settings-approvals": { "path": "/settings/approvals", "height": 431 },
+    "settings-audit": {
+      "path": "/settings/audit",
+      "height": 1401,
+      "reason": "A page of the audit trail's rows: its length is the size of the list's page, which the operator chooses, and not a layout."
+    },
+    "settings-compliance": {
+      "path": "/settings/compliance",
+      "height": 4842,
+      "reason": "The frameworks, their controls and the ENS report in one page; the frameworks and the security profile move to Controls and the report stays."
+    },
+    "settings-servers": { "path": "/settings/servers", "height": 428 },
+    "settings-cloud": { "path": "/settings/cloud", "height": 1167 },
+    "settings-central": { "path": "/settings/central", "height": 468 },
+    "settings-security": {
+      "path": "/settings/security",
+      "height": 5886,
+      "reason": "The account, its second factors, passkeys and sessions, the compliance frameworks and the security profile in one page; the account moves to Account and the rest to Controls."
+    },
+    "app-settings-general": { "path": "/apps/shop.example.net/settings", "height": 907 },
+    "app-settings-source": {
+      "path": "/apps/taller.example.com/settings/source",
+      "height": 1541,
+      "reason": "The source, the deploy key, the change of source, the credential and the git options in one subsection; it becomes one form with a save bar and the git options as checkboxes in it."
+    },
+    "app-settings-deploys": {
+      "path": "/apps/tienda.example.org/settings/deploys",
+      "height": 2437,
+      "reason": "Twelve cards in one subsection, from instant rollback to registry logins; it splits into Releases and rollback, Automation and Compose."
+    },
+    "app-settings-deploy-on-push": {
+      "path": "/apps/tienda.example.org/settings/deploy-on-push",
+      "height": 1547,
+      "reason": "A stepper drawn by hand inside the subsection; it uses the kit's Stepper, and the first step stops sending the operator to a terminal when the GitHub App covers the repository."
+    },
+    "app-settings-hooks": { "path": "/apps/tienda.example.org/settings/hooks", "height": 845 },
+    "app-settings-access": {
+      "path": "/apps/tienda.example.org/settings/access",
+      "height": 3967,
+      "reason": "Twelve cards in one subsection: who comes in (password, access service, addresses, users, private network, routes) and what is limited (limits, headers, HTTP/3, WAF, client certificates); it splits into Access and Protection."
+    },
+    "app-settings-build": {
+      "path": "/apps/shop.example.net/settings/build",
+      "height": 2019,
+      "reason": "The build commands, the packages and the sandbox with five CLI hints and several notices; Build and Builds become one subsection, and the notices become help text and one risk line."
+    },
+    "app-settings-builds": { "path": "/apps/tienda.example.org/settings/builds", "height": 400 },
+    "app-settings-resources": { "path": "/apps/shop.example.net/settings/resources", "height": 971 },
+    "app-settings-disk": { "path": "/apps/shop.example.net/settings/disk", "height": 499 },
+    "app-settings-processes": { "path": "/apps/tienda.example.org/settings/processes", "height": 531 },
+    "app-settings-security": {
+      "path": "/apps/tienda.example.org/settings/security",
+      "height": 1656,
+      "reason": "The sandbox of the service's unit in one form, with its notices; it is renamed Service security and its notices become help text."
+    },
+    "app-settings-mounts": { "path": "/apps/shop.example.net/settings/mounts", "height": 245 },
+    "app-settings-previews": {
+      "path": "/apps/portal.example.org/settings/previews",
+      "height": 2357,
+      "reason": "A feature header, two stacked notices before the first field and a long form; the notices become the risk line of the option that is chosen."
+    },
+    "app-settings-export": { "path": "/apps/shop.example.net/settings/export", "height": 827 },
+    "app-settings-delete": { "path": "/apps/shop.example.net/settings/delete", "height": 237 }
+  }
+}
