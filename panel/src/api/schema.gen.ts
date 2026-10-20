@@ -2071,11 +2071,14 @@ export interface paths {
          *     still on disk is activated (instant), otherwise the commit is built as a
          *     new release; in place the checkout is put on the commit and rebuilt.
          *     There is no ``nothing_new`` check: asking for a commit is explicit.
+         *     With ``no_cache`` the commit is always built, from scratch: what the
+         *     console's "Retry without cache" asks for after a failure.
          *
          *     Args:
          *         domain: Domain of the application.
          *         deployment_id: The deployment whose commit to rebuild.
          *         session: The authenticated session.
+         *         body: Optional; ``no_cache`` builds from scratch.
          *
          *     Returns:
          *         The queued job.
@@ -44597,9 +44600,18 @@ export interface components {
          *     Attributes:
          *         set: Variables to give a value, added or replaced.
          *         unset: Variables to remove.
+         *         comments: The comments to keep above variables.
+         *         audience: Who sees a variable: the build, the running application or both.
          *         dry_run: Say which variables would change and write nothing.
          */
         MergeAppEnvRequest: {
+            /**
+             * Audience
+             * @description Name to 'both', 'build' or 'runtime' for the variables whose audience changes, as on PUT; a name left out keeps the one it has
+             */
+            audience?: {
+                [key: string]: string;
+            } | null;
             /**
              * Comments
              * @description Name to the comment kept above the variable in the .env, over the ones it has; empty text takes one away
@@ -44632,8 +44644,8 @@ export interface components {
          *
          *     Attributes:
          *         domain: Domain of the application.
-         *         changed: The names whose value was added, replaced or removed. Never a
-         *             value.
+         *         changed: The names whose value or audience was added, replaced or removed.
+         *             Never a value.
          *         restart_required: Whether the running process needs a restart to pick
          *             the change up.
          *         dry_run: Whether nothing was written.
@@ -49834,6 +49846,18 @@ export interface components {
             required?: boolean | null;
             /** Since */
             since?: string | null;
+        };
+        /**
+         * RebuildRequest
+         * @description Building a deployment's commit again.
+         */
+        RebuildRequest: {
+            /**
+             * No Cache
+             * @description Build from scratch: no package manager cache, no dependencies taken from the release that serves, no image layer cache, and a release of that commit already on disk is not activated in its place
+             * @default false
+             */
+            no_cache: boolean;
         };
         /**
          * ReceiveRequest
@@ -65182,7 +65206,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RebuildRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             202: {

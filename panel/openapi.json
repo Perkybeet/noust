@@ -29234,8 +29234,23 @@
         "type": "object"
       },
       "MergeAppEnvRequest": {
-        "description": "Request to set and unset some of an application's variables, leaving the rest.\n\nAttributes:\n    set: Variables to give a value, added or replaced.\n    unset: Variables to remove.\n    dry_run: Say which variables would change and write nothing.",
+        "description": "Request to set and unset some of an application's variables, leaving the rest.\n\nAttributes:\n    set: Variables to give a value, added or replaced.\n    unset: Variables to remove.\n    comments: The comments to keep above variables.\n    audience: Who sees a variable: the build, the running application or both.\n    dry_run: Say which variables would change and write nothing.",
         "properties": {
+          "audience": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Name to 'both', 'build' or 'runtime' for the variables whose audience changes, as on PUT; a name left out keeps the one it has",
+            "title": "Audience"
+          },
           "comments": {
             "anyOf": [
               {
@@ -29278,7 +29293,7 @@
         "type": "object"
       },
       "MergeAppEnvResponse": {
-        "description": "What a merge changed, or would change.\n\nAttributes:\n    domain: Domain of the application.\n    changed: The names whose value was added, replaced or removed. Never a\n        value.\n    restart_required: Whether the running process needs a restart to pick\n        the change up.\n    dry_run: Whether nothing was written.",
+        "description": "What a merge changed, or would change.\n\nAttributes:\n    domain: Domain of the application.\n    changed: The names whose value or audience was added, replaced or removed.\n        Never a value.\n    restart_required: Whether the running process needs a restart to pick\n        the change up.\n    dry_run: Whether nothing was written.",
         "properties": {
           "changed": {
             "items": {
@@ -38973,6 +38988,19 @@
           }
         },
         "title": "RebootSummary",
+        "type": "object"
+      },
+      "RebuildRequest": {
+        "description": "Building a deployment's commit again.",
+        "properties": {
+          "no_cache": {
+            "default": false,
+            "description": "Build from scratch: no package manager cache, no dependencies taken from the release that serves, no image layer cache, and a release of that commit already on disk is not activated in its place",
+            "title": "No Cache",
+            "type": "boolean"
+          }
+        },
+        "title": "RebuildRequest",
         "type": "object"
       },
       "ReceiveRequest": {
@@ -66985,7 +67013,7 @@
     },
     "/api/apps/{domain}/deployments/{deployment_id}/rebuild": {
       "post": {
-        "description": "Queue a deploy of the exact commit a deployment was built from.\n\nThe update job, given the commit: on releases a release of that commit\nstill on disk is activated (instant), otherwise the commit is built as a\nnew release; in place the checkout is put on the commit and rebuilt.\nThere is no ``nothing_new`` check: asking for a commit is explicit.\n\nArgs:\n    domain: Domain of the application.\n    deployment_id: The deployment whose commit to rebuild.\n    session: The authenticated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 for an unknown application or deployment, 409 when\n        the deployment recorded no commit (its source is not git).",
+        "description": "Queue a deploy of the exact commit a deployment was built from.\n\nThe update job, given the commit: on releases a release of that commit\nstill on disk is activated (instant), otherwise the commit is built as a\nnew release; in place the checkout is put on the commit and rebuilt.\nThere is no ``nothing_new`` check: asking for a commit is explicit.\nWith ``no_cache`` the commit is always built, from scratch: what the\nconsole's \"Retry without cache\" asks for after a failure.\n\nArgs:\n    domain: Domain of the application.\n    deployment_id: The deployment whose commit to rebuild.\n    session: The authenticated session.\n    body: Optional; ``no_cache`` builds from scratch.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 for an unknown application or deployment, 409 when\n        the deployment recorded no commit (its source is not git).",
         "operationId": "rebuild_deployment_api_apps__domain__deployments__deployment_id__rebuild_post",
         "parameters": [
           {
@@ -67007,6 +67035,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RebuildRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "202": {
             "content": {
