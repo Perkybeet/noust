@@ -16,6 +16,7 @@ from types import ModuleType
 from typing import Any
 
 import pytest
+import yaml
 
 from noust.recipes import get_recipe, list_recipes
 from noust.recipes.variables import scan_references
@@ -150,8 +151,8 @@ class FakeProject:
     log: str = ""
     started = 0
 
-    def __init__(self, recipe: Any, directory: Path) -> None:
-        self.name = f"noust-smoke-{recipe.name}"
+    def __init__(self, recipe: Any, directory: Path, prefix: str = "noust-smoke-") -> None:
+        self.name = f"{prefix}{recipe.name}"
 
     def run(self, *arguments: str, timeout: int = 0) -> subprocess.CompletedProcess[str]:
         FakeProject.started += arguments[0] == "up"
@@ -176,7 +177,7 @@ def fake_docker(smoke: ModuleType, monkeypatch: pytest.MonkeyPatch) -> type[Fake
     return FakeProject
 
 
-def run_smoke(smoke: ModuleType) -> Any:
+def run_smoke(smoke: ModuleType, **options: Any) -> Any:
     """Smoke-test Vaultwarden with the fake project."""
     return smoke.smoke(
         get_recipe("vaultwarden"),
@@ -187,6 +188,7 @@ def run_smoke(smoke: ModuleType) -> Any:
         domain="vault.example.com",
         ssl=True,
         keep=False,
+        **options,
     )
 
 
@@ -277,3 +279,180 @@ def test_the_extra_lines_reach_the_env_file_as_an_operator_editing_it_would(
 
     assert "SMTP_HOST=mail.example.test\n" in written["env"]
     assert written["env"].count("PORT=18080\n") == 1
+
+
+# ---------------------------------------------------------------------------
+# What the tool creates is named and labelled, so it can be found and removed by name
+# ---------------------------------------------------------------------------
+
+
+def test_the_project_is_named_by_the_prefix_the_operator_gives(
+    smoke: ModuleType, tmp_path: Path
+) -> None:
+    """A machine that shares its Docker names what a run makes: the prefix is the first part."""
+    recipe = get_recipe("vaultwarden")
+
+    assert smoke.Project(recipe, tmp_path).name == "noust-smoke-vaultwarden"
+    assert smoke.Project(recipe, tmp_path, "noust-test-cat-").name == "noust-test-cat-vaultwarden"
+    base = smoke.Project(recipe, tmp_path, "noust-test-cat-")._base
+    assert base[base.index("-p") + 1] == "noust-test-cat-vaultwarden"
+
+
+@pytest.mark.parametrize("prefix", ["", "Noust-", "-x", "has space-", "a/b-", "x" * 41])
+def test_a_prefix_that_is_not_a_docker_project_name_is_refused(
+    smoke: ModuleType, prefix: str
+) -> None:
+    """Compose project names are lower-case letters, digits, dashes and underscores."""
+    with pytest.raises(SystemExit):
+        smoke.check_prefix(prefix)
+
+
+def test_the_project_stays_inside_the_label_override_it_writes(
+    smoke: ModuleType, tmp_path: Path
+) -> None:
+    """Every container, volume and network of a run carries noust.test=1, whatever the recipe says."""
+    recipe = get_recipe("nextcloud")
+
+    smoke.write_project(
+        recipe, tmp_path, port=18080, domain="cloud.example.com", ssl=True, given={}
+    )
+
+    override = yaml.safe_load((tmp_path / smoke.LABEL_OVERRIDE).read_text())
+    document = yaml.safe_load(recipe.compose or "")
+    assert set(override["services"]) == set(document["services"])
+    for service in override["services"].values():
+        assert service["labels"] == {"noust.test": "1"}
+    assert set(override["volumes"]) == set(document["volumes"])
+    for volume in override["volumes"].values():
+        assert volume["labels"] == {"noust.test": "1"}
+    assert override["networks"]["default"]["labels"] == {"noust.test": "1"}
+    base = smoke.Project(recipe, tmp_path)._base
+    assert str(tmp_path / smoke.LABEL_OVERRIDE) in base
+
+
+def test_a_run_uses_the_prefix_and_the_override_through_every_compose_command(
+    smoke: ModuleType, tmp_path: Path
+) -> None:
+    """The same -f chain reaches up, ps, logs and down: down must find what up made."""
+    project = smoke.Project(get_recipe("vaultwarden"), tmp_path, "noust-test-cat-")
+    files = [project._base[i + 1] for i, item in enumerate(project._base) if item == "-f"]
+
+    assert files == [
+        str(tmp_path / "docker-compose.yml"),
+        str(tmp_path / smoke.LABEL_OVERRIDE),
+    ]
+
+
+def test_a_port_somebody_listens_on_is_a_problem_before_anything_starts(
+    smoke: ModuleType, fake_docker: type[FakeProject], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only free loopback ports are used: a stack must never be started on another service's."""
+    import socket
+
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+    taken = listener.getsockname()[1]
+    try:
+        report = smoke.smoke(
+            get_recipe("vaultwarden"),
+            port=taken,
+            wait=1,
+            given={},
+            extra=[],
+            domain="vault.example.com",
+            ssl=True,
+            keep=False,
+        )
+    finally:
+        listener.close()
+
+    assert fake_docker.started == 0
+    assert report.problems == [f"127.0.0.1:{taken} is already in use; pick a free port"]
+
+
+def test_a_container_that_exited_with_an_error_is_a_problem_and_one_that_finished_is_not(
+    smoke: ModuleType, fake_docker: type[FakeProject], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A migration that failed leaves a stopped container the web service may not notice."""
+    monkeypatch.setattr(smoke, "ask", lambda url, *, follow, headers=None: (200, ""))
+    fake_docker.containers = [
+        {"name": "web-1", "state": "running", "restarts": 0, "oom_killed": False, "exit_code": 0},
+        {"name": "init-1", "state": "exited", "restarts": 0, "oom_killed": False, "exit_code": 0},
+        {
+            "name": "migrate-1",
+            "state": "exited",
+            "restarts": 0,
+            "oom_killed": False,
+            "exit_code": 1,
+        },
+    ]
+
+    report = run_smoke(smoke)
+
+    assert report.problems == ["migrate-1 exited with status 1"]
+
+
+def test_the_prefix_reaches_the_project_the_smoke_run_makes(
+    smoke: ModuleType, fake_docker: type[FakeProject], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """smoke() passes it on, so that down removes the project it started."""
+    names: list[str] = []
+    real = smoke.Project
+    monkeypatch.setattr(
+        smoke,
+        "Project",
+        lambda recipe, directory, prefix="noust-smoke-": (
+            names.append(prefix) or real(recipe, directory, prefix)
+        ),
+    )
+    monkeypatch.setattr(smoke, "ask", lambda url, *, follow, headers=None: (200, ""))
+    monkeypatch.setattr(real, "run", FakeProject.run)
+    monkeypatch.setattr(real, "inspect", FakeProject.inspect)
+
+    run_smoke(smoke, prefix="noust-test-cat-")
+
+    assert names == ["noust-test-cat-"]
+
+
+def test_a_stop_signal_runs_the_cleanup_instead_of_leaving_the_stack_behind(
+    smoke: ModuleType,
+) -> None:
+    """`timeout` sends SIGTERM: without a handler the project and its volumes stay on the machine."""
+    import signal
+
+    previous = signal.getsignal(signal.SIGTERM)
+    try:
+        smoke.stop_on_sigterm()
+        handler = signal.getsignal(signal.SIGTERM)
+        assert callable(handler)
+        with pytest.raises(SystemExit) as stopped:
+            handler(signal.SIGTERM, None)
+        assert stopped.value.code == 143
+    finally:
+        signal.signal(signal.SIGTERM, previous)
+
+
+def test_a_port_the_previous_recipe_only_left_in_time_wait_is_free(smoke: ModuleType) -> None:
+    """The finding of the first real batch: every recipe after the first was refused its port.
+
+    The previous stack's health check had closed its connections from the server side, which
+    leaves the port in TIME_WAIT; a bind without SO_REUSEADDR refuses that, a listener is what
+    must be refused.
+    """
+    import socket
+
+    listener = socket.socket()
+    listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+    port = listener.getsockname()[1]
+    assert smoke.port_is_free(port) is False
+
+    client = socket.create_connection(("127.0.0.1", port))
+    served, _ = listener.accept()
+    served.close()  # the server closes first: its side of the connection waits
+    client.close()
+    listener.close()
+
+    assert smoke.port_is_free(port) is True

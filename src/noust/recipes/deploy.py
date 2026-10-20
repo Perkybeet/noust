@@ -33,7 +33,7 @@ from urllib.parse import unquote, urlsplit
 
 from noust.central import require_server_role
 from noust.core.config import Config
-from noust.core.exceptions import DeploymentError, NoustError
+from noust.core.exceptions import DeploymentError, DomainError, NoustError
 from noust.core.fs import get_fs
 from noust.core.logger import Logger
 from noust.core.store import NoustStore, get_store
@@ -48,6 +48,7 @@ from noust.recipes.model import (
     ENGINE_OF,
     KEYED_REQUIREMENTS,
     SQL_REQUIREMENTS,
+    Entrypoint,
     RecipeBuild,
 )
 from noust.recipes.render import render_value
@@ -62,6 +63,7 @@ from noust.recipes.variables import (
 from noust.recipes.versions import require_compatible
 from noust.validators.domain import validate_domain
 from noust.validators.environment import validate_environment
+from noust.validators.port import find_available_port
 
 #: Directory, beside the store, that holds the sources rendered from a
 #: recipe: the files of a template source and a Compose recipe's document. A
@@ -74,6 +76,26 @@ COMPOSE_FILE = "docker-compose.yml"
 
 #: A health check as ``BaseDeployer.configure`` takes it: path, expect, timeout.
 HealthTriple = tuple[str | None, str | None, int | None]
+
+
+@dataclass(frozen=True)
+class PlannedEntrypoint:
+    """
+    An extra public address of the application, resolved for one install.
+
+    Attributes:
+        name: The recipe's name for it (``viewer``).
+        title: The words the operator reads.
+        domain: The address, normalised.
+        port: The loopback port its service publishes on.
+        domain_variable: The variable the operator gave the address in.
+    """
+
+    name: str
+    title: str
+    domain: str
+    port: int
+    domain_variable: str
 
 
 @dataclass(frozen=True)
@@ -98,6 +120,8 @@ class RecipePlan:
         secret_names: The variables whose value is a secret.
         build: The recipe's install, build and start commands.
         notes: What to tell the operator once it is deployed.
+        entrypoints: The extra public addresses, each proxied to a port of its own once the
+            application exists (:func:`finish_recipe`).
     """
 
     recipe: Recipe
@@ -115,6 +139,7 @@ class RecipePlan:
     secret_names: frozenset[str] = frozenset()
     build: RecipeBuild | None = None
     notes: tuple[str, ...] = ()
+    entrypoints: tuple[PlannedEntrypoint, ...] = ()
 
     def configure_arguments(self, *, health: HealthTriple | None = None) -> dict[str, Any]:
         """
@@ -351,6 +376,11 @@ def plan_recipe(
     # with every missing piece, not in the middle of the build.
     refuse_unmet(recipe, install=install_requirements, logger=logger)
 
+    # Still nothing exists: the extra addresses are judged and given their ports now.
+    entrypoints, overrides = _plan_entrypoints(
+        recipe, domain, port=port, overrides=overrides, store=store
+    )
+
     app_name = domain_to_app_name(domain)
     context = DeploymentContext(
         domain=domain,
@@ -390,7 +420,144 @@ def plan_recipe(
         secret_names=frozenset(resolved.secrets),
         build=recipe.build,
         notes=notes,
+        entrypoints=entrypoints,
     )
+
+
+#: How far above its default a service's loopback port is searched for.
+_ENTRYPOINT_PORT_SPAN = 1000
+
+
+def _plan_entrypoints(
+    recipe: Recipe,
+    domain: str,
+    *,
+    port: int | None,
+    overrides: dict[str, str],
+    store: NoustStore,
+) -> tuple[tuple[PlannedEntrypoint, ...], dict[str, str]]:
+    """
+    Judge the extra addresses a recipe asks for and choose the port of each service.
+
+    Done before anything is provisioned, written or generated: an address that is the
+    application's own, belongs to another application or is not a domain stops the install here,
+    and so does a server with no free port. A port the operator gave is kept.
+
+    Args:
+        recipe: The recipe.
+        domain: The application's own address.
+        port: The port chosen for the application's web service.
+        overrides: What the operator gave.
+        store: The store.
+
+    Returns:
+        The entrypoints, and the overrides with each port variable set to the port chosen for it.
+
+    Raises:
+        RecipeError: An address is the application's own, another entrypoint's or another
+            application's, is not a domain, or no port is free.
+    """
+    if not recipe.entrypoints:
+        return (), overrides
+    given = dict(overrides)
+    planned: list[PlannedEntrypoint] = []
+    taken = {number for number in (port,) if number} | store.ports_owned_by_apps()
+    seen = {domain: "the application's own address"}
+    for entry in recipe.entrypoints:
+        name = _entrypoint_domain(entry, given.get(entry.domain_variable, ""))
+        if name in seen:
+            raise RecipeError(
+                f"{name} is {seen[name]}, so it cannot also be the {entry.name} address",
+                details=f"Give {entry.domain_variable} a name of its own.",
+            )
+        owner = store.domain_owner(name)
+        if owner is not None:
+            raise RecipeError(
+                f"{name} already belongs to {owner[0]}",
+                details=f"Give {entry.domain_variable} another name, or remove it from "
+                f"{owner[0]} first.",
+            )
+        seen[name] = f"the {entry.name} address"
+        number = _entrypoint_port(recipe, entry, given, taken)
+        taken.add(number)
+        given[entry.domain_variable] = name
+        given[entry.port_variable] = str(number)
+        planned.append(
+            PlannedEntrypoint(
+                name=entry.name,
+                title=entry.title,
+                domain=name,
+                port=number,
+                domain_variable=entry.domain_variable,
+            )
+        )
+    return tuple(planned), given
+
+
+def _entrypoint_domain(entry: Entrypoint, value: str) -> str:
+    """
+    Normalise the address an operator gave for an entrypoint.
+
+    Args:
+        entry: The entrypoint.
+        value: What was given.
+
+    Returns:
+        The domain.
+
+    Raises:
+        RecipeError: It is not a domain.
+    """
+    try:
+        return validate_domain(value)
+    except DomainError as exc:
+        raise RecipeError(
+            f"{entry.domain_variable} ({entry.title.lower()}) is not usable: {exc.message}",
+            details=f"Give a domain name such as {entry.name}.example.com.",
+        ) from exc
+
+
+def _entrypoint_port(
+    recipe: Recipe, entry: Entrypoint, given: dict[str, str], taken: set[int]
+) -> int:
+    """
+    Choose the loopback port of an entrypoint's service.
+
+    Args:
+        recipe: The recipe, whose port variable's default is the port tried first.
+        entry: The entrypoint.
+        given: What the operator gave; a number in it is kept.
+        taken: Ports the applications and the stack's other services hold.
+
+    Returns:
+        The port.
+
+    Raises:
+        RecipeError: The operator's value is not a port, or none is free.
+    """
+    chosen = given.get(entry.port_variable, "")
+    if chosen:
+        if not chosen.isdigit() or not 1024 <= int(chosen) <= 65535:
+            raise RecipeError(
+                f"{entry.port_variable} must be a port from 1024 to 65535, not {chosen!r}",
+                details="Leave it out and Noust picks a free one.",
+            )
+        return int(chosen)
+    declared = recipe.variable(entry.port_variable)
+    preferred = int(declared.default) if declared and declared.default else 3000
+    found = find_available_port(
+        start=preferred,
+        end=min(preferred + _ENTRYPOINT_PORT_SPAN, 65535),
+        preferred=preferred,
+        exclude=taken,
+    )
+    if found is None:
+        raise RecipeError(
+            f"No free port for the {entry.name} address",
+            details=f"Free a port from {preferred} up, or choose one with --var "
+            f"{entry.port_variable}=<port>.",
+        )
+    return found
 
 
 def _provision_requirements(
@@ -882,8 +1049,43 @@ def finish_recipe(
 
     record_install(plan.domain, plan.recipe, store=store)
     notes = list(plan.notes)
+    notes.extend(_add_entrypoints(plan, logger=logger))
     if default_backups:
         from noust.recipes.backups import apply_default_backups
 
         notes.extend(apply_default_backups(plan.domain, logger=logger, store=store).notes)
+    return notes
+
+
+def _add_entrypoints(plan: RecipePlan, *, logger: Logger) -> list[str]:
+    """
+    Make the application answer on each extra address its recipe asked for.
+
+    Each is an alias proxied to the loopback port of the service that serves it, added through
+    :func:`noust.deployers.domains.add_domain`, the one implementation of "the names an
+    application answers on": the site, the certificate and the DNS record follow. The application
+    is deployed and works on its own address, so an address that cannot be added (another site
+    answers on it, the web server refuses it) is a note with the command that repeats it, never
+    a failed install.
+
+    Args:
+        plan: What the recipe resolved to.
+        logger: Where progress is reported.
+
+    Returns:
+        A note for each address that could not be added.
+    """
+    from noust.deployers import domains
+
+    notes: list[str] = []
+    for entry in plan.entrypoints:
+        try:
+            domains.add_domain(plan.domain, entry.domain, "alias", port=entry.port, logger=logger)
+        except NoustError as exc:
+            logger.warning(f"{entry.domain} was not added: {exc.message}")
+            notes.append(
+                f"{entry.title} address {entry.domain} was not added: {exc.message}. "
+                f"Once that is fixed, run: noust domain add {plan.domain} {entry.domain} "
+                f"--port {entry.port}"
+            )
     return notes
