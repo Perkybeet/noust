@@ -70,8 +70,6 @@ export const domains: Catalog<typeof en> = {
     ownCertificatePendingBadge: "Certificado propio pendiente",
     giveOwnCertificate: "Darle un certificado propio",
     useSharedCertificate: "Usar el certificado de la aplicación",
-    ownCertificateQueuedToast: "Solicitando un certificado propio para {name}",
-    sharedCertificateQueuedToast: "Cubriendo {name} otra vez con el certificado de {domain}",
     certificateChangeFailedError: "No se pudo cambiar el certificado de {name}",
     orderingOwnCertificate: "Solicitando un certificado propio para {name}",
     coveringWithSharedCertificate: "Cubriendo {name} con el certificado de {domain}",

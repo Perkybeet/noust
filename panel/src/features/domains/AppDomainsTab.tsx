@@ -84,11 +84,9 @@ function Role({ entry, app }: { entry: AppDomain; app: string }) {
 function OwnCertificateBadge({ entry }: { entry: AppDomain }) {
   const t = useT();
   if (entry.certificate !== "own") return null;
-  return entry.certificate_pending ? (
-    <Badge tone="warn">{t("domains.appTab.ownCertificatePendingBadge")}</Badge>
-  ) : (
-    <Badge>{t("domains.appTab.ownCertificateBadge")}</Badge>
-  );
+  // An attribute of the name, in words; the state (served without HTTPS until it is issued) is the
+  // certificate column's.
+  return <Badge>{t(entry.certificate_pending ? "domains.appTab.ownCertificatePendingBadge" : "domains.appTab.ownCertificateBadge")}</Badge>;
 }
 
 function DnsDialog({ app, name, onClose }: { app: string; name: string | null; onClose: () => void }) {
@@ -232,7 +230,6 @@ export function AppDomainsTab({ domain }: { domain: string }) {
       setLastAdded(entry.domain);
       setLastChange(certificate);
       if (change.certificate_job_id) followed.follow(change.certificate_job_id);
-      toast.success(t(certificate === "own" ? "domains.appTab.ownCertificateQueuedToast" : "domains.appTab.sharedCertificateQueuedToast", { name: entry.domain, domain }));
     },
     onError: (error, { entry }) => {
       reportActionError(t("domains.appTab.certificateChangeFailedError", { name: entry.domain }), error);

@@ -72,8 +72,6 @@ export const domains = {
     ownCertificatePendingBadge: "Own certificate pending",
     giveOwnCertificate: "Give it its own certificate",
     useSharedCertificate: "Use the app's certificate",
-    ownCertificateQueuedToast: "Ordering a certificate of its own for {name}",
-    sharedCertificateQueuedToast: "Covering {name} with the certificate of {domain} again",
     certificateChangeFailedError: "Could not change the certificate of {name}",
     orderingOwnCertificate: "Ordering a certificate of its own for {name}",
     coveringWithSharedCertificate: "Covering {name} with the certificate of {domain}",
