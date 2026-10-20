@@ -30,7 +30,7 @@ export const ROUTE_NAMESPACES: Readonly<Record<string, readonly Namespace[]>> = 
   "/_console/apps/$domain/settings/compose": ["appPages", "appSettings", "apps", "composeSettings", "queue", "registries"],
   "/_console/apps/$domain/settings/container": ["appPages", "appSettings", "apps", "containers", "newApp", "queue", "registries"],
   "/_console/apps/$domain/settings/delete": ["appPages", "appSettings", "apps", "queue", "runtime"],
-  "/_console/apps/$domain/settings/deploy-on-push": ["appPages", "appSettings", "apps", "gitPush", "queue", "sourceOptions"],
+  "/_console/apps/$domain/settings/deploy-on-push": ["appPages", "appSettings", "apps", "common", "gitPush", "queue", "sourceOptions"],
   "/_console/apps/$domain/settings/deploys": ["appPages", "appSettings", "apps", "common", "promotion", "queue", "rollout", "runtime", "teams", "variables"],
   "/_console/apps/$domain/settings/disk": ["appPages", "appSettings", "apps", "queue", "runtime"],
   "/_console/apps/$domain/settings/export": ["appPages", "appSettings", "apps", "declaration", "queue", "runtime"],
