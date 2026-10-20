@@ -1,0 +1,54 @@
+# Wallos from the image the project publishes (bellamy/wallos on Docker Hub), run as its README
+# describes (github.com/ellite/Wallos, "Docker"): the SQLite database under
+# /var/www/html/db, the uploaded logos under /var/www/html/images/uploads/logos, TZ, and the
+# image listening on 80. The first account is made on the registration page that opens on the
+# first visit (it then closes by itself), which the first note says to do at once.
+#
+# Pinned to the release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: wallos
+kind: compose
+title: Wallos
+slogan: "Track your subscriptions and see what they cost you each month."
+description: "A personal finance tool for recurring payments: list your subscriptions with their prices, currencies and renewal dates, get reminders before they renew and see your spending by category. The first person to open it creates the account."
+category: productivity
+tags: [finance, subscriptions, budget, expenses]
+logo: logo.svg
+version: "5.10.0"
+revision: 1
+updated: 2026-10-20
+homepage: https://wallosapp.com
+docs: https://github.com/ellite/Wallos
+repository: https://github.com/ellite/Wallos
+license: GPL-3.0-only
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8280
+variables:
+  TZ:
+    default: UTC
+    description: The time zone renewal dates are judged in, such as Europe/Madrid.
+health:
+  path: /
+  expect: "200-399"
+  timeout: 90
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    wallos:
+      image: bellamy/wallos:5.10.0@sha256:6d67b6e21dbb978dff113d01860311221adccc53151c033120f113e11a63d1e7
+      restart: unless-stopped
+      environment:
+        TZ: "${TZ}"
+      volumes:
+        - wallos-db:/var/www/html/db
+        - wallos-logos:/var/www/html/images/uploads/logos
+      ports:
+        - "127.0.0.1:${PORT}:80"
+  volumes:
+    wallos-db:
+    wallos-logos:
+notes:
+  - "Open {{ url }} now and register: the first account is yours, and the registration page closes by itself once it exists."
+  - "Its database is in the Docker volume wallos-db and the logos in wallos-logos: back both up before updating."

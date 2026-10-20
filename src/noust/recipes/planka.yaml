@@ -1,0 +1,100 @@
+# PLANKA from the image the project publishes (ghcr.io/plankanban/planka) with the PostgreSQL its
+# own compose file uses (docker-compose.yml of the repository, read 2026-10-20): BASE_URL,
+# DATABASE_URL, SECRET_KEY (the file warns that its example key lets anybody mint tokens), the
+# uploads under /app/data, and DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_NAME and
+# DEFAULT_ADMIN_USERNAME for the first account, so there is no first visitor to win it. The image
+# listens on 1337 and serves its interface at /.
+#
+# Licence: the PLANKA Community License ("Fair Use", LICENSE.md and LICENSES/ in the repository,
+# read 2026-10-20) lets you use it for yourself, your organisation, friends and family or a
+# non-profit; it forbids running it as a hosted service for others for gain and sharing accounts
+# with third parties for business. The description says so.
+#
+# Derived in part from the project's compose file. Pinned to the release tag and to the digest
+# ghcr.io serves for it.
+schema: 2
+name: planka
+kind: compose
+title: PLANKA
+slogan: "A kanban board for your team with boards, cards, tasks and notifications."
+description: "A real-time project board in the style of Trello: projects, boards, lists and cards with tasks, labels, due dates and attachments. Source-available under the PLANKA Community License: free for your own organisation, not as a hosted service for others for gain."
+category: productivity
+tags: [kanban, project-management, boards, tasks]
+logo: logo.svg
+version: "2.2.1"
+revision: 1
+updated: 2026-10-20
+homepage: https://planka.app
+docs: https://docs.planka.cloud
+repository: https://github.com/plankanban/planka
+license: LicenseRef-PLANKA-Community-1.1
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 1337
+variables:
+  PLANKA_URL:
+    from: url
+    description: The address people use; PLANKA builds its links from it.
+  PLANKA_SECRET_KEY:
+    generate: hex64
+    description: Signs the session tokens. Changing it signs everybody out.
+  PLANKA_ADMIN_EMAIL:
+    required: true
+    description: The e-mail address of the first administrator, which you sign in with.
+  PLANKA_ADMIN_USERNAME:
+    default: admin
+    description: The user name of the first administrator.
+  PLANKA_ADMIN_PASSWORD:
+    generate: password32
+    description: The password of the first administrator.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /
+  expect: "200"
+  timeout: 180
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    planka:
+      image: ghcr.io/plankanban/planka:2.2.1@sha256:125f45330853210c678fed1132bedc0912b4a11a27779b79802fbca108e069e2
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        BASE_URL: "${PLANKA_URL}"
+        DATABASE_URL: "postgresql://planka:${DB_PASSWORD}@db/planka"
+        SECRET_KEY: "${PLANKA_SECRET_KEY}"
+        DEFAULT_ADMIN_EMAIL: "${PLANKA_ADMIN_EMAIL}"
+        DEFAULT_ADMIN_PASSWORD: "${PLANKA_ADMIN_PASSWORD}"
+        DEFAULT_ADMIN_NAME: Administrator
+        DEFAULT_ADMIN_USERNAME: "${PLANKA_ADMIN_USERNAME}"
+      volumes:
+        - planka-data:/app/data
+      ports:
+        - "127.0.0.1:${PORT}:1337"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: planka
+        POSTGRES_DB: planka
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U planka -d planka"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - planka-db:/var/lib/postgresql/data
+  volumes:
+    planka-data:
+    planka-db:
+notes:
+  - "Sign in at {{ url }} with {{ vars.PLANKA_ADMIN_EMAIL }} (or the user name {{ vars.PLANKA_ADMIN_USERNAME }}); the password is PLANKA_ADMIN_PASSWORD (noust env show {{ domain }} --unmask). That account is managed by the environment and cannot be edited or deleted in PLANKA."
+  - "PLANKA is licensed under its own Community License: you may run it for yourself, your organisation, friends and family or a non-profit, and may not offer it as a hosted service for others for gain."
+  - "Attachments and avatars are in the Docker volume planka-data and the database in planka-db (PostgreSQL, dumped by Noust before every update). Back both up before updating: the files are not in the database dump."

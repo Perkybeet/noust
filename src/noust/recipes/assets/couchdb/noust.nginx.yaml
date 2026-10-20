@@ -1,0 +1,6 @@
+# How nginx proxies this application. Replication posts large batches of documents.
+max_body_size: 4g
+routes:
+  - path: /
+    read_timeout: 600
+    buffering: false

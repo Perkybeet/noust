@@ -1,0 +1,76 @@
+# Mealie from the image the project publishes (ghcr.io/mealie-recipes/mealie) with its default
+# SQLite database, which the project documents as the installation for a household
+# (docs.mealie.io "Installation"). Configuration is its backend settings: BASE_URL (links in
+# e-mails), ALLOW_SIGNUP (off, so only the account made here and the ones the administrator
+# invites exist), DEFAULT_EMAIL and DEFAULT_PASSWORD (the first administrator, which replaces the
+# changeme@example.com / MyPassword pair the project documents), and the worker count, which
+# MAX_WORKERS and WEB_CONCURRENCY hold at one so a small server is not eaten by processes. The
+# data is under /app/data and the image listens on 9000. /api/app/about answers without a login.
+#
+# Derived in part from Coolify's template "mealie" (Apache-2.0,
+# https://github.com/coollabsio/coolify/blob/next/templates/compose/mealie.yaml): the worker
+# settings and the volume. Pinned to the release tag and to the digest ghcr.io serves for it.
+schema: 2
+name: mealie
+kind: compose
+title: Mealie
+slogan: "A recipe manager and meal planner your whole household can use."
+description: "Keep your recipes in one place: import them from any web page, plan the week's meals, make a shopping list and share it with the people at home. Sign-up is closed; the administrator is the one you name."
+category: productivity
+tags: [recipes, meal-planning, cooking, shopping-list]
+logo: logo.svg
+version: "3.29.0"
+revision: 1
+updated: 2026-10-20
+homepage: https://mealie.io
+docs: https://docs.mealie.io
+repository: https://github.com/mealie-recipes/mealie
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 9000
+variables:
+  MEALIE_URL:
+    from: url
+    description: The address people use; Mealie builds the links in its e-mails from it.
+  MEALIE_ADMIN_EMAIL:
+    required: true
+    description: The e-mail address of the first administrator, which you sign in with.
+  MEALIE_ADMIN_PASSWORD:
+    generate: password32
+    description: The password of the first administrator.
+  MEALIE_ALLOW_SIGNUP:
+    default: "false"
+    description: Whether anybody who reaches the page can create an account. Leave it false and invite people from the administration page.
+  TZ:
+    default: UTC
+    description: The time zone meals are planned in, such as Europe/Madrid.
+health:
+  path: /api/app/about
+  expect: "200"
+  timeout: 120
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    mealie:
+      image: ghcr.io/mealie-recipes/mealie:v3.29.0@sha256:78eb28b8776d0bad40c5e605c72b3f4f5976793e491558c7dcbdfc04c835d4bc
+      restart: unless-stopped
+      environment:
+        BASE_URL: "${MEALIE_URL}"
+        ALLOW_SIGNUP: "${MEALIE_ALLOW_SIGNUP}"
+        DEFAULT_EMAIL: "${MEALIE_ADMIN_EMAIL}"
+        DEFAULT_PASSWORD: "${MEALIE_ADMIN_PASSWORD}"
+        TZ: "${TZ}"
+        MAX_WORKERS: "1"
+        WEB_CONCURRENCY: "1"
+      volumes:
+        - mealie-data:/app/data
+      ports:
+        - "127.0.0.1:${PORT}:9000"
+  volumes:
+    mealie-data:
+notes:
+  - "Sign in at {{ url }} as {{ vars.MEALIE_ADMIN_EMAIL }}; the password is MEALIE_ADMIN_PASSWORD (noust env show {{ domain }} --unmask). The account is made on the first start: change the password in Mealie afterwards."
+  - "Sign-up is closed. Invite the people at home from the administration page, or set MEALIE_ALLOW_SIGNUP to true for a while."
+  - "Your recipes, images and the SQLite database are in the Docker volume mealie-data of this application: back it up before updating."

@@ -1,0 +1,5 @@
+# How nginx proxies this application. Icons and backups are uploaded, and boards update over a WebSocket.
+max_body_size: 50m
+routes:
+  - path: /
+    read_timeout: 600

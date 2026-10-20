@@ -1,0 +1,2 @@
+# How nginx proxies this application. Photos and receipts are uploaded.
+max_body_size: 60m

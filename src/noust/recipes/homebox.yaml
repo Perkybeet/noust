@@ -1,0 +1,62 @@
+# Homebox from the image the project publishes (ghcr.io/sysadminsmedia/homebox, the community
+# continuation of the original Homebox), configured as its documentation describes
+# (homebox.software "Configure"): HBOX_OPTIONS_ALLOW_REGISTRATION (whether the registration page
+# creates accounts; the first account is made through it, so it starts open and the first note
+# says to close it), HBOX_WEB_MAX_UPLOAD_SIZE in megabytes, HBOX_LOG_*, and the database and
+# attachments under /data (SQLite). The image listens on 7745 and /api/v1/status answers without a
+# sign-in.
+#
+# Derived in part from Coolify's template "homebox" (Apache-2.0,
+# https://github.com/coollabsio/coolify/blob/next/templates/compose/homebox.yaml). Pinned to the
+# release tag and to the digest ghcr.io serves for it.
+schema: 2
+name: homebox
+kind: compose
+title: Homebox
+slogan: "An inventory and organizing system for the things in your home."
+description: "Catalogue everything you own with locations, labels, photos, receipts, warranties and maintenance logs, and find it again. Built for a household. The first person to register creates the first account."
+category: productivity
+tags: [inventory, home, organizer, assets]
+logo: logo.svg
+version: "0.27.0"
+revision: 1
+updated: 2026-10-20
+homepage: https://homebox.software
+docs: https://homebox.software/en/
+repository: https://github.com/sysadminsmedia/homebox
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 7745
+variables:
+  HBOX_OPTIONS_ALLOW_REGISTRATION:
+    default: "true"
+    description: Whether the registration page creates accounts. Set it to false once yours exists.
+  HBOX_WEB_MAX_UPLOAD_SIZE:
+    default: "50"
+    description: The largest upload, in megabytes.
+health:
+  path: /api/v1/status
+  expect: "200"
+  timeout: 90
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    homebox:
+      image: ghcr.io/sysadminsmedia/homebox:0.27.0@sha256:d49f12caf25ce3fa7f44102bb74953f3dff2dfdad38d87bd9057f3f611e797bb
+      restart: unless-stopped
+      environment:
+        HBOX_OPTIONS_ALLOW_REGISTRATION: "${HBOX_OPTIONS_ALLOW_REGISTRATION}"
+        HBOX_WEB_MAX_UPLOAD_SIZE: "${HBOX_WEB_MAX_UPLOAD_SIZE}"
+        HBOX_LOG_LEVEL: info
+        HBOX_MODE: production
+      volumes:
+        - homebox-data:/data
+      ports:
+        - "127.0.0.1:${PORT}:7745"
+  volumes:
+    homebox-data:
+notes:
+  - "Open {{ url }} now and register: the first account is yours, and until you set HBOX_OPTIONS_ALLOW_REGISTRATION to false (the application's Environment tab) and restart, anybody who reaches the page can register."
+  - "Its database and your photos and receipts are in the Docker volume homebox-data of this application: back it up before updating."

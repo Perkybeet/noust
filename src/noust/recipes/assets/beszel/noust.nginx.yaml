@@ -1,0 +1,5 @@
+# How nginx proxies this application. The hub streams updates to the browser over a connection that stays open.
+max_body_size: 10m
+routes:
+  - path: /
+    read_timeout: 3600
