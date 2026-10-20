@@ -919,6 +919,8 @@ def create_site(
         message = f"Site created with SSL: {domain}."
     else:
         message = f"Site created: {domain}. Reload {webserver} to serve it."
+    if outcome.load_error:
+        message = f"Site created: {domain}, but {webserver} did not load it: {outcome.load_error}"
 
     return SiteActionResponse(success=True, message=message, site=domain)
 

@@ -16,6 +16,7 @@ import { describe, expect, it } from "vitest";
 import eslintConfig from "../../eslint.config.js?raw";
 import baseline from "./design-baseline.json";
 import { ARBITRARY_DIMENSION, COLOUR_FUNCTION, DESIGN_RULES, EXCEPTION, countRules, lintViolations } from "./designRules";
+import { STRUCTURE_RULES } from "./designStructure";
 
 type Counts = Record<string, Record<string, number>>;
 
@@ -153,7 +154,8 @@ if (MODE !== undefined && MODE !== "") {
     });
 
     it("excuses a line only with a known rule and a reason", () => {
-      const ids = new Set(DESIGN_RULES.map((rule) => rule.id));
+      // The structural rules (designStructure.ts) are excused with the same comment.
+      const ids = new Set([...DESIGN_RULES.map((rule) => rule.id), ...STRUCTURE_RULES.map((rule) => rule.id)]);
       const bad: string[] = [];
       for (const [path, source] of SOURCES) {
         source.split("\n").forEach((line, index) => {

@@ -88,6 +88,7 @@ from noust.deployers.helpers.hooks import (
 from noust.deployers.helpers.registration import StoreRegistrar
 from noust.deployers.helpers.site import (
     WriteOutcome,
+    load_app_site,
     refresh_app_site,
     remove_app_site,
     write_template_site,
@@ -1977,6 +1978,38 @@ class DockerComposeDeployer(AppDeployer):
                 result.stderr,
             )
         self.logger.substep("Images built successfully")
+        self._pull_images()
+
+    def _pull_images(self) -> None:
+        """
+        Download the images the stack names instead of building, before anything starts.
+
+        The unit's ``docker compose up -d`` would download them otherwise, inside
+        ``systemctl start``, whose wait is two minutes: a stack with a large image failed its first
+        install with "Command timed out after 120s" and was rolled back, and an update recreated
+        nothing until the download ended. A download has the build's deadline and is streamed.
+
+        A pull that fails is a warning, not an error: a Compose too old to know
+        ``--ignore-buildable``, or a registry that is down, is something ``up`` decides for itself
+        and reports in its own words, and the images may already be here.
+        """
+        # Like the build, a download can be stopped by the operator: the client is killed and the
+        # daemon stops with it, and what serves is untouched.
+        with cancellation.interruptible("downloading the images"):
+            result = self._run(
+                self._compose("pull", "--ignore-buildable", *self.compose_services),
+                timeout=BUILD_TIMEOUT,
+                stream=True,
+            )
+        if not result.success:
+            reason = (result.stderr or result.stdout).strip().splitlines()
+            self.logger.warning(
+                "Could not download the images ahead of the start"
+                + (f": {reason[-1]}" if reason else "")
+                + ". Compose will try again when the stack starts."
+            )
+            return
+        self.logger.substep("Images downloaded")
 
     def _get_primary_port(self) -> int:
         """
@@ -2151,7 +2184,7 @@ class DockerComposeDeployer(AppDeployer):
                 "    - path: /\n      port: " + str(self._get_primary_port())
             )
         self._write_site(with_ssl=False)
-        self.webserver_manager().reload()
+        load_app_site(self.webserver_manager(), self.domain, self.logger)
         self.logger.substep(f"Nginx configured (port {self._get_primary_port()})")
 
     def has_certificate(self) -> bool:

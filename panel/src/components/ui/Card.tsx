@@ -4,6 +4,12 @@ import { cx } from "../../lib/cx";
 
 export interface CardProps {
   title?: ReactNode;
+  /**
+   * The state of the feature this card configures, a `StatusPill size="sm"`, right after the
+   * title: "Instant rollback (*) On". It is not an action, so it never goes in `actions`; a
+   * tinted block is never what says that something is on or off.
+   */
+  status?: ReactNode;
   description?: ReactNode;
   /** Controls aligned with the title: a button, a menu, a link. */
   actions?: ReactNode;
@@ -43,6 +49,7 @@ const PADDING = {
  */
 export function Card({
   title,
+  status,
   description,
   actions,
   footer,
@@ -55,7 +62,7 @@ export function Card({
   className,
 }: CardProps) {
   const Heading = `h${level}` as const;
-  const hasHeader = title !== undefined || actions !== undefined;
+  const hasHeader = title !== undefined || status !== undefined || actions !== undefined;
   const space = PADDING[padding];
   return (
     <Element
@@ -69,7 +76,14 @@ export function Card({
       {hasHeader ? (
         <header className={cx("flex items-start justify-between gap-4", space.header)}>
           <div className="min-w-0">
-            {title !== undefined ? <Heading className="title text-14 text-fg">{title}</Heading> : null}
+            {status !== undefined ? (
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                {title !== undefined ? <Heading className="title text-14 text-fg">{title}</Heading> : null}
+                {status}
+              </div>
+            ) : title !== undefined ? (
+              <Heading className="title text-14 text-fg">{title}</Heading>
+            ) : null}
             {description !== undefined ? <p className="mt-0.5 text-13 text-pretty text-fg-muted">{description}</p> : null}
           </div>
           {actions !== undefined ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}

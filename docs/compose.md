@@ -550,7 +550,11 @@ Where the code is > **A running stack**.
 
 - `DOMAIN` is not deployed yet, and no unit called `<app>.service` exists.
 - `--path` is a git checkout with an `origin` (or `--source` names where to fetch from): an
-  update brings an adopted stack up to date by resetting the checkout to the branch.
+  update brings an adopted stack up to date by resetting the checkout to the branch. A directory
+  that is **not** a checkout, which is what Coolify and Portainer leave, is adopted too, with no
+  source and a warning saying so: an update then pulls the images the compose file names and
+  recreates the containers, and fetches no code. Naming `--source` for such a directory is
+  refused, because Noust does not turn a directory it did not make into a checkout.
 - Docker Compose 2.20 or later, for `up --dry-run`.
 
 ### What it does
@@ -582,7 +586,7 @@ resets them to the branch, while files git does not track (`.env`, bind-mounted 
 
 `noust update` on an adopted stack fetches and resets the checkout to the branch (never
 `git clean`), builds, runs the hooks, recreates the containers and judges the result, like any
-Compose update. The pre-update backup and everything else use the application's recorded path,
+Compose update. One with no repository skips the fetch and pulls the images instead. The pre-update backup and everything else use the application's recorded path,
 not a directory under `/var/www/apps`.
 
 ### Proggest

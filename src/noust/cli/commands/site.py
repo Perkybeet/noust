@@ -148,6 +148,12 @@ def _site_create(
     if outcome.site_existed:
         logger.info("Site config already existed, updated it")
 
+    if outcome.load_error:
+        # The file is written, so the site exists; what it says is that nothing serves it yet,
+        # in the web server's own words and not a paraphrase of them.
+        logger.warning(f"{webserver} did not load the site: nothing serves {domain} until it does")
+        logger.info(outcome.load_error)
+
     if outcome.ssl_enabled:
         if outcome.certificate_reused:
             logger.info("Valid SSL certificate found covering all domains")

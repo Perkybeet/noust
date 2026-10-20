@@ -5,6 +5,7 @@ import type { ReactElement, ReactNode } from "react";
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { BACKDROP } from "./Dialog";
+import { ResetPrimary } from "./demotePrimary";
 import { IconButton } from "./IconButton";
 
 export interface DrawerProps {
@@ -61,23 +62,25 @@ export function Drawer({
               size === "md" ? "sm:max-w-drawer-md" : "sm:max-w-drawer-lg",
             )}
           >
-            <header className="flex items-start gap-4 border-b border-border px-5 py-4">
-              <div className="min-w-0 flex-1">
-                <BaseDrawer.Title className="title text-16 text-fg">{title}</BaseDrawer.Title>
-                {description !== undefined ? (
-                  <BaseDrawer.Description className="mt-1 text-13 text-fg-muted">{description}</BaseDrawer.Description>
-                ) : null}
-              </div>
-              <BaseDrawer.Close
-                render={<IconButton label={t("common.dialog.close")} icon={<X />} size="sm" tooltip={false} className="-mr-2" />}
-              />
-            </header>
-            <BaseDrawer.Content className="min-h-0 flex-1 overflow-y-auto px-5 py-4 scroll-thin scroll-stable">{children}</BaseDrawer.Content>
-            {footer !== undefined ? (
-              <footer className="flex items-center justify-end gap-2 border-t border-border bg-bg-sunken px-5 py-3">
-                {footer}
-              </footer>
-            ) : null}
+            <ResetPrimary>
+              <header className="flex items-start gap-4 border-b border-border px-5 py-4">
+                <div className="min-w-0 flex-1">
+                  <BaseDrawer.Title className="title text-16 text-fg">{title}</BaseDrawer.Title>
+                  {description !== undefined ? (
+                    <BaseDrawer.Description className="mt-1 text-13 text-fg-muted">{description}</BaseDrawer.Description>
+                  ) : null}
+                </div>
+                <BaseDrawer.Close
+                  render={<IconButton label={t("common.dialog.close")} icon={<X />} size="sm" tooltip={false} className="-mr-2" />}
+                />
+              </header>
+              <BaseDrawer.Content className="min-h-0 flex-1 overflow-y-auto px-5 py-4 scroll-thin scroll-stable">{children}</BaseDrawer.Content>
+              {footer !== undefined ? (
+                <footer className="flex items-center justify-end gap-2 border-t border-border bg-bg-sunken px-5 py-3">
+                  {footer}
+                </footer>
+              ) : null}
+            </ResetPrimary>
           </BaseDrawer.Popup>
         </BaseDrawer.Viewport>
       </BaseDrawer.Portal>

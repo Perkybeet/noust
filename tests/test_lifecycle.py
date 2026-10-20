@@ -287,6 +287,37 @@ def test_docker_compose_goes_through_its_deployer(
     assert outcome.is_static is True
 
 
+def test_a_stack_with_no_repository_is_updated_by_pulling_its_images(
+    store: NoustStore, recorder: Recorder, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A stack adopted from Coolify or Portainer has no checkout and no source: git pull would
+    # fail on it, and the update that matters is the one that downloads the images the compose
+    # file names and recreates the containers, which the deployer does.
+    app_path = tmp_path / "data" / "uuwy0zylbu2ihnctn9tr20ej"
+    app_path.mkdir(parents=True)
+    store.create_app(
+        App(
+            domain=DOMAIN,
+            app_type="docker-compose",
+            source="",
+            port=3000,
+            app_path=str(app_path),
+            layout="inplace",
+        )
+    )
+    monkeypatch.setattr(
+        lifecycle,
+        "stack_deployer",
+        lambda app, verbose=False: FakeDeployer(recorder, is_static=True),
+    )
+
+    lifecycle.update_app(DOMAIN)
+
+    kinds = [call[0] for call in recorder.calls]
+    assert "pull" not in kinds and "fetch" not in kinds
+    assert "update" in kinds
+
+
 def test_an_unknown_application_is_a_clear_error(
     store: NoustStore, recorder: Recorder, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

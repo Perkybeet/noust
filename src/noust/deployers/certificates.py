@@ -283,6 +283,46 @@ def _use_acme(
     return CertificateChange(describe(app.domain, verbose=verbose), ordered)
 
 
+def serve_ordered(app_domain: str, *, verbose: bool = False) -> bool:
+    """
+    Write an application's site with the certificate that was just ordered for its name.
+
+    ``noust cert create`` and the console's "Issue certificate" order a certificate and record
+    that the site serves TLS. certbot's nginx plugin edits the site while it proves an HTTP
+    order; a DNS order has no installer, so the site stayed on port 80 while Noust said it served
+    TLS, and the advice after a deploy whose certificate failed (noust cert create) did not
+    deliver. This renders the site the way a deploy would.
+
+    Args:
+        app_domain: The name the certificate was ordered for.
+        verbose: Verbosity of the managers.
+
+    Returns:
+        True when the site was rendered with TLS; False when the name is not an application's
+        primary domain, its type orders its certificate itself, or it records no TLS or has no
+        certificate on disk (an order for a name Noust does not host).
+
+    Raises:
+        ValidationError: The web server refused the new site (the old file is back).
+        AppBusyError: Another operation is running on the application.
+    """
+    require_server_role("Certificates")
+    app = get_store().get_app(validate_domain(app_domain))
+    if app is None or app.app_type in UNSUPPORTED_TYPES:
+        return False
+    with app_lock(app.domain, "certificate change"):
+        try:
+            deployer = domains.site_deployer(app, verbose=verbose)
+        except ValidationError:
+            # A type with no site of Noust's to render (it has no aliases either): the
+            # certificate is the operator's to wire, as it was before this step existed.
+            return False
+        if not domains.serves_tls(app, deployer):
+            return False
+        deployer.refresh_site(with_ssl=True)
+    return True
+
+
 def use_uploaded(app_domain: str, name: str, *, verbose: bool = False) -> CertificateChange:
     """
     Serve an application with a certificate that was uploaded.

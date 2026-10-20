@@ -161,7 +161,11 @@ scripts/reproducible_build.py   the wheel and the sdist of a commit, byte for by
 tests/integration/run.py    real deploys in a systemd container (Docker); not part of pytest. The 3.4
                             features' scenarios are in scenarios_34.py (loaded by run.py), and
                             `--upgrade-from-3.3` (scenarios_upgrade.py) upgrades a 3.3.1 server that
-                            carries every legacy name. Everything it creates on the machine's Docker
+                            carries every legacy name; `--downgrade-to-3.3` goes back over a store the
+                            new version migrated. scenarios_real.py holds the ones that run the real
+                            software: the Compose recipes (`--scenario recipe_compose`) and a server a
+                            real Coolify runs, taken over (`--scenario coolify_takeover`), both opt-in
+                            because they pull gigabytes. Everything it creates on the machine's Docker
                             carries the label `noust.test=1`; the rest runs in the harness container's
                             own Docker (NOUST_IT_IMAGE, NOUST_IT_DOCKER_VOLUME and NOUST_IT_PREFIX name the
                             image, the volume and the containers when the Docker is shared)
@@ -174,7 +178,17 @@ tests/integration/identity.py         SAML, OpenID Connect, LDAP and SCIM agains
 tests/integration/network_run.py      fail2ban, HTTP/3, forward-auth, prefix routes, a site's history,
                             Coolify templates and the private certificate authority against the real
                             programs and real clients (Debian server, Alpine client, AlmaLinux device);
+                            nginx with ModSecurity and the Core Rule Set blocking real attacks; certbot
+                            against Pebble (HTTP-01, DNS-01 through Noust's hooks and through the RFC 2136
+                            plugin on a real BIND, and a wildcard); the time from `apt install` to a first
+                            deploy over HTTPS, measured and kept in tests/integration/results/first-deploy.json;
                             not part of pytest
+tests/integration/fleet_run.py        a central and a node over real SSH: enrollment, the restricted key,
+                            a server reached through a bastion and one that dials in (`fleet link`);
+                            not part of pytest
+tests/integration/toolchains_run.py   the JVM, .NET, Elixir, Deno, Go, Rust, Rails and the Node frameworks
+                            (Nuxt, SvelteKit, Astro, Remix, Angular) built and served, and the runtimes
+                            downloaded and installed (Node, Python with uv, PHP with apt); not part of pytest
 tests/integration/forge_run.py        a real Gitea and a real Forgejo: a deployment's commit status, a
                             preview's pull request comment and the signed webhooks the receiver reads
                             (docs/sources.md); one loopback port, `noust-test-w6x-*`, not part of pytest

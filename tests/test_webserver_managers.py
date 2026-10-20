@@ -1387,6 +1387,63 @@ def test_an_applications_own_site_can_still_be_written(
     assert nginx.site_exists("example.com")
 
 
+def test_a_site_written_beside_a_stopped_web_server_starts_it(
+    nginx: NginxManager, store: FakeStore, runner: FakeRunner
+) -> None:
+    # A reload refuses a unit that is not running, and the result was dropped: after another
+    # panel's proxy was taken down, `site create` said "Site created" and nothing answered on
+    # the freed port. Found taking over a real Coolify server.
+    runner.script(
+        ["systemctl", "reload", "nginx"],
+        stderr="Failed to reload nginx.service: Unit nginx.service is not active",
+        exit_code=1,
+    )
+    runner.script(["systemctl", "is-active", "nginx"], stdout="inactive\n", exit_code=3)
+
+    outcome = create_secured_site("example.com", manager=nginx, webserver="nginx", ssl=False)
+
+    assert ("systemctl", "restart", "nginx") in runner.calls
+    assert outcome.load_error is None
+
+
+def test_a_web_server_that_cannot_start_is_reported_in_its_own_words(
+    nginx: NginxManager, store: FakeStore, runner: FakeRunner
+) -> None:
+    # The port a proxy of another panel still holds: the unit's status says only "failed", the
+    # reason is in its journal, and that is what the operator needs, unparaphrased.
+    bind = "nginx: [emerg] bind() to 0.0.0.0:80 failed (98: Address already in use)"
+    runner.script(["systemctl", "reload", "nginx"], exit_code=1)
+    runner.script(["systemctl", "is-active", "nginx"], stdout="inactive\n", exit_code=3)
+    runner.script(["systemctl", "restart", "nginx"], exit_code=1)
+    runner.script(["journalctl", "-u", "nginx"], stdout=f"{bind}\n")
+
+    outcome = create_secured_site("example.com", manager=nginx, webserver="nginx", ssl=False)
+
+    assert nginx.site_exists("example.com")
+    assert outcome.load_error is not None and bind in outcome.load_error
+
+
+def test_a_site_the_running_web_server_reloads_is_not_restarted(
+    nginx: NginxManager, store: FakeStore, runner: FakeRunner
+) -> None:
+    outcome = create_secured_site("example.com", manager=nginx, webserver="nginx", ssl=False)
+
+    assert ("systemctl", "restart", "nginx") not in runner.calls
+    assert outcome.load_error is None
+
+
+def test_a_configuration_nginx_refuses_is_reported_and_nothing_is_restarted(
+    nginx: NginxManager, store: FakeStore, runner: FakeRunner
+) -> None:
+    refused = 'nginx: [emerg] unknown directive "bogus" in /etc/nginx/nginx.conf:12'
+    runner.script(["nginx", "-t"], stderr=refused, exit_code=1)
+
+    outcome = create_secured_site("example.com", manager=nginx, webserver="nginx", ssl=False)
+
+    assert ("systemctl", "restart", "nginx") not in runner.calls
+    assert outcome.load_error is not None and refused in outcome.load_error
+
+
 def test_a_site_is_still_written_when_the_store_cannot_be_read(
     nginx: NginxManager, store: FakeStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1724,6 +1781,7 @@ def test_renewal_names_the_lineage(certs: CertManager, runner: FakeRunner) -> No
             "certbot",
             "renew",
             "--non-interactive",
+            "--no-random-sleep-on-renew",
             "--cert-name",
             "example.com",
             "--force-renewal",

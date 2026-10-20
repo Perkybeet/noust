@@ -103,6 +103,7 @@ from noust.deployers.helpers.release_build import StagedRelease
 from noust.deployers.helpers.sandbox import BuildPhase, SandboxState
 from noust.deployers.helpers.site import (
     WriteOutcome,
+    load_app_site,
     refresh_app_site,
     remove_app_site,
     write_app_site,
@@ -1928,7 +1929,7 @@ class MonorepoDeployer(AppDeployer):
         else:
             self._create_apache_sites(manager, with_ssl)
 
-        manager.reload()
+        load_app_site(manager, self.domain, self.logger)
 
     def _create_nginx_sites(self, manager: NginxManager, with_ssl: bool) -> WriteOutcome:
         """

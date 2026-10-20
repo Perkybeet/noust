@@ -1,0 +1,54 @@
+# A server as a hosting provider hands it over, for the time-to-first-deploy scenario
+# (tests/integration/network_run.py, first_deploy_with_tls_is_timed).
+#
+# Debian 13 with systemd as PID 1 and what a minimal cloud image has: Python, curl, certificates,
+# an SSH server. No nginx, no certbot, no Node.js, no git, no Noust: `apt install ./noust.deb`
+# pulls in what the package depends on, `noust setup init` installs the rest, and the clock runs
+# for all of it.
+
+FROM debian:13
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=C.UTF-8
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        systemd \
+        systemd-sysv \
+        dbus \
+        python3 \
+        curl \
+        ca-certificates \
+        openssh-server \
+        iproute2 \
+        procps \
+        openssl \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN systemctl mask \
+        getty.target \
+        getty-static.service \
+        console-getty.service \
+        systemd-udevd.service \
+        systemd-udev-trigger.service \
+        systemd-udevd-kernel.socket \
+        systemd-udevd-control.socket \
+        systemd-modules-load.service \
+        systemd-random-seed.service \
+        sys-kernel-config.mount \
+        sys-kernel-debug.mount \
+        sys-kernel-tracing.mount \
+        systemd-remount-fs.service \
+        tmp.mount \
+    && systemctl set-default multi-user.target
+
+# The base image of Docker forbids packages to start their services (policy-rc.d answers 101),
+# which a server never does: nginx has to be running once the package that brings it is installed.
+RUN rm -f /usr/sbin/policy-rc.d
+
+# A provider's image has stale package lists: `apt install` begins with `apt update`, and so does
+# the timed run. The lists the build left are removed above for that reason.
+
+STOPSIGNAL SIGRTMIN+3
+
+CMD ["/sbin/init"]

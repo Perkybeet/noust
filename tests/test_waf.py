@@ -17,6 +17,7 @@ injection in ``block`` and let it through, written down, in ``detect``.
 
 from __future__ import annotations
 
+import fnmatch
 import json
 from dataclasses import replace
 from pathlib import Path
@@ -39,6 +40,7 @@ from noust.managers.waf import (
     noisy_rules,
     parse_events,
 )
+from tests.conftest import OwnershipChange
 from tests.test_domains import (  # noqa: F401 - fixtures of the domains harness
     Machine,
     certs,
@@ -51,8 +53,17 @@ LOADED = "load_module modules/ngx_http_modsecurity_module.so;\nevents {}\nhttp {
 COMMENTED = "# load_module modules/ngx_http_modsecurity_module.so;\nevents {}\nhttp {}\n"
 
 
-def lay_out(root: Path, *, module: bool = True, rules: bool = True, setup: bool = True) -> None:
-    """Put the packages' files where Debian and Ubuntu put them."""
+def lay_out(
+    root: Path,
+    *,
+    module: bool = True,
+    rules: bool = True,
+    setup: bool = True,
+    logrotate: bool = True,
+) -> None:
+    """Put the packages' files where Debian and Ubuntu put them (and logrotate's directory)."""
+    if logrotate:
+        (root / "etc/logrotate.d").mkdir(parents=True, exist_ok=True)
     if module:
         (root / "usr/lib/nginx/modules").mkdir(parents=True, exist_ok=True)
         (root / "usr/lib/nginx/modules/ngx_http_modsecurity_module.so").write_text("")
@@ -255,6 +266,97 @@ def test_the_shared_site_is_not_listed_as_an_application(waf: Waf) -> None:
     waf.ensure_anchor()
 
     assert ANCHOR_NAME not in [site.domain for site in waf._web.list_sites()]
+
+
+# -- the audit log ---------------------------------------------------------------
+
+
+def _no_such_group(name: str) -> Any:
+    raise KeyError(name)
+
+
+def test_the_audit_log_is_not_readable_by_the_other_accounts_of_the_server(
+    waf: Waf, packages: Path, ownership_changes: list[OwnershipChange]
+) -> None:
+    # It holds the headers of every request the rules flagged: the Cookie and the Authorization
+    # of whoever sent one. A file anybody can read hands the session of a visitor to every account
+    # on the machine (the application accounts, the build account), and ModSecurity creates it with
+    # the default mask if Noust does not make it first. Found with the real module, which wrote
+    # it 0644.
+    waf.ensure_anchor()
+
+    log = packages / AUDIT_LOG.lstrip("/")
+    assert log.exists() and log.stat().st_mode & 0o007 == 0
+    assert OwnershipChange(log, "root", "adm", 0o640) in ownership_changes
+
+
+def test_a_log_made_world_readable_by_an_earlier_run_is_closed(
+    waf: Waf, packages: Path, ownership_changes: list[OwnershipChange]
+) -> None:
+    log = packages / AUDIT_LOG.lstrip("/")
+    log.parent.mkdir(parents=True, exist_ok=True)
+    log.write_text('{"transaction": {}}\n')
+    log.chmod(0o644)
+
+    waf.ensure_anchor()
+
+    assert log.stat().st_mode & 0o007 == 0
+    assert log.read_text() == '{"transaction": {}}\n'  # what was in it is kept
+
+
+def test_a_server_without_the_adm_group_keeps_the_log_to_root(
+    waf: Waf,
+    packages: Path,
+    ownership_changes: list[OwnershipChange],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("noust.managers.waf.grp.getgrnam", _no_such_group)
+
+    waf.ensure_anchor()
+
+    log = packages / AUDIT_LOG.lstrip("/")
+    assert OwnershipChange(log, "root", "root", 0o640) in ownership_changes
+
+
+def test_the_log_is_rotated_by_truncating_it_in_place(waf: Waf, packages: Path) -> None:
+    # ModSecurity opens its audit log once and never again. The web server's rotation renames the
+    # file and asks nginx to reopen its own logs, which does not reach the module: the firewall
+    # went on writing to the renamed file for good (also after a reload) and `waf events` read the
+    # new, empty one. Truncating in place keeps the open handle valid.
+    waf.ensure_anchor()
+
+    rule = (packages / "etc/logrotate.d/noust-waf").read_text()
+    assert f"{AUDIT_LOG} {{" in rule
+    assert "copytruncate" in rule and "create" not in rule and "postrotate" not in rule
+    assert "compress" in rule and "rotate " in rule
+
+
+def test_the_web_servers_own_rotation_does_not_also_take_the_audit_log() -> None:
+    # logrotate refuses two rules for one file, and the second one is the one that is skipped.
+    assert not fnmatch.fnmatch(AUDIT_LOG, "/var/log/nginx/*.log")
+
+
+def test_the_rotation_rule_goes_with_the_last_site(waf: Waf, packages: Path) -> None:
+    waf.ensure_anchor()
+    rule = packages / "etc/logrotate.d/noust-waf"
+    assert rule.exists()
+
+    waf.release_anchor()
+
+    assert not rule.exists()
+
+
+def test_a_server_without_logrotate_is_not_given_a_rule_for_it(
+    web: NginxManager, tmp_path: Path, runner: FakeRunner
+) -> None:
+    root = tmp_path / "nologrotate"
+    lay_out(root, logrotate=False)
+    runner.script(("nginx", "-T"), stdout=LOADED)
+    waf = Waf(web, root=root)
+
+    waf.ensure_anchor()
+
+    assert waf.anchored() and not (root / "etc/logrotate.d").exists()
 
 
 # -- installing --------------------------------------------------------------------

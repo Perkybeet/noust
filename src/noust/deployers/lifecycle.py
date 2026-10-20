@@ -723,6 +723,11 @@ def _update_app(
         phase(2, PHASES, "Fetching the recorded source again")
         log.substep(f"Source: {recorded_source}")
         _refetch_without_deleting(source_manager, recorded_source, app_path, branch)
+    elif app is not None and is_compose_backed(app.app_type) and not (app_path / ".git").exists():
+        # A stack adopted from another panel was never a checkout and records no source, so
+        # there is nothing to pull and git would fail on it. The rebuild below downloads the
+        # images the compose file names and recreates what changed, which is its update.
+        phase(2, PHASES, "No repository to fetch; the images are pulled again")
     else:
         phase(2, PHASES, "Pulling latest changes")
         # A branch named now or pinned on purpose is pulled. Otherwise the

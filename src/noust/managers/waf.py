@@ -29,6 +29,7 @@ operator needs to tell an attack from a false positive and to know which rule to
 
 from __future__ import annotations
 
+import grp
 import json
 import re
 from collections import Counter
@@ -53,8 +54,21 @@ DIRECTORY_NAME = "noust-waf"
 #: The rules file loaded once for every site.
 RULES_FILE = "rules.conf"
 
-#: ModSecurity's JSON audit log, where the web server's other logs are.
-AUDIT_LOG = "/var/log/nginx/noust-waf-audit.log"
+#: ModSecurity's JSON audit log, where the web server's other logs are. Not named ``*.log``: the
+#: web server's own rotation owns that pattern and renames files, which ModSecurity (it opens the
+#: log once and never reopens it) does not survive; see :data:`LOGROTATE_RULE`.
+AUDIT_LOG = "/var/log/nginx/noust-waf-audit.jsonl"
+
+#: The audit log holds the headers of every request the rules flagged, ``Cookie`` and
+#: ``Authorization`` included (the module cannot leave them out), so the other accounts of the
+#: server may not read it. ModSecurity creates it with the default mask when it is not there.
+AUDIT_LOG_MODE = 0o640
+
+#: The group that reads the server's logs on Debian and Ubuntu, where the packages are installed.
+AUDIT_LOG_GROUP = "adm"
+
+#: The rule that rotates the audit log by truncating it in place, relative to the root.
+LOGROTATE_RULE = "etc/logrotate.d/noust-waf"
 
 #: The packages of a Debian or Ubuntu server that give nginx ModSecurity and the Core Rule Set.
 PACKAGES = ("libnginx-mod-http-modsecurity", "modsecurity-crs")
@@ -290,6 +304,16 @@ class Waf:
         """Where it is enabled."""
         return self._web.backend.sites_enabled / ANCHOR_NAME
 
+    @property
+    def audit_log(self) -> Path:
+        """Where ModSecurity writes what the rules judged."""
+        return self._root / AUDIT_LOG.lstrip("/")
+
+    @property
+    def rotation_rule(self) -> Path:
+        """Where the rule that rotates the audit log is kept."""
+        return self._root / LOGROTATE_RULE
+
     def anchored(self) -> bool:
         """
         Returns:
@@ -472,16 +496,19 @@ class Waf:
         support = self.support()
         if not support.available:
             raise ValidationError(support.problem, details=support.hint, field="waf")
+        self._protect_audit_log()
         if self.anchored():
             return False
         web = self._web
         fs = web.fs
         had_rules = self.rules_file.exists()
         had_site = self.file.exists()
+        had_rotation = self.rotation_rule.exists()
         try:
             fs.make_dir(self.directory, parents=True)
             fs.write_text(self.rules_file, self.render_rules(), mode=0o644)
             fs.write_text(self.file, self.render_anchor(), mode=0o644)
+            self._write_rotation_rule()
             fs.make_dir(self.link.parent, parents=True)
             if not (self.link.exists() or self.link.is_symlink()):
                 fs.symlink(self.file, self.link)
@@ -499,9 +526,44 @@ class Waf:
                 fs.remove(self.file, missing_ok=True)
             if not had_rules:
                 fs.remove(self.rules_file, missing_ok=True)
+            if not had_rotation:
+                fs.remove(self.rotation_rule, missing_ok=True)
             raise
         audit.record("sites.waf", target="server", details={"action": "rules written"})
         return True
+
+    def _protect_audit_log(self) -> None:
+        """
+        Make the audit log before ModSecurity does, readable by root and the log group alone.
+
+        The module creates the file with the default mask, which leaves every flagged request's
+        ``Cookie`` and ``Authorization`` header readable by every account on the server, and keeps
+        the mode it was created with. A log an earlier run left open is closed too; what it holds
+        stays.
+        """
+        fs = self._web.fs
+        log = self.audit_log
+        fs.make_dir(log.parent, parents=True)
+        if not log.exists():
+            fs.write_text(log, "", mode=AUDIT_LOG_MODE)
+        try:
+            grp.getgrnam(AUDIT_LOG_GROUP)
+            group = AUDIT_LOG_GROUP
+        except KeyError:
+            group = "root"
+        fs.set_owner(log, user="root", group=group, mode=AUDIT_LOG_MODE)
+
+    def _write_rotation_rule(self) -> None:
+        """
+        Rotate the audit log by truncating it in place, where logrotate is.
+
+        A server without ``/etc/logrotate.d`` rotates nothing and gets no rule: Noust does not
+        make the directory, which would be the first sign of a logrotate nobody installed.
+        """
+        if not self.rotation_rule.parent.is_dir():
+            return
+        text = self._web.jinja_env.get_template("waf_logrotate.j2").render(audit_log=AUDIT_LOG)
+        self._web.fs.write_text(self.rotation_rule, text, mode=0o644)
 
     def release_anchor(self) -> bool:
         """
@@ -519,6 +581,7 @@ class Waf:
         self._web.fs.remove(self.link, missing_ok=True)
         self._web.fs.remove(self.file, missing_ok=True)
         self._web.fs.remove(self.rules_file, missing_ok=True)
+        self._web.fs.remove(self.rotation_rule, missing_ok=True)
         audit.record("sites.waf", target="server", details={"action": "rules removed"})
         if not self._web.reload():
             self._web.logger.warning(

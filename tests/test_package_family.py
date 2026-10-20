@@ -25,10 +25,11 @@ from noust.core.package_family import (
     PackageFamily,
     detect_family,
     for_this_machine,
+    install_apt_packages,
     install_hint,
     package_family,
 )
-from noust.core.runner import FakeRunner
+from noust.core.runner import CommandResult, FakeRunner
 from noust.managers.server.host import PackageFamily as HostPackageFamily
 from noust.managers.server.host import detect_platform, reset_platform_cache
 
@@ -241,3 +242,125 @@ class TestMissingQuestionaryHint:
 
         assert "apt install python3-questionary" in details
         assert "dnf install python3-questionary" in details
+
+
+# -- installing with apt when its lists are empty ---------------------------------------------
+
+
+class ListsFillAfterAnUpdate(FakeRunner):
+    """apt does not know a package until ``apt-get update`` ran, as on a fresh image."""
+
+    def __init__(self, *, update_works: bool = True, message: str | None = None) -> None:
+        super().__init__()
+        self.updated = False
+        self.update_works = update_works
+        self.message = message or "E: Unable to locate package php8.3-fpm"
+
+    def run(self, argv, **kwargs):  # type: ignore[no-untyped-def, override]
+        if tuple(argv[:2]) == ("apt-get", "update"):
+            self.calls.append(tuple(argv))
+            self.updated = self.update_works
+            return CommandResult(
+                argv=tuple(argv), exit_code=0 if self.update_works else 100, stderr="W: no mirror"
+            )
+        if tuple(argv[:2]) == ("apt-get", "install") and not self.updated:
+            self.calls.append(tuple(argv))
+            return CommandResult(argv=tuple(argv), exit_code=100, stderr=self.message)
+        return super().run(argv, **kwargs)
+
+
+def test_a_package_the_lists_do_not_know_is_installed_after_updating_them() -> None:
+    # A fresh image or a container has no package lists, and `apt-get install` says "Unable to
+    # locate package" for everything: `noust runtime install php@8.3` and `noust setup init` failed
+    # that way on a server that only needed `apt-get update`. Found installing PHP for real.
+    runner = ListsFillAfterAnUpdate()
+
+    result = install_apt_packages(runner, ["php8.3-fpm", "php8.3-cli"], timeout=600)
+
+    assert result.success
+    assert runner.calls == [
+        ("apt-get", "install", "-y", "php8.3-fpm", "php8.3-cli"),
+        ("apt-get", "update"),
+        ("apt-get", "install", "-y", "php8.3-fpm", "php8.3-cli"),
+    ]
+
+
+def test_a_package_that_installs_at_once_is_not_preceded_by_an_update() -> None:
+    runner = FakeRunner()
+
+    result = install_apt_packages(runner, ["certbot"], timeout=600)
+
+    assert result.success and runner.calls == [("apt-get", "install", "-y", "certbot")]
+
+
+def test_a_failure_that_is_not_about_the_lists_is_not_retried() -> None:
+    runner = FakeRunner()
+    runner.script(["apt-get", "install"], exit_code=100, stderr="E: dpkg was interrupted")
+
+    result = install_apt_packages(runner, ["certbot"], timeout=600)
+
+    assert not result.success
+    assert runner.calls == [("apt-get", "install", "-y", "certbot")]
+
+
+def test_an_update_that_fails_leaves_the_first_failure_to_speak() -> None:
+    # The operator needs to read that the package is unknown, not that a mirror was unreachable.
+    runner = ListsFillAfterAnUpdate(update_works=False)
+
+    result = install_apt_packages(runner, ["php8.3-fpm"], timeout=600)
+
+    assert not result.success
+    assert "Unable to locate package" in result.stderr
+    assert runner.calls.count(("apt-get", "update")) == 1
+
+
+def test_the_install_is_tried_twice_at_most() -> None:
+    runner = FakeRunner()
+    runner.script(["apt-get", "install"], exit_code=100, stderr="E: Unable to locate package nope")
+
+    result = install_apt_packages(runner, ["nope"], timeout=600)
+
+    assert not result.success
+    assert runner.calls.count(("apt-get", "install", "-y", "nope")) == 2
+    assert runner.calls.count(("apt-get", "update")) == 1
+
+
+def test_the_environment_and_the_extra_options_travel_with_both_attempts() -> None:
+    runner = ListsFillAfterAnUpdate()
+
+    install_apt_packages(
+        runner,
+        ["fail2ban"],
+        timeout=600,
+        env={"DEBIAN_FRONTEND": "noninteractive"},
+        options=("--no-remove",),
+    )
+
+    assert runner.calls[0] == ("apt-get", "install", "-y", "--no-remove", "fail2ban")
+    assert runner.calls[-1] == runner.calls[0]
+    assert runner.envs[-1] == {"DEBIAN_FRONTEND": "noninteractive"}
+
+
+def test_a_dependency_of_several_packages_is_installed_as_several_arguments() -> None:
+    # PHP-FPM is nine packages in one string; apt was handed the string as a single package name.
+    from noust.core.dependencies import DependencyChecker
+
+    runner = FakeRunner()
+
+    ok, _ = DependencyChecker(runner=runner).install_dependency(PHP_FPM_DEPENDENCY)
+
+    assert ok
+    assert runner.calls == [("apt-get", "install", "-y", *PHP_FPM_DEPENDENCY.install_apt.split())]
+    assert len(runner.calls[0]) > 4
+
+
+def test_setup_installs_through_the_refreshing_install() -> None:
+    from noust.core.dependencies import DependencyChecker
+
+    runner = ListsFillAfterAnUpdate(message="E: Unable to locate package certbot")
+    certbot = Dependency(name="certbot", command="certbot", description="x", install_apt="certbot")
+
+    ok, message = DependencyChecker(runner=runner).install_dependency(certbot)
+
+    assert ok, message
+    assert ("apt-get", "update") in runner.calls

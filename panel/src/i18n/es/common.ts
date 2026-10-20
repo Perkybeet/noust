@@ -28,7 +28,25 @@ export const common: Catalog<typeof en> = {
     typeToConfirm: "Escribe {value} para confirmar",
     failed: "La acción falló. El sistema dijo:",
     whatSystemSaid: "Lo que dijo el sistema",
+    couldNot: "No se pudo completar la acción",
     onServer: "En {server}",
+  },
+  leaveGuard: {
+    title: "¿Descartar los cambios sin guardar?",
+    description: {
+      one: "Si sales de esta página se descarta {count} cambio sin guardar.",
+      other: "Si sales de esta página se descartan {count} cambios sin guardar.",
+    },
+    discard: "Descartar cambios",
+    keep: "Seguir editando",
+  },
+  setting: {
+    whatChanges: "Qué cambia",
+    elevated: "Pide confirmar que eres tú antes",
+  },
+  rowActions: "Acciones de {name}",
+  splitButton: {
+    more: "Más opciones de {name}",
   },
   select: {
     placeholder: "Seleccionar",
@@ -148,6 +166,7 @@ export const common: Catalog<typeof en> = {
   pageHeader: {
     moreActions: "Más acciones",
     server: "Servidor {server}",
+    place: "Dónde vive",
   },
   filterBar: {
     search: "Buscar",
@@ -168,6 +187,9 @@ export const common: Catalog<typeof en> = {
   },
   settingsLayout: {
     allSections: "Todas las secciones",
+    filter: "Filtrar secciones",
+    filterPlaceholder: "Filtrar",
+    noMatches: "Ninguna sección coincide con este filtro.",
   },
   stepper: {
     label: "Pasos",

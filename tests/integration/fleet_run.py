@@ -62,6 +62,7 @@ import hashlib
 import hmac
 import importlib.util
 import json
+import os
 import re
 import secrets
 import struct
@@ -134,18 +135,23 @@ BASE_IMAGE_TAG = run.IMAGE_TAG
 # image tags say what they are for.
 # ---------------------------------------------------------------------------
 
-NETWORK_NAME = "noust-fleet-net"
-CENTRAL_NAME = "noust-fleet-central"
-NODE_NAME = "noust-fleet-node"
-CENTRAL2_NAME = "noust-fleet-central2"
-CENTRAL2_VOLUME = "noust-fleet-central2-data"
+#: Overridable (``NOUST_IT_FLEET_PREFIX=noust-test-w6r-fleet``), so that two work streams that share
+#: one Docker keep their containers apart; and everything carries the label, so a run is removed by
+#: it and by nothing else.
+PREFIX = os.environ.get("NOUST_IT_FLEET_PREFIX", "noust-fleet")
+LABEL = "noust.test=1"
+NETWORK_NAME = f"{PREFIX}-net"
+CENTRAL_NAME = f"{PREFIX}-central"
+NODE_NAME = f"{PREFIX}-node"
+CENTRAL2_NAME = f"{PREFIX}-central2"
+CENTRAL2_VOLUME = f"{PREFIX}-central2-data"
 
 #: The systemd+sshd image both the node and the harness's own (non-packaged)
 #: central run: the same base image run.py builds, with OpenSSH layered on.
-FLEET_IMAGE_TAG = "noust-fleet-image:latest"
+FLEET_IMAGE_TAG = f"{PREFIX}-image:latest"
 
 #: The packaged central image scenario 8 builds from packaging/container/Dockerfile.
-CENTRAL_IMAGE_TAG = "noust-fleet-central-packaged:test"
+CENTRAL_IMAGE_TAG = f"{PREFIX}-central-packaged:test"
 
 CENTRAL_PORT = 8443
 NODE_NAME_ID = "node1"
@@ -226,7 +232,7 @@ def remove_network(name: str) -> None:
 def create_network(name: str) -> None:
     """Create the user-defined bridge network the central and the node share."""
     remove_network(name)
-    sh(["docker", "network", "create", name], timeout=30)
+    sh(["docker", "network", "create", "--label", LABEL, name], timeout=30)
 
 
 #: Layers OpenSSH client and server onto run.py's systemd image. No COPY, so
@@ -248,6 +254,8 @@ def build_fleet_image(base_image: str, tag: str) -> None:
         [
             "docker",
             "build",
+            "--label",
+            LABEL,
             "--build-arg",
             f"BASE_IMAGE={base_image}",
             "-t",
@@ -275,6 +283,8 @@ def start_fleet_container(name: str, image: str, network: str) -> None:
             "-d",
             "--name",
             name,
+            "--label",
+            LABEL,
             "--network",
             network,
             "--privileged",
@@ -1943,6 +1953,8 @@ def scenario_central_image(env: FleetEnv) -> None:
             [
                 "docker",
                 "build",
+                "--label",
+                LABEL,
                 "--build-arg",
                 f"NOUST_VERSION={version}",
                 "-t",
@@ -1993,7 +2005,7 @@ def scenario_central_image(env: FleetEnv) -> None:
         text=True,
         timeout=30,
     )
-    sh(["docker", "volume", "create", CENTRAL2_VOLUME], timeout=15)
+    sh(["docker", "volume", "create", "--label", LABEL, CENTRAL2_VOLUME], timeout=15)
 
     def run_central2(*, allow_ip: str | None = None) -> None:
         remove_container(CENTRAL2_NAME)
@@ -2003,6 +2015,8 @@ def scenario_central_image(env: FleetEnv) -> None:
             "-d",
             "--name",
             CENTRAL2_NAME,
+            "--label",
+            LABEL,
             "--network",
             NETWORK_NAME,
             "-v",
@@ -2044,7 +2058,7 @@ def scenario_central_image(env: FleetEnv) -> None:
         if token_match is None:
             raise HarnessError("the packaged central's first-start log carries no access token")
         master_token2 = token_match.group(1)
-        redact(central2, "docker logs noust-fleet-central2", "the first-start access token")
+        redact(central2, f"docker logs {CENTRAL2_NAME}", "the first-start access token")
 
         enroll = docker_exec(CENTRAL2_NAME, "noust 2fa enroll", timeout=30)
         secret_match = re.search(r"Secret:\s*([A-Z2-7]+)", enroll.stdout)
@@ -2227,6 +2241,643 @@ def scenario_central_image(env: FleetEnv) -> None:
     finally:
         env.central.evidence.append(
             f"--- evidence from {CENTRAL2_NAME} ---\n" + "\n\n".join(central2.evidence)
+        )
+
+
+# ---------------------------------------------------------------------------
+# A server only a bastion can reach (F-06)
+# ---------------------------------------------------------------------------
+
+BASTION_NAME = f"{PREFIX}-bastion"
+INNER_NETWORK_NAME = f"{PREFIX}-inner"
+BASTION_USER = "hop"
+
+
+def ensure_enrolled(env: FleetEnv) -> None:
+    """
+    Enroll the node unless an earlier scenario did, so a scenario can be run on its own.
+
+    Args:
+        env: The environment.
+    """
+    if env.node_console_port == 0:
+        enroll_node(env)
+
+
+@fleet_scenario("bastion_reaches_a_server_nobody_else_can")
+def scenario_bastion(env: FleetEnv) -> None:
+    """The central reaches a server in a private network through a bastion, and the bastion carries bytes only (F-06).
+
+    The node leaves the network the central is on for one the bastion is also on. What is proven
+    with a real sshd on each side: the central cannot reach the node any more; with the bastion
+    pinned by its fingerprint the tunnel opens through it and the console of the node answers
+    through the central; the node's host key and `PermitOpen` still apply end to end, so the
+    bastion cannot read the console and the central cannot forward anything else through it; the
+    line `node ssh --show` prints lets the central open one stream to that node and nothing more on
+    the bastion; a wrong fingerprint is refused and changes nothing; a bastion whose host key
+    changes closes the tunnel and says so.
+    """
+    central = env.central
+    ensure_enrolled(env)
+    bastion = Scenario(container=BASTION_NAME)
+    sh(["docker", "rm", "-f", BASTION_NAME], timeout=60, check=False)
+    sh(["docker", "network", "rm", INNER_NETWORK_NAME], timeout=30, check=False)
+    sh(["docker", "network", "create", "--label", LABEL, INNER_NETWORK_NAME], timeout=30)
+    moved = False
+    try:
+        start_fleet_container(BASTION_NAME, FLEET_IMAGE_TAG, NETWORK_NAME)
+        sh(["docker", "network", "connect", INNER_NETWORK_NAME, BASTION_NAME], timeout=30)
+        wait_for_systemd(BASTION_NAME)
+        provision_ssh(BASTION_NAME)
+        bastion.run(
+            f"useradd -m -s /usr/sbin/nologin {BASTION_USER} && mkdir -p /home/{BASTION_USER}/.ssh "
+            f"&& chmod 700 /home/{BASTION_USER}/.ssh && chown -R {BASTION_USER}: /home/{BASTION_USER}/.ssh "
+            f"&& passwd -l {BASTION_USER}",
+            label=f"(the bastion) an account for the central: {BASTION_USER}, nologin, locked",
+        )
+        fingerprint = bastion.run(
+            "ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub", label="the bastion's fingerprint"
+        ).stdout.split()[1]
+
+        # The node moves to the private network: the central can no longer reach it by itself.
+        sh(["docker", "network", "disconnect", NETWORK_NAME, NODE_NAME], timeout=30)
+        sh(["docker", "network", "connect", INNER_NETWORK_NAME, NODE_NAME], timeout=30)
+        moved = True
+        central.evidence.append(
+            f"# {NODE_NAME} left {NETWORK_NAME} and joined {INNER_NETWORK_NAME}, which "
+            f"{BASTION_NAME} is also on"
+        )
+        direct = central.run(
+            f"noust node test {env.node_name} --json",
+            timeout=120,
+            check=False,
+            label="noust node test (direct)",
+        )
+        direct_answer = as_json(direct, what="noust node test --json")
+        central.check(
+            direct_answer.get("reachable") is False,
+            f"the central reaches a node that is in a network it is not on: {direct_answer!r}",
+        )
+
+        # The bastion's operator authorizes one line, restricted to one stream to that node.
+        line = central.run(
+            f"noust node ssh {env.node_name} --bastion {BASTION_USER}@{BASTION_NAME}:22 "
+            f"--bastion-fingerprint {fingerprint} --show",
+            label="noust node ssh --bastion ... --show (the line, before the bastion is set)",
+        ).stdout
+        authorized = [ln for ln in line.splitlines() if ln.startswith(("restrict", "permitopen"))]
+        central.check(
+            authorized and "permitopen=" in authorized[0] and "restrict" in authorized[0],
+            f"the bastion line is not a restricted one: {line!r}",
+        )
+        central.check(
+            f'permitopen="{NODE_NAME}:22"' in authorized[0],
+            f"the bastion line names another destination: {authorized[0]!r}",
+        )
+        bastion.run(
+            f"cat > /home/{BASTION_USER}/.ssh/authorized_keys <<'EOF'\n{authorized[0]}\nEOF\n"
+            f"chown {BASTION_USER}: /home/{BASTION_USER}/.ssh/authorized_keys && "
+            f"chmod 600 /home/{BASTION_USER}/.ssh/authorized_keys",
+            label="(the bastion's operator) the line `noust node ssh --show` printed",
+        )
+
+        # A fingerprint that is not the bastion's changes nothing.
+        refused = central.run(
+            f"noust node ssh {env.node_name} --bastion {BASTION_USER}@{BASTION_NAME}:22 "
+            "--bastion-fingerprint SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            timeout=120,
+            check=False,
+            label="noust node ssh --bastion (a fingerprint that is not the bastion's)",
+        )
+        central.check(refused.returncode != 0, "a bastion with a wrong fingerprint was accepted")
+        options = as_json(
+            central.run(f"noust node ssh {env.node_name} --json", label="noust node ssh --json"),
+            what="noust node ssh --json",
+        )
+        central.check(not options.get("bastion"), f"a refused bastion was kept: {options!r}")
+
+        # With the right one the tunnel opens through it.
+        done = central.run(
+            f"noust node ssh {env.node_name} --bastion {BASTION_USER}@{BASTION_NAME}:22 "
+            f"--bastion-fingerprint {fingerprint}",
+            timeout=180,
+            check=False,
+            label="noust node ssh --bastion (pinned by its fingerprint)",
+        )
+        central.check(
+            done.returncode == 0,
+            f"the bastion did not open the tunnel:\n{(done.stdout + done.stderr)[-2500:]}",
+        )
+        tested = as_json(
+            central.run(
+                f"noust node test {env.node_name} --json",
+                timeout=120,
+                label="noust node test (through the bastion)",
+            ),
+            what="noust node test --json",
+        )
+        central.check(
+            tested.get("reachable") is True, f"the node is not reachable through it: {tested!r}"
+        )
+        status, body, raw = api_call(
+            CENTRAL_NAME,
+            "GET",
+            f"https://127.0.0.1:{CENTRAL_PORT}/api/nodes/{env.node_name}/api/system/version",
+            token=env.master_token,
+        )
+        log_api(central, "GET", f"/api/nodes/{env.node_name}/api/system/version", status, raw[:120])
+        central.check(
+            status == 200, f"the node's own API does not answer through the bastion: {status}"
+        )
+
+        # What the bastion is: a hop. The central's key, driven by hand, opens one stream to the
+        # node and nothing else on the bastion.
+        key = env.secret_path("fleet", "nodes", env.node_name, "id_ed25519")
+        base = (
+            f"-i {key} -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "
+            "-o UserKnownHostsFile=/dev/null -o BatchMode=yes -o ConnectTimeout=5"
+        )
+        command = central.run(
+            f"ssh {base} {BASTION_USER}@{BASTION_NAME} id",
+            timeout=20,
+            check=False,
+            label=f"ssh <central's key> {BASTION_USER}@<bastion> id",
+        )
+        central.check(
+            command.returncode != 0 and "uid=" not in command.stdout,
+            f"the central ran a command on the bastion: {command.stdout!r}",
+        )
+        elsewhere = central.run(
+            f"ssh {base} -W {BASTION_NAME}:22 {BASTION_USER}@{BASTION_NAME} </dev/null",
+            timeout=20,
+            check=False,
+            label="ssh -W <bastion>:22 through the bastion (not the node: must be refused)",
+        )
+        central.check(
+            elsewhere.returncode != 0 and "SSH-" not in elsewhere.stdout,
+            f"the bastion forwarded to a destination that is not the node: {elsewhere.stdout!r}",
+        )
+        stream = central.run(
+            f"ssh {base} -W {NODE_NAME}:22 {BASTION_USER}@{BASTION_NAME} </dev/null",
+            timeout=20,
+            check=False,
+            label="ssh -W <node>:22 through the bastion (the one stream it allows)",
+        )
+        central.check(
+            "SSH-2.0" in stream.stdout,
+            f"the one stream to the node did not open: {stream.stdout!r}",
+        )
+
+        # The node's own limits still hold through the hop: only its console port can be forwarded.
+        proxy = f"ssh {base} -W %h:%p {BASTION_USER}@{BASTION_NAME}"
+        bad_port = 39900
+        node_login = central.run(
+            f"ssh -o 'ProxyCommand={proxy}' {base} {TUNNEL_USER}@{NODE_NAME} id",
+            timeout=30,
+            check=False,
+            label=f"ssh <central's key> {TUNNEL_USER}@<node> id, through the bastion",
+        )
+        central.check(
+            node_login.returncode != 0 and "uid=" not in node_login.stdout,
+            f"{TUNNEL_USER} ran a command through the bastion: {node_login.stdout!r}",
+        )
+        central.run(
+            f"ssh -f -N -o 'ProxyCommand={proxy}' {base} -L 127.0.0.1:{bad_port}:127.0.0.1:22 "
+            f"{TUNNEL_USER}@{NODE_NAME}",
+            timeout=30,
+            label="ssh -f -N -L <port>:127.0.0.1:22 to the node, through the bastion",
+        )
+        try:
+            time.sleep(1)
+            through = central.run(
+                f"timeout 5 bash -c 'exec 3<>/dev/tcp/127.0.0.1/{bad_port} && head -c 64 <&3'",
+                timeout=15,
+                check=False,
+                label="read the node's sshd banner through that -L (must get nothing)",
+            )
+            central.check(
+                "ssh-" not in through.stdout.lower(),
+                f"a forward to a port other than the console worked through the bastion: {through.stdout!r}",
+            )
+        finally:
+            central.run(
+                f"pkill -f '[s]sh .*-L 127.0.0.1:{bad_port}'",
+                timeout=10,
+                check=False,
+                label="(cleanup) kill the forbidden-port forward",
+            )
+
+        # The bastion cannot read what it carries: the console's traffic is encrypted end to end.
+        # Its host key is pinned too: when it changes the tunnel closes and says so.
+        bastion.run(
+            "rm -f /etc/ssh/ssh_host_*_key* && ssh-keygen -A && systemctl restart ssh",
+            label="(the bastion) new host keys",
+        )
+        deadline = time.time() + 60
+        changed: dict[str, Any] = {}
+        while time.time() < deadline:
+            changed = as_json(
+                central.run(
+                    f"noust node test {env.node_name} --json",
+                    timeout=120,
+                    check=False,
+                    label="noust node test (the bastion's host key changed)",
+                ),
+                what="noust node test --json",
+            )
+            if changed.get("reachable") is False:
+                break
+            time.sleep(3)
+        central.check(
+            changed.get("reachable") is False,
+            f"a bastion whose host key changed was trusted: {changed!r}",
+        )
+        said = json.dumps(changed).lower()
+        central.check(
+            "host key" in said or "bastion" in said,
+            f"the refusal does not say the bastion's key changed: {changed!r}",
+        )
+    finally:
+        if moved:
+            central.run(
+                f"noust node ssh {env.node_name} --no-bastion --no-test",
+                timeout=60,
+                check=False,
+                label="(cleanup) back to a direct connection",
+            )
+            sh(
+                ["docker", "network", "disconnect", INNER_NETWORK_NAME, NODE_NAME],
+                timeout=30,
+                check=False,
+            )
+            sh(["docker", "network", "connect", NETWORK_NAME, NODE_NAME], timeout=30, check=False)
+            time.sleep(3)
+            central.run(
+                f"noust node test {env.node_name} --json",
+                timeout=120,
+                check=False,
+                label="(cleanup) the node answers again, directly",
+            )
+        sh(["docker", "rm", "-f", BASTION_NAME], timeout=60, check=False)
+        sh(["docker", "network", "rm", INNER_NETWORK_NAME], timeout=30, check=False)
+
+
+# ---------------------------------------------------------------------------
+# A server behind NAT that dials in (F-07)
+# ---------------------------------------------------------------------------
+
+LINK_NODE_NAME = "natnode"
+LINK_USER = "noust-link"
+
+
+def wait_until(condition: Callable[[], bool], what: str, *, timeout: float = 90.0) -> None:
+    """
+    Poll a condition until it holds, or fail the scenario.
+
+    Args:
+        condition: What to wait for.
+        what: How the failure names it.
+        timeout: Seconds.
+    """
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if condition():
+            return
+        time.sleep(2)
+    raise AssertionError(f"timed out waiting for {what}")
+
+
+@fleet_scenario("node_behind_nat_dials_the_central")
+def scenario_link(env: FleetEnv) -> None:
+    """A server nobody can SSH into keeps a connection to its central open, and the central reaches its console through it (F-07).
+
+    The node's sshd is stopped: nothing can connect in. `noust node link setup` prepares the
+    central, `noust node link invite` prints the command, `noust fleet link` runs on the node and
+    `noust node link add` registers it. What is proven with two real sshd: the central's proxy
+    reaches the node's own API over the port that connection leaves on the central's loopback;
+    the link account can listen on its one port and do nothing else (no command, no terminal, no
+    local forward, no other remote port, no Unix socket); the connection comes back by itself when
+    it is cut and when the central's sshd restarts; and unlinking takes the service, the key and
+    the token away.
+    """
+    central, node = env.central, env.node
+    central_label = ""
+
+    # -- a clean start: no enrollment of the usual kind, and no way in over SSH
+    central.run(
+        f"noust node remove {env.node_name} -f --no-revoke >/dev/null 2>&1; "
+        f"noust node remove {LINK_NODE_NAME} -f --no-revoke >/dev/null 2>&1; true",
+        check=False,
+        label="(clean start) forget the nodes of earlier scenarios",
+    )
+    env.node_console_port = 0
+    node.run(
+        "for unit in $(systemctl list-units --all --plain --no-legend 'noust-link-*' | cut -d' ' -f1); do "
+        "name=${unit#noust-link-}; noust fleet unlink --name ${name%.service} >/dev/null 2>&1; done; true",
+        check=False,
+        label="(clean start) an earlier link",
+    )
+    node.run(
+        "systemctl disable --now ssh ssh.socket 2>/dev/null; systemctl is-active ssh || true",
+        check=False,
+        label="the node has no SSH server: nothing can connect in",
+    )
+    try:
+        provision_ssh(CENTRAL_NAME)
+        prepared = as_json(
+            central.run("noust node link setup --json", label="noust node link setup --json"),
+            what="noust node link setup --json",
+        )
+        central.evidence.append(f"# setup said: {json.dumps(prepared)[:400]}")
+        status = as_json(
+            central.run("noust node link status --json", label="noust node link status --json"),
+            what="noust node link status --json",
+        )
+        central.check(
+            status.get("ready") is True
+            or status.get("ok") is True
+            or "ready" in json.dumps(status).lower(),
+            f"the central is not ready for servers that dial in: {status!r}",
+        )
+        sshd_block = central.run(
+            f"sshd -T -C user={LINK_USER},host=localhost,addr=127.0.0.1",
+            label=f"sshd -T -C user={LINK_USER}",
+        ).stdout.lower()
+        for expected in (
+            "allowtcpforwarding remote",
+            "permittty no",
+            "allowstreamlocalforwarding no",
+            "forcecommand /usr/bin/false",
+        ):
+            central.check(
+                expected in sshd_block, f"sshd does not apply '{expected}' to {LINK_USER}"
+            )
+
+        invitation = as_json(
+            central.run(
+                f"noust node link invite {LINK_NODE_NAME} --host {CENTRAL_NAME} --json",
+                label=f"noust node link invite {LINK_NODE_NAME} --host {CENTRAL_NAME} --json",
+            ),
+            what="noust node link invite --json",
+        )
+        central_label = str(invitation["central"])
+        command = str(invitation.get("command") or "")
+        central.check(
+            command.startswith("noust fleet link"),
+            f"the invitation does not print the command to run: {invitation!r}",
+        )
+        central.check(
+            "--host-key" in command and "--invite" in command,
+            "the command does not carry the central's host key and the invitation",
+        )
+        port_match = re.search(r"--remote-port (\d+)", command)
+        central.check(port_match is not None, f"the command names no port: {command!r}")
+        remote_port = int(port_match.group(1))  # type: ignore[union-attr]
+        central.check(
+            24000 <= remote_port <= 24999, f"the link's port {remote_port} is not in 24000-24999"
+        )
+
+        # -- the node's half: it dials out; the code it prints carries the key and the token
+        ran = docker_exec(NODE_NAME, command, timeout=180, check=False)
+        redact(node, command, "the link code (a one-time fleet token and the public key)")
+        node.check(
+            ran.returncode == 0, f"noust fleet link failed:\n{(ran.stdout + ran.stderr)[-2500:]}"
+        )
+        code_match = re.search(
+            r"(noust-link:v1:\S+|noust-linkcode:v1:\S+|\bnoust-[a-z]+:v1:\S+)", ran.stdout
+        )
+        node.check(code_match is not None, f"no link code in the output:\n{ran.stdout[-1500:]}")
+        link_code = code_match.group(1)  # type: ignore[union-attr]
+        unit = f"noust-link-{central_label}"
+        node.check(
+            docker_exec(NODE_NAME, f"systemctl is-enabled {unit}", check=False).stdout.strip()
+            == "enabled",
+            f"the link service {unit} is not enabled on the node",
+        )
+        no_inbound = docker_exec(NODE_NAME, "ss -ltn | awk '{print $4}'", timeout=15).stdout
+        node.check(
+            ":22" not in no_inbound,
+            f"the node listens for SSH although it was meant to be unreachable: {no_inbound!r}",
+        )
+
+        # -- the central's half
+        added = run_stdin(
+            central,
+            f"noust node link add {LINK_NODE_NAME} --link-code - --json",
+            link_code + "\n",
+            timeout=180,
+            check=False,
+            label=f"noust node link add {LINK_NODE_NAME} --link-code -",
+        )
+        central.check(
+            added.returncode == 0,
+            f"noust node link add failed:\n{(added.stdout + added.stderr)[-2500:]}",
+        )
+        node.check(
+            docker_exec(NODE_NAME, f"systemctl is-active {unit}", check=False).stdout.strip()
+            == "active",
+            f"the link service {unit} is not running once the central let it in",
+        )
+        record = as_json(added, what="noust node link add --json")
+        central.check(
+            record.get("status") == "reachable", f"the linked node is not reachable: {record!r}"
+        )
+        tested = as_json(
+            central.run(f"noust node test {LINK_NODE_NAME} --json", label="noust node test"),
+            what="noust node test --json",
+        )
+        central.check(tested.get("reachable") is True, f"noust node test: {tested!r}")
+        status_code, body, raw = api_call(
+            CENTRAL_NAME,
+            "GET",
+            f"https://127.0.0.1:{CENTRAL_PORT}/api/nodes/{LINK_NODE_NAME}/api/system/version",
+            token=env.master_token,
+        )
+        log_api(
+            central,
+            "GET",
+            f"/api/nodes/{LINK_NODE_NAME}/api/system/version",
+            status_code,
+            raw[:120],
+        )
+        central.check(
+            status_code == 200, f"the node's API does not answer over the link: {status_code}"
+        )
+
+        # -- who listens on that port: sshd, as the link account, on the loopback only
+        listener = central.run(
+            f"ss -ltnp 'sport = :{remote_port}'", label=f"who listens on :{remote_port}"
+        ).stdout
+        central.check(
+            f"127.0.0.1:{remote_port}" in listener and "sshd" in listener,
+            f"the link's port is not an sshd listener on the loopback: {listener!r}",
+        )
+        owner = central.run(
+            f"ps -o user= -p $(ss -ltnp 'sport = :{remote_port}' | grep -o 'pid=[0-9]*' | head -1 | cut -d= -f2)",
+            label="the account that owns the listener",
+        ).stdout.strip()
+        central.check(owner == LINK_USER, f"the listener belongs to {owner!r}, not {LINK_USER}")
+
+        # -- the link account can do that and nothing else
+        key = docker_exec(
+            NODE_NAME,
+            f"ls /var/lib/noust/link/{central_label}/id_ed25519 /root/.local/share/noust/link/{central_label}/id_ed25519 2>/dev/null | head -1",
+            timeout=15,
+        ).stdout.strip()
+        node.check(bool(key), "the link's private key is not where the unit says it is")
+        mode = docker_exec(NODE_NAME, f"stat -c %a {key}", timeout=15).stdout.strip()
+        node.check(mode == "600", f"the link's private key is mode {mode}")
+        base = (
+            f"-i {key} -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "
+            "-o UserKnownHostsFile=/dev/null -o BatchMode=yes -o ConnectTimeout=5"
+        )
+        command_run = node.run(
+            f"ssh {base} {LINK_USER}@{CENTRAL_NAME} id",
+            timeout=30,
+            check=False,
+            label=f"ssh <link key> {LINK_USER}@<central> id",
+        )
+        node.check(
+            command_run.returncode != 0 and "uid=" not in command_run.stdout,
+            f"the link account ran a command on the central: {command_run.stdout!r}",
+        )
+        terminal = node.run(
+            f"ssh -tt {base} {LINK_USER}@{CENTRAL_NAME} </dev/null",
+            timeout=30,
+            check=False,
+            label=f"ssh -tt <link key> {LINK_USER}@<central>",
+        )
+        node.check(terminal.returncode != 0, "the link account got a terminal on the central")
+        # A local forward is opened by the client and refused by the server only when it is used.
+        node.run(
+            "pkill -f '[s]sh .*-L 127.0.0.1:39990' 2>/dev/null; true",
+            check=False,
+            label="(cleanup) kill any stray forward",
+        )
+        node.run(
+            f"ssh -f -N {base} -L 127.0.0.1:39990:127.0.0.1:22 {LINK_USER}@{CENTRAL_NAME}",
+            timeout=30,
+            label=f"ssh -f -N -L 39990:127.0.0.1:22 {LINK_USER}@<central> (a local forward)",
+        )
+        try:
+            time.sleep(1)
+            through = node.run(
+                "timeout 5 bash -c 'exec 3<>/dev/tcp/127.0.0.1/39990 && head -c 64 <&3'",
+                timeout=15,
+                check=False,
+                label="read the central's sshd banner through that -L (must get nothing)",
+            )
+            node.check(
+                "ssh-" not in through.stdout.lower(),
+                f"the link account forwarded to the central's own sshd: {through.stdout!r}",
+            )
+        finally:
+            node.run(
+                "pkill -f '[s]sh .*-L 127.0.0.1:39990'",
+                timeout=10,
+                check=False,
+                label="(cleanup) kill the forbidden forward",
+            )
+        other_port = remote_port + 1
+        other = node.run(
+            f"timeout 8 ssh -N -o ExitOnForwardFailure=yes {base} "
+            f"-R 127.0.0.1:{other_port}:127.0.0.1:22 {LINK_USER}@{CENTRAL_NAME}",
+            timeout=30,
+            check=False,
+            label=f"ssh -N -R {other_port}:... (another server's port: refused)",
+        )
+        node.check(
+            other.returncode not in (0, 124),
+            f"the link account listened on a port that is not its own ({other.returncode})",
+        )
+        central.check(
+            central.run(
+                f"ss -ltn 'sport = :{other_port}' | grep -c LISTEN", check=False
+            ).stdout.strip()
+            == "0",
+            "a listener was left on a port that is not the link's",
+        )
+        central.run("rm -f /etc/nologin", label="(setup) no /etc/nologin on the central")
+        socket_forward = node.run(
+            f"timeout 8 ssh -N -o ExitOnForwardFailure=yes {base} "
+            f"-R /etc/nologin:127.0.0.1:22 {LINK_USER}@{CENTRAL_NAME}",
+            timeout=30,
+            check=False,
+            label="ssh -N -R /etc/nologin:... (a Unix socket on the central: refused)",
+        )
+        central.check(
+            central.run("test -e /etc/nologin && echo present || echo absent").stdout.strip()
+            == "absent",
+            "a remote forward created /etc/nologin on the central",
+        )
+        node.check(
+            socket_forward.returncode not in (0, 124),
+            f"a Unix socket forward was accepted ({socket_forward.returncode})",
+        )
+
+        # -- the connection comes back by itself
+        pid = docker_exec(
+            NODE_NAME, f"systemctl show {unit} -p MainPID --value", timeout=15
+        ).stdout.strip()
+        docker_exec(NODE_NAME, f"kill {pid}", timeout=15)
+        redact(node, f"kill {pid}", "the link's ssh process (cut the connection)")
+        wait_until(
+            lambda: (
+                as_json(
+                    central.run(
+                        f"noust node test {LINK_NODE_NAME} --json",
+                        check=False,
+                        label="noust node test (after the cut)",
+                    ),
+                    what="noust node test --json",
+                ).get("reachable")
+                is True
+            ),
+            "the link to come back after the connection was cut",
+        )
+        central.run("systemctl restart ssh", label="the central's sshd restarts")
+        wait_until(
+            lambda: (
+                as_json(
+                    central.run(
+                        f"noust node test {LINK_NODE_NAME} --json",
+                        check=False,
+                        label="noust node test (after the central's sshd restarted)",
+                    ),
+                    what="noust node test --json",
+                ).get("reachable")
+                is True
+            ),
+            "the link to come back after the central's sshd restarted",
+        )
+
+        # -- unlinking takes everything away
+        central.run(f"noust node remove {LINK_NODE_NAME} -f --no-revoke", label="noust node remove")
+        unlinked = node.run(
+            f"noust fleet unlink --name {central_label}",
+            check=False,
+            label="noust fleet unlink",
+        )
+        node.check(
+            unlinked.returncode == 0,
+            f"noust fleet unlink failed:\n{unlinked.stdout}{unlinked.stderr}",
+        )
+        node.check(
+            docker_exec(NODE_NAME, f"systemctl is-active {unit}", check=False).stdout.strip()
+            != "active",
+            "the link service is still running after unlink",
+        )
+        node.check(
+            docker_exec(NODE_NAME, f"test ! -e {key} && echo gone", check=False).stdout.strip()
+            == "gone",
+            "the link's key is still on the node after unlink",
+        )
+    finally:
+        docker_exec(NODE_NAME, "systemctl enable --now ssh 2>/dev/null; true", check=False)
+        central.run(
+            f"noust node remove {LINK_NODE_NAME} -f --no-revoke >/dev/null 2>&1; true",
+            check=False,
+            label="(cleanup) the linked node",
         )
 
 

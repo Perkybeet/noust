@@ -1422,6 +1422,41 @@ def test_update_delegates_the_rebuild_to_the_deployer(
     assert ("restart", "example-com") in services.calls
 
 
+def test_an_update_of_a_program_that_is_not_node_names_no_package_manager(
+    cli_runner: CliRunner,
+    monkeypatch: pytest.MonkeyPatch,
+    store: StoreSpy,
+    services: ServiceSpy,
+    deployer: DeployerSpy,
+    tmp_path: Path,
+) -> None:
+    # `noust update` of a Rails, Go or Rust application ended with "Package Manager: npm", the
+    # default of a field that only Node applications use. Found updating them for real.
+    app_path = tmp_path / "example-com"
+    (app_path / ".git").mkdir(parents=True)
+    store.apps["example.com"] = make_app(app_type="ruby", app_path=str(app_path))
+    monkeypatch.setattr(
+        lifecycle,
+        "SourceManager",
+        lambda verbose=False: SimpleNamespace(
+            pull=lambda path, branch=None: None,
+            fetch=lambda *a, **kw: None,
+            get_repo_info=lambda path: {"commit": None},
+        ),
+    )
+    monkeypatch.setattr(
+        lifecycle,
+        "RollbackManager",
+        lambda verbose=False: SimpleNamespace(create_pre_deploy_backup=lambda **kw: None),
+    )
+    monkeypatch.setattr(lifecycle.time, "sleep", lambda seconds: None)
+
+    result = cli_runner.invoke(webapp.cli.commands["update"], ["example.com"])
+
+    assert result.exit_code == 0, result.output
+    assert "Package Manager" not in result.output
+
+
 def test_update_accepts_yarn(
     cli_runner: CliRunner,
     monkeypatch: pytest.MonkeyPatch,

@@ -7,11 +7,11 @@ import { cx } from "../../lib/cx";
 import { describeError } from "../../lib/errors";
 import { heldOf, reportHeld } from "../../lib/held";
 import { useNamedServer } from "../../nodes/pageServer";
+import { ErrorBlock } from "../page/QueryState";
 import { Button } from "./Button";
 import { BACKDROP, DialogFrame, MODAL_POPUP, MODAL_VIEWPORT } from "./Dialog";
 import { Input } from "./Input";
 import { Mono } from "./Mono";
-import { SystemOutput } from "./SystemOutput";
 import { toast } from "./toast";
 
 /**
@@ -26,12 +26,23 @@ import { toast } from "./toast";
  */
 export type ConfirmFriction = "none" | "simple" | "type";
 
+/** How wide the question is: a sentence (`sm`), or a plan with its before and after (`md`, `lg`). */
+export type ConfirmSize = "sm" | "md" | "lg";
+
+const WIDTHS: Record<ConfirmSize, string> = {
+  sm: "sm:max-w-dialog-sm",
+  md: "sm:max-w-dialog-md",
+  lg: "sm:max-w-dialog-lg",
+};
+
 interface ConfirmDialogBase {
   title: string;
   /** What will happen, concretely: what is stopped, deleted, kept. */
   description: ReactNode;
   /** The verb on the action button: "Delete application", not "Confirm". */
   actionLabel: string;
+  /** What the other button says: "Cancel" unless the question is about leaving ("Keep editing"). */
+  cancelLabel?: string;
   destructive?: boolean;
   /** Runs the action. The dialog stays open, busy, until it settles; a rejection is shown verbatim. */
   onConfirm: () => Promise<void>;
@@ -44,16 +55,35 @@ interface ConfirmDialogBase {
    */
   server?: string | null;
   /**
-   * Options that change what the action does ("Also delete its files"): `Checkbox`es, shown
-   * between the question and the name to type, never inside the description. Every option
-   * that destroys more starts unchecked (docs/DESIGN.md, "Danger").
+   * Options that change what the action does ("Also delete its files") or the plan it carries
+   * (an sshd change with its before and after, the ports a firewall protects): shown between the
+   * question and the name to type, never inside the description. Every option that destroys more
+   * starts unchecked (docs/DESIGN.md, "Danger").
    */
   children?: ReactNode;
   /**
-   * False while an option in `children` still lacks what the action needs (a target to
-   * restore into): the action stays disabled, as it does until the name is typed.
+   * False while an option in `children` still lacks what the action needs (a target to restore
+   * into), or when the plan says none of it can run from here: the action stays disabled, as it
+   * does until the name is typed.
    */
   ready?: boolean;
+  /**
+   * The width: a plan wants `md` or `lg`. The body scrolls, so a long plan still leaves the
+   * buttons in view.
+   */
+  size?: ConfirmSize;
+  /**
+   * Says a refusal in its own words before it is shown (a node that does not let this console
+   * change how it is reached, a rejection with a list of what blocks it). It gets what the action
+   * threw and returns what to show in its place; `features/server/errors.tsx` has the one the
+   * Server area uses.
+   */
+  explainError?: (error: unknown) => unknown;
+  /**
+   * What goes under the failure, beside the system's words: the command to run on the node when
+   * the refusal is one of access to the host. It gets the error as `explainError` left it.
+   */
+  failureAction?: (error: unknown) => ReactNode;
 }
 
 export type ConfirmDialogProps = ConfirmDialogBase &
@@ -70,7 +100,9 @@ export type ConfirmDialogProps = ConfirmDialogBase &
 
 /**
  * Confirmation for an action that destroys or interrupts something, with the friction its
- * reach deserves. A failure is shown in the dialog, verbatim, and the dialog stays open.
+ * reach deserves. A failure is shown in the dialog, verbatim, and the dialog stays open. It is
+ * the only confirmation in the console: a plan with a before and after is its `children` and a
+ * `size`, not a second dialog.
  */
 export function ConfirmDialog(props: ConfirmDialogProps) {
   if (props.friction === "none") return <Immediate {...props} />;
@@ -81,7 +113,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
  * `none`: the trigger runs the action, there is nothing to open (`open` is ignored); a failure
  * is a persistent error toast with the system's words verbatim.
  */
-function Immediate({ title, onConfirm, trigger, onOpenChange }: ConfirmDialogBase) {
+function Immediate({ title, onConfirm, trigger, onOpenChange, explainError }: ConfirmDialogBase) {
   const t = useT();
   const [pending, setPending] = useState(false);
 
@@ -95,7 +127,7 @@ function Immediate({ title, onConfirm, trigger, onOpenChange }: ConfirmDialogBas
     } catch (error: unknown) {
       // A cancelled confirmation or a request left waiting is not a failure (lib/held.ts).
       if (reportHeld(error)) return;
-      const described = describeError(error);
+      const described = describeError(explainError === undefined ? error : explainError(error));
       toast.error(title, {
         description: described.hint ?? t("common.confirmDialog.failed"),
         detail: described.detail,
@@ -105,7 +137,7 @@ function Immediate({ title, onConfirm, trigger, onOpenChange }: ConfirmDialogBas
       setPending(false);
       onOpenChange?.(false);
     }
-  }, [pending, onConfirm, onOpenChange, t, title]);
+  }, [pending, onConfirm, onOpenChange, t, title, explainError]);
 
   if (trigger === undefined) return null;
   const own = trigger.props["onClick"] as ((event: MouseEvent) => void) | undefined;
@@ -125,6 +157,7 @@ function Confirmation({
   confirmText,
   friction = "type",
   actionLabel,
+  cancelLabel,
   destructive = true,
   onConfirm,
   trigger,
@@ -133,19 +166,24 @@ function Confirmation({
   server,
   children,
   ready = true,
+  size = "sm",
+  explainError,
+  failureAction,
 }: ConfirmDialogBase & { friction?: "simple" | "type"; confirmText?: string | undefined }) {
   const t = useT();
   const [internalOpen, setInternalOpen] = useState(false);
   const [typed, setTyped] = useState("");
   const [pending, setPending] = useState(false);
-  const [failure, setFailure] = useState<{ hint: string | null; detail: string } | null>(null);
+  // What the action threw, as `explainError` left it; null while there is no failure.
+  const [failure, setFailure] = useState<{ error: unknown } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const inputId = useId();
 
   const typing = friction === "type" && confirmText !== undefined;
   const isOpen = open ?? internalOpen;
-  const matches = ready && (!typing || typed === confirmText);
+  // Typed names are compared trimmed: a trailing space from a paste is not a different name.
+  const matches = ready && (!typing || typed.trim() === confirmText);
 
   const setOpen = (next: boolean): void => {
     // A running action cannot be abandoned half-way from the keyboard or backdrop.
@@ -173,7 +211,7 @@ function Confirmation({
       setPending(false);
       const held = heldOf(error);
       if (held === null) {
-        setFailure(describeError(error));
+        setFailure({ error: explainError === undefined ? error : explainError(error) });
         return;
       }
       // Not a failure. A cancelled "Confirm it's you" leaves the question open, to ask again
@@ -227,11 +265,9 @@ function Confirmation({
           </div>
         ) : null}
         {failure !== null ? (
-          <div role="alert" className={cx("flex flex-col gap-2 rounded-control border border-fail-border bg-fail-soft p-3", typing && "mt-4")}>
-            <p className="text-13 font-medium text-fail">{failure.hint ?? t("common.confirmDialog.failed")}</p>
-            <SystemOutput label={t("common.confirmDialog.whatSystemSaid")} maxHeight="max-h-40">
-              {failure.detail}
-            </SystemOutput>
+          <div className={cx("flex flex-col gap-2", (typing || options) && "mt-4")}>
+            <ErrorBlock compact live error={failure.error} title={t("common.confirmDialog.couldNot")} />
+            {failureAction?.(failure.error)}
           </div>
         ) : null}
       </>
@@ -245,7 +281,7 @@ function Confirmation({
         <AlertDialog.Viewport className={MODAL_VIEWPORT}>
           {/* Typing starts in the name field; a single question starts on Cancel, so Enter
               never destroys anything by accident. */}
-          <AlertDialog.Popup initialFocus={typing ? inputRef : cancelRef} className={cx(MODAL_POPUP, "sm:max-w-dialog-sm")}>
+          <AlertDialog.Popup initialFocus={typing ? inputRef : cancelRef} className={cx(MODAL_POPUP, WIDTHS[size])}>
             <form onSubmit={(event) => void submit(event)} className="contents">
               <DialogFrame
                 title={title}
@@ -257,7 +293,7 @@ function Confirmation({
                     <AlertDialog.Close
                       render={
                         <Button ref={cancelRef} disabled={pending}>
-                          {t("common.confirmDialog.cancel")}
+                          {cancelLabel ?? t("common.confirmDialog.cancel")}
                         </Button>
                       }
                     />

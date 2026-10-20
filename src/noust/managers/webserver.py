@@ -732,6 +732,44 @@ class WebServerManager(BaseManager):
             watch_new_web_logs(self.runner)
         return reloaded
 
+    def load_configuration(self) -> str | None:
+        """
+        Make the web server read its configuration, starting it when it is stopped.
+
+        A reload is refused by a unit that is not running, and callers dropped the answer: a site
+        written beside a web server nobody had started (the one a freed port was waiting for,
+        after another panel's proxy was taken down) was reported created and served nothing.
+
+        Returns:
+            None when the web server is running the configuration; otherwise what it said,
+            verbatim: the configuration test's output, or the unit's own journal.
+        """
+        if self.reload():
+            return None
+        errors = self.config_errors()
+        if errors is not None:
+            return errors
+        if not self.is_running() and self.restart():
+            return None
+        return self._unit_output()
+
+    def _unit_output(self) -> str:
+        """
+        Read the last lines the web server's unit logged, which say why it would not (re)start.
+
+        Returns:
+            The journal's tail, or a sentence naming the unit when the journal says nothing.
+        """
+        result = self._run(
+            ["journalctl", "-u", self.backend.service, "-n", "10", "--no-pager", "-o", "cat"],
+            timeout=_CONTROL_TIMEOUT,
+        )
+        return (
+            result.stdout.strip()
+            or result.stderr.strip()
+            or f"{self.backend.service} would not load the configuration and logged nothing"
+        )
+
     def restart(self) -> bool:
         """
         Restart the web server.
@@ -3285,6 +3323,9 @@ class SecuredSite(MappingRecord):
             covered every requested domain, so nothing was issued.
         certificate_error: Why TLS was not enabled, when it was requested and
             did not end up enabled. None otherwise.
+        load_error: What the web server said when it would not run the site that
+            was written (its configuration test, or the journal of its unit), verbatim.
+            None when it is serving it.
     """
 
     domain: str
@@ -3294,6 +3335,7 @@ class SecuredSite(MappingRecord):
     ssl_enabled: bool = False
     certificate_reused: bool = False
     certificate_error: str | None = None
+    load_error: str | None = None
 
 
 def create_secured_site(
@@ -3362,7 +3404,7 @@ def create_secured_site(
         manager.create_site(domain, template=template, context=site_context)
         if enable:
             manager.enable_site(domain)
-    manager.reload()
+    load_error = manager.load_configuration()
 
     if not ssl:
         return SecuredSite(
@@ -3370,6 +3412,7 @@ def create_secured_site(
             webserver=webserver,
             site_existed=site_existed,
             ssl_requested=False,
+            load_error=load_error,
         )
 
     cert_manager = cert_manager or CertManager()
@@ -3380,6 +3423,7 @@ def create_secured_site(
             site_existed=site_existed,
             ssl_requested=True,
             certificate_error="certbot is not installed",
+            load_error=load_error,
         )
 
     additional_domains = [f"www.{domain}"] if include_www else None
@@ -3410,6 +3454,7 @@ def create_secured_site(
             site_existed=site_existed,
             ssl_requested=True,
             certificate_error=certificate_error,
+            load_error=load_error,
         )
 
     cert_paths = cert_manager.get_cert_path(domain)
@@ -3417,7 +3462,7 @@ def create_secured_site(
     site_context["ssl_certificate"] = str(cert_paths["fullchain"])
     site_context["ssl_certificate_key"] = str(cert_paths["privkey"])
     manager.update_site(domain, template=template, context=site_context)
-    manager.reload()
+    load_error = manager.load_configuration()
 
     return SecuredSite(
         domain=domain,
@@ -3426,6 +3471,7 @@ def create_secured_site(
         ssl_requested=True,
         ssl_enabled=True,
         certificate_reused=certificate_reused,
+        load_error=load_error,
     )
 
 
