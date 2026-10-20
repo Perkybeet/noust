@@ -7,10 +7,10 @@ import { compareVersions, useServerList } from "./servers";
 import { NodeLink, useNode } from "./useNode";
 
 /**
- * What the shell says while on a node, above every page: that the central has no node by that
- * name, that the node runs another Noust than this central (so a page may say "Not
- * available"), or that the node lets this central only read, or only operate its
- * applications (so an action may be refused, by the node). Information, so achromatic: colour
+ * What the shell says while on a node, above every page, one thing at a time and the most
+ * consequential first: that the central has no node by that name, that the node lets this central
+ * only read, or only operate its applications (so an action may be refused, by the node), or that
+ * the node runs another Noust than this central (so a page may say "Not available"). Information, so achromatic: colour
  * is for state. Nothing on this server, nor on a node on the same version that lets the
  * central do everything.
  */
@@ -50,11 +50,13 @@ export function NodeNotice() {
         ? t("fleet.shell.olderNode", words)
         : t("fleet.shell.newerNode", words);
   const ceiling = access === null || access.level === "admin" ? null : access.level === "read" ? t("fleet.shell.readOnly", { node }) : t("fleet.shell.deployOnly", { node });
-  if (version === null && ceiling === null) return null;
+  // One banner above a page, by priority (NV-16): what this central may do on the node outranks that
+  // the node runs another Noust. The version is still in the selector's menu and the fleet's list.
+  const text = ceiling ?? version;
+  if (text === null) return null;
   return (
-    <section aria-label={t("fleet.shell.noticeLabel", { node })} className="mb-6 flex flex-col gap-2">
-      {ceiling !== null ? <Notice variant="banner">{ceiling}</Notice> : null}
-      {version !== null ? <Notice variant="banner">{version}</Notice> : null}
+    <section aria-label={t("fleet.shell.noticeLabel", { node })} className="mb-6">
+      <Notice variant="banner">{text}</Notice>
     </section>
   );
 }

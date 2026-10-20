@@ -1,10 +1,9 @@
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
 import type { OverviewAttentionItem, OverviewAttentionReason } from "../../api/queries/overview";
 import { RelativeTime } from "../../components/page/RelativeTime";
-import { appStatus } from "../../components/page/status";
 import { useAnnounceChange } from "../../components/page/useAnnounceChange";
 import { Badge } from "../../components/ui/Badge";
 import { Button, buttonClassName } from "../../components/ui/Button";
@@ -16,7 +15,11 @@ import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { formatDate, parseTimestamp } from "../../lib/format";
-import type { AttentionSummary, Severity } from "./attention";
+import { AttentionActionButton } from "../inbox/AttentionActionButton";
+import { useExtraAttention } from "../inbox/useAttention";
+import { mergeAttention } from "./attention";
+import type { Severity } from "./attention";
+import { attentionTarget } from "./attentionTarget";
 
 /**
  * What the monitor saw, in words, by its signal (`src/noust/monitor/models.py`) and severity
@@ -31,34 +34,6 @@ function monitorText(t: T, severity: string, signal: string): string {
       return warning ? t("overview.attention.monitor.usageWarning") : t("overview.attention.monitor.usageNotice");
     default:
       return t("overview.attention.monitor.other", { signal });
-  }
-}
-
-/** Turns a pure `AttentionSummary` into the sentence it stands for, in the active language. */
-export function summaryText(t: T, summary: AttentionSummary): string {
-  switch (summary.key) {
-    case "serviceFailed":
-      return t("overview.attention.serviceFailed");
-    case "serviceState":
-      return t("overview.attention.serviceState", { label: appStatus(summary.status, t.locale).label });
-    case "deployFailed":
-      return t("overview.attention.deployFailed");
-    case "deployRolledBack":
-      return t("overview.attention.deployRolledBack");
-    case "certExpired":
-      return t("overview.attention.certExpired");
-    case "certExpiresToday":
-      return t("overview.attention.certExpiresToday");
-    case "certExpiresIn":
-      return t("overview.attention.certExpiresIn", { count: summary.days });
-    case "unitFailed":
-      return t("overview.attention.unitFailed");
-    case "unitRestarting":
-      return t("overview.attention.unitRestarting");
-    case "unitsFailedCount":
-      return t("overview.attention.unitsFailedCount", { count: summary.count });
-    case "monitorFinding":
-      return monitorText(t, summary.severity, summary.signal);
   }
 }
 
@@ -104,6 +79,21 @@ export function reasonText(t: T, reason: OverviewAttentionReason): string {
       return t("overview.attention.unitRestarting");
     case "monitor_finding":
       return monitorText(t, text(params["severity"]) ?? "", text(params["signal"]) ?? "");
+    // What the console adds to the server's list (features/overview/attention.ts).
+    case "alert_firing":
+      return t("inbox.reasons.alertFiring");
+    case "alert_taken":
+      return t("inbox.reasons.alertTaken", { by: text(params["by"]) ?? "" });
+    case "probe_down":
+      return t("inbox.reasons.probeDown");
+    case "approval_waiting":
+      return t("inbox.reasons.approvalWaiting", { by: text(params["by"]) ?? "" });
+    case "noust_update":
+      return t("inbox.reasons.noustUpdate", { version: text(params["version"]) ?? "", current: text(params["current"]) ?? "" });
+    case "noust_security_update":
+      return t("inbox.reasons.noustSecurityUpdate", { version: text(params["version"]) ?? "", current: text(params["current"]) ?? "" });
+    case "recipe_update":
+      return t("inbox.reasons.recipeUpdate", { recipe: text(params["recipe"]) ?? "", version: text(params["version"]) ?? "", current: text(params["current"]) ?? "" });
     default:
       return reason.code;
   }
@@ -138,6 +128,18 @@ function Subject({ t, item }: { t: T; item: OverviewAttentionItem }) {
       </Link>
     );
   }
+  if (kind === "alert" || kind === "probe" || kind === "approval" || kind === "noust" || kind === "recipe") {
+    // What the console adds to the server's list: the screen where it is dealt with (attentionTarget).
+    const target = attentionTarget(item);
+    const label = kind === "alert" || kind === "probe" || kind === "recipe" ? <Mono>{item.title}</Mono> : <span translate="no">{item.title}</span>;
+    return target === null ? (
+      label
+    ) : (
+      <Link to={target.to as never} className={SUBJECT_LINK}>
+        {label}
+      </Link>
+    );
+  }
   const pid = item.subject["pid"];
   return (
     <Link to="/server" className={SUBJECT_LINK}>
@@ -155,6 +157,14 @@ const ACTION = buttonClassName("secondary", "sm");
 
 /** The one or two things to do about an item, where they are done: never more than two. */
 function Actions({ t, item }: { t: T; item: OverviewAttentionItem }) {
+  const kind = item.subject["kind"];
+  if (kind === "alert" || kind === "probe" || kind === "approval" || kind === "noust" || kind === "recipe") {
+    return (
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <AttentionActionButton item={item} />
+      </div>
+    );
+  }
   const domain = text(item.subject["domain"]);
   const name = text(item.subject["name"]);
   const wanted = new Set(item.reasons.flatMap((reason) => reason.actions ?? []));
@@ -268,9 +278,14 @@ export interface NeedsAttentionProps {
  * What needs an operator, worst first, each with where it is fixed. Five at most until asked for
  * all; when nothing does, one calm line that says what was checked.
  */
-export function NeedsAttention({ items, total }: NeedsAttentionProps) {
+export function NeedsAttention({ items: listed, total: listedTotal }: NeedsAttentionProps) {
   const t = useT();
   const [all, setAll] = useState(false);
+  // The server's list and what the console adds - an alert firing, a probe down, a request waiting -
+  // are the one list the inbox and the sidebar's counters show too.
+  const extras = useExtraAttention();
+  const items = useMemo(() => (listed === undefined ? undefined : mergeAttention(listed, extras)), [listed, extras]);
+  const total = listedTotal + extras.length;
   const count = items === undefined ? null : total;
   useAnnounceChange(
     count === null ? null : String(count),

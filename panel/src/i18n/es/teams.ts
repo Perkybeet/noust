@@ -2,6 +2,9 @@ import type { teams as en } from "../en/teams";
 import type { Catalog } from "../types";
 
 export const teams: Catalog<typeof en> = {
+  frame: {
+    description: "Los proyectos agrupan las aplicaciones, bases de datos y sitios de un mismo trabajo. Los equipos deciden quién los ve y quién puede actuar.",
+  },
   cancel: "Cancelar",
   clearFilters: "Quitar filtros",
   couldNotLoad: "No se pudieron cargar los equipos",

@@ -7,7 +7,13 @@ import { ICONS } from "../../components/ui/icons";
  * manage, so a principal that cannot read the server is not offered those three tabs.
  */
 export const DOMAINS_SCREENS = strip(
-  area("domains", "/domains", "nav.domains.label", ICONS.verified, { group: "runs", keywords: "nav.domains.keywords", rootLabel: "domains.page.certificatesTab" }),
+  area("domains", "/domains", "nav.domains.label", ICONS.verified, {
+    group: "runs",
+    shortcut: ["g", "n"],
+    goTo: "nav.domains.goTo",
+    keywords: "nav.domains.keywords",
+    rootLabel: "domains.page.certificatesTab",
+  }),
   (domains) => [
     tab(domains, "sites", "domains.page.sitesTab", { exact: true }),
     tab(domains, "dns", "network.tabs.dns", { exact: true, permission: "server.read" }),

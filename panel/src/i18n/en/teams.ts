@@ -4,6 +4,10 @@
  * of who sees and who may act, never of where code runs; the copy says so where it matters.
  */
 export const teams = {
+  /** The header Projects and Teams share (D-5). */
+  frame: {
+    description: "Projects group the applications, databases and sites of one piece of work. Teams decide who sees them and who may act.",
+  },
   cancel: "Cancel",
   clearFilters: "Clear filters",
   couldNotLoad: "Could not load the teams",

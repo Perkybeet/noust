@@ -52,8 +52,11 @@ export const CENTRAL_PATHS: readonly string[] = [
   "/servers",
 ];
 
-/** Pages outside any server: signing in and the design gallery. */
-const UNSCOPED_PATHS: readonly string[] = ["/login", "/welcome", "/setup", "/invite", "/__design"];
+/**
+ * Pages outside any server: signing in, choosing a password with the link of a mail, and the design
+ * gallery. The address in a reset mail is the central's, whichever server the link was made from.
+ */
+const UNSCOPED_PATHS: readonly string[] = ["/login", "/welcome", "/setup", "/invite", "/reset-password", "/__design"];
 
 /** Pages that never carry a node: the fleet's, the central's and those outside any server. */
 export const CENTRAL_ONLY_PATHS: readonly string[] = [...FLEET_PATHS, ...CENTRAL_PATHS, ...UNSCOPED_PATHS];

@@ -33,20 +33,20 @@ export const fleet: Catalog<typeof en> = {
     viewAll: "Ver todos los servidores",
     viewCentral: "Abrir los ajustes de esta central, {name}",
     keywords: "servidor nodo flota máquina cambiar central todos server fleet",
-    backTo: "Volver a {name}",
-    backToLabel: "Volver a {name}, el servidor en el que estabas",
+    lineServer: "Servidor",
+    lineServers: { one: "{count} servidor", other: "{count} servidores" },
+    lineNeed: { one: "{count} te necesita", other: "{count} te necesitan" },
+    addServer: "Añadir un servidor",
   },
   shell: {
     noticeLabel: "Sobre {node}",
     olderNode:
       "{node} ejecuta Noust {nodeVersion}, anterior a la {version} de este servidor. Una página que necesite algo que {node} no tiene lo indica.",
-    newerNode:
-      "{node} ejecuta Noust {nodeVersion}, posterior a la {version} de este servidor. Esta consola muestra solo lo que conoce; actualiza este servidor para usar todo lo que ofrece {node}.",
+    newerNode: "{node} ejecuta Noust {nodeVersion}, posterior a la {version} de este servidor. Actualiza este servidor para usar todo lo que ofrece {node}.",
     unknownNode: "Este servidor no tiene ningún nodo llamado {node}.",
     backToThisServer: "Ir a este servidor",
     readOnly: "{node} solo deja leer a esta central. Lo que cambie {node} desde aquí lo rechaza {node}, a propósito.",
-    deployOnly:
-      "{node} deja a esta central operar, actualizar y volver atrás sus aplicaciones, pero no crear, borrar ni configurar nada. Eso lo rechaza {node}, a propósito.",
+    deployOnly: "{node} deja a esta central operar, actualizar y volver atrás aplicaciones. Crear, borrar y configurar lo rechaza {node}, a propósito.",
   },
   capability: {
     notAvailable: "No disponible en {node} (Noust {version})",

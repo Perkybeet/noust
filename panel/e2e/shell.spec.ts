@@ -14,12 +14,13 @@ const DESTINATIONS: readonly { link: string; path: string; title: string }[] = [
   { link: "Overview", path: "/", title: "Overview" },
   { link: "Applications", path: "/apps", title: "Applications" },
   { link: "Databases", path: "/databases", title: "Databases" },
-  { link: "Domains and certificates", path: "/domains", title: "Domains and certificates" },
+  { link: "Domains", path: "/domains", title: "Domains" },
   { link: "Backups", path: "/backups", title: "Backups" },
+  { link: "Cron", path: "/cron", title: "Cron" },
+  { link: "Logs", path: "/logs", title: "Logs" },
+  { link: "Activity", path: "/activity", title: "Activity" },
   // Services live under Server (its tab), not in the sidebar.
   { link: "Server", path: "/server", title: "Server" },
-  { link: "Cron", path: "/cron", title: "Cron" },
-  { link: "Activity", path: "/activity", title: "Activity" },
   { link: "Settings", path: "/settings", title: "Settings" },
 ];
 

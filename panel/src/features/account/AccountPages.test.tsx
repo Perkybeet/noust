@@ -1,10 +1,8 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
-import { COMPLIANCE } from "../../test/compliance";
 import { renderConsole } from "../../test/console";
 import { SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
@@ -21,22 +19,6 @@ const SESSIONS = {
   ],
 };
 
-const CONFIG = {
-  config: {
-    web: {
-      max_failed_attempts: 5,
-      lockout_duration: 900,
-      rate_limit_enabled: true,
-      rate_limit_requests: 120,
-      rate_limit_window: 60,
-      token_expiration_hours: 12,
-      ip_whitelist: [],
-    },
-  },
-  path: "/etc/noust/config.yaml",
-  writable: true,
-};
-
 const ENROLLMENT = {
   secret: "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP",
   uri: "otpauth://totp/Noust%3Aweb-01?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=Noust&algorithm=SHA1&digits=6&period=30",
@@ -49,18 +31,8 @@ function securityRoutes(twoFactor: { enabled: boolean }, extra: Record<string, R
     ...signedInRoutes({ ...SESSION, totp_enabled: twoFactor.enabled }),
     "GET /api/auth/2fa": () => json(200, { enabled: twoFactor.enabled, pending: false, backup_codes_remaining: twoFactor.enabled ? 8 : 0 }),
     "GET /api/auth/sessions": () => json(200, SESSIONS),
-    "GET /api/config": () => json(200, CONFIG),
     "GET /api/auth/passkeys": () =>
       json(200, { passkeys: [], availability: { supported: false, reason: "ip_address", detail: "Passkeys do not work on an address such as 127.0.0.1", hint: "Open the console by its name." }, allow_synced: true }),
-    "GET /api/approvals/policy": () => json(200, { enabled: false, approvers: ["security"], request_hours: 24, execute_minutes: 30, reason_required: false, rules: [] }),
-    "GET /api/compliance": () => json(200, COMPLIANCE),
-    "GET /api/ens/profile": () =>
-      json(200, {
-        profile: "standard",
-        baseline: [
-          { key: "auth.session.idle_minutes", description: "Idle timeout", standard_value: "30", ens_value: "15", measures: ["mp.eq.2"] },
-        ],
-      }),
     ...extra,
   };
 }
@@ -71,7 +43,7 @@ async function expectToast(text: string): Promise<void> {
   });
 }
 
-describe("Settings > Security", () => {
+describe("Account > Sign-in security", () => {
   it("sets up two-factor authentication: QR and key, a code, then the backup codes once", { timeout: 20_000 }, async () => {
     const twoFactor = { enabled: false };
     const backend = fakeBackend(
@@ -86,7 +58,7 @@ describe("Settings > Security", () => {
         },
       }),
     );
-    const { user } = renderConsole("/settings/security");
+    const { user } = renderConsole("/account/security");
     await user.click(await screen.findByRole("button", { name: "Set up two-factor authentication" }));
 
     const dialog = await screen.findByRole("dialog", { name: "Set up two-factor authentication" });
@@ -145,7 +117,7 @@ describe("Settings > Security", () => {
         },
       }),
     );
-    const { user } = renderConsole("/settings/security");
+    const { user } = renderConsole("/account/security");
     await user.click(await screen.findByRole("button", { name: "Set up two-factor authentication" }));
 
     // Two-factor is off, so elevation is done with the access token, not a code (D5).
@@ -178,7 +150,7 @@ describe("Settings > Security", () => {
         },
       }),
     );
-    const { user } = renderConsole("/settings/security");
+    const { user } = renderConsole("/account/security");
     await user.click(await screen.findByRole("button", { name: "Turn off" }));
     const dialog = await screen.findByRole("dialog", { name: "Turn off two-factor authentication" });
     await user.type(within(dialog).getByLabelText("Authentication or backup code"), "654321");
@@ -209,7 +181,7 @@ describe("Settings > Security", () => {
         },
       }),
     );
-    const { user } = renderConsole("/settings/security");
+    const { user } = renderConsole("/account/security");
     await user.click(await screen.findByRole("button", { name: "New backup codes" }));
     const ask = await screen.findByRole("dialog", { name: "Replace your backup codes?" });
     expect(ask).toHaveAccessibleDescription(/old ones stop working/);
@@ -237,7 +209,7 @@ describe("Settings > Security", () => {
         "POST /api/auth/sessions/revoke-others": () => json(200, { success: true, message: "Revoked 1 other session(s)" }),
       }),
     );
-    const { user, container } = renderConsole("/settings/security");
+    const { user, container } = renderConsole("/account/security");
     const current = (await screen.findByText("c0ffee00")).closest("tr");
     const table = screen.getByRole("region", { name: "Active sessions" });
     if (!current) throw new Error("no row");
@@ -267,7 +239,7 @@ describe("Settings > Security", () => {
           problem(400, "validation_error", "This credential is not a browser session; there is no other session to leave signed in."),
       }),
     );
-    const { user } = renderConsole("/settings/security");
+    const { user } = renderConsole("/account/security");
     await user.click(await screen.findByRole("button", { name: "Sign out other sessions" }));
     const dialog = await screen.findByRole("dialog", { name: "Sign out other sessions?" });
     await user.click(within(dialog).getByRole("button", { name: "Sign out other sessions" }));
@@ -280,42 +252,9 @@ describe("Settings > Security", () => {
     expect(screen.getByRole("dialog", { name: "Sign out other sessions?" })).toBeInTheDocument();
   });
 
-  it("states the security profile and the limits the server enforces, read-only", async () => {
-    fakeBackend(securityRoutes({ enabled: true }));
-    renderConsole("/settings/security");
-    const policy = await screen.findByRole("region", { name: "Security profile" });
-    expect(await within(policy).findByText("Standard", { selector: "dd *, dd" })).toBeInTheDocument();
-    expect(await within(policy).findByText("5 failed attempts lock it for 15 minutes")).toBeInTheDocument();
-    expect(within(policy).getByText("120 requests a minute")).toBeInTheDocument();
-    expect(within(policy).getByText("Any address")).toBeInTheDocument();
-    // Four-eyes approvals off is an off at a glance: grey, a ring, the word (item 56).
-    expect(within(policy).getByText("Off")).toHaveAttribute("data-state", "stopped");
-    await userEvent.click(within(policy).getByRole("button", { name: "Show what the profile fixes" }));
-    expect(await within(policy).findByText("auth.session.idle_minutes")).toBeInTheDocument();
-    expect(within(policy).queryByRole("textbox")).toBeNull();
-  });
-
-  it("shows four-eyes approvals on in the running green, with who decides under it", async () => {
-    fakeBackend(
-      securityRoutes(
-        { enabled: true },
-        {
-          "GET /api/approvals/policy": () =>
-            json(200, { enabled: true, approvers: ["security"], request_hours: 24, execute_minutes: 30, reason_required: false, rules: [] }),
-        },
-      ),
-    );
-    renderConsole("/settings/security");
-    const policy = await screen.findByRole("region", { name: "Security profile" });
-    const on = await within(policy).findByText("On");
-    expect(on).toHaveAttribute("data-state", "running");
-    expect(on.closest("button, [role='switch']")).toBeNull();
-    expect(within(policy).getByText("Decided by: Security officer")).toBeInTheDocument();
-  });
-
   it("says why passkeys do not work from here instead of hiding them", async () => {
     fakeBackend(securityRoutes({ enabled: true }));
-    renderConsole("/settings/security");
+    renderConsole("/account/security");
     const passkeys = await screen.findByRole("region", { name: "Passkeys" });
     expect(await within(passkeys).findByText("Passkeys do not work from this page")).toBeInTheDocument();
     expect(within(passkeys).getByText(/Browsers only offer passkeys to a site with a name/)).toBeInTheDocument();
@@ -323,29 +262,55 @@ describe("Settings > Security", () => {
     expect(within(passkeys).queryByRole("button", { name: "Add a passkey" })).toBeNull();
   });
 
-  it("names the access token for what it is when it is who signed in", async () => {
+  it("names the access token for what it is when it is who signed in, on the profile page", async () => {
     fakeBackend(securityRoutes({ enabled: true }));
-    renderConsole("/settings/security");
+    renderConsole("/account");
     const account = await screen.findByRole("region", { name: "Your account" });
     expect(within(account).getByText("Signed in with the access token")).toBeInTheDocument();
   });
 });
 
-describe("Settings > Security in Spanish", () => {
-  it("shows the two-factor state, the sessions and the lockout policy in Spanish, with no accessibility violations", async () => {
+describe("Account", () => {
+  it("is a page of its own with a list of two sections, and the profile is the first", async () => {
+    fakeBackend(securityRoutes({ enabled: false }));
+    renderConsole("/account");
+    expect(await screen.findByRole("heading", { level: 1, name: "Account" })).toBeInTheDocument();
+    const sections = await screen.findByRole("navigation", { name: "Account sections" });
+    expect(within(sections).getByRole("link", { name: "Profile and password" })).toHaveAttribute("aria-current", "page");
+    expect(within(sections).getByRole("link", { name: "Sign-in security" })).toHaveAttribute("href", "/account/security");
+    // The tokens are the instance's: the page says so and leads there.
+    expect(await screen.findByRole("link", { name: "Open API tokens" })).toHaveAttribute("href", "/settings/tokens");
+  });
+
+  it("shows who is signed in, with the role and when the password changed", async () => {
+    const account = { id: 3, username: "alice", role: "admin", person_ref: "alice@example.com", password_changed_at: NOW - 86_400 };
+    fakeBackend(securityRoutes({ enabled: true }, { "GET /api/auth/session": () => json(200, { ...SESSION, totp_enabled: true, account }) }));
+    renderConsole("/account");
+    const card = await screen.findByRole("region", { name: "Your account" });
+    expect(await within(card).findByText("alice")).toBeInTheDocument();
+    expect(within(card).getByText("alice@example.com")).toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "Change password" })).toBeInTheDocument();
+  });
+
+  it("keeps Security in Settings only as an address that opens the account's sign-in security", async () => {
+    fakeBackend(securityRoutes({ enabled: true }));
+    const { location } = renderConsole("/settings/security");
+    expect(await screen.findByRole("heading", { level: 2, name: "Two-factor authentication" })).toBeInTheDocument();
+    expect(location().pathname).toBe("/account/security");
+  });
+});
+
+describe("Account > Sign-in security in Spanish", () => {
+  it("shows the two-factor state and the sessions in Spanish, with no accessibility violations", async () => {
     await act(() => setLocale("es"));
     fakeBackend(securityRoutes({ enabled: true }));
-    const { container } = renderConsole("/settings/security");
+    const { container } = renderConsole("/account/security");
     expect(await screen.findByRole("region", { name: "Verificación en dos pasos" })).toBeInTheDocument();
     expect(await screen.findByText("Activada")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Nuevos códigos de respaldo" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Desactivar" })).toBeInTheDocument();
     const sessions = screen.getByRole("region", { name: "Sesiones iniciadas" });
     expect(within(sessions).getByText("Este navegador")).toBeInTheDocument();
-    const policy = await screen.findByRole("region", { name: "Perfil de seguridad" });
-    expect(await within(policy).findByText("5 intentos fallidos la bloquean durante 15 minutos")).toBeInTheDocument();
-    expect(within(policy).getByText("120 solicitudes por minuto")).toBeInTheDocument();
-    expect(within(policy).getByText("Cualquier dirección")).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 });

@@ -131,7 +131,7 @@ export const strip = /* @__NO_SIDE_EFFECTS__ */ (root: Dest, children: (root: De
  * New routes whose page does not exist yet. Until it does, each opens the screen that holds the
  * same thing today, so the route is never an empty page and nothing is stranded.
  */
-export const INTERIM: readonly { from: ConsolePath; to: ConsolePath; after: string }[] = INTERIM_ROWS;
+export const INTERIM = INTERIM_ROWS as readonly { from: ConsolePath; to: ConsolePath; after: string }[];
 
 const STAGED: ReadonlySet<string> = new Set(INTERIM.map((row) => row.from));
 
@@ -193,6 +193,36 @@ export function stripEntries(group: Strip, ctx: NavContext): Dest[] {
  */
 export function tabsOf(group: Strip, ctx: NavContext = {}): TabItem[] {
   return stripEntries(group, ctx).map((entry, index) => tabItem(entry, index === 0));
+}
+
+/** The block of Settings a section is in: the selected server's own, or the instance's (NV-7). */
+export type SettingsBlock = "server" | "instance";
+
+/** The groups of each block, in the order they are drawn. The ids are titled by whoever draws them. */
+export const SETTINGS_GROUPS: Readonly<Record<SettingsBlock, readonly string[]>> = {
+  server: ["this-server", "monitoring", "developers"],
+  instance: ["people", "governance", "fleet"],
+};
+
+const BLOCK_OWNERS: Readonly<Record<SettingsBlock, readonly Owner[]>> = { server: ["server"], instance: ["instance", "fleet"] };
+
+/** The group of a section: General, which is Settings' own page, is the first of "This server". */
+export function settingsGroupOf(entry: Dest): string {
+  return entry.id === "settings" || entry.group === undefined || entry.group === "" ? "this-server" : entry.group;
+}
+
+/**
+ * The sections of Settings a block holds, in titled groups. `screens` is the group of screens
+ * Settings is written as (SETTINGS_SCREENS): the page that draws the list passes it, so its route
+ * is given the texts of those sections and no others. The account's own sections are not Settings
+ * (NV-7): they leave for /account, so no block holds them.
+ */
+export function groupSettings(screens: Strip, block: SettingsBlock, ctx: NavContext = {}): { id: string; sections: Dest[] }[] {
+  const entries = screens.filter((entry) => (entry.id === "settings" || entry.kind === "section") && shown(entry, ctx) && entry.owner !== undefined && BLOCK_OWNERS[block].includes(entry.owner));
+  return SETTINGS_GROUPS[block].flatMap((id) => {
+    const sections = entries.filter((entry) => settingsGroupOf(entry) === id);
+    return sections.length > 0 ? [{ id, sections }] : [];
+  });
 }
 
 /**

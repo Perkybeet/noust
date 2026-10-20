@@ -12,6 +12,7 @@ import { Select } from "../../components/ui/Select";
 import { useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
 import { ProjectsTable } from "./ProjectsTable";
+import { ProjectsTabs, projectsHeader } from "./ProjectsTabs";
 import type { ProjectsSearch } from "./search";
 import { useOrganization } from "./useOrganization";
 import { useProjectActions } from "./useProjectActions";
@@ -63,24 +64,20 @@ export function ProjectsPage({ search, onSearchChange }: ProjectsPageProps) {
   const clear = (): void => onSearchChange({});
 
   const Add = ICONS.add;
-  const header = {
-    title: t("teams.projects.title"),
-    description: t("teams.projects.description"),
-    server: node,
-    ...(actions.teams.length > 0
-      ? {
-          primaryAction: (
-            <Button variant="primary" icon={<Add aria-hidden="true" />} onClick={actions.create}>
-              {t("teams.projects.new")}
-            </Button>
-          ),
-        }
-      : {}),
-  };
+  const header = projectsHeader(
+    t,
+    node,
+    actions.teams.length > 0 ? (
+      <Button variant="primary" icon={<Add aria-hidden="true" />} onClick={actions.create}>
+        {t("teams.projects.new")}
+      </Button>
+    ) : undefined,
+  );
+  const tabs = <ProjectsTabs />;
 
   if (org.error !== null && org.error !== undefined && !org.available) {
     return (
-      <ListPage header={header}>
+      <ListPage header={header} tabs={tabs}>
         <ErrorBlock error={org.error} title={t("teams.couldNotLoad")} onRetry={org.reload} />
       </ListPage>
     );
@@ -88,7 +85,7 @@ export function ProjectsPage({ search, onSearchChange }: ProjectsPageProps) {
 
   if (org.available && !org.loading && all.length === 0) {
     return (
-      <ListPage header={header}>
+      <ListPage header={header} tabs={tabs}>
         <EmptyState
           variant="firstUse"
           icon={<FolderKanban />}
@@ -114,6 +111,7 @@ export function ProjectsPage({ search, onSearchChange }: ProjectsPageProps) {
   return (
     <ListPage
       header={header}
+      tabs={tabs}
       filters={
         <FilterBar
           label={t("teams.projects.filterLabel")}

@@ -25,6 +25,7 @@ import { useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
 import { NameDialog } from "./NameDialog";
+import { ProjectsTabs, projectsHeader } from "./ProjectsTabs";
 import { heldBy } from "./organization";
 import { refreshOrganization } from "./refresh";
 import { teamRoleLabel } from "./roles";
@@ -137,20 +138,16 @@ export function TeamsPage({ search, onSearchChange }: TeamsPageProps) {
   ];
 
   const Add = ICONS.add;
-  const header = {
-    title: t("teams.list.title"),
-    description: t("teams.list.description"),
-    server: node,
-    ...(mayCreate
-      ? {
-          primaryAction: (
-            <Button variant="primary" icon={<Add aria-hidden="true" />} onClick={openCreate}>
-              {t("teams.list.new")}
-            </Button>
-          ),
-        }
-      : {}),
-  };
+  const header = projectsHeader(
+    t,
+    node,
+    mayCreate ? (
+      <Button variant="primary" icon={<Add aria-hidden="true" />} onClick={openCreate}>
+        {t("teams.list.new")}
+      </Button>
+    ) : undefined,
+  );
+  const tabs = <ProjectsTabs />;
 
   const notice = <Notice title={t("teams.list.boundaryTitle")}>{t("teams.list.boundary")}</Notice>;
 
@@ -175,7 +172,7 @@ export function TeamsPage({ search, onSearchChange }: TeamsPageProps) {
 
   if (org.error !== null && org.error !== undefined && !org.available) {
     return (
-      <ListPage header={header}>
+      <ListPage header={header} tabs={tabs}>
         <ErrorBlock error={org.error} title={t("teams.couldNotLoad")} onRetry={org.reload} />
       </ListPage>
     );
@@ -183,7 +180,7 @@ export function TeamsPage({ search, onSearchChange }: TeamsPageProps) {
 
   if (org.available && org.teams.length === 0) {
     return (
-      <ListPage header={header}>
+      <ListPage header={header} tabs={tabs}>
         <EmptyState
           variant="firstUse"
           icon={<Users />}
@@ -199,6 +196,7 @@ export function TeamsPage({ search, onSearchChange }: TeamsPageProps) {
   return (
     <ListPage
       header={header}
+      tabs={tabs}
       notice={notice}
       filters={
         <FilterBar

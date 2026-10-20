@@ -10,8 +10,9 @@ import { describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../test/axe";
 import { renderConsole } from "../test/console";
+import { overviewFixture } from "../features/overview/testFixtures";
 import { teamsRoutes } from "../features/teams/testFixtures";
-import { fakeBackend, problem, signedInRoutes } from "../test/fakes";
+import { NODES, fakeBackend, json, problem, signedInRoutes } from "../test/fakes";
 
 async function shellAt(path: string) {
   fakeBackend(signedInRoutes());
@@ -91,5 +92,69 @@ describe("the sidebar while the server's teams are read", () => {
     expect(await within(nav).findByRole("link", { name: /^Applications/ })).toBeInTheDocument();
     expect(within(nav).queryByRole("link", { name: "Projects" })).not.toBeInTheDocument();
     expect(nav).not.toHaveAttribute("aria-busy");
+  });
+});
+
+describe("the sidebar's counters", () => {
+  it("count what the inbox lists, red for what failed and amber for what is about to", async () => {
+    const failedApp = { kind: "state", severity: "fail", code: "service_failed", params: {}, detail: null, when: null, deployment_id: null, actions: [] };
+    const expired = { kind: "certificate", severity: "fail", code: "certificate_expired", params: {}, detail: null, when: null, deployment_id: null, actions: [] };
+    const soon = { kind: "certificate", severity: "warn", code: "certificate_expires_in", params: { days: 9 }, detail: null, when: null, deployment_id: null, actions: [] };
+    const unit = { kind: "unit", severity: "fail", code: "unit_failed", params: {}, detail: null, when: null, deployment_id: null, actions: [] };
+    fakeBackend({
+      ...signedInRoutes(),
+      "GET /api/overview": () =>
+        json(
+          200,
+          overviewFixture({
+            attention_total: 4,
+            attention: [
+              { id: "app:shop.example.com", subject: { kind: "app", domain: "shop.example.com" }, title: "shop.example.com", severity: "fail", reasons: [failedApp] },
+              { id: "certificate:old.example.com", subject: { kind: "certificate", domain: "old.example.com" }, title: "old.example.com", severity: "fail", reasons: [expired] },
+              { id: "certificate:new.example.com", subject: { kind: "certificate", domain: "new.example.com" }, title: "new.example.com", severity: "warn", reasons: [soon] },
+              { id: "unit:noust-web", subject: { kind: "unit", name: "noust-web" }, title: "noust-web", severity: "fail", reasons: [unit] },
+            ],
+          }),
+        ),
+    });
+    renderConsole("/");
+    const nav = await screen.findByRole("navigation", { name: "Main" });
+    expect(await within(nav).findByRole("link", { name: "Applications 1 failed" })).toBeInTheDocument();
+    expect(within(nav).getByRole("link", { name: "Domains 1 failed 1 certificate needs renewing" })).toBeInTheDocument();
+    expect(within(nav).getByRole("link", { name: "Server 1 failed" })).toBeInTheDocument();
+    expect(within(nav).getByRole("link", { name: "Databases" })).toBeInTheDocument();
+  });
+});
+
+describe("the sidebar follows the scope", () => {
+  it("keeps Applications lit on the recipes, which are its second and third view", async () => {
+    await shellAt("/catalog");
+    const nav = screen.getByRole("navigation", { name: "Main" });
+    expect(within(nav).getByRole("link", { name: /^Applications/ })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).queryByRole("link", { name: /^Catalog/ })).toBeNull();
+  });
+
+  it("keeps Overview lit on the Map, which is its second view, and nothing else", async () => {
+    await shellAt("/map");
+    const nav = screen.getByRole("navigation", { name: "Main" });
+    expect(within(nav).getByRole("link", { name: "Overview" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getAllByRole("link").filter((link) => link.getAttribute("aria-current") === "page")).toHaveLength(1);
+  });
+
+  it("is the fleet's seven destinations on the fleet's pages, with the fleet's Overview lit only on /fleet", async () => {
+    fakeBackend({ ...signedInRoutes(), "GET /api/nodes": () => json(200, { items: NODES }) });
+    renderConsole("/fleet/apps");
+    await screen.findByRole("heading", { level: 1 });
+    const nav = screen.getByRole("navigation", { name: "Main" });
+    expect(within(nav).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Servers", "Applications", "Certificates", "Backups", "Updates", "Activity"]);
+    expect(within(nav).getByRole("link", { name: "Applications" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getByRole("link", { name: "Overview" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("keeps Applications of the fleet lit on the applications that run on several servers", async () => {
+    fakeBackend({ ...signedInRoutes(), "GET /api/nodes": () => json(200, { items: NODES }) });
+    renderConsole("/fleet/placements");
+    await screen.findByRole("heading", { level: 1 });
+    expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Applications" })).toHaveAttribute("aria-current", "page");
   });
 });

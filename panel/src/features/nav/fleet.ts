@@ -1,43 +1,67 @@
-import { Network } from "lucide-react";
+import { Archive, Boxes, Gauge, History, RefreshCw, Server } from "lucide-react";
 
-import { area, stripEntries, tab, tabItem } from "../../app/navCore";
+import { area, tab, tabItem } from "../../app/navCore";
 import type { Dest, Strip, TabItem } from "../../app/navCore";
+import { ICONS } from "../../components/ui/icons";
 import type { PlainKey } from "../../i18n";
 
-const fleet = area("fleet", "/fleet", "servers.nav.fleet.label", Network, {
-  scope: "fleet",
-  group: "fleet",
-  shortcut: ["g", "f"],
-  goTo: "servers.nav.fleet.goTo",
+// The fleet is a scope, not one destination of a server's bar (2.3 of the navigation design): its
+// own seven destinations are the sidebar while "All servers" (or "This central") is selected, and
+// the strip of eight tabs the fleet pages drew is gone from the register. Each has the letter it
+// has on a server's bar for the same noun (`g a` is Applications in both), because only one of the
+// two bars is ever on screen.
+
+const view = (id: string, to: Dest["to"], label: PlainKey, icon: NonNullable<Dest["icon"]>, shortcut: readonly [string, string], goTo: PlainKey, more: Partial<Dest>): Dest =>
+  area(id, to, label, icon, { scope: "fleet", group: "fleet", shortcut, goTo, ...more });
+
+const overview = view("fleet", "/fleet", "nav.fleetBar.overview.label", Gauge, ["g", "o"], "nav.fleetBar.overview.goTo", {
   keywords: "servers.nav.fleet.keywords",
-  rootLabel: "fleet.tabs.summary",
   command: "fleet.tabs.command.summary",
 });
-
-const view = (name: string, label: PlainKey, keywords: PlainKey, command: PlainKey): Dest => tab(fleet, name, label, { scope: "fleet", keywords, command });
+const servers = view("fleet.servers", "/fleet/servers", "nav.fleetBar.servers.label", Server, ["g", "v"], "nav.fleetBar.servers.goTo", {
+  keywords: "fleet.tabs.keywords.servers",
+  command: "fleet.tabs.command.servers",
+});
+const apps = view("fleet.apps", "/fleet/apps", "nav.fleetBar.apps.label", Boxes, ["g", "a"], "nav.fleetBar.apps.goTo", {
+  keywords: "fleet.tabs.keywords.apps",
+  command: "fleet.tabs.command.apps",
+});
+const placements = tab(apps, "placements", "placements.tab", { to: "/fleet/placements", scope: "fleet", exact: true, keywords: "placements.tabKeywords", command: "placements.tabCommand" });
+const certificates = view("fleet.certificates", "/fleet/certificates", "nav.fleetBar.certificates.label", ICONS.verified, ["g", "n"], "nav.fleetBar.certificates.goTo", {
+  keywords: "fleet.tabs.keywords.certificates",
+  command: "fleet.tabs.command.certificates",
+});
+const backups = view("fleet.backups", "/fleet/backups", "nav.fleetBar.backups.label", Archive, ["g", "k"], "nav.fleetBar.backups.goTo", {
+  keywords: "fleet.tabs.keywords.backups",
+  command: "fleet.tabs.command.backups",
+});
+const updates = view("fleet.updates", "/fleet/updates", "nav.fleetBar.updates.label", RefreshCw, ["g", "u"], "nav.fleetBar.updates.goTo", {
+  keywords: "fleet.tabs.keywords.updates",
+  command: "fleet.tabs.command.updates",
+});
+const activity = view("fleet.activity", "/fleet/activity", "nav.fleetBar.activity.label", History, ["g", "y"], "nav.fleetBar.activity.goTo", {
+  keywords: "fleet.tabs.keywords.activity",
+  command: "fleet.tabs.command.activity",
+});
 
 /**
- * The fleet: every server at once. In 3.x its views are a strip of tabs, and the sidebar offers
- * only the fleet; each view has a phrase for the palette, where it stands alone. The register is
- * app/nav.ts; this is one group of it.
+ * The fleet: every server at once. Its destinations are the sidebar of the fleet scope; the
+ * applications' second view, the ones that run on several servers, is a tab of Applications.
+ * The register is app/nav.ts; this is one group of it.
  */
-export const FLEET_SCREENS: Strip = [
-  fleet,
-  view("servers", "fleet.tabs.servers", "fleet.tabs.keywords.servers", "fleet.tabs.command.servers"),
-  view("apps", "fleet.tabs.apps", "fleet.tabs.keywords.apps", "fleet.tabs.command.apps"),
-  view("placements", "placements.tab", "placements.tabKeywords", "placements.tabCommand"),
-  view("certificates", "fleet.tabs.certificates", "fleet.tabs.keywords.certificates", "fleet.tabs.command.certificates"),
-  view("backups", "fleet.tabs.backups", "fleet.tabs.keywords.backups", "fleet.tabs.command.backups"),
-  view("updates", "fleet.tabs.updates", "fleet.tabs.keywords.updates", "fleet.tabs.command.updates"),
-  view("activity", "fleet.tabs.activity", "fleet.tabs.keywords.activity", "fleet.tabs.command.activity"),
-];
+export const FLEET_SCREENS: Strip = [overview, servers, apps, placements, certificates, backups, updates, activity];
 
 export interface FleetTabItem extends TabItem {
   /** Its name in the command palette, where it stands alone: "Certificates on every server". */
   command: PlainKey;
 }
 
-export const FLEET_TABS: readonly FleetTabItem[] = stripEntries(FLEET_SCREENS, {}).map((entry, index): FleetTabItem => {
+/**
+ * The strip the fleet's pages still draw above their content, for as long as they draw one: the
+ * sidebar of the fleet scope has taken its place, and the page that draws it (features/fleet) is
+ * the one to stop.
+ */
+export const FLEET_TABS: readonly FleetTabItem[] = FLEET_SCREENS.map((entry, index): FleetTabItem => {
   if (entry.command === undefined) throw new Error(`the fleet view "${entry.id}" has no palette phrase`);
   return { ...tabItem(entry, index === 0), command: entry.command };
 });
