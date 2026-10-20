@@ -685,7 +685,7 @@ def test_the_site_proxies_to_the_upstream_only_while_copies_run(
     nginx.update_site(DOMAIN, template="proxy", context={"port": PORT})
     scaled_site = nginx.get_site_config(DOMAIN) or ""
 
-    assert "proxy_pass http://wasm_bg_bg_example_com;" in scaled_site
+    assert "proxy_pass http://noust_bg_bg_example_com;" in scaled_site
     assert f"include {nginx.upstream_path(DOMAIN)};" in scaled_site
 
     replica_store.set_record(DOMAIN, (3101,), 0, changed_by="ana", store=store)

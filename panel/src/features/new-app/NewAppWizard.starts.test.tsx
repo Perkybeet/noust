@@ -212,7 +212,7 @@ describe("starting from a recipe", () => {
 });
 
 describe("importing an application", () => {
-  function file(content: string, name = "shop.wasm-app.json") {
+  function file(content: string, name = "shop.noust-app.json") {
     return new File([content], name, { type: "application/json" });
   }
 

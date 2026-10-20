@@ -232,7 +232,7 @@ class TestSelfBackupSchedule:
 
         assert own.entries() == []
         assert result["removed_after_sending"] == [result["file"]]
-        remote = tmp_path / "remote" / "nas" / "wasm-backups" / "self-backups" / own.host_slug()
+        remote = tmp_path / "remote" / "nas" / "noust-backups" / "self-backups" / own.host_slug()
         assert (remote / result["file"]).is_file()
         schedule = own.records.get()
         assert schedule is not None and schedule.last_status == "ok"

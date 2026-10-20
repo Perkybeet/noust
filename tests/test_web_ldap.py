@@ -115,7 +115,7 @@ class TestSigningIn:
         assert response.status_code == 200, response.text
         body = response.json()
         assert body["success"] is True and body["account"]["username"] == "maria"
-        assert self.client.cookies.get("wasm_session")
+        assert self.client.cookies.get("noust_session")
         assert get_token_manager().accounts.require("maria").status == "active"
 
     def test_an_account_with_a_second_factor_owes_it_after_the_directory(self) -> None:
@@ -125,7 +125,7 @@ class TestSigningIn:
         first = self.post().json()
 
         assert first["success"] is False
-        assert first["second_factor"]["challenge"] and not self.client.cookies.get("wasm_session")
+        assert first["second_factor"]["challenge"] and not self.client.cookies.get("noust_session")
         finished = self.client.post(
             "/api/auth/login/second-factor",
             json={"challenge": first["second_factor"]["challenge"], "code": codes[0]},

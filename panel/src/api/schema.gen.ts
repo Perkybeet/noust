@@ -22896,7 +22896,7 @@ export interface paths {
          * List Unused Images
          * @description List the Docker images no container uses.
          *
-         *     The ``wasm-previous`` image of a Compose application, its way back, is left
+         *     The ``noust_previous`` image of a Compose application, its way back, is left
          *     out even though nothing runs it.
          *
          *     Args:
@@ -23544,7 +23544,7 @@ export interface paths {
          * List Services
          * @description List services.
          *
-         *     ``noust_only`` (the default; ``wasm_only`` before 3.0, still read) lists
+         *     ``noust_only`` (the default; it had another name before 3.0, which is still read) lists
          *     the units Noust manages - the one
          *     definition in :meth:`~noust.managers.service_manager.ServiceManager.managed_units`
          *     the console's top bar counts too, so the two always agree. Set it to false
@@ -28546,10 +28546,12 @@ export interface components {
             exported_at?: string | null;
             /**
              * Format
-             * @description Always "wasm-app"
+             * @description Always "noust-app"; the name before 4.0 is still read
              */
             format: string;
             github?: components["schemas"]["ExportGitHub"];
+            /** Noust Version */
+            noust_version?: string | null;
             previews?: components["schemas"]["ExportPreviews"] | null;
             /**
              * Secrets Included
@@ -28561,7 +28563,10 @@ export interface components {
              * @description Shape of the document; this release writes 1
              */
             version: number;
-            /** Wasm Version */
+            /**
+             * Wasm Version
+             * @description Which release made an export of before 4.0 (this release writes noust_version); read, never written
+             */
             wasm_version?: string | null;
         };
         /**
@@ -41166,7 +41171,7 @@ export interface components {
          *             is ``second_factor``: the password was right and the account's
          *             second factor comes next.
          *         expires_in: Session lifetime in seconds (0 before the second step).
-         *         csrf_token: Token to echo in the ``X-WASM-CSRF`` header on mutations
+         *         csrf_token: Token to echo in the ``X-Noust-CSRF`` header on mutations
          *             (empty before the second step).
          *         session_token: Session token, only present for ``bearer`` clients.
          *         account: The account signed in; None for the master token.
@@ -50537,12 +50542,12 @@ export interface components {
             central?: components["schemas"]["CentralInfo"] | null;
             /**
              * Csrf Cookie
-             * @default wasm_csrf
+             * @default noust_csrf
              */
             csrf_cookie: string;
             /**
              * Csrf Header
-             * @default X-WASM-CSRF
+             * @default X-Noust-CSRF
              */
             csrf_header: string;
             /** Elevated Until */

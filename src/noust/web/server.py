@@ -70,6 +70,7 @@ from noust.deployers.deploy_events import DeployEvent, DeployEventKind
 from noust.managers.database.backup_notifications import database_job_notification
 from noust.managers.database.uploads import MAX_CHUNK_BYTES
 from noust.web.auth import (
+    CSRF_HEADER_NAMES,
     SAFE_METHODS,
     SESSION_COOKIE_NAME,
     WS_CLOSE_FORBIDDEN,
@@ -1077,7 +1078,7 @@ def create_app(config: SecurityConfig | None = None) -> FastAPI:
             allow_origins=security_config.cors_origins,
             allow_credentials=True,
             allow_methods=["GET", "POST", "PUT", "DELETE"],
-            allow_headers=["Authorization", "Content-Type", "X-WASM-CSRF"],
+            allow_headers=["Authorization", "Content-Type", *CSRF_HEADER_NAMES],
             # A script in a browser reads which API version answered, and a
             # deprecation notice, only if the response exposes the headers.
             expose_headers=[API_VERSION_HEADER, "Deprecation", "Sunset", "Link"],

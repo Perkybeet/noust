@@ -32,6 +32,7 @@ server only redirects, so every release would pass.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import socket
@@ -50,6 +51,9 @@ from noust.core.exceptions import DeploymentError, TemplateError, ValidationErro
 from noust.core.fs import FileSystem
 from noust.core.logger import Logger
 from noust.core.runner import CommandResult, CommandRunner
+from noust.deployers.helpers import tree_names
+
+_logger = logging.getLogger(__name__)
 
 #: The application type served by a PHP-FPM pool.
 PHP_FPM_TYPE = "php-fpm"
@@ -102,7 +106,7 @@ _SIZE_UNITS = {"": 1, "k": 1024, "m": 1024**2, "g": 1024**3}
 #: another's session ids. It sits outside the application's tree on purpose:
 #: in place that tree belongs to the service user, who could swap the
 #: directory for a link to anything before root sets its owner and mode.
-PHP_TMP_ROOT = ".wasm-php-tmp"
+PHP_TMP_ROOT = tree_names.PHP_TMP
 
 #: Mode of the parent: root's, crossed by the workers, listed by nobody.
 PHP_TMP_ROOT_MODE = 0o711
@@ -559,9 +563,32 @@ def pool_tmp_dir(app_path: Path) -> Path:
         app_path: The application directory.
 
     Returns:
-        ``<apps directory>/.wasm-php-tmp/<app name>``.
+        ``<apps directory>/.noust-php-tmp/<app name>``.
     """
     return app_path.parent / PHP_TMP_ROOT / app_path.name
+
+
+def _adopt_legacy_tmp_dir(path: Path, *, fs: FileSystem) -> None:
+    """
+    Bring an application's temporary files from the directory they had before 4.0.
+
+    Its sessions and uploads in flight are in there, and the pool that served them keeps
+    serving until the reload that follows this deployment: they are moved, not dropped.
+
+    Args:
+        path: What :func:`pool_tmp_dir` answered.
+        fs: Where the rename goes through.
+    """
+    legacy_root = path.parent.parent / tree_names.legacy_of(PHP_TMP_ROOT)
+    legacy = legacy_root / path.name
+    if legacy_root.is_symlink() or legacy.is_symlink() or not legacy.is_dir() or path.exists():
+        return
+    try:
+        fs.rename(legacy, path)
+        if not any(legacy_root.iterdir()):
+            fs.remove_tree(legacy_root)
+    except OSError as exc:
+        _logger.warning("Could not move %s to %s: %s", legacy, path, exc)
 
 
 def prepare_tmp_dir(
@@ -593,6 +620,8 @@ def prepare_tmp_dir(
             )
         fs.make_dir(directory, mode=mode, parents=True)
         fs.chmod(directory, mode)
+        if directory == path.parent:
+            _adopt_legacy_tmp_dir(path, fs=fs)
     result = runner.run(["chown", f"{user}:{group}", str(path)], timeout=FPM_CONTROL_TIMEOUT)
     if not result.success:
         raise DeploymentError(

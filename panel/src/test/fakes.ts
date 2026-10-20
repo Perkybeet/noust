@@ -27,8 +27,8 @@ export const SESSION: SessionInfo = {
   totp_enabled: true,
   hostname: "web-01",
   version: "2.0.0",
-  csrf_header: "X-WASM-CSRF",
-  csrf_cookie: "wasm_csrf",
+  csrf_header: "X-Noust-CSRF",
+  csrf_cookie: "noust_csrf",
   // The access token on a server whose accounts exist: everything but managing the audit trail.
   mfa_required: false,
   grant: "break_glass",

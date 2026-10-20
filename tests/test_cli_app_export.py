@@ -106,7 +106,7 @@ def test_export_prints_the_document_without_secrets(shop: App) -> None:
 
     assert result.exit_code == 0, result.output
     doc = json.loads(result.output)
-    assert doc["format"] == "wasm-app"
+    assert doc["format"] == "noust-app"
     assert doc["env"]["STRIPE_KEY"] == {"secret": True, "value": None}
     assert STRIPE not in result.output
 

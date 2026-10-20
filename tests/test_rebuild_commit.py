@@ -48,6 +48,7 @@ from noust.deployers import lifecycle
 from noust.managers.source_manager import (
     FOLLOW_BRANCH_KEY,
     GIT_AUTH_FAILURE_MESSAGE,
+    LEGACY_FOLLOW_BRANCH_KEY,
     RemoteHead,
     SourceManager,
 )
@@ -315,6 +316,62 @@ def test_a_plain_pull_on_a_detached_checkout_goes_back_to_the_branch(tmp_path: P
 
     calls = runner.git()
     assert calls.index(("checkout", "production")) < calls.index(("pull", "--rebase"))
+
+
+def test_the_branch_a_checkout_remembered_before_4_0_is_followed_still(tmp_path: Path) -> None:
+    """A checkout detached across the update has its branch under the old key only."""
+    (tmp_path / ".git").mkdir()
+
+    def answer(args: tuple[str, ...]) -> tuple[int, str, str] | None:
+        if args == ("symbolic-ref", "--quiet", "HEAD"):
+            return 1, "", ""
+        if args == ("config", "--get", FOLLOW_BRANCH_KEY):
+            return 1, "", ""
+        if args == ("config", "--get", LEGACY_FOLLOW_BRANCH_KEY):
+            return 0, "production\n", ""
+        return None
+
+    runner = GitRunner(answer)
+    assert SourceManager(runner=runner).pull(tmp_path) is True
+
+    assert ("checkout", "production") in runner.git()
+
+
+def test_the_new_key_wins_over_the_old_one(tmp_path: Path) -> None:
+    (tmp_path / ".git").mkdir()
+
+    def answer(args: tuple[str, ...]) -> tuple[int, str, str] | None:
+        if args == ("symbolic-ref", "--quiet", "HEAD"):
+            return 1, "", ""
+        if args == ("config", "--get", FOLLOW_BRANCH_KEY):
+            return 0, "new\n", ""
+        if args == ("config", "--get", LEGACY_FOLLOW_BRANCH_KEY):
+            return 0, "old\n", ""
+        return None
+
+    runner = GitRunner(answer)
+    SourceManager(runner=runner).pull(tmp_path)
+
+    assert ("checkout", "new") in runner.git()
+    assert ("checkout", "old") not in runner.git()
+
+
+def test_remembering_a_branch_forgets_the_old_key(tmp_path: Path) -> None:
+    (tmp_path / ".git").mkdir()
+
+    def answer(args: tuple[str, ...]) -> tuple[int, str, str] | None:
+        if args[:2] == ("rev-parse", "--verify"):
+            return 0, FULL + "\n", ""
+        if args[:3] == ("symbolic-ref", "--quiet", "--short"):
+            return 0, "main\n", ""
+        return None
+
+    runner = GitRunner(answer)
+    SourceManager(runner=runner).checkout_commit(tmp_path, "0123456")
+
+    calls = runner.git()
+    assert ("config", FOLLOW_BRANCH_KEY, "main") in calls
+    assert ("config", "--unset", LEGACY_FOLLOW_BRANCH_KEY) in calls
 
 
 def test_a_detached_checkout_with_nothing_remembered_follows_the_default_branch(

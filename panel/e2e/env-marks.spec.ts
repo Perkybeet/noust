@@ -38,8 +38,8 @@ function kind(page: Page, name: string) {
 }
 
 async function csrf(page: Page): Promise<Record<string, string>> {
-  const cookie = (await page.context().cookies()).find((entry) => entry.name === "wasm_csrf");
-  return cookie ? { "X-WASM-CSRF": cookie.value } : {};
+  const cookie = (await page.context().cookies()).find((entry) => entry.name === "noust_csrf");
+  return cookie ? { "X-Noust-CSRF": cookie.value } : {};
 }
 
 async function marksOf(page: Page): Promise<Record<string, { secret: boolean; reason: string; marked: boolean }>> {

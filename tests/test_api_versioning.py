@@ -194,7 +194,7 @@ class TestServedUnderBothAddresses:
         """One trail, one spelling: whoever reads it does not search twice."""
         client = build_client(sandbox)
         login(client, get_token_manager().generate_master_token())
-        csrf = client.cookies.get("wasm_csrf")
+        csrf = client.cookies.get("noust_csrf")
         assert csrf
 
         client.post(

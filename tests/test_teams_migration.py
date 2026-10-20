@@ -24,7 +24,7 @@ import pytest
 from noust.core import schema_v12, schema_v13, schema_v14
 from noust.core import store as store_module
 from noust.core.fs import RecordingFileSystem
-from noust.core.store import NoustStore
+from noust.core.store import SCHEMA_VERSION, NoustStore
 from noust.core.teams import Scope, TeamStore, backfill
 from tests.test_store_migrations import _create_v3_database
 
@@ -204,14 +204,14 @@ class TestAnExistingServerIsGivenItsDefault:
             "running",
         )
 
-    def test_the_version_is_14(self, migrated: NoustStore) -> None:
+    def test_the_version_is_the_current_schema(self, migrated: NoustStore) -> None:
         version = (
             migrated._get_connection()
             .execute("SELECT MAX(version) FROM schema_version")
             .fetchone()[0]
         )
 
-        assert version == 14
+        assert version == SCHEMA_VERSION
 
     def test_the_climb_from_an_old_release_ends_in_the_same_place(
         self,

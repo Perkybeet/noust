@@ -373,7 +373,7 @@ class BaseDeployer(AppDeployer):
         #: Whether this one build ignores every cache (``noust update --no-cache``).
         self.no_cache: bool = False
 
-        # Advanced nginx config (detected from wasm.nginx.yaml)
+        # Advanced nginx config (detected from noust.nginx.yaml)
         self._nginx_config_builder = NginxConfigBuilder(verbose=verbose)
         self._nginx_advanced_config: NginxAdvancedConfig | None = None
 
@@ -1793,7 +1793,7 @@ class BaseDeployer(AppDeployer):
         """
         Get the Nginx template name for this app type.
 
-        Returns "advanced" if a noust.nginx.yaml (or wasm.nginx.yaml) with
+        Returns "advanced" if a noust.nginx.yaml (or the name it had before 4.0) with
         routes of its own was detected, otherwise the default "proxy"
         template, which a file without such routes tunes.
 
@@ -1860,7 +1860,7 @@ class BaseDeployer(AppDeployer):
 
     def _detect_nginx_config(self) -> None:
         """
-        Detect and parse wasm.nginx.yaml if present.
+        Detect and parse noust.nginx.yaml (or the name it had before 4.0) if present.
 
         Sets self._nginx_advanced_config if a valid config file is found.
         """
@@ -1870,6 +1870,9 @@ class BaseDeployer(AppDeployer):
         config_path = self._nginx_config_builder.detect(self.build_path)
         if config_path:
             self.logger.debug(f"Found advanced nginx config: {config_path}")
+            notice = self._nginx_config_builder.rename_notice(config_path)
+            if notice:
+                self.logger.warning(notice)
             self._nginx_advanced_config = self._nginx_config_builder.parse(config_path)
 
             errors = self._nginx_config_builder.validate(
@@ -2745,7 +2748,7 @@ class BaseDeployer(AppDeployer):
             raise DeploymentError(
                 f"{self.domain} runs blue/green, which needs the proxy site; this release "
                 f"renders the {template} template",
-                details="A wasm.nginx.yaml gives the site routes of its own, which the two "
+                details="A noust.nginx.yaml gives the site routes of its own, which the two "
                 f"instances cannot share. Remove it, or turn the mode off first: "
                 f"noust app zero-downtime {self.domain} off",
             )
@@ -3046,6 +3049,54 @@ class BaseDeployer(AppDeployer):
             app_build_store.set_applied(self.domain, self._launch_record(), store=self.store)
         except _RECORDING_ERRORS as exc:
             self.logger.warning(f"Could not record what the unit runs: {exc}")
+
+    def _unit_edits(self) -> Callable[[], None] | None:
+        """
+        Make the edits an update brings to the unit before the release is activated.
+
+        The unit gets the name it has since 0.14.1 when it still carries the old prefix, then
+        the launch it should have, then the line that loads what Noust says about each release.
+
+        Returns:
+            What puts the unit as it was, undoing the last edit first; None when it was
+            already as it should be.
+        """
+        return self._undo_both(
+            self._rename_legacy_unit(),
+            self._undo_both(self._refresh_unit(), self._attach_release_env()),
+        )
+
+    def _rename_legacy_unit(self) -> Callable[[], None] | None:
+        """
+        Rename the application's unit when it still has the prefix units had before 0.14.1.
+
+        Done here, and only here, because the activation that follows restarts the unit: the
+        old one is stopped, the new one is written and enabled, and the restart starts it
+        behind the same health gate as the release. A release that does not pass puts the old
+        unit back.
+
+        Returns:
+            What puts the old unit back, or None when there was nothing to rename or it was not
+            safe to (an application as instances, a unit that is not Noust's).
+        """
+        if not self.domain or isinstance(self.fs, DryRunFileSystem) or not self.start_command():
+            return None
+        rename = getattr(self.service_manager, "rename_legacy_unit", None)
+        if rename is None or self._zero_downtime_app() is not None:
+            return None
+        try:
+            renamed = rename(self.app_name)
+        except (ServiceError, ValidationError) as exc:
+            self.logger.warning(f"The unit keeps its old name: {exc}")
+            return None
+        if renamed is None:
+            return None
+        self.logger.substep(f"The unit {renamed.old} is now called {renamed.new}")
+
+        def put_back() -> None:
+            self.service_manager.restore_legacy_unit(renamed)
+
+        return put_back
 
     def _refresh_unit(self) -> Callable[[], None] | None:
         """
@@ -4404,7 +4455,7 @@ class BaseDeployer(AppDeployer):
             prisma_updated = self._update_prisma(report)
         self._run_pre_deploy_hooks(report)
         report(f"Activating release {staged.id}")
-        put_unit_back = self._undo_both(self._refresh_unit(), self._attach_release_env())
+        put_unit_back = self._unit_edits()
         activated = False
         try:
             self._activate_release()
@@ -4455,7 +4506,7 @@ class BaseDeployer(AppDeployer):
         # post_deploy hooks run once the new build passed its gate, so an
         # application that has them restarts behind it here, not later.
         gated = self._gate_in_place or bool(self._hook_set().post_deploy)
-        put_unit_back = self._undo_both(self._refresh_unit(), self._attach_release_env())
+        put_unit_back = self._unit_edits()
         if not (gated and result.start_command):
             return result
         # Inside the recording: a build that does not answer is a failed row
@@ -4513,7 +4564,7 @@ class BaseDeployer(AppDeployer):
         self._run_pre_deploy_hooks(report)
 
         report(f"Activating release {self._require_staged().id}")
-        put_unit_back = self._undo_both(self._refresh_unit(), self._attach_release_env())
+        put_unit_back = self._unit_edits()
         activated = False
         try:
             self._activate_release()

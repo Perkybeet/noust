@@ -63,7 +63,7 @@ from noust.web.auth import (
     SCOPE_RANK,
     WS_CLOSE_FORBIDDEN,
     WS_CLOSE_UNAUTHORIZED,
-    WS_SUBPROTOCOL,
+    accepted_subprotocol,
     actor_label,
     credential_is_current,
     fleet_refusal,
@@ -1282,7 +1282,7 @@ async def proxy_websocket(websocket: WebSocket, node: str, path: str) -> None:
     The handshake was authenticated by the central's middleware, like every
     WebSocket here. The node's is authenticated with the fleet token in the
     ``Authorization`` header, which the node's handshake accepts alongside
-    its cookie and its ``wasm.token.`` subprotocol; the browser's own
+    its cookie and its ``noust.token.`` subprotocol; the browser's own
     subprotocol is answered here and never forwarded.
 
     Args:
@@ -1387,8 +1387,7 @@ async def _relay_websocket(
         )
         return
 
-    offered = websocket.headers.get("sec-websocket-protocol", "")
-    await websocket.accept(subprotocol=WS_SUBPROTOCOL if WS_SUBPROTOCOL in offered else None)
+    await websocket.accept(subprotocol=accepted_subprotocol(websocket))
     _audit_stream(websocket, session, resource, "success")
     try:
         await _pump(websocket, connection, session)

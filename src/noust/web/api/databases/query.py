@@ -12,7 +12,7 @@ too:
 
 - **Read-only by default, enforced by the server.** ``mode`` defaults to
   ``read``. A read runs signed in as the database's least-privilege account
-  (``wasm_ro_<database>``: SELECT on that database and nothing else) inside a
+  (``noust_ro_<database>``: SELECT on that database and nothing else) inside a
   read-only transaction. There is no keyword allow-list: a leading keyword
   does not tell what a statement does (``WITH x AS (DELETE ... RETURNING *)
   SELECT * FROM x`` begins with WITH). Read mode is offered only for engines

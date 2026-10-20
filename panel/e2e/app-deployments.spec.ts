@@ -40,8 +40,8 @@ interface ReleaseRow {
 
 /** The CSRF header every write through `page.request` carries, mirrored from its cookie. */
 async function csrf(page: Page): Promise<Record<string, string>> {
-  const cookie = (await page.context().cookies()).find((entry) => entry.name === "wasm_csrf");
-  return cookie ? { "X-WASM-CSRF": cookie.value } : {};
+  const cookie = (await page.context().cookies()).find((entry) => entry.name === "noust_csrf");
+  return cookie ? { "X-Noust-CSRF": cookie.value } : {};
 }
 
 async function serving(page: Page, domain: string): Promise<string> {

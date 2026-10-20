@@ -80,7 +80,7 @@ def test_the_pool_is_confined_to_its_application_directory() -> None:
     tmp = pool_tmp_dir(root)
     text = render_pool(spec(root=root, tmp_dir=tmp))
 
-    assert tmp == Path("/var/www/apps/.wasm-php-tmp") / APP
+    assert tmp == Path("/var/www/apps/.noust-php-tmp") / APP
     assert f"php_admin_value[open_basedir] = {root}/:{tmp}/:/tmp/:/usr/share/php/" in text
     assert f"php_admin_value[upload_tmp_dir] = {tmp}" in text
     assert f"php_admin_value[sys_temp_dir] = {tmp}" in text

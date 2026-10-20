@@ -17,7 +17,7 @@ Three rules shape this module, each from a way a disk page goes wrong:
 - **Cleaning is a closed list of actions, never a path.** No endpoint accepts a
   file name to delete. ``docker system prune`` is not among them (it takes
   volumes with it, and volumes are the databases), and ``docker image prune -a``
-  is not either: it would delete the ``wasm-previous`` image of every Compose
+  is not either: it would delete the ``noust_previous`` image of every Compose
   application, which is its way back.
 """
 
@@ -37,6 +37,7 @@ from typing import Any
 from noust.core.exceptions import DependencyError, ValidationError
 from noust.core.fs import DryRunFileSystem, FileSystem, get_fs
 from noust.core.runner import CommandRunner, get_runner
+from noust.deployers.helpers.compose_retention import PREVIOUS_TAGS as PREVIOUS_TAGS_OF_STACKS
 from noust.managers.server.errors import (
     ConfirmationRequiredError,
     ServerError,
@@ -89,10 +90,10 @@ PROBE_TIMEOUT = 60
 #: Deadline of a cleanup command. Pruning a large Docker cache takes minutes.
 CLEANUP_TIMEOUT = 900
 
-#: The tag Docker Compose applications keep their way back under. Nothing
-#: unused-image related may remove it: no container runs it after an update,
-#: which is exactly what makes it look unused.
-PREVIOUS_TAG = "wasm-previous"
+#: The tags Docker Compose applications keep their way back under (the current one and the one
+#: before 4.0). Nothing unused-image related may remove them: no container runs the image after
+#: an update, which is exactly what makes it look unused.
+PREVIOUS_TAGS = PREVIOUS_TAGS_OF_STACKS
 
 #: Every action a cleanup can be. The closed list is the guard: an endpoint
 #: passes one of these keys and nothing else reaches a command.
@@ -856,7 +857,7 @@ class StorageManager:
 
         Returns:
             The images, each with its id, name, tag and size. Images tagged
-            ``wasm-previous`` are left out, and so are the ones a container
+            ``noust_previous`` are left out, and so are the ones a container
             (running or not) references.
         """
         if not self.runner.exists("docker"):
@@ -871,7 +872,7 @@ class StorageManager:
         ).stdout.split()
         unused = []
         for image in parse_docker_images(images.stdout):
-            if image["tag"] == PREVIOUS_TAG:
+            if image["tag"] in PREVIOUS_TAGS:
                 continue
             names = {image["id"], image["repository"], f"{image['repository']}:{image['tag']}"}
             if names & set(used):
@@ -921,7 +922,7 @@ class StorageManager:
                 action,
                 (" ".join(argv),),
                 "Deletes images that have no name and no container. Named images are kept, "
-                "and so is every wasm-previous image.",
+                "and so is every noust_previous image.",
                 True,
             )
         if action == "docker-image":
@@ -1201,7 +1202,7 @@ class StorageManager:
         if target.removeprefix("sha256:")[:12] not in {i[:12] for i in allowed}:
             raise ValidationError(
                 "That image is not in the list of unused images",
-                "It may be in use, or be the wasm-previous image an application rolls back to.",
+                "It may be in use, or be the noust_previous image an application rolls back to.",
             )
         return target
 

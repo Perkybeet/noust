@@ -29,7 +29,7 @@ from typing import Any
 
 import pytest
 
-from noust.core import compose_release_store
+from noust.core import compose_release_store, legacy_names
 from noust.core.exceptions import DeploymentError, DockerError, RolledBackError
 from noust.core.runner import CommandResult, FakeRunner, set_runner
 from noust.core.store import App, NoustStore, ReleaseStatus
@@ -393,6 +393,34 @@ def test_the_release_that_serves_is_kept_wherever_it_is(
 
     assert forgotten == []
     assert len(releases(store)) == 3
+
+
+def test_the_tag_an_update_before_4_0_kept_is_replaced_by_the_current_one(
+    root: Path, store: NoustStore, docker: Docker, probe: Probe
+) -> None:
+    """The old name would keep a second image alive for every service it was left on."""
+    legacy = f"stack-web:{legacy_names.PREVIOUS_IMAGE_TAG}"
+    docker.script(
+        ("docker", "image", "ls", "--filter", f"reference={legacy}"), stdout="sha256:2222222\n"
+    )
+
+    update(root, docker, "1111111")
+
+    tagged = docker.index_of("docker", "image", "tag", "sha256:old0web", "stack-web:noust_previous")
+    removed = docker.index_of("docker", "image", "rm", legacy)
+    assert tagged < removed, "the way back has its new name before the old one goes"
+    assert not docker.argv_with(
+        "docker", "image", "rm", f"stack-db:{legacy_names.PREVIOUS_IMAGE_TAG}"
+    )
+
+
+def test_a_stack_updated_under_4_0_asks_docker_and_removes_nothing(
+    root: Path, store: NoustStore, docker: Docker, probe: Probe
+) -> None:
+    update(root, docker, "1111111")
+
+    assert docker.argv_with("docker", "image", "ls", "--filter")
+    assert not docker.argv_with("docker", "image", "rm", legacy_names.PREVIOUS_IMAGE_TAG)
 
 
 def test_removing_a_stack_removes_the_images_its_releases_kept(

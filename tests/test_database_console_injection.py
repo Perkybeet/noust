@@ -347,7 +347,7 @@ class TestMysqlNeverRunsClientCommands:
 
         argv, env = next((a, e) for a, e in seen if "--binary-mode" in a)
         assert argv[1].startswith("--defaults-extra-file=")
-        assert "--user=wasm_ro_app" in argv
+        assert "--user=noust_ro_app" in argv
         assert "root" not in " ".join(argv)
         assert env is not None
         assert env["HOME"] != str(Path.home())
@@ -364,14 +364,14 @@ ROLE_ESCAPE = (
 #: What libpq prints when pg_hba.conf has no line for a password login.
 HBA_REFUSAL = (
     'psql: error: connection to server at "127.0.0.1", port 5432 failed: FATAL:  '
-    'no pg_hba.conf entry for host "127.0.0.1", user "wasm_ro_app", database "app", '
+    'no pg_hba.conf entry for host "127.0.0.1", user "noust_ro_app", database "app", '
     "no encryption\n"
 )
 
 #: What libpq prints when the server rejects the password itself.
 PASSWORD_REJECTED = (
     'psql: error: connection to server at "127.0.0.1", port 5432 failed: FATAL:  '
-    'password authentication failed for user "wasm_ro_app"\n'
+    'password authentication failed for user "noust_ro_app"\n'
 )
 
 
@@ -473,7 +473,7 @@ def read_only_postgres(console_runner: ConsoleRunner) -> Iterator[PostgresManage
         NoustStore.reset_instance()
 
 
-def _password_file(manager: PostgresManager, role: str = "wasm_ro_app") -> Path:
+def _password_file(manager: PostgresManager, role: str = "noust_ro_app") -> Path:
     """
     Return where the manager keeps a role's password.
 
@@ -507,7 +507,7 @@ class TestPostgresReadModeSignsInAsTheRole:
 
     A superuser session that ran ``SET ROLE`` could put the superuser back
     from inside one SELECT, so read mode never opens a superuser session at
-    all: it signs in over TCP as ``wasm_ro_<database>``.
+    all: it signs in over TCP as ``noust_ro_<database>``.
     """
 
     @pytest.mark.parametrize("structured", [True, False])
@@ -527,7 +527,7 @@ class TestPostgresReadModeSignsInAsTheRole:
         assert "runuser" not in call
         assert call[call.index("-h") + 1] == "127.0.0.1"
         assert call[call.index("-p") + 1] == "5432"
-        assert call[call.index("-U") + 1] == "wasm_ro_app"
+        assert call[call.index("-U") + 1] == "noust_ro_app"
         assert call[call.index("-d") + 1] == "app"
         # Never prompt, never read psqlrc, stop at the first error.
         assert {"-w", "-X", "ON_ERROR_STOP=1"} <= set(call)
@@ -564,7 +564,7 @@ class TestPostgresReadModeSignsInAsTheRole:
         assert carrying
         for call in carrying:
             assert call[0] == "psql"
-            assert call[call.index("-U") + 1] == "wasm_ro_app"
+            assert call[call.index("-U") + 1] == "noust_ro_app"
         # Nor on stdin of any session, the superuser's provisioning included.
         assert not _stdin_mentions(console_runner, "pg_read_file")
 
@@ -573,15 +573,15 @@ class TestPostgresReadModeSignsInAsTheRole:
     ):
         read_only_postgres.execute_query(database="app", query="SELECT 1", read_only=True)
 
-        provisioning = next(s for s in console_runner.inputs if s and "wasm_ro_role" in s)
+        provisioning = next(s for s in console_runner.inputs if s and "noust_ro_role" in s)
         path = _password_file(read_only_postgres)
         password = path.read_text().strip()
         assert re.search(
-            r'ALTER ROLE "wasm_ro_app" NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT '
+            r'ALTER ROLE "noust_ro_app" NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT '
             r"NOREPLICATION NOBYPASSRLS LOGIN PASSWORD 'SCRAM-SHA-256\$4096:[^']+';",
             provisioning,
         )
-        assert 'ALTER ROLE "wasm_ro_app" SET default_transaction_read_only = on;' in provisioning
+        assert 'ALTER ROLE "noust_ro_app" SET default_transaction_read_only = on;' in provisioning
         # The server is sent a verifier, never the password.
         assert password not in provisioning
         assert stat.S_IMODE(path.stat().st_mode) == 0o600
@@ -605,7 +605,7 @@ class TestPostgresReadModeSignsInAsTheRole:
 
         read_only_postgres.execute_query(database="app", query="SELECT 2", read_only=True)
 
-        provisionings = [s for s in console_runner.inputs if s and "wasm_ro_role" in s]
+        provisionings = [s for s in console_runner.inputs if s and "noust_ro_role" in s]
         assert "PASSWORD" in provisionings[0]
         assert "PASSWORD" not in provisionings[1]
         # Still LOGIN, still re-granted, so new tables are covered.
@@ -620,7 +620,7 @@ class TestPostgresReadModeSignsInAsTheRole:
 
         read_only_postgres.execute_query(database="app", query="SELECT 1", read_only=True)
 
-        provisioning = next(s for s in console_runner.inputs if s and "wasm_ro_role" in s)
+        provisioning = next(s for s in console_runner.inputs if s and "noust_ro_role" in s)
         assert "LOGIN PASSWORD 'SCRAM-SHA-256$" in provisioning
         assert _password_file(read_only_postgres).exists()
 
@@ -680,8 +680,8 @@ class TestPostgresReadModeSignsInAsTheRole:
 
         error = caught.value
         assert "could not sign in" in error.message
-        assert "wasm_ro_app" in error.message
-        assert "host app wasm_ro_app 127.0.0.1/32 scram-sha-256" in error.details
+        assert "noust_ro_app" in error.message
+        assert "host app noust_ro_app 127.0.0.1/32 scram-sha-256" in error.details
         assert "pg_hba.conf" in error.details
         assert "never falls back to the superuser" in error.details
         # psql's own words, verbatim.
@@ -718,7 +718,7 @@ class TestPostgresReadModeSignsInAsTheRole:
         )
 
         assert success
-        provisionings = [s for s in console_runner.inputs if s and "wasm_ro_role" in s]
+        provisionings = [s for s in console_runner.inputs if s and "noust_ro_role" in s]
         assert len(provisionings) == 2
         assert all("PASSWORD 'SCRAM-SHA-256$" in p for p in provisionings)
         # Both attempts have the same argv; only the environment differs.
@@ -776,7 +776,7 @@ class TestPostgresReadModeSignsInAsTheRole:
 #: libpq on a server that has no such role (the role lives in another cluster).
 ROLE_MISSING = (
     'psql: error: connection to server at "127.0.0.1", port 5433 failed: FATAL:  '
-    'role "wasm_ro_app" does not exist\n'
+    'role "noust_ro_app" does not exist\n'
 )
 
 #: libpq when nothing listens on the port.
@@ -921,7 +921,7 @@ class TestPostgresReadModeFindsTheServerItAdministers:
         with pytest.raises(DatabaseQueryError) as caught:
             read_only_postgres.execute_query(database="app", query="SELECT 1", read_only=True)
 
-        assert "host app wasm_ro_app 127.0.0.1/32 scram-sha-256" in caught.value.details
+        assert "host app noust_ro_app 127.0.0.1/32 scram-sha-256" in caught.value.details
         assert "another PostgreSQL" not in caught.value.details
         assert caught.value.output == HBA_REFUSAL.strip()
 

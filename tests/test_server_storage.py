@@ -18,6 +18,7 @@ from pathlib import Path
 
 import pytest
 
+from noust.core import legacy_names
 from noust.core.exceptions import ValidationError
 from noust.core.fs import DryRunFileSystem, RecordingFileSystem
 from noust.core.runner import FakeRunner
@@ -475,7 +476,10 @@ class TestDockerCleanup:
             stdout="\n".join(
                 [
                     '{"Containers":"0","ID":"aaaaaaaaaaaa","Repository":"shop","Size":"1GB","Tag":"latest"}',
-                    '{"Containers":"0","ID":"bbbbbbbbbbbb","Repository":"shop","Size":"1GB","Tag":"wasm-previous"}',
+                    '{"Containers":"0","ID":"bbbbbbbbbbbb","Repository":"shop","Size":"1GB","Tag":"noust_previous"}',
+                    '{"Containers":"0","ID":"eeeeeeeeeeee","Repository":"blog","Size":"1GB","Tag":"'
+                    + legacy_names.PREVIOUS_IMAGE_TAG
+                    + '"}',
                     '{"Containers":"1","ID":"cccccccccccc","Repository":"redis","Size":"100MB","Tag":"7-alpine"}',
                     '{"Containers":"0","ID":"dddddddddddd","Repository":"old","Size":"5MB","Tag":"1"}',
                 ]

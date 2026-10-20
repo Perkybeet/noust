@@ -105,8 +105,8 @@ const NOTHING_NEW_APP = "catalogo.example.org";
 
 /** The CSRF header every write through `page.request` carries, mirrored from its cookie. */
 async function csrf(page: Page): Promise<Record<string, string>> {
-  const cookie = (await page.context().cookies()).find((entry) => entry.name === "wasm_csrf");
-  return cookie ? { "X-WASM-CSRF": cookie.value } : {};
+  const cookie = (await page.context().cookies()).find((entry) => entry.name === "noust_csrf");
+  return cookie ? { "X-Noust-CSRF": cookie.value } : {};
 }
 
 test("Update with nothing new asks, in the backend's words, and rebuilds only when told", async ({ page, consoleServer, problems }) => {

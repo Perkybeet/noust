@@ -455,6 +455,7 @@ AppExportDocument = TypedDict("AppExportDocument", {
     "exported_at": NotRequired[Union[str, None]],
     "format": Required[str],
     "github": NotRequired["ExportGitHub"],
+    "noust_version": NotRequired[Union[str, None]],
     "previews": NotRequired[Union["ExportPreviews", None]],
     "secrets_included": NotRequired[bool],
     "version": Required[int],

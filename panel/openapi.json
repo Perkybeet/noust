@@ -2775,12 +2775,23 @@
             "title": "Exported At"
           },
           "format": {
-            "description": "Always \"wasm-app\"",
+            "description": "Always \"noust-app\"; the name before 4.0 is still read",
             "title": "Format",
             "type": "string"
           },
           "github": {
             "$ref": "#/components/schemas/ExportGitHub"
+          },
+          "noust_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Noust Version"
           },
           "previews": {
             "anyOf": [
@@ -2811,6 +2822,7 @@
                 "type": "null"
               }
             ],
+            "description": "Which release made an export of before 4.0 (this release writes noust_version); read, never written",
             "title": "Wasm Version"
           }
         },
@@ -26416,7 +26428,7 @@
         "type": "object"
       },
       "LoginResponse": {
-        "description": "Login response body.\n\nAttributes:\n    success: True when a session was issued; False only when the answer\n        is ``second_factor``: the password was right and the account's\n        second factor comes next.\n    expires_in: Session lifetime in seconds (0 before the second step).\n    csrf_token: Token to echo in the ``X-WASM-CSRF`` header on mutations\n        (empty before the second step).\n    session_token: Session token, only present for ``bearer`` clients.\n    account: The account signed in; None for the master token.\n    grant: For the master token, how it holds the console: ``compat``\n        (no account exists yet), ``break_glass`` or ``recovery``.\n    previous_login_at: The sign-in before this one, ISO 8601 (ENS\n        op.acc.6.r5.2: shown to the person right after they sign in).\n    previous_login_ip: Where it came from.\n    failures_since: Refused attempts on the account since then.\n    last_failure_at: The latest of them, ISO 8601.\n    last_failure_ip: Where it came from.\n    mfa_required: The account must enrol an authenticator before\n        anything else.\n    notice_pending: The account must accept the usage notice before\n        anything else.\n    second_factor: The step still owed, when the password was right and\n        the account has a second factor; everything else is empty then.",
+        "description": "Login response body.\n\nAttributes:\n    success: True when a session was issued; False only when the answer\n        is ``second_factor``: the password was right and the account's\n        second factor comes next.\n    expires_in: Session lifetime in seconds (0 before the second step).\n    csrf_token: Token to echo in the ``X-Noust-CSRF`` header on mutations\n        (empty before the second step).\n    session_token: Session token, only present for ``bearer`` clients.\n    account: The account signed in; None for the master token.\n    grant: For the master token, how it holds the console: ``compat``\n        (no account exists yet), ``break_glass`` or ``recovery``.\n    previous_login_at: The sign-in before this one, ISO 8601 (ENS\n        op.acc.6.r5.2: shown to the person right after they sign in).\n    previous_login_ip: Where it came from.\n    failures_since: Refused attempts on the account since then.\n    last_failure_at: The latest of them, ISO 8601.\n    last_failure_ip: Where it came from.\n    mfa_required: The account must enrol an authenticator before\n        anything else.\n    notice_pending: The account must accept the usage notice before\n        anything else.\n    second_factor: The step still owed, when the password was right and\n        the account has a second factor; everything else is empty then.",
         "properties": {
           "account": {
             "anyOf": [
@@ -44044,12 +44056,12 @@
             ]
           },
           "csrf_cookie": {
-            "default": "wasm_csrf",
+            "default": "noust_csrf",
             "title": "Csrf Cookie",
             "type": "string"
           },
           "csrf_header": {
-            "default": "X-WASM-CSRF",
+            "default": "X-Noust-CSRF",
             "title": "Csrf Header",
             "type": "string"
           },
@@ -98314,7 +98326,7 @@
     },
     "/api/server/storage/docker/images": {
       "get": {
-        "description": "List the Docker images no container uses.\n\nThe ``wasm-previous`` image of a Compose application, its way back, is left\nout even though nothing runs it.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The images, to be removed one by one with ``docker-image``.",
+        "description": "List the Docker images no container uses.\n\nThe ``noust_previous`` image of a Compose application, its way back, is left\nout even though nothing runs it.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The images, to be removed one by one with ``docker-image``.",
         "operationId": "list_unused_images_api_server_storage_docker_images_get",
         "responses": {
           "200": {
@@ -99144,7 +99156,7 @@
     },
     "/api/services": {
       "get": {
-        "description": "List services.\n\n``noust_only`` (the default; ``wasm_only`` before 3.0, still read) lists\nthe units Noust manages - the one\ndefinition in :meth:`~noust.managers.service_manager.ServiceManager.managed_units`\nthe console's top bar counts too, so the two always agree. Set it to false\nfor a full inventory of every unit on the host, each flagged ``managed``,\nwhich is how a diagnostics view tells a foreign unit's own crash loop from\none of Noust's own. A foreign unit carries only its state: it is listed\nfrom systemd's own listing, never probed or acted on.\n\n``state`` narrows the list to the units in one state. ``noust_only=false&state=failed``\nis what a degraded server's security check sends the operator to: every failed\nunit on the host, Noust's or not.",
+        "description": "List services.\n\n``noust_only`` (the default; it had another name before 3.0, which is still read) lists\nthe units Noust manages - the one\ndefinition in :meth:`~noust.managers.service_manager.ServiceManager.managed_units`\nthe console's top bar counts too, so the two always agree. Set it to false\nfor a full inventory of every unit on the host, each flagged ``managed``,\nwhich is how a diagnostics view tells a foreign unit's own crash loop from\none of Noust's own. A foreign unit carries only its state: it is listed\nfrom systemd's own listing, never probed or acted on.\n\n``state`` narrows the list to the units in one state. ``noust_only=false&state=failed``\nis what a degraded server's security check sends the operator to: every failed\nunit on the host, Noust's or not.",
         "operationId": "list_services_api_services_get",
         "parameters": [
           {

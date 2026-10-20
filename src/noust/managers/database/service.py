@@ -22,7 +22,7 @@ Engine and store:
   live in the secret store (``databases/<engine>/<user>``), never in a row.
 
 The guards live here, not in the endpoints (rule 4): an internal account
-(the engine's superuser, the read-only console's ``wasm_ro_`` accounts) is
+(the engine's superuser, the read-only console's ``noust_ro_`` accounts) is
 never altered or dropped; a database linked to an application is never
 dropped without unlinking it; a drop and a restore never destroy without a
 safety copy; a password rotation that leaves an application down is undone.
@@ -71,6 +71,7 @@ from noust.deployers.helpers.databases import (
 from noust.managers.database.base import (
     PROFILES,
     READ_ONLY_ACCOUNT_PREFIX,
+    READ_ONLY_ACCOUNT_PREFIXES,
     AccessEntry,
     BackupInfo,
     BaseDatabaseManager,
@@ -1714,7 +1715,7 @@ class DatabaseService:
             raise DatabaseUserError(
                 f"'{username}' is managed by {manager.DISPLAY_NAME} or by Noust itself",
                 details=(
-                    "The engine's own accounts and the read-only console's wasm_ro_ accounts "
+                    "The engine's own accounts and the read-only console's noust_ro_ accounts "
                     "are never changed through Noust."
                 ),
             )
@@ -1770,7 +1771,7 @@ class DatabaseService:
         """
         manager = self.running(engine)
         username = manager.validate_user_name(username)
-        if username.startswith(READ_ONLY_ACCOUNT_PREFIX):
+        if username.startswith(READ_ONLY_ACCOUNT_PREFIXES):
             raise DatabaseUserError(
                 f"Account names starting with {READ_ONLY_ACCOUNT_PREFIX} are Noust's own",
                 details="They belong to the read-only console. Pick another name.",

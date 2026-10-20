@@ -903,7 +903,7 @@ def test_verify_unit_stages_the_content_and_runs_systemd_analyze(
     calls = [call for call in runner.calls if call[:2] == ("systemd-analyze", "verify")]
     assert len(calls) == 1
     staged_path = Path(calls[0][2])
-    assert staged_path.name == "wasm-verify.service"
+    assert staged_path.name == "noust-verify.service"
     # The scratch directory is gone once the check is done.
     assert not staged_path.parent.exists()
 
