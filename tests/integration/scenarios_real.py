@@ -125,7 +125,7 @@ COMPOSE_RECIPES: dict[str, RecipeCase] = {
     "linkding": RecipeCase(
         probes=(
             Probe("/health", needle="version", why="linkding's health JSON"),
-            Probe("/login/", needle="linkding", why="the login page"),
+            Probe("/login/", needle="Linkding", why="the login page"),
         ),
         secrets=("LD_SUPERUSER_PASSWORD",),
     ),
@@ -154,8 +154,11 @@ COMPOSE_RECIPES: dict[str, RecipeCase] = {
     ),
     "navidrome": RecipeCase(
         probes=(
-            Probe("/ping", needle="pong", why="Navidrome's ping"),
-            Probe("/", needle="Navidrome", why="the web player"),
+            # The ping answers a single dot, and the player's page says its name.
+            Probe("/ping", needle=".", why="Navidrome's ping"),
+            # The root redirects to the player, which names itself.
+            Probe("/", status="302", why="the root sends a visitor to the player"),
+            Probe("/app/", needle="Navidrome", why="the web player"),
         ),
     ),
     "ntfy": RecipeCase(
@@ -194,7 +197,11 @@ COMPOSE_RECIPES: dict[str, RecipeCase] = {
         probes=(
             Probe("/alive", why="Vaultwarden's liveness endpoint"),
             Probe("/", needle="Vaultwarden", why="the web vault"),
-            Probe("/api/config", needle='"domain"', why="the configuration it reports"),
+            Probe(
+                "/api/config",
+                needle="vaultwarden.recipe.test/api",
+                why="the address the recipe configured, as the application reports it",
+            ),
         ),
         secrets=("ADMIN_TOKEN",),
     ),
@@ -523,6 +530,14 @@ def _check_installed(sc: Scenario, name: str, case: RecipeCase, domain: str, app
         )
 
     containers = containers_of_the_stack(sc)
+    # A health check that has a start period reports "starting" for as long as it says, after the
+    # application already answers; the container is judged when that is over.
+    patience = time.monotonic() + 180
+    while any(state.endswith("/starting") for _, state, _ in containers):
+        if time.monotonic() >= patience:
+            break
+        time.sleep(10)
+        containers = containers_of_the_stack(sc)
     sc.check(bool(containers), f"{name} left no container running")
     for container, state, restarts in containers:
         sc.check(state == "running", f"{container} is {state}")
@@ -609,7 +624,13 @@ volumes:
 
 
 def coolify_api(
-    sc: Scenario, method: str, path: str, *, body: str | None = None, label: str
+    sc: Scenario,
+    method: str,
+    path: str,
+    *,
+    body: str | None = None,
+    label: str,
+    quiet: bool = False,
 ) -> Any:
     """
     Call Coolify's API from inside the harness container, as the root token the scenario made.
@@ -620,6 +641,7 @@ def coolify_api(
         path: The path under ``/api/v1``.
         body: A JSON document to send, or None.
         label: What the call is for, which is what the evidence shows (the token never is).
+        quiet: Keep the answer out of the evidence: the server's settings hold a token of its own.
 
     Returns:
         The JSON it answered; an empty object when the answer is not JSON.
@@ -631,6 +653,8 @@ def coolify_api(
         timeout=180,
         label=f"Coolify API: {method} {path} ({label})",
     )
+    if quiet:
+        sc.evidence[-1] = f"$ Coolify API: {method} {path} ({label})\n(the answer is not kept)"
     try:
         return json.loads(proc.stdout)
     except json.JSONDecodeError:
@@ -688,7 +712,7 @@ def install_coolify(sc: Scenario) -> str:
         timeout=300,
         label="an API token for Coolify, kept in a file only root reads",
     )
-    servers = coolify_api(sc, "GET", "/servers", label="the servers it knows")
+    servers = coolify_api(sc, "GET", "/servers", label="the servers it knows", quiet=True)
     server = servers[0]["uuid"]
     coolify_api(
         sc, "POST", f"/servers/{server}/validate", label="Coolify checks it can use the host"
@@ -747,10 +771,13 @@ def scenario_coolify_takeover(sc: Scenario) -> None:
         sc.run(
             f"noust delete {TAKEOVER_APP} --force; noust delete {TAKEOVER_STACK} --force; "
             f"{INNER_DOCKER_CLEAR}; rm -rf /data/coolify {COOLIFY_WORK}; "
-            "sed -i '/coolify/d' /root/.ssh/authorized_keys; true",
+            "sed -i '/coolify/d' /root/.ssh/authorized_keys; "
+            # The harness container's nginx is what every other scenario serves through: the
+            # scenario stopped it to be a Coolify server, and gives it back.
+            "systemctl enable --now nginx; true",
             timeout=600,
             check=False,
-            label="cleanup: delete both applications, clear Docker, forget Coolify",
+            label="cleanup: delete both applications, clear Docker, forget Coolify, nginx back",
         )
 
 
