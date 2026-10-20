@@ -6,7 +6,7 @@ import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { FakeWebSocket, fakeBackend, json, problem } from "../../../test/fakes";
 import type { RouteHandler } from "../../../test/fakes";
-import { TAB_DOMAIN, appRoutes, screenWidth } from "../testRoutes";
+import { TAB_APP, TAB_DOMAIN, appRoutes, screenWidth } from "../testRoutes";
 
 const FAILED = {
   id: 20,
@@ -359,6 +359,46 @@ describe("a deployment's page", { timeout: 20_000 }, () => {
     expect(within(health).queryByText("Not in the log")).not.toBeInTheDocument();
     // Measured from the log alone: seven seconds, never an hour of time-zone offset.
     expect(within(phases).getByText("7.0s")).toBeInTheDocument();
+    expect(screen.getByText(/The startup check does not apply: a static site is served as files/)).toBeInTheDocument();
+  });
+
+  it("draws the timeline only once it knows whether the app is a static site, so nothing under it is rearranged", async () => {
+    screenWidth(1440);
+    let answer: (response: Response) => void = () => undefined;
+    const slow = new Promise<Response>((resolve) => {
+      answer = resolve;
+    });
+    const backend = fakeBackend(
+      appRoutes(
+        {},
+        {
+          [`GET /api/apps/${TAB_DOMAIN}`]: () => slow,
+          [`GET /api/deployments/${String(FAILED.id)}`]: () => json(200, { ...FAILED, status: "success", error: null }),
+          [`GET /api/deployments/${String(FAILED.id)}/log`]: () =>
+            json(200, { content: "[2026-09-25 18:00:00] [1/6] Fetching source code...\n[2026-09-25 18:00:10] Deployed\n", truncated: false, missing_reason: null }),
+          "GET /api/jobs": () => json(200, { jobs: [], total: 0, active: 0 }),
+        },
+      ),
+    );
+    renderConsole(`/apps/${TAB_DOMAIN}/deployments/${String(FAILED.id)}`);
+
+    // The deployment is in; the app is not: a skeleton holds the place, not a timeline with a
+    // health phase that the answer would take away, and a note it would add.
+    await waitFor(() => {
+      expect(backend.callsTo(`GET /api/deployments/${String(FAILED.id)}`)).toHaveLength(1);
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    });
+    expect(screen.getByText("Loading the deployment")).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Deploy phases" })).not.toBeInTheDocument();
+    // Nothing of the page that would read the log has started either.
+    expect(backend.callsTo(`GET /api/deployments/${String(FAILED.id)}/log`)).toHaveLength(0);
+
+    answer(json(200, { ...TAB_APP, status: "static", app_type: "static", port: null }));
+    await waitFor(() => {
+      expect(phaseStates()).toMatchObject({ health: "not_applicable" });
+    });
     expect(screen.getByText(/The startup check does not apply: a static site is served as files/)).toBeInTheDocument();
   });
 

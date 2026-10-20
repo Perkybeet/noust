@@ -20,6 +20,13 @@ export interface ListPageProps {
   children: ReactNode;
   /** The CLI equivalent (CommandHint), once, at the foot. */
   footer?: ReactNode;
+  /**
+   * For a list that waits on something before it can say what sits above its rows (a notice,
+   * the filters): change this when the answer is in. Everything between the tabs and the foot
+   * is then drawn again as new elements, so a notice that arrives with the rows is not the
+   * placeholders being pushed down the page, which the layout-shift gate would count.
+   */
+  arrival?: string;
   className?: string;
 }
 
@@ -29,7 +36,7 @@ export interface ListPageProps {
  * header and the table: what configures the list goes to a tab or to settings, and a row's
  * light detail opens in a Drawer.
  */
-export function ListPage({ header, tabs, notice, filters, children, footer, className }: ListPageProps) {
+export function ListPage({ header, tabs, notice, filters, children, footer, arrival, className }: ListPageProps) {
   return (
     <div data-template="list" className={cx("flex min-w-0 flex-col", className)}>
       <div data-slot="header">
@@ -40,7 +47,7 @@ export function ListPage({ header, tabs, notice, filters, children, footer, clas
           {tabs}
         </div>
       ) : null}
-      <div className="mt-8 flex min-w-0 flex-col gap-4">
+      <div key={arrival} className="mt-8 flex min-w-0 flex-col gap-4">
         {notice !== undefined ? <div data-slot="notice">{notice}</div> : null}
         {filters !== undefined ? <div data-slot="filters">{filters}</div> : null}
         <div data-slot="content" className="min-w-0">
