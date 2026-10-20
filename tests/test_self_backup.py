@@ -42,7 +42,7 @@ from noust.core.ens.envelope import EnvelopeError
 from noust.core.exceptions import BackupError, ValidationError
 from noust.core.runner import SubprocessRunner, set_runner
 from noust.core.secrets import SecretStore
-from noust.core.store import App, NoustStore, get_store
+from noust.core.store import SCHEMA_VERSION, App, NoustStore, get_store
 from noust.managers import self_restore
 from noust.managers.backup_destination_files import DestinationFileManager
 from noust.managers.self_backup import LABEL, SECRET_NAME, SelfBackupManager
@@ -461,12 +461,12 @@ class TestVerify:
         made = manager.create(PASSPHRASE)
         from noust.managers import self_backup
 
-        monkeypatch.setattr(self_backup, "SCHEMA_VERSION", 13)
+        monkeypatch.setattr(self_backup, "SCHEMA_VERSION", SCHEMA_VERSION - 1)
 
         report = manager.verify(made.path.name, PASSPHRASE)
 
         assert report["ok"] is True and report["restorable_here"] is False
-        assert "schema v14" in report["warnings"][0]
+        assert f"schema v{SCHEMA_VERSION}" in report["warnings"][0]
 
     def test_a_file_that_does_not_match_its_digest_is_a_problem(
         self, old: Server, runner: Runner, tmp_path: Path
@@ -562,7 +562,7 @@ def forge(
         "created_at": "2026-10-06T00:00:00+00:00",
         "host": "forged",
         "noust_version": "3.4.0",
-        "schema_version": 14,
+        "schema_version": SCHEMA_VERSION,
         "sources": {"config": "/somewhere/else", "state": "/elsewhere/still", **(sources or {})},
         "files": files,
         "links": links or [],
@@ -643,7 +643,7 @@ class TestRestore:
         assert store.db_path == new.state / "noust.db"
         app = store.get_app("shop.example.com")
         assert app is not None and app.branch == "only-in-the-wal"
-        assert report.schema_after == 14 and report.schema_before == 14
+        assert report.schema_after == SCHEMA_VERSION and report.schema_before == SCHEMA_VERSION
         for name, stale in (
             ("noust.db-wal", b"stale write-ahead log"),
             ("noust.db-shm", b"stale index"),
@@ -732,9 +732,9 @@ class TestRestore:
     ) -> None:
         made = old.manager(runner).create(PASSPHRASE)
         new = server(tmp_path, "new")
-        monkeypatch.setattr(self_restore, "SCHEMA_VERSION", 13)
+        monkeypatch.setattr(self_restore, "SCHEMA_VERSION", SCHEMA_VERSION - 1)
 
-        with pytest.raises(BackupError, match="schema v14") as failure:
+        with pytest.raises(BackupError, match=f"schema v{SCHEMA_VERSION}") as failure:
             self.restore(runner, made.path, new)
 
         assert "Nothing was changed" in failure.value.details
@@ -943,7 +943,9 @@ class TestSchedule:
         (entry,) = manager.entries()
         assert entry.scheduled is True and entry.name == result["file"]
         assert result["verification"]["ok"] is True
-        remote = tmp_path / "remote" / "nas" / "wasm-backups" / "self-backups" / manager.host_slug()
+        remote = (
+            tmp_path / "remote" / "nas" / "noust-backups" / "self-backups" / manager.host_slug()
+        )
         assert (remote / entry.name).is_file()
         sidecar = json.loads((remote / f"{entry.name}.json").read_text())
         assert sidecar["scheduled"] is True and sidecar["sha256"] == entry.sha256

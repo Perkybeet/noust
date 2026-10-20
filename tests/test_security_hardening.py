@@ -444,7 +444,7 @@ class TestPostgresReadOnlyRole:
         sent = [call[i + 1] for i, arg in enumerate(call[:-1]) if arg == "-c"]
         assert sent == ["BEGIN READ ONLY", "SELECT 1", "COMMIT"]
         assert call[0] == "psql"
-        assert call[call.index("-U") + 1] == "wasm_ro_shop"
+        assert call[call.index("-U") + 1] == "noust_ro_shop"
         assert call[call.index("-h") + 1] == "127.0.0.1"
 
     def test_the_role_is_provisioned_least_privilege(
@@ -459,7 +459,7 @@ class TestPostgresReadOnlyRole:
         assert "CREATE ROLE" in provisioning
         assert "NOSUPERUSER" in provisioning
         assert "LOGIN PASSWORD 'SCRAM-SHA-256$" in provisioning
-        assert 'GRANT CONNECT ON DATABASE "shop" TO "wasm_ro_shop";' in provisioning
+        assert 'GRANT CONNECT ON DATABASE "shop" TO "noust_ro_shop";' in provisioning
         assert "GRANT USAGE ON SCHEMA" in provisioning
         assert "GRANT SELECT ON ALL TABLES IN SCHEMA" in provisioning
         # Nothing here reaches for a file-reading, superuser-only function:
@@ -478,7 +478,7 @@ class TestPostgresReadOnlyRole:
 
         postgres.execute_query(database="shop", query="DELETE FROM t", read_only=False)
 
-        assert not any("wasm_ro_" in (call_input or "") for call_input in runner.inputs)
+        assert not any("noust_ro_" in (call_input or "") for call_input in runner.inputs)
         assert len(runner.calls) == 2
 
     def test_a_long_database_name_does_not_overflow_the_identifier_limit(
@@ -518,7 +518,7 @@ class TestMySQLReadOnlyAccount:
         mysql.execute_query(database="shop", query="SELECT 1", read_only=True)
 
         provisioning = runner.inputs[-2]
-        assert "CREATE USER IF NOT EXISTS 'wasm_ro_shop'@'localhost'" in provisioning
+        assert "CREATE USER IF NOT EXISTS 'noust_ro_shop'@'localhost'" in provisioning
         assert "REVOKE ALL PRIVILEGES, GRANT OPTION FROM" in provisioning
         assert "GRANT SELECT ON `shop`.* TO" in provisioning
         assert "FILE" not in provisioning
@@ -549,7 +549,7 @@ class TestMySQLReadOnlyAccount:
 
         mysql.execute_query(database="shop", query="DELETE FROM t", read_only=False)
 
-        assert not any("wasm_ro_" in (call_input or "") for call_input in runner.inputs)
+        assert not any("noust_ro_" in (call_input or "") for call_input in runner.inputs)
         assert len(runner.calls) == 2
 
     def test_a_long_database_name_does_not_overflow_the_identifier_limit(

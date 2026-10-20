@@ -921,7 +921,7 @@ class TestSending:
 
         summary = manager.push(entry.id, "nas", scheduled=True)
 
-        remote = tmp_path / "remote" / "nas" / "wasm-backups" / "volumes" / APP / "path-uploads"
+        remote = tmp_path / "remote" / "nas" / "noust-backups" / "volumes" / APP / "path-uploads"
         assert (remote / f"{entry.id}.tar.gz").is_file()
         assert summary["verified_by"]
         sidecar = json.loads((remote / f"{entry.id}.tar.gz.json").read_text())
@@ -986,7 +986,7 @@ class TestSending:
         add_destination(runner)
         (entry,) = manager.create(DOMAIN, targets=["path:uploads"])
         manager.push(entry.id, "nas")
-        remote = tmp_path / "remote" / "nas" / "wasm-backups" / "volumes" / APP / "path-uploads"
+        remote = tmp_path / "remote" / "nas" / "noust-backups" / "volumes" / APP / "path-uploads"
         (remote / f"{entry.id}.tar.gz").write_bytes(b"swapped by someone")
         uploads = app_dir / "shared" / "uploads"
         (uploads / "a.txt").write_text("untouched")
@@ -1003,7 +1003,7 @@ class TestSending:
         (entry,) = manager.create(DOMAIN, targets=["path:uploads"])
         manager.push(entry.id, "nas")
         # The same folder name under another application's directory.
-        base = tmp_path / "remote" / "nas" / "wasm-backups" / "volumes"
+        base = tmp_path / "remote" / "nas" / "noust-backups" / "volumes"
         (base / "other-example-com").mkdir()
         (base / APP / "path-uploads").rename(base / "other-example-com" / "path-uploads")
         get_store().create_app(

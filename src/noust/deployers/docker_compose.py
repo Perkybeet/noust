@@ -106,6 +106,7 @@ from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.service_manager import ServiceManager
 from noust.managers.source_manager import SourceManager
+from noust.managers.upstream_names import rename as rename_upstreams
 from noust.validators.names import resolve_within
 
 if TYPE_CHECKING:
@@ -118,11 +119,11 @@ BUILD_TIMEOUT = 1800
 COMPOSE_TIMEOUT = 300
 
 #: The tag the image each container ran before an update is kept under, as
-#: ``<project>-<service>:wasm-previous``. Recreating a container from a new
+#: ``<project>-<service>:noust_previous``. Recreating a container from a new
 #: build leaves its old image without a name, and ``docker image prune``
 #: deletes an image without a name; this one is what a failed update goes
 #: back to. Each update moves the tag, so one image per service is kept.
-PREVIOUS_TAG = "wasm-previous"
+PREVIOUS_TAG = compose_retention.PREVIOUS_TAG
 
 #: Lines of the containers' own output attached to a failed health gate.
 COMPOSE_LOG_LINES = 40
@@ -500,10 +501,24 @@ def keep_tag(project: str, service: str) -> str:
         service: The service.
 
     Returns:
-        ``<project>-<service>:wasm-previous``, restricted to what an image
+        ``<project>-<service>:noust_previous``, restricted to what an image
         name may hold.
     """
     return f"{compose_retention.repository_name(project, service)}:{PREVIOUS_TAG}"
+
+
+def legacy_keep_tag(project: str, service: str) -> str:
+    """
+    Name the tag an update before 4.0 kept the image that served under.
+
+    Args:
+        project: The Compose project.
+        service: The service.
+
+    Returns:
+        ``<project>-<service>:`` and the old tag.
+    """
+    return f"{compose_retention.repository_name(project, service)}:{compose_retention.LEGACY_PREVIOUS_TAG}"
 
 
 @dataclass
@@ -1761,6 +1776,9 @@ class DockerComposeDeployer(AppDeployer):
         # to the ports of the stack it is a preview of.
         config_path = None if self.preview_parent is not None else builder.detect(self.app_path)
         if config_path is not None:
+            notice = builder.rename_notice(config_path)
+            if notice:
+                self.logger.warning(notice)
             try:
                 config = builder.parse(config_path)
             except ValueError as exc:
@@ -2399,6 +2417,7 @@ class DockerComposeDeployer(AppDeployer):
 
         self.store.update_app_status(self.domain, AppStatus.RUNNING.value)
         self._retain_release()
+        self._finish_upstream_names()
         if hooks.post_deploy:
             report("Running post_deploy hooks")
         self._run_post_deploy()
@@ -2414,6 +2433,38 @@ class DockerComposeDeployer(AppDeployer):
             schema_changed=self._hooks.schema_changed,
             warnings=tuple(self._hooks.warnings),
         )
+
+    def _finish_upstream_names(self) -> None:
+        """
+        Give the upstream of the relay its current name, now that the update has served.
+
+        A stack's site was written before 4.0 with the old spelling of the upstream; nothing
+        renders it again on an update, so this is where it changes, together with every other
+        file of Noust's that carries the old spelling and that nobody else names. A site the
+        operator wrote that names it keeps it. Nothing here can fail an update that already
+        serves: a refusal is reported with what nginx said, and the old names stay.
+        """
+        from noust.deployers.compose_relay import relay_enabled
+
+        if self._rehearsing() or not relay_enabled(self):
+            return
+        try:
+            outcomes = rename_upstreams(self.webserver_manager())
+        except (NoustError, OSError) as exc:
+            self.logger.warning(f"The upstream names were left as they are: {exc}")
+            return
+        for outcome in outcomes:
+            if outcome.status == "failed":
+                self.logger.warning(
+                    f"The upstream {outcome.name} was not renamed: {outcome.detail}"
+                )
+            elif outcome.status == "aliased":
+                where = ", ".join(f"{ref.path}:{ref.line}" for ref in outcome.references[:3])
+                self.logger.substep(
+                    f"{where} names the upstream {outcome.name}, which stays defined beside "
+                    f"{outcome.new_name}. Change that line to {outcome.new_name}, then run: "
+                    "noust setup rename"
+                )
 
     def _rehearsing(self) -> bool:
         """
@@ -2498,6 +2549,8 @@ class DockerComposeDeployer(AppDeployer):
                 self.logger.warning(
                     f"Could not tag {image.image_id} as {tag}: {kept.stderr.strip()}"
                 )
+                continue
+            self._forget_legacy_keep_tag(project or self.app_name, image.service)
         if images:
             self.logger.substep(
                 "Serving: " + ", ".join(f"{i.service} ({i.reference})" for i in images.values())
@@ -2505,6 +2558,28 @@ class DockerComposeDeployer(AppDeployer):
         return ServingState(
             project=project, commit=self.previous_commit, images=tuple(images.values())
         )
+
+    def _forget_legacy_keep_tag(self, project: str, service: str) -> None:
+        """
+        Remove the tag an update before 4.0 kept a service's image under.
+
+        The tag has just moved to the current name, and the old one would keep a second image
+        alive. Asked of docker first, so a stack that was updated under 4.0 already costs one
+        listing and no failed removal.
+
+        Args:
+            project: The Compose project.
+            service: The service.
+        """
+        tag = legacy_keep_tag(project, service)
+        listed = self._run(
+            ["docker", "image", "ls", "--filter", f"reference={tag}", "--format", "{{.ID}}"]
+        )
+        if not listed.success or not listed.stdout.strip():
+            return
+        removed = self._run(["docker", "image", "rm", tag])
+        if not removed.success:
+            self.logger.warning(f"Could not remove {tag}: {removed.stderr.strip()}")
 
     # -- Releases (B-16) ------------------------------------------------------------------
 
@@ -3126,11 +3201,11 @@ class DockerComposeDeployer(AppDeployer):
 
     def remove_kept_images(self) -> list[str]:
         """
-        Remove the images updates kept under :data:`PREVIOUS_TAG` for this stack.
+        Remove the images updates kept under :data:`PREVIOUS_TAG` (or the tag before 4.0) for this stack.
 
         What :func:`noust.deployers.lifecycle.delete_app` calls once the stack
         is down. An update tags the image each service ran as
-        ``<project>-<service>:wasm-previous`` (see :func:`keep_tag`), and
+        ``<project>-<service>:noust_previous`` (see :func:`keep_tag`), and
         nothing else ever removes it. The tags this stack can have are derived
         from its compose file (every service, under every name its project can
         have had) and only those that exist are removed; another stack's are
@@ -3172,7 +3247,12 @@ class DockerComposeDeployer(AppDeployer):
             )
             if name
         }
-        wanted = {keep_tag(project, service) for project in projects for service in names}
+        wanted = {
+            tag
+            for project in projects
+            for service in names
+            for tag in (keep_tag(project, service), legacy_keep_tag(project, service))
+        }
         if not wanted:
             if released_failures:
                 raise DockerError(
@@ -3188,6 +3268,8 @@ class DockerComposeDeployer(AppDeployer):
                 "ls",
                 "--filter",
                 f"reference=*:{PREVIOUS_TAG}",
+                "--filter",
+                f"reference=*:{compose_retention.LEGACY_PREVIOUS_TAG}",
                 "--format",
                 "{{.Repository}}:{{.Tag}}",
             ]

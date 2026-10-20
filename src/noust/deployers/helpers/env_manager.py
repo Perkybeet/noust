@@ -10,7 +10,7 @@ secret auto-generation, and interactive configuration.
 
 Everything this module writes holds credentials: a deployed ``.env`` carries
 ``DATABASE_URL``, API keys and the secrets generated here, and
-``.wasm/env-config.json`` records the same inventory. Both go out through
+``.noust/env-config.json`` records the same inventory. Both go out through
 :mod:`noust.core.fs` with :data:`~noust.core.fs.SECRET_MODE`, so the mode is
 applied by the ``os.open`` that creates the file rather than by a ``chmod``
 afterwards, and the write lands on a temporary file that is renamed into place,
@@ -41,6 +41,7 @@ from noust.core.secret_detection import (
     name_looks_secret,
     redact_url_credentials,
 )
+from noust.deployers.helpers import tree_names
 from noust.validators.environment import EnvironmentValidationError
 
 # URL_CREDENTIALS and redact_url_credentials moved to noust.core.secret_detection,
@@ -860,11 +861,12 @@ class EnvManager:
 
     def save_config(self, app_path: Path, config: EnvConfig) -> None:
         """
-        Persist environment configuration to .wasm/env-config.json.
+        Persist environment configuration to .noust/env-config.json.
 
         The file records the variable inventory, defaults included, so it is
-        written 0600 inside a 0700 directory. Nothing but Noust reads ``.wasm``,
-        so tightening that directory costs the deployment nothing.
+        written 0600 inside a 0700 directory. Nothing but Noust reads ``.noust``,
+        so tightening that directory costs the deployment nothing. A ``.wasm``
+        directory an earlier release left is renamed first, with what is in it.
 
         Args:
             app_path: Application root path.
@@ -874,17 +876,18 @@ class EnvManager:
             SecurityError: If the destination is a symlink.
             OSError: If the file cannot be created or written.
         """
-        directory = app_path / ".wasm"
+        directory = app_path / tree_names.ENV_DIR
         # In place the application directory is a repository checkout, and a
-        # committed ``.wasm -> /etc`` would have this tighten /etc to 0700
+        # committed ``.noust -> /etc`` would have this tighten /etc to 0700
         # and write the inventory there.
         if directory.is_symlink():
             raise SecurityError(
                 f"Refusing to write the environment inventory through the symlink {directory}",
-                details="Remove .wasm from the repository; Noust keeps its own files there.",
+                details="Remove .noust from the repository; Noust keeps its own files there.",
             )
+        tree_names.adopt(app_path, tree_names.ENV_DIR, fs=self.fs)
         self.fs.make_dir(directory, mode=SECRET_DIR_MODE, parents=True)
-        # A .wasm left world readable by an older version is tightened; the
+        # A .noust left world readable by an older version is tightened; the
         # directory is ours alone, so there is nothing else to break.
         if directory.is_dir() and directory.stat().st_mode & 0o077:
             self.fs.chmod(directory, SECRET_DIR_MODE, follow_symlinks=False)
@@ -912,7 +915,10 @@ class EnvManager:
         Returns:
             EnvConfig or None if not found.
         """
-        config_file = app_path / ".wasm" / "env-config.json"
+        directory = tree_names.present(app_path, tree_names.ENV_DIR)
+        if directory is None:
+            return None
+        config_file = directory / "env-config.json"
         if not config_file.exists():
             return None
         try:

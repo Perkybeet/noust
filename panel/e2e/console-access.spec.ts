@@ -83,8 +83,8 @@ async function master(server: ConsoleServer): Promise<APIRequestContext> {
   const api = await playwrightRequest.newContext({ baseURL: server.url });
   expect((await api.post("/api/auth/login", { data: { token: server.token, totp_code: server.secondFactor() } })).ok()).toBe(true);
   const { cookies } = await api.storageState();
-  const csrf = cookies.find((cookie) => cookie.name === "wasm_csrf")?.value ?? "";
-  expect((await api.post("/api/auth/elevate", { data: { code: server.secondFactor() }, headers: { "X-WASM-CSRF": csrf } })).ok()).toBe(true);
+  const csrf = cookies.find((cookie) => cookie.name === "noust_csrf")?.value ?? "";
+  expect((await api.post("/api/auth/elevate", { data: { code: server.secondFactor() }, headers: { "X-Noust-CSRF": csrf } })).ok()).toBe(true);
   return api;
 }
 
@@ -95,10 +95,10 @@ test("an account that signs in with a password alone is named, and the server's 
   try {
     const api = await master(server);
     const { cookies } = await api.storageState();
-    const csrf = cookies.find((cookie) => cookie.name === "wasm_csrf")?.value ?? "";
+    const csrf = cookies.find((cookie) => cookie.name === "noust_csrf")?.value ?? "";
     const created = await api.post("/api/auth/accounts", {
       data: { username: "ana", role: "viewer", password: "quiet meadow viewer lantern 4242", person_ref: "ana@example.org" },
-      headers: { "X-WASM-CSRF": csrf },
+      headers: { "X-Noust-CSRF": csrf },
     });
     expect(created.status(), await created.text()).toBe(201);
     await api.dispose();

@@ -491,6 +491,8 @@ def health_environment(monkeypatch: pytest.MonkeyPatch, fake_store: FakeStore) -
     monkeypatch.setattr("noust.managers.health.run_checks", lambda **_kw: None)
     # So does the posture check (destinations, nodes); test_security_posture.py has it.
     monkeypatch.setattr("noust.managers.security_posture.collect", list)
+    # And the names check reads each application's tree; test_names_surfaces.py has it.
+    monkeypatch.setattr("noust.managers.name_migration.findings", list)
     return fake_store
 
 

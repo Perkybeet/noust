@@ -962,7 +962,9 @@ class TestRunPolicy:
         assert "could not be sent to: nas" in str(failure.value)
         assert "The local dump was kept" in str(failure.value)
         cloud = list(
-            (runner.root / "cloud" / "wasm-backups" / "databases" / "postgresql" / "shop").iterdir()
+            (
+                runner.root / "cloud" / "noust-backups" / "databases" / "postgresql" / "shop"
+            ).iterdir()
         )
         assert len(cloud) == 2  # the dump and its sidecar
         assert len(backups.list_dumps("postgresql", "shop")) == 1

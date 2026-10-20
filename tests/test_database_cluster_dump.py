@@ -25,7 +25,10 @@ from pathlib import Path
 import pytest
 
 from noust.core.exceptions import DatabaseBackupError
-from noust.managers.database.base import READ_ONLY_ACCOUNT_PREFIX
+from noust.managers.database.base import (
+    LEGACY_READ_ONLY_ACCOUNT_PREFIX,
+    READ_ONLY_ACCOUNT_PREFIX,
+)
 from noust.managers.database.cluster_dump import (
     SYSTEM_DATABASES,
     MembershipSpec,
@@ -233,6 +236,7 @@ class TestWhatIsWritten:
             ("postgres", False),
             ("pg_execute_server_program", False),
             (f"{READ_ONLY_ACCOUNT_PREFIX}shop", False),
+            (f"{LEGACY_READ_ONLY_ACCOUNT_PREFIX}shop", False),
             ("noust_load_ab12", False),
             ("with space", False),
             ('a"; drop role x; --', False),

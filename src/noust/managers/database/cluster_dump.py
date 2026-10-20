@@ -46,7 +46,7 @@ from typing import IO, Protocol
 
 from noust.core.exceptions import DatabaseBackupError
 from noust.core.fs import SECRET_MODE
-from noust.managers.database.base import LOAD_ACCOUNT_PREFIX, READ_ONLY_ACCOUNT_PREFIX
+from noust.managers.database.base import LOAD_ACCOUNT_PREFIX, READ_ONLY_ACCOUNT_PREFIXES
 from noust.managers.database.psql_script import StatementTracker
 
 __all__ = [
@@ -80,7 +80,7 @@ BUILTIN_ROLES_CARRIED = frozenset(
 )
 
 #: Role names that are the server's or Noust's own, never created from a dump.
-_RESERVED_PREFIXES = ("pg_", READ_ONLY_ACCOUNT_PREFIX, LOAD_ACCOUNT_PREFIX)
+_RESERVED_PREFIXES = ("pg_", *READ_ONLY_ACCOUNT_PREFIXES, LOAD_ACCOUNT_PREFIX)
 
 #: A role or database name Noust will write into a statement. Narrower than PostgreSQL's.
 _NAME = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_$-]{0,62}")

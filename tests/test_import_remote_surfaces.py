@@ -295,7 +295,7 @@ class TestTheApi:
         assert body["deployable"] is True
         assert body["proposal"]["source"] == "github:acme/shop"
         assert body["proposal"]["watch_paths"] == ["apps/web/**", "!apps/web/docs/**"]
-        assert body["document"]["format"] == "wasm-app"
+        assert body["document"]["format"] == "noust-app"
         assert body["document"]["app"]["domain"] == "shop.example.com"
         assert body["document"]["app"]["build"].startswith("build:")
 

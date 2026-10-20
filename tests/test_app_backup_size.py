@@ -137,7 +137,7 @@ class TestOnADestination:
         from noust.managers.backup_manager import server_id
 
         destinations.add("nas", "sftp", _sftp_fields())
-        target = "nas:wasm-backups/shop-example-com"
+        target = "nas:noust-backups/shop-example-com"
         ids = [f"{APP}_2026010{day}_000000" for day in (1, 2, 3, 4)]
         foreign = f"{APP}_20260105_000000"
         sidecars = "\n".join(
@@ -169,7 +169,7 @@ class TestOnADestination:
 
         deleted = destinations._apply_remote_retention(
             destinations.remote_env("nas"),
-            "nas:wasm-backups/shop-example-com",
+            "nas:noust-backups/shop-example-com",
             self.entries({only: 10}),
             None,
             1,

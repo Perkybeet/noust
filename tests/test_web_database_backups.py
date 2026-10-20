@@ -431,7 +431,7 @@ def test_pushing_is_a_job_that_sends_the_dump(
     summary = job["func"](**job["kwargs"])
     assert summary["destination"] == "nas"
     assert (
-        runner.root / "nas" / "wasm-backups" / "databases" / "postgresql" / "shop" / name
+        runner.root / "nas" / "noust-backups" / "databases" / "postgresql" / "shop" / name
     ).is_file()
     (dump,) = client.get(f"{BASE}/backups?engine=postgresql").json()["backups"]
     assert dump["destinations"][0]["destination"] == "nas"
@@ -525,7 +525,7 @@ def test_deleting_a_copy_on_a_destination_leaves_the_local_file(
     )
 
     assert response.status_code == 200, response.text
-    folder = runner.root / "nas" / "wasm-backups" / "databases" / "postgresql" / "shop"
+    folder = runner.root / "nas" / "noust-backups" / "databases" / "postgresql" / "shop"
     assert list(folder.iterdir()) == []
     assert (engine.BACKUP_DIR / name).is_file()
 
@@ -562,7 +562,9 @@ def test_the_remote_databases_of_an_engine(
     client: TestClient, engine: type[BaseDatabaseManager], runner: RcloneRunner
 ) -> None:
     add_destination(runner)
-    (runner.root / "nas" / "wasm-backups" / "databases" / "postgresql" / "shop").mkdir(parents=True)
+    (runner.root / "nas" / "noust-backups" / "databases" / "postgresql" / "shop").mkdir(
+        parents=True
+    )
 
     body = client.get(f"{BASE}/backups/remote/databases?engine=postgresql&destination=nas").json()
 

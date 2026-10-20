@@ -29,6 +29,7 @@ from dataclasses import replace
 from typing import Any
 from urllib.parse import quote
 
+from noust.core import legacy_archive
 from noust.core.exceptions import ValidationError
 from noust.fleet.aggregate import Asker, Failure, NodeSource, decode_answer
 from noust.fleet.placements import checked_domain
@@ -642,7 +643,10 @@ def _placement_copy(run: NodeRun) -> None:
         f"/api/apps/{quote(domain, safe='')}/export",
         params={"with_secrets": "true"} if options["secrets"] else None,
     )
-    body: dict[str, Any] = {"document": document}
+    # The destination reads what it is sent in the spelling of its own release.
+    body: dict[str, Any] = {
+        "document": legacy_archive.export_for(run.source.record.version, document)
+    }
     if options.get("new_domain"):
         body["domain"] = target
     item: dict[str, Any] = {

@@ -103,6 +103,9 @@ class HealthReport:
             that is out. Warnings only, each with its fix.
         accounts: How many applications still share one system account, so a
             compromised one could read the others' trees (3.4, B-59).
+        names: What still has a name from before 4.0 and waits for the operator: a token a
+            script still signs in with, a repository's overrides file, a site that names an
+            upstream. Warnings only, each with what to change.
     """
 
     disk: HealthCheck | None
@@ -119,6 +122,7 @@ class HealthReport:
     updates: HealthCheck | None = None
     security: HealthCheck | None = None
     accounts: HealthCheck | None = None
+    names: HealthCheck | None = None
 
     @property
     def checks(self) -> list[HealthCheck]:
@@ -134,6 +138,7 @@ class HealthReport:
                 self.memory,
                 self.builds,
                 self.accounts,
+                self.names,
                 self.updates,
                 self.audit,
                 self.security,
@@ -557,6 +562,36 @@ def _check_accounts(warnings: list[str]) -> HealthCheck | None:
     )
 
 
+def _check_names(warnings: list[str]) -> HealthCheck | None:
+    """
+    Name what only the operator can finish of the renaming of 4.0.
+
+    What Noust renames by itself (a unit at the next update, an account at the next read) is not
+    a warning: it is on its way. A token a script still presents with its old prefix, a
+    repository file, a site somebody else wrote that names an upstream of Noust's: those are.
+
+    Args:
+        warnings: Warning list to append one sentence per finding to.
+
+    Returns:
+        The check, or None when nothing waits for the operator.
+    """
+    from noust.managers import name_migration
+
+    try:
+        found = [item for item in name_migration.findings() if item.waits_for_operator]
+    except (NoustError, OSError, sqlite3.Error) as exc:
+        return HealthCheck("Names before 4.0", f"Could not check: {exc}", "warning")
+    if not found:
+        return None
+    warnings.extend(f"{item.text}" + (f". {item.fix}" if item.fix else "") for item in found)
+    return HealthCheck(
+        "Names before 4.0",
+        f"{len(found)} thing(s) still use a name from before 4.0",
+        "warning",
+    )
+
+
 def _check_updates() -> HealthCheck | None:
     """
     Say which applications could update without a cut and do not.
@@ -715,6 +750,7 @@ def collect_health_report(
     memory = _check_memory(issues, warnings)
     builds = _check_builds(warnings)
     accounts = _check_accounts(warnings)
+    names = _check_names(warnings)
     updates = _check_updates()
     audit_check = _check_audit(issues, warnings)
     security_check = _check_security_posture(warnings)
@@ -732,6 +768,7 @@ def collect_health_report(
         hardening=hardening_check,
         builds=builds,
         accounts=accounts,
+        names=names,
         updates=updates,
         audit=audit_check,
         security=security_check,

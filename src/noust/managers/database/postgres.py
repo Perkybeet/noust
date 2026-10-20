@@ -13,7 +13,7 @@ is. See :meth:`PostgresManager._console_argv`. Dumps are streamed to disk by
 the runner, so a dump containing quotes or binary bytes arrives intact.
 
 The read-only console is the one connection that does not run as the cluster
-superuser. It signs in over TCP as ``wasm_ro_<database>``, a role that holds
+superuser. It signs in over TCP as ``noust_ro_<database>``, a role that holds
 nothing but ``SELECT``: a superuser session that merely switched roles can
 switch back from inside a single SELECT (``set_config('role', ...)``), so the
 limit has to be the login itself. See :meth:`PostgresManager._ensure_read_only_role`.
@@ -44,6 +44,7 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any
 
+from noust.core import legacy_names
 from noust.core.config import secure_write
 from noust.core.exceptions import (
     DatabaseBackupError,
@@ -156,8 +157,10 @@ _SYSTEM_SCHEMA_FILTER = (
     "nspname NOT IN ('pg_catalog', 'information_schema') AND nspname NOT LIKE 'pg\\_%'"
 )
 
-#: Prefix of the least-privilege role the read-only console connects as.
-_READ_ONLY_ROLE_PREFIX = "wasm_ro_"
+#: Prefix of the least-privilege role the read-only console connects as, and the one it had
+#: before 4.0 (a role made then is removed by the next read, which makes it again).
+_READ_ONLY_ROLE_PREFIX = "noust_ro_"
+_LEGACY_READ_ONLY_ROLE_PREFIX = legacy_names.READ_ONLY_PREFIX
 
 #: PostgreSQL's NAMEDATALEN limit for an identifier, minus the terminator.
 _IDENTIFIER_MAX_LENGTH = 63
@@ -239,7 +242,7 @@ def _session_options(timeout_s: int | None, *, read_only: bool) -> str | None:
     return " ".join(options) or None
 
 
-def _read_only_role_name(database: str) -> str:
+def _read_only_role_name(database: str, prefix: str = _READ_ONLY_ROLE_PREFIX) -> str:
     """
     Build the deterministic, length-safe role name for a database's console.
 
@@ -252,18 +255,20 @@ def _read_only_role_name(database: str) -> str:
 
     Args:
         database: The database the role is scoped to.
+        prefix: The role's prefix; the current one by default, the one before 4.0 to name the
+            role an earlier release made.
 
     Returns:
-        ``wasm_ro_<database>``, unchanged when it fits within the limit;
+        ``noust_ro_<database>``, unchanged when it fits within the limit;
         otherwise truncated and suffixed with an 8-character digest of the
         full database name.
     """
-    candidate = f"{_READ_ONLY_ROLE_PREFIX}{database}"
+    candidate = f"{prefix}{database}"
     if len(candidate) <= _IDENTIFIER_MAX_LENGTH:
         return candidate
     digest = hashlib.sha256(database.encode()).hexdigest()[:8]
-    budget = _IDENTIFIER_MAX_LENGTH - len(_READ_ONLY_ROLE_PREFIX) - len(digest) - 1
-    return f"{_READ_ONLY_ROLE_PREFIX}{database[:budget]}_{digest}"
+    budget = _IDENTIFIER_MAX_LENGTH - len(prefix) - len(digest) - 1
+    return f"{prefix}{database[:budget]}_{digest}"
 
 
 def _scram_sha256_verifier(password: str) -> str:
@@ -1844,7 +1849,7 @@ class PostgresManager(BaseDatabaseManager):
                 data-modifying CTE hide behind a leading ``WITH``, so
                 ``WITH x AS (DELETE FROM t RETURNING *) SELECT * FROM x`` reads
                 as a SELECT to any parser simple enough to be trustworthy. The
-                session is signed in as ``wasm_ro_<database>``; see
+                session is signed in as ``noust_ro_<database>``; see
                 :meth:`_run_console`.
             **kwargs: Unused.
 
@@ -1925,7 +1930,7 @@ class PostgresManager(BaseDatabaseManager):
         meant to be able to do anything.
 
         Read mode never touches the superuser session. It signs in over TCP
-        to :data:`READ_ONLY_HOST` as ``wasm_ro_<database>``, a role that is
+        to :data:`READ_ONLY_HOST` as ``noust_ro_<database>``, a role that is
         not a superuser and holds only ``CONNECT``, ``USAGE`` and ``SELECT``,
         and runs the statement in a read-only transaction, one ``-c`` per
         statement (psql before 15 prints only the last result of a
@@ -2490,11 +2495,25 @@ class PostgresManager(BaseDatabaseManager):
             password = secrets.token_urlsafe(32)
             verifier = _scram_sha256_verifier(password)
         set_password = f" PASSWORD {self._escape_literal(verifier)}" if verifier else ""
-        role_tag = _dollar_tag("wasm_ro_role", role_literal)
-        grants_tag = _dollar_tag("wasm_ro_grants", role_literal)
+        role_tag = _dollar_tag("noust_ro_role", role_literal)
+        grants_tag = _dollar_tag("noust_ro_grants", role_literal)
+        legacy_role = _read_only_role_name(database, _LEGACY_READ_ONLY_ROLE_PREFIX)
+        legacy_literal = self._escape_literal(legacy_role)
+        legacy_tag = _dollar_tag("noust_ro_legacy", legacy_literal)
 
         provision = (
-            f"DO {role_tag}\n"  # noqa: S608 - quoted literal, not interpolated data
+            # A role an earlier release made under the old prefix goes first, with what it was
+            # granted in this database and on the database itself; the role made below has the
+            # same grants and a new password.
+            f"DO {legacy_tag}\n"  # noqa: S608 - quoted literals, not interpolated data
+            "BEGIN\n"
+            f"  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = {legacy_literal}) THEN\n"
+            f"    EXECUTE format('DROP OWNED BY %I', {legacy_literal});\n"
+            f"    EXECUTE format('DROP ROLE %I', {legacy_literal});\n"
+            "  END IF;\n"
+            "END\n"
+            f"{legacy_tag};\n"
+            f"DO {role_tag}\n"
             "BEGIN\n"
             f"  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = {role_literal}) "
             "THEN\n"
@@ -2541,7 +2560,20 @@ class PostgresManager(BaseDatabaseManager):
                     f"Could not store the password of the read-only role {role}",
                     details=f"{exc}. Check that {path.parent} is writable by root and retry.",
                 ) from exc
+        self._forget_legacy_password(legacy_role)
         return role, password
+
+    def _forget_legacy_password(self, legacy_role: str) -> None:
+        """
+        Remove the password file of a read-only role an earlier release made.
+
+        Args:
+            legacy_role: The role's name under the prefix before 4.0.
+        """
+        try:
+            self.fs.remove(self._read_only_password_file(legacy_role), missing_ok=True)
+        except OSError as exc:
+            self.logger.warning(f"Could not remove the password file of {legacy_role}: {exc}")
 
     # ==================== Passwords, profiles, exposure ====================
 
@@ -2732,7 +2764,7 @@ class PostgresManager(BaseDatabaseManager):
             database: The database.
 
         Returns:
-            One entry per role, superusers and ``wasm_ro_`` roles marked
+            One entry per role, superusers and ``noust_ro_`` roles marked
             internal.
 
         Raises:
@@ -2822,19 +2854,52 @@ class PostgresManager(BaseDatabaseManager):
             self.fs.remove(self._read_only_password_file(role))
         except OSError as exc:
             self.logger.warning(f"Could not remove the password file of {role}: {exc}")
+        self.drop_legacy_read_only_account(database)
+
+    def drop_legacy_read_only_account(self, database: str) -> bool:
+        """
+        Remove the role the read-only console had for a database before 4.0.
+
+        Args:
+            database: The database.
+
+        Returns:
+            Whether a role was removed.
+        """
+        legacy = _read_only_role_name(database, _LEGACY_READ_ONLY_ROLE_PREFIX)
+        literal = self._escape_literal(legacy)
+        tag = _dollar_tag("noust_ro_legacy", literal)
+        success, output = self._execute_sql(
+            f"SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = {literal};"  # noqa: S608 - literal
+        )
+        if not success or not output.strip():
+            return False
+        removed, detail = self._execute_sql(
+            f"DO {tag}\nBEGIN\n"
+            f"  EXECUTE format('DROP OWNED BY %I', {literal});\n"
+            f"  EXECUTE format('DROP ROLE %I', {literal});\n"
+            f"END\n{tag};\n",
+            database=database,
+        )
+        if not removed:
+            self.logger.warning(f"Could not drop the read-only role {legacy}: {detail.strip()}")
+            return False
+        self._forget_legacy_password(legacy)
+        return True
 
     def _create_for_restore(self, database: str, owner: str | None) -> None:
         """
         Create the empty database a dump is loaded into, and the role its grants name.
 
         A dump of a database that the read-only console was used on grants
-        ``SELECT`` to ``wasm_ro_<database>``. The role is the cluster's, not the
+        ``SELECT`` to ``noust_ro_<database>``, or to the role it had before 4.0 when an earlier
+        release took it. The role is the cluster's, not the
         database's, so another server, or another instance a database is moved
         to, lacks it, and ``pg_restore`` fails at the first of those grants
-        (``role "wasm_ro_shop" does not exist``): a move to PostgreSQL 17 did
-        on the real engine, and so would a restore on a fresh server. The role
-        is made with no way to sign in; the next read gives it its login, its
-        password and its grants again, as it does for a role it finds.
+        (``role "noust_ro_shop" does not exist``): a move to PostgreSQL 17 did
+        on the real engine, and so would a restore on a fresh server. Both
+        names are made, with no way to sign in; the next read gives the current one its
+        login, its password and its grants again, as it does for a role it finds.
 
         Args:
             database: The database.
@@ -2844,16 +2909,18 @@ class PostgresManager(BaseDatabaseManager):
             DatabaseError: When the database cannot be created.
         """
         super()._create_for_restore(database, owner)
-        role = _read_only_role_name(database)
-        literal = self._escape_literal(role)
-        success, output = self._execute_sql(
-            "DO $noust$ BEGIN "
-            f"IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = {literal}) THEN "
-            f"CREATE ROLE {self._escape_identifier(role)} NOLOGIN; END IF; END $noust$;"
-        )
-        if not success:
-            # The restore may still work: it says so itself if a grant names the role.
-            self.logger.warning(f"Could not make the read-only role {role}: {output.strip()}")
+        # Both names: a dump an earlier release took grants to the old one.
+        for prefix in (_READ_ONLY_ROLE_PREFIX, _LEGACY_READ_ONLY_ROLE_PREFIX):
+            role = _read_only_role_name(database, prefix)
+            literal = self._escape_literal(role)
+            success, output = self._execute_sql(
+                "DO $noust$ BEGIN "
+                f"IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = {literal}) THEN "
+                f"CREATE ROLE {self._escape_identifier(role)} NOLOGIN; END IF; END $noust$;"
+            )
+            if not success:
+                # The restore may still work: it says so itself if a grant names the role.
+                self.logger.warning(f"Could not make the read-only role {role}: {output.strip()}")
 
     def access_hint(self) -> str:
         """

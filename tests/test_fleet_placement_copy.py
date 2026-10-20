@@ -18,6 +18,7 @@ from typing import Any
 
 import pytest
 
+from noust.core import legacy_names
 from noust.core.exceptions import ValidationError
 from noust.core.store import NoustStore
 from noust.fleet.aggregate import Asker, set_aggregator
@@ -107,6 +108,53 @@ def test_the_application_is_exported_from_the_source_and_imported_on_the_destina
     assert body["document"]["app"]["domain"] == DOMAIN
     assert body["document"]["env"]["API_KEY"]["value"] == SECRET_VALUE
     assert "domain" not in body, "same domain: the import takes it from the document"
+
+
+def test_a_server_before_4_0_is_given_the_export_in_the_spelling_it_reads(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A central of 4.0 moves an application to a node still on 3.x: the node takes the old name."""
+    monkeypatch.setattr("noust.fleet.nodes.central_name", lambda: "nas")
+    built = build_central(tmp_path, NAMES, web_2="3.3.1")
+    try:
+        upstream = Upstream(head="aaa1111")
+        Shop(built.nodes["web-1"], upstream, commit="aaa1111")
+        created: list[Shop] = []
+        Shop.accept_imports(built.nodes["web-2"], upstream, imported=created)
+
+        snapshot, _, _ = run(built, request())
+
+        assert snapshot["status"] == "succeeded", snapshot
+        document = created[0].imports[0]["document"]
+        assert document["format"] == legacy_names.EXPORT_FORMAT
+        assert document[legacy_names.EXPORT_VERSION_KEY] == "4.0.0"
+        assert "noust_version" not in document
+        assert document["app"]["domain"] == DOMAIN
+    finally:
+        set_aggregator(None)
+        NoustStore.reset_instance()
+
+
+def test_a_server_of_4_0_is_given_the_current_spelling(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("noust.fleet.nodes.central_name", lambda: "nas")
+    built = build_central(tmp_path, NAMES, web_2="4.0.0")
+    try:
+        upstream = Upstream(head="aaa1111")
+        Shop(built.nodes["web-1"], upstream, commit="aaa1111")
+        created: list[Shop] = []
+        Shop.accept_imports(built.nodes["web-2"], upstream, imported=created)
+
+        snapshot, _, _ = run(built, request())
+
+        assert snapshot["status"] == "succeeded", snapshot
+        document = created[0].imports[0]["document"]
+        assert document["format"] == "noust-app"
+        assert document["noust_version"] == "4.0.0"
+    finally:
+        set_aggregator(None)
+        NoustStore.reset_instance()
 
 
 def test_the_copy_is_brought_to_the_commit_the_source_serves(central, source, upstream) -> None:

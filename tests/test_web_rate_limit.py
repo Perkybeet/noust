@@ -329,10 +329,10 @@ def test_a_signed_in_browser_with_an_expired_session_is_not_counted(sandbox: Pat
     client = build_client(sandbox, rate_limit_requests=1000, max_failed_attempts=2)
     token = get_token_manager().generate_master_token()
     assert client.post("/api/auth/login", json={"token": token}).status_code == 200
-    session = client.cookies["wasm_session"]
-    csrf = {"X-WASM-CSRF": client.cookies["wasm_csrf"]}
+    session = client.cookies["noust_session"]
+    csrf = {"X-Noust-CSRF": client.cookies["noust_csrf"]}
     assert client.post("/api/auth/logout", headers=csrf).status_code in (200, 204)
-    client.cookies.set("wasm_session", session)
+    client.cookies.set("noust_session", session)
 
     for _ in range(3):
         client.get("/api/does-not-exist")

@@ -33,7 +33,7 @@ const PROPOSAL = {
 };
 
 const DOCUMENT = {
-  format: "wasm-app",
+  format: "noust-app",
   version: 1,
   secrets_included: false,
   app: { domain: "shop.example.com", app_type: "nextjs" },

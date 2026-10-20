@@ -47,7 +47,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from noust.core import outbound
+from noust.core import legacy_names, outbound
 from noust.core.dependencies import RCLONE_DEPENDENCY, dependency_install_hint
 from noust.core.exceptions import (
     BackupError,
@@ -93,7 +93,12 @@ __all__ = [
 
 #: Folder under a remote that backups are written into when the operator did
 #: not name one of their own.
-DEFAULT_REMOTE_PATH = "wasm-backups"
+DEFAULT_REMOTE_PATH = legacy_names.CURRENT_BACKUP_FOLDER
+
+#: What a destination made before 4.0 keeps in its settings while the folder it used to send
+#: to is still read: that folder, and whether the new one has been made (``1``).
+LEGACY_PATH_KEY = "legacy_path"
+PATH_CHECKED_KEY = "path_checked"
 
 #: Deadline for a quick rclone call: obscuring a password, deleting one file.
 _RCLONE_TIMEOUT = 30
@@ -589,6 +594,34 @@ def _remote_path(value: str | None) -> str:
     if not text:
         return DEFAULT_REMOTE_PATH
     return text.rstrip("/") or "/"
+
+
+def _legacy_path(destination: BackupDestinationRecord) -> str | None:
+    """
+    Name the folder a destination used to send to, while it is still read.
+
+    Args:
+        destination: The destination.
+
+    Returns:
+        The folder, or None for a destination that never had another one (or has no more).
+    """
+    return str(destination.settings.get(LEGACY_PATH_KEY) or "").strip() or None
+
+
+def _union_item(remote: str) -> str:
+    """
+    Quote one upstream of an rclone union, whose list is separated by spaces.
+
+    Args:
+        remote: ``remote:path``.
+
+    Returns:
+        The same, between double quotes when it holds a space.
+    """
+    if " " not in remote and '"' not in remote:
+        return remote
+    return '"' + remote.replace('"', '""') + '"'
 
 
 def _secret_namespace(name: str) -> str:
@@ -1245,6 +1278,10 @@ class BackupDestinationManager:
         settings, secret_values = self._split_fields(existing.backend, fields, partial=True)
         if "path" in settings:
             settings["path"] = _remote_path(settings["path"])
+            # A folder the operator names is where backups go and are read from, whatever
+            # the destination read before.
+            settings[LEGACY_PATH_KEY] = ""
+            settings[PATH_CHECKED_KEY] = ""
         # Judged when the host is the thing being changed; a new path on a
         # destination made before this check is not a reason to refuse it.
         if destination_host(existing.backend, settings) is not None:
@@ -1442,7 +1479,60 @@ class BackupDestinationManager:
             env[f"RCLONE_CONFIG_{crypt_prefix}_PASSWORD"] = self._obscure(password)
             env[f"RCLONE_CONFIG_{crypt_prefix}_PASSWORD2"] = self._obscure(password2)
 
+        legacy = _legacy_path(destination)
+        if legacy is not None:
+            self._add_union(env, destination, prefix, legacy, secret_values)
+
         return env
+
+    def _add_union(
+        self,
+        env: dict[str, str],
+        destination: BackupDestinationRecord,
+        prefix: str,
+        legacy: str,
+        secret_values: dict[str, Any],
+    ) -> None:
+        """
+        Define the remote that reads the new folder and the one it replaced as one.
+
+        Every operation (a listing, a restore, retention) goes through this remote while the old
+        folder is still read, so nothing that looks at a folder has to know there were two. The
+        first upstream is the only one written to; reads find a file wherever it is; a deletion
+        reaches whichever holds it, which is how retention removes the old backups in time.
+
+        Args:
+            env: The environment being built.
+            destination: The destination.
+            prefix: Its upper-case name.
+            legacy: The folder it used to send to.
+            secret_values: Its secrets, for the second crypt remote of an encrypted one.
+        """
+        name = destination.name
+        path = _remote_path(destination.settings.get("path"))
+        if destination.encrypted:
+            # The same passwords over the old folder: file names are encrypted relative to
+            # the remote's root, so the old backups read the same through it.
+            old_crypt = f"{prefix}LEGACYCRYPT"
+            env[f"RCLONE_CONFIG_{old_crypt}_TYPE"] = "crypt"
+            env[f"RCLONE_CONFIG_{old_crypt}_REMOTE"] = f"{name}:{_remote_path(legacy)}"
+            env[f"RCLONE_CONFIG_{old_crypt}_PASSWORD"] = env[
+                f"RCLONE_CONFIG_{prefix}CRYPT_PASSWORD"
+            ]
+            env[f"RCLONE_CONFIG_{old_crypt}_PASSWORD2"] = env[
+                f"RCLONE_CONFIG_{prefix}CRYPT_PASSWORD2"
+            ]
+            upstreams = f"{name}crypt: {name}legacycrypt:"
+        else:
+            upstreams = (
+                f"{_union_item(f'{name}:{path}')} {_union_item(f'{name}:{_remote_path(legacy)}')}"
+            )
+        union = f"{prefix}UNION"
+        env[f"RCLONE_CONFIG_{union}_TYPE"] = "union"
+        env[f"RCLONE_CONFIG_{union}_UPSTREAMS"] = upstreams
+        env[f"RCLONE_CONFIG_{union}_CREATE_POLICY"] = "ff"
+        env[f"RCLONE_CONFIG_{union}_SEARCH_POLICY"] = "ff"
+        env[f"RCLONE_CONFIG_{union}_ACTION_POLICY"] = "epall"
 
     def target(self, name: str) -> str:
         """
@@ -1454,11 +1544,110 @@ class BackupDestinationManager:
         Returns:
             ``<name>:<path>`` for a plain destination, or ``<name>crypt:`` for
             an encrypted one - the crypt wrapper already carries the path.
+            ``<name>union:`` while the folder it used to send to is still read.
         """
         destination = self._require(name)
+        if _legacy_path(destination) is not None:
+            return f"{name}union:"
         if destination.encrypted:
             return f"{name}crypt:"
         return f"{name}:{_remote_path(destination.settings.get('path'))}"
+
+    def settle_folder(self, name: str) -> None:
+        """
+        Make sure the new folder can be written before the first backup goes there.
+
+        A destination made before 4.0 moves to ``noust-backups``. On a bucket that is a bucket
+        of its own, which a key may not be allowed to create, or whose name another account
+        has taken: the night after an update is the wrong moment to find out. The first write
+        makes the folder; when it cannot, backups keep going to the old one, the destination
+        stops being in transition, and the reason is said verbatim.
+
+        Args:
+            name: Destination name.
+        """
+        destination = self._require(name)
+        legacy = _legacy_path(destination)
+        if legacy is None or destination.settings.get(PATH_CHECKED_KEY):
+            return
+        env = self.remote_env(name)
+        secrets_literal = self._secret_literals(name)
+        new = _remote_path(destination.settings.get("path"))
+        probe = f"{name}crypt:" if destination.encrypted else f"{name}:{new}"
+        made = self.runner.run(
+            ["rclone", "mkdir", probe],
+            env=env,
+            timeout=_RCLONE_LIST_TIMEOUT,
+            secrets=secrets_literal,
+        )
+        settings = dict(destination.settings)
+        if made.success:
+            settings[PATH_CHECKED_KEY] = "1"
+        else:
+            settings["path"] = legacy
+            settings.pop(LEGACY_PATH_KEY, None)
+            Logger(verbose=False).warning(
+                f"Backups to {name} keep going to {legacy}: {new} could not be made there "
+                f"({_scrub((made.stderr or made.stdout).strip(), secrets_literal)})"
+            )
+        self.store.save_backup_destination(
+            BackupDestinationRecord(
+                name=destination.name,
+                backend=destination.backend,
+                settings=settings,
+                encrypted=destination.encrypted,
+            )
+        )
+
+    def forget_exhausted_legacy(self, name: str) -> bool:
+        """
+        Stop reading the old folder once nothing is left in it.
+
+        Retention removes the backups that were there, one night at a time; when the folder
+        holds no file any more the destination stops being read in two places.
+
+        Args:
+            name: Destination name.
+
+        Returns:
+            Whether the old folder was forgotten.
+        """
+        destination = self._require(name)
+        legacy = _legacy_path(destination)
+        if legacy is None or not destination.settings.get(PATH_CHECKED_KEY):
+            return False
+        env = self.remote_env(name)
+        secrets_literal = self._secret_literals(name)
+        old = f"{name}legacycrypt:" if destination.encrypted else f"{name}:{_remote_path(legacy)}"
+        listed = self.runner.run(
+            ["rclone", "lsjson", "-R", "--files-only", old],
+            env=env,
+            timeout=_RCLONE_LIST_TIMEOUT,
+            secrets=secrets_literal,
+        )
+        if listed.success:
+            try:
+                remaining = json.loads(listed.stdout or "[]")
+            except json.JSONDecodeError:
+                return False
+        elif "not found" in f"{listed.stderr}\n{listed.stdout}".lower():
+            remaining = []
+        else:
+            return False
+        if remaining:
+            return False
+        settings = dict(destination.settings)
+        settings.pop(LEGACY_PATH_KEY, None)
+        settings.pop(PATH_CHECKED_KEY, None)
+        self.store.save_backup_destination(
+            BackupDestinationRecord(
+                name=destination.name,
+                backend=destination.backend,
+                settings=settings,
+                encrypted=destination.encrypted,
+            )
+        )
+        return True
 
     def _app_target(self, name: str, app_name: str) -> str:
         """
@@ -1561,6 +1750,7 @@ class BackupDestinationManager:
         _require_rclone(self.runner)
         record = self._require(name)
         self._require_public_host(record.backend, record.settings, configuring=True)
+        self.settle_folder(name)
         env = self.remote_env(name)
         secrets_literal = self._secret_literals(name)
         target = self.target(name)
@@ -1860,6 +2050,7 @@ class BackupDestinationManager:
         """
         _require_rclone(self.runner)
         self.require_encrypted_upload(destination_name)
+        self.settle_folder(destination_name)
         env = self.remote_env(destination_name)
         secrets_literal = self._secret_literals(destination_name)
 
@@ -1923,6 +2114,7 @@ class BackupDestinationManager:
                 details=exc.details or exc.message,
             ) from exc
 
+        self.forget_exhausted_legacy(destination_name)
         return {
             "destination": destination_name,
             "backup_id": backup.id,

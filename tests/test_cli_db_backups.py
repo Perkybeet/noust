@@ -645,7 +645,7 @@ class TestRemote:
         )
 
         assert result.exit_code == 0
-        folder = runner.root / "nas" / "wasm-backups" / "databases" / "postgresql" / "shop"
+        folder = runner.root / "nas" / "noust-backups" / "databases" / "postgresql" / "shop"
         assert list(folder.iterdir()) == []
         assert (engine.BACKUP_DIR / name).is_file()
 
