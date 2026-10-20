@@ -39,7 +39,7 @@ from noust.core.app_state import RUNNING, RUNNING_UNMANAGED, STATIC, resolve_sta
 from noust.core.app_tags import AppTags, validate_tag
 from noust.core.config import Config
 from noust.core.container_store import forget_secrets
-from noust.core.dependencies import check_deployment_ready
+from noust.core.dependencies import NODE_APP_TYPES, check_deployment_ready
 from noust.core.exceptions import (
     DeploymentError,
     NoustError,
@@ -379,7 +379,7 @@ def _create_app(
     logger.key_value("Source", source)
     logger.key_value("Type", "detected from the source" if app_type == "auto" else app_type)
     logger.key_value("Port", str(port) if port else "the one the stack publishes")
-    logger.key_value("Package Manager", package_manager)
+    _report_package_manager(logger, app_type, package_manager)
     logger.key_value("SSL", "Yes" if ssl else "No")
     if ssl and www and should_include_www(domain):
         logger.key_value("WWW", f"www.{domain} redirects to {domain}")
@@ -1395,7 +1395,7 @@ def _update_app(
         logger.success(f"Application updated successfully: {outcome.domain}")
         logger.blank()
         logger.key_value("Type", outcome.app_type)
-        logger.key_value("Package Manager", outcome.package_manager)
+        _report_package_manager(logger, outcome.app_type, outcome.package_manager)
         return 0
 
     if not outcome.restarted:
@@ -1413,10 +1413,30 @@ def _update_app(
     logger.key_value("Status", "Running")
     for name in outcome.restarted:
         logger.key_value("Restarted", name)
-    logger.key_value("Package Manager", outcome.package_manager)
+    _report_package_manager(logger, outcome.app_type, outcome.package_manager)
     if outcome.prisma_updated:
         logger.key_value("Prisma", "Updated")
     return 0
+
+
+#: The types that do not run on Node but may build with its package managers anyway: a static site
+#: generator, a monorepo, and a type not chosen yet (``auto``), whose line is what was asked for.
+_PACKAGE_MANAGER_TYPES = frozenset({*NODE_APP_TYPES, "static", "monorepo", "auto"})
+
+
+def _report_package_manager(logger: Logger, app_type: str, package_manager: str) -> None:
+    """
+    Say which package manager built the application, when it is the kind that has one.
+
+    Args:
+        logger: Where the line goes.
+        app_type: The application's type.
+        package_manager: What the build used.
+    """
+    # A Rails, Go or Rust application has no npm or pnpm: the field holds the default of the
+    # Node deployers there ("npm"), and printing it was a lie in every update of such an app.
+    if app_type in _PACKAGE_MANAGER_TYPES:
+        logger.key_value("Package Manager", package_manager)
 
 
 def _report_hooks(logger: Logger, outcome: AppUpdate) -> None:

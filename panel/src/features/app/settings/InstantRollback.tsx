@@ -146,7 +146,7 @@ export function useRetention(app: App): RetentionPart {
 function Versions({ domain }: { domain: string }) {
   const t = useT();
   const releases = useQuery(releasesQuery(domain));
-  if (releases.isPending) return <KeyValueListSkeleton rows={2} hints={[0]} />;
+  if (releases.isPending) return <KeyValueListSkeleton rows={2} hints={[0, 1]} />;
   if (releases.isError) {
     return <ErrorBlock compact error={releases.error} title={t("appSettings.releases.listFailed")} onRetry={() => void releases.refetch()} />;
   }

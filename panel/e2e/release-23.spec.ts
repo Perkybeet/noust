@@ -162,9 +162,9 @@ test("an application exports from its settings, with its secret values only afte
   const plain = page.waitForEvent("download");
   await section.getByRole("button", { name: "Export application" }).click();
   const without = await plain;
-  expect(without.suggestedFilename()).toBe(`${EXPORTED}.wasm-app.json`);
+  expect(without.suggestedFilename()).toBe(`${EXPORTED}.noust-app.json`);
   const document = await downloadedJson(without);
-  expect(document).toMatchObject({ format: "wasm-app", version: 1, secrets_included: false });
+  expect(document).toMatchObject({ format: "noust-app", version: 1, secrets_included: false });
   expect(document.app).toMatchObject({ domain: EXPORTED, app_type: "static", keep_releases: 3 });
   expect(document.domains.aliases).toEqual([`www.${EXPORTED}`]);
   expect(document.env[SECRET.name]).toEqual({ secret: true, value: null });
@@ -192,14 +192,14 @@ test("an export imports on another domain with the secret it left out, and says 
   // The seeded application's export, as `noust app export` or its settings would write it.
   const exported = await page.request.get(`/api/apps/${EXPORTED}/export`);
   expect(exported.ok(), await exported.text()).toBe(true);
-  const file = testInfo.outputPath(`${EXPORTED}.wasm-app.json`);
+  const file = testInfo.outputPath(`${EXPORTED}.noust-app.json`);
   await writeFile(file, JSON.stringify(await exported.json(), null, 2));
 
   await chooseStart(page, "Import an application");
   await settle(page);
   await expectNoA11yViolations(page, "the import start");
   await page.getByLabel("Export file").setInputFiles(file);
-  await expect(page.getByRole("status").filter({ hasText: `Read ${EXPORTED}.wasm-app.json` })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: `Read ${EXPORTED}.noust-app.json` })).toBeVisible();
   await expect(page.getByText(new RegExp(`^An export of ${EXPORTED.replace(/\./g, "\\.")}, a .+ app\\.$`))).toBeVisible();
   await stillness(page);
   await expectNoA11yViolations(page, "an export file read");

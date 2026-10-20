@@ -5200,7 +5200,7 @@ Arguments: `file`
 
 ### noust compose import
 
-Turn a Coolify service template into a Compose document Noust deploys.
+Turn a Coolify or Dokploy service template into a Compose document Noust deploys.
 
 ```
 noust compose import [OPTIONS] FILE
@@ -5210,10 +5210,11 @@ Arguments: `file`
 
 | Option | What it does | Default |
 |---|---|---|
-| `--from` |  | `coolify` |
+| `--from` | Whose template FILE is. | `coolify` |
+| `--template` | dokploy: the template's template.toml (read from FILE's folder when FILE is a folder). |  |
 | `--domain` | The name the stack will be served on (fills its address variables). |  |
 | `--port` | The host port of the web service on 127.0.0.1 (a free one by default). |  |
-| `--out` | Write docker-compose.yml and .env (0600, with the generated secrets) into this folder. |  |
+| `--out` | Write docker-compose.yml and .env (0600, with the generated secrets) into this folder, and the files a Dokploy template mounts. |  |
 | `--json` | Print what was made as JSON (never the secrets). |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
@@ -8107,6 +8108,7 @@ Arguments: `name`
 
 | Option | What it does | Default |
 |---|---|---|
+| `--json` | Print the zones as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust dns records
@@ -9874,7 +9876,7 @@ noust health [OPTIONS]
 
 ### noust import
 
-Read Vercel, Railway, Render or Heroku configuration from a repository, or     a Coolify or Dokploy application through its API.
+Read Vercel, Railway, Render or Heroku configuration from a repository, or     a Coolify, Dokploy, CapRover or Dokku application from its server.
 
 ```
 noust import [OPTIONS] [PATH]
@@ -9884,10 +9886,11 @@ Arguments: `path`
 
 | Option | What it does | Default |
 |---|---|---|
-| `--from` | The platform whose configuration the repository carries, or whose server to read (coolify, dokploy: with --url). |  |
-| `--url` | coolify and dokploy: the server's address, https://coolify.example.com. |  |
-| `--token-file` | coolify and dokploy: a file whose first line is a read-only API token (or set NOUST_IMPORT_TOKEN). |  |
-| `--app` | coolify and dokploy: the application to read, by name or id. Without it they are listed. |  |
+| `--from` | The platform whose configuration the repository carries, or whose server to read (coolify, dokploy, caprover: with --url; dokku: on its server or with --ssh). |  |
+| `--url` | coolify, dokploy and caprover: the server's address, https://coolify.example.com. |  |
+| `--token-file` | coolify, dokploy and caprover: a file whose first line is a read-only API token (CapRover: the dashboard's password) (or set NOUST_IMPORT_TOKEN). |  |
+| `--ssh` | dokku: the server to ask over SSH, with a key Dokku accepts and a host key already known. Without it, the dokku command of this machine. |  |
+| `--app` | coolify, dokploy, caprover and dokku: the application to read, by name or id. Without it they are listed. |  |
 | `--deploy` | Deploy it on this domain with the proposal, through the normal create path. |  |
 | `--source` | With --deploy: the repository to deploy. Default: PATH itself. |  |
 | `--branch` | With --deploy: the branch to deploy. |  |
@@ -10902,7 +10905,7 @@ Arguments: `name`
 | `--bastion-host-key` | The bastion's ssh-ed25519 host key line. |  |
 | `--no-bastion` | Connect to the node directly. |  |
 | `--no-test` | Keep the change without opening the tunnel first (a node that is down now). |  |
-| `--show` | Print the authorized_keys line to add on the bastion: one stream to the node, no shell. |  |
+| `--show` | Print the authorized_keys line to add on the bastion: one stream to the node, no shell. With --bastion it is the line for that bastion, and nothing is changed: ask for it first, then change the bastion once it lets the central in. |  |
 | `--json` | Print the options as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 

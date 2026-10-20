@@ -47,7 +47,12 @@ def _show(logger: Logger, plan: AdoptionPlan) -> None:
         "Project", f"{plan.project or '-'} ({_PROJECT_FROM.get(plan.project_from, '')})"
     )
     logger.key_value("Containers", ", ".join(plan.containers) or "none")
-    logger.key_value("Updates from", f"{plan.source} ({plan.branch or 'current branch'})")
+    logger.key_value(
+        "Updates from",
+        f"{plan.source} ({plan.branch or 'current branch'})"
+        if plan.source
+        else "no repository: an update pulls the images the compose file names",
+    )
     logger.key_value("Commit", plan.commit or "unknown")
     if plan.headless:
         logger.key_value("Site", "none: the stack publishes no port")

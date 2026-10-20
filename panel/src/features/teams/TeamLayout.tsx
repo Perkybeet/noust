@@ -8,7 +8,7 @@ import { teamQuery } from "../../api/queries/teams";
 import type { TeamDetail } from "../../api/queries/teams";
 import { announce } from "../../app/Announcer";
 import { LinkTabs } from "../../app/LinkTabs";
-import { TEAM_TABS } from "../../app/nav";
+import { TEAM_TABS } from "../nav/team";
 import { DetailPage } from "../../components/page/DetailPage";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Button, buttonClassName } from "../../components/ui/Button";
@@ -60,7 +60,7 @@ export function TeamLayout({ team: slug }: { team: string }) {
   const header = {
     title: team?.name ?? slug,
     server: node,
-    breadcrumbs: [{ label: t("teams.list.title"), to: "/teams" }],
+    breadcrumbs: [{ label: t("teams.list.title"), to: "/projects/teams" }],
   };
 
   if (query.isError && isApiError(query.error) && query.error.status === 404) {
@@ -72,7 +72,7 @@ export function TeamLayout({ team: slug }: { team: string }) {
           title={t("teams.team.notFoundTitle")}
           description={t("teams.team.notFoundDescription", { team: slug })}
           action={
-            <Link to="/teams" className={buttonClassName("secondary")}>
+            <Link to="/projects/teams" className={buttonClassName("secondary")}>
               {t("teams.team.allTeams")}
             </Link>
           }

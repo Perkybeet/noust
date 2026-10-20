@@ -422,9 +422,12 @@ def get_system_info() -> dict[str, str]:
     """
     info = {}
 
-    # OS info
-    result = run_command(["lsb_release", "-d", "-s"])
-    info["os"] = result.stdout.strip() if result.success else "Unknown"
+    # OS info: the identity file every distribution ships, not lsb_release, which a minimal
+    # Debian 13 and every RPM-based system leave out. Imported here, not at the top: the server
+    # managers import this module.
+    from noust.managers.server.host import read_os_release
+
+    info["os"] = read_os_release().pretty_name
 
     # Kernel
     result = run_command(["uname", "-r"])
@@ -432,7 +435,8 @@ def get_system_info() -> dict[str, str]:
 
     # Check for nginx
     result = run_command(["nginx", "-v"])
-    info["nginx"] = result.stderr.split("/")[1].strip() if result.success else "Not installed"
+    nginx_version = re.search(r"nginx/(\S+)", result.stderr) if result.success else None
+    info["nginx"] = nginx_version.group(1) if nginx_version else "Not installed"
 
     # Check for apache
     result = run_command(["apache2", "-v"])

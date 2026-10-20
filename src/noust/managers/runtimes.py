@@ -57,7 +57,7 @@ from urllib.error import URLError
 from noust.core import audit, paths
 from noust.core.exceptions import DeploymentError, NoustError, ValidationError
 from noust.core.fs import FileSystem, is_rehearsal
-from noust.core.package_family import PackageFamily, detect_family
+from noust.core.package_family import PackageFamily, detect_family, install_apt_packages
 from noust.core.runner import SANDBOX_PATH, CommandResult, CommandRunner
 from noust.core.versions import RuntimeRequest, Version, parse_version
 from noust.managers.base_manager import BaseManager
@@ -950,8 +950,9 @@ class RuntimeManager(BaseManager):
             self.logger.substep(f"Would install: apt-get install -y {' '.join(packages)}")
             return self._php_runtime(spec)
         self.logger.substep(f"Installing PHP {spec}: apt-get install -y {' '.join(packages)}")
-        result = self.runner.run(
-            ["apt-get", "install", "-y", *packages],
+        result = install_apt_packages(
+            self.runner,
+            packages,
             env={"DEBIAN_FRONTEND": "noninteractive"},
             timeout=PACKAGE_TIMEOUT,
         )

@@ -7,6 +7,7 @@ import { Components } from "./Components";
 import { Foundations } from "./Foundations";
 import { Kit } from "./Kit";
 import { Kit32 } from "./Kit32";
+import { Kit40 } from "./Kit40";
 import { PageKit } from "./PageKit";
 import { Patterns } from "./Patterns";
 import { Templates } from "./Templates";
@@ -59,6 +60,24 @@ const NAV: { title: string; links: [string, string][] }[] = [
       ["combobox", "Combobox"],
       ["feature-state", "Feature state"],
       ["flow-diagram", "Flow diagram"],
+    ],
+  },
+  {
+    title: "Components (4.0)",
+    links: [
+      ["k40-setting", "Setting and group"],
+      ["k40-inline", "Inline message"],
+      ["k40-leave", "Leaving a form"],
+      ["k40-confirm", "One confirmation"],
+      ["k40-split", "Split button"],
+      ["k40-rows", "Rows and row menu"],
+      ["k40-fold", "Disclosure card"],
+      ["k40-group", "Field group"],
+      ["k40-skeleton", "Skeleton presets"],
+      ["k40-place", "Place line"],
+      ["k40-long-settings", "Long settings list"],
+      ["k40-dashboard-tabs", "Dashboard tabs"],
+      ["k40-table", "A table that waits"],
     ],
   },
   {
@@ -175,6 +194,7 @@ export function DesignGallery() {
           <Templates />
           <Kit />
           <Kit32 />
+          <Kit40 />
           <Components />
           <PageKit />
           <Patterns />

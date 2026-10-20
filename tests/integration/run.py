@@ -8069,6 +8069,16 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--downgrade-to-3.3",
+        dest="downgrade_to_33",
+        action="store_true",
+        help=(
+            "Run only the going-back rehearsal: a Noust 3.3.1 server upgraded to this tree, then "
+            "returned to 3.3.1 the way docs/downgrading.md says (the store's copy put back). "
+            "--scenario is ignored when this is given."
+        ),
+    )
+    parser.add_argument(
         "--mixed-fleet",
         action="store_true",
         help=(
@@ -8916,6 +8926,11 @@ def main() -> int:
 
         return scenarios_upgrade.run_upgrade_33_mode(wheel, keep=args.keep)
 
+    if args.downgrade_to_33:
+        import scenarios_upgrade
+
+        return scenarios_upgrade.run_downgrade_mode(wheel, keep=args.keep)
+
     if args.mixed_fleet:
         import scenarios_fleet_mixed
 
@@ -9009,7 +9024,7 @@ def load_extension_scenarios() -> None:
 
 
 #: Modules beside this one whose scenarios join the suite (see :func:`load_extension_scenarios`).
-EXTENSION_MODULES = ("scenarios_34", "scenarios_w6a")
+EXTENSION_MODULES = ("scenarios_34", "scenarios_w6a", "scenarios_real")
 
 load_extension_scenarios()
 

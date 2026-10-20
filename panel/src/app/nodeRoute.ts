@@ -45,6 +45,9 @@ export const CENTRAL_PATHS: readonly string[] = [
   "/settings/approvals",
   "/settings/audit",
   "/settings/compliance",
+  "/settings/controls",
+  // The signed-in account is the central's: a node refuses a central's sign-in on purpose.
+  "/account",
   "/integrations",
   "/servers",
 ];

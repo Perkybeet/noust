@@ -184,7 +184,7 @@ describe("a Docker Compose file typed into the wizard", { timeout: 60_000 }, () 
       await user.click(screen.getByRole("button", { name: "Convert a Coolify template" }));
 
       expect(await screen.findByText("Converted from a Coolify template")).toBeInTheDocument();
-      expect(backend.callsTo("POST /api/compose/import")[0]?.body).toEqual({ document: TEMPLATE });
+      expect(backend.callsTo("POST /api/compose/import")[0]?.body).toEqual({ document: TEMPLATE, format: "coolify" });
       expect(screen.getByRole("textbox", { name: /Compose file/ })).toHaveValue(CONVERTED);
       expect(screen.getByText("1 value was made here. The secret stays in this page until you deploy and is not shown again.")).toBeInTheDocument();
       expect(screen.getByRole("list", { name: "What was changed" })).toHaveTextContent("wiki is published on 127.0.0.1");

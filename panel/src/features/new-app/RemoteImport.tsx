@@ -19,7 +19,7 @@ import { splitErrors } from "../settings/formErrors";
 
 type Applications = ResponseOf<"/api/import/applications", "post">;
 type Proposal = ResponseOf<"/api/import/proposal", "post">;
-type Platform = "coolify" | "dokploy";
+type Platform = "coolify" | "dokploy" | "caprover";
 
 export interface RemoteImportProps {
   /** An export document read from the other server, to be reviewed like one read from a file. */
@@ -124,10 +124,11 @@ export function RemoteImport({ onLoaded }: RemoteImportProps) {
               options={[
                 { value: "coolify", label: t("remoteImport.platforms.coolify") },
                 { value: "dokploy", label: t("remoteImport.platforms.dokploy") },
+                { value: "caprover", label: t("remoteImport.platforms.caprover") },
               ]}
               value={platform}
               onValueChange={(next) => {
-                setPlatform(next === "dokploy" ? "dokploy" : "coolify");
+                setPlatform(next === "dokploy" || next === "caprover" ? next : "coolify");
               }}
               className="w-full"
             />
@@ -135,7 +136,11 @@ export function RemoteImport({ onLoaded }: RemoteImportProps) {
           <Field label={t("remoteImport.url")} description={t("remoteImport.urlDescription")} error={listErrors.fields.url}>
             <Input mono value={url} onValueChange={setUrl} placeholder="https://coolify.example.com" autoComplete="off" autoCapitalize="off" spellCheck={false} />
           </Field>
-          <Field label={t("remoteImport.token")} description={t("remoteImport.tokenDescription")} error={listErrors.fields.token}>
+          <Field
+            label={t(platform === "caprover" ? "remoteImport.password" : "remoteImport.token")}
+            description={t(platform === "caprover" ? "remoteImport.passwordDescription" : "remoteImport.tokenDescription")}
+            error={listErrors.fields.token}
+          >
             <Input mono type="password" value={token} onValueChange={setToken} autoComplete="new-password" spellCheck={false} />
           </Field>
           {list.isError && listErrors.form !== null ? <ErrorBlock live compact error={listErrors.form} title={t("remoteImport.listFailed")} /> : null}

@@ -10,7 +10,8 @@ export interface EmptyStateProps {
    * page, with the one action that is possible now and its CLI command. `inline`: a list or
    * section inside a page is empty, or a filter matched nothing; one line with a link or small
    * button, no heading, no icon, no frame, 56px at most. Without a variant, the framed block
-   * of 3.0, kept for pages not yet moved onto a template.
+   * of 3.0 is drawn and, in development, said to be retired (the console log names it once):
+   * the variant is required, and the type says so when the last page without one has moved.
    */
   variant?: "firstUse" | "inline";
   /** A lucide icon element, drawn at 20px. Not drawn inline. */
@@ -42,8 +43,15 @@ function Command({ command }: { command: string }) {
   );
 }
 
+/** The empty states already named as variant-less, so a list that renders again says it once. */
+const NAMED = new Set<string>();
+
 /** What a list or page shows before it has anything in it. */
 export function EmptyState({ variant, icon, title, description, action, command, level, className }: EmptyStateProps) {
+  if (variant === undefined && import.meta.env.DEV && !NAMED.has(title)) {
+    NAMED.add(title);
+    console.warn(`EmptyState "${title}" has no variant: pass "firstUse" (one per page, in the content's place) or "inline" (inside a section or a filtered table). The framed block without one is retired.`);
+  }
   if (variant === "inline") {
     return (
       <div data-slot="empty-state" data-variant="inline" className={cx("flex min-h-10 flex-wrap items-center gap-x-3 gap-y-1 py-2 text-13", className)}>

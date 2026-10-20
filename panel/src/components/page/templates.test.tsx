@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -64,6 +65,46 @@ describe("ListPage (T1)", () => {
       </ListPage>,
     );
     await expectNoAxeViolations(container);
+  });
+
+  it("draws everything below the tabs again when its arrival changes, so a notice that came with the rows pushes nothing", async () => {
+    function Arriving({ keyed }: { keyed: boolean }) {
+      const [answered, setAnswered] = useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setAnswered(true)}>
+            answer
+          </button>
+          <ListPage
+            header={{ title: "Databases" }}
+            {...(keyed ? { arrival: answered ? "answered" : "waiting" } : {})}
+            {...(answered ? { notice: <Notice title="Nothing is backed up" /> } : {})}
+          >
+            <p>the table</p>
+          </ListPage>
+        </>
+      );
+    }
+    const user = userEvent.setup();
+
+    // A list that does not say it waits keeps its elements: what moves is moved, as before.
+    const plain = await renderRouted(<Arriving keyed={false} />);
+    const kept = plain.container.querySelector('[data-slot="content"]');
+    await user.click(screen.getByRole("button", { name: "answer" }));
+    expect(screen.getByText("Nothing is backed up")).toBeInTheDocument();
+    expect(plain.container.querySelector('[data-slot="content"]')).toBe(kept);
+    plain.unmount();
+
+    // One that does gets new elements for the notice, the filters and the rows alike.
+    const keyed = await renderRouted(<Arriving keyed />);
+    const before = keyed.container.querySelector('[data-slot="content"]');
+    expect(before).not.toBeNull();
+    await user.click(screen.getByRole("button", { name: "answer" }));
+    expect(screen.getByText("Nothing is backed up")).toBeInTheDocument();
+    const after = keyed.container.querySelector('[data-slot="content"]');
+    expect(after).not.toBe(before);
+    expect(before?.isConnected).toBe(false);
+    expect(within(after as HTMLElement).getByText("the table")).toBeInTheDocument();
   });
 });
 

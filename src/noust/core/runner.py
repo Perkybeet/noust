@@ -3627,6 +3627,7 @@ PROBE_MODULES: tuple[str, ...] = (
     "noust.managers.kernel_quota",
     "noust.managers.private_networks",
     "noust.managers.stack_networks",
+    "noust.deployers.importers.dokku",
 )
 
 #: Options that turn any declared probe of a program into a change. Checked

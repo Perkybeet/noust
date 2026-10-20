@@ -635,6 +635,9 @@ reason a person can read.
 
 ## Contributing a recipe
 
+[Contributing a recipe](contributing-recipes.md) is the walk through: asking for one, writing it,
+testing it on your own Docker and sending it. What follows is the rule it is judged by.
+
 The rule of eligibility: the upstream project has at least 1,000 stars on GitHub (or on the forge
 that hosts it: Codeberg for Forgejo), has made a release in the last year and is not archived, and
 its licence allows running it for others (the licence goes in `license`; a source-available one is

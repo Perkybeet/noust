@@ -323,21 +323,34 @@ kind, a preview follows its parent, and one that deploys from `git push` turns t
 
 ## Bringing applications from other platforms
 
-`noust import --from vercel|railway|render|heroku PATH` reads a configuration file. Coolify and
-Dokploy keep it in their database, so they are read through their API, with a read-only token:
+`noust import --from vercel|railway|render|heroku PATH` reads a configuration file. Coolify, Dokploy
+and CapRover keep it in their database, so they are read through their API, and Dokku, which has no
+API, through its own commands (on its server, or over SSH):
 
 ```bash
 export NOUST_IMPORT_TOKEN=...                                                       # or --token-file FILE
 noust import --from coolify --url https://coolify.example.com                       # list the applications
 noust import --from coolify --url https://coolify.example.com --app web             # propose one
 noust import --from dokploy --url https://dokploy.example.com --token-file ./token --app web --deploy
+noust import --from caprover --url https://captain.apps.example.com --token-file ./password --app web
+noust import --from dokku --ssh dokku@dokku.example.com --app web                   # no token: an SSH key
 ```
 
 The proposal carries the repository, branch, base directory, build commands, watch paths, ports,
 health check, limits, scheduled tasks and variables (secrets withheld unless the platform gave them
-in the clear), and lists what it could not carry. `--deploy` creates the application through the
-same path as `noust app import`. An image, a Dockerfile or a Compose source is shown as the
-`noust create` command that makes it. The server's address must be https (loopback excepted), is
-not followed through a redirect, passes the same guard as every address an operator types, and the
-token is used for the length of the command and kept nowhere. The console does the same from the
-New application wizard.
+in the clear), and lists what it could not carry. **Storage and databases are part of it**: the
+mounts and volumes of the application, and the databases it connects to (found by a variable that
+names them, or in the same environment), each with the commands that copy its data, run on the
+source server (a dump read inside the container, a `tar` of the volume) and loaded here with
+`noust db import` and a `tar -xzf` under the application's `shared/` directory. Nothing is copied by the importer itself; the data
+travels in the commands you run. `--deploy` creates the application through the same path as
+`noust app import`. An image, a Dockerfile or a Compose source is shown as the `noust create`
+command that makes it. The server's address must be https (loopback excepted), is not followed
+through a redirect, passes the same guard as every address an operator types, and the token is used
+for the length of the command and kept nowhere. The console does the same from the New application
+wizard. Each platform has its own guide: [Coolify](coolify.md), [Dokploy](dokploy.md),
+[CapRover](caprover.md) and [Dokku](dokku.md).
+
+A **template** of Coolify or Dokploy is not an application but a recipe, and becomes a Compose stack
+with its variables and files: `noust compose import templates/blueprints/ghost --from dokploy
+--domain blog.example.com --out ./blog` ([compose.md](compose.md), [dokploy.md](dokploy.md)).

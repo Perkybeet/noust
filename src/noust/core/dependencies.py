@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import ClassVar, TypedDict
 
 from noust.core.exceptions import DeploymentError, SecurityError
-from noust.core.package_family import PackageFamily, install_hint
+from noust.core.package_family import PackageFamily, install_apt_packages, install_hint
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.utils import TRUSTED_INSTALLER_URLS, run_trusted_installer
 
@@ -741,8 +741,8 @@ class DependencyChecker:
             Tuple of (success, message).
         """
         if dep.install_apt:
-            result = self.runner.run(
-                ["apt-get", "install", "-y", dep.install_apt], timeout=INSTALL_TIMEOUT
+            result = install_apt_packages(
+                self.runner, dep.install_apt.split(), timeout=INSTALL_TIMEOUT
             )
             if result.success:
                 return True, f"Installed {dep.name} via apt"

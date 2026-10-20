@@ -65,6 +65,16 @@ method in the lineage's renewal configuration. A failed order puts the choice ba
 certificate that served keeps serving. A name that a certificate you already have covers (a
 wildcard from another lineage) can be served without ordering one.
 
+A site that serves no TLS yet (deployed with `--no-ssl`, or whose first certificate could not be
+ordered over a port 80 nobody can reach) only **keeps the choice**. Its first certificate is
+`noust cert create -d APP`, which proves the name the way the choice says (DNS included), and then
+writes the site with TLS, so the same two commands take a name behind a closed port 80 to HTTPS:
+
+```bash
+noust cert use wiki.example.com --acme --dns cf
+noust cert create -d wiki.example.com
+```
+
 ## A certificate you bring
 
 ```bash
@@ -151,7 +161,12 @@ Nothing is revoked: the old certificate expires on its own and the new one never
 
 Certbot's timer renews. A deploy hook (`/etc/letsencrypt/renewal-hooks/deploy/noust-reload`)
 reloads the web server afterwards, so a renewed certificate is the one being served without anyone
-running anything. The monitor's expiry warnings reach the notification channels, and an uploaded certificate is
+running anything. Every order writes it, whatever proves the name: certbot's own nginx plugin
+reloads after a renewal it proves over HTTP, and a DNS order has no such plugin, so without the
+hook a renewed certificate would sit on disk while the site went on serving the old one until it
+expired. A hook you wrote under that name is left alone. `noust cert renew` is a command somebody
+waits on, so it does not take the random pause (up to eight minutes) certbot adds to a renewal that
+no terminal started; the timer's own runs keep it. The monitor's expiry warnings reach the notification channels, and an uploaded certificate is
 warned about as well.
 
 ## Backing it up

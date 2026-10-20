@@ -5,6 +5,13 @@ database it uses, a backup, and a ready-made service from the catalog. Each step
 console and as the command that does the same. Allow about ten minutes; the part that takes time is
 waiting for DNS.
 
+The machine's part has been measured (`tests/integration/network_run.py --scenario first_deploy`): from
+`apt install` on a bare Debian 13 server (no nginx, certbot, Node.js, git or Noust) through
+`noust setup init` to a Node.js application answering over HTTPS took 52 seconds on the machine that
+ran it (22 for the package, 19 for `setup init`, 10 for `noust create` with the certificate), with
+Pebble, Let's Encrypt's test server, as the authority and the package read from a file. The figures and
+what they leave out are in `tests/integration/results/first-deploy.json`; the budget is ten minutes.
+
 ## Before you start
 
 - **Noust is installed and the server is ready.** `noust setup doctor` lists what a deployment
@@ -16,7 +23,9 @@ waiting for DNS.
   asking for a certificate and tells you if it does not resolve here; the certificate is the step
   that fails when it does not.
 - **A repository to deploy.** Any of [these stacks](frameworks.md). If you only want to try Noust,
-  a static page works: a repository with an `index.html` is deployed as a static site.
+  a static page works: a repository with an `index.html` is deployed as a static site, and
+  [`examples/`](../examples/README.md) has a minimal application for every type Noust deploys
+  (`noust create -d hello.example.com -s examples/nodejs` from a clone of the repository).
 - **Open the console.** It listens on `127.0.0.1:8080` of the server and nowhere else. From your
   computer: `ssh -N -L 8080:127.0.0.1:8080 root@server.example.com`, then
   <http://127.0.0.1:8080>, and sign in with the token `noust web enable` printed. A new server's

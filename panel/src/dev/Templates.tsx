@@ -161,7 +161,7 @@ function SettingsDemo() {
           </Field>
         </div>
       </Card>
-      <SaveBar changes={changes} onDiscard={() => setPath(saved)} onSave={() => undefined} />
+      <SaveBar changes={changes} onDiscard={() => setPath(saved)} onSave={() => undefined} yieldPrimary={false} />
     </SettingsLayout>
   );
 }

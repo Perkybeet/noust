@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
+import { isApiError } from "../../api/client";
 import { backupDestinationBackendsQuery } from "../../api/queries/backupDestinations";
 import type { Destination } from "../../api/queries/backupDestinations";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -83,8 +84,12 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
     hasRequiredValues(fields, values, configuredSecrets) &&
     (!givesKey || (keyPassword.trim() !== "" && keyPassword2.trim() !== ""));
 
-  const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
-    event.preventDefault();
+  /**
+   * Sends the form. The server tries the connection first and refuses a destination that does
+   * not answer; `verify: false` is the operator's answer to that refusal ("Keep it anyway"), so
+   * a destination that is down on purpose (a NAS that is off at night) can still be recorded.
+   */
+  const send = (verify: boolean): void => {
     if (!canSubmit || saving) return;
     const payload = fieldsPayload(fields, values);
     const wasEncrypted = existing?.encrypted ?? false;
@@ -96,6 +101,7 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
       }
       close(false);
     };
+    const unverified = verify ? {} : { verify: false };
     if (existing === undefined) {
       create.mutate(
         {
@@ -104,13 +110,26 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
           fields: payload,
           encrypted,
           encryptionKey: givesKey ? { password: keyPassword.trim(), password2: keyPassword2.trim() } : undefined,
+          ...unverified,
         },
         { onSuccess },
       );
     } else {
-      update.mutate({ name: existing.name, fields: payload, encrypted }, { onSuccess });
+      update.mutate({ name: existing.name, fields: payload, encrypted, ...unverified }, { onSuccess });
     }
   };
+
+  const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    send(true);
+  };
+
+  // The server's refusal of a destination that did not answer is told in its own words, and
+  // the operator can keep the destination regardless: it can be tried again from its menu.
+  const unreachable = isApiError(error) && error.error === "destination_unreachable";
+  const failureTitle = unreachable
+    ? t(existing ? "backups.destinationDialog.errorUnreachableSave" : "backups.destinationDialog.errorUnreachableCreate")
+    : t(existing ? "backups.destinationDialog.errorSave" : "backups.destinationDialog.errorCreate");
 
   return (
     <>
@@ -293,7 +312,19 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
               live
               compact
               error={error}
-              title={existing ? t("backups.destinationDialog.errorSave") : t("backups.destinationDialog.errorCreate")}
+              title={failureTitle}
+              {...(unreachable
+                ? {
+                    action: (
+                      <>
+                        <Button size="sm" disabled={saving} onClick={() => send(false)}>
+                          {t("backups.destinationDialog.keepAnyway")}
+                        </Button>
+                        <span className="text-12 text-fg-muted">{t("backups.destinationDialog.keepAnywayHelp")}</span>
+                      </>
+                    ),
+                  }
+                : {})}
             />
           ) : null}
         </form>

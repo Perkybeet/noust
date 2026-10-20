@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-A Docker Compose document typed into the console, looked at before it runs, and a Coolify template
-turned into one.
+A Docker Compose document typed into the console, looked at before it runs, and a Coolify or
+Dokploy template turned into one.
 
 ``POST /api/compose/analyze`` is :func:`noust.deployers.compose_paste.analyze_document`
 and ``noust compose check``: the services, the variables the document reads
@@ -12,22 +12,25 @@ it. It runs nothing and writes nothing. Deploying the document is
 ``POST /api/apps`` with ``compose_document``, which analyses it again - the
 preview is a convenience, the guard is the deployment's.
 
-``POST /api/compose/import`` is :func:`noust.recipes.coolify.convert` and ``noust compose import``:
-a Coolify service template in, a Compose document out, with the values of the variables Coolify
-would have filled in (made here, so the secrets are new) and what was changed or left. It writes
-nothing; the document goes through ``POST /api/compose/analyze`` and ``POST /api/apps`` like any
-other, with the values as ``env_vars``.
+``POST /api/compose/import`` is :func:`noust.recipes.coolify.convert` (or, with ``format`` set
+to ``dokploy``, :func:`noust.recipes.dokploy.convert`) and ``noust compose import``: a service
+template in, a Compose document out, with the values of the variables the platform would have filled
+in (made here, so the secrets are new), the files a Dokploy template mounts, and what was changed or
+left. It writes nothing; the document goes through ``POST /api/compose/analyze`` and
+``POST /api/apps`` like any other, with the values as ``env_vars``.
 """
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from noust.deployers.compose_paste import MAX_DOCUMENT_BYTES, PastedCompose, analyze_document
-from noust.recipes.coolify import MAX_TEMPLATE_BYTES, convert, default_host_port
+from noust.recipes import coolify, dokploy
+from noust.recipes.compose_template import ConvertedTemplate, default_host_port
+from noust.recipes.coolify import MAX_TEMPLATE_BYTES
 from noust.validators.domain import validate_domain
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute
@@ -163,16 +166,23 @@ def analysis_out(found: PastedCompose) -> ComposeAnalysisOut:
 
 class CoolifyImportRequest(BaseModel):
     """
-    A Coolify service template to convert.
+    A Coolify or Dokploy service template to convert.
 
     Attributes:
-        document: The template's text, up to 256 KiB.
-        domain: The name the stack will be served on; without one the addresses are left to give.
+        document: The template's text, up to 256 KiB: Coolify's Compose file, or Dokploy's
+            ``docker-compose.yml``.
+        format: Whose template it is.
+        template: For ``dokploy``: the ``template.toml`` that goes with the Compose file, up to
+            1 MiB.
+        domain: The name the stack will be served on; without one the addresses are left to give
+            (a Dokploy template that builds its addresses from the domain needs one).
         port: The host port the web service is published on (loopback); the container's own
             port by default.
     """
 
     document: str = Field(max_length=MAX_TEMPLATE_BYTES)
+    format: Literal["coolify", "dokploy"] = "coolify"
+    template: str | None = Field(default=None, max_length=dokploy.MAX_TOML_BYTES)
     domain: str | None = None
     port: int | None = Field(default=None, ge=1, le=65535)
 
@@ -208,6 +218,9 @@ class CoolifyImportOut(BaseModel):
         metadata: The template's header.
         adjustments: What was changed to make it a Noust document.
         warnings: What was not translated and why.
+        files: For a Dokploy template: the files it mounts, by path beside the document. Write
+            them where the document is before deploying that folder.
+        secret_files: The paths among ``files`` that hold a generated secret.
         analysis: The same look any pasted document gets.
     """
 
@@ -219,6 +232,8 @@ class CoolifyImportOut(BaseModel):
     metadata: dict[str, str]
     adjustments: list[str]
     warnings: list[str]
+    files: dict[str, str] = {}
+    secret_files: list[str] = []
     analysis: ComposeAnalysisOut
 
 
@@ -227,24 +242,34 @@ def import_coolify(
     body: CoolifyImportRequest, session: Annotated[dict, Depends(get_current_session)]
 ) -> CoolifyImportOut:
     """
-    Convert a Coolify service template to a Compose document Noust deploys.
+    Convert a Coolify or Dokploy service template to a Compose document Noust deploys.
 
     Nothing is run, fetched or saved. The values it makes (generated secrets, the addresses of the
     domain) are in the answer and nowhere else: a second request makes new ones.
 
     Args:
-        body: The template, and optionally the domain and the host port.
+        body: The template, whose it is, and optionally the domain and the host port.
         session: The authenticated session.
 
     Returns:
-        The document, the values, and what was changed or left.
+        The document, the values, the files a Dokploy template mounts, and what was changed or left.
 
     Raises:
-        ValidationError: It is not a Compose template, or the domain is not a name (400).
+        ValidationError: It is not a Compose template, a Dokploy template mounts a file whose path
+            leaves the folder or needs a domain that was not given, or the domain is not a name
+            (400).
     """
     domain = validate_domain(body.domain) if body.domain else None
-    result = convert(body.document, domain=domain, port=body.port or default_host_port())
-    found = analyze_document(result.document)
+    port = body.port or default_host_port()
+    result: ConvertedTemplate
+    files: dict[str, str] = {}
+    secret_files: list[str] = []
+    if body.format == "dokploy":
+        converted = dokploy.convert(body.document, body.template, domain=domain, port=port)
+        result, files, secret_files = converted, converted.files, sorted(converted.secret_files)
+    else:
+        result = coolify.convert(body.document, domain=domain, port=port)
+    found = analyze_document(result.document, provided=files)
     return CoolifyImportOut(
         document=result.document,
         values=result.values,
@@ -254,5 +279,7 @@ def import_coolify(
         metadata=result.metadata,
         adjustments=result.adjustments,
         warnings=result.warnings,
+        files=files,
+        secret_files=secret_files,
         analysis=analysis_out(found),
     )

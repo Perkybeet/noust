@@ -29,6 +29,7 @@ from noust.core import changelog, release_notes
 from noust.core.exceptions import DependencyError
 from noust.managers import setup_doctor
 from noust.managers.health import collect_health_report
+from noust.managers.server.host import read_os_release
 from noust.managers.support_report import SupportReporter
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated
@@ -311,24 +312,6 @@ def _uptime() -> str:
     return " ".join(parts)
 
 
-def _os_name() -> str:
-    """
-    Read the distribution name.
-
-    Returns:
-        The pretty name from /etc/os-release, or ``Linux``.
-    """
-    try:
-        with open("/etc/os-release") as handle:
-            for line in handle:
-                key, _, value = line.strip().partition("=")
-                if key == "PRETTY_NAME":
-                    return value.strip('"')
-    except OSError:
-        pass
-    return "Linux"
-
-
 def _cpu_info(interval: float) -> CpuInfo:
     """
     Sample CPU utilisation.
@@ -435,7 +418,7 @@ def get_system_info(session: Annotated[dict, Depends(get_current_session)]) -> S
     uname = os.uname()
     return SystemInfo(
         hostname=uname.nodename,
-        os=_os_name(),
+        os=read_os_release().pretty_name,
         kernel=uname.release,
         uptime=_uptime(),
         cpu=_cpu_info(0.1),

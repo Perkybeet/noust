@@ -15,6 +15,74 @@ noust --local list                             # this machine's own, once
 noust --remote https://noust.acme.test --token env:NOUST_TOKEN list      # one call, nothing saved
 ```
 
+## Installing the client
+
+The client is the same `noust` package that runs on a server, and on a machine that is not one it needs
+no root, no systemd and none of the server's packages: the plain install brings only the command line's
+own libraries (Click, Jinja2, PyYAML, Rich and questionary), about ten small packages, and nothing of the
+console, the API or the monitor (`noust[web]` and `noust[all]` are for servers). It needs Python 3.10 or
+later.
+
+```bash
+# On a laptop: an environment of its own, so that nothing else sees it
+pipx install noust                              # or: uv tool install noust
+# or, with the interpreter alone
+python3 -m venv ~/.venvs/noust && ~/.venvs/noust/bin/pip install noust
+noust --version
+
+noust context add prod --url https://noust.acme.test --token - < token.txt   # keep where the token is
+noust context verify prod        # calls the server and says who the token is there, and its API version
+noust list                       # runs on prod
+```
+
+Pin the version in anything that must be repeatable (`pip install noust==X.Y.Z`). The client and the
+server speak the one API of [api.md](api.md#versions-and-compatibility), whose promise is that what a
+release shipped keeps working within its version, but a command the client has and the server's
+release lacks is refused by the server: use the release the server runs. `noust --version` says which
+one you have, and `noust context verify` which one the server has.
+
+Tried on Linux with Python 3.12, in a clean environment with the wheel installed and no extras,
+against a server's API: `context add` and `verify`, `list`, `whoami`, `update` (which queues the job
+and follows it), a command with no remote form (it says so and offers `--local`) and the CI form below.
+The package is pure Python, so macOS has what Linux has, but it has not been run there; Windows is
+reached through WSL.
+
+A context is saved under the user's own configuration directory (`~/.config/noust`), never under
+`/etc/noust`, and saving one is not a change to any server, so nothing is written to an audit trail on
+the machine you sit at: the server audits the calls it receives, with the token's owner as the actor.
+
+### In a pipeline
+
+A runner installs the client for the length of the job and keeps no context: the address and the token
+come from the environment.
+
+```yaml
+# GitHub Actions
+- uses: actions/setup-python@v5
+  with:
+    python-version: "3.12"
+- run: pip install noust==X.Y.Z
+- run: noust update shop.acme.test          # exits 0 only when the new release serves
+  env:
+    NOUST_REMOTE: https://noust.acme.test
+    NOUST_TOKEN: ${{ secrets.NOUST_TOKEN }}
+```
+
+```yaml
+# GitLab CI
+deploy:
+  image: python:3.12-slim
+  script:
+    - pip install noust==X.Y.Z
+    - noust --remote "$NOUST_URL" --token env:NOUST_TOKEN update shop.acme.test
+```
+
+`NOUST_REMOTE` with `NOUST_TOKEN` (a variable) or `NOUST_TOKEN_FILE` (a private file) is the whole
+configuration; `--remote URL --token env:NAME` says the same on the command line. The token is made
+once with only what the step needs (`noust token create ci-deploy --scope deploy --expires-hours 720`,
+below), and the exit code is the outcome. A runner that cannot install Python packages calls the API
+with `curl`, or uses the GitHub Action, which needs no installation: [ci.md](ci.md).
+
 ## Contexts
 
 A context is a name, an address and **where to find a token**: a private file or a variable. It is

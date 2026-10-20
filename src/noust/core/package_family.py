@@ -18,10 +18,11 @@ it is the package manager Noust would actually run, which is what a hint is for.
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
+import re
+from collections.abc import Mapping, Sequence
 from enum import Enum
 
-from noust.core.runner import CommandRunner, get_runner
+from noust.core.runner import CommandResult, CommandRunner, get_runner
 
 log = logging.getLogger(__name__)
 
@@ -67,6 +68,55 @@ def detect_family(runner: CommandRunner) -> tuple[PackageFamily, str]:
         if runner.exists(program):
             return family, program
     return PackageFamily.NONE, ""
+
+
+#: What apt says when the package lists do not know a package: empty lists (a fresh image, a
+#: container) or lists too old to hold it.
+_UNKNOWN_TO_APT = re.compile(
+    r"Unable to locate package|has no installation candidate|Couldn't find any package",
+    re.IGNORECASE,
+)
+
+#: Seconds ``apt-get update`` may take.
+APT_UPDATE_TIMEOUT = 300
+
+
+def install_apt_packages(
+    runner: CommandRunner,
+    packages: Sequence[str],
+    *,
+    timeout: int,
+    env: Mapping[str, str] | None = None,
+    options: Sequence[str] = (),
+) -> CommandResult:
+    """
+    Install packages with apt, refreshing its lists once when it does not know them.
+
+    A fresh image or a container has no package lists, and ``apt-get install`` then says "Unable to
+    locate package" for everything: ``noust runtime install php@8.3`` failed that way on a server
+    that only needed ``apt-get update``. The lists are refreshed only on that failure, so a server
+    whose lists are there pays nothing, and the install is tried twice at most.
+
+    Args:
+        runner: The command runner.
+        packages: The packages.
+        timeout: Seconds the install may take.
+        env: The environment to run apt with (``DEBIAN_FRONTEND``).
+        options: More options for ``apt-get install`` (``--no-remove``).
+
+    Returns:
+        The install that decided: the first when it succeeded, or failed for another reason, or
+        when the lists could not be refreshed (its words are the ones to read); else the second.
+    """
+    argv = ["apt-get", "install", "-y", *options, *packages]
+    first = runner.run(argv, env=env, timeout=timeout)
+    if first.success or not _UNKNOWN_TO_APT.search(f"{first.stdout}\n{first.stderr}"):
+        return first
+    refreshed = runner.run(["apt-get", "update"], env=env, timeout=APT_UPDATE_TIMEOUT)
+    if not refreshed.success:
+        log.debug("apt-get update failed after an unknown package: %s", refreshed.stderr.strip())
+        return first
+    return runner.run(argv, env=env, timeout=timeout)
 
 
 def package_family(runner: CommandRunner | None = None) -> PackageFamily:

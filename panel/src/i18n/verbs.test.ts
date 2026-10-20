@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import * as en from "./en";
 import * as es from "./es";
+import { GLOSSARY } from "./glossary.table";
+import readme from "./README.md?raw";
 
 /**
  * The verbs of docs/DESIGN.md section 7, held in both catalogs (checklist M-32). Coolify's users
@@ -67,5 +69,74 @@ describe("the verbs of the console", () => {
     expect(en.apps.newApplication).toBe("New application");
     expect(en.overview.firstSteps.deploy.action).toBe("New application");
     expect(en.shell.commands.newApplication).toBe("New application");
+  });
+});
+
+type Node = string | { readonly [key: string]: Node };
+
+const PLURAL = new Set(["zero", "one", "two", "few", "many", "other"]);
+
+/** Every message as [dotted key, text]; a plural is its `other` form. */
+function flatten(node: Node, prefix = ""): [string, string][] {
+  if (typeof node === "string") return [[prefix, node]];
+  if (typeof node["other"] === "string" && Object.keys(node).every((key) => PLURAL.has(key))) return [[prefix, node["other"]]];
+  return Object.entries(node).flatMap(([key, child]) => flatten(child, prefix === "" ? key : `${prefix}.${key}`));
+}
+
+const english = new Map(flatten({ ...en }));
+const spanish = new Map(flatten({ ...es }));
+
+/**
+ * The rows no key says yet, as the glossary words them (README, "The words of the interface"): the
+ * lane that writes the first key that holds one of these takes it off this list, which pins the
+ * pair from then on. A row not on the list has at least one key in both languages.
+ */
+const NO_KEY_YET: ReadonlySet<string> = new Set(["Retry", "Try again", "Run again", "Clear", "Dismiss", "Acknowledge", "Reopen"]);
+
+/**
+ * The glossary's verbs and states (README, "Actions" and "States"), one row at a time, in both
+ * languages. Where a key says exactly the English word, Spanish must be the glossary's; the keys
+ * that still say it another way are counted by glossary.test.ts and go down to zero there.
+ */
+describe("the glossary's verbs and states", () => {
+  it("are all written in the README, in English and in Spanish", () => {
+    for (const row of GLOSSARY) {
+      expect(readme.includes(`**${row.en}**`), `README does not carry **${row.en}**`).toBe(true);
+      expect(readme.includes(row.es[0] ?? ""), `README does not carry ${row.es[0] ?? ""}`).toBe(true);
+    }
+  });
+
+  it.each(GLOSSARY.map((row) => [row.en, row] as const))("%s has its Spanish word on at least one key, or none says it yet", (_, row) => {
+    const keys = [...english].filter(([, text]) => text === row.en).map(([key]) => key);
+    const conforming = keys.filter((key) => row.es.includes(spanish.get(key) ?? ""));
+    if (NO_KEY_YET.has(row.en)) {
+      expect(conforming, `${row.en} has a key now: take it off NO_KEY_YET so the pair stays pinned`).toEqual([]);
+    } else {
+      expect(conforming.length, `no key says ${row.en} as ${row.es.join(" / ")}`).toBeGreaterThan(0);
+    }
+  });
+
+  it("keeps the daily verbs of an application on the same words as the glossary", () => {
+    const byEnglish = new Map(GLOSSARY.map((row) => [row.en, row.es]));
+    const actions = es.appPages.actions;
+    expect(byEnglish.get("Update")).toContain(actions.update);
+    expect(byEnglish.get("Restart")).toContain(actions.restart);
+    expect(byEnglish.get("Stop")).toContain(actions.stop);
+    expect(byEnglish.get("Start")).toContain(actions.start);
+    expect(byEnglish.get("Roll back")).toContain(actions.rollBack);
+  });
+
+  it("say Remove and Delete once each way: Quitar unlinks, Eliminar destroys", () => {
+    const byEnglish = new Map(GLOSSARY.map((row) => [row.en, row.es]));
+    expect(byEnglish.get("Remove")).toEqual(["Quitar"]);
+    expect(byEnglish.get("Delete")).toEqual(["Eliminar"]);
+  });
+
+  it("never give two English words the same canonical Spanish", () => {
+    const owners = new Map<string, string[]>();
+    for (const row of GLOSSARY) owners.set(row.es[0] ?? "", [...(owners.get(row.es[0] ?? "") ?? []), row.en]);
+    // Close is the button and Dismiss the notice's: Spanish says Cerrar for both, and the glossary says so.
+    const shared = [...owners].filter(([, words]) => words.length > 1).map(([word, words]) => `${word}: ${words.join(", ")}`);
+    expect(shared).toEqual(["Cerrar: Dismiss, Close"]);
   });
 });

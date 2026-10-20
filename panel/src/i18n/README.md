@@ -129,7 +129,7 @@ just arrived sees, `goCold()` from `test/coldCatalog` leaves English with its ch
   hard-coded `"en-US"`. A placeholder value is printed as given: format numbers first.
 - **Plurals** are `{ one, other }` objects selected by `count`; Spanish may add `many`.
   The keys `one` and `other` are reserved for plurals.
-- **Sentence case** in both languages ("Domains and certificates", "Copias de seguridad").
+- **Sentence case** in both languages ("Backup schedule", "Copias de seguridad").
 - **Keep the English exactly as it was** when converting a component: tests and the E2E
   suite pin it.
 
@@ -149,8 +149,8 @@ Spanish docs and of most developer tools): "Comprueba la conexión", not "Compru
 | deploy, deployment (noun) | despliegue | |
 | release | release (la, las releases) | WASM's `releases/<id>` directory. Not "versión": that is WASM's own version and an app's |
 | rollback, roll back | reversión, revertir | "Revertir a esta release" |
-| health check, health gate | comprobación de salud | |
-| unit (systemd) | unidad | |
+| startup check (was "health check"), health gate | comprobación de arranque, comprobación de salud | The interface says "Startup check" (DESIGN 7). "Health check" is the system's own phrase and stays where the system prints it |
+| unit (systemd) | unidad | A label says "Service" ("servicio", the unit name in mono): "Unit" and "Systemd unit" are jargon (DESIGN 7). "Unidad" stays where the unit file itself is meant |
 | service | servicio | |
 | job | tarea | background jobs |
 | cron job | tarea programada | the page stays "Cron" |
@@ -168,7 +168,7 @@ Spanish docs and of most developer tools): "Comprueba la conexión", not "Compru
 | sudo mode, "Confirm it's you" | modo sudo, "Confirma que eres tú" | |
 | account, role | cuenta, rol | "security officer" is "responsable de seguridad" |
 | passkey | llave de acceso | the name Apple, Google and Microsoft use in Spanish |
-| emergency access (the access token) | acceso de emergencia | |
+| access token (the installer's token) | token de acceso | Not "Emergency access": that was the name of the door and is retired (4.1). The recovery notice is one line of help. Using it is still recorded as break-glass use in the audit trail |
 | approval, four-eyes | aprobación, cuatro ojos | "request" is "solicitud" |
 | audit log | registro de auditoría | the settings entry is "Auditoría" |
 | terms of use (the usage notice) | condiciones de uso | |
@@ -191,3 +191,119 @@ Spanish docs and of most developer tools): "Comprueba la conexión", not "Compru
 | environment (of a project) | entorno | A stage of a project: production, staging. An application's "Environment" tab is its variables, also "entorno": the page says which |
 | team role: viewer, operator, administrator, owner | lector, operador, administrador, propietario | The server's own roles keep "lector", "operador", "administrador" |
 | Move (an application) | Mover | To another project or environment; it takes its sites and databases and restarts nothing |
+
+## The words of the interface
+
+The glossary above says what a term is called; this one says which **verb** an action takes and which
+**name** a thing has, in both languages, so that the same action is never two words and two things
+never share one. It extends the glossary above and does not replace it. It is the source: when a term
+changes it changes here first (docs/DESIGN.md G-5), and the tests hold the catalogs to it.
+
+### Rules for applying it
+
+1. **One verb per action, one name per thing, in both languages.** A word of the glossary has one
+   translation, and a translation is not used for two different English words (`Descartar` is only Discard).
+2. **English is the source and what the tests pin.** Changing an English value means updating the tests
+   and the e2e selectors that quote it, in the same change ("Keep the English exactly", above).
+3. **Whole sentences with placeholders, never fragments.** The `*.loadingLabel` keys that compose
+   "Loading {label}" and the `comparator.*` keys are rewritten as sentences.
+4. **Sentence case in both languages** (DESIGN 7), no full stop at the end of a title, `…` (U+2026) and
+   never three dots, Spanish in *tú*, infinitives on buttons.
+5. **The names of destinations** are a noun of one or two words, the same in the sidebar, the title, the
+   tab and the palette; the old name stays as a palette keyword (NV-5).
+6. **What the system prints is not translated or rewritten** (DESIGN principle 5); around it go the title
+   and the fix, which come from the catalog.
+7. **Agreement of states in Spanish.** `StatusPill` uses one word per state (`Fallido`); for a feminine
+   entity the caller passes a `label` ("Tarea fallida", "Copia fallida"); a state is never a verb ("Falló").
+8. **When it applies.** New strings, and the ones a change touches, follow it. The final sweep cleans what
+   is left and leaves `glossary.test.ts` green. A retired value that comes back fails the test.
+
+### Actions
+
+| English | Spanish | Means | Retired |
+|---|---|---|---|
+| **Update** | Actualizar | pulls the code and builds a new release | Update now, Redeploy, Deploy again |
+| **Rebuild** | Recompilar | builds **the same commit** again ("Rebuild this commit", "Rebuild anyway"); build is "compilación" | Redeploy, Deploy again, Reconstruir |
+| **Retry** | Reintentar | repeats an **action** that failed: a deployment, a certificate, a job ("Retry failed"). On a failed deployment it is the same call as Rebuild with another intention | Retry now, Retry the failed, Retry certificate |
+| **Try again** | Intentar de nuevo | reads again after a **read** that failed (`ErrorBlock`) | |
+| **Run again** | Ejecutar de nuevo | repeats a **check** (Diagnose) | Volver a ejecutar |
+| **Restart**, **Stop**, **Start** | Reiniciar, Detener, Iniciar | the service, with no build | Parar, Dejar de…, Arrancar |
+| **Roll back** | Volver atrás (button), revertir (prose) | to an earlier release | |
+| **Deploy** | Desplegar | only the wizard's last button; the noun is "deployment", "despliegue" | |
+| **Delete** | Eliminar | destroys data that Noust owns; `Drop` is only SQL (also "Eliminar") | Borrar |
+| **Remove** | Quitar | unlinks; it still exists elsewhere | Eliminar (as Remove) |
+| **Forget** | Olvidar | Noust stops tracking something it did not create and touches nothing (a trusted host, a linked machine) | |
+| **Revoke** | Revocar | invalidates a credential | |
+| **Clear** | Vaciar ("Clear filters" is "Quitar filtros") | empties a field, a list or a cache | Borrar filtros, Quitar los filtros |
+| **Discard**, **Dismiss** | Descartar, Cerrar | Discard: unsaved changes. Dismiss: a notice (in Spanish "Cerrar") | Descartar for both |
+| **Create**, **Add**, **New** | Crear, Añadir, Nuevo/a | Create: Noust makes it. Add: links something that exists. New: the page button of a top-level entity | **Make** ("Make a file", "Make it public"): "New file", "New folder" |
+| **Close**, **Done** | Cerrar, Hecho | Done only after showing a secret once; Close for everything else | Done for almost anything |
+| **Continue** | Continuar | a step of a wizard, with its object when it is ambiguous ("Continue with GitLab") | **Confirm**, **Confirm and continue**, **OK** (DESIGN 5) |
+| **Back** | Atrás | the previous step of a wizard or a dialog; pages have breadcrumbs | Volver (it collides with Volver atrás, Roll back) |
+| **Refresh**, **Renew** | Recargar, Renovar | Refresh reads again; Renew issues a certificate again | "Renovar las listas de paquetes", Actualizar to refresh |
+| **Acknowledge**, **Reopen** | Reconocer, Reabrir | a firing alert: stops the reminders and never resolves it | Take it, Hand it back |
+| **Next** | Siguiente, Próxima | Siguiente: the step or the page. Próxima: the next occurrence in time ("Next run") | |
+| **Loading …** | Cargando … | everything that loads, also what is read from the machine: the text of `LoadingRegion`, `sr-only`, and the two-second footer (DESIGN 6.6) | **Reading …** / Leyendo … (about eighty keys), the nine fragments "the …" |
+
+With an article or without: the button of a page has none ("Add server") and the title of its dialog has one
+("Add a server"); never both for the same button.
+
+### States
+
+| English | Spanish | Where | Retired |
+|---|---|---|---|
+| **Running** | En ejecución | the service or the application that is up (`common.statusPill.running`) | En curso, En marcha, Ejecutando (as a state) |
+| **In progress** | En curso | work that is advancing (a task, a backup) | |
+| **Failed** | Fallido/Fallida | a state, in agreement; "Con fallos" in the plural of a count | "Falló" (a verb, not a state), Con fallo |
+| **Succeeded** | Correcto/Correcta | a job or a deployment that ended well | "Bien", a bare "OK" |
+| **Live** (the version that serves) | En producción | the "Live now" row ("Ahora en producción"), the badge in the list of deployments | En vivo |
+| **Live** (a stream of data) | En directo | the "Live" range of Logs | En vivo |
+| **Queued**, **Stopped**, **Deploying**, **Warning**, **Static**, **Unknown** | En cola, Detenido, Desplegando, Aviso, Estático, Desconocido | the `StatusPill` states | |
+| **Yes** / **No** | Sí / No | one key `common.yes` and `common.no`, or a `StatusPill` when it is the state of a feature (DESIGN 6.1) | five duplicated pairs |
+
+### Names of destinations and sections
+
+| English (4.0) | Spanish | Before | Note |
+|---|---|---|---|
+| Domains | Dominios | Domains and certificates | five network tabs; the long name described only the first |
+| Recipes, Installed recipes | Recetas, Recetas instaladas | Catalog (a sidebar destination) | "Catálogo" becomes a keyword |
+| Channels, Alert rules | Canales, Reglas de alerta | Notifications, Alerts | "Notificaciones" and "Alertas" are keywords |
+| Console address | Dirección de la consola | Console access | it does not collide with an application's "Access" |
+| Roles | Roles | Roles and access | avoids the third "Access" |
+| Controls, ENS report | Controles, Informe ENS | Compliance (two destinations with one name) | |
+| Sign-in security | Seguridad de inicio de sesión | Security (the account's) | the server's "Security" (firewall, SSH) and "Service security" of an application do not change meaning |
+| Service security | Seguridad del servicio | Unit security | "unit" is jargon |
+| Cloud providers | Proveedores en la nube | Cloud | |
+| Logs and metrics export | Exportación de registros y métricas | Log shipping ("Envío de logs") | the only place where Spanish said "logs" in navigation |
+| About Noust | Acerca de Noust | About | |
+| Inbox, Needs you, Recent | Bandeja, Requiere tu atención, Recientes | (new) | |
+| Account | Cuenta | (new) | |
+| Temporary address | Dirección temporal | (new) | "for trying out" |
+| Live now | Ahora en producción | Live version | |
+| Startup check | Comprobación de arranque | Health check | nine keys |
+| Pushes received | Push recibidos | Deliveries (with three meanings) | what Noust sends to a channel is "Sent messages" / "Mensajes enviados", and the deployment limits ("Delivery settings") are "Deploy limits" / "Límites de despliegue" |
+| Backup schedule | Programación de copias | schedule, backup policy, data policy | one word; "Retention" apart |
+| Team, Project, Environment | Equipo, Proyecto, Entorno | (existing) | |
+
+And in Spanish: "Hooks de despliegue" (not "Ganchos"), "tag" for a Git tag and "etiqueta" for an application's
+label, "propietario" (not "dueño"), "tarea" (not "trabajo") and "registro" (not "log") for a job and its output,
+"tú" (not "vuestras"), and the two sentences of `appSettings.webhook.eventsGithub` and `eventsGitlab` translated.
+
+### Voice and jargon (DESIGN 7)
+
+- Kept: zero "please", "sorry", "oops", "successfully" or "Are you sure"; the buttons are verbs of their
+  object; an error is what failed, what to do, and what the system said.
+- Sentence case: `Open approvals`, `Open accounts`, `Open activity` (and their four Spanish equivalents),
+  and no full stop at the end of a title.
+- Jargon: "Unit" and "Systemd unit" as a label become "Service"; "health check" becomes "Startup check";
+  "Deliveries" becomes what it holds (above); the table of DESIGN 7 grows with these rows.
+- "Emergency access" is no longer the name of the token's door (4.1); the recovery notice is a line of help.
+
+### How it is enforced
+
+| What | How |
+|---|---|
+| The canonical verbs and states, in both languages | `i18n/verbs.test.ts`: every row of the tables above, in English and in Spanish |
+| A retired value does not come back | `i18n/glossary.test.ts`: a list of retired values with their documented exceptions (what the system prints, proper names, the palette keywords that keep an old name) over the English and the Spanish catalogs, with a baseline that only goes down (`npm run design:baseline`) |
+| One Spanish translation per English text | the same test, over the English texts of fewer than forty characters that appear four times or more |
+| Style | the same test: no title ending in a full stop or written with a capital on every word, no three dots where `…` goes |

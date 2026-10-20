@@ -23,6 +23,8 @@ import { Route as ConsoleLogsRouteImport } from "./routes/_console/logs"
 import { Route as ConsoleMapRouteImport } from "./routes/_console/map"
 import { Route as ConsoleServerRouteImport } from "./routes/_console/server"
 import { Route as ConsoleSettingsRouteImport } from "./routes/_console/settings"
+import { Route as ConsoleAccountIndexRouteImport } from "./routes/_console/account/index"
+import { Route as ConsoleAccountSecurityRouteImport } from "./routes/_console/account/security"
 import { Route as ConsoleAppsIndexRouteImport } from "./routes/_console/apps/index"
 import { Route as ConsoleAppsDomainRouteImport } from "./routes/_console/apps/$domain"
 import { Route as ConsoleAppsNewRouteImport } from "./routes/_console/apps/new"
@@ -49,6 +51,7 @@ import { Route as ConsoleFleetPlacementsRouteImport } from "./routes/_console/fl
 import { Route as ConsoleFleetServersRouteImport } from "./routes/_console/fleet/servers"
 import { Route as ConsoleFleetUpdatesRouteImport } from "./routes/_console/fleet/updates"
 import { Route as ConsoleProjectsIndexRouteImport } from "./routes/_console/projects/index"
+import { Route as ConsoleProjectsTeamsRouteImport } from "./routes/_console/projects/teams"
 import { Route as ConsoleServerIndexRouteImport } from "./routes/_console/server/index"
 import { Route as ConsoleServerLogsRouteImport } from "./routes/_console/server/logs"
 import { Route as ConsoleServerSecurityRouteImport } from "./routes/_console/server/security"
@@ -71,6 +74,7 @@ import { Route as ConsoleSettingsCentralRouteImport } from "./routes/_console/se
 import { Route as ConsoleSettingsCloudRouteImport } from "./routes/_console/settings/cloud"
 import { Route as ConsoleSettingsComplianceRouteImport } from "./routes/_console/settings/compliance"
 import { Route as ConsoleSettingsConsoleRouteImport } from "./routes/_console/settings/console"
+import { Route as ConsoleSettingsControlsRouteImport } from "./routes/_console/settings/controls"
 import { Route as ConsoleSettingsIntegrationsRouteImport } from "./routes/_console/settings/integrations"
 import { Route as ConsoleSettingsLogShippingRouteImport } from "./routes/_console/settings/log-shipping"
 import { Route as ConsoleSettingsManifestRouteImport } from "./routes/_console/settings/manifest"
@@ -208,6 +212,16 @@ const ConsoleSettingsRoute = ConsoleSettingsRouteImport.update({
   path: "/settings",
   getParentRoute: () => ConsoleRoute,
 } as any)
+const ConsoleAccountIndexRoute = ConsoleAccountIndexRouteImport.update({
+  id: "/account/",
+  path: "/account/",
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleAccountSecurityRoute = ConsoleAccountSecurityRouteImport.update({
+  id: "/account/security",
+  path: "/account/security",
+  getParentRoute: () => ConsoleRoute,
+} as any)
 const ConsoleAppsIndexRoute = ConsoleAppsIndexRouteImport.update({
   id: "/apps/",
   path: "/apps/",
@@ -340,6 +354,11 @@ const ConsoleProjectsIndexRoute = ConsoleProjectsIndexRouteImport.update({
   path: "/projects/",
   getParentRoute: () => ConsoleRoute,
 } as any)
+const ConsoleProjectsTeamsRoute = ConsoleProjectsTeamsRouteImport.update({
+  id: "/projects/teams",
+  path: "/projects/teams",
+  getParentRoute: () => ConsoleRoute,
+} as any)
 const ConsoleServerIndexRoute = ConsoleServerIndexRouteImport.update({
   id: "/",
   path: "/",
@@ -450,6 +469,11 @@ const ConsoleSettingsComplianceRoute =
 const ConsoleSettingsConsoleRoute = ConsoleSettingsConsoleRouteImport.update({
   id: "/console",
   path: "/console",
+  getParentRoute: () => ConsoleSettingsRoute,
+} as any)
+const ConsoleSettingsControlsRoute = ConsoleSettingsControlsRouteImport.update({
+  id: "/controls",
+  path: "/controls",
   getParentRoute: () => ConsoleSettingsRoute,
 } as any)
 const ConsoleSettingsIntegrationsRoute =
@@ -853,6 +877,7 @@ export interface FileRoutesByFullPath {
   "/map": typeof ConsoleMapRoute
   "/server": typeof ConsoleServerRouteWithChildren
   "/settings": typeof ConsoleSettingsRouteWithChildren
+  "/account/security": typeof ConsoleAccountSecurityRoute
   "/apps/$domain": typeof ConsoleAppsDomainRouteWithChildren
   "/apps/new": typeof ConsoleAppsNewRoute
   "/backups/destinations": typeof ConsoleBackupsDestinationsRoute
@@ -872,6 +897,7 @@ export interface FileRoutesByFullPath {
   "/fleet/placements": typeof ConsoleFleetPlacementsRoute
   "/fleet/servers": typeof ConsoleFleetServersRoute
   "/fleet/updates": typeof ConsoleFleetUpdatesRoute
+  "/projects/teams": typeof ConsoleProjectsTeamsRoute
   "/server/logs": typeof ConsoleServerLogsRoute
   "/server/security": typeof ConsoleServerSecurityRoute
   "/server/services": typeof ConsoleServerServicesRoute
@@ -891,6 +917,7 @@ export interface FileRoutesByFullPath {
   "/settings/cloud": typeof ConsoleSettingsCloudRoute
   "/settings/compliance": typeof ConsoleSettingsComplianceRoute
   "/settings/console": typeof ConsoleSettingsConsoleRoute
+  "/settings/controls": typeof ConsoleSettingsControlsRoute
   "/settings/integrations": typeof ConsoleSettingsIntegrationsRoute
   "/settings/log-shipping": typeof ConsoleSettingsLogShippingRoute
   "/settings/manifest": typeof ConsoleSettingsManifestRoute
@@ -904,6 +931,7 @@ export interface FileRoutesByFullPath {
   "/settings/tokens": typeof ConsoleSettingsTokensRoute
   "/settings/variables": typeof ConsoleSettingsVariablesRoute
   "/teams/$team": typeof ConsoleTeamsTeamRouteWithChildren
+  "/account/": typeof ConsoleAccountIndexRoute
   "/apps/": typeof ConsoleAppsIndexRoute
   "/backups/": typeof ConsoleBackupsIndexRoute
   "/catalog/": typeof ConsoleCatalogIndexRoute
@@ -980,6 +1008,7 @@ export interface FileRoutesByTo {
   "/logs": typeof ConsoleLogsRoute
   "/map": typeof ConsoleMapRoute
   "/": typeof ConsoleIndexRoute
+  "/account/security": typeof ConsoleAccountSecurityRoute
   "/apps/new": typeof ConsoleAppsNewRoute
   "/backups/destinations": typeof ConsoleBackupsDestinationsRoute
   "/backups/noust": typeof ConsoleBackupsNoustRoute
@@ -998,6 +1027,7 @@ export interface FileRoutesByTo {
   "/fleet/placements": typeof ConsoleFleetPlacementsRoute
   "/fleet/servers": typeof ConsoleFleetServersRoute
   "/fleet/updates": typeof ConsoleFleetUpdatesRoute
+  "/projects/teams": typeof ConsoleProjectsTeamsRoute
   "/server/logs": typeof ConsoleServerLogsRoute
   "/server/security": typeof ConsoleServerSecurityRoute
   "/server/services": typeof ConsoleServerServicesRoute
@@ -1017,6 +1047,7 @@ export interface FileRoutesByTo {
   "/settings/cloud": typeof ConsoleSettingsCloudRoute
   "/settings/compliance": typeof ConsoleSettingsComplianceRoute
   "/settings/console": typeof ConsoleSettingsConsoleRoute
+  "/settings/controls": typeof ConsoleSettingsControlsRoute
   "/settings/integrations": typeof ConsoleSettingsIntegrationsRoute
   "/settings/log-shipping": typeof ConsoleSettingsLogShippingRoute
   "/settings/manifest": typeof ConsoleSettingsManifestRoute
@@ -1029,6 +1060,7 @@ export interface FileRoutesByTo {
   "/settings/sso": typeof ConsoleSettingsSsoRoute
   "/settings/tokens": typeof ConsoleSettingsTokensRoute
   "/settings/variables": typeof ConsoleSettingsVariablesRoute
+  "/account": typeof ConsoleAccountIndexRoute
   "/apps": typeof ConsoleAppsIndexRoute
   "/backups": typeof ConsoleBackupsIndexRoute
   "/catalog": typeof ConsoleCatalogIndexRoute
@@ -1107,6 +1139,7 @@ export interface FileRoutesById {
   "/_console/server": typeof ConsoleServerRouteWithChildren
   "/_console/settings": typeof ConsoleSettingsRouteWithChildren
   "/_console/": typeof ConsoleIndexRoute
+  "/_console/account/security": typeof ConsoleAccountSecurityRoute
   "/_console/apps/$domain": typeof ConsoleAppsDomainRouteWithChildren
   "/_console/apps/new": typeof ConsoleAppsNewRoute
   "/_console/backups/destinations": typeof ConsoleBackupsDestinationsRoute
@@ -1126,6 +1159,7 @@ export interface FileRoutesById {
   "/_console/fleet/placements": typeof ConsoleFleetPlacementsRoute
   "/_console/fleet/servers": typeof ConsoleFleetServersRoute
   "/_console/fleet/updates": typeof ConsoleFleetUpdatesRoute
+  "/_console/projects/teams": typeof ConsoleProjectsTeamsRoute
   "/_console/server/logs": typeof ConsoleServerLogsRoute
   "/_console/server/security": typeof ConsoleServerSecurityRoute
   "/_console/server/services": typeof ConsoleServerServicesRoute
@@ -1145,6 +1179,7 @@ export interface FileRoutesById {
   "/_console/settings/cloud": typeof ConsoleSettingsCloudRoute
   "/_console/settings/compliance": typeof ConsoleSettingsComplianceRoute
   "/_console/settings/console": typeof ConsoleSettingsConsoleRoute
+  "/_console/settings/controls": typeof ConsoleSettingsControlsRoute
   "/_console/settings/integrations": typeof ConsoleSettingsIntegrationsRoute
   "/_console/settings/log-shipping": typeof ConsoleSettingsLogShippingRoute
   "/_console/settings/manifest": typeof ConsoleSettingsManifestRoute
@@ -1158,6 +1193,7 @@ export interface FileRoutesById {
   "/_console/settings/tokens": typeof ConsoleSettingsTokensRoute
   "/_console/settings/variables": typeof ConsoleSettingsVariablesRoute
   "/_console/teams/$team": typeof ConsoleTeamsTeamRouteWithChildren
+  "/_console/account/": typeof ConsoleAccountIndexRoute
   "/_console/apps/": typeof ConsoleAppsIndexRoute
   "/_console/backups/": typeof ConsoleBackupsIndexRoute
   "/_console/catalog/": typeof ConsoleCatalogIndexRoute
@@ -1239,6 +1275,7 @@ export interface FileRouteTypes {
     | "/map"
     | "/server"
     | "/settings"
+    | "/account/security"
     | "/apps/$domain"
     | "/apps/new"
     | "/backups/destinations"
@@ -1258,6 +1295,7 @@ export interface FileRouteTypes {
     | "/fleet/placements"
     | "/fleet/servers"
     | "/fleet/updates"
+    | "/projects/teams"
     | "/server/logs"
     | "/server/security"
     | "/server/services"
@@ -1277,6 +1315,7 @@ export interface FileRouteTypes {
     | "/settings/cloud"
     | "/settings/compliance"
     | "/settings/console"
+    | "/settings/controls"
     | "/settings/integrations"
     | "/settings/log-shipping"
     | "/settings/manifest"
@@ -1290,6 +1329,7 @@ export interface FileRouteTypes {
     | "/settings/tokens"
     | "/settings/variables"
     | "/teams/$team"
+    | "/account/"
     | "/apps/"
     | "/backups/"
     | "/catalog/"
@@ -1366,6 +1406,7 @@ export interface FileRouteTypes {
     | "/logs"
     | "/map"
     | "/"
+    | "/account/security"
     | "/apps/new"
     | "/backups/destinations"
     | "/backups/noust"
@@ -1384,6 +1425,7 @@ export interface FileRouteTypes {
     | "/fleet/placements"
     | "/fleet/servers"
     | "/fleet/updates"
+    | "/projects/teams"
     | "/server/logs"
     | "/server/security"
     | "/server/services"
@@ -1403,6 +1445,7 @@ export interface FileRouteTypes {
     | "/settings/cloud"
     | "/settings/compliance"
     | "/settings/console"
+    | "/settings/controls"
     | "/settings/integrations"
     | "/settings/log-shipping"
     | "/settings/manifest"
@@ -1415,6 +1458,7 @@ export interface FileRouteTypes {
     | "/settings/sso"
     | "/settings/tokens"
     | "/settings/variables"
+    | "/account"
     | "/apps"
     | "/backups"
     | "/catalog"
@@ -1492,6 +1536,7 @@ export interface FileRouteTypes {
     | "/_console/server"
     | "/_console/settings"
     | "/_console/"
+    | "/_console/account/security"
     | "/_console/apps/$domain"
     | "/_console/apps/new"
     | "/_console/backups/destinations"
@@ -1511,6 +1556,7 @@ export interface FileRouteTypes {
     | "/_console/fleet/placements"
     | "/_console/fleet/servers"
     | "/_console/fleet/updates"
+    | "/_console/projects/teams"
     | "/_console/server/logs"
     | "/_console/server/security"
     | "/_console/server/services"
@@ -1530,6 +1576,7 @@ export interface FileRouteTypes {
     | "/_console/settings/cloud"
     | "/_console/settings/compliance"
     | "/_console/settings/console"
+    | "/_console/settings/controls"
     | "/_console/settings/integrations"
     | "/_console/settings/log-shipping"
     | "/_console/settings/manifest"
@@ -1543,6 +1590,7 @@ export interface FileRouteTypes {
     | "/_console/settings/tokens"
     | "/_console/settings/variables"
     | "/_console/teams/$team"
+    | "/_console/account/"
     | "/_console/apps/"
     | "/_console/backups/"
     | "/_console/catalog/"
@@ -1716,6 +1764,20 @@ declare module "@tanstack/react-router" {
       path: "/settings"
       fullPath: "/settings"
       preLoaderRoute: typeof ConsoleSettingsRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/account/": {
+      id: "/_console/account/"
+      path: "/account"
+      fullPath: "/account/"
+      preLoaderRoute: typeof ConsoleAccountIndexRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/account/security": {
+      id: "/_console/account/security"
+      path: "/account/security"
+      fullPath: "/account/security"
+      preLoaderRoute: typeof ConsoleAccountSecurityRouteImport
       parentRoute: typeof ConsoleRoute
     }
     "/_console/apps/": {
@@ -1900,6 +1962,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleProjectsIndexRouteImport
       parentRoute: typeof ConsoleRoute
     }
+    "/_console/projects/teams": {
+      id: "/_console/projects/teams"
+      path: "/projects/teams"
+      fullPath: "/projects/teams"
+      preLoaderRoute: typeof ConsoleProjectsTeamsRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
     "/_console/server/": {
       id: "/_console/server/"
       path: "/"
@@ -2052,6 +2121,13 @@ declare module "@tanstack/react-router" {
       path: "/console"
       fullPath: "/settings/console"
       preLoaderRoute: typeof ConsoleSettingsConsoleRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
+    "/_console/settings/controls": {
+      id: "/_console/settings/controls"
+      path: "/controls"
+      fullPath: "/settings/controls"
+      preLoaderRoute: typeof ConsoleSettingsControlsRouteImport
       parentRoute: typeof ConsoleSettingsRoute
     }
     "/_console/settings/integrations": {
@@ -2590,6 +2666,7 @@ interface ConsoleSettingsRouteChildren {
   ConsoleSettingsCloudRoute: typeof ConsoleSettingsCloudRoute
   ConsoleSettingsComplianceRoute: typeof ConsoleSettingsComplianceRoute
   ConsoleSettingsConsoleRoute: typeof ConsoleSettingsConsoleRoute
+  ConsoleSettingsControlsRoute: typeof ConsoleSettingsControlsRoute
   ConsoleSettingsIntegrationsRoute: typeof ConsoleSettingsIntegrationsRoute
   ConsoleSettingsLogShippingRoute: typeof ConsoleSettingsLogShippingRoute
   ConsoleSettingsManifestRoute: typeof ConsoleSettingsManifestRoute
@@ -2617,6 +2694,7 @@ const ConsoleSettingsRouteChildren: ConsoleSettingsRouteChildren = {
   ConsoleSettingsCloudRoute: ConsoleSettingsCloudRoute,
   ConsoleSettingsComplianceRoute: ConsoleSettingsComplianceRoute,
   ConsoleSettingsConsoleRoute: ConsoleSettingsConsoleRoute,
+  ConsoleSettingsControlsRoute: ConsoleSettingsControlsRoute,
   ConsoleSettingsIntegrationsRoute: ConsoleSettingsIntegrationsRoute,
   ConsoleSettingsLogShippingRoute: ConsoleSettingsLogShippingRoute,
   ConsoleSettingsManifestRoute: ConsoleSettingsManifestRoute,
@@ -2796,6 +2874,7 @@ interface ConsoleRouteChildren {
   ConsoleServerRoute: typeof ConsoleServerRouteWithChildren
   ConsoleSettingsRoute: typeof ConsoleSettingsRouteWithChildren
   ConsoleIndexRoute: typeof ConsoleIndexRoute
+  ConsoleAccountSecurityRoute: typeof ConsoleAccountSecurityRoute
   ConsoleAppsDomainRoute: typeof ConsoleAppsDomainRouteWithChildren
   ConsoleAppsNewRoute: typeof ConsoleAppsNewRoute
   ConsoleBackupsDestinationsRoute: typeof ConsoleBackupsDestinationsRoute
@@ -2808,8 +2887,10 @@ interface ConsoleRouteChildren {
   ConsoleDomainsDnsRoute: typeof ConsoleDomainsDnsRoute
   ConsoleDomainsPortsRoute: typeof ConsoleDomainsPortsRoute
   ConsoleDomainsTunnelsRoute: typeof ConsoleDomainsTunnelsRoute
+  ConsoleProjectsTeamsRoute: typeof ConsoleProjectsTeamsRoute
   ConsoleServicesNameRoute: typeof ConsoleServicesNameRoute
   ConsoleTeamsTeamRoute: typeof ConsoleTeamsTeamRouteWithChildren
+  ConsoleAccountIndexRoute: typeof ConsoleAccountIndexRoute
   ConsoleAppsIndexRoute: typeof ConsoleAppsIndexRoute
   ConsoleBackupsIndexRoute: typeof ConsoleBackupsIndexRoute
   ConsoleCatalogIndexRoute: typeof ConsoleCatalogIndexRoute
@@ -2839,6 +2920,7 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
   ConsoleServerRoute: ConsoleServerRouteWithChildren,
   ConsoleSettingsRoute: ConsoleSettingsRouteWithChildren,
   ConsoleIndexRoute: ConsoleIndexRoute,
+  ConsoleAccountSecurityRoute: ConsoleAccountSecurityRoute,
   ConsoleAppsDomainRoute: ConsoleAppsDomainRouteWithChildren,
   ConsoleAppsNewRoute: ConsoleAppsNewRoute,
   ConsoleBackupsDestinationsRoute: ConsoleBackupsDestinationsRoute,
@@ -2851,8 +2933,10 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
   ConsoleDomainsDnsRoute: ConsoleDomainsDnsRoute,
   ConsoleDomainsPortsRoute: ConsoleDomainsPortsRoute,
   ConsoleDomainsTunnelsRoute: ConsoleDomainsTunnelsRoute,
+  ConsoleProjectsTeamsRoute: ConsoleProjectsTeamsRoute,
   ConsoleServicesNameRoute: ConsoleServicesNameRoute,
   ConsoleTeamsTeamRoute: ConsoleTeamsTeamRouteWithChildren,
+  ConsoleAccountIndexRoute: ConsoleAccountIndexRoute,
   ConsoleAppsIndexRoute: ConsoleAppsIndexRoute,
   ConsoleBackupsIndexRoute: ConsoleBackupsIndexRoute,
   ConsoleCatalogIndexRoute: ConsoleCatalogIndexRoute,

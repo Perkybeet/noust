@@ -6,14 +6,14 @@ A TOML reader for Python 3.10, where ``tomllib`` does not exist.
 
 Ubuntu 22.04 ships Python 3.10 and no TOML parser Noust may depend on, so
 ``railway.toml`` is read here there. It reads TOML 1.0 as ``tomllib`` does -
-tables, dotted and quoted keys, the four kinds of string with their escapes,
-integers in every base, floats, booleans, arrays over several lines and
-inline tables - so a file means the same on every release Noust runs on. Two
-constructs a platform configuration has no use for are not read: arrays of
-tables (``[[name]]``) and dates and times. They are reported as warnings
-and left out, because refusing a whole file for one setting Noust would
-ignore anyway costs the operator everything else in it. Text that is not
-TOML at all is refused, as ``tomllib`` refuses it.
+tables, arrays of tables (``[[name]]``, which Dokploy's templates declare their
+domains and mounted files with), dotted and quoted keys, the four kinds of string
+with their escapes, integers in every base, floats, booleans, arrays over several
+lines and inline tables - so a file means the same on every release Noust runs on.
+One construct a platform configuration has no use for is not read: dates and times.
+It is reported as a warning and left out, because refusing a whole file for one
+setting Noust would ignore anyway costs the operator everything else in it. Text
+that is not TOML at all is refused, as ``tomllib`` refuses it.
 """
 
 from __future__ import annotations
@@ -85,6 +85,9 @@ class _Reader:
         self.pos = 0
         self.name = name
         self.warn = warn
+        #: The lists a ``[[name]]`` header made (by identity): only those may be appended to
+        #: again, and only a key that names one is read as "the last table of it".
+        self._table_arrays: set[int] = set()
 
     # Positions -------------------------------------------------------------
 
@@ -158,12 +161,7 @@ class _Reader:
                 self.skip_spaces()
                 self.expect("]]")
                 self.end_of_line()
-                self.warn(
-                    f"{self.name} line {line}: [[{'.'.join(keys)}]] is an array of tables, "
-                    "which Noust does not read on Python 3.10; that section is ignored."
-                )
-                # Its keys go nowhere: a table no one reads.
-                table = {}
+                table = self.append_table(root, keys)
                 where = keys
                 continue
             if self.peek() == "[":
@@ -173,7 +171,7 @@ class _Reader:
                 self.skip_spaces()
                 self.expect("]")
                 self.end_of_line()
-                table = self.descend(root, keys)
+                table = self.open_table(root, keys)
                 where = keys
                 continue
             keys = self.keys()
@@ -191,12 +189,43 @@ class _Reader:
             self.assign(table, keys, value, line)
 
     def descend(self, table: dict[str, Any], keys: list[str]) -> dict[str, Any]:
-        """Find or create the table a dotted key names."""
+        """
+        Find or create the table a dotted key names.
+
+        A key that names an array of tables stands for the last table of it, as in TOML:
+        ``[a.b]`` after ``[[a]]`` is the ``b`` of the latest ``a``.
+        """
         for key in keys:
             nested = table.setdefault(key, {})
+            if isinstance(nested, list) and id(nested) in self._table_arrays and nested:
+                nested = nested[-1]
             if not isinstance(nested, dict):
                 raise self.fail(f"{key} is already a value, not a table")
             table = nested
+        return table
+
+    def open_table(self, root: dict[str, Any], keys: list[str]) -> dict[str, Any]:
+        """Open the table a ``[name]`` header names (which is not an array of tables)."""
+        parent = self.descend(root, keys[:-1])
+        existing = parent.get(keys[-1])
+        if isinstance(existing, list):
+            raise self.fail(f"{keys[-1]} is already an array, not a table")
+        return self.descend(parent, keys[-1:])
+
+    def append_table(self, root: dict[str, Any], keys: list[str]) -> dict[str, Any]:
+        """Start the next table of the array of tables a ``[[name]]`` header names."""
+        parent = self.descend(root, keys[:-1])
+        existing = parent.get(keys[-1])
+        if existing is None:
+            items: list[Any] = []
+            parent[keys[-1]] = items
+            self._table_arrays.add(id(items))
+        elif isinstance(existing, list) and id(existing) in self._table_arrays:
+            items = existing
+        else:
+            raise self.fail(f"{keys[-1]} is already defined and is not an array of tables")
+        table: dict[str, Any] = {}
+        items.append(table)
         return table
 
     def assign(self, table: dict[str, Any], keys: list[str], value: Any, line: int) -> None:

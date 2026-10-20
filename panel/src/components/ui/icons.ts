@@ -1,4 +1,4 @@
-import { Check, CircleAlert, CircleCheck, Copy, Ellipsis, ExternalLink, Info, LockKeyhole, Plus, Search, ShieldCheck, Trash2, TriangleAlert, X } from "lucide-react";
+import { Check, CircleAlert, CircleCheck, Copy, Ellipsis, ExternalLink, Info, KeyRound, LockKeyhole, Plus, Search, ShieldCheck, Trash2, TriangleAlert, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /**
@@ -21,6 +21,8 @@ export const ICONS = {
   info: Info,
   /** Something the operator cannot change here (sealed, owned by the central). */
   locked: LockKeyhole,
+  /** An action that will ask "Confirm it's you" first (sudo mode), said before it is pressed. */
+  elevated: KeyRound,
   /** Verified security: a valid certificate. Not "OK" in general. */
   verified: ShieldCheck,
   /** The overflow menu of a row or a header. */

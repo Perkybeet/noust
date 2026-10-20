@@ -170,6 +170,143 @@ describe("the Destinations tab", () => {
     expect(body.fields).not.toHaveProperty("pass");
   });
 
+  describe("a destination that does not answer", () => {
+    const WORDS = "Backup destination 'offsite' was not saved: it could not be reached";
+    const RCLONE =
+      "Could not reach backup destination 'offsite'\n2026/10/20 07:04:44 CRITICAL: Failed to create file system for \"offsitecrypt:\": NewFs: couldn't connect SSH: dial tcp: lookup backup.old.invalid: no such host";
+
+    function unreachable(): Response {
+      return problem(400, "destination_unreachable", WORDS, {
+        hint: "Check the destination's address, credentials and permissions; the output below is rclone's own.",
+        output: RCLONE,
+      });
+    }
+
+    /** Fills the add dialog with an SFTP destination and presses Add destination. */
+    async function addOffsite(user: ReturnType<typeof renderConsole>["user"]): Promise<HTMLElement> {
+      await screen.findByRole("heading", { level: 1, name: "Backups" });
+      await user.click(first(await screen.findAllByRole("button", { name: "Add destination" })));
+      const dialog = await screen.findByRole("dialog", { name: "Add backup destination" });
+      await user.type(within(dialog).getByLabelText("Name"), "offsite");
+      await user.click(within(dialog).getByRole("combobox", { name: "Backend" }));
+      await user.click(await screen.findByRole("option", { name: /^SFTP server/ }));
+      await user.type(within(dialog).getByLabelText("Host"), "backup.old.invalid");
+      await user.type(within(dialog).getByLabelText("User"), "wasm");
+      await user.click(within(dialog).getByRole("checkbox", { name: /Encrypt backups before upload/ }));
+      await user.click(within(dialog).getByRole("button", { name: "Add destination" }));
+      return dialog;
+    }
+
+    it("is refused in the server's own words, and kept anyway on the operator's say-so", async () => {
+      const backend = fakeBackend(
+        baseRoutes([], {
+          "POST /api/backup-destinations": (call) =>
+            (call.body as { verify?: boolean }).verify === false
+              ? json(201, { success: true, message: "Backup destination created: offsite", destination: destination() })
+              : unreachable(),
+        }),
+      );
+      const { user, container } = renderConsole("/backups/destinations");
+      const dialog = await addOffsite(user);
+
+      // What failed, the server's fix above, and what rclone said below, verbatim: nothing paraphrased.
+      const alert = await within(dialog).findByRole("alert");
+      expect(within(alert).getByText("The destination did not answer, so it was not created")).toBeInTheDocument();
+      expect(within(alert).getByText(/Check the destination's address, credentials and permissions/)).toBeInTheDocument();
+      expect(within(alert).getByText(WORDS)).toBeInTheDocument();
+      expect(within(alert).getByText(/lookup backup\.old\.invalid: no such host/)).toBeInTheDocument();
+      expect(within(alert).getByText(/It is saved without trying the connection/)).toBeInTheDocument();
+      await expectNoAxeViolations(container);
+
+      // The first attempt tried the connection; only the second says not to.
+      expect(backend.callsTo("POST /api/backup-destinations")).toHaveLength(1);
+      expect((backend.callsTo("POST /api/backup-destinations")[0]?.body as { verify?: boolean }).verify).toBeUndefined();
+
+      await user.click(within(alert).getByRole("button", { name: "Keep it anyway" }));
+      await waitFor(() => {
+        expect(backend.callsTo("POST /api/backup-destinations")).toHaveLength(2);
+      });
+      const second = backend.callsTo("POST /api/backup-destinations")[1]?.body as { name: string; verify: boolean; fields: Record<string, string> };
+      expect(second.verify).toBe(false);
+      expect(second.name).toBe("offsite");
+      expect(second.fields["host"]).toBe("backup.old.invalid");
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog", { name: "Add backup destination" })).not.toBeInTheDocument();
+      });
+    });
+
+    it("offers it again when the changes to an existing destination do not connect", async () => {
+      const backend = fakeBackend(
+        baseRoutes([destination({ name: "offsite" })], {
+          "PUT /api/backup-destinations/offsite": (call) =>
+            (call.body as { verify?: boolean }).verify === false
+              ? json(200, { success: true, message: "Backup destination updated: offsite", destination: destination() })
+              : unreachable(),
+        }),
+      );
+      const { user } = renderConsole("/backups/destinations");
+      const region = await destinationsRegion();
+      await within(region).findByText("offsite");
+      await user.click(within(region).getByRole("button", { name: "Actions for offsite" }));
+      await user.click(await screen.findByRole("menuitem", { name: "Edit" }));
+
+      const dialog = await screen.findByRole("dialog", { name: "Edit offsite" });
+      const host = within(dialog).getByLabelText("Host");
+      await user.clear(host);
+      await user.type(host, "backup.old.invalid");
+      await user.click(within(dialog).getByRole("button", { name: "Save" }));
+
+      const alert = await within(dialog).findByRole("alert");
+      expect(within(alert).getByText("The destination did not answer, so the change was not saved")).toBeInTheDocument();
+      expect(within(alert).getByText(WORDS)).toBeInTheDocument();
+      await user.click(within(alert).getByRole("button", { name: "Keep it anyway" }));
+
+      await waitFor(() => {
+        expect(backend.callsTo("PUT /api/backup-destinations/offsite")).toHaveLength(2);
+      });
+      expect((backend.callsTo("PUT /api/backup-destinations/offsite")[1]?.body as { verify: boolean }).verify).toBe(false);
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog", { name: "Edit offsite" })).not.toBeInTheDocument();
+      });
+    });
+
+    it("does not offer to keep a destination the server refused for another reason", async () => {
+      fakeBackend(
+        baseRoutes([], {
+          "POST /api/backup-destinations": () => problem(422, "validation_error", "Backup destination name is not valid", { hint: "Use lowercase letters, digits and '-'." }),
+        }),
+      );
+      const { user } = renderConsole("/backups/destinations");
+      const dialog = await addOffsite(user);
+
+      const alert = await within(dialog).findByRole("alert");
+      expect(within(alert).getByText("The destination was not created")).toBeInTheDocument();
+      expect(within(alert).getByText("Backup destination name is not valid")).toBeInTheDocument();
+      expect(within(dialog).queryByRole("button", { name: "Keep it anyway" })).not.toBeInTheDocument();
+    });
+
+    it("says it in Spanish", async () => {
+      fakeBackend(baseRoutes([], { "POST /api/backup-destinations": unreachable }));
+      await act(() => setLocale("es"));
+      const { user } = renderConsole("/backups/destinations");
+      await screen.findByRole("heading", { level: 1, name: "Copias de seguridad" });
+      await user.click(first(await screen.findAllByRole("button", { name: "Añadir destino" })));
+      const dialog = await screen.findByRole("dialog", { name: "Añadir destino de copias de seguridad" });
+      await user.type(within(dialog).getByLabelText("Nombre"), "offsite");
+      await user.click(within(dialog).getByRole("combobox", { name: "Backend" }));
+      await user.click(await screen.findByRole("option", { name: /^Servidor SFTP/ }));
+      await user.type(within(dialog).getByLabelText("Host"), "backup.old.invalid");
+      await user.type(within(dialog).getByLabelText("User"), "wasm");
+      await user.click(within(dialog).getByRole("button", { name: "Añadir destino" }));
+
+      const alert = await within(dialog).findByRole("alert");
+      expect(within(alert).getByText("El destino no respondió, así que no se creó")).toBeInTheDocument();
+      // The server's words stay as it wrote them.
+      expect(within(alert).getByText(WORDS)).toBeInTheDocument();
+      expect(within(alert).getByRole("button", { name: "Mantenerlo igualmente" })).toBeInTheDocument();
+    });
+  });
+
   it("tests a destination and shows whether it answered", async () => {
     fakeBackend(
       baseRoutes([destination()], {

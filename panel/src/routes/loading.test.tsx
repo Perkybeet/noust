@@ -22,6 +22,9 @@ import { FakeEventSource, FakeWebSocket, SESSION, json } from "../test/fakes";
 /** Every route of the console and an address that opens it. */
 const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/", "/"],
+  // Routes whose page is yet to come open the screen that holds the same thing today (app/nav.ts, INTERIM).
+  ["/account", "/account"],
+  ["/account/security", "/account/security"],
   ["/activity", "/activity"],
   ["/apps", "/apps"],
   ["/apps/new", "/apps/new"],
@@ -93,6 +96,7 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/map", "/map"],
   ["/projects", "/projects"],
   ["/projects/$team/$project", "/projects/acme/web"],
+  ["/projects/teams", "/projects/teams"],
   ["/server", "/server"],
   ["/server/logs", "/server/logs"],
   ["/server/security", "/server/security"],
@@ -119,6 +123,7 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/settings/cloud", "/settings/cloud"],
   ["/settings/compliance", "/settings/compliance"],
   ["/settings/console", "/settings/console"],
+  ["/settings/controls", "/settings/controls"],
   ["/settings/integrations", "/settings/integrations"],
   ["/settings/log-shipping", "/settings/log-shipping"],
   ["/settings/manifest", "/settings/manifest"],

@@ -5481,14 +5481,17 @@ Print the analysis as JSON.
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
 .SS noust compose import
-Turn a Coolify service template into a Compose document Noust deploys.
+Turn a Coolify or Dokploy service template into a Compose document Noust deploys.
 .TP
 .B Arguments
 .br
 \fIfile\fR
 .TP
 .B \-\-from
-No description. Default: coolify.
+Whose template FILE is. Default: coolify.
+.TP
+.B \-\-template
+dokploy: the template's template.toml (read from FILE's folder when FILE is a folder).
 .TP
 .B \-\-domain
 The name the stack will be served on (fills its address variables).
@@ -5497,7 +5500,7 @@ The name the stack will be served on (fills its address variables).
 The host port of the web service on 127.0.0.1 (a free one by default).
 .TP
 .B \-\-out
-Write docker\-compose.yml and .env (0600, with the generated secrets) into this folder.
+Write docker\-compose.yml and .env (0600, with the generated secrets) into this folder, and the files a Dokploy template mounts.
 .TP
 .B \-\-json
 Print what was made as JSON (never the secrets).
@@ -8903,6 +8906,9 @@ Try an account's credential again and list the zones it manages.
 .br
 \fIname\fR
 .TP
+.B \-\-json
+Print the zones as JSON.
+.TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
@@ -10641,23 +10647,26 @@ Check the server and report anything that needs attention.
 Print the report as JSON.
 
 .SS noust import
-Read Vercel, Railway, Render or Heroku configuration from a repository, or a Coolify or Dokploy application through its API.
+Read Vercel, Railway, Render or Heroku configuration from a repository, or a Coolify, Dokploy, CapRover or Dokku application from its server.
 .TP
 .B Arguments
 .br
 \fIpath\fR
 .TP
 .B \-\-from
-The platform whose configuration the repository carries, or whose server to read (coolify, dokploy: with \-\-url).
+The platform whose configuration the repository carries, or whose server to read (coolify, dokploy, caprover: with \-\-url; dokku: on its server or with \-\-ssh).
 .TP
 .B \-\-url
-coolify and dokploy: the server's address, https://coolify.example.com.
+coolify, dokploy and caprover: the server's address, https://coolify.example.com.
 .TP
 .B \-\-token\-file
-coolify and dokploy: a file whose first line is a read\-only API token (or set NOUST_IMPORT_TOKEN).
+coolify, dokploy and caprover: a file whose first line is a read\-only API token (CapRover: the dashboard's password) (or set NOUST_IMPORT_TOKEN).
+.TP
+.B \-\-ssh
+dokku: the server to ask over SSH, with a key Dokku accepts and a host key already known. Without it, the dokku command of this machine.
 .TP
 .B \-\-app
-coolify and dokploy: the application to read, by name or id. Without it they are listed.
+coolify, dokploy, caprover and dokku: the application to read, by name or id. Without it they are listed.
 .TP
 .B \-\-deploy
 Deploy it on this domain with the proposal, through the normal create path.
@@ -11580,7 +11589,7 @@ Connect to the node directly.
 Keep the change without opening the tunnel first (a node that is down now).
 .TP
 .B \-\-show
-Print the authorized_keys line to add on the bastion: one stream to the node, no shell.
+Print the authorized_keys line to add on the bastion: one stream to the node, no shell. With \-\-bastion it is the line for that bastion, and nothing is changed: ask for it first, then change the bastion once it lets the central in.
 .TP
 .B \-\-json
 Print the options as JSON.

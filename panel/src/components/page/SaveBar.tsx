@@ -1,8 +1,11 @@
+import { useRouter } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { Button } from "../ui/Button";
+import { LeaveGuard } from "./LeaveGuard";
+import { useYieldPrimary } from "./primaryYield";
 
 export interface SaveBarProps {
   /** How many fields differ from what is saved. */
@@ -22,6 +25,18 @@ export interface SaveBarProps {
   saveLabel?: string;
   /** One more action before Save: "Test" in a file editor. */
   secondary?: ReactNode;
+  /**
+   * Asks before the page is left with changes (FM-3). On unless the page has its own question
+   * (a form that is not saved from here) or the form is a dialog's or a drawer's, which asks
+   * when it is closed.
+   */
+  guard?: boolean;
+  /**
+   * Makes the header's primary step aside while there are changes (FM-2). On unless the form is
+   * not the page's own: a dialog's or a drawer's has a primary of its own, and the page behind it
+   * keeps its.
+   */
+  yieldPrimary?: boolean;
   className?: string;
 }
 
@@ -29,11 +44,16 @@ export interface SaveBarProps {
  * The one way a form is saved: a bar fixed to the bottom of the content that says how many
  * changes are unsaved, with Discard and Save. It is there from the first frame, saying there
  * is nothing to save, so its arrival never pushes the page; Save becomes the view's primary
- * action only while there is something to save.
+ * action only while there is something to save, and the header's primary steps aside meanwhile
+ * (one primary per view). It also asks once before the page is left with changes: the guard
+ * belongs to the bar, so no subsection writes its own.
  */
-export function SaveBar({ changes, onDiscard, onSave, form, saving = false, busy = false, saveLabel, secondary, className }: SaveBarProps) {
+export function SaveBar({ changes, onDiscard, onSave, form, saving = false, busy = false, saveLabel, secondary, guard = true, yieldPrimary = true, className }: SaveBarProps) {
   const t = useT();
   const dirty = changes > 0;
+  useYieldPrimary(dirty && yieldPrimary);
+  // A bar drawn alone (a unit test, the gallery) has no router to ask; in the console there always is.
+  const routed = Boolean(useRouter({ warn: false }) as ReturnType<typeof useRouter> | null | undefined);
   return (
     <div
       role="region"
@@ -68,6 +88,7 @@ export function SaveBar({ changes, onDiscard, onSave, form, saving = false, busy
           {saveLabel ?? t("common.saveBar.save")}
         </Button>
       </div>
+      {guard && routed ? <LeaveGuard changes={changes} /> : null}
     </div>
   );
 }

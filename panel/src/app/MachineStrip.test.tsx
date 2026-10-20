@@ -95,6 +95,14 @@ describe("the live stream's badge", () => {
     expect(down.container.firstElementChild).not.toHaveClass("hidden");
   });
 
+  it("stays at the end of the strip, so the readings that arrive after it do not push it across the bar", () => {
+    const live = render(<StreamBadge stream="live" />);
+    expect(live.container.firstElementChild).toHaveClass("ml-auto");
+    live.unmount();
+    const down = render(<StreamBadge stream="reconnecting" />);
+    expect(down.container.firstElementChild).toHaveClass("ml-auto");
+  });
+
   it("says it in Spanish too", async () => {
     await act(() => setLocale("es"));
     render(<StreamBadge stream="live" />);

@@ -46,6 +46,7 @@ from noust.cli.panel_links import open_in_panel
 from noust.core.exceptions import CertificateError, DomainError, NoustError
 from noust.core.logger import Logger
 from noust.core.package_family import install_hint
+from noust.deployers import certificates
 from noust.managers.cert_manager import CertManager
 from noust.validators.domain import validate_domain
 
@@ -224,6 +225,8 @@ def _create_certificate(
         logger.success("Dry run completed successfully")
     else:
         logger.success(f"Certificate obtained for: {primary}")
+        if certificates.serve_ordered(primary):
+            logger.success(f"{primary} now serves it over HTTPS")
     return 0
 
 

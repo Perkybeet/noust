@@ -1150,8 +1150,23 @@ class _DatabaseContainer:
 class _DatabaseContainers:
     """Docker's answers about the machine's database containers, and what runs in them."""
 
-    #: How ``docker ps`` is asked: every container, with the id and image Noust filters on.
-    LISTING = ("docker", "ps", "-a", "--no-trunc", "--format", "{{.ID}}\t{{.Image}}")
+    @property
+    def listing_argv(self) -> tuple[str, ...]:
+        """
+        Returns:
+            How discovery asks ``docker ps``: every container, with the id, the image and the
+            label of an instance Noust made (the modelled container carries none).
+        """
+        from noust.managers.database.instance_layout import MANAGED_LABEL
+
+        return (
+            "docker",
+            "ps",
+            "-a",
+            "--no-trunc",
+            "--format",
+            '{{.ID}}\t{{.Image}}\t{{.Label "' + MANAGED_LABEL + '"}}',
+        )
 
     def __init__(self) -> None:
         """Model the one container: Postgres 16 of ``catalogo.example.org``'s Compose project."""
@@ -1181,7 +1196,7 @@ class _DatabaseContainers:
     def listing(self) -> str:
         """
         Returns:
-            What ``docker ps -a --no-trunc --format '{{.ID}}\\t{{.Image}}'`` prints.
+            What ``docker ps`` prints for :attr:`listing_argv`: an empty label column is left out.
         """
         with self.lock:
             return "".join(f"{c.container_id}\t{c.image}\n" for c in self.containers.values())
@@ -1250,7 +1265,7 @@ class _DatabaseContainers:
             ``(exit code, stdout, stderr)``, or None for any other docker command.
         """
         verb = args[1] if len(args) > 1 else ""
-        if args == self.LISTING:
+        if args == self.listing_argv:
             return 0, self.listing(), ""
         if verb == "inspect" and not any(a.startswith("-") for a in args[2:]):
             printed = self.inspect(args[2:])
@@ -2576,6 +2591,22 @@ def make_runner(
             # WHERE literal ("datistemplate = false" instead of "datname = '...'")
             # and must be checked first, or its listing query would be mistaken for
             # a lookup of one database and answer as though `name` were None.
+            #
+            # The dump loader (pg_loader.owner_query and role_query) asks who owns the
+            # database it loads into and whether that role could reach the machine: one
+            # row, "owner|f" for an ordinary role. It joins pg_roles the other way round
+            # ("r.oid = d.datdba"), so the owner lookups below do not match it, and the
+            # generic listing at the end would answer a question it was not asked.
+            if program == "psql" and "r.oid = d.datdba" in statement and "pg_has_role" in statement:
+                info = pg_databases.get(_sql_literal(statement) or "")
+                return f"{info[0]}|f\n" if info else ""
+            if (
+                program == "psql"
+                and "FROM pg_catalog.pg_roles r WHERE r.rolname" in statement
+                and "pg_has_role" in statement
+            ):
+                role = _sql_literal(statement)
+                return f"{role}|f\n" if role else ""
             if (
                 program == "psql"
                 and "d.datdba = r.oid" in statement
@@ -7521,6 +7552,7 @@ def model_code_host(sandbox: Sandbox) -> None:
 
 #: The folder the SFTP destination writes into, as its operator typed it.
 DESTINATIONS_SFTP_PATH = "/srv/backups/web-01"
+DESTINATIONS_ENCRYPTED_BUCKET = "noust-backups"
 
 #: Applications whose local backups the SFTP destination already holds copies of.
 DESTINATIONS_SFTP_APPS = ("shop.example.net", "example.com")
@@ -7708,6 +7740,12 @@ def seed_backup_destinations(sandbox: Sandbox, store: Any) -> None:
     remotes = sandbox.root / "remotes"
     _destinations_rclone_model(sandbox, remotes)
 
+    # Adding an object store looks at its bucket first and never creates one, so the bucket
+    # the encrypted destination names exists on its modelled remote before it is added.
+    (remotes / DESTINATION_ENCRYPTED / DESTINATIONS_ENCRYPTED_BUCKET).mkdir(
+        parents=True, exist_ok=True
+    )
+
     manager = BackupDestinationManager()
     manager.add(
         DESTINATION_SFTP,
@@ -7729,7 +7767,7 @@ def seed_backup_destinations(sandbox: Sandbox, store: Any) -> None:
             "secret_access_key": "r2-seeded-secret-access-key-not-shown",
             "region": "auto",
             "endpoint": "https://2b7c9e.r2.cloudflarestorage.com",
-            "path": "wasm-backups",
+            "path": DESTINATIONS_ENCRYPTED_BUCKET,
         },
         encrypted=True,
     )

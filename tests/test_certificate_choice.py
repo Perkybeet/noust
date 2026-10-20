@@ -27,6 +27,7 @@ from tests.test_domains import (  # noqa: F401 - the harness
     Machine,
     certs,
     machine,
+    put_certificate,
     store,
     web,
 )
@@ -125,6 +126,59 @@ def test_the_choice_is_only_kept_for_a_site_that_serves_no_tls_yet(machine: Mach
     assert change.ordered is False
     assert machine.certbot_orders() == []
     assert settings().challenge == "dns-01"
+
+
+def test_a_certificate_ordered_for_a_plain_site_is_written_into_it(machine: Machine) -> None:
+    # `noust cert create` (and the console's "Issue certificate") order a certificate and record
+    # that the site serves TLS. certbot's nginx plugin edits the site on an HTTP order; the DNS
+    # challenge has no installer, so the site stayed on port 80 while Noust said it served TLS,
+    # and the advice after a failed deploy ("To add SSL later: noust cert create") did not
+    # deliver. Found against a real certbot and a real authority.
+    machine.deploy(app_type="nodejs")
+    account()
+    certificates.use_acme("example.com", challenge="dns-01", dns_provider="cf")
+    put_certificate(machine.certs, "example.com")
+    machine.certs.obtain("example.com")
+    assert "listen 443" not in machine.config()  # what the order alone leaves
+
+    served = certificates.serve_ordered("example.com")
+
+    assert served is True
+    config = machine.config()
+    assert "listen 443 ssl http2;" in config
+    assert "ssl_certificate /etc/letsencrypt/live/example.com/fullchain.pem" in config.replace(
+        str(machine.certs.LETSENCRYPT_DIR), "/etc/letsencrypt"
+    )
+
+
+def test_a_name_that_is_no_application_is_left_to_its_order(machine: Machine) -> None:
+    machine.deploy(app_type="nodejs")
+
+    assert certificates.serve_ordered("elsewhere.example.org") is False
+    assert "listen 443" not in machine.config()
+
+
+def test_a_type_with_no_site_to_render_is_left_to_its_order(
+    machine: Machine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    machine.deploy(app_type="nodejs")
+    put_certificate(machine.certs, "example.com")
+
+    def refuses(*args: Any, **kwargs: Any) -> Any:
+        raise ValidationError("container applications do not support aliases and redirects yet")
+
+    monkeypatch.setattr(domains, "site_deployer", refuses)
+
+    assert certificates.serve_ordered("example.com") is False
+
+
+def test_a_site_that_does_not_serve_tls_yet_is_not_given_a_certificate_it_lacks(
+    machine: Machine,
+) -> None:
+    machine.deploy(app_type="nodejs")  # no TLS recorded, no lineage on disk
+
+    assert certificates.serve_ordered("example.com") is False
+    assert "listen 443" not in machine.config()
 
 
 def test_the_dns_challenge_needs_an_account_that_exists(machine: Machine) -> None:

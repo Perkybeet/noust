@@ -14,10 +14,15 @@ number of threads and open files are read from the kernel with psutil once a sec
 gives the median and the peak. It is a measure of Noust's own idle cost, not of the applications
 it runs: those are whatever they are.
 
+With ``--attach`` it measures the two units of a server where Noust is installed and running
+(``noust-web`` and ``noust-monitor``, found through systemd) instead of starting its own copies:
+the numbers of a real installation, which is how the integration harness measures them.
+
 Usage:
     scripts/measure_idle.py                  Measure 60 seconds after a 15 second warm-up.
     scripts/measure_idle.py --seconds 120 --markdown   Print the table docs/requirements.md uses.
     scripts/measure_idle.py --json           Print the numbers as JSON.
+    scripts/measure_idle.py --attach --json  Measure the installed units, as they are running.
 """
 
 from __future__ import annotations
@@ -94,6 +99,51 @@ def sample(process: psutil.Process, seconds: int) -> dict[str, float]:
     }
 
 
+def unit_process(unit: str) -> psutil.Process:
+    """
+    Find the main process of a running systemd unit.
+
+    Args:
+        unit: The unit's name, such as ``noust-web``.
+
+    Returns:
+        Its main process.
+
+    Raises:
+        SystemExit: The unit is not running here, with which one.
+    """
+    shown = subprocess.run(
+        ["systemctl", "show", "--property=MainPID", "--value", unit],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    pid = int(shown.stdout.strip() or 0)
+    if pid <= 0:
+        raise SystemExit(
+            f"{unit} is not running on this machine; start it or measure without --attach"
+        )
+    return psutil.Process(pid)
+
+
+def measure_unit(unit: str, seconds: int, warmup: int) -> dict[str, float]:
+    """
+    Measure a unit that is already running, idle, as it is.
+
+    Args:
+        unit: The unit's name.
+        seconds: The measuring window.
+        warmup: Seconds to let it settle first.
+
+    Returns:
+        The readings of :func:`sample`.
+    """
+    process = unit_process(unit)
+    time.sleep(warmup)
+    return sample(process, seconds)
+
+
 def measure_console(seconds: int, warmup: int) -> dict[str, float]:
     """
     Start the console as the tests and the console's development use it, and measure it idle.
@@ -150,13 +200,29 @@ def measure_monitor(seconds: int, warmup: int) -> dict[str, float]:
             monitor.wait(timeout=30)
 
 
+def memory_gb() -> float:
+    """
+    Returns:
+        The machine's memory in gigabytes, or the limit of the container it runs in when that is
+        lower (a container shows the host's memory in ``/proc/meminfo``).
+    """
+    total = psutil.virtual_memory().total
+    for limit_file in ("/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/memory/memory.limit_in_bytes"):
+        try:
+            limit = int(Path(limit_file).read_text().split()[0])
+        except (OSError, ValueError, IndexError):
+            continue  # "max" is not a number: no limit here
+        total = min(total, limit)
+    return round(total / 1024**3, 1)
+
+
 def environment() -> dict[str, Any]:
     """Returns: What the measurement ran on, so a number is never separated from its machine."""
     return {
         "python": platform.python_version(),
         "kernel": platform.release(),
-        "cpus": psutil.cpu_count(logical=True),
-        "memory_gb": round(psutil.virtual_memory().total / 1024**3, 1),
+        "cpus": len(os.sched_getaffinity(0)),
+        "memory_gb": memory_gb(),
     }
 
 
@@ -205,13 +271,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--warmup", type=int, default=15, help="seconds to settle first")
     parser.add_argument("--json", action="store_true", help="print JSON")
     parser.add_argument("--markdown", action="store_true", help="print the table the docs use")
+    parser.add_argument(
+        "--attach",
+        action="store_true",
+        help="measure the installed noust-web and noust-monitor units instead of starting copies",
+    )
     args = parser.parse_args(argv)
+    if args.attach:
+        console = measure_unit("noust-web", args.seconds, args.warmup)
+        monitor = measure_unit("noust-monitor", args.seconds, args.warmup)
+    else:
+        console = measure_console(args.seconds, args.warmup)
+        monitor = measure_monitor(args.seconds, args.warmup)
     result = {
         "seconds": args.seconds,
         "warmup": args.warmup,
         "environment": environment(),
-        "console": measure_console(args.seconds, args.warmup),
-        "monitor": measure_monitor(args.seconds, args.warmup),
+        "console": console,
+        "monitor": monitor,
     }
     if args.json:
         print(json.dumps(result, indent=2))

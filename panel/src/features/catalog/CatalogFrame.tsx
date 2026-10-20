@@ -5,11 +5,13 @@ import type { ReactNode } from "react";
 import { installedRecipesQuery, recipesQuery } from "../../api/queries/recipes";
 import { LinkTabs } from "../../app/LinkTabs";
 import type { LinkTab } from "../../app/LinkTabs";
+import { tabsOf, withCounts } from "../../app/navCore";
 import { CommandHint } from "../../components/page/CommandHint";
 import { ListPage } from "../../components/page/ListPage";
 import { Button } from "../../components/ui/Button";
 import { useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
+import { CATALOG_SCREENS } from "../nav/catalog";
 import { CatalogPackageDialog } from "./CatalogPackage";
 import { CatalogProblems } from "./CatalogProblems";
 import { OwnRecipesDialog } from "./OwnRecipes";
@@ -37,10 +39,10 @@ export function CatalogFrame({ filters, notice, command, children }: CatalogFram
   const [adding, setAdding] = useState(false);
   const [packageOpen, setPackageOpen] = useState(false);
   const problems = everything.data?.problems ?? [];
-  const tabs: LinkTab[] = [
-    { label: "catalog.tabs.browse", to: "/catalog", exact: true, count: everything.data?.total ?? null },
-    { label: "catalog.tabs.installed", to: "/catalog/installed", count: installed.data?.items.length ?? null },
-  ];
+  const tabs: LinkTab[] = withCounts(tabsOf(CATALOG_SCREENS),{
+    "/catalog": everything.data?.total ?? null,
+    "/catalog/installed": installed.data?.items.length ?? null,
+  });
   const shownNotice =
     notice !== undefined || problems.length > 0 ? (
       <div className="flex flex-col gap-3">

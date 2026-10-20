@@ -209,9 +209,18 @@ button beside the rule in the console) and look again. Only then move to `block`
   on, tested by nginx before it is reloaded, and removed with the last. libmodsecurity reads only the plain
   `Include`, so the file names the packages' setup file and rules directory itself instead of using the
   distribution's `owasp-crs.load`, which is made for Apache.
-- **The log does not keep what people type.** ModSecurity's audit log (`/var/log/nginx/noust-waf-audit.log`,
-  rotated with the web server's) is JSON and holds the request's headers and the rules that matched, not
-  its body: a password typed into a form is not in it. Responses are not inspected.
+- **The log does not keep what people type, and only root reads it.** ModSecurity's audit log
+  (`/var/log/nginx/noust-waf-audit.jsonl`) is JSON and holds the request's headers and the rules that
+  matched, not its body: a password typed into a form is not in it. Responses are not inspected. The
+  headers of a flagged request include its `Cookie` and `Authorization`, which the module cannot leave
+  out, so Noust makes the file before ModSecurity does, mode 0640 for root and the `adm` group, and no
+  other account of the server can read it.
+- **The log is rotated by truncating it.** ModSecurity opens its audit log once and never reopens it,
+  so the web server's rotation (rename the file, ask nginx to reopen its logs) left the firewall
+  writing to the renamed file for good, and `noust app policy waf events` read the new, empty one.
+  The file is not named `*.log`, which `/etc/logrotate.d/nginx` owns, and Noust writes
+  `/etc/logrotate.d/noust-waf` (daily, 14 kept, compressed, `copytruncate`) with the first site that
+  turns the firewall on and removes it with the last. A server without logrotate is given no rule.
 - **A rule number is a number.** The numbers a site leaves out end up in the web server's configuration,
   so only whole numbers from 1 to 99999999, at most 100, are accepted.
 - **The paranoia level and the score threshold are the Core Rule Set's defaults** (level 1, threshold 5).

@@ -727,27 +727,32 @@ class NodeManager:
             )
         return parse_bastion(target, scan.key.bare)
 
-    def bastion_authorization(self, name: str) -> str:
+    def bastion_authorization(self, name: str, *, bastion: Bastion | None = None) -> str:
         """
         Spell the line the bastion's operator adds so this central can reach the node.
 
         Args:
             name: The node's name.
+            bastion: A bastion that is not set yet. Changing a node's bastion opens the tunnel
+                through it before keeping it, and a bastion that does not authorize the central
+                yet fails that test: the line has to be known before the change, so the operator
+                asks for it with the bastion they mean to set. The node's own by default.
 
         Returns:
             One ``authorized_keys`` line: one stream to the node, no shell.
 
         Raises:
-            NodeError: When the node has no bastion.
+            NodeError: When the node has no bastion and none was given.
         """
         record = self._get_over_ssh(name)
-        bastion = NodeSSHOptions(self.store).get(record.name).bastion
-        if bastion is None:
+        chosen = bastion or NodeSSHOptions(self.store).get(record.name).bastion
+        if chosen is None:
             raise NodeError(
                 f"{record.name} has no bastion",
-                details=f"Set one with 'noust node ssh {record.name} --bastion USER@HOST ...'.",
+                details=f"Ask for the line of the one you mean to set: noust node ssh "
+                f"{record.name} --bastion USER@HOST --bastion-fingerprint SHA256:... --show",
             )
-        return bastion.authorized_key_line(self.central_public_key(record.name), record)
+        return chosen.authorized_key_line(self.central_public_key(record.name), record)
 
     def set_ssh_options(
         self,
