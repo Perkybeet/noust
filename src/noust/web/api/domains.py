@@ -142,7 +142,7 @@ class AddAppDomainRequest(BaseModel):
     force: bool = False
     port: int | None = Field(default=None, ge=1, le=65535)
     dns: bool = True
-    certificate: str = Field(default="shared", description="shared or own")
+    certificate: str | None = Field(default=None, description="shared (the default) or own")
     challenge: str | None = Field(default=None, description="http-01 or dns-01")
     dns_provider: str | None = None
 
@@ -383,7 +383,7 @@ def post_domain(
         force=data.force,
         dns=data.dns,
         port=data.port,
-        certificate=data.certificate,
+        certificate=data.certificate or "shared",
         challenge=data.challenge,
         dns_provider=data.dns_provider,
     )

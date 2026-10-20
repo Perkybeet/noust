@@ -1060,10 +1060,16 @@
         "description": "A domain to add to an application.\n\nAttributes:\n    domain: The bare domain name; ``*.example.com`` for a wildcard alias.\n    kind: ``alias`` or ``redirect``.\n    force: Add the name although another site of the web server already answers on it.\n    port: Proxy this name to another port of the application than its own.\n    dns: Point the name at this server in the DNS account that holds its zone.\n    certificate: ``own`` to give the name a certificate of its own instead of covering it\n        with the application's.\n    challenge: How that certificate is proven, ``http-01`` or ``dns-01``; the application's\n        own way by default.\n    dns_provider: The DNS account that answers ``dns-01``.",
         "properties": {
           "certificate": {
-            "default": "shared",
-            "description": "shared or own",
-            "title": "Certificate",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "shared (the default) or own",
+            "title": "Certificate"
           },
           "challenge": {
             "anyOf": [

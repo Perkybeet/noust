@@ -196,7 +196,7 @@ ActivityEntry = TypedDict("ActivityEntry", {
 })
 
 AddAppDomainRequest = TypedDict("AddAppDomainRequest", {
-    "certificate": NotRequired[str],
+    "certificate": NotRequired[Union[str, None]],
     "challenge": NotRequired[Union[str, None]],
     "dns": NotRequired[bool],
     "dns_provider": NotRequired[Union[str, None]],

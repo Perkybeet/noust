@@ -29657,10 +29657,9 @@ export interface components {
         AddAppDomainRequest: {
             /**
              * Certificate
-             * @description shared or own
-             * @default shared
+             * @description shared (the default) or own
              */
-            certificate: string;
+            certificate?: string | null;
             /**
              * Challenge
              * @description http-01 or dns-01

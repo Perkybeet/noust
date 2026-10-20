@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Globe, MoreHorizontal, Plug, Plus, Power, RotateCw, Search, Trash2 } from "lucide-react";
+import { ArrowRight, BadgeCheck, Globe, MoreHorizontal, Plug, Plus, Power, RotateCw, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { request } from "../../api/client";
@@ -37,7 +37,7 @@ import { CertificateSourceCard } from "./CertificateSourceCard";
 import { CertificateStatus } from "./CertificateStatus";
 import { DomainPortDialog } from "./DomainPortDialog";
 import { DnsVerdict } from "./DnsVerdict";
-import { certificateJobFor, certificateView, coverageOf, covers, issuerName } from "./certificates";
+import { certificateJobFor, certificateOf, certificateView, coverageOf, covers, issuerName } from "./certificates";
 import { JobBanner } from "./JobBanner";
 import { useCertificateRefresh } from "./useCertificateJobs";
 
@@ -56,6 +56,7 @@ function Role({ entry, app }: { entry: AppDomain; app: string }) {
         <Badge>{kindLabel(t, entry.kind)}</Badge>
         {entry.temporary ? <Badge tone="warn">{t("domains.temporary.badge")}</Badge> : null}
         {!entry.enabled ? <Badge>{t("domains.appTab.switchedOffBadge")}</Badge> : null}
+        <OwnCertificateBadge entry={entry} />
         {entry.port ? (
           <Mono tone="muted">
             <span className="sr-only">{t("network.port.goesToSr", { port: entry.port })}</span>
@@ -69,12 +70,24 @@ function Role({ entry, app }: { entry: AppDomain; app: string }) {
     <span className="inline-flex min-w-0 items-center gap-1.5">
       <Badge>{t("domains.kindRedirect")}</Badge>
       {!entry.enabled ? <Badge>{t("domains.appTab.switchedOffBadge")}</Badge> : null}
+      <OwnCertificateBadge entry={entry} />
       <ArrowRight aria-hidden="true" className="size-3.5 shrink-0 text-fg-faint" />
       <span className="sr-only">{t("domains.appTab.roleToSr")}</span>
       <span translate="no" className="truncate text-13 text-fg-muted">
         {app}
       </span>
     </span>
+  );
+}
+
+/** Says that a name holds a certificate of its own, and that it is not issued yet when it is not. */
+function OwnCertificateBadge({ entry }: { entry: AppDomain }) {
+  const t = useT();
+  if (entry.certificate !== "own") return null;
+  return entry.certificate_pending ? (
+    <Badge tone="warn">{t("domains.appTab.ownCertificatePendingBadge")}</Badge>
+  ) : (
+    <Badge>{t("domains.appTab.ownCertificateBadge")}</Badge>
   );
 }
 
@@ -152,6 +165,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
 
   const [adding, setAdding] = useState(false);
   const [lastAdded, setLastAdded] = useState<string | null>(null);
+  const [lastChange, setLastChange] = useState<"own" | "shared" | null>(null);
   const [dnsFor, setDnsFor] = useState<string | null>(null);
   const [removing, setRemoving] = useState<AppDomain | null>(null);
   const [portFor, setPortFor] = useState<AppDomain | null>(null);
@@ -168,6 +182,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
   const onAdded = (change: AppDomainChange, name: string): void => {
     applyChange(change);
     setLastAdded(name);
+    setLastChange(null);
     const kept = change.adopted ?? [];
     const adopted = kept.length > 0 ? ` ${t("domains.appTab.keptAsAlias", { count: kept.length, names: kept.join(", ") })}` : "";
     const made = (change.dns ?? []).filter((entry) => ["created", "adopted", "replaced"].includes(String(entry["outcome"]))).length;
@@ -187,6 +202,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
     onSuccess: (change, entry) => {
       applyChange(change);
       setLastAdded(entry.domain);
+      setLastChange(null);
       if (change.certificate_job_id) followed.follow(change.certificate_job_id);
       else toast.info(t("domains.appTab.servesPlainHttpToast", { domain }), { description: t("domains.appTab.noCertToExtendDescription") });
     },
@@ -208,13 +224,30 @@ export function AppDomainsTab({ domain }: { domain: string }) {
     },
   });
 
+  const holdOwn = useMutation({
+    mutationFn: ({ entry, certificate }: { entry: AppDomain; certificate: "own" | "shared" }) =>
+      request("put", "/api/apps/{domain}/domains/{name}/certificate", { params: { domain, name: entry.domain }, body: { certificate } }),
+    onSuccess: (change, { entry, certificate }) => {
+      applyChange(change);
+      setLastAdded(entry.domain);
+      setLastChange(certificate);
+      if (change.certificate_job_id) followed.follow(change.certificate_job_id);
+      toast.success(t(certificate === "own" ? "domains.appTab.ownCertificateQueuedToast" : "domains.appTab.sharedCertificateQueuedToast", { name: entry.domain, domain }));
+    },
+    onError: (error, { entry }) => {
+      reportActionError(t("domains.appTab.certificateChangeFailedError", { name: entry.domain }), error);
+    },
+  });
+
+  const presentedBy = (entry: AppDomain) => certificateOf(entry, lineage, (name) => findCertificate(certs.data, name));
+
   const columns: Column<AppDomain>[] = [
     {
       id: "domain",
       header: t("domains.appTab.domainColumn"),
       cell: (entry) => (
         <a
-          href={`${lineage && covers(lineage, entry.domain) ? "https" : "http"}://${entry.domain}`}
+          href={`${presentedBy(entry) && covers(presentedBy(entry), entry.domain) ? "https" : "http"}://${entry.domain}`}
           target="_blank"
           rel="noreferrer"
           translate="no"
@@ -231,7 +264,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
       id: "certificate",
       header: t("domains.appTab.certificateColumn"),
       cell: (entry) => {
-        const coverage = coverageOf(entry.domain, lineage, extending, t.locale);
+        const coverage = coverageOf(entry.domain, presentedBy(entry), extending, t.locale);
         return <CertificateStatus tone={coverage.tone} label={coverage.label} />;
       },
     },
@@ -259,12 +292,19 @@ export function AppDomainsTab({ domain }: { domain: string }) {
           followed={followed}
           words={{
             running:
-              lastAdded === null
-                ? t("domains.appTab.extendingCertOf", { domain })
-                : t("domains.appTab.extendingCertTo", { name: lastAdded }),
-            done: t("domains.appTab.certCoversEvery", { domain }),
-            failed: t("domains.appTab.certNotExtended"),
-            hint: t("domains.appTab.extendHint", { name: lastAdded ?? t("domains.appTab.theNewName") }),
+              lastChange === "own" && lastAdded !== null
+                ? t("domains.appTab.orderingOwnCertificate", { name: lastAdded })
+                : lastChange === "shared" && lastAdded !== null
+                  ? t("domains.appTab.coveringWithSharedCertificate", { name: lastAdded, domain })
+                  : lastAdded === null
+                    ? t("domains.appTab.extendingCertOf", { domain })
+                    : t("domains.appTab.extendingCertTo", { name: lastAdded }),
+            done: lastChange === null ? t("domains.appTab.certCoversEvery", { domain }) : t("domains.appTab.certificateChanged", { name: lastAdded ?? domain }),
+            failed: lastChange === null ? t("domains.appTab.certNotExtended") : t("domains.appTab.certificateNotChanged", { name: lastAdded ?? domain }),
+            hint:
+              lastChange === null
+                ? t("domains.appTab.extendHint", { name: lastAdded ?? t("domains.appTab.theNewName") })
+                : t("domains.appTab.certificateNotChangedHint", { name: lastAdded ?? domain }),
           }}
         />
         {list.isError && list.data === undefined ? (
@@ -301,9 +341,18 @@ export function AppDomainsTab({ domain }: { domain: string }) {
                     {t("network.port.menu")}
                   </MenuItem>
                 ) : null}
-                {entry.kind !== "primary" && lineage && !covers(lineage, entry.domain) ? (
+                {entry.kind !== "primary" && lineage && !covers(presentedBy(entry), entry.domain) ? (
                   <MenuItem icon={<RotateCw />} disabled={retry.isPending || extending} onClick={() => retry.mutate(entry)}>
                     {t("domains.appTab.retryCertificate")}
+                  </MenuItem>
+                ) : null}
+                {entry.kind !== "primary" && lineage !== undefined ? (
+                  <MenuItem
+                    icon={<BadgeCheck />}
+                    disabled={holdOwn.isPending || extending}
+                    onClick={() => holdOwn.mutate({ entry, certificate: entry.certificate === "own" ? "shared" : "own" })}
+                  >
+                    {entry.certificate === "own" ? t("domains.appTab.useSharedCertificate") : t("domains.appTab.giveOwnCertificate")}
                   </MenuItem>
                 ) : null}
                 {entry.kind !== "primary" ? (
