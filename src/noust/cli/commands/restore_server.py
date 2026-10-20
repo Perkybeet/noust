@@ -6,9 +6,11 @@
 
 The CLI of :class:`~noust.managers.restore_server.RestoreServer`: on a new
 machine with Noust installed, one command puts the state back, says what the
-machine still lacks, brings each application back from its newest backup, renders
-its site, starts it behind the health gate and prints a final report. It can be
-run again with ``--skip-state`` for the applications that did not come back.
+machine still lacks (and with ``--install`` installs the web server, Docker and the
+database engines), creates the PostgreSQL roles, brings back the databases no
+application owns, brings each application back from its newest backup, renders its
+site, starts it behind the health gate and prints a final report. It can be run
+again with ``--skip-state`` for the applications that did not come back.
 
 The bundle is a path or a name on this server, or fetched first from a
 destination (``--from-destination``) when the old server's disk is gone with its
@@ -50,6 +52,64 @@ def _fail(ctx: Context, exc: NoustError) -> None:
     click.get_current_context().exit(1)
 
 
+def _print_requirement(ctx: Context, requirement: dict[str, Any]) -> None:
+    """
+    Print what was found or done about one piece of software.
+
+    Args:
+        ctx: The invocation's context.
+        requirement: One entry of the report's ``requirements``.
+    """
+    name, state = requirement["name"], requirement["state"]
+    if state == "installed":
+        ctx.logger.success(f"{name} was installed")
+    elif state == "failed":
+        ctx.logger.warning(f"{name} could not be installed: {requirement['detail']}")
+    elif state == "missing":
+        how = f" Run: {requirement['command']}" if requirement["command"] else ""
+        ctx.logger.warning(f"{name} is not installed here.{how} (or run again with --install)")
+
+
+def _print_roles(ctx: Context, roles: dict[str, Any]) -> None:
+    """
+    Print what putting a PostgreSQL server's roles back did.
+
+    Args:
+        ctx: The invocation's context.
+        roles: One entry of the report's ``roles``.
+    """
+    engine, state = roles["engine"], roles["state"]
+    if state == "created":
+        made = ", ".join(roles["created"]) or "none were missing"
+        ctx.logger.success(f"The roles of {engine}: created {made}")
+        if roles["detail"]:
+            ctx.logger.info(f"  {roles['detail']}")
+    else:
+        ctx.logger.warning(f"The roles of {engine} are {state}: {roles['detail']}")
+
+
+def _print_database(database: Any) -> None:
+    """
+    Print one database no application owns, and what became of it.
+
+    Args:
+        database: A :class:`~noust.managers.restore_databases.DatabaseOutcome`.
+    """
+    label = {
+        "restored": "back",
+        "present": "already here",
+        "no_dump": "NO DUMP",
+        "skipped": "left for you",
+        "failed": "FAILED",
+    }.get(database.status, database.status)
+    source = f" from {database.source}: {database.dump}" if database.dump else ""
+    click.echo(f"  {database.engine + '/' + database.name:<40} {label}{source}")
+    for note in database.notes:
+        click.echo(f"    {note}")
+    if database.error:
+        click.echo(f"    {database.error}")
+
+
 def _print_report(ctx: Context, report: ServerRestoreReport) -> None:
     """
     Print the final report, one line per application and what to do next.
@@ -64,8 +124,16 @@ def _print_report(ctx: Context, report: ServerRestoreReport) -> None:
         )
         if report.state.safety_copy:
             ctx.logger.info(f"  What was here is kept: {report.state.safety_copy}")
+    for requirement in report.requirements:
+        _print_requirement(ctx, requirement)
     for engine in report.engines_missing:
         ctx.logger.warning(f"{engine['engine']} is not installed here. Run: {engine['command']}")
+    for roles in report.roles:
+        _print_roles(ctx, roles)
+    if report.databases:
+        click.echo("\nDatabases no application owns")
+        for database in report.databases:
+            _print_database(database)
     click.echo("\nApplications")
     for outcome in report.apps:
         label = _LABELS.get(outcome.status, outcome.status)
@@ -118,6 +186,17 @@ def _print_report(ctx: Context, report: ServerRestoreReport) -> None:
 )
 @click.option("--force", is_flag=True, help="Restore over a server that already holds state.")
 @click.option(
+    "--install",
+    is_flag=True,
+    help="Install what this machine lacks: the web server, Docker (when an application or an "
+    "instance needs it) and the database engines. Without it nothing is installed.",
+)
+@click.option(
+    "--no-databases",
+    is_flag=True,
+    help="Do not bring back the databases no application owns.",
+)
+@click.option(
     "--accept-schema-changes",
     is_flag=True,
     help="Restore an application's files even past a schema change nothing restores the "
@@ -144,6 +223,8 @@ def cli(
     skipped: tuple[str, ...],
     skip_state: bool,
     force: bool,
+    install: bool,
+    no_databases: bool,
     accept_schema_changes: bool,
     plan: bool,
     yes: bool,
@@ -153,8 +234,10 @@ def cli(
     Bring a whole server back from a bundle of Noust's own state.
 
     On a new machine with Noust installed: puts the store, the secrets, the
-    keys, the certificates and the units back; names the database engines the
-    machine still lacks; restores each application from its newest backup
+    keys, the certificates, the units and the web server's configuration back;
+    names (and with --install installs) the web server, Docker and the database
+    engines the machine still lacks; creates the PostgreSQL roles and brings back
+    the databases no application owns; restores each application from its newest backup
     (here or on the destinations it sends to), with the data backups newer than
     it; renders its site; starts it through the health gate; and prints what
     came back and what did not. Nothing is rolled back: there is nothing to go
@@ -195,6 +278,9 @@ def cli(
             only=only,
             skip=skipped,
             accept_schema_changes=accept_schema_changes,
+            install=install,
+            databases=not no_databases,
+            from_destination=destination,
         )
     except NoustError as exc:
         _fail(ctx, exc)
@@ -228,3 +314,11 @@ def _print_plan(ctx: Context, answer: dict[str, Any]) -> None:
         click.echo("  none")
     if answer["engines"]:
         click.echo(f"\nDatabase engines they use: {', '.join(answer['engines'])}")
+    if answer.get("databases"):
+        click.echo("\nDatabases no application owns it would bring back")
+        for name in answer["databases"]:
+            click.echo(f"  {name}")
+    if answer.get("pg_globals"):
+        click.echo(
+            f"\nThe roles of {', '.join(answer['pg_globals'])} are in the bundle and would be created"
+        )

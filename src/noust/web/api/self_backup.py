@@ -181,6 +181,10 @@ class SetScheduleRequest(BaseModel):
         passphrase: What bundles are sealed under; kept in the secret store
             for the timer. Required while none is stored, optional after.
         enabled: Whether the timer runs.
+        max_runtime_seconds: The longest a run may take; systemd stops one past it. Null for
+            no limit.
+        timezone: The time zone the schedule is read in (``Europe/Madrid``); null for the
+            server's clock.
     """
 
     schedule: str = "daily"
@@ -191,6 +195,19 @@ class SetScheduleRequest(BaseModel):
     destinations: list[ScheduleDestination] = Field(default_factory=list)
     passphrase: str | None = Field(default=None, min_length=12, max_length=1024)
     enabled: bool = True
+    max_runtime_seconds: int | None = Field(
+        default=None,
+        ge=60,
+        le=604800,
+        description="Stop a run that takes longer than this many seconds (1 minute to 7 days); "
+        "null for no limit.",
+    )
+    timezone: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Read the schedule in this time zone of the server's database, such as "
+        "Europe/Madrid; null for the server's clock.",
+    )
 
     @field_validator("schedule")
     @classmethod
@@ -378,6 +395,8 @@ def set_schedule(
         remote_only=request.remote_only,
         destinations=[dump_model(entry) for entry in request.destinations],
         passphrase=request.passphrase,
+        max_runtime=request.max_runtime_seconds,
+        zone=request.timezone,
         enabled=request.enabled,
     )
     return ScheduleResponse(**view)

@@ -287,6 +287,17 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("backups", "run_drill"): ("POST", "/api/apps/{domain}/restore-drills", "backups.run", False),
     ("backups", "list_backups"): ("GET", "/api/backups", "backups.read", False),
     ("backups", "create_backup"): ("POST", "/api/backups", "backups.run", False),
+    ("backups", "status"): ("GET", "/api/backups/encryption", "backups.read", False),
+    ("backups", "disable"): ("POST", "/api/backups/encryption/disable", "backups.manage", True),
+    ("backups", "enable"): ("POST", "/api/backups/encryption/enable", "backups.manage", True),
+    ("backups", "import_key"): ("POST", "/api/backups/encryption/keys", "backups.manage", True),
+    ("backups", "show_key"): ("GET", "/api/backups/encryption/keys/{key_id}", "secrets.reveal", True),
+    ("backups", "rotate"): ("POST", "/api/backups/encryption/rotate", "backups.manage", True),
+    ("backups", "seal_plan"): ("GET", "/api/backups/encryption/seal-existing", "backups.read", False),
+    ("backups", "seal_existing"): ("POST", "/api/backups/encryption/seal-existing", "backups.manage", True),
+    ("backups", "list_failures"): ("GET", "/api/backups/failures", "backups.read", False),
+    ("backups", "failure_detail"): ("GET", "/api/backups/failures/{failure_id}", "backups.read", False),
+    ("backups", "failure_output"): ("GET", "/api/backups/failures/{failure_id}/output", "backups.read", False),
     ("backups", "get_storage_info"): ("GET", "/api/backups/storage", "backups.read", False),
     ("backups", "get_backup"): ("GET", "/api/backups/{backup_id}", "backups.read", False),
     ("backups", "delete_backup"): ("DELETE", "/api/backups/{backup_id}", "backups.manage", True),
@@ -819,6 +830,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("server", "cancel_scheduled"): ("DELETE", "/api/server/power/scheduled", "server.manage", False),
     ("server", "schedule_shutdown"): ("POST", "/api/server/power/shutdown", "server.host_access", True),
     ("server", "get_processes"): ("GET", "/api/server/processes", "server.read", False),
+    ("server", "restore"): ("POST", "/api/server/restore", "backups.manage", True),
+    ("server", "plan_restore"): ("GET", "/api/server/restore/plan", "server.read", False),
     ("server", "get_overview"): ("GET", "/api/server/security", "server.read", False),
     ("server", "get_changes"): ("GET", "/api/server/security/changes", "server.read", False),
     ("server", "confirm_change"): ("POST", "/api/server/security/changes/{change_id}/confirm", "server.host_access", True),
@@ -3125,7 +3138,7 @@ class BackupSchedules:
 
 
 class Backups:
-    """Backups: 10 operations."""
+    """Backups: 21 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -3161,6 +3174,94 @@ class Backups:
 
         Needs: permission `backups.run`."""
         return self._call("POST", "/api/backups", query=None, body=body)
+
+    def status(self) -> "EncryptionStatus":
+        """GET /api/backups/encryption
+
+        Status
+
+        Needs: permission `backups.read`."""
+        return self._call("GET", "/api/backups/encryption", query=None, body=None)
+
+    def disable(self) -> "DisableResult":
+        """POST /api/backups/encryption/disable
+
+        Disable
+
+        Needs: permission `backups.manage`, sudo mode."""
+        return self._call("POST", "/api/backups/encryption/disable", query=None, body=None)
+
+    def enable(self) -> "EnableResult":
+        """POST /api/backups/encryption/enable
+
+        Enable
+
+        Needs: permission `backups.manage`, sudo mode."""
+        return self._call("POST", "/api/backups/encryption/enable", query=None, body=None)
+
+    def import_key(self, body: "ImportKeyRequest") -> "KeyId":
+        """POST /api/backups/encryption/keys
+
+        Import Key
+
+        Needs: permission `backups.manage`, sudo mode."""
+        return self._call("POST", "/api/backups/encryption/keys", query=None, body=body)
+
+    def show_key(self, key_id: str) -> "KeyValue":
+        """GET /api/backups/encryption/keys/{key_id}
+
+        Show Key
+
+        Needs: permission `secrets.reveal`, sudo mode."""
+        return self._call("GET", f"/api/backups/encryption/keys/{quote(str(key_id), safe='')}", query=None, body=None)
+
+    def rotate(self) -> "RotateResult":
+        """POST /api/backups/encryption/rotate
+
+        Rotate
+
+        Needs: permission `backups.manage`, sudo mode."""
+        return self._call("POST", "/api/backups/encryption/rotate", query=None, body=None)
+
+    def seal_plan(self) -> "SealPlan":
+        """GET /api/backups/encryption/seal-existing
+
+        Seal Plan
+
+        Needs: permission `backups.read`."""
+        return self._call("GET", "/api/backups/encryption/seal-existing", query=None, body=None)
+
+    def seal_existing(self) -> "JobAcceptedResponse":
+        """POST /api/backups/encryption/seal-existing
+
+        Seal Existing
+
+        Needs: permission `backups.manage`, sudo mode."""
+        return self._call("POST", "/api/backups/encryption/seal-existing", query=None, body=None)
+
+    def list_failures(self, *, subject: Union[str, None] = None, limit: Union[int, None] = None) -> "BackupFailuresResponse":
+        """GET /api/backups/failures
+
+        List Failures
+
+        Needs: permission `backups.read`."""
+        return self._call("GET", "/api/backups/failures", query={"subject": subject, "limit": limit}, body=None)
+
+    def failure_detail(self, failure_id: int | str) -> "BackupFailureDetail":
+        """GET /api/backups/failures/{failure_id}
+
+        Failure Detail
+
+        Needs: permission `backups.read`."""
+        return self._call("GET", f"/api/backups/failures/{quote(str(failure_id), safe='')}", query=None, body=None)
+
+    def failure_output(self, failure_id: int | str) -> bytes:
+        """GET /api/backups/failures/{failure_id}/output
+
+        Failure Output
+
+        Needs: permission `backups.read`."""
+        return self._call("GET", f"/api/backups/failures/{quote(str(failure_id), safe='')}/output", query=None, body=None, binary=True)
 
     def get_storage_info(self) -> "BackupStorageResponse":
         """GET /api/backups/storage
@@ -7565,7 +7666,7 @@ class SelfBackup:
 
 
 class Server:
-    """Server: 70 operations."""
+    """Server: 72 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -7705,6 +7806,22 @@ class Server:
 
         Needs: permission `server.read`."""
         return self._call("GET", "/api/server/processes", query={"sort_by": sort_by, "limit": limit, "group": group}, body=None)
+
+    def restore(self, body: "RestoreRequest") -> "JobAcceptedResponse":
+        """POST /api/server/restore
+
+        Restore
+
+        Needs: permission `backups.manage`, sudo mode."""
+        return self._call("POST", "/api/server/restore", query=None, body=body)
+
+    def plan_restore(self, *, from_destination: Union[str, None] = None) -> "RestorePlanResponse":
+        """GET /api/server/restore/plan
+
+        Plan Restore
+
+        Needs: permission `server.read`."""
+        return self._call("GET", "/api/server/restore/plan", query={"from_destination": from_destination}, body=None)
 
     def get_overview(self) -> "OverviewOut":
         """GET /api/server/security

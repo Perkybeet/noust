@@ -59,7 +59,7 @@ import tarfile
 import tempfile
 import time
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal, Protocol, get_args
@@ -139,6 +139,7 @@ __all__ = [
     "dump_stack_databases",
     "extract_stack_dumps",
     "image_engine",
+    "inflated",
     "read_compose_config",
     "restore_stack_database",
     "set_backup_before_update",
@@ -211,12 +212,18 @@ class StackDatabase:
             ``MONGO_INITDB_DATABASE``).
         user: The account the client connects as. Empty only for a MongoDB that
             runs without authentication.
+        image: The image the service ran when the dump was taken, so a drill can
+            load the dump into a throwaway container of the very same engine
+            version (a dump of PostgreSQL 17 does not load into 16). It is how the
+            database was found, not what it is: two databases are equal whatever
+            image names them, and a manifest from before 4.0 simply has none.
     """
 
     service: str
     engine: Engine
     database: str
     user: str
+    image: str = field(default="", compare=False)
 
     @property
     def label(self) -> str:
@@ -230,12 +237,15 @@ class StackDatabase:
         Returns:
             What :meth:`from_entry` reads back.
         """
-        return {
+        entry = {
             "service": self.service,
             "engine": self.engine,
             "database": self.database,
             "user": self.user,
         }
+        if self.image:
+            entry["image"] = self.image
+        return entry
 
     @classmethod
     def from_entry(cls, entry: Mapping[str, Any]) -> StackDatabase | None:
@@ -258,7 +268,10 @@ class StackDatabase:
             return None
         if (database and not _NAME.fullmatch(database)) or (user and not _NAME.fullmatch(user)):
             return None
-        return cls(service, engine, database, user)
+        image = entry.get("image")
+        # Untrusted text that ends up in `docker run`: a drill validates it again, but a
+        # value that is not even a string is not carried at all.
+        return cls(service, engine, database, user, image if isinstance(image, str) else "")
 
 
 class DeclaredDatabase(Protocol):
@@ -479,7 +492,18 @@ def _declared_database(
     user, database = _credentials(engine, _environment(services[declared.service]))
     chosen_user = _checked_name(declared.user or user, "user", declared.service)
     chosen_database = _checked_name(declared.database or database, "database", declared.service)
-    return StackDatabase(declared.service, engine, chosen_database, chosen_user)
+    image = (
+        services[declared.service].get("image")
+        if isinstance(services[declared.service], Mapping)
+        else None
+    )
+    return StackDatabase(
+        declared.service,
+        engine,
+        chosen_database,
+        chosen_user,
+        image if isinstance(image, str) else "",
+    )
 
 
 def detect_stack_databases(
@@ -520,7 +544,7 @@ def detect_stack_databases(
         if (user and not _NAME.fullmatch(user)) or (database and not _NAME.fullmatch(database)):
             # Not something Noust will pass to a client; the operator declares it.
             continue
-        found.append(StackDatabase(str(name), engine, database, user))
+        found.append(StackDatabase(str(name), engine, database, user, str(service.get("image"))))
     return found
 
 
@@ -593,11 +617,26 @@ def stack_dump_filename(database: StackDatabase) -> str:
     return f"stack-{database.service}-{database.engine}-{name}.{suffix}.gz"
 
 
-#: What a client is asked to do.
-Action = Literal["dump", "restore", "ping"]
+#: What a client is asked to do. ``tables`` counts what a database holds, which is how a drill
+#: tells a dump that loaded from one that loaded nothing.
+Action = Literal["dump", "restore", "ping", "tables"]
+
+#: What ``tables`` asks each SQL engine. The system schemas are not the application's.
+_POSTGRES_TABLES = (
+    "SELECT count(*) FROM information_schema.tables "
+    "WHERE table_schema NOT IN ('pg_catalog', 'information_schema')"
+)
+_MYSQL_TABLES = (
+    "SELECT count(*) FROM information_schema.tables WHERE table_schema NOT IN "
+    "('mysql', 'sys', 'information_schema', 'performance_schema')"
+)
+_MONGO_TABLES = (
+    "db.getMongo().getDBNames().filter(n => !['admin', 'config', 'local'].includes(n))"
+    ".map(n => db.getSiblingDB(n).getCollectionNames().length).reduce((a, b) => a + b, 0)"
+)
 
 
-def client_command(database: StackDatabase, action: Action) -> list[str]:
+def client_command(database: StackDatabase, action: Action, *, tcp: bool = False) -> list[str]:
     """
     Build the command that runs one client inside a database's container.
 
@@ -609,8 +648,11 @@ def client_command(database: StackDatabase, action: Action) -> list[str]:
 
     Args:
         database: The database to act on.
-        action: ``dump``, ``restore`` or ``ping`` (is the engine accepting
-            connections).
+        action: ``dump``, ``restore``, ``ping`` (is the engine accepting
+            connections) or ``tables`` (how many tables or collections it holds).
+        tcp: Make ``ping`` ask over the network port. The first start of an image
+            runs a server that answers on its socket only, then restarts: a ping
+            on the socket is answered by the server that is about to go away.
 
     Returns:
         The argv to run after ``docker compose exec -T <service>``.
@@ -622,23 +664,35 @@ def client_command(database: StackDatabase, action: Action) -> list[str]:
 
     if engine == "postgres":
         mode, target, sources = "env", "PGPASSWORD", ",".join(_PASSWORD_SOURCES["postgres"])
-        programs = {"dump": "pg_dump", "restore": "pg_restore", "ping": "pg_isready"}[action]
+        programs = {
+            "dump": "pg_dump",
+            "restore": "pg_restore",
+            "ping": "pg_isready",
+            "tables": "psql",
+        }[action]
         connection = ["-U", user, "-d", name]
         arguments = {
             "dump": ["-Fc", "-Z", "0", *connection],
             # One transaction: a dump that does not fit leaves the database as it was.
             "restore": ["--single-transaction", "--clean", "--if-exists", *connection],
-            "ping": connection,
+            "ping": [*(["-h", "127.0.0.1"] if tcp else []), *connection],
+            "tables": ["-X", "-A", "-t", *connection, "-c", _POSTGRES_TABLES],
         }[action]
     elif engine == "mongo":
         if action != "ping":
             mode, target = "mongo", user
             sources = ",".join(_PASSWORD_SOURCES["mongo"])
-        programs = {"dump": "mongodump", "restore": "mongorestore", "ping": "mongosh,mongo"}[action]
+        programs = {
+            "dump": "mongodump",
+            "restore": "mongorestore",
+            "ping": "mongosh,mongo",
+            "tables": "mongosh,mongo",
+        }[action]
         arguments = {
             "dump": ["--archive", *(["--db", name] if name else [])],
             "restore": ["--archive", "--drop"],
             "ping": ["--quiet", "--eval", "db.adminCommand('ping')"],
+            "tables": ["--quiet", "--eval", _MONGO_TABLES],
         }[action]
     else:
         if action != "ping":
@@ -646,11 +700,17 @@ def client_command(database: StackDatabase, action: Action) -> list[str]:
             mode, target = "env", "MYSQL_PWD"
             sources = ",".join(_PASSWORD_SOURCES[f"{engine}-{kind}"])
         names = {
-            "mysql": {"dump": "mysqldump", "restore": "mysql", "ping": "mysqladmin"},
+            "mysql": {
+                "dump": "mysqldump",
+                "restore": "mysql",
+                "ping": "mysqladmin",
+                "tables": "mysql",
+            },
             "mariadb": {
                 "dump": "mariadb-dump,mysqldump",
                 "restore": "mariadb,mysql",
                 "ping": "mariadb-admin,mysqladmin",
+                "tables": "mariadb,mysql",
             },
         }[engine]
         programs = names[action]
@@ -661,10 +721,12 @@ def client_command(database: StackDatabase, action: Action) -> list[str]:
         if user == "root":
             dump += ["--routines", "--events"]
         dump += ["-u", user, name or "--all-databases"]
+        network = ["-h", "127.0.0.1", "--protocol=tcp"] if tcp else []
         arguments = {
             "dump": dump,
             "restore": ["-u", user, *([name] if name else [])],
-            "ping": ["-u", user, "ping", "--silent"],
+            "ping": [*network, "-u", user, "ping", "--silent"],
+            "tables": ["-u", user, "-N", "-B", "-e", _MYSQL_TABLES],
         }[action]
 
     return ["sh", "-c", CLIENT_SCRIPT, "sh", mode, target, sources, programs, *arguments]
@@ -747,7 +809,7 @@ def dump_stack_database(host: StackHost, database: StackDatabase, dest: Path) ->
     return target
 
 
-def _inflated(dump: Path, workspace: Path) -> Path:
+def inflated(dump: Path, workspace: Path) -> Path:
     """
     Give the client a plain copy of a dump that is compressed.
 
@@ -864,7 +926,7 @@ def restore_stack_database(
             result = host.runner.run(
                 _exec(host, database, "restore"),
                 cwd=host.app_path,
-                stdin_path=_inflated(dump, Path(workspace)),
+                stdin_path=inflated(dump, Path(workspace)),
                 timeout=RESTORE_TIMEOUT,
             )
         if not result.success:

@@ -4181,6 +4181,9 @@ Wrap the remote in an rclone crypt backend; run 'show\-key' once to keep a copy.
 .B \-\-key\-stdin
 Encrypt with an existing key read from standard input, as 'show\-key' printed it (its text, its \-\-json, or the two passphrases on two lines). Implies \-\-encrypt.
 .TP
+.B \-\-skip\-test
+Keep the destination without trying the connection first. By default one that does not connect is not saved, and an object store's bucket must exist.
+.TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
@@ -4253,6 +4256,9 @@ Prompt for the backend's secret field.
 .TP
 .B \-\-encrypt, \-\-no\-encrypt
 Turn encryption on or off.
+.TP
+.B \-\-skip\-test
+Keep the change without trying the connection first. By default a change that does not connect leaves the destination as it was.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
@@ -4332,6 +4338,18 @@ Do not ask.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
+.SS noust backup encryption seal\-existing
+Seal the backups already on this disk that were made in clear.
+.TP
+.B \-\-yes, \-y
+Do not ask.
+.TP
+.B \-\-json
+Print the report as JSON (needs \-\-yes: nothing is asked).
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust backup encryption show\-key
 Show a key (the current one by default), to keep it somewhere else.
 .TP
@@ -4347,6 +4365,40 @@ Say whether new backups are sealed, with which key, and how many are in clear.
 .TP
 .B \-\-json
 Print the status as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust backup failures
+Read the whole output of the backups that failed.
+
+.SS noust backup failures list
+List the backups that failed, newest first, without their output.
+.TP
+.B \-\-subject
+Only the failures about this (a domain, Noust, engine/database).
+.TP
+.B \-\-limit
+How many to list, newest first. Default: 20.
+.TP
+.B \-\-json
+Print the list as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust backup failures show
+Print all that a failed backup said, the record a notice names.
+.TP
+.B Arguments
+.br
+\fIfailure_id\fR
+.TP
+.B \-\-raw
+Print only the output, exactly as it was recorded.
+.TP
+.B \-\-json
+Print the record, output included, as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
@@ -4401,6 +4453,48 @@ Print the panel URL for the backup list, opening it if a display is available.
 .TP
 .B \-\-json
 Print the backup list as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust backup priority
+How hard the backups lean on the server while they run: nice, disk class, CPU ceiling.
+
+.SS noust backup priority apply
+Bring the backup services on this server to the configured settings.
+.TP
+.B \-\-json
+Print the units that changed as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust backup priority set
+Change the settings and bring the backup services already on this server along.
+.TP
+.B \-\-nice
+Nice value, 0 to 19.
+.TP
+.B \-\-io\-class
+Disk scheduling class: best\-effort, or idle (only when nothing else wants the disk).
+.TP
+.B \-\-io\-priority
+Priority inside best\-effort: 0 first, 7 last.
+.TP
+.B \-\-cpu\-quota
+Ceiling in percent of one CPU (50 is half a core, 200 two), or 'none' for no ceiling.
+.TP
+.B \-\-json
+Print the result as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust backup priority show
+Show the settings every backup service is written with.
+.TP
+.B \-\-json
+Print the settings as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
@@ -4505,6 +4599,12 @@ Push each backup to this remote destination, with its own retention. Repeatable.
 .B \-\-remote\-only
 Keep nothing on this server: delete each backup here once every destination holds it and its upload was checked. For a small disk; needs a \-\-destination.
 .TP
+.B \-\-max\-runtime
+Stop a run that takes longer than this: 90m, 2h, 1d or a number of seconds (1 minute to 7 days). No limit by default.
+.TP
+.B \-\-timezone
+Read the schedule in this time zone, such as Europe/Madrid (timedatectl list\-timezones lists them). The server's clock by default.
+.TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
@@ -4558,6 +4658,12 @@ Push each backup to this remote destination, with its own retention. Repeatable.
 .B \-\-remote\-only, \-\-keep\-local
 Keep nothing on this server (delete each backup here once every destination holds it), or keep the local copies. Kept as it is when not given.
 .TP
+.B \-\-max\-runtime
+Stop a run that takes longer than this: 90m, 2h, 1d or a number of seconds (1 minute to 7 days). No limit by default.
+.TP
+.B \-\-timezone
+Read the schedule in this time zone, such as Europe/Madrid (timedatectl list\-timezones lists them). The server's clock by default.
+.TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
@@ -4566,6 +4672,15 @@ Show how much disk the backups take, per application.
 .TP
 .B \-\-json
 Print the storage usage as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust backup sweep
+Delete the backups beyond every policy's retention, without waiting for a run.
+.TP
+.B \-\-json
+Print the report as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
@@ -4762,6 +4877,12 @@ live, pause (freeze the application for the copy) or stop. Default: live.
 .TP
 .B \-\-disable
 Keep the settings but install no timer.
+.TP
+.B \-\-max\-runtime
+Stop a run that takes longer than this: 90m, 2h, 1d or a number of seconds (1 minute to 7 days). No limit by default.
+.TP
+.B \-\-timezone
+Read the schedule in this time zone, such as Europe/Madrid (timedatectl list\-timezones lists them). The server's clock by default.
 .TP
 .B \-\-json
 Print the policy as JSON.
@@ -6097,6 +6218,12 @@ Keep no copy on this server: a scheduled dump is deleted once every \-\-to desti
 .B \-\-disable
 Keep the settings but install no timer.
 .TP
+.B \-\-max\-runtime
+Stop a run that takes longer than this: 90m, 2h, 1d or a number of seconds (1 minute to 7 days). No limit by default.
+.TP
+.B \-\-timezone
+Read the schedule in this time zone, such as Europe/Madrid (timedatectl list\-timezones lists them). The server's clock by default.
+.TP
 .B \-\-json
 Print the policy as JSON.
 .TP
@@ -6509,6 +6636,46 @@ Forget a tracked database that no longer exists on its engine.
 .TP
 .B \-\-engine, \-e
 Engine the database was on.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust db globals
+The roles of a PostgreSQL server, which no database dump carries.
+
+.SS noust db globals dump
+Dump the roles of the server with pg_dumpall \-\-globals\-only.
+.TP
+.B \-\-output, \-o
+Write the file here instead of the backup directory.
+.TP
+.B \-\-json
+Print the result as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust db globals list
+List the files of roles this server has dumped, newest first.
+.TP
+.B \-\-json
+Print the files as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust db globals restore
+Create the roles of a file that this server does not have.
+.TP
+.B Arguments
+.br
+\fIsource\fR
+.TP
+.B \-\-yes, \-y
+Do not ask for confirmation.
+.TP
+.B \-\-json
+Print the result as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
@@ -12862,6 +13029,12 @@ Noust's state is already back (a run that stopped): only bring the applications 
 .B \-\-force
 Restore over a server that already holds state.
 .TP
+.B \-\-install
+Install what this machine lacks: the web server, Docker (when an application or an instance needs it) and the database engines. Without it nothing is installed.
+.TP
+.B \-\-no\-databases
+Do not bring back the databases no application owns.
+.TP
 .B \-\-accept\-schema\-changes
 Restore an application's files even past a schema change nothing restores the database for.
 .TP
@@ -13158,6 +13331,12 @@ Keep the passphrase already stored instead of asking for one.
 .TP
 .B \-\-disable
 Keep the settings but install no timer.
+.TP
+.B \-\-max\-runtime
+Stop a run that takes longer than this: 90m, 2h, 1d or a number of seconds (1 minute to 7 days). No limit by default.
+.TP
+.B \-\-timezone
+Read the schedule in this time zone, such as Europe/Madrid (timedatectl list\-timezones lists them). The server's clock by default.
 .TP
 .B \-\-passphrase\-file
 Read the passphrase from this file (mode 600), not from a prompt.

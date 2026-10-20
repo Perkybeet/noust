@@ -209,6 +209,10 @@ class SetPolicyRequest(BaseModel):
         verify_restore: Load each dump into a temporary database and drop it
             as proof it restores. Not available for Redis.
         enabled: Whether the timer runs; a disabled policy keeps its settings.
+        max_runtime_seconds: The longest a run may take; systemd stops one past it. Null for
+            no limit.
+        timezone: The time zone the schedule is read in (``Europe/Madrid``); null for the
+            server's clock.
         exclude_databases: Databases an all-databases policy (stored under
             ``*``) skips.
         exclude_schemas: PostgreSQL schemas left out of every dump.
@@ -228,6 +232,19 @@ class SetPolicyRequest(BaseModel):
     dump_format: str | None = None
     verify_restore: bool = False
     enabled: bool = True
+    max_runtime_seconds: int | None = Field(
+        default=None,
+        ge=60,
+        le=604800,
+        description="Stop a run that takes longer than this many seconds (1 minute to 7 days); "
+        "null for no limit.",
+    )
+    timezone: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Read the schedule in this time zone of the server's database, such as "
+        "Europe/Madrid; null for the server's clock.",
+    )
     exclude_databases: list[str] = Field(default_factory=list)
     exclude_schemas: list[str] = Field(default_factory=list)
     exclude_tables: list[str] = Field(default_factory=list)
@@ -480,6 +497,8 @@ def set_policy(
         dump_format=request.dump_format,
         verify_restore=request.verify_restore,
         enabled=request.enabled,
+        max_runtime=request.max_runtime_seconds,
+        zone=request.timezone,
         exclusions=Exclusions.of(
             databases=request.exclude_databases,
             schemas=request.exclude_schemas,

@@ -718,13 +718,17 @@ class ServerMigration:
         Returns:
             The commands, in order.
         """
-        steps = ["Install Noust on the new server (its installer), and the web server and Docker."]
-        for engine in plan.engines:
-            steps.append(f"noust db install {engine}")
+        steps = ["Install Noust on the new server (its installer)."]
         if report.bundle is not None:
+            engines = f" and {', '.join(plan.engines)}" if plan.engines else ""
             steps.append(
-                f"noust restore-server --from-destination {report.destination} "
+                f"noust restore-server --install --from-destination {report.destination} "
                 f"--name {report.bundle} --host {report.host}"
+            )
+            steps.append(
+                f"That installs the web server, Docker{engines} where they are missing, creates "
+                "the PostgreSQL roles, brings back the databases no application owns and then "
+                "each application."
             )
         else:
             steps.append(

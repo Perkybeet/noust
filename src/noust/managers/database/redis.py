@@ -255,6 +255,18 @@ class RedisManager(BaseDatabaseManager):
             return ["--tls", "--cacert", f"{TLS_MOUNT}/ca.crt"]
         return []
 
+    def snapshot_programs(self) -> tuple[str, str]:
+        """
+        Name the programs a second server is started and asked with to load a snapshot.
+
+        Returns:
+            The server and the client of this engine's flavour: Valkey's for Valkey, Redis's
+            otherwise (KeyDB speaks Redis's protocol and reads its snapshots).
+        """
+        if self._is_valkey():
+            return "valkey-server", self.VALKEY_CLIENT
+        return "redis-server", self.CLIENT_BINARY
+
     def is_installed(self) -> bool:
         """
         Report whether a Redis or Valkey client is installed.

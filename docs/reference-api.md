@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1018 operations.
+1031 operations.
 
 ## Access
 
@@ -305,6 +305,17 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/apps/{domain}/restore-drills` | Run Drill | `backups.run` |  |  |
 | GET | `/api/backups` | List Backups | `backups.read` |  |  |
 | POST | `/api/backups` | Create Backup | `backups.run` |  |  |
+| GET | `/api/backups/encryption` | Status | `backups.read` |  |  |
+| POST | `/api/backups/encryption/disable` | Disable | `backups.manage` | yes |  |
+| POST | `/api/backups/encryption/enable` | Enable | `backups.manage` | yes |  |
+| POST | `/api/backups/encryption/keys` | Import Key | `backups.manage` | yes |  |
+| GET | `/api/backups/encryption/keys/{key_id}` | Show Key | `secrets.reveal` | yes |  |
+| POST | `/api/backups/encryption/rotate` | Rotate | `backups.manage` | yes |  |
+| GET | `/api/backups/encryption/seal-existing` | Seal Plan | `backups.read` |  |  |
+| POST | `/api/backups/encryption/seal-existing` | Seal Existing | `backups.manage` | yes |  |
+| GET | `/api/backups/failures` | List Failures | `backups.read` |  |  |
+| GET | `/api/backups/failures/{failure_id}` | Failure Detail | `backups.read` |  |  |
+| GET | `/api/backups/failures/{failure_id}/output` | Failure Output | `backups.read` |  |  |
 | GET | `/api/backups/storage` | Get Storage Info | `backups.read` |  |  |
 | GET | `/api/backups/{backup_id}` | Get Backup | `backups.read` |  |  |
 | DELETE | `/api/backups/{backup_id}` | Delete Backup | `backups.manage` | yes |  |
@@ -1017,6 +1028,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | DELETE | `/api/server/power/scheduled` | Cancel Scheduled | `server.manage` |  |  |
 | POST | `/api/server/power/shutdown` | Schedule Shutdown | `server.host_access` | yes |  |
 | GET | `/api/server/processes` | Get Processes | `server.read` |  |  |
+| POST | `/api/server/restore` | Restore | `backups.manage` | yes |  |
+| GET | `/api/server/restore/plan` | Plan Restore | `server.read` |  |  |
 | GET | `/api/server/security` | Get Overview | `server.read` |  |  |
 | GET | `/api/server/security/changes` | Get Changes | `server.read` |  |  |
 | POST | `/api/server/security/changes/{change_id}/confirm` | Confirm Change | `server.host_access` | yes |  |

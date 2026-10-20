@@ -67,7 +67,8 @@ from noust.core.notifier import fresh_config, notify_in_background
 from noust.core.tls_policy import TLS12_CIPHERS, harden_server_context
 from noust.deployers import deploy_events
 from noust.deployers.deploy_events import DeployEvent, DeployEventKind
-from noust.managers.database.backup_notifications import database_job_notification
+from noust.managers.backup_failures import record_failure
+from noust.managers.database.backup_notifications import database_job_notification, database_subject
 from noust.managers.database.uploads import MAX_CHUNK_BYTES
 from noust.web.auth import (
     CSRF_HEADER_NAMES,
@@ -656,12 +657,25 @@ def deployment_notification(job: Any) -> Notification | None:
     # list itself still reads in English. What the tool said (job.error, its
     # own words) reaches the excerpt untouched.
     ctx = NotificationContext.from_config(fresh_config())
+    # The notice carries the end of the failure; the whole of it is kept for the
+    # command and the link the notice names. A job's own error is the only place
+    # the tool's words are, so this is where they are recorded.
+    failure_id = None
+    if backup:
+        engine = job.metadata.get("engine")
+        database = job.metadata.get("database")
+        subject = (
+            database_subject(str(engine), str(database))
+            if job.metadata.get("kind") == "database" and engine and database
+            else (domain_str or "")
+        )
+        failure_id = record_failure("backup", subject, job.error)
     if job.metadata.get("kind") == "database":
         # A dump or a restore of a database: the database is the subject, not an
         # application, and its page is the link.
-        return database_job_notification(job, ctx)
+        return database_job_notification(job, ctx, failure_id=failure_id)
     if backup:
-        return compose_backup_failed(domain_str, job.error, ctx)
+        return compose_backup_failed(domain_str, job.error, ctx, failure_id=failure_id)
     backup_id = job.metadata.get("backup_id")
     return compose_restore(
         ok=status == "completed",

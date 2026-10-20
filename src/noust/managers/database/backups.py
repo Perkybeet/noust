@@ -58,12 +58,15 @@ from noust.core.notifications.context import NotificationContext
 from noust.core.notifications.model import Notification
 from noust.core.store import NoustStore
 from noust.managers.backup_destination_files import DestinationFileManager, file_sha256
+from noust.managers.backup_failures import record_failure
 from noust.managers.backup_scheduler import BackupScheduler, validate_calendar
+from noust.managers.backup_timer_options import validate_options
 from noust.managers.database.backup_notifications import (
     compose_database_backup_completed,
     compose_database_backup_failed,
     compose_database_backup_upload_failed,
     compose_database_restore,
+    database_subject,
     deliver,
 )
 from noust.managers.database.backup_records import (
@@ -97,6 +100,7 @@ from noust.managers.retention import (
     gigabytes_to_bytes,
     select_expired,
     with_gigabytes,
+    without_newest_good,
 )
 
 __all__ = ["DatabaseBackups", "DumpView", "PolicyView"]
@@ -143,6 +147,16 @@ def remote_folder(engine: str, database: str) -> str:
     """
     folder = REDIS_FOLDER if engine_of(engine) == "redis" else database
     return f"{REMOTE_ROOT}/{engine}/{folder}"
+
+
+class DumpFailedItsCheck(DatabaseBackupError):
+    """
+    A dump was taken and kept, and it did not pass its check (or its restore test).
+
+    Its own class because it changes what a failed run does afterwards: the corrupt dump is the
+    newest one and is kept as evidence, so nothing is pruned on its account - a good copy must not
+    be pushed out to make room for a bad one.
+    """
 
 
 @dataclass
@@ -722,6 +736,8 @@ class DatabaseBackups:
         exclusions: Exclusions | None = None,
         retention_gb: float | None = None,
         remote_only: bool = False,
+        max_runtime: int | str | None = None,
+        zone: str | None = None,
     ) -> PolicyView:
         """
         Create or replace a database's backup policy, and its timer.
@@ -758,6 +774,10 @@ class DatabaseBackups:
             remote_only: Delete each scheduled dump from this server once every
                 destination holds it, for a server whose disk is small. Needs a
                 destination; a dump that could not be sent everywhere stays.
+            max_runtime: The longest a run may take (seconds, or ``90m``/``2h``); systemd stops
+                a run past it. None for no limit.
+            zone: The time zone the schedule is read in (``Europe/Madrid``); None for the
+                server's clock.
 
         Returns:
             The policy as stored, with its timer's state.
@@ -787,6 +807,7 @@ class DatabaseBackups:
         left_out = exclusions or Exclusions()
         left_out.check_for(manager.engine_type, scope=scope)
         calendar = validate_calendar(schedule)
+        timer_options = validate_options(max_runtime, zone)
         count = _limit(retention_count, MAX_RETENTION_COUNT, "retention_count")
         days = _limit(retention_days, MAX_RETENTION_DAYS, "retention_days")
         budget = check_gigabytes(retention_gb, "retention_gb")
@@ -815,7 +836,9 @@ class DatabaseBackups:
             )
 
         if enabled:
-            self.scheduler.install_database_timer(engine_name, name, calendar)
+            self.scheduler.install_database_timer(
+                engine_name, name, calendar, options=timer_options
+            )
         else:
             self.scheduler.remove_database_timer(engine_name, name)
         self.records.save_policy(
@@ -843,6 +866,8 @@ class DatabaseBackups:
             retention_days=days,
             retention_gb=budget,
             remote_only=remote_only,
+            max_runtime_seconds=timer_options.max_runtime_seconds,
+            timezone=timer_options.timezone,
             destinations=[entry["name"] for entry in checked],
             verify_restore=verify_restore,
             enabled=enabled,
@@ -890,6 +915,24 @@ class DatabaseBackups:
         canonical = self.service.manager(engine).ENGINE_NAME if engine else None
         known = {(r.engine, r.file_name): r for r in self.records.dumps(canonical)}
         return [DumpView(info, known.get((info.engine, info.path.name))) for info in infos]
+
+    def record_resealed(self, view: DumpView, *, size: int, sha256: str) -> None:
+        """
+        Record a dump's stored size and digest after the file was sealed in place.
+
+        Without it the next check would say the file changed on disk since the dump was taken. A
+        dump nobody recorded (one imported by hand) has nothing to update.
+
+        Args:
+            view: The dump, as :meth:`list_dumps` returned it.
+            size: The stored file's size now.
+            sha256: Its SHA-256 now.
+        """
+        if view.record is None:
+            return
+        view.record.size = size
+        view.record.sha256 = sha256
+        self.records.save_dump(view.record)
 
     def _view(self, engine: str, file_name: str) -> DumpView:
         """
@@ -973,7 +1016,7 @@ class DatabaseBackups:
         if verify:
             view = self._check(view)
             if view.record and view.record.verify_status == STATUS_FAILED:
-                raise DatabaseBackupError(
+                raise DumpFailedItsCheck(
                     f"The dump {info.path.name} was taken but failed its check",
                     details=(
                         f"{view.record.verify_detail}\n\nThe file is kept at {info.path}. "
@@ -1868,9 +1911,11 @@ class DatabaseBackups:
             if on_step:
                 on_step(text)
 
-        def announce(build: Callable[..., Any], *args: Any) -> None:
+        subject = database_subject(engine_name, name)
+
+        def announce(build: Callable[..., Any], *args: Any, **kwargs: Any) -> None:
             if notify:
-                deliver(lambda ctx: build(engine_name, name, *args, ctx))
+                deliver(lambda ctx: build(engine_name, name, *args, ctx, **kwargs))
 
         def finish(*, ok: bool, error: str | None, dump: Any) -> None:
             if record:
@@ -1899,14 +1944,22 @@ class DatabaseBackups:
                 view = self._restore_test(view)
                 result["dump"] = view.to_dict()
                 if view.record and view.record.restore_test_status == STATUS_FAILED:
-                    raise DatabaseBackupError(
+                    raise DumpFailedItsCheck(
                         f"The dump {view.name} did not restore into a temporary database",
                         details=view.record.restore_test_detail or "",
                     )
                 result["restore_test"] = view.record.restore_test_status if view.record else None
         except NoustError as exc:
             finish(ok=False, error=str(exc), dump=result.get("dump"))
-            announce(compose_database_backup_failed, str(exc))
+            announce(
+                compose_database_backup_failed,
+                str(exc),
+                failure_id=record_failure("backup", subject, str(exc)),
+            )
+            if policy is not None and not isinstance(exc, DumpFailedItsCheck):
+                # A run that could not take a dump (the disk is full) is the one that most needs
+                # its old dumps pruned by the policy; a corrupt dump is kept as evidence instead.
+                self._prune_after_failure(policy, name)
             raise
 
         failures: list[tuple[str, str]] = []
@@ -1928,7 +1981,12 @@ class DatabaseBackups:
                 except NoustError as exc:
                     result["destinations"][target] = {"ok": False, "error": str(exc)}
                     failures.append((target, str(exc)))
-                    announce(compose_database_backup_upload_failed, target, str(exc))
+                    announce(
+                        compose_database_backup_upload_failed,
+                        target,
+                        str(exc),
+                        failure_id=record_failure("upload", subject, str(exc), destination=target),
+                    )
             if policy.remote_only and policy.destinations and not failures:
                 # Every destination holds it and verified it on arrival: the local copy is the
                 # one the small disk cannot afford. A dump that did not go everywhere stays.
@@ -1996,6 +2054,7 @@ class DatabaseBackups:
             return []
         by_name = {view.name: view for view in self.list_dumps(policy.engine)}
         candidates: list[tuple[str, datetime]] = []
+        good: dict[str, bool] = {}
         for record in self.records.dumps(policy.engine, database or policy.db_name):
             view = by_name.get(record.file_name)
             if view is None:
@@ -2003,6 +2062,10 @@ class DatabaseBackups:
                 self.records.delete_dump(policy.engine, record.file_name)
             elif record.origin == "scheduled":
                 candidates.append((record.file_name, view.info.created.astimezone(timezone.utc)))
+                good[record.file_name] = (
+                    record.verify_status != STATUS_FAILED
+                    and record.restore_test_status != STATUS_FAILED
+                )
         expired = select_expired(
             candidates,
             count=policy.retention_count,
@@ -2011,9 +2074,65 @@ class DatabaseBackups:
             max_bytes=policy.retention_bytes,
             sizes={name: by_name[name].info.size for name, _moment in candidates},
         )
+        # The newest dump is kept; when it is a bad one, so is the newest that is not.
+        expired = without_newest_good(
+            expired, [(name, moment, good[name]) for name, moment in candidates]
+        )
         for file_name in expired:
             self._remove_local(by_name[file_name], reason="retention")
         return expired
+
+    def _prune_after_failure(self, policy: BackupPolicy, database: str) -> None:
+        """
+        Apply a policy's retention after a run that failed, without hiding why it failed.
+
+        Args:
+            policy: The policy.
+            database: The database whose dumps are pruned.
+        """
+        try:
+            self._apply_local_retention(policy, database)
+        except (NoustError, OSError) as exc:
+            self.service.logger.warning(
+                f"Could not apply the retention of {policy.engine}/{database} after a failed "
+                f"run: {exc}"
+            )
+
+    def sweep_retention(self) -> dict[str, list[str]]:
+        """
+        Apply every policy's local retention now, whether or not its last run went well.
+
+        A policy used to prune only after a run that went well, so a dump that failed pruned
+        nothing and a timer that stopped pruned nothing either. This is the separate sweep: it
+        reads the policies and the dumps, never the engine, so it works with the engine down.
+        What a policy for all of an engine's databases covers is every database that has dumps
+        and neither a policy of its own nor a place in its exclusions.
+
+        Returns:
+            For each ``engine/database`` that lost dumps, their file names.
+        """
+        policies = self.records.policies()
+        own = {(p.engine, p.db_name) for p in policies if p.scope == SCOPE_DATABASE}
+        deleted: dict[str, list[str]] = {}
+        for policy in policies:
+            if policy.scope == SCOPE_DATABASE:
+                names = [policy.db_name]
+            else:
+                left_out = Exclusions.from_json(policy.exclusions).databases
+                names = sorted(
+                    {
+                        record.db_name
+                        for record in self.records.dumps(policy.engine)
+                        if record.db_name
+                        and (policy.engine, record.db_name) not in own
+                        and record.db_name not in left_out
+                    }
+                )
+            for name in names:
+                removed = self._apply_local_retention(policy, name)
+                if removed:
+                    deleted[f"{policy.engine}/{name}"] = removed
+        return deleted
 
 
 def _limit(value: Any, ceiling: int, field_name: str) -> int | None:

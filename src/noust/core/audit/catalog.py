@@ -374,6 +374,9 @@ EVENTS: dict[str, EventSpec] = {
             "backups.restore": "A backup was restored.",
             "backups.verify": "A backup was verified.",
             "backups.push": "A backup was sent to a remote destination.",
+            "backups.sweep": (
+                "Backups beyond their policies' retention were deleted without waiting for a run."
+            ),
             "backup.schedule.create": "A backup schedule was created.",
             "backup.schedule.update": "A backup schedule was changed.",
             "backup.schedule.delete": "A backup schedule was deleted.",
@@ -418,6 +421,7 @@ EVENTS: dict[str, EventSpec] = {
             "db.restore.superuser": "A dump was loaded as the database server's superuser, at the operator's explicit request.",
             "backup.encryption.key": "A key for sealing the backups kept on this server was made.",
             "backup.encryption.stop": "Backups kept on this server stopped being sealed.",
+            "backup.encryption.seal": "Backups already on this server's disk were sealed.",
             "db.tls.enable": "A host database engine was given a certificate to serve TLS with.",
             "db.tls.refresh": "A host database engine loaded the renewed certificate it serves.",
             "db.tls.disable": "A host database engine was taken off the certificate Noust gave it.",
@@ -622,6 +626,7 @@ EVENTS: dict[str, EventSpec] = {
     **_reads(
         {
             "apps.env.reveal": "An application's secret environment values were shown.",
+            "backup.encryption.reveal": "A key for sealing the backups kept on this server was shown.",
             "apps.export.secrets": "An application was exported with its secrets.",
             "store.export.secrets": "The store was dumped with the secret values of its records.",
             "audit.read": "The audit log was read.",

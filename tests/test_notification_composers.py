@@ -654,6 +654,64 @@ class TestBackups:
         assert facts(notification)["destinations"] == "s3-eu, nas"
 
 
+class TestTheWholeOutputOfABackupFailure:
+    """The notice names the record that keeps all of it (checklist H-10)."""
+
+    ERROR = "Backup of shop.example.com failed\n  Details: tar: No space left on device"
+
+    def test_the_command_that_reads_it_is_the_one_to_run_next(
+        self, ctx: NotificationContext
+    ) -> None:
+        notification = compose_backup_failed("shop.example.com", self.ERROR, ctx, failure_id=42)
+
+        assert notification.command is not None
+        assert notification.command.value == "noust backup failures show 42"
+        assert notification.command.mono is True
+
+    def test_a_link_opens_the_output_as_text_next_to_the_console_one(
+        self, ctx: NotificationContext
+    ) -> None:
+        notification = compose_backup_failed("shop.example.com", self.ERROR, ctx, failure_id=42)
+
+        links = {link.rel: link.url for link in notification.links}
+        assert links["console"] == "https://console.example.com/backups"
+        assert links["output"] == "https://console.example.com/api/backups/failures/42/output"
+
+    def test_no_public_address_means_no_link_but_still_the_command(
+        self, ctx: NotificationContext
+    ) -> None:
+        bare = NotificationContext(locale="en", server="web-1")
+
+        notification = compose_backup_failed("shop.example.com", self.ERROR, bare, failure_id=42)
+
+        assert notification.links == ()
+        assert notification.command is not None
+
+    def test_an_upload_failure_carries_it_too(self, ctx: NotificationContext) -> None:
+        notification = compose_backup_upload_failed(
+            "shop.example.com", "s3-eu", "Upload failed\n  Details: 403", ctx, failure_id=7
+        )
+
+        assert notification.state is State.WARNING
+        assert notification.command is not None
+        assert notification.command.value == "noust backup failures show 7"
+
+    def test_without_a_record_nothing_changes(self, ctx: NotificationContext) -> None:
+        notification = compose_backup_failed("shop.example.com", self.ERROR, ctx)
+
+        assert notification.command is None
+        assert [link.rel for link in notification.links] == ["console"]
+
+    def test_the_label_is_translated(self, ctx_es: NotificationContext) -> None:
+        notification = compose_backup_failed("shop.example.com", self.ERROR, ctx_es, failure_id=42)
+
+        assert notification.command is not None
+        assert notification.command.label == "Léela entera con"
+        assert {link.rel: link.label for link in notification.links}["output"] == (
+            "Abrir la salida completa"
+        )
+
+
 class TestCertificates:
     def test_a_certificate_about_to_expire(self, ctx: NotificationContext) -> None:
         notification = compose_certificate(

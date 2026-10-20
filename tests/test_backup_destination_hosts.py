@@ -136,6 +136,7 @@ class TestConfiguringADestination:
             "access_key_id": "key",
             "secret_access_key": "a-long-secret-value",
             "endpoint": "http://minio.private.test:9000",
+            "path": "backups/noust",
         }
 
         with pytest.raises(BackupError, match=re.escape("minio.private.test")):
@@ -144,7 +145,12 @@ class TestConfiguringADestination:
     def test_a_provider_with_no_host_to_name_has_nothing_to_judge(
         self, manager: BackupDestinationManager
     ) -> None:
-        fields = {"provider": "AWS", "access_key_id": "key", "secret_access_key": "a-long-secret"}
+        fields = {
+            "provider": "AWS",
+            "access_key_id": "key",
+            "secret_access_key": "a-long-secret",
+            "path": "backups/noust",
+        }
 
         assert manager.add("aws", "s3", fields).backend == "s3"
 

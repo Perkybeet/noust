@@ -26,8 +26,10 @@ from noust.core.notifications.model import Notification
 from noust.core.runner import FakeRunner
 from noust.core.store import BackupScheduleRecord, NoustStore, get_store
 from noust.managers.backup_destinations import BackupDestinationManager
+from noust.managers.backup_failures import BackupFailureLog
 from noust.managers.backup_manager import BackupManager, BackupMetadata
 from noust.managers.backup_scheduler import BackupSchedule, BackupScheduler, run_schedule
+from tests.notifications_support import failure_id_of
 from tests.test_notifier import config  # noqa: F401  (pytest resolves fixtures by name)
 
 # The notifier's config fixture is imported rather than replicated, so there
@@ -464,6 +466,106 @@ class TestRunSchedule:
 
         assert pushed == []
         assert any(event.kind == "backup_failed" for event in notified)
+
+    def test_the_notice_of_a_failed_backup_links_to_all_of_its_output(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        get_store().save_backup_schedule(
+            BackupScheduleRecord(app_domain="shop.example.com", schedule="daily")
+        )
+        output = "\n".join(f"tar: step {n}" for n in range(300)) + "\ntar: No space left on device"
+
+        def fake_create(self: BackupManager, **kwargs: object) -> BackupMetadata:
+            raise BackupError("Backup of shop.example.com failed", details=output)
+
+        monkeypatch.setattr(BackupManager, "create", fake_create)
+        notified: list[Notification] = []
+        monkeypatch.setattr(
+            "noust.core.notifier.Notifier.notify", lambda self, event: notified.append(event)
+        )
+
+        with pytest.raises(BackupError):
+            run_schedule("shop.example.com")
+
+        (notice,) = [event for event in notified if event.code == "backup.failed"]
+        failure_id = failure_id_of(notice)
+        stored = BackupFailureLog(get_store()).get(failure_id)
+        assert stored is not None and (stored.kind, stored.subject) == (
+            "backup",
+            "shop.example.com",
+        )
+        assert "tar: step 0" in stored.output and "No space left on device" in stored.output
+        assert notice.excerpt is not None and len(notice.excerpt.lines) <= 12
+        assert notice.command is not None
+        assert notice.command.value == f"noust backup failures show {failure_id}"
+
+    def test_the_notice_of_a_refused_upload_links_to_what_the_destination_said(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        get_store().save_backup_schedule(
+            BackupScheduleRecord(
+                app_domain="shop.example.com",
+                schedule="daily",
+                destinations=[{"name": "broken", "retention_count": None, "retention_days": None}],
+            )
+        )
+        monkeypatch.setattr(
+            BackupManager,
+            "create",
+            lambda self, **kwargs: _metadata(
+                "shop-example-com_20260101_000000", "shop.example.com"
+            ),
+        )
+
+        def fake_push(self, backup, destination_name, **kwargs):  # type: ignore[no-untyped-def]
+            raise BackupError(
+                "Failed to upload to broken", details="rclone: " + "403 Forbidden " * 200
+            )
+
+        monkeypatch.setattr(BackupDestinationManager, "push", fake_push)
+        notified: list[Notification] = []
+        monkeypatch.setattr(
+            "noust.core.notifier.Notifier.notify", lambda self, event: notified.append(event)
+        )
+
+        with pytest.raises(BackupError):
+            run_schedule("shop.example.com")
+
+        (notice,) = [event for event in notified if event.code == "backup.upload_failed"]
+        failure_id = failure_id_of(notice)
+        stored = BackupFailureLog(get_store()).get(failure_id)
+        assert stored is not None and (stored.kind, stored.destination) == ("upload", "broken")
+        assert stored.output.count("403 Forbidden") == 200
+
+    def test_a_backup_that_does_not_verify_links_to_the_report(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        get_store().save_backup_schedule(
+            BackupScheduleRecord(app_domain="shop.example.com", schedule="daily")
+        )
+        monkeypatch.setattr(
+            BackupManager,
+            "create",
+            lambda self, **kwargs: _metadata(
+                "shop-example-com_20260101_000000", "shop.example.com"
+            ),
+        )
+        monkeypatch.setattr(
+            "noust.managers.backup_scheduler._verify_when_due",
+            lambda manager, metadata, config: {"valid": False, "errors": ["checksum mismatch"]},
+        )
+        notified: list[Notification] = []
+        monkeypatch.setattr(
+            "noust.core.notifier.Notifier.notify", lambda self, event: notified.append(event)
+        )
+
+        with pytest.raises(BackupError):
+            run_schedule("shop.example.com")
+
+        (notice,) = [event for event in notified if event.code == "backup.failed"]
+        failure_id = failure_id_of(notice)
+        stored = BackupFailureLog(get_store()).get(failure_id)
+        assert stored is not None and "checksum mismatch" in stored.output
 
     def test_notifications_are_rendered_in_the_configured_language(
         self, monkeypatch: pytest.MonkeyPatch, config: Config

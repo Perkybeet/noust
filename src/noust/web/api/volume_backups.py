@@ -234,6 +234,10 @@ class SetVolumePolicyRequest(BaseModel):
         destinations: Remote copies, each with its own retention.
         consistency: ``live``, ``pause`` (freeze it for the copy) or ``stop``.
         enabled: Whether the timer runs; a disabled policy keeps its settings.
+        max_runtime_seconds: The longest a run may take; systemd stops one past it. Null for
+            no limit.
+        timezone: The time zone the schedule is read in (``Europe/Madrid``); null for the
+            server's clock.
     """
 
     schedule: str = Field(default="daily")
@@ -246,6 +250,19 @@ class SetVolumePolicyRequest(BaseModel):
     destinations: list[PolicyDestination] = Field(default_factory=list)
     consistency: str = "live"
     enabled: bool = True
+    max_runtime_seconds: int | None = Field(
+        default=None,
+        ge=60,
+        le=604800,
+        description="Stop a run that takes longer than this many seconds (1 minute to 7 days); "
+        "null for no limit.",
+    )
+    timezone: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Read the schedule in this time zone of the server's database, such as "
+        "Europe/Madrid; null for the server's clock.",
+    )
 
     @field_validator("schedule")
     @classmethod
@@ -505,6 +522,8 @@ def set_policy(
         remote_only=request.remote_only,
         destinations=[dump_model(entry) for entry in request.destinations],
         consistency=request.consistency,
+        max_runtime=request.max_runtime_seconds,
+        zone=request.timezone,
         enabled=request.enabled,
     )
     return _policy_response(view)

@@ -979,6 +979,8 @@ class TestDumpingEveryDatabaseOfAStack:
             "engine": "postgres",
             "database": "proggest",
             "user": "proggest",
+            # The image the dump was taken from, so a drill can load it into the same version.
+            "image": "postgres:16-alpine",
         }
         assert (tmp_path / "databases" / "stack-postgres-postgres-proggest.dump.gz").is_file()
         assert StackDatabase.from_entry(entry["stack"]) == POSTGRES

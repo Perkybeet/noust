@@ -2003,8 +2003,30 @@ def _validate_control(control: Any) -> Callable[[Any], Any]:
     return validator
 
 
+def _validate_cpu_quota(value: Any) -> int | None:
+    """
+    Accept a CPU ceiling for the backups: a percent of one CPU, or none.
+
+    Args:
+        value: A whole number from 1 to 10000, or ``none``/``off`` for no ceiling.
+
+    Returns:
+        The percent, or None.
+
+    Raises:
+        ConfigError: When it is neither.
+    """
+    if value is None or str(value).strip().lower() in ("", "none", "off", "no"):
+        return None
+    return _int_range_validator("backup.cpu_quota", 1, 10000)(value)
+
+
 _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "webserver": _validate_webserver,
+    "backup.nice": _int_range_validator("backup.nice", 0, 19),
+    "backup.io_class": _validate_choice("backup.io_class", ("best-effort", "idle")),
+    "backup.io_priority": _int_range_validator("backup.io_priority", 0, 7),
+    "backup.cpu_quota": _validate_cpu_quota,
     "databases.import_max_bytes": _int_range_validator(
         "databases.import_max_bytes", 1024 * 1024, 1024**4
     ),

@@ -359,8 +359,8 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **1018** API operations. **978** need a permission (`x-noust-permission`) and **40** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **339** operations need sudo mode and **38** can need a second person.
+- **1031** API operations. **991** need a permission (`x-noust-permission`) and **40** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **346** operations need sudo mode and **38** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
@@ -374,8 +374,8 @@ only what recovering an account takes.
 | `apps.terminal` | 12 |
 | `audit.manage` | 1 |
 | `audit.read` | 9 |
-| `backups.manage` | 22 |
-| `backups.read` | 19 |
+| `backups.manage` | 28 |
+| `backups.read` | 24 |
 | `backups.run` | 14 |
 | `compliance.read` | 4 |
 | `databases.manage` | 53 |
@@ -385,12 +385,12 @@ only what recovering an account takes.
 | `fleet.read` | 22 |
 | `public` | 40 |
 | `root_equivalent` | 18 |
-| `secrets.reveal` | 15 |
+| `secrets.reveal` | 16 |
 | `security.manage` | 8 |
 | `self` | 41 |
 | `server.host_access` | 21 |
 | `server.manage` | 55 |
-| `server.read` | 75 |
+| `server.read` | 76 |
 | `server.terminal` | 1 |
 | `settings.manage` | 30 |
 | `settings.read` | 22 |
@@ -485,15 +485,15 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **495** events.
+The catalogue holds **498** events.
 
 | Category | Events |
 |---|---|
 | access | 46 |
 | account | 36 |
 | config | 29 |
-| change | 324 |
-| read | 20 |
+| change | 326 |
+| read | 21 |
 | denial | 16 |
 | system | 21 |
 | host | 3 |

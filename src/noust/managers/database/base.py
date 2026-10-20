@@ -80,6 +80,7 @@ from noust.managers.database.instances import (
     mask_container_log,
     storage_name,
 )
+from noust.managers.database.pg_globals import GlobalsRestore
 from noust.managers.database.rpm_flavours import (
     default_rpm_plan,
     install_rpm_repository,
@@ -888,6 +889,9 @@ class BaseDatabaseManager(BaseManager):
 
     #: Where backups are written when the caller gives no path.
     BACKUP_DIR = paths.backup_dir() / "databases"
+    #: Whether the engine has roles of its own server to dump and put back
+    #: (``backup_globals``, ``restore_globals``): PostgreSQL's, which no database dump carries.
+    HAS_GLOBALS = False
 
     #: The container this manager drives, or None for the host's engine.
     #: Set by :meth:`bind`; see :mod:`noust.managers.database.instances`.
@@ -3087,6 +3091,45 @@ class BaseDatabaseManager(BaseManager):
             DatabaseBackupError: When the engine's loader fails; the error
                 carries its output verbatim.
         """
+
+    def backup_globals(self, output_path: Path | None = None, compress: bool = True) -> BackupInfo:
+        """
+        Dump the roles of the server, for the engines that keep them apart from the databases.
+
+        Only PostgreSQL does (:attr:`HAS_GLOBALS`); the others' accounts are inside what they dump.
+
+        Args:
+            output_path: Where to write it.
+            compress: Pipe it through gzip.
+
+        Returns:
+            The file written.
+
+        Raises:
+            DatabaseBackupError: Always, for an engine without roles of its own.
+        """
+        raise DatabaseBackupError(
+            f"{self.DISPLAY_NAME} has no roles of its own to dump",
+            details="Only PostgreSQL keeps its roles apart from its databases.",
+        )
+
+    def restore_globals(self, source: Path) -> GlobalsRestore:
+        """
+        Create the roles of a file that this server does not have.
+
+        Args:
+            source: A file written by :meth:`backup_globals`.
+
+        Returns:
+            What was created, what was there and what was left out.
+
+        Raises:
+            DatabaseBackupError: Always, for an engine without roles of its own.
+        """
+        raise DatabaseBackupError(
+            f"{self.DISPLAY_NAME} has no roles of its own to restore",
+            details="Only PostgreSQL keeps its roles apart from its databases.",
+        )
 
     def list_backups(self, database: str | None = None) -> list[BackupInfo]:
         """

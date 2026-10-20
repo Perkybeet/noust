@@ -22,6 +22,7 @@ change nothing.
 
 from __future__ import annotations
 
+import logging
 import re
 import sqlite3
 import time
@@ -57,7 +58,10 @@ from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import BackupScheduleRecord, get_store
 from noust.core.utils import domain_to_app_name, find_noust_executable
 from noust.managers.backup_destinations import BackupDestinationManager
+from noust.managers.backup_failures import record_failure
 from noust.managers.backup_manager import SCHEDULED_TAG, BackupManager, BackupMetadata
+from noust.managers.backup_priority import current_priority, with_priority
+from noust.managers.backup_timer_options import TimerOptions, TimerOptionsStore, with_options
 from noust.managers.database.scope import ALL_DATABASES, timer_label
 from noust.validators.domain import validate_domain
 from noust.validators.names import resolve_within, validate_app_name, validate_service_name
@@ -115,12 +119,22 @@ _SELF_DESCRIPTION_PREFIX = "Noust self-backup timer for "
 #: base backups (``noust db pitr``).
 _PITR_DESCRIPTION_PREFIX = "Noust point-in-time recovery timer for "
 
+#: The timer of the retention sweep (:mod:`noust.managers.backup_sweep`), which every backup
+#: policy's timer brings along: it prunes what a run that failed or a timer that stopped did not.
+_SWEEP_DESCRIPTION_PREFIX = "Noust backup sweep timer for "
+
+#: When it runs: after the nightly backups, before the day.
+SWEEP_CALENDAR = "*-*-* 04:30:00"
+
 #: How often it runs: the log is sent as it is archived, a minute behind at the most per run.
 PITR_CALENDAR = "*-*-* *:0/5:00"
 
 #: The unit of Noust's own state backup. An application's units are named after
 #: its domain, which always has a dot and so a dash: this name has none.
 SELF_BACKUP_UNIT = f"{paths.BACKUP_UNIT_PREFIX}self"
+
+#: The unit of the retention sweep, named like Noust's own state's: no application has it.
+SWEEP_UNIT = f"{paths.BACKUP_UNIT_PREFIX}sweep"
 
 #: The ``OnCalendar`` expression inside systemd's ``TimersCalendar`` property,
 #: which prints as ``{ OnCalendar=*-*-* 02:00:00 ; next_elapse=... }``.
@@ -185,6 +199,8 @@ class BackupSchedule:
             destination holds it and its upload was checked (a small disk). It
             needs a destination: there would be nowhere to keep the backup.
         tags: Tags attached to the backups this schedule creates.
+        options: The time limit and time zone of the timer
+            (:class:`~noust.managers.backup_timer_options.TimerOptions`).
         destinations: Remote copies to push each scheduled backup to, as
             ``{"name", "retention_count", "retention_days", "retention_gb"}`` per destination
             - the same shape :attr:`noust.core.store.BackupScheduleRecord.destinations`
@@ -201,6 +217,7 @@ class BackupSchedule:
     remote_only: bool = False
     tags: list[str] = field(default_factory=lambda: [SCHEDULED_TAG, "auto"])
     destinations: list[dict[str, Any]] = field(default_factory=list)
+    options: TimerOptions = field(default_factory=TimerOptions)
 
     @property
     def on_calendar(self) -> str:
@@ -293,6 +310,14 @@ class BackupScheduler:
         """
         return self._fs or get_fs()
 
+    @property
+    def options(self) -> TimerOptionsStore:
+        """
+        Returns:
+            The time limit and time zone of every timer.
+        """
+        return TimerOptionsStore(get_store())
+
     def _systemctl(self, *args: str) -> Any:
         """
         Run a systemctl verb through the shared runner.
@@ -349,9 +374,52 @@ class BackupScheduler:
         """
         return resolve_within(self.SYSTEMD_DIR, unit_name)
 
+    @staticmethod
+    def _is_backup_unit(path: Path, suffix: str) -> bool:
+        """
+        Args:
+            path: A unit file.
+            suffix: ``.service`` or ``.timer``.
+
+        Returns:
+            Whether it is one of the units a backup schedule is made of (an application's, a
+            database's, a volume's, the self-backup's, the sweep's or the point-in-time upkeep).
+        """
+        return path.suffix == suffix and path.name.startswith(
+            (paths.BACKUP_UNIT_PREFIX, paths.LEGACY_BACKUP_UNIT_PREFIX)
+        )
+
+    def _decorate(self, path: Path, content: str) -> str:
+        """
+        Give a unit what every backup unit has beyond its template.
+
+        The service a backup runs in gets the priority the configuration asks for
+        (:mod:`noust.managers.backup_priority`) and its time limit; its timer gets its time zone
+        (:mod:`noust.managers.backup_timer_options`).
+
+        Args:
+            path: The unit file.
+            content: The unit's text.
+
+        Returns:
+            The text to write.
+        """
+        if self._is_backup_unit(path, ".service"):
+            return with_options(
+                with_priority(content, current_priority()),
+                self.options.get(path.stem),
+                kind="service",
+            )
+        if self._is_backup_unit(path, ".timer"):
+            return with_options(content, self.options.get(path.stem), kind="timer")
+        return content
+
     def _write_unit(self, path: Path, content: str) -> None:
         """
         Write a unit file as root.
+
+        The service a backup runs in is written at the priority the configuration asks for
+        (:mod:`noust.managers.backup_priority`); this is the one place, so no unit is missed.
 
         Args:
             path: Destination unit file.
@@ -360,6 +428,7 @@ class BackupScheduler:
         Raises:
             BackupError: If the file cannot be written.
         """
+        content = self._decorate(path, content)
         try:
             self.fs.write_text(path, content, mode=_UNIT_MODE)
         except OSError as exc:
@@ -400,6 +469,7 @@ class BackupScheduler:
             domain=domain,
             app_name=app_name,
             schedule=calendar,
+            options=schedule.options,
             include_databases=schedule.include_databases,
             retention_count=schedule.retention_count,
             retention_days=schedule.retention_days,
@@ -412,6 +482,7 @@ class BackupScheduler:
         timer_path = self._unit_path(f"{checked.timer_name}.timer")
         service_path = self._unit_path(f"{checked.service_name}.service")
 
+        self.options.set(checked.timer_name, checked.options)
         self._write_unit(timer_path, self.render_timer(checked))
         self._write_unit(service_path, self.render_service(checked))
 
@@ -442,6 +513,7 @@ class BackupScheduler:
 
         self.logger.info(f"Created backup schedule: {checked.timer_name}")
         self.logger.info(f"  Schedule: {checked.on_calendar}")
+        self._ensure_sweep_timer()
         return True
 
     def remove_schedule(self, domain: str) -> bool:
@@ -475,6 +547,7 @@ class BackupScheduler:
 
         self._systemctl("daemon-reload")
         get_store().delete_backup_schedule(validated_domain)
+        self.options.delete(timer_name)
 
         self.logger.info(f"Removed backup schedule: {timer_name}")
         return True
@@ -565,6 +638,7 @@ class BackupScheduler:
                         _VOLUME_DESCRIPTION_PREFIX,
                         _SELF_DESCRIPTION_PREFIX,
                         _PITR_DESCRIPTION_PREFIX,
+                        _SWEEP_DESCRIPTION_PREFIX,
                     )
                 ):
                     # A database's, a volume policy's or Noust's own timer (see
@@ -607,6 +681,11 @@ class BackupScheduler:
                 )
                 schedule_info["include_databases"] = "true" if record.include_databases else "false"
                 schedule_info["remote_only"] = "true" if record.remote_only else "false"
+                options = self.options.get(timer_name)
+                if options.max_runtime_seconds:
+                    schedule_info["max_runtime_seconds"] = str(options.max_runtime_seconds)
+                if options.timezone:
+                    schedule_info["timezone"] = options.timezone
 
             schedules.append(schedule_info)
 
@@ -703,6 +782,77 @@ class BackupScheduler:
             destinations=list(record.destinations),
         )
 
+    def _ensure_sweep_timer(self) -> None:
+        """
+        Make sure the retention sweep's timer exists, without ever failing the schedule that asked.
+
+        The sweep is the backstop for a policy whose runs fail or stop, so every policy brings it
+        along; a failure to install it is a warning, because the schedule itself was made.
+        """
+        timer_path = self._unit_path(f"{SWEEP_UNIT}.timer")
+        if timer_path.is_file() and self._is_ours(timer_path, _SWEEP_DESCRIPTION_PREFIX):
+            return
+        try:
+            self.install_unit_pair(
+                SWEEP_UNIT,
+                _SWEEP_DESCRIPTION_PREFIX,
+                "the retention sweep",
+                "backup-sweep-timer.j2",
+                "backup-sweep-service.j2",
+                SWEEP_CALENDAR,
+                target="every backup policy",
+            )
+        except BackupError as exc:
+            self.logger.warning(f"The retention sweep's timer could not be made: {exc}")
+
+    def sweep_timer_state(self) -> dict[str, Any]:
+        """
+        Ask systemd about the retention sweep's timer.
+
+        Returns:
+            ``installed``, ``next_run`` and ``last_run``.
+        """
+        return self.unit_state(SWEEP_UNIT)
+
+    def apply_priority(self) -> list[str]:
+        """
+        Give every backup service already on this server the priority the configuration asks for.
+
+        Units written before the priority existed, or before the operator changed it, are
+        rewritten in place; a unit that already has the block, one that is not Noust's and a
+        link are left alone. systemd is told once, when something changed.
+
+        Returns:
+            The file names of the units that were rewritten.
+
+        Raises:
+            ValidationError: A priority setting is not valid; nothing was rewritten.
+        """
+        current_priority()  # a setting that is not valid stops the whole pass, untouched
+        changed: list[str] = []
+        directory = self.SYSTEMD_DIR
+        if not directory.is_dir():
+            return changed
+        for prefix in (paths.BACKUP_UNIT_PREFIX, paths.LEGACY_BACKUP_UNIT_PREFIX):
+            for path in sorted(
+                [*directory.glob(f"{prefix}*.service"), *directory.glob(f"{prefix}*.timer")]
+            ):
+                if path.is_symlink() or not path.is_file():
+                    continue
+                try:
+                    text = path.read_text(encoding="utf-8")
+                except (OSError, UnicodeDecodeError):
+                    continue
+                if not paths.carries_unit_marker(text):
+                    continue
+                if self._decorate(path, text) == text:
+                    continue
+                self._write_unit(path, text)
+                changed.append(path.name)
+        if changed:
+            self._systemctl("daemon-reload")
+        return changed
+
     # -- database policies ---------------------------------------------------
 
     @staticmethod
@@ -766,7 +916,9 @@ class BackupScheduler:
         except OSError:
             return False
 
-    def install_database_timer(self, engine: str, database: str, schedule: str) -> str:
+    def install_database_timer(
+        self, engine: str, database: str, schedule: str, *, options: TimerOptions | None = None
+    ) -> str:
         """
         Create or replace the timer that runs a database's backup policy.
 
@@ -779,6 +931,8 @@ class BackupScheduler:
             engine: Canonical engine name.
             database: The database.
             schedule: An alias of :data:`SCHEDULE_ALIASES` or a calendar expression.
+            options: The timer's time limit and time zone; none when omitted (which clears
+                what an earlier install set).
 
         Returns:
             The timer's unit name.
@@ -798,6 +952,7 @@ class BackupScheduler:
                 "that owns it before scheduling this database.",
             )
         target = f"{engine}/{database}"
+        self.options.set(unit, options or TimerOptions())
         self._write_unit(
             timer_path, self._render("database-backup-timer.j2", target=target, schedule=calendar)
         )
@@ -822,6 +977,7 @@ class BackupScheduler:
                 details=result.stderr.strip() or "Check 'systemctl status' for details.",
             )
         self.logger.info(f"Created database backup schedule: {unit} ({calendar})")
+        self._ensure_sweep_timer()
         return unit
 
     def remove_database_timer(self, engine: str, database: str) -> bool:
@@ -849,6 +1005,7 @@ class BackupScheduler:
             except OSError as exc:
                 self.logger.warning(f"Could not remove {path}: {exc}")
         self._systemctl("daemon-reload")
+        self.options.delete(unit)
         self.logger.info(f"Removed database backup schedule: {unit}")
         return True
 
@@ -882,6 +1039,7 @@ class BackupScheduler:
             "installed": properties.get("LoadState") == "loaded",
             "next_run": next_run if next_run and next_run != "n/a" else None,
             "last_run": last_run if last_run and last_run != "n/a" else None,
+            **self.options.get(unit).to_dict(),
         }
 
     # -- timers for what is not an application's own schedule ---------------
@@ -894,6 +1052,8 @@ class BackupScheduler:
         timer_template: str,
         service_template: str,
         calendar: str,
+        *,
+        options: TimerOptions | None = None,
         **values: str,
     ) -> None:
         """
@@ -906,6 +1066,7 @@ class BackupScheduler:
             timer_template: The timer's template.
             service_template: The service's template.
             calendar: The validated ``OnCalendar`` expression.
+            options: The timer's time limit and time zone; none when omitted.
             **values: What the templates are given besides the calendar.
 
         Raises:
@@ -929,6 +1090,7 @@ class BackupScheduler:
                 details="Another timer already has this name; remove it or rename the "
                 "application that owns it before scheduling this.",
             )
+        self.options.set(unit, options or TimerOptions())
         self._write_unit(timer_path, self._render(timer_template, schedule=calendar, **values))
         self._write_unit(
             service_path,
@@ -968,6 +1130,7 @@ class BackupScheduler:
             except OSError as exc:
                 self.logger.warning(f"Could not remove {path}: {exc}")
         self._systemctl("daemon-reload")
+        self.options.delete(unit)
         self.logger.info(f"Removed schedule: {unit}")
         return True
 
@@ -999,6 +1162,7 @@ class BackupScheduler:
             "installed": properties.get("LoadState") == "loaded",
             "next_run": next_run if next_run and next_run != "n/a" else None,
             "last_run": last_run if last_run and last_run != "n/a" else None,
+            **self.options.get(unit).to_dict(),
         }
 
     @staticmethod
@@ -1014,7 +1178,9 @@ class BackupScheduler:
         """
         return f"{paths.BACKUP_UNIT_PREFIX}vol-{domain_to_app_name(domain)}"
 
-    def install_volume_timer(self, domain: str, schedule: str) -> str:
+    def install_volume_timer(
+        self, domain: str, schedule: str, *, options: TimerOptions | None = None
+    ) -> str:
         """
         Create or replace the timer that runs an application's volume backup policy.
 
@@ -1025,6 +1191,7 @@ class BackupScheduler:
         Args:
             domain: The application's domain.
             schedule: An alias of :data:`SCHEDULE_ALIASES` or a calendar expression.
+            options: The timer's time limit and time zone.
 
         Returns:
             The timer's unit name.
@@ -1048,9 +1215,11 @@ class BackupScheduler:
             "volume-backup-timer.j2",
             "volume-backup-service.j2",
             calendar,
+            options=options,
             target=domain,
             domain=domain,
         )
+        self._ensure_sweep_timer()
         return unit
 
     def remove_volume_timer(self, domain: str) -> bool:
@@ -1077,12 +1246,15 @@ class BackupScheduler:
         """
         return self.unit_state(self.volume_timer_name(domain))
 
-    def install_self_backup_timer(self, schedule: str) -> str:
+    def install_self_backup_timer(
+        self, schedule: str, *, options: TimerOptions | None = None
+    ) -> str:
         """
         Create or replace the timer that backs up Noust's own state.
 
         Args:
             schedule: An alias of :data:`SCHEDULE_ALIASES` or a calendar expression.
+            options: The timer's time limit and time zone.
 
         Returns:
             The timer's unit name.
@@ -1098,6 +1270,7 @@ class BackupScheduler:
             "self-backup-timer.j2",
             "self-backup-service.j2",
             calendar,
+            options=options,
             target="this server",
         )
         return SELF_BACKUP_UNIT
@@ -1308,6 +1481,73 @@ def _create_when_free(
             time.sleep(_LOCK_RETRY_SECONDS)
 
 
+def _rotate_schedule(
+    backup_manager: BackupManager, domain: str, record: BackupScheduleRecord
+) -> int:
+    """
+    Apply a schedule's retention to the backups it made.
+
+    Args:
+        backup_manager: Manager the backups belong to.
+        domain: Application domain.
+        record: The schedule.
+
+    Returns:
+        How many backups were deleted; 0 when the schedule sets no limit.
+    """
+    if (
+        record.retention_count is None
+        and record.retention_days is None
+        and not record.retention_bytes
+    ):
+        return 0
+    return backup_manager.rotate_by_policy(
+        domain_to_app_name(domain),
+        max_count=record.retention_count or backup_manager.max_backups,
+        max_age_days=record.retention_days,
+        tag=SCHEDULED_TAG,
+        max_bytes=record.retention_bytes,
+    )
+
+
+def _prune_after_failure(
+    backup_manager: BackupManager, domain: str, record: BackupScheduleRecord
+) -> None:
+    """
+    Apply a schedule's retention after a run that could not take its backup.
+
+    Args:
+        backup_manager: Manager the backups belong to.
+        domain: Application domain.
+        record: The schedule.
+    """
+    try:
+        _rotate_schedule(backup_manager, domain, record)
+    except (NoustError, OSError, sqlite3.Error) as exc:
+        logging.getLogger(__name__).warning(
+            "Could not apply the retention of %s after a failed run: %s", domain, exc
+        )
+
+
+def sweep_application_retention(backup_manager: BackupManager | None = None) -> dict[str, int]:
+    """
+    Apply every application schedule's retention now, whether or not its last run went well.
+
+    Args:
+        backup_manager: The manager to rotate through; the real one by default.
+
+    Returns:
+        For each application that lost backups, how many.
+    """
+    manager = backup_manager or BackupManager()
+    deleted: dict[str, int] = {}
+    for record in get_store().list_backup_schedules():
+        count = _rotate_schedule(manager, record.app_domain, record)
+        if count:
+            deleted[record.app_domain] = count
+    return deleted
+
+
 def _moment(value: str | None) -> datetime | None:
     """
     Read a sidecar's timestamp as a naive local time, as backups write them.
@@ -1508,7 +1748,10 @@ def run_schedule(
     try:
         metadata = _create_when_free(backup_manager, domain, record)
     except NoustError as exc:
-        _notify_backup(config, compose_backup_failed(domain, str(exc), ctx))
+        # No new backup, so the retention that frees room for the next one is what is left to do.
+        _prune_after_failure(backup_manager, domain, record)
+        failure_id = record_failure("backup", domain, str(exc))
+        _notify_backup(config, compose_backup_failed(domain, str(exc), ctx, failure_id=failure_id))
         raise
 
     result: dict[str, Any] = {
@@ -1524,7 +1767,8 @@ def run_schedule(
         # make room for it by deleting a good copy.
         problem = "; ".join(verification.get("errors") or []) or "it did not verify"
         message = f"backup {metadata.id} failed its verification: {problem}"
-        _notify_backup(config, compose_backup_failed(domain, message, ctx))
+        failure_id = record_failure("backup", domain, message)
+        _notify_backup(config, compose_backup_failed(domain, message, ctx, failure_id=failure_id))
         raise BackupError(
             f"The scheduled backup of {domain} failed its verification and was not sent",
             details=f"{problem}. Run 'noust backup verify {metadata.id}' for the whole report.",
@@ -1550,7 +1794,11 @@ def run_schedule(
             # stderr, already scrubbed of the destination's secrets.
             result["destinations"][name] = {"ok": False, "error": str(exc)}
             failures.append((name, str(exc)))
-            _notify_backup(config, compose_backup_upload_failed(domain, name, str(exc), ctx))
+            failure_id = record_failure("upload", domain, str(exc), destination=name)
+            _notify_backup(
+                config,
+                compose_backup_upload_failed(domain, name, str(exc), ctx, failure_id=failure_id),
+            )
 
     if failures:
         # Each destination's own error, rclone's words included: a timer run

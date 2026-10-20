@@ -478,3 +478,67 @@ def test_protecting_encrypts_the_destinations_made_before_and_names_them(
     after = client.get("/api/backup-destinations").json()["destinations"][0]
     assert after["credentials_protected"] is True
     assert client.post("/api/backup-destinations/protect").json() == {"protected": []}
+
+
+# ---------------------------------------------------------------------------
+# Tried before it is kept (checklist H-11)
+# ---------------------------------------------------------------------------
+
+
+def test_a_destination_that_does_not_connect_is_refused_with_rclones_words_and_not_saved(
+    client: TestClient, master_token: str, runner: FakeRunner
+) -> None:
+    elevate(client, master_token)
+    runner.script(("rclone", "mkdir"), stderr="ssh: handshake failed", exit_code=1)
+
+    response = client.post(
+        "/api/backup-destinations",
+        json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS, "encrypted": False},
+    )
+
+    assert response.status_code == 400, response.text
+    body = response.json()
+    assert body["error"] == "destination_unreachable"
+    assert "handshake failed" in (body["output"] or "")
+    assert "s3cr3t-password-value" not in response.text
+    assert client.get("/api/backup-destinations").json()["destinations"] == []
+
+
+def test_verify_false_keeps_one_that_is_down_on_purpose(
+    client: TestClient, master_token: str, runner: FakeRunner
+) -> None:
+    elevate(client, master_token)
+    runner.script(("rclone", "mkdir"), stderr="connection refused", exit_code=1)
+
+    response = client.post(
+        "/api/backup-destinations",
+        json={
+            "name": "nas",
+            "backend": "sftp",
+            "fields": SFTP_FIELDS,
+            "encrypted": False,
+            "verify": False,
+        },
+    )
+
+    assert response.status_code == 201, response.text
+
+
+def test_an_update_that_does_not_connect_leaves_it_as_it_was(
+    client: TestClient, master_token: str, runner: FakeRunner
+) -> None:
+    elevate(client, master_token)
+    client.post(
+        "/api/backup-destinations",
+        json={"name": "nas", "backend": "sftp", "fields": SFTP_FIELDS, "encrypted": False},
+    )
+    runner.script(("rclone", "mkdir"), stderr="no route to host", exit_code=1)
+
+    response = client.put(
+        "/api/backup-destinations/nas", json={"fields": {"host": "elsewhere.example.com"}}
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"] == "destination_unreachable"
+    listed = client.get("/api/backup-destinations").json()["destinations"]
+    assert listed[0]["settings"]["host"] == "nas.example.com"

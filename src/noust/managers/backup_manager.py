@@ -293,8 +293,10 @@ class UnpackedBackup:
         dumps: ``(engine, database, file)`` of each database dump it carries,
             files that are inside ``root``.
         stack_dumps: How many dumps of a Compose stack's own databases it
-            carries; those are put back through the stack's containers and
-            cannot be tried on the side.
+            carries; those are put back through the stack's containers.
+        stack: Each of those a restore can use, with its file: the database as
+            the manifest describes it (the image it ran included) and the dump.
+            A drill loads them into a throwaway container of that image.
     """
 
     metadata: BackupMetadata
@@ -302,6 +304,7 @@ class UnpackedBackup:
     manifest: dict[str, Any] | None
     dumps: tuple[tuple[str, str, Path], ...]
     stack_dumps: int = 0
+    stack: tuple[tuple[StackDatabase, Path], ...] = ()
 
 
 @dataclass
@@ -1631,6 +1634,7 @@ class BackupManager:
             # encrypting them first would do it twice and make the archive incompressible.
             with sealing_suspended():
                 database_backups: list[dict[str, Any]] = []
+                server_roles: list[dict[str, Any]] = []
                 stack_backups: list[dict[str, Any]] = []
                 if include_stack_databases or include_databases:
                     stack_backups = self._dump_stack_databases(
@@ -1649,6 +1653,9 @@ class BackupManager:
                         covered=_stack_copies(stack_backups),
                     )
                 database_backups += stack_backups
+                if include_databases:
+                    # The roles those dumps name, which belong to the server, not the database.
+                    server_roles = self._dump_globals(payload_dir / DATABASES_DIR, database_backups)
                 if include_databases and not database_backups:
                     self.logger.warning(
                         f"No database was backed up for {domain}: the archive contains files only"
@@ -1672,6 +1679,7 @@ class BackupManager:
                 "app_type": app_type,
                 "created_at": created_at,
                 "databases": database_backups,
+                "globals": server_roles,
                 "volumes": volume_backups,
             }
             self.fs.write_text(
@@ -1966,6 +1974,34 @@ class BackupManager:
             app_backup_dir / f"{backup.id}{ARCHIVE_SUFFIX}",
             app_backup_dir / f"{backup.id}.json",
         )
+
+    def record_resealed(self, backup: BackupMetadata, *, size_bytes: int, checksum: str) -> None:
+        """
+        Write a backup's sidecar again after its archive was sealed in place.
+
+        Sealing changes the bytes the sidecar describes, and its MAC covers the checksum, so the
+        size, the checksum and the MAC are written together: the sidecar of a sealed archive
+        authenticates the file that is on the disk, as it does for one sealed when it was made.
+
+        Args:
+            backup: The backup, as :meth:`get_backup` returned it.
+            size_bytes: The stored archive's size now.
+            checksum: Its SHA-256 now.
+
+        Raises:
+            BackupError: When the sidecar cannot be written; the archive is then sealed and the
+                sidecar still describes it in clear, which sealing again repairs.
+        """
+        backup.size_bytes = size_bytes
+        backup.checksum = checksum
+        sidecar = self.local_files(backup)[1]
+        try:
+            self.fs.write_text(sidecar, self._sidecar_text(backup), mode=SECRET_MODE)
+        except OSError as exc:
+            raise BackupError(
+                f"Could not write the metadata of {backup.id} after sealing it",
+                details=f"{exc}. Seal the existing backups again: it repairs this.",
+            ) from exc
 
     def checksum_of(self, path: Path) -> str:
         """
@@ -3268,6 +3304,30 @@ class BackupManager:
                 except BackupError as exc:
                     self.logger.warning(f"Failed to rotate backup {backup.id}: {exc}")
 
+    @staticmethod
+    def _spared_ids(candidates: list[BackupMetadata] | None) -> set[str]:
+        """
+        Name the backups a rotation never deletes whatever its limits say.
+
+        The newest candidate, and the newest one that is not known to have failed its
+        verification: when the newest is a bad one, "keep the newest" would otherwise let the
+        copies a restore could use be rotated out one by one. An age limit used to take the
+        newest as well, which was harmless only while rotation ran right after a new backup.
+
+        Args:
+            candidates: What rotation may delete, newest first; None when it cannot say.
+
+        Returns:
+            The ids to spare.
+        """
+        if not candidates:
+            return set()
+        spared = {candidates[0].id}
+        newest_good = next((b for b in candidates if b.verified_ok is not False), None)
+        if newest_good is not None:
+            spared.add(newest_good.id)
+        return spared
+
     def rotate_by_policy(
         self,
         app_name: str,
@@ -3300,10 +3360,13 @@ class BackupManager:
         """
         self._prune_orphan_metadata(app_name)
         deleted = 0
+        spared = self._spared_ids(self._rotation_candidates(app_name, tag=tag, protect=protect))
 
         if max_age_days:
             cutoff = datetime.now() - timedelta(days=max_age_days)
             for backup in self._rotation_candidates(app_name, tag=tag, protect=protect) or []:
+                if backup.id in spared:
+                    continue
                 try:
                     if datetime.fromisoformat(backup.created_at) < cutoff:
                         self.delete(backup.id)
@@ -3315,6 +3378,8 @@ class BackupManager:
         if max_count:
             remaining = self._rotation_candidates(app_name, tag=tag, protect=protect) or []
             for backup in remaining[max_count:]:
+                if backup.id in spared:
+                    continue
                 try:
                     self.delete(backup.id)
                     deleted += 1
@@ -3332,7 +3397,7 @@ class BackupManager:
                 sizes={b.id: b.size_bytes for b in remaining},
             )
             for backup in remaining:
-                if backup.id not in expired:
+                if backup.id not in expired or backup.id in spared:
                     continue
                 try:
                     self.delete(backup.id)
@@ -3476,6 +3541,108 @@ class BackupManager:
             self.logger.info(f"  Backed up {db.engine} database: {db.name}")
 
         return dumps
+
+    def _dump_globals(
+        self, destination: Path, dumps: Sequence[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """
+        Dump the roles of each database server the application's dumps came from.
+
+        A dump names its owners and the roles it grants to, and none of them is in it: they
+        belong to the server. They are taken once per server, beside the dumps, so a restore
+        on a server that lacks them can create them first. A server whose roles cannot be
+        dumped is a warning: the dump is still a copy of the data.
+
+        Args:
+            destination: Directory inside the payload to write into.
+            dumps: The entries of the databases dumped (a stack's own are in their container).
+
+        Returns:
+            One entry per server whose roles were dumped; empty when no engine has any.
+        """
+        engines = list(
+            dict.fromkeys(str(entry.get("engine", "")) for entry in dumps if "stack" not in entry)
+        )
+        if not engines:
+            return []
+        try:
+            from noust.managers.database.instances import storage_name
+            from noust.managers.database.service import DatabaseService
+        except ImportError:
+            return []
+        service = DatabaseService(logger=self.logger)
+        taken: list[dict[str, Any]] = []
+        for engine in engines:
+            try:
+                manager = service.manager(engine)
+            except DatabaseError:
+                continue
+            if not getattr(manager, "HAS_GLOBALS", False):
+                continue
+            filename = validate_filename(f"globals-{storage_name(engine)}.sql.gz")
+            target = destination / filename
+            try:
+                info = manager.backup_globals(output_path=target, compress=True)
+            except (DatabaseError, OSError) as exc:
+                self.logger.warning(
+                    f"The roles of {engine} could not be dumped, so the backup carries the "
+                    f"databases without them: {exc}"
+                )
+                continue
+            written = Path(info.path)
+            if written != target:
+                self.fs.move(written, target)
+            taken.append(
+                {
+                    "engine": engine,
+                    "archive_path": f"{PAYLOAD_DIR}/{DATABASES_DIR}/{filename}",
+                    "size_bytes": target.stat().st_size,
+                    "created": datetime.now().isoformat(),
+                }
+            )
+            self.logger.info(f"  Backed up the roles of {engine}")
+        return taken
+
+    def _put_back_globals(
+        self,
+        manifest: dict[str, Any] | None,
+        extracted: Path,
+        service: Any,
+        engines: Collection[str],
+    ) -> None:
+        """
+        Create, before any dump is loaded, the roles of the servers the dumps came from.
+
+        Only the roles the server lacks are created; none that exists is touched. A failure
+        is a warning: the dump may load without them, and when it does not the restore says
+        why in the engine's own words.
+
+        Args:
+            manifest: Manifest read from inside the archive.
+            extracted: Directory the archive was extracted into.
+            service: The database service that resolves an engine to its manager.
+            engines: The engines whose dumps are about to be loaded.
+        """
+        for entry in self._payload_entries(manifest, None, "globals", "globals"):
+            engine = str(entry.get("engine", ""))
+            if engine not in engines:
+                continue
+            try:
+                source = self._resolve_payload_file(extracted, entry, f"roles of {engine}")
+                manager = service.manager(engine)
+                restored = manager.restore_globals(source)
+            except (DatabaseError, BackupError, OSError) as exc:
+                self.logger.warning(
+                    f"The roles of {engine} could not be put back; the databases are restored "
+                    f"anyway: {exc}"
+                )
+                continue
+            if restored.created:
+                self.logger.info(f"  Created the roles of {engine}: {', '.join(restored.created)}")
+            for left in restored.left_out:
+                self.logger.info(f"  Left out of the roles of {engine}: {left}")
+            for refused in restored.errors:
+                self.logger.warning(f"  The server refused a role statement: {refused}")
 
     def _dump_stack_databases(
         self,
@@ -3675,6 +3842,9 @@ class BackupManager:
         self.logger.info(f"Restoring {len(entries)} database(s)")
 
         service = DatabaseService(logger=self.logger)
+        self._put_back_globals(
+            manifest, extracted, service, {str(entry.get("engine", "")) for entry in entries}
+        )
         for entry in entries:
             engine = str(entry.get("engine", ""))
             name = str(entry.get("name", ""))
@@ -4213,8 +4383,18 @@ class BackupManager:
                 )
                 if not isinstance(entry.get("stack"), dict)
             ]
-            stack = len(self._stack_entries(manifest, metadata))
-            yield UnpackedBackup(metadata, extracted, manifest, tuple(dumps), stack)
+            stack_entries = self._stack_entries(manifest, metadata)
+            stack = tuple(
+                (
+                    database,
+                    self._resolve_payload_file(extracted, entry, f"dump of {entry.get('name')}"),
+                )
+                for entry in stack_entries
+                if (database := StackDatabase.from_entry(entry["stack"])) is not None
+            )
+            yield UnpackedBackup(
+                metadata, extracted, manifest, tuple(dumps), len(stack_entries), stack
+            )
 
     def get_storage_usage(self) -> dict[str, Any]:
         """
