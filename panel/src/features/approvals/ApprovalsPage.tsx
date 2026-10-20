@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 
 import { sendApproved } from "../../api/client";
 import { sessionQuery } from "../../api/queries/auth";
-import { announce } from "../../app/Announcer";
 import { useDocumentTitle } from "../../app/documentTitle";
 import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
@@ -27,6 +26,7 @@ import { FeatureState } from "../../components/ui/FeatureState";
 import { Notice } from "../../components/ui/Notice";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { Textarea } from "../../components/ui/Textarea";
+import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { roleLabel } from "../settings/accounts/roles";
@@ -82,8 +82,7 @@ function ApprovalDrawer({ approval, onClose }: { approval: Approval; onClose: ()
     mutationFn: (verdict: "approve" | "reject") => (verdict === "approve" ? approve(approval.id, comment.trim() || null) : reject(approval.id, comment.trim() || null)),
     onSuccess: (decided) => {
       refresh();
-      // The request leaves the waiting list: said for those who do not see it go.
-      announce(decided.state === "approved" ? t("approvals.drawer.approvedToast", { id: decided.id }) : t("approvals.drawer.rejectedToast", { id: decided.id }));
+      toast.success(decided.state === "approved" ? t("approvals.drawer.approvedToast", { id: decided.id }) : t("approvals.drawer.rejectedToast", { id: decided.id }));
       onClose();
     },
   });
@@ -98,7 +97,7 @@ function ApprovalDrawer({ approval, onClose }: { approval: Approval; onClose: ()
       refresh();
       // Whatever the call changed is stale now, wherever it is shown.
       void queryClient.invalidateQueries();
-      announce(t("approvals.drawer.ranToast", { id: approval.id }));
+      toast.success(t("approvals.drawer.ranToast", { id: approval.id }));
       onClose();
     },
   });

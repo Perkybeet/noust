@@ -254,7 +254,7 @@ serial("a passkey is added, signs in with no name or password, and confirms it's
   await virtualAuthenticator(page);
   const ana = person("ana");
 
-  await signInAs(page, ana, "/settings/security");
+  await signInAs(page, ana, "/account/security");
   const passkeys = page.getByRole("region", { name: "Passkeys" });
   await expect(passkeys.getByText("No passkeys yet.")).toBeVisible();
   await passkeys.getByRole("button", { name: "Add a passkey" }).click();
@@ -277,9 +277,9 @@ serial("a passkey is added, signs in with no name or password, and confirms it's
     Object.defineProperty(PublicKeyCredential, "isConditionalMediationAvailable", { value: () => Promise.resolve(false) });
   });
   await context.clearCookies();
-  await page.goto("/login?next=%2Fsettings%2Fsecurity");
+  await page.goto("/login?next=%2Faccount%2Fsecurity");
   await page.getByRole("button", { name: "Sign in with a passkey" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Account" })).toBeVisible();
   await expect(passkeys.getByRole("row").filter({ hasText: "Virtual laptop" })).not.toContainText("Never");
 
   // And confirms it's you, offered first.
@@ -291,11 +291,11 @@ serial("a passkey is added, signs in with no name or password, and confirms it's
 
   // After the password, the second step offers this account's passkey as well as the code.
   await context.clearCookies();
-  await page.goto("/login?next=%2Fsettings%2Fsecurity");
+  await page.goto("/login?next=%2Faccount%2Fsecurity");
   await passwordStep(page, ana);
   await stillness(page);
   await expectNoA11yViolations(page, "the second step of a sign-in");
   await page.getByRole("button", { name: "Use your passkey" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Account" })).toBeVisible();
   await context.close();
 });
