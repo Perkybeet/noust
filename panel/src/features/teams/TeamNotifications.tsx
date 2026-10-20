@@ -64,7 +64,7 @@ function splitList(text: string): string[] {
 function baselineOf(channel: TeamChannel | null, type: TeamChannelType | undefined): Draft {
   const settings: Record<string, string> = {};
   for (const { key, secret } of type?.keys ?? []) {
-    settings[key] = secret ? "" : written(channel?.settings[key]);
+    settings[key] = secret ? "" : written(channel?.settings?.[key]);
   }
   const route = channel?.route ?? {};
   const severity = route["min_severity"];
@@ -212,7 +212,7 @@ function TeamChannelDrawer({ team, channel, types, open, onOpenChange }: DrawerP
       {(type?.keys ?? []).map(({ key, secret }) => {
         const field = spec?.fields.find((candidate) => candidate.key === key);
         const label = field?.label ?? key;
-        const stored = channel?.settings[key] === STORED;
+        const stored = channel?.settings?.[key] === STORED;
         return (
           <Field key={key} label={label} {...(field?.description !== undefined ? { description: field.description } : {})} optional={field?.optional === true}>
             {secret ? (
