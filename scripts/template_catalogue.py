@@ -80,7 +80,7 @@ def main(argv: list[str] | None = None) -> int:
 
     total = deployable = unreadable = 0
     refusals: Counter[str] = Counter()
-    for name, compose, toml in templates(args.kind, args.directory):
+    for _name, compose, toml in templates(args.kind, args.directory):
         total += 1
         try:
             if args.kind == "coolify":
