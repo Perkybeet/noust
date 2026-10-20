@@ -580,7 +580,7 @@ export const STRUCTURE_RULES: readonly StructureRule[] = [
   },
   {
     id: "empty-means-off",
-    fix: 'A number that means "off" when it is empty or 0 is a switch that reveals the number (OptionalLimit): "No limit" and "Default" are visible states, not magic values.',
+    fix: 'A number that means "off" when it is empty or 0 is a Setting whose switch reveals the number: "No limit" and "Default" are visible states, not magic values.',
     applies: (path) => path.startsWith("i18n/en/"),
     hint: /empty|blank|\b0\b/i,
     find: (file) => {

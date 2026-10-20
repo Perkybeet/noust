@@ -10,6 +10,9 @@
 // is TypeScript that Node strips (Node 22.18 or newer, which panel/.nvmrc gives), so the script needs no
 // build. It reads files and writes nothing.
 //
+// --rules reads the English catalog too (the namespace files of i18n/en, plain objects Node reads as they
+// are): the rules that count what a notice says, and the catalog strings themselves, need its words.
+//
 // Columns: one JSX element per use of Notice, FeatureState, ActionDialog, Switch, SaveBar, LoadingRegion,
 // QueryState, ConfirmDialog and Badge, and every `aria-busy` attribute. Tests, the gallery and the
 // components' own files are left out. The table of docs/superpowers/specs/2026-10-17-noust-4.0-ux-design.md
