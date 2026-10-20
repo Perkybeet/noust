@@ -112,8 +112,6 @@ json_of = nr.json_of
 
 APP = "netobs.test"
 OPERATOR_SITE = "operator.test"
-#: The application of the log scenario: its own, so what it counts starts from nothing.
-TIMED_APP = "timed.test"
 #: Where the recorder that stands for the receiver of a webhook listens, inside the server.
 RECORDER_PORT = 9099
 RECORDER_LOG = "/root/w6n/recorder.jsonl"
@@ -317,6 +315,17 @@ def prepare_state(env: Env) -> None:
         "mv /root/.local/share/noust /root/.local/share/noust.moved; fi",
         label="give the server the state directory a package installs",
     )
+    # The daemon that serves the fixtures dies with the container: a server that was stopped and
+    # started again (--reuse after a pause) has none, and an application cannot be created from it.
+    if (
+        env.srv(f"git ls-remote --exit-code {nr.ECHO_URL} HEAD", check=False).returncode != 0
+        and env.srv("test -d /root/fixtures/echo-app", check=False).returncode == 0
+    ):
+        env.srv(
+            "git daemon --reuseaddr --export-all --base-path=/root/fixtures "
+            "--listen=127.0.0.1 --detach /root/fixtures",
+            label="start the fixtures' daemon again",
+        )
 
 
 def pull_busybox(env: Env) -> None:
@@ -470,8 +479,11 @@ server {
 }
 """
 
-#: The format an operator's site or a Noust older than this one writes: no time, no visitor key.
-OLD_FORMAT_LINE = '198.51.100.7 - - [17/Oct/2026:12:00:00 +0000] "GET /old-format HTTP/1.1" 200 12 "-" "old-agent"\n'
+#: The format an operator's site or a Noust older than this one writes: no time, no visitor key. The
+#: date is filled in when it is appended, because the traffic of the last day is what is read.
+OLD_FORMAT_LINE = (
+    '198.51.100.7 - - [{when} +0000] "GET /old-format HTTP/1.1" 200 12 "-" "old-agent"\n'
+)
 
 
 def traffic_of(app: str) -> dict[str, Any] | None:
@@ -486,10 +498,11 @@ def traffic_of(app: str) -> dict[str, Any] | None:
 def scenario_timed_log_format(env: Env) -> None:
     """The log has the time of each request; the traffic shows p50, p95 and visitors; nothing else breaks."""
     prepare_state(env)
-    ensure_app(env, TIMED_APP)
-    config = env.srv(
-        f"cat /etc/nginx/sites-available/{TIMED_APP}*", label="the site Noust wrote"
-    ).stdout
+    # An application of its own at every run: the traffic of the last day is what is counted, and
+    # a second run on the same name would add to the first one's.
+    app = f"t{int(time.time())}.timed.test"
+    ensure_app(env, app)
+    config = env.srv(f"cat /etc/nginx/sites-available/{app}*", label="the site Noust wrote").stdout
     env.check("log_format noust_" in config, "the site should define its own log format")
     env.check("rt=$request_time" in config, "the format should carry the time of each request")
     env.srv("nginx -t", label="nginx -t on what Noust wrote")
@@ -501,7 +514,7 @@ def scenario_timed_log_format(env: Env) -> None:
         "&& nginx -t && systemctl reload nginx",
         label="enable the operator's site",
     )
-    before = traffic_of(TIMED_APP)
+    before = traffic_of(app)
     already = before["totals"]["requests"] if before else 0
 
     # The monitor reads a log from its end the first time it sees it, so it starts first.
@@ -511,14 +524,14 @@ def scenario_timed_log_format(env: Env) -> None:
 
         env.note("traffic: quick and slow requests from two addresses with different browsers")
         env.cli(
-            f"for i in 1 2 3 4 5 6 7 8 9; do curl -s -o /dev/null -A browser-a -H 'Host: {TIMED_APP}' "
+            f"for i in 1 2 3 4 5 6 7 8 9; do curl -s -o /dev/null -A browser-a -H 'Host: {app}' "
             f"http://{env.server_ip}/fast$i; done; "
             f"for i in 1 2; do curl -s -o /dev/null -A browser-b --interface {env.cdn_ip} "
-            f"-H 'Host: {TIMED_APP}' http://{env.server_ip}/fast$i; done",
+            f"-H 'Host: {app}' http://{env.server_ip}/fast$i; done",
             label="eleven quick requests from two visitors",
         )
         env.cli(
-            f"for i in 1 2 3; do curl -s -o /dev/null -A browser-a -H 'Host: {TIMED_APP}' "
+            f"for i in 1 2 3; do curl -s -o /dev/null -A browser-a -H 'Host: {app}' "
             f"'http://{env.server_ip}/slow?ms=600'; done",
             label="three slow requests",
             timeout=60,
@@ -527,9 +540,7 @@ def scenario_timed_log_format(env: Env) -> None:
             f"curl -s -o /dev/null -H 'Host: {OPERATOR_SITE}' "
             f"http://{env.server_ip}/from-the-operator-site"
         )
-        log = env.srv(
-            f"tail -n 14 /var/log/nginx/{TIMED_APP}.access.log", label="the access log"
-        ).stdout
+        log = env.srv(f"tail -n 14 /var/log/nginx/{app}.access.log", label="the access log").stdout
         slow = [line for line in log.splitlines() if "/slow" in line]
         env.check(
             len(slow) == 3 and all(float(line.split(" rt=")[1].split()[0]) >= 0.5 for line in slow),
@@ -544,14 +555,15 @@ def scenario_timed_log_format(env: Env) -> None:
         )
 
         env.note("a line in the old format lands in the same log: it is counted and nothing breaks")
-        put_file(nr.SERVER, "/root/w6n/old-line.txt", OLD_FORMAT_LINE)
+        when = env.srv("date -u +%d/%b/%Y:%H:%M:%S", label="the server's clock").stdout.strip()
+        put_file(nr.SERVER, "/root/w6n/old-line.txt", OLD_FORMAT_LINE.format(when=when))
         env.srv(
-            f"cat /root/w6n/old-line.txt >> /var/log/nginx/{TIMED_APP}.access.log",
+            f"cat /root/w6n/old-line.txt >> /var/log/nginx/{app}.access.log",
             label="append an old-format line",
         )
 
         def counted() -> dict[str, Any] | None:
-            data = traffic_of(TIMED_APP)
+            data = traffic_of(app)
             return data if data and data["totals"]["requests"] - already >= 15 else None
 
         wait_for(lambda: counted() is not None, "the monitor to count the requests", timeout=120)
@@ -576,9 +588,7 @@ def scenario_timed_log_format(env: Env) -> None:
             totals["visitors"] == 3,
             f"3 visitors (browser-a, browser-b, the old line's) were expected: {totals['visitors']}",
         )
-        text = env.srv(
-            f"noust app traffic {TIMED_APP} --window 24h", label="noust app traffic"
-        ).stdout
+        text = env.srv(f"noust app traffic {app} --window 24h", label="noust app traffic").stdout
         env.check(
             "p95" in text and "different" in text, "the command should say p95 and the visitors"
         )
@@ -592,6 +602,7 @@ def scenario_timed_log_format(env: Env) -> None:
         )
     finally:
         stop_monitor(env)
+        env.srv(f"noust delete {app} -y", check=False, timeout=120, label="remove the application")
         env.srv(
             f"rm -f /etc/nginx/sites-enabled/{OPERATOR_SITE} /etc/nginx/sites-available/{OPERATOR_SITE}; "
             "nginx -t && systemctl reload nginx",
