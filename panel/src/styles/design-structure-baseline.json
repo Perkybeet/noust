@@ -296,7 +296,7 @@
       "features/app/database/AppDatabaseTab.tsx": 1,
       "features/app/database/CreateLinkDialog.tsx": 1,
       "features/app/database/SqliteSection.tsx": 1,
-      "features/app/deployments/DeploymentPage.tsx": 1,
+      "features/app/deployments/DeploymentPage.tsx": 2,
       "features/app/deployments/DeploymentsTab.tsx": 1,
       "features/app/deployments/ReleasesSection.tsx": 2,
       "features/app/metrics/MetricsTab.tsx": 1,
