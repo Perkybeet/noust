@@ -1,0 +1,68 @@
+# Garage from the image the project publishes (dxflrs/garage on Docker Hub), configured as its
+# quick start describes (garagehq.deuxfleurs.fr "Quick start" and "Configuration file reference",
+# read 2026-10-20): /etc/garage.toml (the file this recipe ships, rendered with the secrets it
+# needs: rpc_secret, 32 bytes in hexadecimal, and the admin and metrics tokens), the metadata
+# and the data under /var/lib/garage, a single node (replication_factor 1) and the S3 API
+# on 3900, which is the address nginx serves. The RPC (3901), the static web hosting (3902) and
+# the admin API (3903) are not published. A new node has no storage assigned: until the layout is
+# applied with the garage command, the S3 API refuses buckets, which the first note explains.
+# The image has no shell, so the container has no health check of its own; the S3 API answers 403
+# to a request that is not signed, which is the status the health check expects and what shows
+# that it is up.
+#
+# Pinned to the release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: garage
+kind: compose
+title: Garage
+slogan: "A lightweight S3-compatible object store for self-hosting, from Deuxfleurs."
+description: "An S3-compatible object storage server in one small Rust binary: buckets, access keys, static website hosting and replication across sites. Here as a single node with the S3 API behind your address. A new node needs its storage assigned once with the garage command."
+category: files
+tags: [s3, object-storage, minio-alternative, storage]
+logo: logo.svg
+version: "2.4.1"
+revision: 1
+updated: 2026-10-20
+homepage: https://garagehq.deuxfleurs.fr
+docs: https://garagehq.deuxfleurs.fr/documentation/quick-start/
+repository: https://git.deuxfleurs.fr/Deuxfleurs/garage
+license: AGPL-3.0-only
+architectures: ["386", "amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3900
+variables:
+  GARAGE_RPC_SECRET:
+    generate: hex64
+    description: The secret between the nodes of the cluster (32 bytes in hexadecimal). Changing it makes the node unable to join the cluster again.
+  GARAGE_ADMIN_TOKEN:
+    generate: base64_32
+    description: The token of the admin API, which is not published; the garage command inside the container does not need it.
+  GARAGE_METRICS_TOKEN:
+    generate: base64_32
+    description: The token of the metrics endpoint, which is not published.
+health:
+  path: /
+  expect: "403"
+  timeout: 90
+files:
+  garage.toml: {asset: garage.toml, render: true, mode: "0644"}
+  noust.nginx.yaml: noust.nginx.yaml
+compose: |
+  services:
+    garage:
+      image: dxflrs/garage:v2.4.1@sha256:9c96caa2612d3411acc5b0e6701fb238dbfba33e533a6d7d3d811a4b12d0d020
+      restart: unless-stopped
+      volumes:
+        - ./garage.toml:/etc/garage.toml:ro
+        - garage-meta:/var/lib/garage/meta
+        - garage-data:/var/lib/garage/data
+      ports:
+        - "127.0.0.1:${PORT}:3900"
+  volumes:
+    garage-meta:
+    garage-data:
+notes:
+  - "Assign the node its storage once, from the application's terminal (the garage service): garage status shows the node ID; then garage layout assign -z dc1 -c 100G NODE_ID and garage layout apply --version 1. The capacity (-c) is what you allow it to use."
+  - "Then make a bucket and a key: garage bucket create NAME, garage key create NAME-key, garage bucket allow --read --write --owner NAME --key NAME-key. The S3 endpoint is {{ url }}, the region is garage, and the addressing is path-style."
+  - "The objects are in the Docker volume garage-data and the cluster metadata in garage-meta of this application: back both up before updating. Garage's metadata is what finds the objects."

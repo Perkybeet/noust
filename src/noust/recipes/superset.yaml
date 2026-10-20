@@ -1,0 +1,120 @@
+# Apache Superset from the image the project publishes (apache/superset on Docker Hub) with the
+# PostgreSQL and the Redis-compatible store (Valkey) its documentation asks for outside a
+# development setup (superset.apache.org "Installing Superset Locally Using Docker Compose" and
+# "Configuring Superset", read 2026-10-20). Superset is configured by a Python file on its
+# PYTHONPATH (/app/pythonpath/superset_config.py): the one this recipe ships only reads the
+# environment (SUPERSET_SECRET_KEY, which the application refuses to start without,
+# SUPERSET_DATABASE_URI, REDIS_URL), turns the cache on, trusts the proxy's headers and leaves TLS
+# to nginx. The container runs the project's initialisation before it serves: `superset db
+# upgrade`, `superset fab create-admin` (which fails, harmlessly, once the administrator exists, so
+# no visitor can claim it) and `superset init`, then run-server.sh, the image's own
+# command. /health answers OK without a sign-in. It needs about 2 GB of memory.
+#
+# Pinned to the release tag and to the digests Docker Hub serves for it.
+schema: 2
+name: superset
+kind: compose
+title: Apache Superset
+slogan: "A modern data exploration and visualization platform for dashboards and charts."
+description: "Connect your databases, write SQL in the editor or build charts without code, and put them on dashboards with filters, alerts and reports, for a whole organisation with roles and row-level security. Starts with the administrator you name."
+category: analytics
+tags: [dashboards, bi, charts, sql, analytics]
+logo: logo.svg
+version: "6.1.0"
+revision: 1
+updated: 2026-10-20
+homepage: https://superset.apache.org
+docs: https://superset.apache.org/docs/intro
+repository: https://github.com/apache/superset
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - At least 2 GB of free memory
+port: 8088
+variables:
+  SUPERSET_SECRET_KEY:
+    generate: base64_64
+    description: Signs the sessions and encrypts the connections' passwords. Changing it makes the saved connections unreadable.
+  SUPERSET_ADMIN_USER:
+    default: admin
+    description: The administrator's user name.
+  SUPERSET_ADMIN_EMAIL:
+    required: true
+    description: The administrator's e-mail address.
+  SUPERSET_ADMIN_PASSWORD:
+    generate: password32
+    description: The administrator's password. Superset reads it only when it creates the account.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /health
+  expect: "200"
+  timeout: 600
+files:
+  superset_config.py: {asset: superset_config.py, mode: "0644"}
+  noust.nginx.yaml: noust.nginx.yaml
+compose: |
+  services:
+    superset:
+      image: apache/superset:6.1.0@sha256:16b50bbef6648912a79e3293d418fefa743ce555d36c5af6b85d859119ed7f88
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      command:
+        - sh
+        - -c
+        - >-
+          superset db upgrade &&
+          (superset fab create-admin --username "$${SUPERSET_ADMIN_USER}" --firstname Admin
+          --lastname User --email "$${SUPERSET_ADMIN_EMAIL}" --password "$${SUPERSET_ADMIN_PASSWORD}"
+          || true) &&
+          superset init &&
+          /app/docker/entrypoints/run-server.sh
+      environment:
+        SUPERSET_SECRET_KEY: "${SUPERSET_SECRET_KEY}"
+        SUPERSET_DATABASE_URI: "postgresql+psycopg2://superset:${DB_PASSWORD}@db:5432/superset"
+        REDIS_URL: redis://redis:6379/0
+        SUPERSET_ADMIN_USER: "${SUPERSET_ADMIN_USER}"
+        SUPERSET_ADMIN_EMAIL: "${SUPERSET_ADMIN_EMAIL}"
+        SUPERSET_ADMIN_PASSWORD: "${SUPERSET_ADMIN_PASSWORD}"
+        SUPERSET_LOAD_EXAMPLES: "no"
+      volumes:
+        - ./superset_config.py:/app/pythonpath/superset_config.py:ro
+      ports:
+        - "127.0.0.1:${PORT}:8088"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: superset
+        POSTGRES_DB: superset
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U superset -d superset"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - superset-db:/var/lib/postgresql/data
+    redis:
+      image: valkey/valkey:9.0.6-alpine@sha256:187679e3bd4036959631e3f03983ab2ba503ab21e6fd0454d508e909db2ee989
+      restart: unless-stopped
+      healthcheck:
+        test: ["CMD", "valkey-cli", "ping"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      volumes:
+        - superset-cache:/data
+  volumes:
+    superset-db:
+    superset-cache:
+notes:
+  - "The first start initialises the database, which takes a few minutes. Then sign in at {{ url }} as {{ vars.SUPERSET_ADMIN_USER }}; the password is SUPERSET_ADMIN_PASSWORD (noust env show {{ domain }} --unmask). It is read only when the account is created: change it in Superset afterwards."
+  - "Superset runs in a container, so 127.0.0.1 there is the container itself: add the databases you analyse by their address. Its own metadata is in the Docker volume superset-db (PostgreSQL, dumped by Noust before every update): back it up before updating."

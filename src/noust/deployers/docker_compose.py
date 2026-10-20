@@ -68,6 +68,7 @@ from noust.deployers.helpers.build_config import BuildConfig, refuse_unsupported
 from noust.deployers.helpers.compose_ports import (
     PortMapping,
     host_port_variables,
+    interpolate,
     is_headless_stack,
     parse_ports,
     published_port,
@@ -2042,10 +2043,17 @@ class DockerComposeDeployer(AppDeployer):
             ``name (port)`` for each other service publishing a TCP port.
         """
         root = web_root_service(self.services)
+        # A service a name of its own is proxied to (a recipe's extra address) is routed.
+        try:
+            named = {record.port for record in self.store.list_domains(self.domain) if record.port}
+        except (NoustError, sqlite3.Error) as exc:
+            # A rehearsal on a machine with no store has no rows to read.
+            self.logger.debug(f"Could not read the domains of {self.domain}: {exc}")
+            named = set()
         others: list[str] = []
         for svc in self.services:
             port = published_port(svc)
-            if port is not None and svc.name != root:
+            if port is not None and svc.name != root and port not in named:
                 others.append(f"{svc.name} ({port})")
         return others
 
@@ -2245,12 +2253,7 @@ class DockerComposeDeployer(AppDeployer):
                 rejects the new configuration (the previous file is back).
             DeploymentError: nginx did not reload.
         """
-        if self.compose_path is None:
-            if self.compose_file is None:
-                unit = ServiceManager(verbose=self.verbose).get_service_config(self.app_name)
-                named = compose_file_from_unit(unit)
-                self.compose_file = str(compose_file_option(named)) if named else None
-            self._discover_compose_file()
+        self._locate_compose_file()
         self.services = parse_services(self._load_compose_document())
         if self._is_headless():
             raise ValidationError(
@@ -2263,6 +2266,46 @@ class DockerComposeDeployer(AppDeployer):
             self.domain,
             lambda: self._write_site(with_ssl=with_ssl),
         )
+
+    def _locate_compose_file(self) -> None:
+        """Find the compose file the stack's unit names, as an update reads it."""
+        if self.compose_path is None:
+            if self.compose_file is None:
+                unit = ServiceManager(verbose=self.verbose).get_service_config(self.app_name)
+                named = compose_file_from_unit(unit)
+                self.compose_file = str(compose_file_option(named)) if named else None
+            self._discover_compose_file()
+
+    def published_host_ports(self) -> frozenset[int]:
+        """
+        List the TCP host ports the deployed stack publishes.
+
+        Read the way Compose reads them: the stack's own ``.env`` fills the ``${NAME}`` of a
+        port, so a port a recipe's install chose is the one listed, not the document's default.
+        What :mod:`noust.deployers.domains` asks before it sends a name of the stack to a port.
+
+        Returns:
+            The host ports; empty when the compose file cannot be read.
+        """
+        from noust.deployers.helpers.compose_variables import read_values
+
+        self._locate_compose_file()
+        document = self._load_compose_document()
+        if not isinstance(document, dict):
+            return frozenset()
+        values, _used = read_values(self._compose_file_path(), self.app_path)
+        found: set[int] = set()
+        for service in parse_services(document):
+            entries = [
+                interpolate(entry, values) if isinstance(entry, str) else entry
+                for entry in service.ports
+            ]
+            found.update(
+                mapping.host_port
+                for mapping in parse_ports(entries)
+                if mapping.protocol == "tcp" and mapping.host_port is not None
+            )
+        return frozenset(found)
 
     def _obtain_certificate(self) -> None:
         """Obtain the certificate and load the site with TLS, keeping an operator's site."""

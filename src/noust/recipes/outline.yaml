@@ -1,0 +1,152 @@
+# Outline from the image the project publishes (outlinewiki/outline on Docker Hub) with the
+# PostgreSQL and the Redis-compatible cache (Valkey) its self-hosting guide asks for
+# (docs.getoutline.com/s/hosting/doc/docker: docker-compose.yml and docker.env, read 2026-10-20).
+# Settings are the variables of its docs "Environment variables": URL (the public address),
+# SECRET_KEY (32 bytes in hexadecimal) and UTILS_SECRET, DATABASE_URL with PGSSLMODE=disable
+# (the database is inside the stack), REDIS_URL, local file storage under
+# /var/lib/outline/data, FORCE_HTTPS=false because nginx ends TLS, and WEB_CONCURRENCY=1 to keep
+# a small server's memory. Outline has no passwords of its own: people sign in through an identity
+# provider, so the OpenID Connect settings are required and the install stops without them.
+# /_health answers without a login.
+#
+# Licence: the Business Source License 1.1 (LICENSE, read 2026-10-20): free to run for yourself,
+# not to offer to others as a hosted service; it becomes Apache 2.0 after the change date.
+#
+# Derived in part from Coolify's template "getoutline" (Apache-2.0,
+# https://github.com/coollabsio/coolify/blob/next/templates/compose/getoutline.yaml). Pinned to the
+# release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: outline
+kind: compose
+title: Outline
+slogan: "A fast, collaborative knowledge base for your team's documentation."
+description: "A team wiki with a Markdown editor, nested collections, real-time editing, search and an API. Source-available under the Business Source License: free to run for yourself, not to offer to others as a hosted service. People sign in through your OpenID Connect provider (authentik and Keycloak are in the catalogue), which the install needs."
+category: productivity
+tags: [wiki, knowledge-base, docs, collaboration]
+logo: logo.svg
+version: "1.11.0"
+revision: 1
+updated: 2026-10-20
+homepage: https://www.getoutline.com
+docs: https://docs.getoutline.com/s/hosting/
+repository: https://github.com/outline/outline
+license: BUSL-1.1
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3030
+variables:
+  OUTLINE_URL:
+    from: url
+    description: The address people use; Outline builds its links and its sign-in callbacks from it.
+  SECRET_KEY:
+    generate: hex64
+    description: Encrypts what Outline stores (32 bytes in hexadecimal). Do not change it once the wiki has content.
+  UTILS_SECRET:
+    generate: hex64
+    description: Authenticates the requests Outline makes to itself for scheduled work.
+  OIDC_CLIENT_ID:
+    required: true
+    description: The client ID of the OpenID Connect application you made for Outline in your identity provider.
+  OIDC_CLIENT_SECRET:
+    required: true
+    secret: true
+    description: Its client secret.
+  OIDC_AUTH_URI:
+    required: true
+    description: The provider's authorization endpoint (https://...).
+  OIDC_TOKEN_URI:
+    required: true
+    description: The provider's token endpoint.
+  OIDC_USERINFO_URI:
+    required: true
+    description: The provider's userinfo endpoint.
+  OIDC_DISPLAY_NAME:
+    default: Single sign-on
+    description: The name of the sign-in button.
+  OIDC_SCOPES:
+    default: "openid profile email"
+    description: The scopes Outline asks for.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /_health
+  expect: "200"
+  timeout: 300
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    outline:
+      image: outlinewiki/outline:1.11.0@sha256:08ee9ffdb847e1bd35ded30ee832090dd06a7f93f67422687db59e70bc7f5393
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      environment:
+        NODE_ENV: production
+        URL: "${OUTLINE_URL}"
+        PORT: "3000"
+        SECRET_KEY: "${SECRET_KEY}"
+        UTILS_SECRET: "${UTILS_SECRET}"
+        DATABASE_URL: "postgres://outline:${DB_PASSWORD}@db:5432/outline"
+        PGSSLMODE: disable
+        REDIS_URL: redis://redis:6379
+        FORCE_HTTPS: "false"
+        WEB_CONCURRENCY: "1"
+        FILE_STORAGE: local
+        FILE_STORAGE_LOCAL_ROOT_DIR: /var/lib/outline/data
+        FILE_STORAGE_UPLOAD_MAX_SIZE: "262144000"
+        OIDC_CLIENT_ID: "${OIDC_CLIENT_ID}"
+        OIDC_CLIENT_SECRET: "${OIDC_CLIENT_SECRET}"
+        OIDC_AUTH_URI: "${OIDC_AUTH_URI}"
+        OIDC_TOKEN_URI: "${OIDC_TOKEN_URI}"
+        OIDC_USERINFO_URI: "${OIDC_USERINFO_URI}"
+        OIDC_DISPLAY_NAME: "${OIDC_DISPLAY_NAME}"
+        OIDC_SCOPES: "${OIDC_SCOPES}"
+        SMTP_HOST:
+        SMTP_PORT:
+        SMTP_USERNAME:
+        SMTP_PASSWORD:
+        SMTP_FROM_EMAIL:
+        SMTP_SECURE:
+      volumes:
+        - outline-data:/var/lib/outline/data
+      ports:
+        - "127.0.0.1:${PORT}:3000"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: outline
+        POSTGRES_DB: outline
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U outline -d outline"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - outline-db:/var/lib/postgresql/data
+    redis:
+      image: valkey/valkey:9.0.6-alpine@sha256:187679e3bd4036959631e3f03983ab2ba503ab21e6fd0454d508e909db2ee989
+      restart: unless-stopped
+      healthcheck:
+        test: ["CMD", "valkey-cli", "ping"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      volumes:
+        - outline-cache:/data
+  volumes:
+    outline-data:
+    outline-db:
+    outline-cache:
+notes:
+  - "Sign in at {{ url }} with the OpenID Connect provider you configured; the first person to sign in creates the workspace. Register {{ url }}/auth/oidc.callback as the redirect address in the provider."
+  - "Outline is source-available under the Business Source License: you may run it for yourself, not offer it to others as a hosted service."
+  - "Uploaded files are in the Docker volume outline-data and the database in outline-db (PostgreSQL, dumped by Noust before every update). Back both up before updating: the files are not in the database dump."
+  - "Outline sends no e-mail until you set the SMTP_* variables (the application's Environment tab) and restart it."

@@ -1,0 +1,63 @@
+# changedetection.io from the image the project publishes (ghcr.io/dgtlmoon/changedetection.io),
+# run as its documentation describes (github.com/dgtlmoon/changedetection.io, "Docker"): the
+# watches and their history under /datastore, BASE_URL (the public address, for the links in
+# notifications), the image listening on 5000. The headless browser the project's compose file
+# adds for pages that need JavaScript (sockpuppetbrowser) asks for the SYS_ADMIN capability, which
+# a recipe cannot add, so this recipe fetches pages with plain HTTP, which is the project's
+# default and fits most pages. The interface has no password until one is set in Settings >
+# General, which the first note says; the description says it too.
+#
+# Pinned to the release tag and to the digest ghcr.io serves for it.
+schema: 2
+name: changedetection
+kind: compose
+title: changedetection.io
+slogan: "Watch web pages for changes and get notified when they happen."
+description: "Track a price, a stock status, a release page or a regulation: it checks the pages you list on a schedule, shows what changed and notifies you through more than 80 services. Fetches with plain HTTP (no headless browser). It has no sign-in until you set a password in its settings."
+category: monitoring
+tags: [monitoring, web, notifications, scraping]
+logo: logo.svg
+version: "0.60.9"
+revision: 1
+updated: 2026-10-20
+homepage: https://changedetection.io
+docs: https://github.com/dgtlmoon/changedetection.io/wiki
+repository: https://github.com/dgtlmoon/changedetection.io
+license: Apache-2.0
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 5000
+variables:
+  CHANGEDETECTION_URL:
+    from: url
+    description: The address people use; notifications link to it.
+  TZ:
+    default: UTC
+    description: The time zone checks are scheduled in, such as Europe/Madrid.
+health:
+  path: /
+  expect: "200-399"
+  timeout: 90
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    changedetection:
+      image: ghcr.io/dgtlmoon/changedetection.io:0.60.9@sha256:04eaae7915bad711160cb15abe160f6d3fabe98bbbd658509d4b7a654000fb2d
+      restart: unless-stopped
+      environment:
+        BASE_URL: "${CHANGEDETECTION_URL}"
+        TZ: "${TZ}"
+        HIDE_REFERER: "true"
+        DISABLE_VERSION_CHECK: "true"
+        LOGGER_LEVEL: INFO
+      volumes:
+        - changedetection-data:/datastore
+      ports:
+        - "127.0.0.1:${PORT}:5000"
+  volumes:
+    changedetection-data:
+notes:
+  - "Open {{ url }}: there is no sign-in yet, so anybody who reaches it can add watches and read what you watch. Set a password in Settings > General now, or keep the address to people you trust."
+  - "Your watches and the history of every page are in the Docker volume changedetection-data of this application: back it up before updating."
+  - "Pages that need JavaScript to show their content cannot be watched here: that needs a headless browser, which asks for a capability a recipe cannot have."

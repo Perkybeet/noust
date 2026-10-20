@@ -1,0 +1,75 @@
+# Roundcube from the image the project publishes (roundcube/roundcubemail on Docker Hub, the
+# Apache build), configured as its Docker documentation describes (github.com/roundcube/roundcubemail-docker
+# README, read 2026-10-20): it is a webmail client, not a mail server, so it needs the address of
+# an IMAP server and an SMTP server to sign in to (ROUNDCUBEMAIL_DEFAULT_HOST and
+# ROUNDCUBEMAIL_SMTP_SERVER, with ssl:// or tls:// and their ports); the people who sign in are
+# the mailboxes of that server, so there is no account of its own to claim. Its own database is
+# SQLite under /var/roundcube/db (preferences, address books, identities) and it listens on 80.
+# DES_KEY is the key that encrypts the IMAP password in the session. The root answers 200 without
+# a sign-in.
+#
+# Pinned to the release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: roundcube
+kind: compose
+title: Roundcube
+slogan: "A browser-based IMAP client with an application-like user interface."
+description: "Read and write mail from the browser with folders, search, an address book, filters and plug-ins. A webmail client for the mail server you already run: people sign in with their mailbox's address and password, so it has no accounts of its own."
+category: communication
+tags: [webmail, imap, email, client]
+logo: logo.svg
+version: "1.7.5"
+revision: 1
+updated: 2026-10-20
+homepage: https://roundcube.net
+docs: https://github.com/roundcube/roundcubemail/wiki
+repository: https://github.com/roundcube/roundcubemail
+license: GPL-3.0-or-later
+architectures: ["386", "amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8880
+variables:
+  ROUNDCUBEMAIL_DEFAULT_HOST:
+    required: true
+    description: "The IMAP server people sign in to, with its security: ssl://imap.example.com or tls://imap.example.com."
+  ROUNDCUBEMAIL_DEFAULT_PORT:
+    default: "993"
+    description: The IMAP port (993 for ssl://, 143 for tls://).
+  ROUNDCUBEMAIL_SMTP_SERVER:
+    required: true
+    description: "The SMTP server mail is sent through, with its security: tls://smtp.example.com or ssl://smtp.example.com."
+  ROUNDCUBEMAIL_SMTP_PORT:
+    default: "587"
+    description: The SMTP port (587 for tls://, 465 for ssl://).
+  ROUNDCUBEMAIL_DES_KEY:
+    generate: password32
+    description: Encrypts the IMAP password kept in the session. Changing it signs everybody out.
+health:
+  path: /
+  expect: "200"
+  timeout: 90
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    roundcube:
+      image: roundcube/roundcubemail:1.7.5-apache@sha256:fea690452cad870440eb231ef2a0c019a46fc5ba5afb069a2edcbf1ce6ab22ab
+      restart: unless-stopped
+      environment:
+        ROUNDCUBEMAIL_DB_TYPE: sqlite
+        ROUNDCUBEMAIL_DEFAULT_HOST: "${ROUNDCUBEMAIL_DEFAULT_HOST}"
+        ROUNDCUBEMAIL_DEFAULT_PORT: "${ROUNDCUBEMAIL_DEFAULT_PORT}"
+        ROUNDCUBEMAIL_SMTP_SERVER: "${ROUNDCUBEMAIL_SMTP_SERVER}"
+        ROUNDCUBEMAIL_SMTP_PORT: "${ROUNDCUBEMAIL_SMTP_PORT}"
+        ROUNDCUBEMAIL_DES_KEY: "${ROUNDCUBEMAIL_DES_KEY}"
+        ROUNDCUBEMAIL_SKIN: elastic
+        ROUNDCUBEMAIL_PLUGINS: archive,zipdownload
+      volumes:
+        - roundcube-db:/var/roundcube/db
+      ports:
+        - "127.0.0.1:${PORT}:80"
+  volumes:
+    roundcube-db:
+notes:
+  - "Open {{ url }} and sign in with a mailbox of {{ vars.ROUNDCUBEMAIL_DEFAULT_HOST }}: the address and password of the account there. Roundcube keeps no accounts of its own."
+  - "Preferences, address books and identities are in the SQLite database of the Docker volume roundcube-db of this application: back it up before updating."

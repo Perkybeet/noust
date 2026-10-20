@@ -50,7 +50,7 @@ import ipaddress
 import logging
 import socket
 import sqlite3
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Collection, Iterable, Sequence
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -317,7 +317,7 @@ def _add_domain(
                 + ". Add it anyway with force (noust domain add --force) if that is what you want.",
             )
     if port is not None:
-        _check_port(app, kind, port)
+        _check_port(app, kind, port, published=_published_ports(deployer))
     if certificate == OWN:
         _check_own(app, kind, name)
         from noust.deployers.certificates import check_choice
@@ -762,7 +762,7 @@ def set_domain_port(
                 details=f"See them with: noust domain list {app.domain}",
             )
         if port is not None:
-            _check_port(app, previous.kind, port)
+            _check_port(app, previous.kind, port, published=_published_ports(deployer))
         if not store.set_domain_port(app.domain, name, port):
             raise DomainError(f"{name} is not a domain of {app.domain}")
         tls = _serves_tls(app, deployer)
@@ -1071,10 +1071,28 @@ def _actor() -> str | None:
 
 
 #: Types whose site serves files or several servers of its own: no single port to choose.
+#: A Compose stack is in the list because it routes by ``noust.nginx.yaml``; a name of it may
+#: still go to a port the stack publishes (a service that answers on an address of its own).
 _NO_PORT_TYPES = frozenset({"static", "monorepo", "php-fpm", "docker-compose"})
 
 
-def _check_port(app: App, kind: str, port: int) -> None:
+def _published_ports(deployer: object) -> frozenset[int] | None:
+    """
+    Ask a deployer which host ports its application publishes, when it can say.
+
+    Args:
+        deployer: The application's deployer.
+
+    Returns:
+        The ports (a Compose stack's), or None for a deployer that has no such list.
+    """
+    reader = getattr(deployer, "published_host_ports", None)
+    return frozenset(reader()) if callable(reader) else None
+
+
+def _check_port(
+    app: App, kind: str, port: int, *, published: Collection[int] | None = None
+) -> None:
     """
     Refuse a per-name port the application's site cannot honour.
 
@@ -1082,6 +1100,9 @@ def _check_port(app: App, kind: str, port: int) -> None:
         app: The application.
         kind: The role of the name.
         port: The port asked for.
+        published: For a Compose stack: the host ports it publishes. A name of a stack may go
+            to one of them and to no other, because the web server would otherwise show to the
+            world whatever else listens on this machine at that port.
 
     Raises:
         DomainError: The name is not an alias.
@@ -1096,6 +1117,16 @@ def _check_port(app: App, kind: str, port: int) -> None:
         raise ValidationError(
             f"{port!r} is not a port", details="A port is 1 to 65535.", field="port"
         )
+    if app.app_type == "docker-compose" and published is not None:
+        if port not in published:
+            raise ValidationError(
+                f"{app.domain} does not publish {port}",
+                details=f"A name of a Docker Compose stack goes to a port the stack publishes: "
+                f"{', '.join(map(str, sorted(published))) or 'none'}. Publish it in the compose "
+                "file and redeploy, or route by path with noust.nginx.yaml.",
+                field="port",
+            )
+        return
     if app.app_type in _NO_PORT_TYPES or not app.port:
         reason = (
             "a Docker Compose stack routes by noust.nginx.yaml, where each route names its port"

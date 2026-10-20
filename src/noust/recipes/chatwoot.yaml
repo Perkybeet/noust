@@ -1,0 +1,149 @@
+# Chatwoot from the image the project publishes (chatwoot/chatwoot on Docker Hub), arranged as
+# its Docker installation guide does (chatwoot.com/hc/self-hosted/deployment/docker, the
+# docker-compose.production.yaml of the repository, read 2026-10-20): the Rails web process, the
+# Sidekiq worker that sends messages and runs jobs, PostgreSQL with pgvector (a migration creates
+# the vector extension) and a Redis-compatible store (Valkey). The web container prepares the
+# database (rails db:chatwoot_prepare) before it serves. Settings: SECRET_KEY_BASE, FRONTEND_URL
+# (the public address), the database and Redis URLs, FORCE_SSL false because nginx ends TLS, and
+# ENABLE_ACCOUNT_SIGNUP false so that the only way to create an account is the onboarding the
+# first visit shows (/installation/onboarding), which the first note says. The upload storage is
+# local disk under /app/storage. /auth/sign_in is the plainest page that answers without a
+# session.
+#
+# Pinned to the release tag and to the digests Docker Hub serves for it.
+schema: 2
+name: chatwoot
+kind: compose
+title: Chatwoot
+slogan: "Open source customer support: live chat, e-mail and social inboxes in one place."
+description: "A shared inbox for the conversations with your customers: a live-chat widget for your site, e-mail, WhatsApp, Facebook, Instagram and more, with teams, canned responses, automations and reports. An open core project: MIT for what it ships, with enterprise features sold separately. The first person to open it creates the administrator."
+category: communication
+tags: [customer-support, live-chat, helpdesk, inbox]
+logo: logo.svg
+version: "4.18.0"
+revision: 1
+updated: 2026-10-20
+homepage: https://www.chatwoot.com
+docs: https://www.chatwoot.com/hc/self-hosted
+repository: https://github.com/chatwoot/chatwoot
+license: LicenseRef-Chatwoot-MIT-and-EE
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3680
+variables:
+  FRONTEND_URL:
+    from: url
+    description: The address people use; Chatwoot builds its links and its widget's address from it.
+  SECRET_KEY_BASE:
+    generate: hex64
+    description: Signs the sessions and encrypts what Chatwoot stores. Changing it signs everybody out.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /auth/sign_in
+  expect: "200"
+  timeout: 600
+files: {noust.yaml: noust.yaml, noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    chatwoot:
+      image: chatwoot/chatwoot:v4.18.0@sha256:b419dded7e9d2f54a24fd427b74ba7e6069d601b500618045c1eb6c01a1cc9a1
+      restart: unless-stopped
+      entrypoint: ["docker/entrypoints/rails.sh"]
+      command: ["sh", "-c", "bundle exec rails db:chatwoot_prepare && bundle exec rails s -p 3000 -b 0.0.0.0"]
+      depends_on:
+        db:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      environment:
+        RAILS_ENV: production
+        NODE_ENV: production
+        INSTALLATION_ENV: docker
+        SECRET_KEY_BASE: "${SECRET_KEY_BASE}"
+        FRONTEND_URL: "${FRONTEND_URL}"
+        FORCE_SSL: "false"
+        ENABLE_ACCOUNT_SIGNUP: "false"
+        POSTGRES_HOST: db
+        POSTGRES_PORT: "5432"
+        POSTGRES_DATABASE: chatwoot
+        POSTGRES_USERNAME: chatwoot
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+        REDIS_URL: redis://redis:6379
+        ACTIVE_STORAGE_SERVICE: local
+        LOG_LEVEL: info
+        RAILS_LOG_TO_STDOUT: "true"
+        MAILER_SENDER_EMAIL:
+        SMTP_ADDRESS:
+        SMTP_PORT:
+        SMTP_USERNAME:
+        SMTP_PASSWORD:
+      volumes:
+        - chatwoot-storage:/app/storage
+      ports:
+        - "127.0.0.1:${PORT}:3000"
+    sidekiq:
+      image: chatwoot/chatwoot:v4.18.0@sha256:b419dded7e9d2f54a24fd427b74ba7e6069d601b500618045c1eb6c01a1cc9a1
+      restart: unless-stopped
+      command: ["bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml"]
+      depends_on:
+        chatwoot:
+          condition: service_started
+      environment:
+        RAILS_ENV: production
+        NODE_ENV: production
+        INSTALLATION_ENV: docker
+        SECRET_KEY_BASE: "${SECRET_KEY_BASE}"
+        FRONTEND_URL: "${FRONTEND_URL}"
+        POSTGRES_HOST: db
+        POSTGRES_PORT: "5432"
+        POSTGRES_DATABASE: chatwoot
+        POSTGRES_USERNAME: chatwoot
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+        REDIS_URL: redis://redis:6379
+        ACTIVE_STORAGE_SERVICE: local
+        LOG_LEVEL: info
+        RAILS_LOG_TO_STDOUT: "true"
+        MAILER_SENDER_EMAIL:
+        SMTP_ADDRESS:
+        SMTP_PORT:
+        SMTP_USERNAME:
+        SMTP_PASSWORD:
+      volumes:
+        - chatwoot-storage:/app/storage
+    db:
+      image: pgvector/pgvector:0.8.1-pg17@sha256:3e8b3adfd27b5707128f60956f62a793c3c9326ea8cfaf0eab7adccb5d700b21
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: chatwoot
+        POSTGRES_DB: chatwoot
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U chatwoot -d chatwoot"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - chatwoot-db:/var/lib/postgresql/data
+    redis:
+      image: valkey/valkey:9.0.6-alpine@sha256:187679e3bd4036959631e3f03983ab2ba503ab21e6fd0454d508e909db2ee989
+      restart: unless-stopped
+      healthcheck:
+        test: ["CMD", "valkey-cli", "ping"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      volumes:
+        - chatwoot-cache:/data
+  volumes:
+    chatwoot-storage:
+    chatwoot-db:
+    chatwoot-cache:
+notes:
+  - "Open {{ url }}/installation/onboarding now and create the administrator: until you do, anybody who reaches it can."
+  - "Chatwoot sends no e-mail until you set MAILER_SENDER_EMAIL and the SMTP_* variables (the application's Environment tab) and restart it."
+  - "Chatwoot's licence is MIT apart from its enterprise directories, which need a subscription; the community edition this recipe runs is the MIT part."
+  - "Uploaded attachments are in the Docker volume chatwoot-storage and the database in chatwoot-db (PostgreSQL with pgvector, dumped by Noust before every update). Back both up before updating: the attachments are not in the database dump."

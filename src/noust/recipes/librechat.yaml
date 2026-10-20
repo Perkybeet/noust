@@ -1,0 +1,143 @@
+# LibreChat from the image the project publishes (ghcr.io/librechat-ai/librechat) with the
+# MongoDB and the Meilisearch its Docker documentation asks for (librechat.ai "Installation >
+# Docker", the docker-compose.yml and .env.example of the repository, read 2026-10-20):
+# MONGO_URI, MEILI_HOST and MEILI_MASTER_KEY, DOMAIN_CLIENT and DOMAIN_SERVER (the public
+# address), JWT_SECRET and JWT_REFRESH_SECRET, CREDS_KEY (32 bytes in hexadecimal) and CREDS_IV
+# (16 bytes), which encrypt the API keys people save, and the uploaded images and files under
+# /app. The project's compose file adds a RAG API with its own pgvector database for "chat with
+# your files"; it is left out, and the rest works without it. Each provider key defaults to
+# `user_provided`, which makes the interface ask each person for their own, so no key of the
+# operator's is shared. Registration is open until you close it: the first account created is
+# the administrator, which the first note says. /health answers without a sign-in.
+#
+# Pinned to the release tag and to the digests the registries serve for it.
+schema: 2
+name: librechat
+kind: compose
+title: LibreChat
+slogan: "A self-hosted chat interface for OpenAI, Google and local models."
+description: "One ChatGPT-style interface for many models: OpenAI, Google, Ollama and any OpenAI-compatible server, with presets, agents, plugins, search over your conversations and multi-user accounts. People bring their own provider keys. Registration is open until you close it; the first account becomes the administrator."
+category: ai
+tags: [llm, chat, openai, ollama]
+logo: logo.svg
+version: "0.8.8"
+revision: 1
+updated: 2026-10-20
+homepage: https://www.librechat.ai
+docs: https://www.librechat.ai/docs
+repository: https://github.com/LibreChat-AI/LibreChat
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3080
+variables:
+  LIBRECHAT_URL:
+    from: url
+    description: The address people use.
+  JWT_SECRET:
+    generate: hex32
+    description: Signs the sessions. Changing it signs everybody out.
+  JWT_REFRESH_SECRET:
+    generate: hex32
+    description: Signs the refresh tokens.
+  CREDS_KEY:
+    generate: hex64
+    description: Encrypts the API keys people save (32 bytes in hexadecimal). Changing it makes them unreadable.
+  CREDS_IV:
+    generate: hex32
+    description: The initialisation vector that goes with CREDS_KEY (16 bytes in hexadecimal).
+  MEILI_MASTER_KEY:
+    generate: password32
+    description: The key between LibreChat and its search index; it stays inside the stack.
+  ALLOW_REGISTRATION:
+    default: "true"
+    description: Whether the registration page creates accounts. Set it to false once the accounts you need exist.
+  ALLOW_PASSWORD_RESET:
+    default: "false"
+    description: Whether people can reset their password by e-mail. It needs the mail settings of LibreChat's documentation.
+  OPENAI_API_KEY:
+    default: user_provided
+    secret: true
+    description: An OpenAI key for everybody, or user_provided to make each person bring their own.
+  GOOGLE_KEY:
+    default: user_provided
+    secret: true
+    description: A Google AI key for everybody, or user_provided to make each person bring their own.
+  MONGO_PASSWORD:
+    generate: password32
+    description: The password of the stack's MongoDB account.
+health:
+  path: /health
+  expect: "200"
+  timeout: 300
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    librechat:
+      image: ghcr.io/librechat-ai/librechat:v0.8.8@sha256:5b706bcee1ca154a1e2987303aaeca0eb27f97919cccee4bb604226c2f8abf61
+      restart: unless-stopped
+      depends_on:
+        mongodb:
+          condition: service_healthy
+        meilisearch:
+          condition: service_started
+      environment:
+        HOST: 0.0.0.0
+        PORT: "3080"
+        DOMAIN_CLIENT: "${LIBRECHAT_URL}"
+        DOMAIN_SERVER: "${LIBRECHAT_URL}"
+        MONGO_URI: "mongodb://librechat:${MONGO_PASSWORD}@mongodb:27017/librechat?authSource=admin"
+        MEILI_HOST: http://meilisearch:7700
+        MEILI_MASTER_KEY: "${MEILI_MASTER_KEY}"
+        SEARCH: "true"
+        JWT_SECRET: "${JWT_SECRET}"
+        JWT_REFRESH_SECRET: "${JWT_REFRESH_SECRET}"
+        CREDS_KEY: "${CREDS_KEY}"
+        CREDS_IV: "${CREDS_IV}"
+        ALLOW_EMAIL_LOGIN: "true"
+        ALLOW_REGISTRATION: "${ALLOW_REGISTRATION}"
+        ALLOW_SOCIAL_LOGIN: "false"
+        ALLOW_PASSWORD_RESET: "${ALLOW_PASSWORD_RESET}"
+        NO_INDEX: "true"
+        OPENAI_API_KEY: "${OPENAI_API_KEY}"
+        GOOGLE_KEY: "${GOOGLE_KEY}"
+      volumes:
+        - librechat-images:/app/client/public/images
+        - librechat-uploads:/app/uploads
+        - librechat-logs:/app/api/logs
+      ports:
+        - "127.0.0.1:${PORT}:3080"
+    mongodb:
+      image: mongo:8.0.32@sha256:d0d926f94df099bff534b7ee5b5986458131a22489dfff8664509af0c1e2ca9c
+      restart: unless-stopped
+      environment:
+        MONGO_INITDB_ROOT_USERNAME: librechat
+        MONGO_INITDB_ROOT_PASSWORD: "${MONGO_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "mongosh --quiet --eval \"db.adminCommand('ping').ok\" || exit 1"]
+        interval: 10s
+        timeout: 10s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - librechat-db:/data/db
+    meilisearch:
+      image: getmeili/meilisearch:v1.54.3@sha256:e68913ab7d6f5b159529e472cfd362ce3c741fafd3c127961b2142abbe41b3c9
+      restart: unless-stopped
+      environment:
+        MEILI_MASTER_KEY: "${MEILI_MASTER_KEY}"
+        MEILI_NO_ANALYTICS: "true"
+        MEILI_ENV: production
+      volumes:
+        - librechat-search:/meili_data
+  volumes:
+    librechat-images:
+    librechat-uploads:
+    librechat-logs:
+    librechat-db:
+    librechat-search:
+notes:
+  - "Open {{ url }} now and register: the first account becomes the administrator, and until you set ALLOW_REGISTRATION to false (the application's Environment tab) and restart, anybody who reaches the page can register."
+  - "Each person adds their own provider key in the interface, as the two provider variables are left to ask for it. To give everybody one key, set OPENAI_API_KEY or GOOGLE_KEY to it; to reach a model server such as Ollama on this machine, add it as a custom endpoint in a librechat.yaml as the documentation describes."
+  - "The conversations are in the database, the Docker volume librechat-db of this application (MongoDB, dumped by Noust before every update), the uploads in librechat-uploads and librechat-images, the search index in librechat-search. Back them up before updating: the uploads are not in the database dump."

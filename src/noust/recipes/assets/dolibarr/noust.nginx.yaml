@@ -1,0 +1,5 @@
+# How nginx proxies this application. Documents are uploaded and reports take a while to build.
+max_body_size: 100m
+routes:
+  - path: /
+    read_timeout: 300

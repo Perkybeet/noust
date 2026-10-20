@@ -1,0 +1,6 @@
+# How nginx proxies this application. Devices keep a long-lived control connection (a WebSocket) open.
+max_body_size: 10m
+routes:
+  - path: /
+    read_timeout: 3600
+    buffering: false

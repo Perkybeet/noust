@@ -1,0 +1,72 @@
+# Lidarr from the image linuxserver.io publishes (ghcr.io/linuxserver/lidarr), run as its
+# documentation describes (docs.linuxserver.io/images/docker-lidarr, read 2026-10-20): the
+# configuration under /config, PUID, PGID and TZ for the account the process runs as, the
+# interface on 8686; the *arr applications answer /ping without a sign-in.
+# The image's s6 init changes the ownership of /config only, so a directory it writes to as
+# somebody other than root has to belong to PUID: the defaults here run as root inside the
+# container (PUID and PGID 0), which writes anywhere the operator mounts and nowhere else.
+# Since version 4 the first visit asks for the account that protects the interface.
+#
+# Pinned to the release tag and to the digest ghcr.io serves for it.
+schema: 2
+name: lidarr
+kind: compose
+title: Lidarr
+slogan: "A music collection manager for the artists and albums you follow."
+description: "Follow your artists, and Lidarr looks for each new album, hands it to your download client and files it into your music library with the right names and tags. Part of the *arr family."
+category: media
+tags: [music, media, automation, pvr]
+logo: logo.svg
+version: "3.1.0.4875"
+revision: 1
+updated: 2026-10-20
+homepage: https://lidarr.audio
+docs: https://wiki.servarr.com/lidarr
+repository: https://github.com/Lidarr/Lidarr
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8686
+variables:
+  PUID:
+    default: "0"
+    description: The user ID the process runs as inside the container. 0 is root; use the owner of your library to keep its files yours.
+  PGID:
+    default: "0"
+    description: The group ID the process runs as inside the container.
+  TZ:
+    default: UTC
+    description: The time zone, such as Europe/Madrid.
+  MUSIC_PATH:
+    default: ./music
+    description: "Your music library. Inside the application by default; give an absolute path to use a library elsewhere."
+  DOWNLOADS_PATH:
+    default: ./downloads
+    description: "Where your download client puts what it fetches. Inside the application by default; give an absolute path to share it with the client."
+health:
+  path: /ping
+  expect: "200"
+  timeout: 120
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    lidarr:
+      image: ghcr.io/linuxserver/lidarr:3.1.0.4875-ls43@sha256:67887807b13ae025c0fe979da298347c8609969087ab064c81d8e9acc1e06bbf
+      restart: unless-stopped
+      environment:
+        PUID: "${PUID}"
+        PGID: "${PGID}"
+        TZ: "${TZ}"
+      volumes:
+        - lidarr-config:/config
+        - "${MUSIC_PATH}:/music"
+        - "${DOWNLOADS_PATH}:/downloads"
+      ports:
+        - "127.0.0.1:${PORT}:8686"
+  volumes:
+    lidarr-config:
+notes:
+  - "Open {{ url }} now: the first visit asks for the user name and password that protect Lidarr, and until you set them anybody who reaches the page can."
+  - "Its settings and database are in the Docker volume lidarr-config of this application: back it up before updating."
+  - "Put your libraries where MUSIC_PATH point (inside {{ app_path }} by default) and restart the application after changing them: noust restart {{ domain }}. The paths must be the ones Sonarr, Radarr and your download client see, so that files are found where they are said to be."

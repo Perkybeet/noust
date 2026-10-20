@@ -1,0 +1,66 @@
+# CloudBeaver Community Edition from the image the project publishes (dbeaver/cloudbeaver on
+# Docker Hub), run as its documentation describes (github.com/dbeaver/cloudbeaver/wiki "Run
+# server in Docker", read 2026-10-20): CB_SERVER_NAME, CB_SERVER_URL (the public address),
+# CB_ADMIN_NAME and CB_ADMIN_PASSWORD (the administrator, made on the first start, so no visitor
+# can claim it; the password needs a digit and at least eight characters), the workspace
+# (connections, drivers, saved scripts) under /opt/cloudbeaver/workspace, and the interface on
+# 8978. It downloads the JDBC drivers of the databases you connect to from Maven Central when you
+# first use one. The recipe's databases are the ones you add from the interface: a database on this
+# server is reached by its address, because 127.0.0.1 inside the container is the container.
+#
+# Pinned to the release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: cloudbeaver
+kind: compose
+title: CloudBeaver
+slogan: "A web database manager for SQL and NoSQL databases, from the makers of DBeaver."
+description: "Browse, query and edit PostgreSQL, MySQL, MariaDB, SQLite, MongoDB and dozens of other databases from the browser, with a SQL editor, an ER diagram and saved connections per user. Starts with the administrator you name."
+category: data
+tags: [database, sql, admin, dbeaver]
+logo: logo.svg
+version: "26.2.3"
+revision: 1
+updated: 2026-10-20
+homepage: https://dbeaver.com/cloudbeaver/
+docs: https://github.com/dbeaver/cloudbeaver/wiki
+repository: https://github.com/dbeaver/cloudbeaver
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8978
+variables:
+  CB_SERVER_URL:
+    from: url
+    description: The address people use.
+  CB_ADMIN_NAME:
+    default: cbadmin
+    description: The administrator's user name.
+  CB_ADMIN_PASSWORD:
+    generate: password32
+    description: The administrator's password. CloudBeaver reads it only on the first start.
+health:
+  path: /
+  expect: "200"
+  timeout: 180
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    cloudbeaver:
+      image: dbeaver/cloudbeaver:26.2.3@sha256:0c875296f85ffd7c0ffaaaeff678cd2f383890050297585318d7cf8f49024d1f
+      restart: unless-stopped
+      environment:
+        CB_SERVER_NAME: CloudBeaver
+        CB_SERVER_URL: "${CB_SERVER_URL}"
+        CB_ADMIN_NAME: "${CB_ADMIN_NAME}"
+        CB_ADMIN_PASSWORD: "${CB_ADMIN_PASSWORD}"
+      volumes:
+        - cloudbeaver-workspace:/opt/cloudbeaver/workspace
+      ports:
+        - "127.0.0.1:${PORT}:8978"
+  volumes:
+    cloudbeaver-workspace:
+notes:
+  - "Sign in at {{ url }} as {{ vars.CB_ADMIN_NAME }}; the password is CB_ADMIN_PASSWORD (noust env show {{ domain }} --unmask). It is read only on the first start: change it in CloudBeaver afterwards."
+  - "CloudBeaver runs in a container, so 127.0.0.1 there is the container itself: add a database on this server by its address, not by localhost."
+  - "Connections, drivers and saved scripts are in the Docker volume cloudbeaver-workspace of this application: back it up before updating."

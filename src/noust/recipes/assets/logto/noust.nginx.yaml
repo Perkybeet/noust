@@ -1,0 +1,5 @@
+# How nginx proxies the sign-in service. Sign-in pages and callbacks carry large cookies and headers.
+max_body_size: 5m
+routes:
+  - path: /
+    read_timeout: 120

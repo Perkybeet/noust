@@ -1,0 +1,5 @@
+# How nginx proxies this application. Source maps, minidumps and event batches are uploaded to it.
+max_body_size: 100m
+routes:
+  - path: /
+    read_timeout: 120

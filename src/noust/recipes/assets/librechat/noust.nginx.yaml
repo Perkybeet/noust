@@ -1,0 +1,6 @@
+# How nginx proxies this application. Files are uploaded, and answers stream while a model writes them.
+max_body_size: 100m
+routes:
+  - path: /
+    read_timeout: 600
+    buffering: false

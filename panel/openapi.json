@@ -36586,7 +36586,7 @@
             "title": "Dump"
           },
           "engine": {
-            "description": "As noust db names it: postgresql, mysql, mariadb...",
+            "description": "The engine, by the name Noust gives it: postgresql, mysql, mariadb...",
             "title": "Engine",
             "type": "string"
           },

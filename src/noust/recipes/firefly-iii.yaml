@@ -1,0 +1,107 @@
+# Firefly III from the image the project publishes (fireflyiii/core on Docker Hub) with
+# PostgreSQL, as its installation guide describes (docs.firefly-iii.org "Installation > Docker",
+# the docker-compose.yml and .env.example of firefly-iii/docker, read 2026-10-20): APP_KEY (exactly
+# 32 characters), SITE_OWNER (the address shown for support), APP_URL, TRUSTED_PROXIES=** because
+# it sits behind nginx, DB_CONNECTION=pgsql and the DB_* settings, STATIC_CRON_TOKEN (32
+# characters, which authorises the URL a scheduled task calls for recurring transactions and
+# bills), and the uploaded attachments under /var/www/html/storage/upload. The first person to
+# register is the owner, which the first note says. /health answers without a sign-in.
+#
+# Pinned to the release tag and to the digests Docker Hub serves for it.
+schema: 2
+name: firefly-iii
+kind: compose
+title: Firefly III
+slogan: "A personal finance manager: budgets, accounts, rules and reports."
+description: "Keep track of your money with double-entry accounts, budgets, categories, bills and rules that sort transactions for you, with reports and charts. Import from banks and files through its data importer. The first person to register becomes the owner."
+category: business
+tags: [finance, budget, accounting, personal-finance]
+logo: logo.svg
+version: "6.7.9"
+revision: 1
+updated: 2026-10-20
+homepage: https://www.firefly-iii.org
+docs: https://docs.firefly-iii.org
+repository: https://github.com/firefly-iii/firefly-iii
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 9080
+variables:
+  APP_URL:
+    from: url
+    description: The address people use; Firefly III builds its links from it.
+  SITE_OWNER:
+    required: true
+    description: The e-mail address shown as the owner of the site, where people write if something is wrong.
+  APP_KEY:
+    generate: hex32
+    description: Encrypts what Firefly III stores (32 characters). Changing it makes the stored data unreadable.
+  STATIC_CRON_TOKEN:
+    generate: hex32
+    description: Authorises the URL a scheduled task calls to run recurring transactions (32 characters).
+  TZ:
+    default: UTC
+    description: The time zone, such as Europe/Madrid.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /health
+  expect: "200"
+  timeout: 300
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    firefly:
+      image: fireflyiii/core:version-6.7.9@sha256:a2b53539338d1cd04d341b229c3806cb178cf64c72459060e3ed34bec4167bd8
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        APP_ENV: production
+        APP_DEBUG: "false"
+        APP_URL: "${APP_URL}"
+        APP_KEY: "${APP_KEY}"
+        SITE_OWNER: "${SITE_OWNER}"
+        TRUSTED_PROXIES: "**"
+        TZ: "${TZ}"
+        DEFAULT_LANGUAGE: en_US
+        DEFAULT_LOCALE: equal_to_language
+        LOG_CHANNEL: stack
+        APP_LOG_LEVEL: notice
+        DB_CONNECTION: pgsql
+        DB_HOST: db
+        DB_PORT: "5432"
+        DB_DATABASE: firefly
+        DB_USERNAME: firefly
+        DB_PASSWORD: "${DB_PASSWORD}"
+        STATIC_CRON_TOKEN: "${STATIC_CRON_TOKEN}"
+      volumes:
+        - firefly-upload:/var/www/html/storage/upload
+      ports:
+        - "127.0.0.1:${PORT}:8080"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: firefly
+        POSTGRES_DB: firefly
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U firefly -d firefly"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - firefly-db:/var/lib/postgresql/data
+  volumes:
+    firefly-upload:
+    firefly-db:
+notes:
+  - "Open {{ url }} now and register: the first account becomes the owner, and until you do anybody who reaches the page can."
+  - "Recurring transactions and bills are processed when this URL is called once a day: {{ url }}/api/v1/cron/<STATIC_CRON_TOKEN> (noust env show {{ domain }} --unmask), for example by a scheduled task of this server."
+  - "Keep APP_KEY with your backups: without it the stored data cannot be read. The attachments are in the Docker volume firefly-upload and the database in firefly-db (PostgreSQL, dumped by Noust before every update): back both up before updating."

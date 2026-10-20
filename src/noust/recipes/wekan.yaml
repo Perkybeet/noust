@@ -1,0 +1,84 @@
+# Wekan from the image the project publishes (ghcr.io/wekan/wekan) with MongoDB, as its Docker
+# documentation describes (github.com/wekan/wekan wiki "Docker" and docker-compose.yml, read
+# 2026-10-20): ROOT_URL (the public address), MONGO_URL, PORT, WRITABLE_PATH for the attachments,
+# and MAIL_URL and MAIL_FROM for e-mail. The first account to register is the administrator,
+# which the first note says; DISABLE_REGISTRATION closes the page afterwards. The page the
+# project's own health check uses (the root) answers without a sign-in.
+#
+# Pinned to the release tag and to the digests the registries serve for it.
+schema: 2
+name: wekan
+kind: compose
+title: Wekan
+slogan: "An open source Kanban board, a Trello alternative with swimlanes and checklists."
+description: "Organise work on boards of lists and cards with labels, checklists, due dates, swimlanes, WIP limits, rules and webhooks, for one team or many. The first person to register becomes the administrator."
+category: productivity
+tags: [kanban, project-management, boards, trello-alternative]
+logo: logo.svg
+version: "12.56"
+revision: 1
+updated: 2026-10-20
+homepage: https://wekan.fi
+docs: https://github.com/wekan/wekan/wiki
+repository: https://github.com/wekan/wekan
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8680
+variables:
+  ROOT_URL:
+    from: url
+    description: The address people use; Wekan builds its links from it.
+  DISABLE_REGISTRATION:
+    default: "false"
+    description: Set it to true once the accounts you need exist, to close the registration page.
+  MONGO_PASSWORD:
+    generate: password32
+    description: The password of the stack's MongoDB account.
+health:
+  path: /
+  expect: "200"
+  timeout: 300
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    wekan:
+      image: ghcr.io/wekan/wekan:v12.56@sha256:ac81425061d4d44df6643380a4a34f5c70ea3dc6ec3069264c538089bf10ea99
+      restart: unless-stopped
+      depends_on:
+        mongodb:
+          condition: service_healthy
+      environment:
+        ROOT_URL: "${ROOT_URL}"
+        MONGO_URL: "mongodb://wekan:${MONGO_PASSWORD}@mongodb:27017/wekan?authSource=admin"
+        PORT: "8080"
+        WRITABLE_PATH: /data
+        DISABLE_REGISTRATION: "${DISABLE_REGISTRATION}"
+        MAIL_URL:
+        MAIL_FROM:
+      volumes:
+        - wekan-data:/data
+      ports:
+        - "127.0.0.1:${PORT}:8080"
+    mongodb:
+      image: mongo:8.0.32@sha256:d0d926f94df099bff534b7ee5b5986458131a22489dfff8664509af0c1e2ca9c
+      restart: unless-stopped
+      environment:
+        MONGO_INITDB_ROOT_USERNAME: wekan
+        MONGO_INITDB_ROOT_PASSWORD: "${MONGO_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "mongosh --quiet --eval \"db.adminCommand('ping').ok\" || exit 1"]
+        interval: 10s
+        timeout: 10s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - wekan-db:/data/db
+  volumes:
+    wekan-data:
+    wekan-db:
+notes:
+  - "Open {{ url }} now and register: the first account becomes the administrator, and until you set DISABLE_REGISTRATION to true (the application's Environment tab) and restart, anybody who reaches the page can register."
+  - "Wekan sends no e-mail until you set MAIL_URL and MAIL_FROM and restart it."
+  - "The attachments are in the Docker volume wekan-data and the boards in wekan-db (MongoDB, dumped by Noust before every update). Back both up before updating: the attachments are not in the database dump."

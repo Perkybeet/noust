@@ -1,0 +1,5 @@
+# How nginx proxies this application. Statements and exports are imported and downloaded through it.
+max_body_size: 50m
+routes:
+  - path: /
+    read_timeout: 300

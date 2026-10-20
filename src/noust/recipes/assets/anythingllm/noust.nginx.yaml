@@ -1,0 +1,6 @@
+# How nginx proxies this application. Documents are uploaded and answers stream for a long time.
+max_body_size: 512m
+routes:
+  - path: /
+    read_timeout: 600
+    buffering: false

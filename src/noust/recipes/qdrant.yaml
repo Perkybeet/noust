@@ -1,0 +1,55 @@
+# Qdrant from the image the project publishes (qdrant/qdrant on Docker Hub, the same
+# release as ghcr.io/qdrant/qdrant). Configuration is what the project documents: any setting
+# is a QDRANT__<SECTION>__<KEY> variable (docs "Configuration"), QDRANT__SERVICE__API_KEY turns
+# on authentication of the REST and gRPC APIs (docs "Security"), the data is under
+# /qdrant/storage and the REST API and the web dashboard (/dashboard) listen on 6333.
+# The health endpoints (/healthz, /livez, /readyz) answer without the key.
+#
+# Derived in part from Coolify's template "qdrant" (Apache-2.0,
+# https://github.com/coollabsio/coolify/blob/next/templates/compose/qdrant.yaml): the variable
+# and the volume. Pinned to the release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: qdrant
+kind: compose
+title: Qdrant
+slogan: A vector database for similarity search, with a dashboard and an API key.
+description: "A vector similarity search engine for AI applications: store embeddings with their payload and search them by meaning. Starts with an API key, which every request needs, and a web dashboard."
+category: ai
+tags: [vector-database, embeddings, search, llm]
+logo: logo.svg
+version: "1.19.2"
+revision: 1
+updated: 2026-10-20
+homepage: https://qdrant.tech
+docs: https://qdrant.tech/documentation/
+repository: https://github.com/qdrant/qdrant
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 6333
+variables:
+  QDRANT_API_KEY:
+    generate: password32
+    description: The key every request to the API and the dashboard must carry (the api-key header).
+health:
+  path: /healthz
+  expect: "200"
+  timeout: 90
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    qdrant:
+      image: qdrant/qdrant:v1.19.2@sha256:b7b0444c4c351c970b98e90a6f89c2ee4287c65b44e52b4cb503fa5b2aa927ad
+      restart: unless-stopped
+      environment:
+        QDRANT__SERVICE__API_KEY: "${QDRANT_API_KEY}"
+      volumes:
+        - qdrant-storage:/qdrant/storage
+      ports:
+        - "127.0.0.1:${PORT}:6333"
+  volumes:
+    qdrant-storage:
+notes:
+  - "The dashboard is {{ url }}/dashboard; it asks for the API key, which is QDRANT_API_KEY (noust env show {{ domain }} --unmask). Every API request carries it in an api-key header."
+  - "Your collections are in the Docker volume qdrant-storage of this application: back it up before updating. The gRPC port (6334) is not published; reach Qdrant through the address above."
