@@ -117,7 +117,7 @@ function PackagesForm({ domain, state }: { domain: string; state: AppPackages })
         {install.isError ? <ErrorBlock live compact error={install.error} title={t("appPackages.notStarted", { domain })} /> : null}
         {jobFailed ? <ErrorBlock live compact error={{ detail: job.error ?? t("appPackages.jobFailedSilently") }} title={t("appPackages.notInstalled", { domain })} /> : null}
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="submit" variant="primary" size="sm" loading={save.isPending} disabled={!changed}>
+          <Button type="submit" size="sm" loading={save.isPending} disabled={!changed}>
             {t("appPackages.save")}
           </Button>
           <Button size="sm" loading={installing} disabled={changed || state.missing.length === 0 || !state.supported || state.refused.length > 0} onClick={() => install.mutate()}>

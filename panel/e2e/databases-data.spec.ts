@@ -10,7 +10,7 @@
 
 import type { Page } from "@playwright/test";
 
-import { confirmItsYou, expect, expectNoA11yViolations, settle, test } from "./fixtures";
+import { confirmItsYou, dismissToasts, expect, expectNoA11yViolations, settle, test } from "./fixtures";
 import type { ConsoleServer } from "./fixtures";
 
 const DATABASE = "/databases/postgresql/example_production";
@@ -170,12 +170,15 @@ test("one backup policy for every database of an engine, with what it leaves out
   const drawer = page.getByRole("dialog", { name: "Backups of every MySQL/MariaDB database" });
   await expect(drawer.getByText("Leave out")).toBeVisible();
   await drawer.getByRole("textbox", { name: /^Databases/ }).fill("shop_wp, bad$$name!");
+  // A failure an earlier test of this worker caused may arrive over the Save button, and stays.
+  await dismissToasts(page);
   await drawer.getByRole("button", { name: "Save" }).click();
   await expect(drawer.getByText("Not a valid name: bad$$name!.")).toBeVisible();
   await drawer.getByRole("textbox", { name: /^Databases/ }).fill("shop_wp");
   await drawer.getByRole("textbox", { name: /^Tables/ }).fill("sessions\nlogs_*");
   await settle(page);
   await expectNoA11yViolations(page, "the policy for every database");
+  await dismissToasts(page);
   await drawer.getByRole("button", { name: "Save" }).click();
   await confirmItsYou(page, consoleServer);
   await expect(drawer).toBeHidden();

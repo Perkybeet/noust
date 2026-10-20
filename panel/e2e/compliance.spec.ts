@@ -29,7 +29,9 @@ test("frameworks are off by default, turn on after listing what changes, and loc
   await expect(section).toContainText("It does not make a server compliant");
   await expect(section).not.toContainText(/is compliant|are compliant/);
 
-  const card = section.locator("div").filter({ has: page.getByRole("heading", { level: 3, name: "NIS2" }) }).last();
+  // The framework's card is the innermost section holding its heading: its action sits in the card's
+  // header, beside the div that holds the heading, so a div around the heading would miss the button.
+  const card = section.locator("section").filter({ has: page.getByRole("heading", { level: 3, name: "NIS2" }) }).last();
   await card.getByRole("button", { name: "Turn on…" }).click();
   const dialog = page.getByRole("dialog", { name: "Turn on NIS2" });
   await expect(dialog.getByText("Encrypted backups")).toBeVisible();

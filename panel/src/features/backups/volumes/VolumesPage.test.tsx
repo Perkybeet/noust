@@ -55,7 +55,9 @@ describe("the Volumes tab", () => {
     expect(screen.getByText(/noust backup volumes schedule set/)).toBeInTheDocument();
   });
 
-  it("sets a policy: the application, the pieces it declares, the schedule, what is kept and how still the data is", async () => {
+  // Two dozen interactions through a drawer and a menu: 1.7 s on an idle machine, so the default 5 s
+  // leaves no room for the cores a full run shares with its other workers.
+  it("sets a policy: the application, the pieces it declares, the schedule, what is kept and how still the data is", { timeout: 40_000 }, async () => {
     const { user, backend } = await volumesAt("/backups/volumes", {
       [`PUT /api/volume-backups/policies/${SHOP}`]: (call) => json(200, { ...policy(SHOP), ...(call.body as object) }),
     }, { policies: [], backups: [] });
