@@ -56,5 +56,14 @@ openssl x509 -req -in "$CA_DIR/server.csr" -CA "$CA_DIR/ca.pem" -CAkey "$CA_DIR/
     -CAcreateserial -days 2 -extfile "$CA_DIR/ext.cnf" -out "$CA_DIR/server.pem" 2>/dev/null
 
 named -u bind -f &
+
+# Pebble reads its configuration from where the harness puts it (the document is the harness's, not
+# the image's) and asks the BIND above; its relative paths are the ones of the image's root.
+(
+    while [ ! -s /pebble-config.json ]; do sleep 0.5; done
+    cd /
+    exec pebble -config /pebble-config.json -dnsserver 127.0.0.1:53
+) &
+
 exec python3 /opt/provider.py --cert "$CA_DIR/server.pem" --key "$CA_DIR/server.key" \
     --zone "$ZONE" --tsig-key "$KEY"

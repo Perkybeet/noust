@@ -62,6 +62,7 @@ import tempfile
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -123,8 +124,12 @@ CLIENT_IMAGE = f"{PREFIX}-client:latest"
 #: What the harness may remove, by exact name. The providers share the server's network
 #: namespace, so they go first.
 OWNED_CONTAINERS = (TRUST, AUTHELIA, OAUTH2, CLIENT, SERVER)
-#: The certificate scenarios' authority and DNS provider, removed with the rest (see PEBBLE, DNS).
-ACME_CONTAINERS = (f"{PREFIX}-pebble", f"{PREFIX}-dns")
+#: The certificate scenarios' authority and DNS provider, removed with the rest (see DNS).
+ACME_CONTAINERS = (
+    f"{PREFIX}-dns",
+    f"{PREFIX}-fresh",
+    f"{PREFIX}-debbuild",
+)
 
 #: The fixtures served by git:// inside the server.
 ECHO_REPO = "/root/fixtures/echo-app"
@@ -309,7 +314,7 @@ def remove_volume() -> None:
 
 def remove_images() -> None:
     """Remove the images this harness built, by exact name."""
-    for image in (SERVER_IMAGE, CLIENT_IMAGE, f"{PREFIX}-dns:latest"):
+    for image in (SERVER_IMAGE, CLIENT_IMAGE, f"{PREFIX}-dns:latest", f"{PREFIX}-fresh:latest"):
         docker("image", "rm", owned(image), check=False, timeout=60)
 
 
@@ -2722,7 +2727,8 @@ def scenario_waf(env: Env) -> None:
 # A certificate authority and a DNS provider that run for real: Pebble and BIND (E-33, E-34)
 # ---------------------------------------------------------------------------
 
-PEBBLE = f"{PREFIX}-pebble"
+#: One container holds BIND, the DNS provider's stand-in and Pebble (Dockerfile.dns): the harness is
+#: held to two live containers, and the authority and the DNS it asks are one stack.
 DNS = f"{PREFIX}-dns"
 DNS_IMAGE = f"{PREFIX}-dns:latest"
 
@@ -2786,6 +2792,9 @@ _STACK: AcmeStack | None = None
 #: The visitor was stopped to make room for the stack and is started again when the stack goes.
 _CLIENT_STOPPED = False
 
+#: The machine the running stack serves; the server unless a scenario brought its own.
+_TARGET = SERVER
+
 
 def pull_pebble() -> None:
     """Pull Pebble's official image when it is not here yet."""
@@ -2796,10 +2805,12 @@ def pull_pebble() -> None:
 
 
 def build_dns_image() -> None:
-    """Build the BIND and provider stand-in image (cached after the first time)."""
+    """Build the BIND, provider stand-in and Pebble image (cached after the first time)."""
     print(f"[setup] building {DNS_IMAGE}")
     docker(
         "build",
+        "--build-arg",
+        f"PEBBLE_IMAGE={PEBBLE_IMAGE}",
         "--label",
         LABEL,
         "-t",
@@ -2811,51 +2822,69 @@ def build_dns_image() -> None:
     )
 
 
-def start_acme_stack(env: Env) -> AcmeStack:
+def start_acme_stack(env: Env, *, target: str = SERVER, configure_noust: bool = True) -> AcmeStack:
     """
-    Start Pebble and the DNS container and make the server use them.
+    Start Pebble and the DNS container and make a machine use them.
 
-    The server trusts Pebble's own CA (certbot talks to it over TLS) and the stand-in provider's,
+    The machine trusts Pebble's own CA (certbot talks to it over TLS) and the stand-in provider's,
     resolves ``pebble`` and ``api.cloudflare.com`` to the two containers and asks the BIND for the
     names under ``acme.test``; Noust is told to order from Pebble. The visitor is stopped while the
     stack is up: three containers is the most this harness runs at a time.
 
     Args:
         env: The environment.
+        target: The machine that uses the stack: the server, or a fresh one a scenario made.
+        configure_noust: Tell the machine's Noust to order from Pebble (installing certbot first).
+            False for a machine that has no Noust yet.
 
     Returns:
         What the scenarios need to know about the stack.
     """
-    global _STACK, _CLIENT_STOPPED
+    global _STACK, _CLIENT_STOPPED, _TARGET
     if _STACK is not None:
         return _STACK
+    _TARGET = target
     if is_running(CLIENT):
         docker("stop", owned(CLIENT), timeout=60)
         _CLIENT_STOPPED = True
     try:
-        _STACK = _start_acme_stack(env)
+        _STACK = _start_acme_stack(env, target, configure_noust)
     except BaseException:
         stop_acme_stack(env)
         raise
     return _STACK
 
 
-def _start_acme_stack(env: Env) -> AcmeStack:
+def _start_acme_stack(env: Env, target: str, configure_noust: bool) -> AcmeStack:
     """
     Do what :func:`start_acme_stack` describes, with the visitor already stopped.
 
     Args:
         env: The environment.
+        target: The machine that uses the stack.
+        configure_noust: Whether its Noust is told to order from Pebble.
 
     Returns:
         What the scenarios need to know about the stack.
     """
     pull_pebble()
     build_dns_image()
-    for name in (PEBBLE, DNS):
-        remove_container(name)
+    remove_container(DNS)
 
-    docker("run", "-d", "--name", owned(DNS), "--label", LABEL, "--network", NETWORK, DNS_IMAGE)
+    # `pebble` is a name of this same container: the machines reach the authority by it.
+    docker(
+        "run",
+        "-d",
+        "--name",
+        owned(DNS),
+        "--label",
+        LABEL,
+        "--network",
+        NETWORK,
+        "--network-alias",
+        "pebble",
+        DNS_IMAGE,
+    )
     dns_ip = container_ip(DNS)
     wait_for(
         lambda: (
@@ -2881,43 +2910,20 @@ def _start_acme_stack(env: Env) -> AcmeStack:
     if secret is None:
         raise HarnessError(f"no secret in the TSIG key BIND made: {key_text!r}")
 
-    docker(
-        "create",
-        "--name",
-        owned(PEBBLE),
-        "--label",
-        LABEL,
-        "--network",
-        NETWORK,
-        "--network-alias",
-        "pebble",
-        "-e",
-        "PEBBLE_VA_NOSLEEP=1",
-        "-e",
-        "PEBBLE_WFE_NONCEREJECT=0",
-        "-e",
-        "PEBBLE_AUTHZREUSE=0",
-        PEBBLE_IMAGE,
-        "-config",
-        "/pebble-config.json",
-        "-dnsserver",
-        f"{dns_ip}:53",
-    )
     with tempfile.TemporaryDirectory(prefix="noust-pebble-") as scratch:
         config = Path(scratch) / "pebble-config.json"
         config.write_text(json.dumps(PEBBLE_CONFIG))
-        docker("cp", str(config), f"{PEBBLE}:/pebble-config.json")
+        docker("cp", str(config), f"{DNS}:/pebble-config.json")
         minica = Path(scratch) / "pebble.minica.pem"
-        docker("cp", f"{PEBBLE}:/test/certs/pebble.minica.pem", str(minica))
+        docker("cp", f"{DNS}:/test/certs/pebble.minica.pem", str(minica))
         provider_ca = Path(scratch) / "provider-ca.pem"
         docker("cp", f"{DNS}:/srv/ca/ca.pem", str(provider_ca))
-        docker("start", PEBBLE)
-        pebble_ip = container_ip(PEBBLE)
-        docker("cp", str(minica), f"{SERVER}:{PEBBLE_TRUST}")
-        docker("cp", str(provider_ca), f"{SERVER}:{PROVIDER_TRUST}")
+        pebble_ip = dns_ip
+        docker("cp", str(minica), f"{target}:{PEBBLE_TRUST}")
+        docker("cp", str(provider_ca), f"{target}:{PROVIDER_TRUST}")
 
     sh_in(
-        SERVER,
+        target,
         "update-ca-certificates >/dev/null 2>&1; "
         f"sed -i '/{HOSTS_MARK}/d' /etc/hosts; "
         f"printf '%s pebble {HOSTS_MARK}\\n%s api.cloudflare.com {HOSTS_MARK}\\n' "
@@ -2929,18 +2935,20 @@ def _start_acme_stack(env: Env) -> AcmeStack:
     wait_for(
         lambda: (
             docker(
-                "exec", SERVER, "curl", "-fsS", "https://pebble:14000/dir", check=False
+                "exec", target, "curl", "-fsS", "https://pebble:14000/dir", check=False
             ).returncode
             == 0
         ),
         "Pebble to answer its directory from the server",
         timeout=40,
     )
+    address = container_ip(target)
     names = {
-        "www": env.server_ip,
-        "app": env.server_ip,
+        "www": address,
+        "app": address,
+        "fresh": address,
         "dns": "192.0.2.1",  # nothing listens there: only the DNS challenge can prove this name
-        "wild": env.server_ip,
+        "wild": address,
         "plug": "192.0.2.1",
     }
     updates = "\n".join(f"update add {n}.{ACME_ZONE} 60 A {ip}" for n, ip in names.items())
@@ -2953,17 +2961,18 @@ def _start_acme_stack(env: Env) -> AcmeStack:
         "/etc/bind/noust.key",
         input_text=f"server 127.0.0.1\n{updates}\nsend\n",
     )
-    env.srv(
-        "command -v certbot >/dev/null || noust setup init -y",
-        timeout=600,
-        label="(certbot, as `noust setup init` installs it)",
-    )
-    env.srv(
-        f"noust cert acme --ca custom --server https://pebble:14000/dir --email {ACME_EMAIL} "
-        "--register",
-        timeout=180,
-        label="noust cert acme --ca custom --server https://pebble:14000/dir --register",
-    )
+    if configure_noust:
+        env.srv(
+            "command -v certbot >/dev/null || noust setup init -y",
+            timeout=600,
+            label="(certbot, as `noust setup init` installs it)",
+        )
+        env.srv(
+            f"noust cert acme --ca custom --server https://pebble:14000/dir --email {ACME_EMAIL} "
+            "--register",
+            timeout=180,
+            label="noust cert acme --ca custom --server https://pebble:14000/dir --register",
+        )
     return AcmeStack(
         pebble_ip=pebble_ip,
         dns_ip=dns_ip,
@@ -2982,7 +2991,7 @@ def stop_acme_stack(env: Env | None) -> None:
     """
     global _STACK, _CLIENT_STOPPED
     _STACK = None
-    if env is not None and is_running(SERVER):
+    if env is not None and _TARGET == SERVER and is_running(SERVER):
         env.srv(
             "noust cert acme --ca letsencrypt >/dev/null 2>&1; "
             f"sed -i '/{HOSTS_MARK}/d' /etc/hosts; "
@@ -2994,8 +3003,7 @@ def stop_acme_stack(env: Env | None) -> None:
             check=False,
             label="(leave the server as found) the authority, hosts, resolver and trust",
         )
-    for name in (PEBBLE, DNS):
-        remove_container(name)
+    remove_container(DNS)
     if _CLIENT_STOPPED:
         docker("start", owned(CLIENT), check=False)
         _CLIENT_STOPPED = False
@@ -3600,6 +3608,298 @@ def scenario_acme_rfc2136(env: Env) -> None:
     )
     forget_acme_app(env, domain)
     env.srv("noust dns provider remove bind -y")
+
+
+# ---------------------------------------------------------------------------
+# The time from `apt install` to the first deploy over HTTPS, measured (N-10)
+# ---------------------------------------------------------------------------
+
+FRESH = f"{PREFIX}-fresh"
+FRESH_IMAGE = f"{PREFIX}-fresh:latest"
+DEB_BUILDER = f"{PREFIX}-debbuild"
+DEB_DIR = INTEGRATION_DIR / ".build" / "deb"
+
+#: Where each run's measurement is kept, and what it is held to: ten minutes from a bare
+#: server to an application served over HTTPS (docs/superpowers/plans/2026-09-26-wasm-after-2.0-roadmap.md).
+FIRST_DEPLOY_RESULT = INTEGRATION_DIR / "results" / "first-deploy.json"
+FIRST_DEPLOY_BUDGET_SECONDS = 600
+
+#: What the package's build needs on Debian 13 (obs/debian.control, Build-Depends) and what the
+#: build script itself runs.
+DEB_BUILD_PACKAGES = (
+    "build-essential debhelper dh-python pybuild-plugin-pyproject python3-all "
+    "python3-setuptools python3-wheel dpkg-dev fakeroot"
+)
+
+
+def build_noust_deb() -> Path:
+    """
+    Build the Debian package of the committed tree, the way OBS builds it, in a container.
+
+    The package is staged with ``packaging/obs/stage.sh --snapshot`` (the files an OBS package
+    receives) and built with ``packaging/obs/build.sh deb`` on Debian 13, so what a scenario
+    installs is the same package ``apt install noust`` would fetch, minus the repository.
+
+    Returns:
+        The ``.deb`` on the host. A package already built for this commit is reused.
+
+    Raises:
+        HarnessError: The build failed.
+    """
+    head = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "rev-parse", "--short", "HEAD"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=True,
+    ).stdout.strip()
+    out = DEB_DIR / head
+    built = sorted(out.glob("noust_*.deb"))
+    if built:
+        print(f"[setup] reusing {built[-1].name} (commit {head})")
+        return built[-1]
+    print(f"[setup] building the Debian package of commit {head}")
+    out.mkdir(parents=True, exist_ok=True)
+    remove_container(DEB_BUILDER)
+    with tempfile.TemporaryDirectory(prefix="noust-stage-") as scratch:
+        stage = Path(scratch) / "stage"
+        subprocess.run(
+            ["sh", str(REPO_ROOT / "packaging/obs/stage.sh"), "--snapshot", "noust", str(stage)],
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=True,
+        )
+        docker(
+            "run",
+            "-d",
+            "--name",
+            owned(DEB_BUILDER),
+            "--label",
+            LABEL,
+            "debian:13",
+            "sleep",
+            "infinity",
+            timeout=120,
+        )
+        try:
+            docker(
+                "exec",
+                DEB_BUILDER,
+                "bash",
+                "-lc",
+                f"apt-get update >/dev/null && DEBIAN_FRONTEND=noninteractive apt-get install -y "
+                f"--no-install-recommends {DEB_BUILD_PACKAGES} >/dev/null",
+                timeout=1200,
+            )
+            docker("cp", str(stage), f"{DEB_BUILDER}:/stage", timeout=120)
+            docker("cp", str(REPO_ROOT / "packaging/obs/build.sh"), f"{DEB_BUILDER}:/build.sh")
+            docker(
+                "exec",
+                DEB_BUILDER,
+                "sh",
+                "/build.sh",
+                "deb",
+                "/stage",
+                "/out",
+                timeout=1800,
+            )
+            docker("cp", f"{DEB_BUILDER}:/out/.", str(out), timeout=120)
+        finally:
+            remove_container(DEB_BUILDER)
+    built = sorted(out.glob("noust_*.deb"))
+    if not built:
+        raise HarnessError(f"the package build left no noust_*.deb in {out}")
+    print(f"[setup] built {built[-1].name}")
+    return built[-1]
+
+
+def build_fresh_image() -> None:
+    """Build the image of a server as a provider hands it over (cached after the first time)."""
+    print(f"[setup] building {FRESH_IMAGE}")
+    docker(
+        "build",
+        "--label",
+        LABEL,
+        "-t",
+        owned(FRESH_IMAGE),
+        "-f",
+        str(NETWORK_DIR / "Dockerfile.fresh"),
+        str(NETWORK_DIR),
+        timeout=900,
+    )
+
+
+def fresh_run(
+    env: Env, label: str, script: str, *, timeout: int, check: bool = True
+) -> tuple[float, subprocess.CompletedProcess[str]]:
+    """
+    Run a script in the fresh server, timed.
+
+    Args:
+        env: The environment (for the evidence).
+        label: What it is.
+        script: The script (bash).
+        timeout: Seconds.
+        check: Fail the scenario on a non-zero exit.
+
+    Returns:
+        The seconds it took and the finished command.
+    """
+    started = time.monotonic()
+    proc = docker("exec", owned(FRESH), "bash", "-lc", script, timeout=timeout, check=False)
+    took = time.monotonic() - started
+    tail = (proc.stdout + proc.stderr).strip()[-1500:]
+    env.evidence.append(f"[fresh] $ {label}  ({took:.1f}s, exit {proc.returncode})\n{tail}")
+    if check and proc.returncode != 0:
+        raise AssertionError(f"command failed (exit {proc.returncode}): [fresh] {label}\n{tail}")
+    return took, proc
+
+
+@scenario("first_deploy_with_tls_is_timed")
+def scenario_first_deploy(env: Env) -> None:
+    """From a bare Debian 13 server to an application over HTTPS: `apt install`, `setup init`, `create` (N-10)."""
+    # Two live containers at most: the server and the visitor stop before the package is built, and
+    # the machine under test and the authority are the two that run after.
+    stopped = [name for name in (SERVER, CLIENT) if is_running(name)]
+    for name in stopped:
+        docker("stop", owned(name), timeout=90)
+    domain = f"fresh.{ACME_ZONE}"
+    try:
+        package = build_noust_deb()
+        build_fresh_image()
+        remove_container(FRESH)
+        docker(
+            "run",
+            "-d",
+            "--name",
+            owned(FRESH),
+            "--label",
+            LABEL,
+            "--network",
+            NETWORK,
+            "--privileged",
+            "--cgroupns=host",
+            "-v",
+            "/sys/fs/cgroup:/sys/fs/cgroup:rw",
+            "--tmpfs",
+            "/run",
+            "--tmpfs",
+            "/run/lock",
+            FRESH_IMAGE,
+            timeout=90,
+        )
+        wait_for_systemd(FRESH)
+        # The stack (Pebble standing in for Let's Encrypt, and the DNS that names this server) is
+        # what the operator's world looks like; building it is not part of the time.
+        stack = start_acme_stack(env, target=FRESH, configure_noust=False)
+        env.check(stack.pebble_ip != "", "the stack did not come up")
+        copied = docker("cp", str(package), f"{FRESH}:/root/{package.name}", timeout=120)
+        env.check(copied.returncode == 0, "the package could not be copied")
+
+        phases: dict[str, float] = {}
+        phases["apt_install"], _ = fresh_run(
+            env,
+            f"apt-get update && apt-get install -y ./{package.name}",
+            f"apt-get update >/dev/null && DEBIAN_FRONTEND=noninteractive "
+            f"apt-get install -y --no-install-recommends /root/{package.name} 2>&1 | tail -5",
+            timeout=1800,
+        )
+        version = fresh_run(env, "noust --version", "noust --version", timeout=60)[1].stdout.strip()
+        phases["setup_init"], _ = fresh_run(
+            env, "noust setup init -y", "noust setup init -y 2>&1 | tail -15", timeout=1800
+        )
+
+        # The repository: on GitHub for an operator, a git daemon here. Not part of the time.
+        sh_in(FRESH, "mkdir -p /root/fixtures")
+        docker(
+            "cp", str(INTEGRATION_DIR / "fixtures" / "echo-app"), f"{FRESH}:/root/fixtures/echo-app"
+        )
+        # docker cp keeps the host user's ownership, and git refuses a tree another user owns
+        # ("not in a git directory") when it runs as root.
+        sh_in(FRESH, "chown -R root:root /root/fixtures")
+        fresh_run(
+            env,
+            "(the repository) git daemon",
+            "cd /root/fixtures/echo-app && npm install --package-lock-only >/dev/null 2>&1; "
+            "git init -q && git config user.email it@example.com && git config user.name it && "
+            "git add -A && git commit -q -m fixture && "
+            "git daemon --reuseaddr --export-all --base-path=/root/fixtures --listen=127.0.0.1 "
+            "--detach /root/fixtures",
+            timeout=300,
+        )
+        # Pebble stands in for Let's Encrypt: told once, and registered, outside the time.
+        fresh_run(
+            env,
+            "noust cert acme --ca custom (Pebble instead of Let's Encrypt)",
+            f"noust cert acme --ca custom --server https://pebble:14000/dir --email {ACME_EMAIL} "
+            "--register",
+            timeout=300,
+        )
+
+        phases["create_with_tls"], created = fresh_run(
+            env,
+            f"noust create -d {domain} -s {ECHO_URL} -t nodejs",
+            f"noust create -d {domain} -s {ECHO_URL} -t nodejs",
+            timeout=1800,
+            check=False,
+        )
+        env.check(
+            created.returncode == 0,
+            f"noust create failed on the fresh server:\n{(created.stdout + created.stderr)[-2500:]}",
+        )
+        _, answer = fresh_run(
+            env,
+            f"https://{domain}/ against Pebble's root",
+            "curl -fsS https://pebble:15000/roots/0 -o /root/pebble-root.pem && "
+            f"curl -sS -o /dev/null -w '%{{http_code}} verify=%{{ssl_verify_result}}' "
+            f"--cacert /root/pebble-root.pem https://{domain}/",
+            timeout=120,
+            check=False,
+        )
+        env.check(
+            answer.stdout.strip() == "200 verify=0",
+            f"the application is not served over HTTPS with a certificate that verifies: "
+            f"{answer.stdout!r} {answer.stderr!r}",
+        )
+
+        total = phases["apt_install"] + phases["setup_init"] + phases["create_with_tls"]
+        kernel = sh_in(FRESH, "uname -r").strip()
+        record = {
+            "measured": "tests/integration/network_run.py first_deploy_with_tls_is_timed",
+            "date": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "noust": version,
+            "package": package.name,
+            "server": "Debian 13 (a container with systemd, no nginx, certbot, Node.js, git or Noust)",
+            "authority": "Pebble (Let's Encrypt's test ACME server), HTTP-01",
+            "kernel": kernel,
+            "cpus": os.cpu_count(),
+            "phases_seconds": {name: round(value, 1) for name, value in phases.items()},
+            "total_seconds": round(total, 1),
+            "budget_seconds": FIRST_DEPLOY_BUDGET_SECONDS,
+            "within_budget": total <= FIRST_DEPLOY_BUDGET_SECONDS,
+            "notes": (
+                "The clock runs from `apt-get update` to the HTTPS check, over the machine's own "
+                "network; the package is installed from a local file, so the repository's "
+                "download is not in it. Pebble stands in for Let's Encrypt, so the authority's "
+                "latency is not in it either."
+            ),
+        }
+        FIRST_DEPLOY_RESULT.parent.mkdir(parents=True, exist_ok=True)
+        FIRST_DEPLOY_RESULT.write_text(json.dumps(record, indent=2) + "\n")
+        env.note(
+            f"first deploy: {json.dumps(record['phases_seconds'])}, total {record['total_seconds']}s"
+        )
+        env.check(
+            total <= FIRST_DEPLOY_BUDGET_SECONDS,
+            f"from `apt install` to the first deploy over HTTPS took {total:.0f}s, over the "
+            f"{FIRST_DEPLOY_BUDGET_SECONDS}s the roadmap asks for: {record['phases_seconds']}",
+        )
+    finally:
+        stop_acme_stack(env)
+        remove_container(FRESH)
+        for name in stopped:
+            docker("start", owned(name), check=False, timeout=90)
 
 
 # ---------------------------------------------------------------------------

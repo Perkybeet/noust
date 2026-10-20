@@ -1,0 +1,19 @@
+{
+  "measured": "tests/integration/network_run.py first_deploy_with_tls_is_timed",
+  "date": "2026-10-20T04:44:22Z",
+  "noust": "Noust 3.3.1 (formerly WASM)",
+  "package": "noust_3.3.1-1_all.deb",
+  "server": "Debian 13 (a container with systemd, no nginx, certbot, Node.js, git or Noust)",
+  "authority": "Pebble (Let's Encrypt's test ACME server), HTTP-01",
+  "kernel": "6.6.87.2-microsoft-standard-WSL2",
+  "cpus": 14,
+  "phases_seconds": {
+    "apt_install": 22.1,
+    "setup_init": 19.4,
+    "create_with_tls": 10.4
+  },
+  "total_seconds": 52.0,
+  "budget_seconds": 600,
+  "within_budget": true,
+  "notes": "The clock runs from `apt-get update` to the HTTPS check, over the machine's own network; the package is installed from a local file, so the repository's download is not in it. Pebble stands in for Let's Encrypt, so the authority's latency is not in it either."
+}
