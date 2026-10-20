@@ -48,8 +48,10 @@ export function attentionTarget(item: OverviewAttentionItem): AttentionTarget | 
   switch (subject["kind"]) {
     case "app": {
       if (domain === null) return null;
-      const deployment = item.reasons.find((candidate) => candidate.deployment_id !== null && candidate.deployment_id !== undefined)?.deployment_id ?? null;
-      if (deployment !== null && reason?.kind === "deploy") return { to: "/apps/$domain/deployments/$id", params: { domain, id: String(deployment) } };
+      // A deploy that failed or was rolled back is the likeliest cause of whatever else is wrong with the
+      // application, and its log has the system's words: that is where the item leads, ahead of the state it left.
+      const deployment = item.reasons.find((candidate) => candidate.kind === "deploy" && candidate.deployment_id !== null && candidate.deployment_id !== undefined)?.deployment_id ?? null;
+      if (deployment !== null) return { to: "/apps/$domain/deployments/$id", params: { domain, id: String(deployment) } };
       if (reason?.kind === "certificate") return { to: "/apps/$domain/domains", params: { domain } };
       return { to: "/apps/$domain/diagnose", params: { domain } };
     }

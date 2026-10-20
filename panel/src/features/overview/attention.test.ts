@@ -133,6 +133,14 @@ describe("attentionTarget and attentionAction", () => {
     expect(attentionTarget(failedDeploy)).toEqual({ to: "/apps/$domain/deployments/$id", params: { domain: "shop.example.com", id: "12" } });
     expect(attentionAction(failedDeploy)).toMatchObject({ mode: "open", kind: "viewLog" });
 
+    // A service that is down because its last deploy failed: the deploy's log is where it leads, not the diagnosis.
+    const downAfterDeploy = item("app:shop", "app", "fail", "shop.example.com", [
+      { kind: "state", severity: "fail", code: "service_failed" },
+      { kind: "deploy", severity: "fail", code: "deploy_failed", deployment_id: 12 },
+    ]);
+    expect(attentionTarget(downAfterDeploy)).toEqual({ to: "/apps/$domain/deployments/$id", params: { domain: "shop.example.com", id: "12" } });
+    expect(attentionAction(downAfterDeploy)).toMatchObject({ kind: "viewLog" });
+
     const down = item("app:shop", "app", "fail", "shop.example.com", [{ kind: "state", severity: "fail", code: "service_failed" }]);
     expect(attentionTarget(down)).toEqual({ to: "/apps/$domain/diagnose", params: { domain: "shop.example.com" } });
     expect(attentionAction(down)).toMatchObject({ kind: "diagnose" });

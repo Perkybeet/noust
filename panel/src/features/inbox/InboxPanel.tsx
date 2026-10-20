@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 
 import type { OverviewAttentionItem } from "../../api/queries/overview";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { Mono } from "../../components/ui/Mono";
@@ -29,7 +30,8 @@ function NeedsRow({ t, item, onNavigate }: { t: T; item: OverviewAttentionItem; 
   const target = attentionTarget(item);
   const when = item.reasons.find((reason) => reason.when)?.when ?? null;
   const severity = item.severity === "fail" ? "fail" : "warn";
-  const reason = item.reasons[0];
+  // The system's own words come from whichever reason has them: a service that failed has none, the deploy that left it so does.
+  const reason = item.reasons.find((candidate) => typeof candidate.detail === "string" && candidate.detail !== "") ?? item.reasons[0];
   const detail = reason?.detail ?? (typeof reason?.params?.["valid_until"] === "string" ? validUntilText(t, reason.params["valid_until"]) : null);
   const kind = item.subject["kind"];
   const body = (
@@ -77,17 +79,18 @@ function NeedsList({ t, onNavigate }: { t: T; onNavigate: () => void }) {
   const { items, loading, failed } = useAttention(true);
   if (loading) {
     return (
-      <div aria-busy="true" className="flex flex-col gap-3 px-4 py-3">
-        <span className="sr-only">{t("inbox.needs.checking")}</span>
-        {[0, 1].map((row) => (
-          <div key={row} aria-hidden="true" className="flex gap-3">
-            <Skeleton className="mt-0.5 size-3.5 rounded-pill" />
-            <div className="flex flex-1 flex-col gap-2">
-              <Skeleton className="h-3.5 w-40" />
-              <Skeleton className="h-3 w-56 max-w-full" />
+      <div className="px-4 py-3">
+        <LoadingRegion label={t("inbox.needs.checking")}>
+          {[0, 1].map((row) => (
+            <div key={row} aria-hidden="true" className="flex gap-3 pb-3 last:pb-0">
+              <Skeleton className="mt-0.5 size-3.5 rounded-pill" />
+              <div className="flex flex-1 flex-col gap-2">
+                <Skeleton className="h-3.5 w-40" />
+                <Skeleton className="h-3 w-56 max-w-full" />
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </LoadingRegion>
       </div>
     );
   }
