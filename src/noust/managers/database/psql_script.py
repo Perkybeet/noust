@@ -33,12 +33,15 @@ ATOMIC`` ends a statement - a construct whose meaning would differ is refused
 instead of guessed. pg_dump sets ``standard_conforming_strings = on`` in its
 header, before any string that could be ambiguous.
 
-This is not a sandbox for the SQL itself. A restore runs as the cluster
-superuser and trusts the dump's statements, which can already run programs as
-the ``postgres`` account (``COPY ... TO PROGRAM``) - the same account psql runs
-as. So the scanner follows the settings the dump states; SQL that changes
-psql's reading behind its back (dynamic SQL flipping a setting) gains nothing
-the SQL did not already have. See
+This is not a sandbox for the SQL itself: that is the login's job. A dump from
+outside is loaded by a role that is not a superuser
+(:mod:`noust.managers.database.pg_loader`), so ``COPY ... FROM PROGRAM`` is
+refused by the server; only a restore the operator asked to run
+``--as-superuser`` trusts the dump's statements, which can then run programs as
+the ``postgres`` account - the same account psql runs as. In both, the scanner
+follows the settings the dump states; SQL that changes psql's reading behind
+its back (dynamic SQL flipping a setting) gains nothing the SQL did not
+already have. See
 :meth:`noust.managers.database.postgres.PostgresManager.restore`.
 """
 
@@ -47,6 +50,7 @@ from __future__ import annotations
 import gzip
 import os
 import re
+from dataclasses import dataclass
 from itertools import pairwise
 from pathlib import Path
 
@@ -538,7 +542,113 @@ _OWNERSHIP_STATEMENT = re.compile(
 _PLAIN_ROLE = re.compile(r"[A-Za-z0-9_$@.-]{1,63}")
 
 
-def strip_owners(source: Path, destination: Path, *, role: str | None = None) -> int:
+@dataclass(frozen=True)
+class RoleFilter:
+    """
+    The roles a dump's ownership statements may name when the accounts it came with exist.
+
+    Attributes:
+        owners: Roles an object may be handed to: the ones whoever loads the dump can become.
+        grantees: Roles that exist, which a privilege may be granted to or taken from.
+    """
+
+    owners: frozenset[str] = frozenset()
+    grantees: frozenset[str] = frozenset()
+
+
+#: A role name in a statement: a word, or a quoted name with doubled quotes.
+_ROLE_TOKEN = re.compile(r'"(?:[^"]|"")+"|[A-Za-z_][A-Za-z0-9_$]*')
+
+#: The pieces of a GRANT or REVOKE that matter to find its roles: quoted names, words, commas.
+_WORDS = re.compile(r"\"(?:[^\"]|\"\")*\"|'(?:[^']|'')*'|[^\s,;\"']+|[,;]")
+
+#: Role names that stand for no particular account.
+_ANYONE = frozenset({"public"})
+
+
+def _role_name(token: str) -> str | None:
+    """
+    Args:
+        token: A word of a statement.
+
+    Returns:
+        The role it names as the server reads it, or None when it is not a plain role name.
+    """
+    if _ROLE_TOKEN.fullmatch(token) is None:
+        return None
+    return token[1:-1].replace('""', '"') if token.startswith('"') else token.lower()
+
+
+def _roles_after(words: list[str], keyword: str, stop: frozenset[str]) -> list[str] | None:
+    """
+    Read the list of roles that follows the last ``keyword`` of a statement.
+
+    Args:
+        words: The statement's words (:data:`_WORDS`), semicolon last.
+        keyword: ``TO`` or ``FROM``.
+        stop: Words that end the list (``WITH``, ``GRANTED``, ``CASCADE``).
+
+    Returns:
+        The roles, or None when the statement is not shaped like one Noust can judge.
+    """
+    at = max((i for i, word in enumerate(words) if word.upper() == keyword), default=-1)
+    if at < 0:
+        return None
+    roles: list[str] = []
+    expecting = True
+    for word in words[at + 1 :]:
+        if word == ";" or word.upper() in stop:
+            break
+        if word == ",":
+            if expecting:
+                return None
+            expecting = True
+            continue
+        if word.upper() == "GROUP" and expecting:
+            # A role written GROUP name: the keyword is not a name, the next word is.
+            return None
+        name = _role_name(word)
+        if name is None or not expecting:
+            return None
+        roles.append(name)
+        expecting = False
+    return None if expecting or not roles else roles
+
+
+def _keeps(statement: str, keep: RoleFilter) -> bool:
+    """
+    Decide whether an ownership statement names only roles that are there.
+
+    Args:
+        statement: One statement as pg_dump writes it, on one line.
+        keep: The roles that exist.
+
+    Returns:
+        True for ``ALTER ... OWNER TO`` of a role the loader can become, and for ``GRANT`` and
+        ``REVOKE`` of roles that exist; False for everything else, including a statement this
+        cannot read.
+    """
+    words = _WORDS.findall(statement)
+    if not words:
+        return False
+    first = words[0].upper()
+    if first == "ALTER" and len(words) > 3 and words[1].upper() != "DEFAULT":
+        roles = _roles_after(words, "TO", frozenset())
+        if roles is None or len(roles) != 1 or "OWNER" not in (w.upper() for w in words):
+            return False
+        return roles[0] in keep.owners
+    if first == "GRANT":
+        roles = _roles_after(words, "TO", frozenset({"WITH", "GRANTED"}))
+    elif first == "REVOKE":
+        roles = _roles_after(words, "FROM", frozenset({"GRANTED", "CASCADE", "RESTRICT"}))
+    else:
+        return False
+    return roles is not None and all(r in _ANYONE or r in keep.grantees for r in roles)
+
+
+def strip_owners(
+    source: Path, destination: Path, *, role: str | None = None, keep: RoleFilter | None = None
+) -> int:
     """
     Copy a plain dump without the statements that name owners and privileges.
 
@@ -561,6 +671,10 @@ def strip_owners(source: Path, destination: Path, *, role: str | None = None) ->
         role: The role every object is created as (``SET ROLE``), so the
             database's own owner ends up owning what the dump creates. Without
             it they belong to whoever loads the dump.
+        keep: Leave out only the statements that name a role outside this
+            filter, instead of all of them: what an import that restored the
+            dump's accounts needs, where most of the roles exist and a few
+            (the source's superuser) do not.
 
     Returns:
         How many statements were left out.
@@ -598,6 +712,7 @@ def strip_owners(source: Path, destination: Path, *, role: str | None = None) ->
                     and scanner.statement_empty
                     and scanner.state == _NORMAL
                     and _OWNERSHIP_STATEMENT.fullmatch(text)
+                    and (keep is None or not _keeps(text, keep))
                 ):
                     left_out += 1
                     continue
@@ -641,3 +756,43 @@ def check_plain_dump(path: Path) -> None:
             f"Could not read the dump {path}",
             details=f"{exc}. Check that the file is a complete plain or gzipped dump.",
         ) from exc
+
+
+class StatementTracker:
+    """
+    Where a script is, line by line, as psql's lexer reads it.
+
+    The scanner that refuses meta-commands also knows when a line starts a
+    statement and when it is inside a string, a comment, a dollar-quoted body or
+    COPY data. A reader that has to cut a script at the right places (a
+    ``pg_dumpall`` file into its databases) asks it, so that a line which only
+    looks like a boundary inside a literal is not one.
+    """
+
+    def __init__(self) -> None:
+        """Start before the first line."""
+        self._scanner = _Scanner()
+
+    @property
+    def at_statement_head(self) -> bool:
+        """Whether the next line would begin a statement, outside every literal and routine."""
+        scanner = self._scanner
+        return (
+            scanner.state == _NORMAL
+            and scanner.paren_depth == 0
+            and scanner.statement_empty
+            and scanner.begin_depth == 0
+        )
+
+    def feed(self, text: str) -> None:
+        """
+        Read one line of the script, newline included.
+
+        Args:
+            text: The line, decoded byte for byte (latin-1).
+
+        Raises:
+            DatabaseBackupError: When psql would find a meta-command in it, or
+                read it in a way the scanner cannot be sure of.
+        """
+        self._scanner.feed(text)

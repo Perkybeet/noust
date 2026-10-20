@@ -129,7 +129,11 @@ class TestGoogleCloudStorage:
     def test_the_json_never_reaches_a_command_line(
         self, manager: BackupDestinationManager, runner: FakeRunner
     ) -> None:
-        manager.add("gcs", "gcs", {"service_account_credentials": SERVICE_ACCOUNT})
+        manager.add(
+            "gcs",
+            "gcs",
+            {"service_account_credentials": SERVICE_ACCOUNT, "path": "my-bucket/noust"},
+        )
         manager.remote_env("gcs")
 
         for call in runner.calls:
@@ -236,6 +240,7 @@ class TestS3Providers:
                 "access_key_id": "A",
                 "secret_access_key": "B",
                 "endpoint": "oss-eu-west-1.aliyuncs.com",
+                "path": "my-bucket/noust",
             },
         )
 

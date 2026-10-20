@@ -48,6 +48,7 @@ from noust.managers.backup_scheduler import (
     BackupScheduler,
     validate_calendar,
 )
+from noust.managers.backup_timer_options import validate_options
 from noust.managers.retention import gigabytes_to_bytes
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
@@ -104,6 +105,8 @@ class BackupScheduleInfo(BaseModel):
         remote_only: Whether the server keeps nothing: each backup is deleted here once every
             destination holds it and its upload was checked.
         destinations: Remote destinations this schedule pushes to.
+        max_runtime_seconds: The longest a run may take; None for no limit.
+        timezone: The time zone the schedule is read in; None for the server's clock.
     """
 
     domain: str
@@ -119,6 +122,8 @@ class BackupScheduleInfo(BaseModel):
     include_databases: bool = True
     remote_only: bool = False
     destinations: list[ScheduleDestination] = Field(default_factory=list)
+    max_runtime_seconds: int | None = None
+    timezone: str | None = None
 
 
 class ScheduleListResponse(BaseModel):
@@ -174,6 +179,19 @@ class CreateScheduleRequest(BaseModel):
     )
     destinations: list[ScheduleDestination] = Field(
         default_factory=list, description="Remote destinations to push each backup to"
+    )
+    max_runtime_seconds: int | None = Field(
+        default=None,
+        ge=60,
+        le=604800,
+        description="Stop a run that takes longer than this many seconds (1 minute to 7 days); "
+        "null for no limit.",
+    )
+    timezone: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Read the schedule in this time zone of the server's database, such as "
+        "Europe/Madrid; null for the server's clock.",
     )
 
     @field_validator("schedule")
@@ -248,6 +266,10 @@ def _to_info(entry: dict[str, str]) -> BackupScheduleInfo:
         include_databases=include_databases,
         remote_only=remote_only,
         destinations=destinations,
+        max_runtime_seconds=(
+            int(entry["max_runtime_seconds"]) if entry.get("max_runtime_seconds") else None
+        ),
+        timezone=entry.get("timezone") or None,
     )
 
 
@@ -308,6 +330,7 @@ def _upsert_schedule(
         retention_bytes=gigabytes_to_bytes(data.retention_gb),
         remote_only=data.remote_only,
         destinations=[dump_model(dest) for dest in data.destinations],
+        options=validate_options(data.max_runtime_seconds, data.timezone),
     )
 
     audit_log.info(
@@ -336,6 +359,8 @@ def _upsert_schedule(
             include_databases=data.include_databases,
             remote_only=data.remote_only,
             destinations=data.destinations,
+            max_runtime_seconds=data.max_runtime_seconds,
+            timezone=data.timezone,
         ),
     )
 

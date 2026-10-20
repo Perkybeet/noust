@@ -35,10 +35,16 @@ spelled by what they do:
   Off by default, because they are the roles of the server it came from:
   ``pg_restore`` is told ``--no-owner --no-acl`` and a plain dump has those
   statements taken out, and everything is created as the database's owner.
+- ``as_superuser`` (PostgreSQL): load the dump as the cluster's superuser. Off
+  by default: a dump is a script, and the superuser's session runs ``COPY ...
+  FROM PROGRAM`` for it, so it is loaded as the database's owner by a login of
+  its own (:mod:`~noust.managers.database.pg_loader`, checklist H-19). The
+  operator's explicit decision, audited, and confirmed (the API asks for sudo
+  mode too).
 
-What is not here: a dump of *all* databases of an engine, and replacing the
-engine's own accounts from one. Both change more than the database an operator
-chose, and neither can be taken back with one safety copy.
+A dump of *all* databases of an engine and the accounts it carries are
+:mod:`~noust.managers.database.cluster_import`'s: they change more than the
+database an operator chose, so they are asked for by name and reported in full.
 """
 
 from __future__ import annotations
@@ -68,7 +74,10 @@ from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
 from noust.managers.database.backup_verify import check_dump
 from noust.managers.database.backups import DatabaseBackups
 from noust.managers.database.base import BaseDatabaseManager, RestoreOutcome, format_size
+from noust.managers.database.cluster_dump import is_cluster_dump
 from noust.managers.database.mongo_archive import ARCHIVE_MAGIC
+from noust.managers.database.mysql_cluster import is_mysql_cluster
+from noust.managers.database.psql_script import RoleFilter
 from noust.managers.database.service import DatabaseService
 from noust.managers.database.uploads import (
     UploadStore,
@@ -125,12 +134,22 @@ ACCEPTS: dict[str, frozenset[str]] = {
     "mongodb": frozenset({"mongo-archive", "mongo-tree"}),
 }
 
+#: What each engine reads as a dump of *all* its databases (and, for PostgreSQL, its accounts):
+#: a different operation from loading one database, asked for by name
+#: (:mod:`~noust.managers.database.cluster_import`).
+CLUSTER_ACCEPTS: dict[str, frozenset[str]] = {
+    "postgresql": frozenset({"pg-cluster"}),
+    "mysql": frozenset({"mysql-cluster"}),
+}
+
 #: What a kind is called to an operator.
 _KIND_NAMES = {
     "pg-custom": "a PostgreSQL custom-format archive (pg_dump -Fc)",
     "pg-tar": "a PostgreSQL tar-format archive (pg_dump -Ft)",
     "sql": "plain SQL",
     "tar-sql": "a tar holding one SQL dump",
+    "pg-cluster": "a dump of all databases and accounts (pg_dumpall)",
+    "mysql-cluster": "a dump of several databases (mysqldump --all-databases or --databases)",
     "mongo-archive": "a mongodump archive (--archive)",
     "mongo-tree": "a tar of a mongodump directory",
     "unknown": "something that is not a database dump",
@@ -155,6 +174,15 @@ class DumpFormat:
     description: str
     engines: tuple[str, ...] = ()
 
+    @property
+    def scope(self) -> str:
+        """``cluster`` for a dump of every database of an engine, else ``database``."""
+        return (
+            "cluster"
+            if self.kind in {k for kinds in CLUSTER_ACCEPTS.values() for k in kinds}
+            else "database"
+        )
+
     def to_dict(self) -> dict[str, Any]:
         """
         Returns:
@@ -165,6 +193,7 @@ class DumpFormat:
             "compression": self.compression,
             "description": self.description,
             "engines": list(self.engines),
+            "scope": self.scope,
         }
 
 
@@ -186,7 +215,9 @@ def _classify(head: bytes) -> str:
     if len(head) > 262 and head[257:262] == b"ustar":
         return "tar"
     if b"\x00" not in head and _SQL_START.match(head):
-        return "sql"
+        if is_cluster_dump(head):
+            return "pg-cluster"
+        return "mysql-cluster" if is_mysql_cluster(head) else "sql"
     return "unknown"
 
 
@@ -319,7 +350,11 @@ def detect_format(path: Path) -> DumpFormat:
             f"Could not read {path.name}",
             details=f"{exc}. Check that the file is complete and not damaged.",
         ) from exc
-    engines = tuple(engine for engine, kinds in ACCEPTS.items() if kind in kinds)
+    engines = tuple(
+        engine
+        for engine in {*ACCEPTS, *CLUSTER_ACCEPTS}
+        if kind in ACCEPTS.get(engine, ()) or kind in CLUSTER_ACCEPTS.get(engine, ())
+    )
     return DumpFormat(
         kind=kind,
         compression=compression,
@@ -402,6 +437,7 @@ def prepare(
     scratch: Path,
     *,
     fs: FileSystem | None = None,
+    allow_cluster: bool = False,
 ) -> Prepared:
     """
     Make a detected dump into what the engine's restore reads.
@@ -419,6 +455,9 @@ def prepare(
         engine_type: ``postgresql``, ``mysql`` or ``mongodb``.
         scratch: A private directory to put what is written in.
         fs: The filesystem links are made through.
+        allow_cluster: Also make a dump of all databases loadable by the
+            operation that takes one (:mod:`~noust.managers.database.cluster_import`);
+            loading one database refuses it and says where to go.
 
     Returns:
         What to restore from.
@@ -429,6 +468,14 @@ def prepare(
     """
     fs = fs or get_fs()
     accepted = ACCEPTS.get(engine_type, frozenset())
+    if fmt.kind in CLUSTER_ACCEPTS.get(engine_type, ()) and not allow_cluster:
+        raise DatabaseBackupError(
+            f"{source.name} is {_KIND_NAMES[fmt.kind]}, not the dump of one database",
+            details="Import it with 'noust db import-all', or in the console's import of all "
+            "databases: it creates every database in it, and its accounts when you ask.",
+        )
+    if allow_cluster:
+        accepted = accepted | CLUSTER_ACCEPTS.get(engine_type, frozenset())
     if fmt.kind not in accepted:
         offered = ", ".join(sorted(_KIND_NAMES[kind] for kind in accepted)) or "no dump"
         raise DatabaseBackupError(
@@ -444,6 +491,8 @@ def prepare(
         "pg-custom": ".dump",
         "pg-tar": ".tar",
         "sql": ".sql",
+        "pg-cluster": ".sql",
+        "mysql-cluster": ".sql",
         "tar-sql": ".sql",
         "mongo-archive": ".archive",
         "mongo-tree": ".tar",
@@ -705,7 +754,7 @@ class DatabaseImports:
     # -------------------------------------------------------------- import
 
     @contextmanager
-    def _scratch(self) -> Iterator[Path]:
+    def scratch(self) -> Iterator[Path]:
         """
         A private directory for what an import writes, removed afterwards.
 
@@ -737,6 +786,10 @@ class DatabaseImports:
         safety_backup: bool = True,
         file_name: str | None = None,
         on_step: Callable[[str], None] | None = None,
+        as_superuser: bool = False,
+        confirm_superuser: bool = False,
+        role_filter: RoleFilter | None = None,
+        create_owner: str | None = None,
     ) -> ImportOutcome:
         """
         Import a dump into a database, creating it when it does not exist.
@@ -754,11 +807,21 @@ class DatabaseImports:
             file_name: The name the dump had where it came from, when
                 ``source`` is a stored upload; checked for its extension.
             on_step: Told what is happening, for a job's progress.
+            as_superuser: PostgreSQL: load it as the cluster's superuser
+                rather than the database's owner.
+            confirm_superuser: The operator accepted what that costs.
+            role_filter: PostgreSQL, with ``keep_owners``: leave out only the
+                ownership statements that name a role outside this filter (an
+                import of all databases that restored the dump's accounts).
+            create_owner: PostgreSQL: the account a database this import makes (a new one, or
+                one it drops and recreates) is made with instead of the default; a database that
+                is loaded over keeps its owner. The account must exist.
 
         Returns:
             What was done.
 
         Raises:
+            ConfirmationRequired: ``as_superuser`` without its confirmation.
             ValidationError: When the name or the options are not usable.
             DatabaseBackupError: When the file is not a dump the engine can
                 load, or the load fails (what the database held is put back
@@ -768,6 +831,15 @@ class DatabaseImports:
         manager = self.service.running(engine)
         name = manager.validate_database_name(database)
         check_file_name(file_name or source.name)
+        if create_owner and manager.engine_type != "postgresql":
+            raise ValidationError(
+                f"{manager.DISPLAY_NAME} databases have no owner to choose",
+                details="Only PostgreSQL's databases belong to an account.",
+                field="owner",
+            )
+        if as_superuser:
+            # Before the file is opened: an unconfirmed request costs nothing.
+            self.backups.superuser_options(manager, None, confirm_superuser)
         if manager.engine_type == "redis":
             raise ValidationError(
                 "Redis has no dump to import here",
@@ -786,11 +858,11 @@ class DatabaseImports:
         options: dict[str, Any] = {}
         if manager.engine_type == "postgresql":
             options["keep_owners"] = keep_owners
-            if not keep_owners and exists:
-                owner = self._owner_of(manager, name)
-                if owner:
-                    options["owner_role"] = owner
-        with self._scratch() as scratch:
+            if role_filter is not None:
+                options["role_filter"] = role_filter
+            if create_owner and (replace or not exists):
+                options["create_owner"] = create_owner
+        with self.scratch() as scratch:
             prepared = prepare(source, fmt, manager.engine_type, scratch, fs=self.fs)
             for note in prepared.notes:
                 step(note)
@@ -804,7 +876,14 @@ class DatabaseImports:
             step(f"Loading into {name}" + (" (replacing it)" if exists and replace else ""))
             try:
                 outcome = self._load(
-                    manager, name, prepared.path, exists, replace, safety_backup, options
+                    manager,
+                    name,
+                    prepared.path,
+                    exists,
+                    replace,
+                    safety_backup,
+                    options,
+                    as_superuser=as_superuser,
                 )
             except DatabaseError:
                 if not exists:
@@ -819,8 +898,15 @@ class DatabaseImports:
             created=not exists,
             replaced=exists and replace,
             keep_owners=keep_owners,
+            as_superuser=as_superuser,
             safety_copy=outcome.safety_copy.name if outcome.safety_copy else None,
         )
+        notes = list(prepared.notes)
+        if as_superuser and not keep_owners and manager.engine_type == "postgresql":
+            notes.append(
+                "Loaded as the superuser: what the dump created belongs to the server's superuser. "
+                f"To give it to the database's owner: noust db fix-owner {name} OWNER"
+            )
         return ImportOutcome(
             engine=manager.ENGINE_NAME,
             database=name,
@@ -828,25 +914,8 @@ class DatabaseImports:
             created=not exists,
             replaced=exists and replace,
             safety_copy=outcome.safety_copy.name if outcome.safety_copy else None,
-            notes=prepared.notes,
+            notes=notes,
         )
-
-    def _owner_of(self, manager: BaseDatabaseManager, database: str) -> str | None:
-        """
-        Name who owns a database, so a dump's objects can be given to them.
-
-        Args:
-            manager: The engine.
-            database: The database.
-
-        Returns:
-            The owning role, or None when the engine cannot say.
-        """
-        try:
-            return manager.get_database_info(database).owner
-        except DatabaseError as exc:
-            self.service.logger.warning(f"Could not read the owner of '{database}': {exc}")
-            return None
 
     def _load(
         self,
@@ -857,6 +926,8 @@ class DatabaseImports:
         replace: bool,
         safety_backup: bool,
         options: dict[str, Any],
+        *,
+        as_superuser: bool = False,
     ) -> RestoreOutcome:
         """
         Hand the prepared dump to the one restore.
@@ -869,6 +940,8 @@ class DatabaseImports:
             replace: Drop and recreate it first.
             safety_backup: Take the safety copy when nothing is dropped.
             options: The engine's restore options.
+            as_superuser: PostgreSQL: the operator confirmed loading it as the
+                superuser (already checked by :meth:`run`).
 
         Returns:
             What the restore did.
@@ -876,12 +949,30 @@ class DatabaseImports:
         engine = manager.ENGINE_NAME
         if exists:
             return self.backups.restore_file(
-                engine, name, path, replace, safety_backup, None, options=options
+                engine,
+                name,
+                path,
+                replace,
+                safety_backup,
+                None,
+                options=options,
+                as_superuser=as_superuser,
+                confirm_superuser=as_superuser,
             )
         # A database that is not there is made through the restore-as-new path:
         # isolated, so a dump that switches database reaches nothing else, and
         # recorded in the store once it loads.
-        return self.backups.restore_file(engine, name, path, False, False, name, options=options)
+        return self.backups.restore_file(
+            engine,
+            name,
+            path,
+            False,
+            False,
+            name,
+            options=options,
+            as_superuser=as_superuser,
+            confirm_superuser=as_superuser,
+        )
 
     def _forget_new(self, manager: BaseDatabaseManager, name: str) -> None:
         """
@@ -913,6 +1004,9 @@ class DatabaseImports:
         keep_owners: bool = False,
         safety_backup: bool = True,
         on_step: Callable[[str], None] | None = None,
+        as_superuser: bool = False,
+        confirm_superuser: bool = False,
+        create_owner: str | None = None,
     ) -> ImportOutcome:
         """
         Import a finished upload, and remove it once it has been loaded.
@@ -928,6 +1022,9 @@ class DatabaseImports:
             keep_owners: See :meth:`run`.
             safety_backup: See :meth:`run`.
             on_step: Told what is happening.
+            as_superuser: See :meth:`run`.
+            confirm_superuser: See :meth:`run`.
+            create_owner: See :meth:`run`.
 
         Returns:
             What was done.
@@ -947,6 +1044,9 @@ class DatabaseImports:
             safety_backup=safety_backup,
             file_name=upload.file_name,
             on_step=on_step,
+            as_superuser=as_superuser,
+            confirm_superuser=confirm_superuser,
+            create_owner=create_owner,
         )
         self.uploads.discard(upload_id)
         return outcome

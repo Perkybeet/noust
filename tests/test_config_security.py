@@ -1000,14 +1000,14 @@ class TestEnvFilePermissions:
         assert app_path.stat().st_mode & 0o777 == 0o755
 
     def test_env_config_json_is_owner_only(self, sandbox: Path) -> None:
-        """.wasm/env-config.json records the variable inventory and defaults."""
+        """.noust/env-config.json records the variable inventory and defaults."""
         app_path = sandbox / "app"
         app_path.mkdir()
         config = EnvConfig(variables=[EnvVariable(name="API_KEY", secret=True, value="sk-live")])
 
         EnvManager().save_config(app_path, config)
 
-        saved = app_path / ".wasm" / "env-config.json"
+        saved = app_path / ".noust" / "env-config.json"
         assert saved.stat().st_mode & 0o077 == 0
         assert saved.parent.stat().st_mode & 0o077 == 0
         assert json.loads(saved.read_text())["variables"][0]["name"] == "API_KEY"

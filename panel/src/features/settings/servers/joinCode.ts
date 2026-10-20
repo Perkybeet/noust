@@ -96,10 +96,10 @@ export function classifyJoinCode(pasted: string): JoinCodeReading {
     return summary === null ? { ok: false, problem: "unreadable" } : { ok: true, code: match[0], summary };
   }
   if (OTHER_VERSION.test(value)) return { ok: false, problem: "newer" };
-  // A token of this console's own: an API token (noust_tok_/wasm_tok_) or the access token
-  // printed when the console was installed (noust_/wasm_).
-  if (/(?:^|\s)(?:noust|wasm)_tok_/.test(value)) return { ok: false, problem: "apiToken" };
-  if (/(?:^|\s)(?:noust|wasm)_[A-Za-z0-9_-]{8,}/.test(value)) return { ok: false, problem: "consoleToken" };
+  // A token of this console's own: an API token (noust_tok_) or the access token printed when
+  // the console was installed (noust_).
+  if (/(?:^|\s)noust_tok_/.test(value)) return { ok: false, problem: "apiToken" };
+  if (/(?:^|\s)noust_[A-Za-z0-9_-]{8,}/.test(value)) return { ok: false, problem: "consoleToken" };
   return { ok: false, problem: "wrongPrefix" };
 }
 

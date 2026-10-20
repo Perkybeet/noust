@@ -191,7 +191,7 @@ class TestTheWholeSignIn:
         ticket = ticket_of(answered)
         assert answered.headers["cache-control"] == "no-store"
         assert answered.headers["referrer-policy"] == "no-referrer"
-        assert "wasm_session" not in answered.headers.get("set-cookie", "")
+        assert "noust_session" not in answered.headers.get("set-cookie", "")
         done = client.post("/api/auth/oidc/complete", json={"ticket": ticket})
 
         assert done.status_code == 200, done.text

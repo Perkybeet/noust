@@ -79,7 +79,9 @@ INTEGRATION_DIR = Path(__file__).resolve().parent
 REPO_ROOT = INTEGRATION_DIR.parents[1]
 
 #: Every name this runner creates starts with this, and every object carries the label.
-PREFIX = "noust-test-ch"
+#: ``NOUST_ENGINES_PREFIX`` names another family (``noust-test-w6d``) for a run that must not meet
+#: the containers of another lane's run on the same machine.
+PREFIX = os.environ.get("NOUST_ENGINES_PREFIX", "noust-test-ch")
 LABEL = "noust.test=1"
 
 #: The working tree as seen inside a container with ``--dev``.
@@ -2670,6 +2672,908 @@ def scenario_dragonfly_facts(sc: Any) -> None:
             check=False,
             label="cleanup",
         )
+
+
+# ---------------------------------------------------------------------------
+# 4.0 (W6-DB): a dump is not a superuser's script
+# ---------------------------------------------------------------------------
+
+#: What the dumps below try to do on the server: leave a file only a program could.
+H19_MARK = "/tmp/noust-h19-ran"
+
+
+def write_file(sc: Any, path: str, text: str) -> None:
+    """
+    Write a file inside the scenario's machine, dressed as a pg_dump (header and trailer).
+
+    Args:
+        sc: The scenario.
+        path: Where.
+        text: What it holds between them.
+    """
+    sc.run(
+        f"cat > {path} <<'NOUST_EOF'\n-- PostgreSQL database dump\n{text}\n"
+        "-- PostgreSQL database dump complete\nNOUST_EOF",
+        label=f"write {path}",
+    )
+
+
+def loader_roles(sc: Any) -> str:
+    """
+    Args:
+        sc: The scenario.
+
+    Returns:
+        The logins of Noust's loaders the server still holds, one per line.
+    """
+    return sc.run(
+        f"{PSQL} -tAc \"select rolname from pg_roles where rolname like 'noust\\_load\\_%'\"",  # noqa: S608 - fixed text
+        label="loader logins left",
+    ).stdout.strip()
+
+
+@engines_scenario("restore_unprivileged")
+def scenario_restore_unprivileged(sc: Any) -> None:
+    """
+    H-19: a dump from elsewhere is loaded as the database's owner, so it cannot run a program.
+
+    Against a real PostgreSQL: ``COPY ... FROM PROGRAM`` is refused (nothing runs, the database is
+    put back, no loader login is left), a dump that tries ``RESET ROLE`` first is refused too,
+    ordinary dumps (owners, ACL, a trusted extension) load and their objects belong to the
+    database's owner, a database owned by the superuser is loaded by a login that owns what it
+    makes and hands it over, Noust's own backup of a database with an extension that needs a
+    superuser still restores, and ``--as-superuser`` is the one explicit way to let a dump run a
+    program.
+    """
+    noust(sc, "db uninstall postgresql --purge -f", timeout=900, check=False)
+    noust(sc, "db install postgresql", timeout=1800)
+    sc.run(f"rm -f {H19_MARK}")
+    psql(sc, "postgres", "create role shopapp login password 'x1y2z3w4'")
+    noust(sc, "db create shop --engine postgresql --owner shopapp")
+    psql(sc, "shop", "create table keep(i int); insert into keep select generate_series(1, 5)")
+    psql(sc, "shop", "alter table keep owner to shopapp")
+
+    # --- COPY ... FROM PROGRAM is refused, and nothing is left behind
+    write_file(
+        sc,
+        f"{SCRATCH}/evil.sql",
+        "SET standard_conforming_strings = on;\n"
+        "CREATE TABLE loot (line text);\n"
+        f"COPY loot FROM PROGRAM 'touch {H19_MARK}';\n",
+    )
+    refused = noust(
+        sc, f"db import shop {SCRATCH}/evil.sql -e postgresql -f", check=False, timeout=300
+    )
+    said = refused.stdout + refused.stderr
+    sc.check(refused.returncode != 0, f"a dump that runs a program must be refused: {said[:400]}")
+    sc.check("--as-superuser" in said, f"the refusal should say how to repeat it: {said[-600:]}")
+    sc.check(
+        sc.run(f"test ! -e {H19_MARK}", check=False).returncode == 0,
+        "the program ran on the server",
+    )
+    sc.check(psql(sc, "shop", "select count(*) from keep") == "5", "the database was not put back")
+    sc.check(loader_roles(sc) == "", f"a loader login was left behind: {loader_roles(sc)}")
+
+    # --- the superuser cannot be handed back from inside the script
+    write_file(
+        sc,
+        f"{SCRATCH}/reset.sql",
+        "SET standard_conforming_strings = on;\n"
+        "RESET ROLE;\nRESET SESSION AUTHORIZATION;\n"
+        "CREATE TABLE loot2 (line text);\n"
+        f"COPY loot2 FROM PROGRAM 'touch {H19_MARK}';\n",
+    )
+    reset = noust(
+        sc, f"db import shop {SCRATCH}/reset.sql -e postgresql -f", check=False, timeout=300
+    )
+    sc.check(reset.returncode != 0, "RESET ROLE must not give the superuser back")
+    sc.check(sc.run(f"test ! -e {H19_MARK}", check=False).returncode == 0, "RESET ROLE worked")
+    write_file(
+        sc,
+        f"{SCRATCH}/auth.sql",
+        "SET standard_conforming_strings = on;\n"
+        "SET SESSION AUTHORIZATION postgres;\n"
+        "CREATE TABLE loot3 (line text);\n",
+    )
+    auth = noust(
+        sc, f"db import shop {SCRATCH}/auth.sql -e postgresql -f", check=False, timeout=300
+    )
+    sc.check(auth.returncode != 0, "SET SESSION AUTHORIZATION postgres must be refused")
+
+    # --- an ordinary dump of another database loads, and its objects belong to the owner
+    psql(sc, "postgres", "create role legacy login")
+    psql(sc, "postgres", "create database origin owner legacy")
+    psql(
+        sc,
+        "origin",
+        "create extension pg_trgm; create table people(id serial primary key, name text); "
+        "insert into people(name) select 'p' || g from generate_series(1, 30) g; "
+        "alter table people owner to legacy; grant select on people to public",
+    )
+    sc.run(f"runuser -u postgres -- pg_dump origin > {SCRATCH}/origin.sql", label="pg_dump (plain)")
+    sc.run(
+        f"runuser -u postgres -- pg_dump -Fc origin > {SCRATCH}/origin.dump", label="pg_dump -Fc"
+    )
+    noust(sc, f"db import shop {SCRATCH}/origin.sql -e postgresql -f", timeout=300)
+    sc.check(psql(sc, "shop", "select count(*) from people") == "30", "the plain dump loaded")
+    sc.check(
+        psql(sc, "shop", "select tableowner from pg_tables where tablename = 'people'")
+        == "shopapp",
+        "the objects of the dump belong to the database's owner, not to the roles it came from",
+    )
+    noust(sc, f"db import shop2 {SCRATCH}/origin.dump -e postgresql -f", timeout=300)
+    sc.check(psql(sc, "shop2", "select count(*) from people") == "30", "the archive loaded")
+    owner = psql(sc, "shop2", "select tableowner from pg_tables where tablename = 'people'")
+    sc.check(
+        owner == "postgres", f"a database made by the import is owned as it always was: {owner}"
+    )
+    sc.check(loader_roles(sc) == "", f"a loader login was left behind: {loader_roles(sc)}")
+
+    # --- Noust's own backup of a database with an extension that needs a superuser comes back
+    psql(sc, "shop", "create extension file_fdw")
+    noust(sc, "db backup shop --engine postgresql", timeout=300)
+    psql(sc, "shop", "drop extension file_fdw cascade; delete from keep")
+    newest_dump = sc.run(
+        "ls -1t /var/backups/noust/databases/postgresql-shop-* | head -1", label="newest backup"
+    ).stdout.strip()
+    noust(sc, f"db restore shop {newest_dump} -e postgresql --drop -f", timeout=300)
+    sc.check(
+        psql(sc, "shop", "select count(*) from pg_extension where extname = 'file_fdw'") == "1",
+        "Noust's own backup should put an extension that needs a superuser back",
+    )
+    # The same objects in a dump from anywhere else are not Noust's to vouch for.
+    sc.run(f"runuser -u postgres -- pg_dump shop > {SCRATCH}/shop-elsewhere.sql", label="pg_dump")
+    psql(sc, "shop", "drop extension file_fdw cascade")
+    elsewhere = noust(
+        sc,
+        f"db import shop {SCRATCH}/shop-elsewhere.sql -e postgresql -f",
+        check=False,
+        timeout=300,
+    )
+    sc.check(
+        elsewhere.returncode != 0 and "--as-superuser" in elsewhere.stdout + elsewhere.stderr,
+        f"an extension that needs a superuser needs the operator to say so: {elsewhere.stdout[-500:]}",
+    )
+
+    # --- the explicit way: audited, and a program does run
+    explicit = noust(
+        sc,
+        f"db import shop {SCRATCH}/evil.sql -e postgresql -f --as-superuser",
+        timeout=300,
+        check=False,
+    )
+    sc.check(explicit.returncode == 0, f"--as-superuser should load it: {explicit.stdout[-400:]}")
+    sc.check(
+        sc.run(f"test -e {H19_MARK}", check=False).returncode == 0,
+        "--as-superuser should let the program run (that is what it asks for)",
+    )
+    trail = noust(sc, "audit list --action db.restore.superuser --limit 5", check=False)
+    sc.check(
+        "db.restore.superuser" in trail.stdout, "the superuser load should be on the audit trail"
+    )
+
+    # --- a login left by a process that died is swept by the next load
+    psql(
+        sc,
+        "postgres",
+        "create role noust_load_deadbeef login valid until '2020-01-01'",
+    )
+    noust(sc, f"db import shop2 {SCRATCH}/origin.dump -e postgresql -f --replace", timeout=300)
+    sc.check(
+        loader_roles(sc) == "", f"the dead loader login should have been swept: {loader_roles(sc)}"
+    )
+
+    sc.run(f"rm -f {H19_MARK}")
+    for name in ("shop", "shop2", "origin"):
+        noust(sc, f"db drop {name} --engine postgresql -f", check=False)
+    noust(sc, "db uninstall postgresql --purge -f", timeout=900)
+
+
+#: The pg_dumpall of PostgreSQL 16 the unit tests read, written by a real server: four accounts
+#: (one a superuser), a membership and three databases, two with rows.
+CLUSTER_FIXTURE = REPO_ROOT / "tests" / "fixtures" / "pg_dumpall" / "all16.sql"
+GLOBALS_FIXTURE = REPO_ROOT / "tests" / "fixtures" / "pg_dumpall" / "globals16.sql"
+H18_MARK = "/tmp/noust-h18-ran"
+
+
+def drop_everything_of_the_fixture(sc: Any) -> None:
+    """
+    Leave the server without the databases and accounts the cluster fixture names.
+
+    Args:
+        sc: The scenario.
+    """
+    for name in ("shop", "blog", "evil"):
+        sc.run(f"{PSQL} -c 'drop database if exists {name}'", check=False, label=f"drop {name}")
+    for name in ("shopapp", "reporting", "legacy", "bossman"):
+        sc.run(f"{PSQL} -c 'drop role if exists {name}'", check=False, label=f"drop role {name}")
+
+
+@engines_scenario("import_cluster_postgresql")
+def scenario_import_cluster_postgresql(sc: Any) -> None:
+    """
+    H-18: a pg_dumpall of another server comes in: every database, and its accounts when asked.
+
+    The file is what a real PostgreSQL 16 wrote for four accounts and three databases. Without
+    ``--users`` the databases are created and loaded and no account is made; with it, the accounts
+    come with the password hash they had (the old password signs in), without the superuser
+    power one of them had, and the databases belong to them with the privileges the dump gave.
+    An account that exists is never touched. A database of a hostile file that runs a program
+    fails alone, and the others load.
+    """
+    noust(sc, "db uninstall postgresql --purge -f", timeout=900, check=False)
+    noust(sc, "db install postgresql", timeout=1800)
+    sc.run(f"rm -f {H18_MARK}")
+    sh(["docker", "cp", str(CLUSTER_FIXTURE), f"{sc.container}:{SCRATCH}/all16.sql"], timeout=60)
+    sh(
+        ["docker", "cp", str(GLOBALS_FIXTURE), f"{sc.container}:{SCRATCH}/globals16.sql"],
+        timeout=60,
+    )
+    dump = f"{SCRATCH}/all16.sql"
+
+    # --- the plan changes nothing and says what would happen
+    plan = json_of(noust(sc, f"db import-all {dump} -e postgresql --users --plan --json"), "plan")
+    actions = {d["name"]: d["action"] for d in plan["databases"]}
+    sc.check(
+        actions == {"template1": "skip", "blog": "create", "postgres": "skip", "shop": "create"},
+        f"the plan should create the two user databases: {actions}",
+    )
+    roles = {r["name"]: r for r in plan["roles"]}
+    sc.check(
+        roles["bossman"]["dropped"] == ["SUPERUSER"] and roles["postgres"]["action"] == "skip",
+        f"the plan should name what is not carried: {roles}",
+    )
+    sc.check(
+        psql(sc, "postgres", "select count(*) from pg_database where datname in ('shop', 'blog')")
+        == "0",
+        "planning created a database",
+    )
+
+    # --- without --users: the databases, no accounts
+    noust(sc, f"db import-all {dump} -e postgresql -f", timeout=300)
+    sc.check(psql(sc, "shop", "select count(*) from orders") == "4", "shop was not loaded")
+    sc.check(psql(sc, "blog", "select count(*) from posts") == "2", "blog was not loaded whole")
+    sc.check(
+        psql(sc, "postgres", "select count(*) from pg_roles where rolname = 'shopapp'") == "0",
+        "an account was made without asking for them",
+    )
+    sc.check(
+        psql(sc, "shop", "select tableowner from pg_tables where tablename = 'orders'")
+        == "postgres",
+        "without the accounts everything belongs to the server's own",
+    )
+
+    # --- with --users: the accounts, their passwords and their databases
+    refused = noust(
+        sc, f"db import-all {dump} -e postgresql --users --replace", check=False, timeout=60
+    )
+    sc.check(refused.returncode == 0, "declining by closing stdin should be a quiet no")
+    sc.check(
+        psql(sc, "postgres", "select count(*) from pg_roles where rolname = 'shopapp'") == "0",
+        "the accounts were made without being accepted",
+    )
+    noust(sc, f"db import-all {dump} -e postgresql --users --replace -f", timeout=300)
+    sc.check(
+        psql(
+            sc,
+            "postgres",
+            "select rolname || ':' || rolsuper || ':' || rolcanlogin || ':' || rolconnlimit "
+            "from pg_roles where rolname in ('bossman', 'legacy', 'reporting', 'shopapp') "
+            "order by 1",
+        )
+        == "bossman:false:true:-1\nlegacy:false:true:5\nreporting:false:false:-1\nshopapp:false:true:-1",
+        "the accounts should be there, none a superuser",
+    )
+    signed_in = sc.run(
+        "PGPASSWORD=secretpw psql -h 127.0.0.1 -U shopapp -d shop -tAc 'select count(*) from orders'",
+        label="sign in as shopapp with the password it had",
+    )
+    sc.check(signed_in.stdout.strip() == "4", "the password hash should have come with the account")
+    sc.check(
+        psql(sc, "shop", "select tableowner from pg_tables where tablename = 'orders'")
+        == "shopapp",
+        "the table should belong to the account that owned it",
+    )
+    sc.check(
+        psql(sc, "postgres", "select datdba::regrole from pg_database where datname = 'blog'")
+        == "legacy",
+        "the database should belong to its account",
+    )
+    sc.check(
+        psql(sc, "shop", "select has_table_privilege('reporting', 'orders', 'select')") == "t",
+        "the privilege the dump gave should be kept",
+    )
+    sc.check(
+        psql(sc, "postgres", "select pg_has_role('shopapp', 'reporting', 'member')") == "t",
+        "the membership between the accounts should be kept",
+    )
+    sc.check(
+        psql(sc, "shop", "select proowner::regrole from pg_proc where proname = 'f'") == "shopapp",
+        "what the source's superuser owned goes to the database's owner",
+    )
+    sc.check(loader_roles(sc) == "", f"a loader login was left behind: {loader_roles(sc)}")
+
+    # --- an account that exists is never touched
+    drop_everything_of_the_fixture(sc)
+    psql(sc, "postgres", "create role shopapp login password 'mine-not-theirs'")
+    noust(sc, f"db import-all {dump} -e postgresql --users -f", timeout=300)
+    still = sc.run(
+        "PGPASSWORD=mine-not-theirs psql -h 127.0.0.1 -U shopapp -d postgres -tAc 'select 1'",
+        check=False,
+        label="the password of the account that was already here",
+    )
+    sc.check(still.stdout.strip() == "1", "the account that existed lost its password")
+    sc.check(
+        psql(sc, "postgres", "select pg_has_role('shopapp', 'reporting', 'member')") == "f",
+        "a membership was granted to an account that was not made now",
+    )
+
+    # --- a hostile file: its database fails alone, the program does not run
+    sc.run(f"cp {dump} {SCRATCH}/hostile.sql")
+    sc.run(
+        f"cat >> {SCRATCH}/hostile.sql <<'NOUST_EOF'\n--\n-- Database \"evil\" dump\n--\n\n"
+        "CREATE DATABASE evil WITH TEMPLATE = template0 ENCODING = 'UTF8';\n\n"
+        "\\connect evil\n\nSET standard_conforming_strings = on;\nCREATE TABLE loot (l text);\n"
+        f"COPY loot FROM PROGRAM 'touch {H18_MARK}';\n-- PostgreSQL database dump complete\n"
+        "NOUST_EOF",
+        label="a database of the file that runs a program",
+    )
+    drop_everything_of_the_fixture(sc)
+    hostile = noust(
+        sc, f"db import-all {SCRATCH}/hostile.sql -e postgresql -f", check=False, timeout=300
+    )
+    said = hostile.stdout + hostile.stderr
+    sc.check(
+        hostile.returncode == 1, f"a database that fails should be the exit status: {said[-500:]}"
+    )
+    sc.check("evil was not imported" in said, f"the failure should be told: {said[-500:]}")
+    sc.check(
+        sc.run(f"test ! -e {H18_MARK}", check=False).returncode == 0,
+        "the program of the hostile database ran",
+    )
+    sc.check(psql(sc, "shop", "select count(*) from orders") == "4", "the others should load")
+    sc.check(
+        psql(sc, "postgres", "select count(*) from pg_database where datname = 'evil'") == "0",
+        "the database that failed should not stay behind",
+    )
+
+    # --- a file of accounts alone
+    drop_everything_of_the_fixture(sc)
+    noust(sc, f"db import-all {SCRATCH}/globals16.sql -e postgresql --users -f", timeout=120)
+    sc.check(
+        psql(sc, "postgres", "select count(*) from pg_roles where rolname in ('shopapp', 'legacy')")
+        == "2",
+        "a file of accounts should make them",
+    )
+    sc.check(
+        psql(sc, "postgres", "select count(*) from pg_database where datname = 'shop'") == "0",
+        "and no database",
+    )
+
+    drop_everything_of_the_fixture(sc)
+    sc.run(f"rm -f {H18_MARK}")
+    noust(sc, "db uninstall postgresql --purge -f", timeout=900)
+
+
+#: The Redis family as instances: the flavour, the version asked, the client its image ships and the
+#: variable its password is in.
+FAMILY = (
+    ("redis", "7.4", "redis-cli", "REDIS_PASSWORD"),
+    ("valkey", "8", "valkey-cli", "VALKEY_PASSWORD"),
+    ("keydb", "6.3", "keydb-cli", "KEYDB_PASSWORD"),
+)
+
+
+def in_container(sc: Any, container: str, command: str, *, check: bool = True) -> Any:
+    """
+    Run a command inside an instance's container, in the machine's own Docker.
+
+    Args:
+        sc: The scenario.
+        container: The container.
+        command: A shell command, run by ``sh -c`` inside it.
+        check: Fail the scenario on a non-zero exit.
+
+    Returns:
+        The finished command.
+    """
+    return sc.run(
+        f"docker exec {container} sh -c {shlex.quote(command)}",
+        check=check,
+        timeout=120,
+        label=f"in {container}: {command}",
+    )
+
+
+@engines_scenario("redis_family_tls")
+def scenario_redis_family_tls(sc: Any) -> None:
+    """
+    C-25 and C-08: Redis, Valkey and KeyDB as instances serve TLS on their one port, and run.
+
+    Each is made from its pinned image in the machine's own Docker, given a key, restarted into
+    ``required`` (its plaintext port closed, a client that does not speak TLS refused, one that
+    does reads the key it had), reached through Noust's own client the whole time, and put back to
+    plaintext. KeyDB is run for real here for the first time: its image, its configuration file,
+    its client, and the TLS its image is built with.
+    """
+    for flavour, version, cli, variable in FAMILY:
+        name = f"w6d-{flavour}"
+        box = f"noust-db-{name}"
+        key = f"redis@{name}"
+        noust(sc, f"db instance remove {name} --yes", check=False, timeout=300)
+        noust(
+            sc,
+            f"db instance create {name} -e {flavour} --version {version} --memory 256m --yes",
+            timeout=900,
+        )
+        auth = f'REDISCLI_AUTH="${variable}"'
+        wrote = in_container(sc, box, f"{auth} {cli} set tlskey one")
+        sc.check("OK" in wrote.stdout, f"{flavour} should take a write: {wrote.stdout}")
+
+        # --- Noust's client works in the clear
+        listed = noust(sc, f"db list --engine {key} --json", check=False)
+        sc.check(listed.returncode == 0, f"{flavour}: listing before TLS: {listed.stdout[-300:]}")
+
+        # --- required: the one port serves TLS
+        plan = noust(sc, f"db instance tls {name} --mode required --plan --json")
+        sc.check(json_of(plan, "plan")["blockers"] == [], f"{flavour}: nothing should block TLS")
+        refused = noust(sc, f"db instance tls {name} --mode optional --yes", check=False)
+        sc.check(
+            refused.returncode != 0 and "port of their own" in refused.stdout + refused.stderr,
+            f"{flavour}: optional should be refused with the reason: {refused.stdout[-300:]}",
+        )
+        noust(sc, f"db instance tls {name} --mode required --yes", timeout=600)
+
+        plain = in_container(sc, box, f"{auth} {cli} -h 127.0.0.1 ping", check=False)
+        sc.check(
+            "PONG" not in plain.stdout,
+            f"{flavour}: a client that does not speak TLS must not get in: {plain.stdout!r}",
+        )
+        secure = in_container(
+            sc,
+            box,
+            f"{auth} {cli} --tls --cacert /etc/noust-tls/ca.crt -h localhost get tlskey",
+        )
+        sc.check(
+            secure.stdout.strip() == "one", f"{flavour}: the key should survive: {secure.stdout!r}"
+        )
+        # --- the certificate chain, from the machine's side of the published port
+        port = json_of(noust(sc, f"db instance show {name} --json"), "show")["host_port"]
+        chain = sc.run(
+            f"openssl s_client -connect 127.0.0.1:{port} -CAfile /etc/noust/tls/ca.crt "
+            "-verify_hostname localhost </dev/null 2>&1 | grep -E 'Verify return code|Verification'",
+            check=False,
+            label=f"{flavour}: the chain the published port presents",
+        )
+        sc.check(
+            "Verify return code: 0" in chain.stdout or "Verification: OK" in chain.stdout,
+            f"{flavour}: Noust's authority should verify it: {chain.stdout!r}",
+        )
+        other = sc.run(
+            f"openssl s_client -connect 127.0.0.1:{port} -CAfile /etc/noust/tls/ca.crt "
+            "-verify_hostname not-its-name.example </dev/null 2>&1 | grep -E 'Verify return code'",
+            check=False,
+            label=f"{flavour}: a name the certificate does not carry",
+        )
+        sc.check(
+            "Verify return code: 0" not in other.stdout and "mismatch" in other.stdout,
+            f"{flavour}: a name the certificate does not cover must not verify: {other.stdout!r}",
+        )
+
+        # --- Noust's own client, the whole time
+        status = noust(sc, f"db instance show {name} --json")
+        sc.check(json_of(status, "show")["state"] == "ready", f"{flavour} should be ready")
+        listed = noust(sc, f"db list --engine {key} --json", check=False)
+        sc.check(listed.returncode == 0, f"{flavour}: listing through TLS: {listed.stdout[-300:]}")
+        dump = f"{SCRATCH}/{flavour}.rdb"
+        noust(sc, f"db backup 0 --engine {key} --no-compress --output {dump}", timeout=300)
+        sc.check(
+            sc.run(f"test -s {dump}", check=False).returncode == 0,
+            f"{flavour}: the backup through TLS should be a file",
+        )
+
+        # --- it survives a restart on TLS, and goes back to plaintext
+        noust(sc, f"db instance stop {name}", timeout=300)
+        noust(sc, f"db instance start {name}", timeout=300)
+        again = in_container(
+            sc, box, f"{auth} {cli} --tls --cacert /etc/noust-tls/ca.crt -h localhost get tlskey"
+        )
+        sc.check(again.stdout.strip() == "one", f"{flavour}: restart on TLS: {again.stdout!r}")
+        noust(sc, f"db instance tls {name} --mode off --yes", timeout=600)
+        back = in_container(sc, box, f"{auth} {cli} get tlskey")
+        sc.check(back.stdout.strip() == "one", f"{flavour}: back in the clear: {back.stdout!r}")
+        noust(sc, f"db instance remove {name} --yes", timeout=300)
+
+
+@engines_scenario("clickhouse_instance")
+def scenario_clickhouse_instance(sc: Any) -> None:
+    """
+    C-06: ClickHouse as an instance, started from its pinned image and driven end to end.
+
+    A database and an account are made through Noust, rows are inserted with ClickHouse's own client,
+    the database is backed up with its own BACKUP to the disk Noust configures, restored as a new
+    database with the data in it, and the instance is stopped, started and removed.
+    """
+    name = "w6d-ch"
+    box = f"noust-db-{name}"
+    key = f"clickhouse@{name}"
+    noust(sc, f"db instance remove {name} --yes", check=False, timeout=300)
+    noust(sc, f"db instance create {name} -e clickhouse --memory 2g --yes", timeout=1200)
+    shown = json_of(noust(sc, f"db instance show {name} --json"), "show")
+    sc.check(shown["state"] == "ready", f"ClickHouse should be ready: {shown}")
+
+    noust(sc, f"db create shop --engine {key}")
+    client = (
+        'clickhouse-client --user noust_admin --password "$CLICKHOUSE_PASSWORD" --query {query}'
+    )
+
+    def query(text: str) -> str:
+        return in_container(sc, box, client.format(query=shlex.quote(text))).stdout.strip()
+
+    query("CREATE TABLE shop.orders (id UInt32, note String) ENGINE = MergeTree ORDER BY id")
+    query("INSERT INTO shop.orders SELECT number, concat('o', toString(number)) FROM numbers(25)")
+    sc.check(query("SELECT count() FROM shop.orders") == "25", "the rows should be there")
+
+    made = noust(sc, f"db user-create reader --engine {key} --database shop")
+    found = re.search(r"Password:\s+(\S+)", made.stdout)
+    sc.check(found is not None, f"the account's password should be shown once: {made.stdout!r}")
+    password = found.group(1) if found else ""
+    users = json_of(noust(sc, f"db user-list --engine {key} --json"), "user-list")
+    sc.check(
+        {u["username"] for u in users} == {"noust_admin", "reader"},
+        f"both accounts should be listed: {users}",
+    )
+    signed_in = in_container(
+        sc,
+        box,
+        f"clickhouse-client --user reader --password {shlex.quote(password)} "  # noqa: S608 - a quoted word
+        "--query 'SELECT count() FROM shop.orders'",
+    )
+    sc.check(signed_in.stdout.strip() == "25", "the account Noust made should read the table")
+
+    noust(sc, f"db backup shop --engine {key}", timeout=600)
+    newest = sc.run(
+        "ls -1t /var/backups/noust/databases/clickhouse*shop* | head -1", label="newest backup"
+    ).stdout.strip()
+    sc.check(bool(newest), "ClickHouse's backup should be a file Noust keeps")
+    noust(sc, f"db restore shop {newest} --engine {key} --as-new shop_copy -f", timeout=600)
+    sc.check(
+        query("SELECT count() FROM shop_copy.orders") == "25",
+        "the restored database should hold the data",
+    )
+
+    noust(sc, f"db instance stop {name}", timeout=300)
+    noust(sc, f"db instance start {name}", timeout=600)
+    sc.check(query("SELECT count() FROM shop.orders") == "25", "the data should survive a restart")
+    noust(sc, f"db drop shop_copy --engine {key} -f", check=False)
+    noust(sc, f"db drop shop --engine {key} -f", check=False)
+    noust(sc, f"db instance remove {name} --yes", timeout=300)
+
+
+MY_SQL = "mariadb -N -B"
+
+
+def my(sc: Any, sql: str, *, user: str = "", password: str = "", check: bool = True) -> Any:
+    """
+    Run SQL with the machine's MariaDB client, as root over the socket or as an account over TCP.
+
+    Args:
+        sc: The scenario.
+        sql: The statement.
+        user: An account to sign in as over 127.0.0.1; root over the socket when empty.
+        password: That account's password.
+        check: Fail the scenario on a non-zero exit.
+
+    Returns:
+        The finished command.
+    """
+    login = f"-u{user} -p{shlex.quote(password)} -h127.0.0.1" if user else ""
+    return sc.run(
+        f"{MY_SQL} {login} -e {shlex.quote(sql)}",
+        check=check,
+        label=f"mariadb {user or 'root'}: {sql}",
+    )
+
+
+@engines_scenario("import_cluster_mariadb")
+def scenario_import_cluster_mariadb(sc: Any) -> None:
+    """
+    H-18 on MariaDB: a mysqldump of every database comes in, and its accounts from a file.
+
+    A real MariaDB takes two databases (one latin1, one holding a view that mysqldump writes in a
+    second pass, and rows that look like the markers the dump is cut at), three accounts (one root-like)
+    and is dumped with ``mariadb-dump --all-databases``. It is emptied, and ``noust db import-all`` puts
+    the databases back whole, the views included and the server's own schema untouched; with ``--users``
+    and the grants file the accounts come back with the password they had and without the power they
+    were not to have, and an account that already exists is left as it is.
+    """
+    noust(sc, "db uninstall mysql --purge -f", timeout=900, check=False)
+    noust(sc, "db install mariadb", timeout=1800)
+    my(sc, "create database shop character set utf8mb4; create database blog character set latin1")
+    my(
+        sc,
+        "use shop; create table orders (id int primary key auto_increment, note text); "
+        "insert into orders (note) values ('o1'), ('o2'), ('line\\none -- not a marker'), "
+        "('-- Current Database: `blog`'); create view v_orders as select id from orders; "
+        "use blog; create table posts (id int, body text); insert into posts values (1, 'x')",
+    )
+    my(
+        sc,
+        "create user 'shopapp'@'%' identified by 'secretpw'; "
+        "create user 'reader'@'10.0.%' identified by 'readpw'; "
+        "create user 'admin2'@'localhost' identified by 'adminpw'; "
+        "grant select, insert, update, delete on shop.* to 'shopapp'@'%'; "
+        "grant select on shop.orders to 'reader'@'10.0.%'; "
+        "grant all privileges on *.* to 'admin2'@'localhost' with grant option",
+    )
+    dump = f"{SCRATCH}/all-mariadb.sql"
+    grants = f"{SCRATCH}/grants-mariadb.sql"
+    sc.run(
+        f"mariadb-dump --all-databases --routines --triggers --events > {dump}",
+        label="mariadb-dump",
+    )
+    sc.run(
+        "mariadb -N -B -e \"select concat(quote(user), '@', quote(host)) from mysql.user where "  # noqa: S608 - fixed text
+        "user in ('shopapp', 'reader', 'admin2')\" | while read -r account; do "
+        'mariadb -N -B -e "SHOW CREATE USER $account" | sed "s/$/;/"; '
+        'mariadb -N -B -e "SHOW GRANTS FOR $account" | sed "s/$/;/"; '
+        f"done > {grants}",
+        label="the accounts, as SHOW CREATE USER and SHOW GRANTS print them",
+    )
+    for account in ("'shopapp'@'%'", "'reader'@'10.0.%'", "'admin2'@'localhost'"):
+        my(sc, f"drop user {account}")
+    my(sc, "drop database shop; drop database blog")
+
+    # --- the plan says what would happen and changes nothing
+    plan = json_of(
+        noust(sc, f"db import-all {dump} -e mysql --users --accounts-file {grants} --plan --json"),
+        "plan",
+    )
+    actions = {d["name"]: d["action"] for d in plan["databases"]}
+    sc.check(
+        actions == {"blog": "create", "mysql": "skip", "shop": "create"},
+        f"the plan should create the two user databases and skip the server's own: {actions}",
+    )
+    names = {r["name"]: r for r in plan["roles"]}
+    sc.check(
+        set(names) == {"shopapp@%", "reader@10.0.%", "admin2@localhost"}
+        and "ALL PRIVILEGES ON *.*" in names["admin2@localhost"]["dropped"],
+        f"the plan should name the accounts and what is not carried: {names}",
+    )
+    sc.check(
+        my(sc, "show databases").stdout.split()
+        and "shop" not in my(sc, "show databases").stdout.split(),
+        "planning created a database",
+    )
+
+    # --- the databases alone
+    noust(sc, f"db import-all {dump} -e mysql -f", timeout=300)
+    sc.check(
+        my(sc, "select count(*) from shop.orders").stdout.strip() == "4",
+        "shop was not loaded whole",
+    )
+    sc.check(
+        my(sc, "select count(*) from shop.v_orders").stdout.strip() == "4",
+        "the view of the second pass should be there",
+    )
+    sc.check(my(sc, "select count(*) from blog.posts").stdout.strip() == "1", "blog was not loaded")
+    sc.check(
+        my(
+            sc,
+            "select default_character_set_name from information_schema.schemata where schema_name = 'blog'",
+        ).stdout.strip()
+        == "latin1",
+        "a database keeps its character set",
+    )
+    sc.check(
+        my(sc, "select count(*) from mysql.user where user = 'shopapp'").stdout.strip() == "0",
+        "an account was made without asking for them",
+    )
+
+    # --- the accounts, with the password they had and without the power they were not to have
+    my(sc, "drop database shop; drop database blog")
+    noust(
+        sc,
+        f"db import-all {dump} -e mysql --users --accounts-file {grants} -f",
+        timeout=300,
+    )
+    signed_in = my(sc, "select count(*) from shop.orders", user="shopapp", password="secretpw")
+    sc.check(signed_in.stdout.strip() == "4", "the password the account had should sign in")
+    reader = my(
+        sc, "select count(*) from shop.orders", user="reader", password="readpw", check=False
+    )
+    sc.check(reader.returncode != 0 or "4" in reader.stdout, "reader's host pattern is its own")
+    cannot = my(sc, "create database zzz", user="admin2", password="adminpw", check=False)
+    sc.check(cannot.returncode != 0, "admin2 must not have the power it had at the source")
+    sc.check(
+        "ALL PRIVILEGES" not in my(sc, "show grants for 'admin2'@'localhost'").stdout,
+        "the root-like grant should not have been carried",
+    )
+
+    # --- an account that exists is left as it is
+    for account in ("'shopapp'@'%'", "'reader'@'10.0.%'", "'admin2'@'localhost'"):
+        my(sc, f"drop user {account}")
+    my(sc, "create user 'shopapp'@'%' identified by 'mine-not-theirs'")
+    my(sc, "drop database shop; drop database blog")
+    noust(
+        sc,
+        f"db import-all {dump} -e mysql --users --accounts-file {grants} -f",
+        timeout=300,
+    )
+    still = my(sc, "select 1", user="shopapp", password="mine-not-theirs", check=False)
+    sc.check(still.stdout.strip() == "1", "the account that existed lost its password")
+
+    for account in ("'shopapp'@'%'", "'reader'@'10.0.%'", "'admin2'@'localhost'"):
+        my(sc, f"drop user if exists {account}", check=False)
+    my(sc, "drop database if exists shop; drop database if exists blog", check=False)
+    noust(sc, "db uninstall mysql --purge -f", timeout=900)
+
+
+@engines_scenario("custom_image_instance")
+def scenario_custom_image_instance(sc: Any) -> None:
+    """
+    An instance on an image, a command and arguments of the operator's own, run for real.
+
+    The image comes from a private registry the scenario runs in the machine's own Docker, under a name
+    no table of Noust knows (``localhost:5000/acme/pg-own``), so the instance can only be found again by
+    what Noust wrote on the container. Without a digest the image is refused, ``--yes`` alone does not
+    accept the price, the engine starts with the operator's argument (``max_connections``) and the
+    instance is listed, bound and dumped like any other; an upgrade does not look for a newer image of
+    one the operator pinned; an argument the engine rejects is put back with the engine's own words and
+    the data intact; taking the words back restores the engine's default.
+    """
+    name = "w6d-own"
+    box = f"noust-db-{name}"
+    key = f"postgresql@{name}"
+    registry = "noust-test-w6d-registry"
+    pull(sc, "postgres:17")
+    pull(sc, "registry:2")
+    noust(sc, f"db instance remove {name} --yes", check=False, timeout=300)
+    sc.run(f"docker rm -f {registry}", check=False)
+
+    # --- a registry of our own, and an image in it that no table of Noust knows by name
+    sc.run(
+        f"docker run -d --name {registry} -p 127.0.0.1:5000:5000 registry:2",
+        label="a private registry in the machine's own Docker",
+    )
+    sc.run(
+        "for i in $(seq 1 30); do curl -sf http://127.0.0.1:5000/v2/ >/dev/null && exit 0; "
+        "sleep 1; done; exit 1",
+        label="wait for the registry",
+    )
+    sc.run("docker tag postgres:17 localhost:5000/acme/pg-own:17")
+    pushed = sc.run("docker push localhost:5000/acme/pg-own:17", timeout=300)
+    found = re.search(r"digest: (sha256:[0-9a-f]{64})", pushed.stdout)
+    sc.check(found is not None, f"the push should print the digest: {pushed.stdout[-300:]!r}")
+    digest = found.group(1) if found else ""
+    sc.run("docker rmi localhost:5000/acme/pg-own:17", check=False)
+    reference = f"localhost:5000/acme/pg-own:17@{digest}"
+    create = f"db instance create {name} -e postgresql --version 17 --memory 1g"
+
+    # --- what is refused before anything is made
+    bare = noust(
+        sc,
+        f"{create} --image localhost:5000/acme/pg-own:17 --yes --accept-untested",
+        check=False,
+    )
+    sc.check(
+        bare.returncode != 0 and "digest" in (bare.stdout + bare.stderr).lower(),
+        f"an image without a digest must be refused, saying why: {bare.stdout + bare.stderr!r}",
+    )
+    alone = noust(sc, f"{create} --image {reference} --yes", check=False)
+    sc.check(
+        alone.returncode != 0 and "--accept-untested" in (alone.stdout + alone.stderr),
+        f"--yes alone must not accept the price: {alone.stdout + alone.stderr!r}",
+    )
+    listed = json_of(noust(sc, "db instance list --json"), "list")
+    sc.check(
+        all(item["name"] != name for item in listed["instances"]),
+        "nothing should have been made by a refusal",
+    )
+    leaking = noust(
+        sc,
+        f'{create} --image {reference} --args "--requirepass x" --yes --accept-untested',
+        check=False,
+    )
+    sc.check(leaking.returncode != 0, "a password in the arguments must be refused")
+
+    # --- the instance, with an argument of ours
+    noust(
+        sc,
+        f'{create} --image {reference} --args "-c max_connections=77" --yes --accept-untested',
+        timeout=1200,
+    )
+    shown = json_of(noust(sc, f"db instance show {name} --json"), "show")
+    sc.check(
+        shown["state"] == "ready"
+        and shown["custom_image"] is True
+        and shown["reference"] == reference,
+        f"the instance should run exactly the pinned reference: {shown}",
+    )
+    sc.check(shown["args"] == ["-c", "max_connections=77"], f"the arguments are the row's: {shown}")
+
+    def sql(text: str, database: str = "postgres") -> str:
+        return in_container(
+            sc,
+            box,
+            'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U postgres '
+            f"-d {database} -tA -c {shlex.quote(text)}",
+        ).stdout.strip()
+
+    sc.check(
+        sql("show max_connections") == "77", "the engine should run with the operator's argument"
+    )
+    inspected = sc.run(f"docker inspect {box} --format '{{{{.Config.Image}}}}'").stdout.strip()
+    sc.check(
+        inspected == reference,
+        f"the container should run the digest the operator pinned: {inspected!r}",
+    )
+
+    # --- found again by what Noust wrote on it, bound and managed like any other
+    noust(sc, f"db create shop --engine {key}")
+    sql("create table orders(id int)", "shop")
+    sql("insert into orders select generate_series(1, 40)", "shop")
+    databases = json_of(noust(sc, f"db list --engine {key} --json"), "list")
+    names = {
+        item["name"]
+        for item in (databases["databases"] if isinstance(databases, dict) else databases)
+    }
+    sc.check("shop" in names, f"the image has no name Noust knows: the label must find it: {names}")
+    noust(sc, f"db backup shop --engine {key}", timeout=600)
+    dumps = sc.run("ls -1 /var/backups/noust/databases/postgresql*shop* | head -1").stdout.strip()
+    sc.check(bool(dumps), "a dump through the engine's own client inside the image should exist")
+
+    # --- no newer image of one the operator pinned
+    refused = noust(sc, f"db instance upgrade {name} --no-backup", check=False)
+    sc.check(
+        refused.returncode != 0 and "--image" in (refused.stdout + refused.stderr),
+        f"an upgrade must ask for the next image by name: {refused.stdout + refused.stderr!r}",
+    )
+
+    # --- an argument the engine rejects: put back, with the engine's own words, data intact
+    bad = noust(
+        sc,
+        f'db instance launch {name} --args "-c max_connections=77 -c bogus_setting=1" --yes --accept-untested',
+        check=False,
+        timeout=900,
+    )
+    said = bad.stdout + bad.stderr
+    sc.check(bad.returncode != 0, f"a rejected argument must fail the change: {said[-400:]!r}")
+    sc.check(
+        "bogus_setting" in said, f"the engine's own words should be in the error: {said[-600:]!r}"
+    )
+    after = json_of(noust(sc, f"db instance show {name} --json"), "show")
+    sc.check(
+        after["state"] == "ready" and after["args"] == ["-c", "max_connections=77"],
+        f"the previous words should be back: {after}",
+    )
+    sc.check(
+        sql("show max_connections") == "77", "the engine should run on the previous words again"
+    )
+    rows = sql("select count(*) from orders", "shop")
+    sc.check(rows == "40", f"the data must be untouched by the failed change: {rows!r}")
+
+    # --- changed, then taken back
+    noust(
+        sc,
+        f'db instance launch {name} --args "-c max_connections=55" --yes --accept-untested',
+        timeout=900,
+    )
+    sc.check(sql("show max_connections") == "55", "the new word should reach the engine")
+    noust(sc, f"db instance launch {name} --reset --yes", timeout=900)
+    sc.check(
+        sql("show max_connections") == "100", "taking the words back should restore the default"
+    )
+    reset = json_of(noust(sc, f"db instance launch {name} --json"), "launch")
+    sc.check(
+        reset["customised"] is True and reset["custom_image"] is True,
+        "the image stays the operator's",
+    )
+
+    noust(sc, f"db drop shop --engine {key} -f", check=False)
+    noust(sc, f"db instance remove {name} --yes", timeout=300)
+    sc.run(f"docker rm -f {registry}", check=False)
+    sc.run("docker rmi localhost:5000/acme/pg-own", check=False)
 
 
 # ---------------------------------------------------------------------------

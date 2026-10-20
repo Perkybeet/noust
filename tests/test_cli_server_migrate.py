@@ -165,7 +165,8 @@ class TestPrepare:
         assert result.exit_code == 0, result.output
         assert ("seal", "correct horse battery staple") in recorder.calls
         assert (
-            f"noust restore-server --from-destination nas --name noust-self-{HOST}" in result.output
+            f"noust restore-server --install --from-destination nas --name noust-self-{HOST}"
+            in result.output
         )
         assert "noust server migrate check" in result.output
         assert "correct horse" not in result.output + "\n".join(log)

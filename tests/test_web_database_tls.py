@@ -207,7 +207,7 @@ class TestChanging:
         response = admin.put("/api/databases/instances/cache/tls", json={"mode": "optional"})
 
         assert response.status_code == 400
-        assert "does not speak TLS" in response.text
+        assert "port of their own" in response.text
         assert queued == []
 
     def test_renewing_is_a_job_that_signs_the_certificate_again(

@@ -359,38 +359,38 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **987** API operations. **949** need a permission (`x-noust-permission`) and **38** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **325** operations need sudo mode and **38** can need a second person.
+- **1033** API operations. **993** need a permission (`x-noust-permission`) and **40** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **346** operations need sudo mode and **38** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
 |---|---|
 | `accounts.manage` | 30 |
 | `accounts.read` | 12 |
-| `apps.deploy` | 35 |
-| `apps.manage` | 140 |
+| `apps.deploy` | 36 |
+| `apps.manage` | 143 |
 | `apps.operate` | 32 |
-| `apps.read` | 137 |
+| `apps.read` | 140 |
 | `apps.terminal` | 12 |
 | `audit.manage` | 1 |
 | `audit.read` | 9 |
-| `backups.manage` | 22 |
-| `backups.read` | 19 |
+| `backups.manage` | 28 |
+| `backups.read` | 24 |
 | `backups.run` | 14 |
 | `compliance.read` | 4 |
-| `databases.manage` | 40 |
-| `databases.read` | 59 |
+| `databases.manage` | 53 |
+| `databases.read` | 67 |
 | `databases.write` | 12 |
-| `fleet.manage` | 41 |
+| `fleet.manage` | 42 |
 | `fleet.read` | 22 |
-| `public` | 38 |
+| `public` | 40 |
 | `root_equivalent` | 18 |
-| `secrets.reveal` | 13 |
+| `secrets.reveal` | 16 |
 | `security.manage` | 8 |
 | `self` | 41 |
 | `server.host_access` | 21 |
 | `server.manage` | 55 |
-| `server.read` | 75 |
+| `server.read` | 76 |
 | `server.terminal` | 1 |
 | `settings.manage` | 30 |
 | `settings.read` | 22 |
@@ -485,15 +485,15 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **490** events.
+The catalogue holds **500** events.
 
 | Category | Events |
 |---|---|
 | access | 46 |
 | account | 36 |
 | config | 29 |
-| change | 318 |
-| read | 20 |
+| change | 327 |
+| read | 21 |
 | denial | 16 |
 | system | 22 |
 | host | 3 |
@@ -546,9 +546,9 @@ These are the limits, stated before you find them.
   it off the machine (`audit.syslog`) and compare the head.
 - **A redactor works by value.** It scrubs what Noust knows is a secret and nothing it does not, and it
   leaves values shorter than six characters alone.
-- **A key beside the ciphertext does not protect from a compromised host.** `config.yaml` holds the
-  notification channels' secrets encrypted under `secrets.key` beside it, `0600`, and the central can be
-  sealed with `noust central seal`; neither helps if the attacker is root on the same machine. What is guaranteed is about the copies: no read of the
+- **A key beside the ciphertext does not protect from a compromised host.** `config.yaml` holds SMTP and
+  notification secrets in clear, `0600`, and the central can be sealed with `noust central seal`; neither
+  helps if the attacker is root on the same machine. What is guaranteed is about the copies: no read of the
   API, no `noust store export` and no incident package carries a secret value unless it was asked for and is
   audited ([docs/security.md](security.md#secrets-at-rest)).
 - **`security.profile: ens-medium` is a mapping, not a certification.**

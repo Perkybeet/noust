@@ -31,6 +31,7 @@ root, with a clean environment and a warning, until it is tested and enabled.
 Migrations run with the application's identity, never as a build.
 """
 
+import contextlib
 import json
 import secrets
 import shutil
@@ -44,7 +45,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from noust.central import require_server_role
-from noust.core import paths
+from noust.core import cancellation, paths
 from noust.core.applock import app_lock
 from noust.core.compose_yaml import load_compose
 from noust.core.config import Config
@@ -71,6 +72,8 @@ from noust.core.store import (
     get_store,
 )
 from noust.core.utils import domain_to_app_name
+from noust.core.variables.model import BUILD
+from noust.core.variables.predefined import RELEASE_ENV_NAME, Deployment
 from noust.deployers.helpers import (
     EnvManager,
     PackageManagerHelper,
@@ -81,6 +84,8 @@ from noust.deployers.helpers import (
 )
 from noust.deployers.helpers import sandbox as build_sandbox
 from noust.deployers.helpers.databases import provision_database
+from noust.deployers.helpers.deployment_variables import DeploymentVariables, describe_deployment
+from noust.deployers.helpers.env_variables import refuse_reserved
 from noust.deployers.helpers.health import wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck
 from noust.deployers.helpers.hooks import (
@@ -105,6 +110,7 @@ from noust.deployers.helpers.site import (
 )
 from noust.deployers.helpers.site import has_certificate as certificate_on_disk
 from noust.deployers.helpers.target import claim_deploy_target, fetch_into_target
+from noust.deployers.helpers.unit_launch import attach_release_env
 from noust.deployers.helpers.workspace_gates import WorkspaceGates, WorkspaceRestart
 from noust.deployers.interface import AppDeployer, StepReporter, UpdateResult
 from noust.deployers.monorepo_releases import MonorepoReleases, require_not_released
@@ -118,7 +124,7 @@ from noust.deployers.recorder import (
 )
 from noust.deployers.registry import DeployerRegistry
 from noust.deployers.releases import REPO_CACHE_DIR, SHARED_DIR, ReleaseManager
-from noust.managers import app_identity
+from noust.managers import app_identity, unit_hardening
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
@@ -243,6 +249,13 @@ class MonorepoDeployer(AppDeployer):
         self.workspaces: list[MonorepoWorkspace] = []
         self.subdomain_overrides: dict[str, str] = {}
         self.workspace_filter: list[str] | None = None
+
+        #: Which part of a deployment each variable given at creation is for (``build`` or
+        #: ``runtime``; the rest are for both); see ``configure``.
+        self._env_audience: dict[str, str] = {}
+        #: The variables of this deployment (references, audiences, what the build is given),
+        #: the one implementation every type of application shares; built on first use.
+        self._deployment_variables: DeploymentVariables | None = None
 
         # Database configuration
         self.databases: dict[str, DatabaseConfig] = {}
@@ -391,9 +404,10 @@ class MonorepoDeployer(AppDeployer):
             **options: ``subdomain_overrides`` maps workspace names to
                 subdomains, ``workspace_filter`` limits which workspaces deploy,
                 ``skip_database`` disables provisioning, ``job_id`` is the
-                background job driving this deployment, when there is one, and
-                ``replace_existing`` deploys into a directory that already
-                holds files (``noust create --force``).
+                background job driving this deployment, when there is one,
+                ``env_audience`` says which variables only the build or only the
+                workspaces are given, and ``replace_existing`` deploys into a
+                directory that already holds files (``noust create --force``).
 
         Raises:
             DeploymentError: When ``webserver`` is ``apache``, which this
@@ -419,6 +433,9 @@ class MonorepoDeployer(AppDeployer):
         self.ssl = ssl
         self.branch = branch
         self.env_vars = env_vars or {}
+        self._env_audience = dict(options.get("env_audience") or {})
+        # Built again for this application: the domain and the audience just changed.
+        self._deployment_variables = None
         self.subdomain_overrides = options.get("subdomain_overrides") or {}
         self.workspace_filter = options.get("workspace_filter")
         self.skip_database = bool(options.get("skip_database", False))
@@ -510,7 +527,13 @@ class MonorepoDeployer(AppDeployer):
         """
         self.logger.debug(f"Running: {' '.join(command)}")
 
-        run_env = dict(self.env_vars)
+        # Beyond the variables of the deployment: what only the build is given and what Noust
+        # says about the deployment, less what only the running workspaces are given.
+        building = phase in (BuildPhase.INSTALL, BuildPhase.BUILD)
+        built = self._variables.build_environment() if building and self.domain else None
+        run_env = {**(dict(built.extra) if built else {}), **self.env_vars}
+        for name in built.hidden if built else ():
+            run_env.pop(name, None)
         if env:
             run_env.update(env)
 
@@ -531,25 +554,40 @@ class MonorepoDeployer(AppDeployer):
                     cache=self._sandbox_cache or build_sandbox.cache_dir_for(self.app_name),
                 )
             options["sandbox"] = build_sandbox.install_environment(sandbox, phase, run_env)
+            if built is not None and built.hidden:
+                # The .env the unit hands in also holds them; take them out of what the
+                # command sees.
+                options["sandbox"] = replace(
+                    options["sandbox"],
+                    unset_env=(*options["sandbox"].unset_env, *built.hidden),
+                )
         # Outside the sandbox the command inherits this process's environment,
         # as before 3.1 (see BaseDeployer._run).
 
-        if stream:
-            return self.runner.stream(
+        # What a repository's code runs (install, build) is what an operator cancels a
+        # deployment to stop; a migration is never killed halfway.
+        interrupt: contextlib.AbstractContextManager[None] = (
+            cancellation.interruptible(f"running the {phase.value}")
+            if building
+            else contextlib.nullcontext()
+        )
+        with interrupt:
+            if stream:
+                return self.runner.stream(
+                    command,
+                    on_line=self.logger.debug,
+                    cwd=cwd or self.build_path,
+                    env=run_env or None,
+                    timeout=timeout,
+                    **options,
+                )
+            result = self.runner.run(
                 command,
-                on_line=self.logger.debug,
                 cwd=cwd or self.build_path,
                 env=run_env or None,
                 timeout=timeout,
                 **options,
             )
-        result = self.runner.run(
-            command,
-            cwd=cwd or self.build_path,
-            env=run_env or None,
-            timeout=timeout,
-            **options,
-        )
         # Printed only with --verbose, captured into the deployment log always.
         self.logger.command_output(result.stdout, result.stderr)
         return result
@@ -735,6 +773,12 @@ class MonorepoDeployer(AppDeployer):
             store=self.store,
             new=self._is_new_deployment,
         )
+        if self._is_new_deployment:
+            # Created from 4.0: every workspace's unit is written hardened from the first
+            # deployment (a read-only filesystem but for the application's own directory, no
+            # capability); each unit asks for the directives when it is made. One from before
+            # is hardened by `noust app hardening`, never by a redeploy.
+            unit_hardening.adopt_new_app(self.domain, store=self.store)
 
         self.deploy_hooks = DeploymentHooks()
         recorder = self._recorder()
@@ -963,6 +1007,11 @@ class MonorepoDeployer(AppDeployer):
                 # Only the build timeout estimate depends on the count, so a
                 # layout this cannot read must not block a rebuild.
                 self.logger.debug(f"Could not enumerate workspaces: {e}")
+
+        # A shared variable that changed or a secret that was rotated reaches the workspaces
+        # now, before anything is built; each is told its commit.
+        self._variables.refresh()
+        self._write_workspace_facts()
 
         report("Installing dependencies")
         self._install_dependencies()
@@ -1383,6 +1432,12 @@ class MonorepoDeployer(AppDeployer):
 
         env_manager = EnvManager(verbose=self.verbose)
 
+        # What was given at creation is resolved first: a reference becomes its value and is
+        # remembered as the text it came from, so every deploy resolves it again.
+        refuse_reserved(self.env_vars)
+        given, written_as = self._variables.expand(self.env_vars)
+        self.env_vars = given
+
         # Build database URLs
         if "postgresql" in self.databases:
             db = self.databases["postgresql"]
@@ -1409,19 +1464,108 @@ class MonorepoDeployer(AppDeployer):
                 auto_values[key] = val
             self.env_vars.update(auto_values)
 
+        # What only the build is given is in no file the workspaces load.
+        build_only = {name for name, kind in self._env_audience.items() if kind == BUILD}
+        runtime = {k: v for k, v in self.env_vars.items() if k not in build_only}
+
         # Create .env files for each workspace
         for ws in self.workspaces:
-            ws_env = self.env_vars.copy()
+            ws_env = runtime.copy()
             ws_env["PORT"] = str(ws.port)
             ws_env.update(ws.env_vars)
 
             self._write_env_file(self._workspace_env_file(ws), ws_env)
             self.logger.substep(f"Created {ws.path}/.env.production")
 
-        # Root .env for Prisma
+        # The root .env is the application's: what `noust env` and the console show and edit
+        # (a change to it reaches the workspaces' files), and what Prisma reads. The two
+        # variables the units set themselves are not the operator's to edit there.
         root_env_file = self.app_path / ".env"
-        if "DATABASE_URL" in self.env_vars:
-            self._write_env_file(root_env_file, {"DATABASE_URL": self.env_vars["DATABASE_URL"]})
+        shared = {k: v for k, v in runtime.items() if k not in ("PORT", "NODE_ENV")}
+        if shared:
+            self._write_env_file(root_env_file, shared)
+        self._variables.remember(self.env_vars, written_as, names=set(given))
+        self._variables.refresh()
+        self._write_workspace_facts()
+
+    @property
+    def _variables(self) -> DeploymentVariables:
+        """
+        Returns:
+            The variables of this deployment, the one implementation every type of application
+            shares (:mod:`noust.deployers.helpers.deployment_variables`).
+        """
+        if self._deployment_variables is None:
+            self._deployment_variables = DeploymentVariables(
+                store=self.store,
+                domain=self.domain,
+                logger=self.logger,
+                fs=lambda: self.fs,
+                manager=lambda: EnvManager(verbose=self.verbose, fs=self.fs),
+                row=lambda: self.store.get_app(self.domain) if self.domain else None,
+                deployment=self._deployment,
+                audience=self._env_audience,
+            )
+        return self._deployment_variables
+
+    def _deployment(self, workspace: MonorepoWorkspace | None = None) -> Deployment:
+        """
+        Describe this deployment for the references and the variables Noust sets.
+
+        Args:
+            workspace: The workspace the facts are for: it answers on a name of its own, so its
+                ``NOUST_URL`` is that one. None describes the application.
+
+        Returns:
+            Where the application (or the workspace) answers and what is being built.
+        """
+        commit, branch = self._git_info()()
+        staged = self._release.staged
+        return describe_deployment(
+            self.store,
+            f"{workspace.subdomain}.{self.domain}" if workspace is not None else self.domain,
+            row=self.store.get_app(self.domain) if self.domain else None,
+            ssl=self.ssl,
+            branch=self.branch or branch,
+            commit=commit,
+            release=staged.id if staged is not None else None,
+            port=workspace.port if workspace is not None else None,
+        )
+
+    def _write_workspace_facts(self) -> None:
+        """
+        Write what Noust says about the deployment beside each workspace, and make its unit load it.
+
+        ``NOUST_URL`` and the rest go in a file of the workspace's directory in the tree being
+        built: on releases that is the release itself, so going back to an earlier one gives the
+        workspace that release's commit with no further step. Each workspace answers on a name
+        of its own, and is told that one. A unit written before this loads the file from the
+        next update on.
+        """
+        if self._rehearsing() or not self.domain:
+            return
+        manager = EnvManager(verbose=self.verbose, fs=self.fs)
+        for workspace in self.workspaces:
+            target = self.build_path / workspace.path / RELEASE_ENV_NAME
+            if not workspace.path or escapes(target, self.build_path):
+                self.logger.warning(f"{workspace.name}: its directory leaves the tree; not told")
+                continue
+            facts = self._deployment(workspace).environment()
+            if facts and target.parent.is_dir():
+                manager.write_env_file(target, facts)
+        # A duck-typed service manager of a test implements what its test needs; a real one
+        # always reads its units.
+        app = self.store.get_app(self.domain)
+        if getattr(self.service_manager, "read_unit", None) is None or app is None:
+            return
+        for unit in self.store.list_services():
+            if unit.app_id != app.id or not unit.working_directory:
+                continue
+            try:
+                if attach_release_env(self.service_manager, unit.name, unit.working_directory):
+                    self.logger.substep(f"{unit.name} now loads what Noust says about each release")
+            except NoustError as exc:
+                self.logger.warning(f"The unit of {unit.name} is left as it is: {exc}")
 
     def _write_env_file(self, path: Path, env_vars: dict[str, str]) -> None:
         """
@@ -2174,6 +2318,8 @@ class MonorepoDeployer(AppDeployer):
                 working_directory=str(working_dir),
                 environment=env,
                 environment_file=str(self._workspace_env_file(ws)),
+                # What Noust says about the deployment, from a file of the release.
+                runtime_environment_file=str(working_dir / RELEASE_ENV_NAME),
                 description=f"Noust: {ws.subdomain}.{self.domain} ({ws.app_type})",
                 limits=ResourceLimits.of(self.store.get_app(self.domain)),
             )
@@ -2293,7 +2439,11 @@ class MonorepoDeployer(AppDeployer):
                 for ws in self.workspaces
             ]
         )
-        env_with_meta = self.env_vars.copy()
+        env_with_meta = {
+            name: value
+            for name, value in self.env_vars.items()
+            if self._env_audience.get(name) != BUILD
+        }
         env_with_meta["_workspaces"] = workspaces_json
 
         return StoreRegistrar(self.store).register_app(

@@ -52,7 +52,7 @@ from noust.core.store import App, Database
 from noust.deployers.helpers.app_env import read_app_env
 from noust.deployers.helpers.databases import _password_secret
 from noust.managers.database.backups import DatabaseBackups
-from noust.managers.database.base import BaseDatabaseManager
+from noust.managers.database.base import OWN_DUMP_OPTIONS, BaseDatabaseManager
 from noust.managers.database.extensions import Extensions
 from noust.managers.database.linking import change_app_env, restore_app_env
 from noust.managers.database.records import DatabaseLink
@@ -734,6 +734,8 @@ class DatabaseMover:
             dump,
             drop_existing=replace and existed,
             safety_backup=replace and existed,
+            # The dump Noust took of the source a moment ago.
+            options=OWN_DUMP_OPTIONS,
         )
         journal.created_database = not existed
         return outcome.safety_copy

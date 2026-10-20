@@ -26,7 +26,7 @@ from urllib.parse import quote
 
 import pytest
 
-from noust.core.db_instance_store import TLS_OFF, TLS_OPTIONAL, DbInstanceStore
+from noust.core.db_instance_store import TLS_OFF, TLS_OPTIONAL, TLS_REQUIRED, DbInstanceStore
 from noust.core.exceptions import DatabaseError, ValidationError
 from noust.core.runner import set_runner
 from noust.managers.database import tls_authority
@@ -141,11 +141,35 @@ class TestWhatCannotBeKept:
     def test_no_mode_is_nothing_to_keep(self, rig: Rig) -> None:
         assert check_link_tls(INSTANCE_KEY, None, instances=DbInstanceStore(rig.store)) is None
 
-    def test_redis_and_valkey_are_refused(self) -> None:
+    def test_the_servers_own_redis_and_valkey_are_refused_with_where_to_go(self) -> None:
         with pytest.raises(ValidationError) as caught:
             check_link_tls("redis", "require")
 
-        assert "do not serve TLS" in caught.value.message
+        assert "serves no TLS through Noust" in caught.value.message
+        assert "noust db instance tls" in (caught.value.details or "")
+
+    def test_a_redis_instance_has_to_be_made_to_serve_tls_in_the_one_mode_it_has(
+        self, rig: Rig
+    ) -> None:
+        store = DbInstanceStore(rig.store)
+        store.create(
+            name="cache",
+            flavour="valkey",
+            version="8",
+            image="valkey/valkey",
+            digest="sha256:" + "c" * 64,
+            host_port=6381,
+            memory_limit_mb=256,
+            created_by=None,
+        )
+
+        with pytest.raises(DatabaseError) as caught:
+            check_link_tls("redis@cache", "verify-full", instances=store)
+        assert "noust db instance tls cache --mode required" in (caught.value.details or "")
+
+        store.set_tls_mode("cache", TLS_REQUIRED)
+        for mode in LINK_MODES:
+            assert check_link_tls("redis@cache", mode, instances=store) is not None
 
     def test_the_servers_own_engine_can_be_asked_to_encrypt_and_no_more(self) -> None:
         assert check_link_tls(HOST, "require") is not None

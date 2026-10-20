@@ -6,8 +6,9 @@ An application's definition as a document, and an application made from one.
 
 :func:`export_app` writes everything that defines an application - type,
 source, branch, layout, domains, environment, health check, limits, release
-retention, persistent paths, cron jobs, backup schedule, previews, blue/green
-- as a versioned JSON document (``"format": "wasm-app"``). Every part is read
+retention, persistent paths, mounted files and paths, container settings, cron jobs,
+backup schedule, previews, blue/green
+- as a versioned JSON document (``"format": "noust-app"``; the name before 4.0 is still read). Every part is read
 through the reader that already owns it: the store's getters, the domain
 helpers, :func:`~noust.deployers.helpers.app_env.read_app_env`,
 :meth:`~noust.managers.cron_manager.CronManager.list_jobs`. Secret values are
@@ -32,6 +33,7 @@ creates through this same path instead of a second one.
 
 from __future__ import annotations
 
+import dataclasses
 import functools
 import json
 import logging
@@ -44,7 +46,13 @@ from typing import Any
 
 from noust import __version__
 from noust.central import require_server_role
-from noust.core import app_build_store, app_rollout_store, app_source_store, update_schedule_store
+from noust.core import (
+    app_build_store,
+    app_rollout_store,
+    app_source_store,
+    legacy_archive,
+    update_schedule_store,
+)
 from noust.core.config import REDACTED, Config
 from noust.core.exceptions import DomainConflictError, NoustError, ValidationError
 from noust.core.logger import Logger
@@ -54,11 +62,31 @@ from noust.core.store import App, DomainKind, get_store
 from noust.core.utils import domain_to_app_name
 from noust.deployers import domains as domain_changes
 from noust.deployers.bluegreen import set_zero_downtime
+from noust.deployers.export_checks import (
+    check_flag,
+    check_names,
+    check_number,
+    check_object,
+    check_text,
+    fail,
+)
+from noust.deployers.export_runtime import (
+    RuntimePlan,
+    apply_mount,
+    check_container,
+    check_mounts,
+    export_container,
+    export_mounts,
+    late_mounts_note,
+    plan_runtime,
+    reaches_first_start,
+)
 from noust.deployers.helpers.app_env import read_app_env
 from noust.deployers.helpers.layout import LAYOUTS, RELEASES, code_path_for
 from noust.deployers.importers import Proposal
 from noust.deployers.importers.base import MAX_NESTING, nesting_depth
 from noust.deployers.lifecycle import set_health_check, set_release_retention, set_stop_policy
+from noust.managers.app_mounts import MountManager
 from noust.managers.backup_scheduler import BackupSchedule, BackupScheduler
 from noust.managers.cron_manager import CronJob, CronManager
 from noust.managers.port_claims import claimed_ports
@@ -71,7 +99,7 @@ from noust.validators.health import check_health_expect, check_health_path, chec
 from noust.validators.source import is_push_source
 
 #: What the document says it is, and the version of its shape.
-FORMAT = "wasm-app"
+FORMAT = legacy_archive.EXPORT_FORMAT
 VERSION = 1
 
 #: Variables the unit sets itself (see ``helpers/app_env.py``): never exported,
@@ -111,7 +139,11 @@ def _known(domain: str) -> App:
 
 
 def export_app(
-    domain: str, *, with_secrets: bool = False, cron: CronManager | None = None
+    domain: str,
+    *,
+    with_secrets: bool = False,
+    cron: CronManager | None = None,
+    actor: str = "export",
 ) -> dict[str, Any]:
     """
     Describe an application as an export document.
@@ -123,6 +155,7 @@ def export_app(
             classifier (:func:`~noust.core.secret_detection.classify`) with the
             application's own marks.
         cron: Cron manager to list jobs with; tests pass one.
+        actor: Who asked, for the audit record of reading a mounted file.
 
     Returns:
         The document, keys in a fixed order and every collection sorted, so
@@ -143,7 +176,7 @@ def export_app(
         "format": FORMAT,
         "version": VERSION,
         "exported_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-        "wasm_version": __version__,
+        legacy_archive.EXPORT_VERSION_KEY: __version__,
         "secrets_included": with_secrets,
         "app": {
             "domain": app.domain,
@@ -175,8 +208,10 @@ def export_app(
         },
         "domains": {"aliases": aliases, "redirects": [d for d in redirects if d != www]},
         "source_options": _export_source_options(app.domain),
+        "container": export_container(app),
         "env": _export_env(app, with_secrets=with_secrets),
         "env_secret_marks": dict(sorted(app.env_secret_marks.items())),
+        "mounts": export_mounts(app, with_secrets=with_secrets, actor=actor),
         "cron": _export_cron(app, cron or CronManager()),
         "backup": _export_backup(app),
         "previews": _export_previews(app),
@@ -461,73 +496,6 @@ def dumps(document: Mapping[str, Any]) -> str:
 # Validation -----------------------------------------------------------------
 
 
-def _fail(where: str, what: str) -> ValidationError:
-    """
-    Build the refusal for one field of a document.
-
-    Args:
-        where: The field, as a path (``app.port``).
-        what: What is wrong with it.
-
-    Returns:
-        The error.
-    """
-    return ValidationError(
-        f"The export document is not valid: {where} {what}",
-        details="Export it again with 'noust app export', or fix the field.",
-        field=where,
-    )
-
-
-def _object(data: Any, where: str, *, optional: bool = False) -> dict[str, Any]:
-    """Check an object field; an absent optional one reads as empty."""
-    if data is None and optional:
-        return {}
-    if not isinstance(data, dict):
-        raise _fail(where, "must be an object")
-    return data
-
-
-def _text(data: Mapping[str, Any], key: str, where: str, *, required: bool = False) -> str | None:
-    """Check a string field."""
-    value = data.get(key)
-    if value is None:
-        if required:
-            raise _fail(f"{where}.{key}", "is missing")
-        return None
-    if not isinstance(value, str) or (required and not value.strip()):
-        raise _fail(f"{where}.{key}", "must be a string")
-    return value
-
-
-def _number(data: Mapping[str, Any], key: str, where: str) -> int | None:
-    """Check a whole-number field."""
-    value = data.get(key)
-    if value is None:
-        return None
-    if isinstance(value, bool) or not isinstance(value, int):
-        raise _fail(f"{where}.{key}", "must be a whole number")
-    return int(value)
-
-
-def _flag(data: Mapping[str, Any], key: str, where: str, default: bool = False) -> bool:
-    """Check a boolean field."""
-    value = data.get(key, default)
-    if value is None:
-        return default
-    if not isinstance(value, bool):
-        raise _fail(f"{where}.{key}", "must be true or false")
-    return value
-
-
-def _names(data: Mapping[str, Any], key: str, where: str) -> list[str]:
-    """Check a list-of-strings field."""
-    value = data.get(key) or []
-    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
-        raise _fail(f"{where}.{key}", "must be a list of strings")
-    return list(value)
-
-
 def validate_document(data: Any) -> dict[str, Any]:
     """
     Check a document's shape and fill in what an older export left out.
@@ -544,11 +512,11 @@ def validate_document(data: Any) -> dict[str, Any]:
         A copy of the document, every section present.
 
     Raises:
-        ValidationError: It is not a ``wasm-app`` document of a version this
-            release reads, or a field has the wrong type.
+        ValidationError: It is not an export document (of either format name) of a version
+            this release reads, or a field has the wrong type.
     """
-    doc = dict(_object(data, "document"))
-    if doc.get("format") != FORMAT:
+    doc = dict(check_object(data, "document"))
+    if not legacy_archive.is_export_document(doc):
         raise ValidationError(
             "This is not a Noust application export",
             details=f'An export says "format": "{FORMAT}"; make one with \'noust app export\'.',
@@ -556,46 +524,46 @@ def validate_document(data: Any) -> dict[str, Any]:
         )
     version = doc.get("version")
     if isinstance(version, bool) or not isinstance(version, int):
-        raise _fail("version", "must be a whole number")
+        raise fail("version", "must be a whole number")
     if version > VERSION:
         raise ValidationError(
             f"The export is version {version}; this Noust reads version {VERSION}",
-            details=f"It was made by Noust {doc.get('wasm_version') or 'a newer release'}. "
+            details=f"It was made by Noust {legacy_archive.export_made_by(doc) or 'a newer release'}. "
             "Upgrade Noust on this server to import it.",
             field="version",
         )
     if version < 1:
-        raise _fail("version", "must be 1 or more")
+        raise fail("version", "must be 1 or more")
 
-    app = dict(_object(doc.get("app"), "app"))
+    app = dict(check_object(doc.get("app"), "app"))
     doc["app"] = app
-    _text(app, "domain", "app", required=True)
-    _text(app, "app_type", "app", required=True)
+    check_text(app, "domain", "app", required=True)
+    check_text(app, "app_type", "app", required=True)
     for key in ("source", "branch", "layout", "webserver"):
-        _text(app, key, "app")
+        check_text(app, key, "app")
     layout = app.get("layout")
     if layout is not None and layout not in LAYOUTS:
-        raise _fail("app.layout", f"must be one of {', '.join(LAYOUTS)}")
+        raise fail("app.layout", f"must be one of {', '.join(LAYOUTS)}")
     for key in ("port", "keep_releases"):
-        _number(app, key, "app")
+        check_number(app, key, "app")
     for key in ("ssl", "include_www"):
-        _flag(app, key, "app", default=key == "ssl")
-    app["persistent_paths"] = _names(app, "persistent_paths", "app")
-    limits = app["limits"] = _object(app.get("limits"), "app.limits", optional=True)
+        check_flag(app, key, "app", default=key == "ssl")
+    app["persistent_paths"] = check_names(app, "persistent_paths", "app")
+    limits = app["limits"] = check_object(app.get("limits"), "app.limits", optional=True)
     for key in ("memory_max_mb", "cpu_quota_percent", "tasks_max"):
-        _number(limits, key, "app.limits")
-    health = app["health"] = _object(app.get("health"), "app.health", optional=True)
-    _text(health, "path", "app.health")
-    _text(health, "expect", "app.health")
-    _number(health, "timeout", "app.health")
-    _text(app, "build", "app")
+        check_number(limits, key, "app.limits")
+    health = app["health"] = check_object(app.get("health"), "app.health", optional=True)
+    check_text(health, "path", "app.health")
+    check_text(health, "expect", "app.health")
+    check_number(health, "timeout", "app.health")
+    check_text(app, "build", "app")
     if app.get("build") is not None:
         # The block runs in the build sandbox and as the unit: checked with the
         # rules of the block itself before anything is deployed.
         from noust.deployers.helpers.project_file import parse_build_document
 
         parse_build_document(str(app["build"]), source="operator")
-    options = doc["source_options"] = _object(
+    options = doc["source_options"] = check_object(
         doc.get("source_options"), "source_options", optional=True
     )
     if options:
@@ -608,97 +576,99 @@ def validate_document(data: Any) -> dict[str, Any]:
             watch_paths=options.get("watch_paths"),
             skip_markers=options.get("skip_markers"),
         )
-    zero = app["zero_downtime"] = _object(
+    zero = app["zero_downtime"] = check_object(
         app.get("zero_downtime"), "app.zero_downtime", optional=True
     )
-    _flag(zero, "enabled", "app.zero_downtime")
-    _number(zero, "drain_seconds", "app.zero_downtime")
+    check_flag(zero, "enabled", "app.zero_downtime")
+    check_number(zero, "drain_seconds", "app.zero_downtime")
 
-    domains = _object(doc.get("domains"), "domains", optional=True)
+    domains = check_object(doc.get("domains"), "domains", optional=True)
     doc["domains"] = {
-        "aliases": _names(domains, "aliases", "domains"),
-        "redirects": _names(domains, "redirects", "domains"),
+        "aliases": check_names(domains, "aliases", "domains"),
+        "redirects": check_names(domains, "redirects", "domains"),
     }
 
-    env = doc["env"] = _object(doc.get("env"), "env", optional=True)
+    env = doc["env"] = check_object(doc.get("env"), "env", optional=True)
     for name, entry in env.items():
         if not is_valid_env_name(name):
-            raise _fail(f"env.{name}", "is not an environment variable name")
-        entry = _object(entry, f"env.{name}")
-        _flag(entry, "secret", f"env.{name}")
-        _text(entry, "value", f"env.{name}")
-    marks = _object(doc.get("env_secret_marks"), "env_secret_marks", optional=True)
+            raise fail(f"env.{name}", "is not an environment variable name")
+        entry = check_object(entry, f"env.{name}")
+        check_flag(entry, "secret", f"env.{name}")
+        check_text(entry, "value", f"env.{name}")
+    marks = check_object(doc.get("env_secret_marks"), "env_secret_marks", optional=True)
     if not all(isinstance(mark, bool) for mark in marks.values()):
-        raise _fail("env_secret_marks", "must map names to true or false")
+        raise fail("env_secret_marks", "must map names to true or false")
     doc["env_secret_marks"] = marks
 
     cron = doc["cron"] = doc.get("cron") or []
     if not isinstance(cron, list):
-        raise _fail("cron", "must be a list")
+        raise fail("cron", "must be a list")
     for index, job in enumerate(cron):
         where = f"cron[{index}]"
-        job = _object(job, where)
+        job = check_object(job, where)
         for key in ("name", "schedule", "command"):
-            _text(job, key, where, required=True)
-        _flag(job, "enabled", where, default=True)
-        _text(job, "user", where)
-        _text(job, "working_directory", where)
+            check_text(job, key, where, required=True)
+        check_flag(job, "enabled", where, default=True)
+        check_text(job, "user", where)
+        check_text(job, "working_directory", where)
 
     if doc.get("backup") is not None:
-        backup = _object(doc["backup"], "backup")
-        _text(backup, "schedule", "backup", required=True)
-        _flag(backup, "include_databases", "backup", default=True)
-        _number(backup, "retention_count", "backup")
-        _number(backup, "retention_days", "backup")
+        backup = check_object(doc["backup"], "backup")
+        check_text(backup, "schedule", "backup", required=True)
+        check_flag(backup, "include_databases", "backup", default=True)
+        check_number(backup, "retention_count", "backup")
+        check_number(backup, "retention_days", "backup")
         destinations = backup.get("destinations") or []
         if not isinstance(destinations, list):
-            raise _fail("backup.destinations", "must be a list")
+            raise fail("backup.destinations", "must be a list")
         for index, destination in enumerate(destinations):
             where = f"backup.destinations[{index}]"
-            destination = _object(destination, where)
-            _text(destination, "name", where, required=True)
-            _number(destination, "retention_count", where)
-            _number(destination, "retention_days", where)
+            destination = check_object(destination, where)
+            check_text(destination, "name", where, required=True)
+            check_number(destination, "retention_count", where)
+            check_number(destination, "retention_days", where)
 
     if doc.get("previews") is not None:
-        previews = _object(doc["previews"], "previews")
-        _text(previews, "base_domain", "previews", required=True)
-        _number(previews, "max_previews", "previews")
-        _number(previews, "ttl_hours", "previews")
-        _flag(previews, "allow_bots", "previews")
-        _names(previews, "exclude_env", "previews")
+        previews = check_object(doc["previews"], "previews")
+        check_text(previews, "base_domain", "previews", required=True)
+        check_number(previews, "max_previews", "previews")
+        check_number(previews, "ttl_hours", "previews")
+        check_flag(previews, "allow_bots", "previews")
+        check_names(previews, "exclude_env", "previews")
         # What a preview is given and how it is named came in 3.4: an older document says none.
         for key in ("inherit_env", "data_mode", "domain_template", "fork_policy"):
-            _text(previews, key, "previews")
-        _names(previews, "allow_env", "previews")
+            check_text(previews, key, "previews")
+        check_names(previews, "allow_env", "previews")
         if previews.get("noindex") is not None:
-            _flag(previews, "noindex", "previews", default=True)
+            check_flag(previews, "noindex", "previews", default=True)
 
-    delivery = doc["delivery"] = _object(doc.get("delivery"), "delivery", optional=True)
-    _number(delivery, "history_keep", "delivery")
-    _number(delivery, "stop_timeout", "delivery")
-    _text(delivery, "stop_signal", "delivery")
-    _flag(delivery, "pause_on_rollback", "delivery", default=True)
+    delivery = doc["delivery"] = check_object(doc.get("delivery"), "delivery", optional=True)
+    check_number(delivery, "history_keep", "delivery")
+    check_number(delivery, "stop_timeout", "delivery")
+    check_text(delivery, "stop_signal", "delivery")
+    check_flag(delivery, "pause_on_rollback", "delivery", default=True)
     if delivery.get("update_schedule") is not None:
-        schedule = delivery["update_schedule"] = _object(
+        schedule = delivery["update_schedule"] = check_object(
             delivery["update_schedule"], "delivery.update_schedule"
         )
-        _text(schedule, "calendar", "delivery.update_schedule", required=True)
-        _flag(schedule, "enabled", "delivery.update_schedule", default=True)
-        _flag(schedule, "backup_first", "delivery.update_schedule", default=True)
-        _flag(schedule, "only_if_new", "delivery.update_schedule", default=True)
+        check_text(schedule, "calendar", "delivery.update_schedule", required=True)
+        check_flag(schedule, "enabled", "delivery.update_schedule", default=True)
+        check_flag(schedule, "backup_first", "delivery.update_schedule", default=True)
+        check_flag(schedule, "only_if_new", "delivery.update_schedule", default=True)
 
+    doc["mounts"] = check_mounts(doc.get("mounts"))
+    doc["container"] = check_container(doc.get("container"))
     doc.setdefault("backup", None)
     doc.setdefault("previews", None)
-    github = doc["github"] = _object(doc.get("github"), "github", optional=True)
-    _flag(github, "installation_linked", "github")
+    github = doc["github"] = check_object(doc.get("github"), "github", optional=True)
+    check_flag(github, "installation_linked", "github")
     databases = doc["databases"] = doc.get("databases") or []
     if not isinstance(databases, list):
-        raise _fail("databases", "must be a list")
+        raise fail("databases", "must be a list")
     for index, database in enumerate(databases):
-        database = _object(database, f"databases[{index}]")
-        _text(database, "engine", f"databases[{index}]", required=True)
-        _text(database, "name", f"databases[{index}]")
+        database = check_object(database, f"databases[{index}]")
+        check_text(database, "engine", f"databases[{index}]", required=True)
+        check_text(database, "name", f"databases[{index}]")
     return doc
 
 
@@ -774,6 +744,11 @@ class CreateSpec:
             not for both the build and the running application (a clone's).
         database: A database to make for it before its first build, as the
             deploy job takes it (a clone's); None for none.
+        container: A container application's settings (the registry account and the build
+            secrets are never in them), or None.
+        seed_files: Text of the mounted files that must be in place before the first start,
+            by target; the deploy writes them once and the import then records the mounts.
+        seed_modes: Their modes.
     """
 
     domain: str
@@ -797,6 +772,47 @@ class CreateSpec:
     build_document: str | None = None
     env_audience: dict[str, str] = field(default_factory=dict)
     database: dict[str, Any] | None = None
+    container: dict[str, Any] | None = None
+    seed_files: dict[str, str] = field(default_factory=dict, repr=False)
+    seed_modes: dict[str, int] = field(default_factory=dict)
+
+    def job_arguments(self) -> dict[str, Any]:
+        """
+        Name what the deploy job is asked, so every client of a spec asks it the same.
+
+        The console's import, the clone and a promotion all end in
+        :func:`noust.web.jobs.deploy_app_job`; this is the one place a spec becomes its
+        arguments, so a field added to the spec cannot reach one and miss another.
+
+        Returns:
+            Keyword arguments for the job, without its ``job_context``.
+        """
+        return {
+            "domain": self.domain,
+            "source": self.source,
+            "app_type": self.app_type,
+            "port": self.port,
+            "branch": self.branch,
+            "env_vars": dict(self.env_vars),
+            "webserver": self.webserver,
+            "ssl": self.ssl,
+            "layout": self.layout,
+            "include_www": self.include_www,
+            "persistent_paths": list(self.persistent_paths) or None,
+            "memory_max_mb": self.memory_max_mb,
+            "cpu_quota_percent": self.cpu_quota_percent,
+            "tasks_max": self.tasks_max,
+            "env_secret_marks": dict(self.env_secret_marks),
+            "health_path": self.health_path,
+            "health_expect": self.health_expect,
+            "health_timeout": self.health_timeout,
+            "build_document": self.build_document,
+            "database": self.database,
+            "env_audience": dict(self.env_audience) or None,
+            "container": self.container,
+            "seed_files": dict(self.seed_files) or None,
+            "seed_modes": dict(self.seed_modes) or None,
+        }
 
     @property
     def initial_health(self) -> tuple[str | None, str | None, int | None] | None:
@@ -836,6 +852,8 @@ class ImportPlan:
         confirm: Why the operator must say yes before it runs: the parts
             that run commands or copy variables the document chose (cron
             jobs, previews). Empty when nothing needs it.
+        mounts: The mounts of the document this server can make, each one applied after
+            the deploy; the others are in ``skipped`` with the reason.
     """
 
     domain: str
@@ -845,6 +863,7 @@ class ImportPlan:
     skipped: list[ImportStep]
     document: dict[str, Any] = field(repr=False)
     confirm: list[str] = field(default_factory=list)
+    mounts: list[dict[str, Any]] = field(default_factory=list, repr=False)
 
 
 @dataclass
@@ -993,7 +1012,7 @@ def plan_import(
         layout=app.get("layout"),
         port=port,
         webserver=app.get("webserver") or "nginx",
-        ssl=_flag(app, "ssl", "app", default=True),
+        ssl=check_flag(app, "ssl", "app", default=True),
         include_www=www,
         persistent_paths=tuple(app.get("persistent_paths") or ()),
         env_vars=env_vars,
@@ -1007,7 +1026,14 @@ def plan_import(
         build_document=app.get("build"),
     )
 
-    steps, skipped, confirm = _describe_steps(doc, exported, target, app.get("port"), port)
+    runtime = plan_runtime(doc, target)
+    create = dataclasses.replace(
+        create,
+        container=runtime.container,
+        seed_files=runtime.seed_files,
+        seed_modes=runtime.seed_modes,
+    )
+    steps, skipped, confirm = _describe_steps(doc, exported, target, app.get("port"), port, runtime)
     return ImportPlan(
         domain=target,
         exported_domain=exported,
@@ -1016,6 +1042,7 @@ def plan_import(
         skipped=skipped,
         document=doc,
         confirm=confirm,
+        mounts=runtime.mounts,
     )
 
 
@@ -1056,7 +1083,12 @@ def _checked_health(health: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _describe_steps(
-    doc: dict[str, Any], exported: str, target: str, exported_port: Any, port: int | None
+    doc: dict[str, Any],
+    exported: str,
+    target: str,
+    exported_port: Any,
+    port: int | None,
+    runtime: RuntimePlan,
 ) -> tuple[list[str], list[ImportStep], list[str]]:
     """
     List what an import applies after the deploy, what it will not, and what needs a yes.
@@ -1072,6 +1104,7 @@ def _describe_steps(
         target: The new domain.
         exported_port: The port the export named.
         port: The port the deploy will ask for.
+        runtime: What the document's mounts and container settings come to here.
 
     Returns:
         The steps, the parts known to be skipped, and the reasons the import
@@ -1105,6 +1138,9 @@ def _describe_steps(
         steps.append(f"keep {app['keep_releases']} releases")
     if doc["env_secret_marks"]:
         steps.append("secret marks")
+    steps.extend(runtime.steps)
+    skipped.extend(ImportStep(part, False, why) for part, why in runtime.skipped)
+    confirm.extend(runtime.confirm)
     jobs = doc["cron"]
     if jobs:
         steps.extend(
@@ -1482,6 +1518,22 @@ def apply_import(
             "secret marks", lambda: _none(get_store().set_env_secret_marks(target, dict(marks)))
         )
 
+    if plan.mounts:
+        mounts = MountManager(log=log)
+        for mount in plan.mounts:
+            attempt(
+                f"{mount['kind']} mount {mount['target']}",
+                functools.partial(apply_mount, mounts, target, mount, actor=actor),
+            )
+        if not reaches_first_start(str(app["app_type"])):
+            report.steps.append(
+                ImportStep(
+                    "mounts reach the running application",
+                    False,
+                    late_mounts_note(str(app["app_type"]), target),
+                )
+            )
+
     jobs = cron or CronManager()
     for job in doc.get("cron", []):
         name = _rename(job["name"], exported, target)
@@ -1678,7 +1730,7 @@ def proposal_document(
         "format": FORMAT,
         "version": VERSION,
         "exported_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-        "wasm_version": __version__,
+        legacy_archive.EXPORT_VERSION_KEY: __version__,
         "secrets_included": False,
         "app": {
             "domain": domain,

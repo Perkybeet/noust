@@ -79,6 +79,7 @@ export function CreateInstanceDialog({ open, onOpenChange, onQueued }: CreateIns
           version: picked.version,
           ...(variant === null ? {} : { variant: variant.name }),
           memory_mb: Number(memory.trim()),
+          accept_untested: false,
           ...(port.trim() === "" ? {} : { port: Number(port.trim()) }),
           ...(script.trim() === "" || !RUNS_SQL.has(chosen.flavour) ? {} : { init_scripts: [{ name: "init.sql", content: script }] }),
         },

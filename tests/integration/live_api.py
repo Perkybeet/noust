@@ -76,7 +76,7 @@ class Session:
     @property
     def csrf(self) -> str | None:
         """The CSRF token the server set when the account signed in."""
-        return next((cookie.value for cookie in self.jar if cookie.name == "wasm_csrf"), None)
+        return next((cookie.value for cookie in self.jar if cookie.name == "noust_csrf"), None)
 
     def call(
         self, method: str, path: str, body: Any = None, *, token: str | None = None
@@ -97,7 +97,7 @@ class Session:
         if token:
             headers["Authorization"] = f"Bearer {token}"
         elif self.csrf and method != "GET":
-            headers["X-WASM-CSRF"] = self.csrf
+            headers["X-Noust-CSRF"] = self.csrf
         data = json.dumps(body).encode() if body is not None else None
         request = urllib.request.Request(self.url + path, data=data, headers=headers, method=method)
         try:

@@ -213,7 +213,7 @@ class TestRestoreSafetyCopyLocation:
         with pytest.raises(BackupError):
             manager.restore(metadata.id)
 
-        workspaces = list(apps_dir.glob(f".wasm-restore-{APP_NAME}-*"))
+        workspaces = list(apps_dir.glob(f".noust-restore-{APP_NAME}-*"))
         assert len(workspaces) == 1, workspaces
         workspace = workspaces[0]
         # Beside the application directory - not a fresh directory dropped
@@ -231,7 +231,7 @@ class TestRestoreSafetyCopyLocation:
 
         assert manager.restore(metadata.id) is True
 
-        assert list(apps_dir.glob(".wasm-restore-*")) == []
+        assert list(apps_dir.glob(".noust-restore-*")) == []
 
     def test_a_failure_after_the_swap_keeps_the_operator_whole(
         self, manager: BackupManager, apps_dir: Path, monkeypatch: pytest.MonkeyPatch
@@ -254,7 +254,7 @@ class TestRestoreSafetyCopyLocation:
         with pytest.raises(BackupError) as excinfo:
             manager.restore(metadata.id)
 
-        workspaces = list(apps_dir.glob(f".wasm-restore-{APP_NAME}-*"))
+        workspaces = list(apps_dir.glob(f".noust-restore-{APP_NAME}-*"))
         assert workspaces, "the workspace was not kept"
         workspace = workspaces[0]
 
@@ -278,7 +278,7 @@ class TestRestoreSafetyCopyLocation:
         finally:
             set_fs(None)
 
-        assert list(apps_dir.glob(".wasm-restore-*")) == []
+        assert list(apps_dir.glob(".noust-restore-*")) == []
 
 
 class Holder:
@@ -347,7 +347,7 @@ class TestRestoreIsLocked:
 
         assert (app_path / "src" / "index.js").read_text() == original
         assert archive.read_bytes() == archive_before
-        assert list(apps_dir.glob(".wasm-restore-*")) == []
+        assert list(apps_dir.glob(".noust-restore-*")) == []
 
     def test_a_rollback_is_also_refused(
         self, manager: BackupManager, monkeypatch: pytest.MonkeyPatch

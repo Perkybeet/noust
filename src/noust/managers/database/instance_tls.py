@@ -181,7 +181,10 @@ class InstanceTls:
             "certificate": certificate,
             "ca": authority,
             "supported": {
-                mode: tls_supported(record.flavour, record.version, mode) for mode in TLS_MODES
+                mode: tls_supported(
+                    record.flavour, record.version, mode, custom_command=bool(record.command)
+                )
+                for mode in TLS_MODES
             },
         }
 
@@ -210,7 +213,9 @@ class InstanceTls:
         plan = TlsPlan(name=name, mode=mode, current=record.tls_mode)
         if record.state != READY:
             plan.blockers.append(f"{name} is not ready: it is {record.state}")
-        reason = tls_supported(record.flavour, record.version, mode)
+        reason = tls_supported(
+            record.flavour, record.version, mode, custom_command=bool(record.command)
+        )
         if reason is not None:
             plan.blockers.append(reason)
         if mode == record.tls_mode:

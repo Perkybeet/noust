@@ -77,6 +77,7 @@ export const runtime: Catalog<typeof en> = {
       mounts: "Montajes",
       build: "Comandos de construcción",
       container: "Contenedor",
+      compose: "Documento Compose",
       persistent_paths: "Carpetas persistentes",
       health: "Comprobación de arranque",
       hooks: "Hooks de despliegue",

@@ -51,7 +51,7 @@ from tests.database_backup_support import (
 )
 from tests.test_database_backups import FakeScheduler, add_destination
 
-FOLDER = Path("wasm-backups") / "databases" / "postgresql" / "shop"
+FOLDER = Path("noust-backups") / "databases" / "postgresql" / "shop"
 
 
 @pytest.fixture(autouse=True)
@@ -411,7 +411,7 @@ class TestRemoteListing:
     ) -> None:
         taken = backups.dump("postgresql", "shop")
         backups.push("postgresql", taken.name, "nas")
-        (runner.root / "nas" / "wasm-backups" / "databases" / "postgresql" / "blog").mkdir()
+        (runner.root / "nas" / "noust-backups" / "databases" / "postgresql" / "blog").mkdir()
 
         assert backups.remote_databases("postgresql", "nas") == ["blog", "shop"]
 

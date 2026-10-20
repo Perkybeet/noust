@@ -987,25 +987,25 @@ def test_a_database_created_here_is_tracked_like_one_the_cli_created(
 def test_the_user_listing_marks_internal_accounts(client: TestClient, db) -> None:
     """The console hides or locks what Noust will not change."""
     db.users["postgres"] = {"databases": [], "privileges": []}
-    db.users["wasm_ro_appdb"] = {"databases": ["appdb"], "privileges": ["SELECT"]}
+    db.users["noust_ro_appdb"] = {"databases": ["appdb"], "privileges": ["SELECT"]}
 
     users = {
         u["username"]: u for u in client.get("/api/databases/users/postgresql").json()["users"]
     }
 
-    assert users["wasm_ro_appdb"]["internal"] is True
+    assert users["noust_ro_appdb"]["internal"] is True
     assert users["app"]["internal"] is False
 
 
 def test_an_internal_account_is_refused_whatever_the_request(client: TestClient, db) -> None:
     """The guard lives in the service, so an elevated request is refused too."""
-    db.users["wasm_ro_appdb"] = {"databases": ["appdb"], "privileges": ["SELECT"]}
+    db.users["noust_ro_appdb"] = {"databases": ["appdb"], "privileges": ["SELECT"]}
     elevate(client)
 
-    response = client.delete("/api/databases/users/postgresql/wasm_ro_appdb")
+    response = client.delete("/api/databases/users/postgresql/noust_ro_appdb")
 
     assert response.status_code >= 400, response.text
-    assert "wasm_ro_appdb" in db.users
+    assert "noust_ro_appdb" in db.users
 
 
 def test_rotating_a_password_needs_sudo_mode_and_never_returns_it(

@@ -265,7 +265,7 @@ class TestMintingATicket:
         token = world.master["Authorization"].removeprefix("Bearer ")
         login = world.client.post("/api/auth/login", json={"token": token})
         assert login.status_code == 200, login.text
-        headers = {"X-WASM-CSRF": login.json()["csrf_token"]}
+        headers = {"X-Noust-CSRF": login.json()["csrf_token"]}
 
         response = world.client.post(f"/api/apps/{ACME}/terminal", json={}, headers=headers)
 
@@ -849,7 +849,7 @@ class TestOneOffCommands:
     def test_a_cookie_session_outside_sudo_mode_is_asked_to_confirm(self, world):
         token = world.master["Authorization"].removeprefix("Bearer ")
         login = world.client.post("/api/auth/login", json={"token": token})
-        headers = {"X-WASM-CSRF": login.json()["csrf_token"]}
+        headers = {"X-Noust-CSRF": login.json()["csrf_token"]}
 
         response = world.client.post(
             f"/api/apps/{ACME}/exec", json={"argv": ["ls"]}, headers=headers

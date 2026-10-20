@@ -21,6 +21,41 @@ Each release has up to four lists:
 
 ### Added
 
+- The applications' side of the release:
+  - `GET /api/apps/{domain}/env/file` (`apps.read`) is the `.env` as the text of a file, to view or
+    to download (`download=true`); values are masked unless `unmask=true`, which needs an admin
+    credential and sudo mode and is audited. `POST /api/apps/{domain}/env/sync` (`apps.manage`)
+    brings the text of a `.env` into the variables (`prune`, `audience`, `dry_run`) and answers
+    with names only.
+  - `DELETE /api/apps/{domain}` takes `remove_volumes` and `remove_databases` (both off unless
+    asked), next to `remove_files` and `remove_ssl`. `GET /api/apps/{domain}/deletion`
+    (`apps.read`) lists what a deletion would touch: the directory, whether the stack has Docker
+    volumes, and each database with whether it would be dropped and who else uses it.
+  - A container application takes `command` and `entrypoint` (a list of words, `null` for the
+    image's own, `[]` to clear it), and `POST /api/apps/{domain}/container/check`
+    (`apps.deploy`) says whether its registry image has a newer digest.
+  - The webhook of an image from a registry: `GET /api/apps/{domain}/webhook/registry`
+    (`apps.read`) and `POST .../webhook/registry/reveal` (`secrets.reveal`, audited) give the
+    addresses for Docker Hub and GHCR; `POST /hooks/registry/{domain}` (GHCR's
+    `registry_package`, signed with the application's webhook secret) and
+    `POST /hooks/registry/{domain}/{token}` (Docker Hub, which signs nothing, so the address
+    carries a token derived from the secret) queue an update when a push moved the tag the
+    application runs.
+  - `GET /api/apps/{domain}/compose/document` (`secrets.reveal`), `POST .../compose/document/check`
+    (`apps.manage`) and `PUT .../compose/document` (`apps.manage`, sudo mode) read, judge and
+    keep the Compose document of a stack deployed from one; `editable` and `reason` say when a
+    stack has none.
+- `POST /api/fleet/placements/{domain}/rollout` follows the application's build server: with one
+  recorded it is planned and run as the shipment (`.../ship`) and the plan's `action` says
+  `placement_ship`; `build_on_each` builds on every server instead, and a git tag, a registry image
+  tag or a build server that is itself a member are rolled out as before, with the reason in the
+  plan's notes. Its options gain `build_on_each`. An application without a build server is
+  unchanged.
+- The export document ([delivery.md](delivery.md)) carries `mounts` (a file's text only with
+  `with_secrets`), `container` (the settings of a container application, never its registry
+  password or build-secret values), and, as `GET /api/apps/{domain}/export` and `POST
+  /api/apps/import` now keep them, `delivery`, `source_options` and `app.build`, which the
+  endpoints used to drop. A copy to another server through the central carries all of them.
 - `PUT /api/apps/{domain}/domains/{name}/enabled` (`{"enabled": false}`) switches a name off without
   deleting it, or serves it again; `enabled` in every entry of `GET|POST /api/apps/{domain}/domains`.
 - `GET /api/apps/{domain}/previews/dns`: whether the names of an application's previews reach this

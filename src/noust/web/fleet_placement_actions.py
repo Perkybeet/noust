@@ -29,6 +29,7 @@ from dataclasses import replace
 from typing import Any
 from urllib.parse import quote
 
+from noust.core import legacy_archive
 from noust.core.exceptions import ValidationError
 from noust.fleet.aggregate import Asker, Failure, NodeSource, decode_answer
 from noust.fleet.placements import checked_domain
@@ -175,7 +176,8 @@ def _rollout_options(options: Any) -> dict[str, Any]:
         options: What was given.
 
     Returns:
-        ``domain``, ``commit``, ``tag``, ``image_tag``, ``force`` and ``rollback_on_failure``.
+        ``domain``, ``commit``, ``tag``, ``image_tag``, ``force``, ``rollback_on_failure`` and
+        ``build_on_each``.
 
     Raises:
         ValidationError: A domain that is not one, a commit, a tag or an image tag that is not
@@ -189,6 +191,7 @@ def _rollout_options(options: Any) -> dict[str, Any]:
             "image_tag": str,
             "force": bool,
             "rollback_on_failure": bool,
+            "build_on_each": bool,
         },
         options,
     )
@@ -215,6 +218,7 @@ def _rollout_options(options: Any) -> dict[str, Any]:
         "image_tag": str(image_tag) if image_tag else None,
         "force": _flag(given, "force", False),
         "rollback_on_failure": _flag(given, "rollback_on_failure", True),
+        "build_on_each": _flag(given, "build_on_each", False),
     }
 
 
@@ -316,10 +320,24 @@ def _rollout_prepare(
 
     recorded = Builders(manager.store).get(domain)
     if recorded is not None:
+        from noust.web.fleet_ship_actions import builder_declined
+
+        why = builder_declined(
+            recorded.node,
+            [target.name for target in targets],
+            tag=options.get("tag"),
+            image_tag=options.get("image_tag"),
+            build_on_each=bool(options.get("build_on_each")),
+        )
         notes.append(
             f"{recorded.node} is recorded as the build server of {domain}, and this rollout builds "
-            f"on each server. To build once there and send the release to the others: "
-            f"noust fleet placement ship {domain}"
+            f"on each server"
+            + (
+                f" because {why}."
+                if why
+                else f". To build once there and send the release to the others: "
+                f"noust fleet placement ship {domain}"
+            )
         )
     explicit = options.get("commit") or options.get("tag") or options.get("image_tag")
     if options.get("image_tag"):
@@ -642,7 +660,10 @@ def _placement_copy(run: NodeRun) -> None:
         f"/api/apps/{quote(domain, safe='')}/export",
         params={"with_secrets": "true"} if options["secrets"] else None,
     )
-    body: dict[str, Any] = {"document": document}
+    # The destination reads what it is sent in the spelling of its own release.
+    body: dict[str, Any] = {
+        "document": legacy_archive.export_for(run.source.record.version, document)
+    }
     if options.get("new_domain"):
         body["domain"] = target
     item: dict[str, Any] = {
@@ -695,6 +716,7 @@ def rollout_request(
     serial: int | str | None = None,
     max_failures: int | None = None,
     canary: str | None = None,
+    build_on_each: bool = False,
 ) -> FleetRequest:
     """
     Build the request that rolls an application out over its servers.
@@ -713,6 +735,8 @@ def rollout_request(
         serial: Servers at a time.
         max_failures: Failures that stop it.
         canary: The server that goes first.
+        build_on_each: Build on each server even though the application has a build server
+            (see :func:`~noust.web.fleet_ship_actions.update_request`).
 
     Returns:
         The request.
@@ -739,6 +763,8 @@ def rollout_request(
         options["tag"] = tag
     if image_tag:
         options["image_tag"] = image_tag
+    if build_on_each:
+        options["build_on_each"] = True
     chosen = canary or (placement.canary if placement.canary in members else None)
     return FleetRequest(
         action="placement_rollout",

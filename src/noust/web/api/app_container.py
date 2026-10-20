@@ -62,6 +62,16 @@ class ContainerSettingsResponse(BaseModel):
     registry_password_set: bool = Field(
         description="Whether a password is kept for the account; it is never shown"
     )
+    entrypoint: list[str] | None = Field(
+        default=None,
+        description="The words that replace the image's ENTRYPOINT; null keeps the image's, "
+        "an empty list clears it",
+    )
+    command: list[str] | None = Field(
+        default=None,
+        description="The words that replace the image's CMD (the entrypoint's arguments); null "
+        "keeps the image's. Never empty: Docker cannot clear a CMD",
+    )
     digest: str | None = Field(
         default=None, description="The digest the last deployment of a registry image resolved"
     )
@@ -97,6 +107,17 @@ class ContainerSettingsRequest(BaseModel):
         default=None, description="Replaces the volumes: absolute paths in the container"
     )
     restart_policy: str | None = None
+    entrypoint: list[str] | None = Field(
+        default=None,
+        description="Replaces the image's ENTRYPOINT: the program and its arguments, one word "
+        "each, run without a shell. An empty list clears the image's own",
+    )
+    command: list[str] | None = Field(
+        default=None,
+        description="Replaces the image's CMD: the entrypoint's arguments, one word each, run "
+        "without a shell. An empty list is refused (Docker cannot clear a CMD); use clear to go "
+        "back to the image's",
+    )
     registry_server: str | None = None
     registry_username: str | None = None
     registry_password: str | None = Field(
@@ -106,13 +127,21 @@ class ContainerSettingsRequest(BaseModel):
     )
     clear: list[str] = Field(
         default_factory=list,
-        description="Settings to reset: dockerfile, target, container_port, registry_server",
+        description="Settings to reset: dockerfile, target, container_port, registry_server, "
+        "command, entrypoint",
     )
     clear_registry: bool = Field(default=False, description="Remove the registry account")
 
 
 #: What ``clear`` may name: the settings that have a default to go back to.
-_CLEARABLE = ("dockerfile", "target", "container_port", "registry_server")
+_CLEARABLE = (
+    "dockerfile",
+    "target",
+    "container_port",
+    "registry_server",
+    "command",
+    "entrypoint",
+)
 
 
 def request_to_changes(body: ContainerSettingsRequest) -> dict[str, Any]:
@@ -231,3 +260,50 @@ def put_app_container(
     validated = _known(domain)
     change_container(validated, request_to_changes(body), actor=actor_label(session))
     return _response(describe_container(validated))
+
+
+class ImageCheckResponse(BaseModel):
+    """
+    What looking at the tag of a registry image found.
+
+    Attributes:
+        domain: The application.
+        image: The image it runs, as recorded.
+        deployed: The digest the last deployment resolved; null when none is recorded.
+        current: The digest the tag is now; null when it is pinned or the registry gave none.
+        changed: Whether an update would run something new.
+        reason: One sentence saying why.
+    """
+
+    domain: str
+    image: str
+    deployed: str | None = None
+    current: str | None = None
+    changed: bool
+    reason: str
+
+
+@router.post("/{domain}/container/check", response_model=ImageCheckResponse)
+def check_app_image(
+    domain: str, session: Annotated[dict, Depends(get_current_session)]
+) -> ImageCheckResponse:
+    """
+    Ask the registry whether the tag an application runs points at a new image.
+
+    Pulls the tag (one request when the host has it, the layers when it moved) and compares the
+    digest with the one that runs. Deploys nothing: ``POST /api/apps/{domain}/update`` does.
+
+    Args:
+        domain: Domain of the application.
+        session: The authenticated session.
+
+    Returns:
+        What was found.
+
+    Raises:
+        ValidationError: It does not run a registry image (400).
+        DockerError: The registry refused the account or did not answer.
+    """
+    from noust.managers.image_updates import check_image
+
+    return ImageCheckResponse(**check_image(_known(domain)).to_dict())

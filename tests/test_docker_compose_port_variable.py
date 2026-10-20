@@ -24,6 +24,7 @@ from noust.core.runner import FakeRunner
 from noust.core.store import NoustStore
 from noust.deployers import docker_compose
 from noust.deployers.docker_compose import DockerComposeDeployer
+from noust.deployers.helpers.env_manager import EnvManager
 
 STACK = """\
 services:
@@ -59,7 +60,16 @@ def deployer_for(
 
 
 def env_text(tmp_path: Path) -> str:
-    return (tmp_path / "app" / ".env").read_text()
+    """The file without the lines Noust owns in it (what it says about the deployment)."""
+    text = (tmp_path / "app" / ".env").read_text()
+    kept = [
+        line
+        for line in text.splitlines()
+        if not line.startswith("NOUST_") and line != EnvManager.MANAGED_COMMENT
+    ]
+    while kept and not kept[-1].strip():
+        kept.pop()
+    return "\n".join(kept) + "\n" if kept else ""
 
 
 def test_the_variable_the_document_publishes_on_gets_the_port_the_site_proxies_to(
@@ -107,7 +117,7 @@ def test_a_document_that_does_not_publish_on_the_variable_gets_nothing(
 
     deployer._configure_environment()
 
-    assert not (tmp_path / "app" / ".env").exists()
+    assert env_text(tmp_path) == ""
 
 
 def test_without_a_port_to_proxy_to_nothing_is_written(tmp_path: Path, store: NoustStore) -> None:
@@ -115,7 +125,7 @@ def test_without_a_port_to_proxy_to_nothing_is_written(tmp_path: Path, store: No
 
     deployer._configure_environment()
 
-    assert not (tmp_path / "app" / ".env").exists()
+    assert env_text(tmp_path) == ""
 
 
 def test_the_variable_in_the_long_form_of_a_port_counts_too(

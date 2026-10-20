@@ -36,6 +36,7 @@ the one the Compose applications use (``docker-compose.service.j2``).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 import yaml
@@ -141,31 +142,48 @@ def _version_tuple(version: str) -> tuple[int, ...]:
     return tuple(int(part) for part in version.split(".") if part.isdigit())
 
 
-def tls_supported(flavour: str, version: str, mode: str) -> str | None:
+def tls_supported(
+    flavour: str, version: str, mode: str, *, custom_command: bool = False
+) -> str | None:
     """
     Say why an engine cannot serve TLS in a mode, or None when it can.
 
     PostgreSQL and MySQL/MariaDB can refuse a plaintext connection while Noust's own
     client, which uses their local socket, goes on working. MongoDB can serve TLS
     to those who ask (``preferTLS``) but not refuse the rest: its health check and
-    Noust's client inside the container connect without it. Redis and Valkey need
-    their own client changed to speak TLS, which Noust does not do yet.
+    Noust's client inside the container connect without it. Redis, Valkey and KeyDB
+    serve TLS on a port of their own and can leave the plaintext one shut, so the
+    instance's one port serves TLS and nothing else (``required``): the client Noust
+    runs inside the container is told to speak it. There is no ``optional`` for
+    them, which would need a second published port.
 
     Args:
         flavour: The flavour.
         version: Its version.
         mode: ``off``, ``optional`` or ``required``.
+        custom_command: The operator wrote the instance's whole command, so Noust cannot add
+            the arguments TLS needs to it.
 
     Returns:
         A sentence saying why not, or None.
     """
     if mode == TLS_OFF:
         return None
-    if flavour in REDIS_FAMILY:
+    if custom_command:
         return (
-            "Noust's client for Redis, Valkey and KeyDB inside the container does not speak "
-            "TLS yet, so an instance of any of them cannot serve it"
+            "The command of this instance is the one you wrote, and Noust adds nothing to it: "
+            "put the engine's TLS arguments in it yourself, or take the command back to the "
+            "engine's own (noust db instance launch NAME --reset)"
         )
+    if flavour in REDIS_FAMILY:
+        if mode != TLS_REQUIRED:
+            return (
+                "Redis, Valkey and KeyDB serve TLS on a port of their own, and Noust publishes "
+                "one: it serves TLS and refuses plaintext on it. Use required"
+            )
+        if flavour == "redis" and _version_tuple(version) and _version_tuple(version) < (6,):
+            return f"Redis {version} has no TLS (it has from 6.0)"
+        return None
     if flavour == "clickhouse":
         return (
             "Noust does not configure ClickHouse's TLS (its own HTTPS and secure native "
@@ -231,6 +249,24 @@ def tls_command(flavour: str, mode: str) -> list[str]:
             "--tlsCAFile",
             authority,
         ]
+    if flavour in REDIS_FAMILY:
+        # After the configuration file, so these win over it: the plaintext port is shut and the
+        # one the instance publishes serves TLS. A client certificate is not asked for: an
+        # application is told the server's authority and checks the server, as for every engine.
+        return [
+            "--port",
+            "0",
+            "--tls-port",
+            str(spec_for(flavour).container_port),
+            "--tls-cert-file",
+            cert,
+            "--tls-key-file",
+            key,
+            "--tls-ca-cert-file",
+            authority,
+            "--tls-auth-clients",
+            "no",
+        ]
     return []
 
 
@@ -264,7 +300,9 @@ def render_pg_hba(mode: str) -> str:
     )
 
 
-def engine_command(flavour: str, memory_mb: int, *, tls: str = TLS_OFF) -> list[str] | None:
+def engine_command(
+    flavour: str, memory_mb: int, *, tls: str = TLS_OFF, extra: Sequence[str] = ()
+) -> list[str] | None:
     """
     Say how the engine is started so that it sizes itself to its memory limit.
 
@@ -272,24 +310,32 @@ def engine_command(flavour: str, memory_mb: int, *, tls: str = TLS_OFF) -> list[
         flavour: The flavour.
         memory_mb: The instance's limit.
         tls: ``off``, ``optional`` or ``required``: whether it serves TLS.
+        extra: What the operator adds after the arguments Noust passes, so a flag of theirs wins
+            over one of Noust's where the engine lets the last one decide.
 
     Returns:
-        The container's command, or None to leave the image's own.
+        The container's command, or None to leave the image's own (when the operator added
+        nothing).
     """
     serving = tls_command(flavour, tls) if tls != TLS_OFF else []
+    command: list[str] | None = None
     if flavour == "postgresql":
         buffers = _share(memory_mb, _POSTGRES_SHARE, floor=32)
-        return ["postgres", "-c", f"shared_buffers={buffers}MB", *serving]
-    if flavour in ("mysql", "mariadb"):
+        command = ["postgres", "-c", f"shared_buffers={buffers}MB", *serving]
+    elif flavour in ("mysql", "mariadb"):
         pool = _share(memory_mb, _INNODB_SHARE, floor=64)
         program = "mysqld" if flavour == "mysql" else "mariadbd"
-        return [program, f"--innodb-buffer-pool-size={pool}M", *serving]
-    if flavour in REDIS_FAMILY:
-        return [REDIS_FAMILY[flavour], _CONFIG_MOUNTS[flavour]]
-    if flavour == "mongodb":
+        command = [program, f"--innodb-buffer-pool-size={pool}M", *serving]
+    elif flavour in REDIS_FAMILY:
+        command = [REDIS_FAMILY[flavour], _CONFIG_MOUNTS[flavour], *serving]
+    elif flavour == "mongodb":
         cache = max(memory_mb * _MONGO_SHARE / 100 / 1024, 0.25)
-        return ["mongod", "--wiredTigerCacheSizeGB", f"{cache:.2f}", *serving]
-    return None
+        command = ["mongod", "--wiredTigerCacheSizeGB", f"{cache:.2f}", *serving]
+    if command is None:
+        # ClickHouse's image has an entrypoint that takes no arguments of Noust's, so the
+        # operator's alone are the command's arguments.
+        return list(extra) if extra else None
+    return [*command, *extra]
 
 
 #: What a probe does when the instance's row says nothing: every ten seconds, at most five
@@ -304,6 +350,7 @@ def health_check(
     interval_s: int | None = None,
     timeout_s: int | None = None,
     retries: int | None = None,
+    tls: str = TLS_OFF,
 ) -> dict[str, Any]:
     """
     Say how Docker can tell the engine is up and accepting connections.
@@ -318,6 +365,8 @@ def health_check(
         interval_s: Seconds between probes; :data:`DEFAULT_PROBE`'s when None.
         timeout_s: Seconds a probe may take; the default when None.
         retries: Failed probes in a row before it is unhealthy; the default when None.
+        tls: ``off``, ``optional`` or ``required``: a Redis, Valkey or KeyDB that serves TLS
+            has no plaintext port, so its probe speaks it too.
 
     Returns:
         The service's ``healthcheck``.
@@ -349,6 +398,13 @@ def health_check(
             f"wget --no-verbose --tries=1 --spider http://127.0.0.1:{port}/ping || exit 1",
         ],
     }
+    if tls != TLS_OFF and flavour in REDIS_FAMILY:
+        cli = f"{flavour}-cli"
+        tests[flavour] = [
+            "CMD-SHELL",
+            f'REDISCLI_AUTH="$${PASSWORD_VARIABLES[flavour]}" {cli} --tls --cacert '
+            f"{TLS_MOUNT}/ca.crt ping | grep -q PONG",
+        ]
     return {
         "test": tests[flavour],
         "interval": f"{interval_s or DEFAULT_PROBE['interval_s']}s",
@@ -384,7 +440,7 @@ def build_document(record: InstanceRecord) -> dict[str, Any]:
     labels = {
         layout.MANAGED_LABEL: "true",
         layout.INSTANCE_LABEL: name,
-        "io.noust.db-flavour": record.flavour,
+        layout.FLAVOUR_LABEL: record.flavour,
     }
     volumes = [f"{layout.data_volume(name)}:{spec.data_path(record.version)}"]
     named: dict[str, Any] = {
@@ -420,6 +476,7 @@ def build_document(record: InstanceRecord) -> dict[str, Any]:
             interval_s=record.probe_interval_s,
             timeout_s=record.probe_timeout_s,
             retries=record.probe_retries,
+            tls=record.tls_mode,
         ),
         "deploy": {"resources": {"limits": limits}},
         "stop_grace_period": STOP_GRACE,
@@ -431,9 +488,16 @@ def build_document(record: InstanceRecord) -> dict[str, Any]:
     if record.flavour == "clickhouse":
         # ClickHouse keeps a file open per part and per column; its documentation asks for this.
         service["ulimits"] = {"nofile": {"soft": 262144, "hard": 262144}}
-    command = engine_command(record.flavour, record.memory_limit_mb, tls=record.tls_mode)
-    if command is not None:
-        service["command"] = command
+    if record.command:
+        # The operator wrote the whole command: Noust adds nothing to it, so the memory share,
+        # the TLS arguments and the like are theirs to write.
+        service["command"] = list(record.command)
+    else:
+        command = engine_command(
+            record.flavour, record.memory_limit_mb, tls=record.tls_mode, extra=record.args
+        )
+        if command is not None:
+            service["command"] = command
     return {"services": {layout.SERVICE: service}, "volumes": named}
 
 

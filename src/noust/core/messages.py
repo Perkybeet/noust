@@ -515,6 +515,7 @@ MESSAGES: dict[str, dict[Locale, str]] = {
     "fact.containers": {"en": "Containers", "es": "Contenedores"},
     "fact.reschedule": {"en": "Save it again with", "es": "Guárdala de nuevo con"},
     "fact.verify": {"en": "Check it with", "es": "Compruébalo con"},
+    "fact.full_output": {"en": "Read all of it with", "es": "Léela entera con"},
     "fact.processes": {"en": "Processes", "es": "Procesos"},
     "fact.warnings": {"en": "Warnings", "es": "Avisos"},
     "fact.signal": {"en": "Signal", "es": "Señal"},
@@ -549,6 +550,7 @@ MESSAGES: dict[str, dict[Locale, str]] = {
     "severity.notice": {"en": "Notice", "es": "Nota"},
     # -- The words around what every channel draws ---------------------------
     "ui.open_console": {"en": "Open in the console", "es": "Abrir en la consola"},
+    "ui.full_output": {"en": "Open the full output", "es": "Abrir la salida completa"},
     "ui.sent_by": {"en": "Sent by Noust", "es": "Enviado por Noust"},
     "ui.change_settings": {
         "en": "Change what you receive in Settings > Notifications",

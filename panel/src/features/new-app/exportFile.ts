@@ -16,7 +16,13 @@ import { normalizeDomain } from "../domains/names";
 import { domainError, sourceProblems } from "./wizard";
 
 /** What `noust app export` writes in `format`. */
-export const EXPORT_FORMAT = "wasm-app";
+export const EXPORT_FORMAT = "noust-app";
+/**
+ * What this console takes for an export before it sends it: a format name of this shape. The
+ * server says which names it reads (the current one and the one before 4.0), so a file kept
+ * from an earlier release is not refused here for a name this code would have to spell twice.
+ */
+const EXPORT_FORMAT_SHAPE = /^[a-z]+-app$/;
 /** The newest document version this console reads (`VERSION` in noust.deployers.app_export). */
 export const EXPORT_VERSION = 1;
 /** An export is a few kilobytes; anything this large is some other file. */
@@ -40,7 +46,10 @@ export function readExport(text: string): ExportRead {
   } catch {
     return { problem: translate(locale, "newApp.importApp.notJson") };
   }
-  if (!isObject(data) || data["format"] !== EXPORT_FORMAT) return { problem: translate(locale, "newApp.importApp.notExport") };
+  const format = isObject(data) ? data["format"] : undefined;
+  if (!isObject(data) || typeof format !== "string" || !EXPORT_FORMAT_SHAPE.test(format)) {
+    return { problem: translate(locale, "newApp.importApp.notExport") };
+  }
   const version = data["version"];
   if (typeof version !== "number" || !Number.isInteger(version) || version < 1) return { problem: translate(locale, "newApp.importApp.badVersion") };
   if (version > EXPORT_VERSION) {

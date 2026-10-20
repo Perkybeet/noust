@@ -39,7 +39,12 @@ from noust.core.exceptions import NoustError, ValidationError
 from noust.core.secrets import SecretStore
 from noust.core.store import AppType, NoustStore, get_store
 from noust.core.utils import domain_to_app_name
-from noust.validators.container import METHOD_DOCKERFILE, METHOD_IMAGE, METHOD_RAILPACK
+from noust.validators.container import (
+    METHOD_DOCKERFILE,
+    METHOD_IMAGE,
+    METHOD_RAILPACK,
+    split_command,
+)
 
 if TYPE_CHECKING:
     from noust.core.store import App
@@ -59,6 +64,8 @@ SETTINGS_FIELDS = frozenset(
         "restart_policy",
         "registry_server",
         "registry_username",
+        "entrypoint",
+        "command",
     }
 )
 
@@ -242,6 +249,13 @@ def _apply(
         values["build_args"] = dict(values["build_args"] or {})
     if "volumes" in values:
         values["volumes"] = tuple(values["volumes"] or ())
+    for name in ("entrypoint", "command"):
+        # A line is split into words the way a shell would, without running one; a list is
+        # taken as it is; None goes back to the image's own.
+        if isinstance(values.get(name), str):
+            values[name] = split_command(values[name], field=name)
+        elif values.get(name) is not None:
+            values[name] = tuple(values[name])
 
     writes: dict[str, str | None] = {}
     ids = list(current.build_secrets)

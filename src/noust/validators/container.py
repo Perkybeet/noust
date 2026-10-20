@@ -82,6 +82,8 @@ MAX_BUILD_ARGS = 64
 MAX_BUILD_ARG_VALUE = 4096
 MAX_BUILD_SECRETS = 32
 MAX_VOLUMES = 16
+MAX_COMMAND_WORDS = 64
+MAX_COMMAND_WORD = 4096
 
 
 def is_env_name(name: str) -> bool:
@@ -210,6 +212,26 @@ def check_image_reference(reference: str) -> str:
     return reference
 
 
+def split_image_reference(reference: str) -> tuple[str, str | None, str | None]:
+    """
+    Take an image reference apart.
+
+    Args:
+        reference: ``name[:tag][@digest]``, where the name may start with a registry host.
+
+    Returns:
+        The name (registry included), the tag and the digest; None for what it does not name.
+
+    Raises:
+        ValidationError: It is not an image reference (see :func:`check_image_reference`).
+    """
+    check_image_reference(reference)
+    match = _REFERENCE.fullmatch(reference)
+    if match is None:  # check_image_reference accepted it with this very pattern
+        raise ValidationError(f"{reference!r} is not an image reference", field="image")
+    return match["name"], match["tag"], match["digest"]
+
+
 def with_tag(reference: str, tag: str) -> str:
     """
     Name the same image at another tag.
@@ -258,6 +280,49 @@ def registry_of(reference: str) -> str:
     if host is not None and ("." in host or ":" in host or host == "localhost"):
         return host
     return DOCKER_HUB
+
+
+#: Names Docker Hub is reached by, all the one registry.
+_HUB_HOSTS = frozenset(
+    {"docker.io", "index.docker.io", "registry-1.docker.io", "registry.hub.docker.com"}
+)
+
+
+def split_reference(reference: str) -> tuple[str, str, str | None, str | None]:
+    """
+    Take an image reference apart the way Docker reads it, so two spellings of one image compare.
+
+    ``nginx``, ``library/nginx:latest`` and ``docker.io/library/nginx`` are one image; so are
+    ``ghcr.io/Owner/App`` and the lower-case name a registry reports.
+
+    Args:
+        reference: A valid image reference.
+
+    Returns:
+        ``(registry, repository, tag, digest)``: the registry host (``docker.io`` for Docker
+        Hub), the path within it (``library/nginx`` for an official image), the tag (``latest``
+        when neither a tag nor a digest is given, None for a digest alone) and the digest, or
+        None.
+
+    Raises:
+        ValidationError: It is not a reference.
+    """
+    check_image_reference(reference)
+    match = _REFERENCE.fullmatch(reference)
+    if match is None:  # pragma: no cover - check_image_reference passed above
+        raise ValidationError(f"{reference!r} is not an image reference", field="image")
+    host = match["host"]
+    real_host = host is not None and ("." in host or ":" in host or host == "localhost")
+    registry = host.lower() if real_host and host is not None else DOCKER_HUB
+    # With no host in front, the first component is part of the path: ``owner/app``.
+    repository = match["path"] if real_host else match["name"]
+    if registry in _HUB_HOSTS:
+        registry = DOCKER_HUB
+        if "/" not in repository:
+            repository = f"library/{repository}"
+    digest = match["digest"]
+    tag = match["tag"] or (None if digest else "latest")
+    return registry, repository, tag, digest
 
 
 def check_digest(digest: str) -> str:
@@ -496,6 +561,98 @@ def check_volumes(paths: Iterable[str]) -> tuple[str, ...]:
             )
         cleaned.append(path)
     return tuple(cleaned)
+
+
+def split_command(text: str, *, field: str) -> tuple[str, ...]:
+    """
+    Split what a person typed as a command into its words, the way a POSIX shell would.
+
+    Nothing is run by a shell: the words are the container's argument vector, so quotes only
+    group a word and ``$`` and ``;`` mean nothing.
+
+    Args:
+        text: The command as typed, such as ``node dist/server.js --port 8080``.
+        field: The setting it is for (``command`` or ``entrypoint``), carried in the error.
+
+    Returns:
+        The words; empty for an empty text.
+
+    Raises:
+        ValidationError: A quote is left open.
+    """
+    import shlex
+
+    try:
+        return tuple(shlex.split(text))
+    except ValueError as exc:
+        raise ValidationError(
+            f"{text!r} cannot be split into words: {exc}",
+            details="Close the quote, or give the words as a list.",
+            field=field,
+        ) from exc
+
+
+def check_command(words: object, *, field: str) -> tuple[str, ...]:
+    """
+    Accept the command or the entrypoint of a container as an argument vector.
+
+    It is never a shell line: the words go to the container as they are, so a pipe or a ``&&``
+    is an argument of the program. A program that needs a shell is started with one
+    (``["sh", "-c", "migrate && serve"]``).
+
+    An empty entrypoint clears the image's (its CMD is then the program that runs). An empty
+    command is refused: Docker has no way to run an image's ENTRYPOINT without its CMD (an empty
+    ``command:`` in a compose file means the image's own, which the Docker integration scenario
+    ``container_command_and_entrypoint`` shows on the real engine), so accepting it would promise
+    what the container does not do.
+
+    Args:
+        words: The program and its arguments, one string each. An empty list is the
+            decision to run no entrypoint (an image's own cleared); it is not a command.
+        field: The setting it is for, carried in the error.
+
+    Returns:
+        The words.
+
+    Raises:
+        ValidationError: It is not a list of strings, a word holds a NUL byte or is longer than
+            :data:`MAX_COMMAND_WORD`, there are more than :data:`MAX_COMMAND_WORDS`, or it is an
+            empty command.
+    """
+    if isinstance(words, str) or not isinstance(words, list | tuple):
+        example = {
+            "entrypoint": "noust app container set DOMAIN --entrypoint '/app/run serve'",
+            "command": "noust app container set DOMAIN --command 'node server.js'",
+        }.get(field, "noust app container set DOMAIN --command 'node server.js'")
+        raise ValidationError(
+            f"The {field} must be a list of words",
+            details=f"Give the program and each argument as a separate word, or split a line with {example}.",
+            field=field,
+        )
+    if len(words) > MAX_COMMAND_WORDS:
+        raise ValidationError(
+            f"The {field} has {len(words)} words; at most {MAX_COMMAND_WORDS} are accepted",
+            details="Put a long list of arguments in a file of the image or a mounted file.",
+            field=field,
+        )
+    if field == "command" and not words:
+        raise ValidationError(
+            "An image's CMD cannot be cleared",
+            details="Docker cannot run an image's ENTRYPOINT without its CMD: an empty command "
+            "is the image's own. Give the arguments the program should have; set an entrypoint, "
+            "which drops the image's CMD; or clear the entrypoint (--entrypoint '') so that the "
+            "CMD is the program. To go back to the image's CMD: --clear command.",
+            field="command",
+        )
+    for word in words:
+        if not isinstance(word, str) or "\x00" in word or len(word) > MAX_COMMAND_WORD:
+            raise ValidationError(
+                f"A word of the {field} is not text a process can be given",
+                details=f"Each word is a string of at most {MAX_COMMAND_WORD} characters with no "
+                "NUL byte.",
+                field=field,
+            )
+    return tuple(words)
 
 
 def check_restart_policy(policy: str) -> str:

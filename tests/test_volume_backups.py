@@ -38,9 +38,11 @@ from noust.core.exceptions import BackupError, ValidationError
 from noust.core.runner import set_runner
 from noust.core.store import App, NoustStore, get_store
 from noust.managers.backup_destination_files import DestinationFileManager
+from noust.managers.backup_failures import BackupFailureLog
 from noust.managers.backup_manager import BackupManager
 from noust.managers.volume_backups import SAFETY_TAG, VolumeBackupManager
 from tests.database_backup_support import RcloneRunner, age
+from tests.notifications_support import failure_id_of
 
 DOMAIN = "shop.example.com"
 APP = "shop-example-com"
@@ -80,7 +82,7 @@ class FakeScheduler:
     def __init__(self) -> None:
         self.installed: dict[str, str] = {}
 
-    def install_volume_timer(self, domain: str, schedule: str) -> str:
+    def install_volume_timer(self, domain: str, schedule: str, *, options: Any = None) -> str:
         self.installed[domain] = schedule
         return f"noust-backup-vol-{APP}"
 
@@ -921,7 +923,7 @@ class TestSending:
 
         summary = manager.push(entry.id, "nas", scheduled=True)
 
-        remote = tmp_path / "remote" / "nas" / "wasm-backups" / "volumes" / APP / "path-uploads"
+        remote = tmp_path / "remote" / "nas" / "noust-backups" / "volumes" / APP / "path-uploads"
         assert (remote / f"{entry.id}.tar.gz").is_file()
         assert summary["verified_by"]
         sidecar = json.loads((remote / f"{entry.id}.tar.gz.json").read_text())
@@ -986,7 +988,7 @@ class TestSending:
         add_destination(runner)
         (entry,) = manager.create(DOMAIN, targets=["path:uploads"])
         manager.push(entry.id, "nas")
-        remote = tmp_path / "remote" / "nas" / "wasm-backups" / "volumes" / APP / "path-uploads"
+        remote = tmp_path / "remote" / "nas" / "noust-backups" / "volumes" / APP / "path-uploads"
         (remote / f"{entry.id}.tar.gz").write_bytes(b"swapped by someone")
         uploads = app_dir / "shared" / "uploads"
         (uploads / "a.txt").write_text("untouched")
@@ -1003,7 +1005,7 @@ class TestSending:
         (entry,) = manager.create(DOMAIN, targets=["path:uploads"])
         manager.push(entry.id, "nas")
         # The same folder name under another application's directory.
-        base = tmp_path / "remote" / "nas" / "wasm-backups" / "volumes"
+        base = tmp_path / "remote" / "nas" / "noust-backups" / "volumes"
         (base / "other-example-com").mkdir()
         (base / APP / "path-uploads").rename(base / "other-example-com" / "path-uploads")
         get_store().create_app(
@@ -1079,6 +1081,53 @@ class TestRunPolicy:
         policy = manager.get_policy(DOMAIN).policy
         assert policy is not None and policy.last_status == "failed"
         assert "connection refused" in (policy.last_error or "")
+
+    def test_the_notices_of_a_failed_run_link_to_all_that_was_said(
+        self,
+        manager: VolumeBackupManager,
+        runner: RcloneRunner,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        add_destination(runner, "nas")
+        runner.refusing["nas"] = "connection refused " * 100
+        manager.set_policy(DOMAIN, targets=["path:uploads"], destinations=[{"name": "nas"}])
+        sent: list[Any] = []
+        monkeypatch.setattr(
+            "noust.core.notifier.Notifier.notify",
+            lambda self, notification: sent.append(notification),
+        )
+
+        with pytest.raises(BackupError):
+            manager.run_policy(DOMAIN, notify=True)
+
+        (notice,) = [n for n in sent if n.code == "backup.upload_failed"]
+        failure_id = failure_id_of(notice)
+        stored = BackupFailureLog().get(failure_id)
+        assert stored is not None and (stored.kind, stored.subject) == ("upload", DOMAIN)
+        assert stored.output.count("connection refused") == 100
+
+    def test_a_run_that_could_not_take_the_data_links_to_its_report(
+        self, manager: VolumeBackupManager, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        manager.set_policy(DOMAIN, targets=["path:uploads"])
+        sent: list[Any] = []
+        monkeypatch.setattr(
+            "noust.core.notifier.Notifier.notify",
+            lambda self, notification: sent.append(notification),
+        )
+
+        def broken(*args: Any, **kwargs: Any) -> Any:
+            raise BackupError("disk full", details="tar: write error")
+
+        monkeypatch.setattr(manager, "_write_path_archive", broken)
+
+        with pytest.raises(BackupError):
+            manager.run_policy(DOMAIN, notify=True)
+
+        (notice,) = [n for n in sent if n.code == "backup.failed"]
+        failure_id = failure_id_of(notice)
+        stored = BackupFailureLog().get(failure_id)
+        assert stored is not None and "tar: write error" in stored.output
 
     def test_with_no_row_the_data_is_still_backed_up(self, manager: VolumeBackupManager) -> None:
         result = manager.run_policy(DOMAIN)

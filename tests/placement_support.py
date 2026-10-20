@@ -239,8 +239,9 @@ class Shop:
         return httpx.Response(
             200,
             json={
-                "format": "wasm-app",
+                "format": "noust-app",
                 "version": 1,
+                "noust_version": "4.0.0",
                 "secrets_included": with_secrets,
                 "app": {
                     "domain": self.domain,

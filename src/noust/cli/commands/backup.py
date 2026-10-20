@@ -39,6 +39,7 @@ import click
 from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
 from noust.cli.commands.retention_options import KEEP_GB_HELP, add_size, gigabytes
 from noust.cli.commands.team_common import owner_options
+from noust.cli.commands.timer_options import timer_options
 from noust.cli.panel_links import open_in_panel
 from noust.core.exceptions import NoustError
 from noust.core.logger import Logger
@@ -414,6 +415,7 @@ def _add_destination(
     from_prompt: bool,
     encrypted: bool | None,
     key_stdin: bool = False,
+    verify: bool = True,
 ) -> int:
     """
     Create a backup destination and report it.
@@ -431,6 +433,8 @@ def _add_destination(
         key_stdin: Read an existing encryption key from standard input, in
             the format ``show-key`` prints, instead of generating one.
             Implies ``encrypted``.
+        verify: Try the connection before keeping the destination; False keeps one
+            that does not connect (it is down on purpose).
 
     Returns:
         0 on success, 1 if the destination could not be created.
@@ -462,6 +466,7 @@ def _add_destination(
             fields,
             encrypted=resolve_encryption(encrypted, backend=backend, key_given=key_stdin),
             crypt_key=crypt_key,
+            verify=verify,
         )
     except NoustError as exc:
         logger.error(f"Could not create backup destination: {exc}")
@@ -469,6 +474,11 @@ def _add_destination(
 
     logger.success(f"Backup destination created: {destination.name}")
     logger.info(f"  Backend: {destination.backend}")
+    logger.info(
+        "  Connection: tried and it answers"
+        if verify
+        else f"  Connection: not tried; try it with 'noust backup destination test {name}'"
+    )
     if not destination.encrypted and destination.backend != "local":
         logger.warning(
             f"{destination.name} sends backups unencrypted: they hold the .env and the database "
@@ -497,6 +507,7 @@ def _update_destination(
     from_stdin: bool,
     from_prompt: bool,
     encrypted: bool | None,
+    verify: bool = True,
 ) -> int:
     """
     Change a backup destination's fields and report it.
@@ -509,6 +520,7 @@ def _update_destination(
         from_stdin: Read the backend's secret field from standard input.
         from_prompt: Prompt for the backend's secret field.
         encrypted: Turn encryption on or off; None leaves it as it was.
+        verify: Try the connection with the new fields before keeping them.
 
     Returns:
         0 on success, 1 if the destination could not be changed.
@@ -526,7 +538,7 @@ def _update_destination(
         fields.update(
             _read_secret_field(existing.backend, from_stdin=from_stdin, from_prompt=from_prompt)
         )
-        destination = manager.update(name, fields, encrypted=encrypted)
+        destination = manager.update(name, fields, encrypted=encrypted, verify=verify)
     except NoustError as exc:
         logger.error(f"Could not update backup destination: {exc}")
         return 1
@@ -1446,6 +1458,9 @@ def _create_schedule(
     verb: str = "created",
     retention_gb: float | None = None,
     remote_only: bool = False,
+    max_runtime: str | None = None,
+    zone: str | None = None,
+    keep_options: bool = False,
 ) -> int:
     """
     Create or replace the systemd timer that backs an application up on its own.
@@ -1468,20 +1483,32 @@ def _create_schedule(
             gigabytes together; None for no limit by size.
         remote_only: Delete each backup from this server once every destination
             holds it and its upload was checked.
+        max_runtime: The longest a run may take (``90m``, ``2h``); None for no limit.
+        zone: The time zone the schedule is read in; None for the server's clock.
+        keep_options: Leave the timer's time limit and time zone as they are (an update that
+            names neither); otherwise they are what is given here.
 
     Returns:
         0 on success, 1 if the schedule could not be installed.
     """
+    from noust.core import paths
     from noust.core.utils import domain_to_app_name
     from noust.managers.backup_scheduler import BackupSchedule, BackupScheduler
+    from noust.managers.backup_timer_options import validate_options
 
     try:
         parsed_destinations = [_parse_destination_spec(value) for value in destinations]
         scheduler = BackupScheduler(verbose=logger.verbose)
+        timer_options = (
+            scheduler.options.get(f"{paths.BACKUP_UNIT_PREFIX}{domain_to_app_name(domain)}")
+            if keep_options
+            else validate_options(max_runtime, zone)
+        )
         backup_schedule = BackupSchedule(
             domain=domain,
             app_name=domain_to_app_name(domain),
             schedule=schedule,
+            options=timer_options,
             retention_count=retention_count,
             retention_days=retention_days,
             retention_bytes=gigabytes_to_bytes(check_gigabytes(retention_gb, "--retention-gb")),
@@ -1552,11 +1579,16 @@ def _list_schedules(
     for sched in schedules:
         retention = sched.get("retention_count") or "default (backup.max_per_app)"
         kept = " kept-here=nothing" if sched.get("remote_only") == "true" else ""
+        limits = ""
+        if sched.get("max_runtime_seconds"):
+            limits += f" time-limit={sched['max_runtime_seconds']}s"
+        if sched.get("timezone"):
+            limits += f" zone={sched['timezone']}"
         logger.info(
             f"  {sched['app_name']}: "
             f"next={sched.get('next_run', '?')} "
             f"last={sched.get('last_run', 'never')} "
-            f"retention={retention}{kept}"
+            f"retention={retention}{kept}{limits}"
         )
 
     return 0
@@ -1686,11 +1718,21 @@ def _attach_volume_commands() -> None:
     import this module at load time, so the order the two are imported in
     never matters.
     """
-    from noust.cli.commands import backup_drill, backup_encryption, backup_volumes
+    from noust.cli.commands import (
+        backup_drill,
+        backup_encryption,
+        backup_failures,
+        backup_priority,
+        backup_sweep,
+        backup_volumes,
+    )
 
     backup_volumes.register(backup)
     backup_drill.register(backup)
     backup_encryption.register(backup)
+    backup_failures.register(backup)
+    backup_priority.register(backup)
+    backup_sweep.register(backup)
 
 
 _attach_volume_commands()
@@ -2076,6 +2118,12 @@ def backup_destination() -> None:
     help="Encrypt with an existing key read from standard input, as 'show-key' printed it "
     "(its text, its --json, or the two passphrases on two lines). Implies --encrypt.",
 )
+@click.option(
+    "--skip-test",
+    is_flag=True,
+    help="Keep the destination without trying the connection first. By default one that "
+    "does not connect is not saved, and an object store's bucket must exist.",
+)
 @pass_context
 def destination_add(
     state: Context,
@@ -2086,6 +2134,7 @@ def destination_add(
     from_prompt: bool,
     encrypt: bool | None,
     key_stdin: bool,
+    skip_test: bool,
 ) -> None:
     """
     Create a backup destination.
@@ -2123,6 +2172,7 @@ def destination_add(
             from_prompt=from_prompt,
             encrypted=encrypt,
             key_stdin=key_stdin,
+            verify=not skip_test,
         )
     )
 
@@ -2142,6 +2192,12 @@ def destination_add(
     "--prompt", "from_prompt", is_flag=True, help="Prompt for the backend's secret field."
 )
 @click.option("--encrypt/--no-encrypt", "encrypt", default=None, help="Turn encryption on or off.")
+@click.option(
+    "--skip-test",
+    is_flag=True,
+    help="Keep the change without trying the connection first. By default a change that "
+    "does not connect leaves the destination as it was.",
+)
 @pass_context
 def destination_update(
     state: Context,
@@ -2150,6 +2206,7 @@ def destination_update(
     from_stdin: bool,
     from_prompt: bool,
     encrypt: bool | None,
+    skip_test: bool,
 ) -> None:
     """
     Change a backup destination's fields. A blank secret field keeps its stored value.
@@ -2162,6 +2219,7 @@ def destination_update(
             from_stdin=from_stdin,
             from_prompt=from_prompt,
             encrypted=encrypt,
+            verify=not skip_test,
         )
     )
 
@@ -2275,6 +2333,7 @@ def backup_schedule() -> None:
     help="Keep nothing on this server: delete each backup here once every destination holds it "
     "and its upload was checked. For a small disk; needs a --destination.",
 )
+@timer_options
 @pass_context
 def schedule_create(
     state: Context,
@@ -2285,6 +2344,8 @@ def schedule_create(
     retention_gb: str,
     destinations: tuple[str, ...],
     remote_only: bool,
+    max_runtime: str | None,
+    zone: str | None,
 ) -> None:
     """
     Back an application up on a timer and drop its old scheduled backups.
@@ -2303,6 +2364,8 @@ def schedule_create(
             destinations=destinations,
             verb="created",
             remote_only=remote_only,
+            max_runtime=max_runtime,
+            zone=zone,
         )
     )
 
@@ -2347,6 +2410,7 @@ def schedule_create(
     help="Keep nothing on this server (delete each backup here once every destination holds "
     "it), or keep the local copies. Kept as it is when not given.",
 )
+@timer_options
 @pass_context
 def schedule_update(
     state: Context,
@@ -2357,6 +2421,8 @@ def schedule_update(
     retention_gb: str | None,
     destinations: tuple[str, ...],
     remote_only: bool | None,
+    max_runtime: str | None,
+    zone: str | None,
 ) -> None:
     """
     Replace an application's backup schedule.
@@ -2397,6 +2463,10 @@ def schedule_update(
                 if remote_only is not None
                 else (record.remote_only if record is not None else False)
             ),
+            max_runtime=max_runtime,
+            zone=zone,
+            # Like retention: an update that names neither leaves the timer's as they are.
+            keep_options=max_runtime is None and zone is None,
         )
     )
 

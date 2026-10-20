@@ -98,7 +98,7 @@ class Machine(FakeRunner):
             return 0, ("HEAD" if self.detached else "main") + "\n", ""
         if args[:3] == ("symbolic-ref", "--quiet", "--short"):
             return (1, "", "") if self.detached else (0, "main\n", "")
-        if args == ("config", "--get", "wasm.branch"):
+        if args == ("config", "--get", "noust.branch"):
             return 0, "main\n", ""
         if args[:3] == ("checkout", "--force", "--detach"):
             self.head = args[3]

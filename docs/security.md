@@ -392,7 +392,8 @@ from 3.1 on is not accepted where sudo mode is asked unless it was issued with
 `allow_elevated` (refused under the ENS profile, where tokens also expire within
 `auth.tokens.max_days`, 90). Tokens issued before accounts existed keep their 3.0 scope and
 behaviour and are adopted by the first `admin` account; fleet tokens belong to a central and are
-never adopted. Tokens start with `noust_tok_` (`wasm_tok_` before 3.0; those keep working), are
+never adopted. Tokens start with `noust_tok_` (those issued before 3.0 start with the old product's
+prefix and keep working; `noust health` names the ones still in use), are
 shown once, and only their salted hash is kept. `noust token list` shows every token ever
 issued, live and revoked, without the token itself, and where each is accepted from;
 `noust token revoke ID` takes effect on the next request.
@@ -413,7 +414,7 @@ cannot be read leaves the API on rather than lock scripts out over a typo.
 
 **Sessions.** Signing in creates a server-side session in `/etc/noust/web-sessions.db`.
 
-- Cookie `wasm_session`: `HttpOnly`, `SameSite=Strict`, `Secure` whenever the request arrived
+- Cookie `noust_session`: `HttpOnly`, `SameSite=Strict`, `Secure` whenever the request arrived
   over TLS (directly or through a declared proxy).
 - 30 minutes without activity end a session (`auth.session.idle_minutes`; 15 under the ENS
   profile), and no session lasts more than 12 hours from sign-in
@@ -427,7 +428,7 @@ cannot be read leaves the API on rather than lock scripts out over a typo.
   console's Settings manage them.
 
 **CSRF.** Every `POST`, `PUT`, `PATCH` and `DELETE` made with a session must carry the
-session's CSRF token in the `X-WASM-CSRF` header; the console reads it from the `wasm_csrf`
+session's CSRF token in the `X-Noust-CSRF` header; the console reads it from the `noust_csrf`
 cookie. That holds whichever channel carries the session: a client that signed in with
 `bearer: true` and presents the session token as `Authorization: Bearer` sends the CSRF token
 it received in the same answer. The master token and API tokens are not sessions and have no
@@ -768,14 +769,14 @@ The console's SQL runner is read-only unless told otherwise, and that is enforce
 database server, not by inspecting the statement:
 
 - **PostgreSQL**: the statement runs in a `READ ONLY` transaction in a session that signs in
-  over `127.0.0.1`, with a password, as a dedicated role `wasm_ro_<database>`: not a
+  over `127.0.0.1`, with a password, as a dedicated role `noust_ro_<database>`: not a
   superuser, `default_transaction_read_only` on, granted only `CONNECT`, `USAGE` and `SELECT`.
   Because the login itself is the limit, `SET ROLE`, `RESET ROLE`, `set_config('role', ...)`
   and `SET SESSION AUTHORIZATION` have nothing to return to, and the server refuses
   superuser-only functions such as `pg_read_file` and `COPY ... TO PROGRAM`. The password is
   random, set as a SCRAM verifier, and kept in a 0600 root-owned file under
   `/var/lib/noust/secrets/postgresql/`. `pg_hba.conf` must allow
-  `host <database> wasm_ro_<database> 127.0.0.1/32 scram-sha-256` (the Debian and Ubuntu
+  `host <database> noust_ro_<database> 127.0.0.1/32 scram-sha-256` (the Debian and Ubuntu
   default `host all all 127.0.0.1/32` line does); if it does not, read mode fails with that
   line in the error and never falls back to the superuser.
 - **MySQL and MariaDB**: the statement runs in a `READ ONLY` transaction as a dedicated

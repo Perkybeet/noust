@@ -44,6 +44,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, ClassVar
 
+from noust.core import cancellation
 from noust.core.container_store import (
     ContainerSettings,
     ContainerStore,
@@ -65,6 +66,7 @@ from noust.core.store import (
     ReleaseRecord,
     ReleaseStatus,
 )
+from noust.core.variables.model import BUILD
 from noust.deployers.docker_compose import (
     DockerComposeDeployer,
     ServingState,
@@ -373,6 +375,7 @@ class ContainerDeployer(DockerComposeDeployer):
             app_path=self.app_path,
             secrets=self._secrets(),
             work_dir=self.store.db_path.parent / "container" / self.app_name,
+            build_timeout=self.build_timeout(),
         )
 
     def _host_port(self) -> int:
@@ -431,6 +434,15 @@ class ContainerDeployer(DockerComposeDeployer):
                 self.app_path, fs=self._fs, runner=self._runner, logger=self.logger
             ).next_release_id(commit, taken)
         return self.release_id
+
+    def _plan_release(self) -> str | None:
+        """
+        Name the release this deployment is, which a container application does before it builds.
+
+        Returns:
+            The release id: the image's name is made of it.
+        """
+        return self._ensure_release()
 
     def _choose_method(self) -> None:
         """
@@ -581,16 +593,24 @@ class ContainerDeployer(DockerComposeDeployer):
         release = self._ensure_release()
         tag = image_tag(self.app_name, release)
         images = self._images()
-        if self.settings.method == METHOD_IMAGE:
-            pulled = images.pull(self.settings, tag)
-            changes: dict[str, Any] = {"digest": pulled.digest}
-            if self.settings.container_port is None and len(pulled.exposed_ports) == 1:
-                changes["container_port"] = pulled.exposed_ports[0]
-                self.logger.substep(f"The image exposes port {pulled.exposed_ports[0]}")
-            self.settings = replace(self.settings, **changes)
-        else:
-            self._infer_port()
-            images.build(self.settings, tag, no_cache=no_cache)
+        # An operator can stop the pull or the build: nothing of what serves is touched until the
+        # compose file below is written.
+        with cancellation.interruptible("building the image"):
+            if self.settings.method == METHOD_IMAGE:
+                pulled = images.pull(self.settings, tag)
+                changes: dict[str, Any] = {"digest": pulled.digest}
+                if self.settings.container_port is None and len(pulled.exposed_ports) == 1:
+                    changes["container_port"] = pulled.exposed_ports[0]
+                    self.logger.substep(f"The image exposes port {pulled.exposed_ports[0]}")
+                self.settings = replace(self.settings, **changes)
+            else:
+                self._infer_port()
+                images.build(
+                    self.settings,
+                    tag,
+                    no_cache=self._builds_without_cache(no_cache),
+                    variables=self._variables.build_environment(),
+                )
         self._write_compose(release)
 
     def _start_and_verify(self) -> None:
@@ -631,7 +651,11 @@ class ContainerDeployer(DockerComposeDeployer):
                 ssl_enabled=self.ssl,
                 status=status,
                 is_static=False,
-                env_vars=self.env_vars,
+                env_vars={
+                    name: value
+                    for name, value in self.env_vars.items()
+                    if self._env_audience.get(name) != BUILD
+                },
                 memory_max_mb=self._limits.memory_max_mb,
                 cpu_quota_percent=self._limits.cpu_quota_percent,
                 tasks_max=self._limits.tasks_max,
@@ -640,6 +664,9 @@ class ContainerDeployer(DockerComposeDeployer):
                 env_secret_marks=self._initial_marks,
                 initial_health=self._initial_health,
             )
+            # What the variables given at creation are made of and for can be recorded now
+            # that the application has a row.
+            self._variables.flush()
             # The release is the one that serves only once the gate said so.
             if status == AppStatus.RUNNING.value:
                 self._keep_state(row)
@@ -870,6 +897,12 @@ class ContainerDeployer(DockerComposeDeployer):
         app = self.store.get_app(self.domain)
         if app is None or app.id is None or self.release_id is None:
             return
+        if cancellation.is_cancellation(error):
+            # A release an operator stopped was never made: no failed row, and no half-built
+            # image left behind.
+            for failure in self._images().remove_images([self.release_id]):
+                self.logger.debug(f"The stopped image was kept: {failure}")
+            return
         self._record_release(app.id, ReleaseStatus.FAILED)
         self.store.set_release_status(app.id, self.release_id, ReleaseStatus.FAILED.value)
         if isinstance(error, RolledBackError):
@@ -963,6 +996,8 @@ class ContainerDeployer(DockerComposeDeployer):
             )
         previous = self._serving_release
         self.release_id = release_id
+        # The container is told which release it is, and its commit.
+        self._write_predefined(of_release=self.store.get_release(app.id, release_id))
         self._write_compose(release_id)
         self.logger.substep(
             f"Activating release {release_id}" + (f" (was {previous})" if previous else "")
@@ -979,6 +1014,8 @@ class ContainerDeployer(DockerComposeDeployer):
                 f"Release {release_id} did not pass its health check", details=evidence
             )
         self.logger.warning(f"Release {release_id} did not pass its health check")
+        for problem in self._restore_predefined():
+            self.logger.warning(problem)
         self._write_compose(previous)
         restored, after = self._activate(self._recreate)
         if restored:

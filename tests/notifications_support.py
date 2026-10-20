@@ -873,3 +873,15 @@ def dump(value: Any) -> str:
         The stable text a snapshot stores.
     """
     return json.dumps(value, ensure_ascii=False, indent=2) + "\n"
+
+
+def failure_id_of(notification: Any) -> int:
+    """
+    Args:
+        notification: The notice of a failed backup that names a record of its whole output.
+
+    Returns:
+        The record's id, read from the command the notice tells the operator to run.
+    """
+    assert notification.command is not None, "the notice names no record"
+    return int(notification.command.value.rsplit(" ", 1)[1])

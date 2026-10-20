@@ -368,7 +368,7 @@ class TestRestore:
     ) -> None:
         dump = _dump(tmp_path, PG_DUMP)
 
-        postgres.restore("shop", dump)
+        postgres.restore("shop", dump, as_superuser=True)
 
         assert runner.calls[-1][: len(PSQL)] == PSQL
         # The dump is psql's stdin, opened by the runner: psql runs as the postgres account,
@@ -383,6 +383,6 @@ class TestRestore:
         dump = tmp_path / "dump.custom"
         dump.write_bytes(b"PGDMP\x01\x0f\x00\\! id\n")
 
-        postgres.restore("shop", dump, format="custom")
+        postgres.restore("shop", dump, format="custom", as_superuser=True)
 
         assert runner.calls[-1][4] == "pg_restore"

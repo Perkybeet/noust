@@ -21,6 +21,7 @@ from typing import Any
 
 import pytest
 
+from noust.core import legacy_names
 from noust.core.applock import AppBusyError
 from noust.core.config import Config
 from noust.core.exceptions import NoustError, ServiceError, ValidationError
@@ -209,20 +210,24 @@ def test_the_images_an_update_kept_for_going_back_go_with_the_stack(
     tmp_path: Path, store: NoustStore, machine: Any
 ) -> None:
     """
-    Each update tags what served as <project>-<service>:wasm-previous so that
+    Each update tags what served as <project>-<service>:noust_previous so that
     it survives a prune; deleting the stack must not leave them on disk for
     ever. Only this stack's are removed.
     """
     compose_app(store, tmp_path / "apps" / "shop-example-com")
     machine.runner.script(
         ["docker", "image", "ls"],
-        stdout="shop-example-com-db:wasm-previous\nother-app-web:wasm-previous\n",
+        stdout="shop-example-com-db:noust_previous\nother-app-web:noust_previous\n"
+        "shop-example-com-db:" + legacy_names.PREVIOUS_IMAGE_TAG + "\n",
     )
 
     outcome = lifecycle.delete_app(DOMAIN)
 
     removed = [call for call in machine.runner.calls if call[:3] == ("docker", "image", "rm")]
-    assert removed == [("docker", "image", "rm", "shop-example-com-db:wasm-previous")]
+    assert sorted(removed) == [
+        ("docker", "image", "rm", "shop-example-com-db:noust_previous"),
+        ("docker", "image", "rm", "shop-example-com-db:" + legacy_names.PREVIOUS_IMAGE_TAG),
+    ]
     assert outcome.warnings == ()
     rm_at = machine.runner.calls.index(removed[0])
     down_at = machine.runner.calls.index(downs(machine.runner)[0])
@@ -234,7 +239,7 @@ def test_a_kept_image_that_cannot_be_removed_is_a_warning(
 ) -> None:
     """The rest of the deletion goes on; the operator is told what is left."""
     compose_app(store, tmp_path / "apps" / "shop-example-com")
-    machine.runner.script(["docker", "image", "ls"], stdout="shop-example-com-db:wasm-previous\n")
+    machine.runner.script(["docker", "image", "ls"], stdout="shop-example-com-db:noust_previous\n")
     machine.runner.script(
         ["docker", "image", "rm"], exit_code=1, stderr="Error: image is being used"
     )

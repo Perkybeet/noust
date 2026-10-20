@@ -12,7 +12,7 @@ equivalent to a root shell. The design decisions that follow from that:
 - **Cookie authentication requires a CSRF token on every mutation.** The
   scheme is double-submit *bound to the session*: the CSRF value is generated
   with the session, stored server-side, mirrored in a readable cookie, and has
-  to come back in the ``X-WASM-CSRF`` header. A cross-site attacker can neither
+  to come back in the ``X-Noust-CSRF`` header. A cross-site attacker can neither
   read the cookie nor set a custom header without a CORS preflight the server
   refuses, and unlike plain double-submit a cookie injected by a sibling
   subdomain does not match the stored value.
@@ -67,7 +67,7 @@ from urllib.parse import quote
 from fastapi import HTTPException, Request, status
 from starlette.requests import HTTPConnection
 
-from noust.core import paths, totp
+from noust.core import legacy_names, paths, totp
 from noust.core.accounts import AccountManager, AuthPolicy, load_policy
 from noust.core.accounts.model import Account
 from noust.core.audit import install as install_core_audit_log
@@ -158,9 +158,15 @@ AUDIT_LOG_NAME = "web-audit.log"
 #: lockout makes unguessable in practice and single use makes worthless after.
 BACKUP_CODE_COUNT = 8
 
-SESSION_COOKIE_NAME = "wasm_session"
-CSRF_COOKIE_NAME = "wasm_csrf"
-CSRF_HEADER_NAME = "X-WASM-CSRF"
+SESSION_COOKIE_NAME = "noust_session"
+CSRF_COOKIE_NAME = "noust_csrf"
+CSRF_HEADER_NAME = "X-Noust-CSRF"
+#: The header a script written before 4.0 sends. Read beside the new one: the value it
+#: carries is the same, only the name differs (see :mod:`noust.core.legacy_names`).
+CSRF_HEADER_NAMES = (CSRF_HEADER_NAME, legacy_names.CSRF_HEADER)
+#: The cookies of a console from before 4.0. They are not read, so a browser signs in once;
+#: the sign-in and the sign-out expire them.
+LEGACY_COOKIE_NAMES = (legacy_names.SESSION_COOKIE, legacy_names.CSRF_COOKIE)
 
 #: Methods that do not change state and therefore do not need a CSRF token.
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
@@ -221,9 +227,13 @@ WS_MAX_PER_CREDENTIAL = 8
 EVENT_STREAMS_MAX_PER_CREDENTIAL = 16
 
 #: Subprotocol prefix carrying a session token, for clients that cannot send a
-#: cookie: ``Sec-WebSocket-Protocol: wasm.auth, wasm.token.<token>``.
-WS_SUBPROTOCOL = "wasm.auth"
-WS_TOKEN_PREFIX = "wasm.token."  # noqa: S105 - subprotocol prefix, not a credential
+#: cookie: ``Sec-WebSocket-Protocol: noust.auth, noust.token.<token>``.
+WS_SUBPROTOCOL = "noust.auth"
+WS_TOKEN_PREFIX = "noust.token."  # noqa: S105 - subprotocol prefix, not a credential
+#: Both spellings, the current one first: a client that offers only the old one is
+#: answered with the old one, which is what a browser's handshake requires.
+WS_SUBPROTOCOLS = (WS_SUBPROTOCOL, legacy_names.WS_SUBPROTOCOL)
+WS_TOKEN_PREFIXES = (WS_TOKEN_PREFIX, legacy_names.WS_TOKEN_PREFIX)
 
 #: Prefix that routes a Bearer credential to the API token table instead of
 #: the session store or the master token. The master token's own prefix is
@@ -231,7 +241,7 @@ WS_TOKEN_PREFIX = "wasm.token."  # noqa: S105 - subprotocol prefix, not a creden
 API_TOKEN_PREFIX = "noust_tok_"  # noqa: S105 - a prefix, not a credential
 #: What API tokens issued before 3.0 start with. They are stored hashed and
 #: keep working until revoked or expired; only new tokens get the new prefix.
-LEGACY_API_TOKEN_PREFIX = "wasm_tok_"  # noqa: S105 - a prefix, not a credential
+LEGACY_API_TOKEN_PREFIX = legacy_names.API_TOKEN_PREFIX
 API_TOKEN_PREFIXES = (API_TOKEN_PREFIX, LEGACY_API_TOKEN_PREFIX)
 
 #: The ``sid`` of the master token's payload, and of a WebSocket ticket it was
@@ -363,7 +373,7 @@ FLEET_PROTECTED_CONFIG_SECTIONS = frozenset(
 #: Recorded in the payload the auth dependency hands to endpoints. Kept as
 #: names rather than a JWT: see SessionStore._encode for why the JWT went.
 SESSION_ISSUER = "noust-web"
-SESSION_SUBJECT = "wasm_session"
+SESSION_SUBJECT = "noust_session"
 JWT_EXPIRATION_HOURS = 12
 
 #: A session is re-issued once it is past this fraction of its lifetime, so an
@@ -1216,7 +1226,8 @@ API_TOKENS_TABLE_SQL = """
         created_by TEXT,
         last_used_ip TEXT,
         bound_kind TEXT,
-        bound_id INTEGER
+        bound_id INTEGER,
+        legacy_prefix_used_at REAL
     )
 """
 
@@ -1246,6 +1257,14 @@ API_TOKEN_COLUMNS_3_4 = (
     ("bound_kind", "TEXT"),
     ("bound_id", "INTEGER"),
 )
+
+#: Column 4.0 added to ``api_tokens``: when a token last signed in with the prefix of before
+#: 3.0. The token is stored hashed, so its prefix is only known while it is presented; this
+#: is how ``noust health`` can name the scripts still holding one.
+API_TOKEN_COLUMNS_4_0 = (("legacy_prefix_used_at", "REAL"),)
+
+#: How recently a token of the old kind must have been used to count as still in use.
+LEGACY_TOKEN_WINDOW_DAYS = 30.0
 
 
 #: What no API token holds where the restricted_tokens control is on, whoever owns it: a token is
@@ -1515,7 +1534,11 @@ class SessionStore:
                 row["name"]
                 for row in self._conn.execute("PRAGMA table_info(api_tokens)").fetchall()
             }
-            for column, declaration in (*API_TOKEN_COLUMNS_3_1, *API_TOKEN_COLUMNS_3_4):
+            for column, declaration in (
+                *API_TOKEN_COLUMNS_3_1,
+                *API_TOKEN_COLUMNS_3_4,
+                *API_TOKEN_COLUMNS_4_0,
+            ):
                 if column not in token_columns:
                     self._conn.execute(f"ALTER TABLE api_tokens ADD COLUMN {column} {declaration}")
 
@@ -2103,7 +2126,14 @@ class SessionStore:
             ).fetchone()
         return dict(row) if row else None
 
-    def touch_api_token(self, token_id: int, used_at: float, used_ip: str | None = None) -> None:
+    def touch_api_token(
+        self,
+        token_id: int,
+        used_at: float,
+        used_ip: str | None = None,
+        *,
+        legacy_prefix: bool = False,
+    ) -> None:
         """
         Record when a token last authenticated a request, and from where.
 
@@ -2111,13 +2141,35 @@ class SessionStore:
             token_id: The token record's id.
             used_at: The moment of use, as a UNIX timestamp.
             used_ip: The address it came from.
+            legacy_prefix: The token was presented with the prefix of before 3.0.
         """
         with self._lock, self._conn:
             self._conn.execute(
-                "UPDATE api_tokens SET last_used_at = ?, last_used_ip = COALESCE(?, last_used_ip) "
+                "UPDATE api_tokens SET last_used_at = ?, last_used_ip = COALESCE(?, last_used_ip), "
+                "legacy_prefix_used_at = CASE WHEN ? THEN ? ELSE legacy_prefix_used_at END "
                 "WHERE id = ?",
-                (used_at, used_ip, token_id),
+                (used_at, used_ip, int(legacy_prefix), used_at, token_id),
             )
+
+    def legacy_prefix_tokens(self, since: float) -> list[dict[str, Any]]:
+        """
+        List the live tokens that signed in with the prefix of before 3.0 since a moment.
+
+        Args:
+            since: The earliest use that counts, as a UNIX timestamp.
+
+        Returns:
+            One row per token (``id``, ``name``, ``scope``, ``last_used_at``), most recent first.
+        """
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id, name, scope, last_used_at, legacy_prefix_used_at FROM api_tokens "
+                "WHERE revoked_at IS NULL AND legacy_prefix_used_at IS NOT NULL "
+                "AND legacy_prefix_used_at >= ? AND (expires_at IS NULL OR expires_at > ?) "
+                "ORDER BY legacy_prefix_used_at DESC, id DESC",
+                (since, time.time()),
+            ).fetchall()
+        return [dict(row) for row in rows]
 
     def list_api_tokens(self, owner_account_id: int | None = None) -> list[dict[str, Any]]:
         """
@@ -2591,8 +2643,8 @@ class TokenManager:
         Raises:
             SecurityError: When the token hash cannot be persisted.
         """
-        # A master token issued before 3.0 starts with wasm_; it is verified
-        # by its hash, so it keeps working until it is replaced.
+        # A master token issued before 3.0 starts with the old product's name; it is
+        # verified by its hash, so it keeps working until it is replaced.
         token = f"{paths.NAME}_{secrets.token_urlsafe(TOKEN_LENGTH)}"
         write_private_file(self.config.token_file, self._hash_token(token))
         # A ticket issued to the retired token would otherwise outlive it by
@@ -3454,7 +3506,23 @@ class TokenManager:
         if not hmac.compare_digest(str(record["token_hash"]), presented):
             return None
 
-        return self._api_token_payload(record, client_ip)
+        return self._api_token_payload(
+            record, client_ip, legacy_prefix=token.startswith(LEGACY_API_TOKEN_PREFIX)
+        )
+
+    def legacy_prefix_tokens_in_use(
+        self, days: float = LEGACY_TOKEN_WINDOW_DAYS
+    ) -> list[dict[str, Any]]:
+        """
+        Name the tokens that were presented with the prefix of before 3.0 lately.
+
+        Args:
+            days: How far back a use counts.
+
+        Returns:
+            The live tokens, most recently used first.
+        """
+        return self.sessions.legacy_prefix_tokens(time.time() - days * 86400)
 
     def retired_fleet_token_name(self, token: str) -> str | None:
         """
@@ -3484,7 +3552,7 @@ class TokenManager:
         return str(record["name"])
 
     def _api_token_payload(
-        self, record: Mapping[str, Any], client_ip: str | None
+        self, record: Mapping[str, Any], client_ip: str | None, *, legacy_prefix: bool = False
     ) -> dict[str, Any] | None:
         """
         Turn an unrevoked API token row into the payload it authenticates.
@@ -3495,6 +3563,7 @@ class TokenManager:
         Args:
             record: The token row, already known to be unrevoked.
             client_ip: Address presenting the credential.
+            legacy_prefix: The credential was presented with the prefix of before 3.0.
 
         Returns:
             The payload, or None when the token has expired.
@@ -3517,8 +3586,15 @@ class TokenManager:
             payload.update(self._token_principal(record, client_ip))
 
         last_used = record["last_used_at"]
-        if last_used is None or now - float(last_used) >= API_TOKEN_LAST_USED_THROTTLE:
-            self.sessions.touch_api_token(int(record["id"]), now, client_ip)
+        recorded = record.get("legacy_prefix_used_at")
+        if (
+            last_used is None
+            or now - float(last_used) >= API_TOKEN_LAST_USED_THROTTLE
+            or (legacy_prefix and recorded is None)
+        ):
+            self.sessions.touch_api_token(
+                int(record["id"]), now, client_ip, legacy_prefix=legacy_prefix
+            )
         return payload
 
     def _token_principal(self, record: Mapping[str, Any], client_ip: str | None) -> dict[str, Any]:
@@ -4690,9 +4766,30 @@ def subprotocol_token(connection: HTTPConnection) -> str | None:
     """
     header = connection.headers.get("sec-websocket-protocol", "")
     for entry in (part.strip() for part in header.split(",")):
-        if entry.startswith(WS_TOKEN_PREFIX):
-            return entry[len(WS_TOKEN_PREFIX) :] or None
+        for prefix in WS_TOKEN_PREFIXES:
+            if entry.startswith(prefix):
+                return entry[len(prefix) :] or None
     return None
+
+
+def accepted_subprotocol(connection: HTTPConnection) -> str | None:
+    """
+    Choose the subprotocol a WebSocket handshake is answered with.
+
+    A browser fails a handshake whose answer names a subprotocol it did not offer, and one
+    that offered some and gets none, so the answer is the first of ours that the client
+    itself offered: ``noust.auth``, or the old spelling for a client written before 4.0.
+
+    Args:
+        connection: The pending handshake.
+
+    Returns:
+        The subprotocol to accept with, or None when the client offered neither.
+    """
+    offered = {
+        part.strip() for part in connection.headers.get("sec-websocket-protocol", "").split(",")
+    }
+    return next((name for name in WS_SUBPROTOCOLS if name in offered), None)
 
 
 #: Prefix of the lockout key a retired fleet token's failures are counted
@@ -5524,7 +5621,7 @@ class CredentialLedger:
 
 
 _credential_ledger: ContextVar[CredentialLedger | None] = ContextVar(
-    "wasm_credential_ledger", default=None
+    "noust_credential_ledger", default=None
 )
 
 
@@ -5664,7 +5761,7 @@ def rate_limit_identity(connection: HTTPConnection, client_ip: str) -> str | Non
     Name the valid credential a request carries, for the rate limiter.
 
     Checks the channels a request can carry a credential on - the session
-    cookie, the ``wasm.token.`` subprotocol of a WebSocket handshake, the
+    cookie, the ``noust.token.`` subprotocol of a WebSocket handshake, the
     ``Authorization`` header - with :func:`check_credential`. A wrong one is
     noted on the request's :class:`CredentialLedger`, and counted against the
     lockout once: by the endpoint that refuses it, or when the request ends if
@@ -5864,7 +5961,7 @@ def authenticate_connection(
     """
     Authenticate a WebSocket handshake from every credential it may carry.
 
-    Order: session cookie, ``wasm.token.<token>`` subprotocol, ``Authorization:
+    Order: session cookie, ``noust.token.<token>`` subprotocol, ``Authorization:
     Bearer``, then a single-use ticket from ``POST /api/auth/ws-ticket``. A
     handshake that presents nothing usable counts as exactly one failure, not
     one per channel tried.
@@ -5934,7 +6031,9 @@ def _check_csrf(request: Request, payload: dict[str, Any], client_ip: str) -> No
     if request.method.upper() in SAFE_METHODS:
         return
 
-    presented = request.headers.get(CSRF_HEADER_NAME, "")
+    presented = next(
+        (request.headers[name] for name in CSRF_HEADER_NAMES if request.headers.get(name)), ""
+    )
     expected = payload.get("csrf", "")
     if presented and expected and secrets.compare_digest(presented, expected):
         return

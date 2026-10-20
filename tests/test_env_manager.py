@@ -763,7 +763,7 @@ class TestEnvConfig:
         assert env_manager.load_config(tmp_path) is None
 
     def test_load_invalid_json(self, env_manager, tmp_path):
-        wasm_dir = tmp_path / ".wasm"
+        wasm_dir = tmp_path / ".noust"
         wasm_dir.mkdir()
         (wasm_dir / "env-config.json").write_text("invalid json")
         assert env_manager.load_config(tmp_path) is None
@@ -830,13 +830,13 @@ class TestEnvFilePermissions:
 
         manager.save_config(tmp_path, EnvConfig(variables=[EnvVariable(name="API_KEY")]))
 
-        saved = tmp_path / ".wasm" / "env-config.json"
+        saved = tmp_path / ".noust" / "env-config.json"
         assert saved.stat().st_mode & 0o777 == SECRET_MODE
         assert saved.parent.stat().st_mode & 0o777 == SECRET_DIR_MODE
 
     def test_a_wasm_directory_left_lax_is_tightened(self, tmp_path):
         """An older version created it 0755 next to a 0600 file."""
-        wasm_dir = tmp_path / ".wasm"
+        wasm_dir = tmp_path / ".noust"
         wasm_dir.mkdir(mode=0o755)
         wasm_dir.chmod(0o755)
 
@@ -859,8 +859,8 @@ class TestEnvFilePermissions:
         """The inventory file is a credential store too."""
         victim = tmp_path / "victim.txt"
         victim.write_text("original\n")
-        (tmp_path / ".wasm").mkdir()
-        (tmp_path / ".wasm" / "env-config.json").symlink_to(victim)
+        (tmp_path / ".noust").mkdir()
+        (tmp_path / ".noust" / "env-config.json").symlink_to(victim)
 
         with pytest.raises(SecurityError):
             EnvManager(fs=RecordingFileSystem()).save_config(tmp_path, EnvConfig())
@@ -917,11 +917,11 @@ class TestEnvWritesUnderADryRun:
         """save_config used to create .wasm on the way to writing the file."""
         EnvManager(fs=DryRunFileSystem()).save_config(tmp_path, EnvConfig())
 
-        assert not (tmp_path / ".wasm").exists()
+        assert not (tmp_path / ".noust").exists()
 
     def test_an_existing_config_survives_untouched(self, tmp_path):
         """The stored inventory must come out of a rehearsal unchanged."""
-        wasm_dir = tmp_path / ".wasm"
+        wasm_dir = tmp_path / ".noust"
         wasm_dir.mkdir()
         config_file = wasm_dir / "env-config.json"
         config_file.write_text('{"variables": [], "files": {}}')
@@ -934,7 +934,7 @@ class TestEnvWritesUnderADryRun:
 
     def test_a_lax_wasm_directory_is_not_chmodded(self, tmp_path):
         """A chmod changes this machine, so a rehearsal must skip it too."""
-        wasm_dir = tmp_path / ".wasm"
+        wasm_dir = tmp_path / ".noust"
         wasm_dir.mkdir(mode=0o755)
         wasm_dir.chmod(0o755)
 

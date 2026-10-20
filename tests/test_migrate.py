@@ -122,7 +122,7 @@ def root(tmp_path: Path) -> Path:
         "uploads/2026/doc.pdf": "user document",
         ".env.local": "LOCAL=1\n",
         "notes.txt": "an untracked note",
-        ".wasm/env-config.json": "{}",
+        ".noust/env-config.json": "{}",
     }
     for relative, content in files.items():
         path = root / relative
@@ -206,7 +206,7 @@ def machine(
                 "!! .env",
                 "?? .env.local",
                 "?? notes.txt",
-                "?? .wasm/",
+                "?? .noust/",
                 "",
             ]
         ),
@@ -261,7 +261,7 @@ def test_the_plan_keeps_what_git_does_not_track_and_changes_nothing(
 
     assert plan.persistent == (".env.local", "uploads")
     assert plan.persistent_source == "git"
-    assert plan.env_files == (".env", ".wasm")
+    assert plan.env_files == (".env", ".noust")
     assert plan.untracked_files == ("notes.txt",)
     assert any("notes.txt" in warning for warning in plan.warnings)
     assert plan.commit == COMMIT
@@ -655,7 +655,7 @@ def test_a_failure_after_the_build_moved_is_undone_and_says_what_stayed(
 
     class Failing(RealFileSystem):
         def move(self, source: Path, destination: Path) -> None:
-            if source == root / ".wasm":
+            if source == root / ".noust":
                 assert (destination.parent / ".next" / "BUILD_ID").is_file(), "after .next"
                 raise OSError("No space left on device")
             if destination == root / ".git":
@@ -667,7 +667,7 @@ def test_a_failure_after_the_build_moved_is_undone_and_says_what_stayed(
         migrate(DOMAIN, plan)
     set_fs(None)
 
-    staging = next(root.glob(".wasm-migrating-*"))
+    staging = next(root.glob(".noust-migrating-*"))
     details = failure.value.details
     assert "Not put back" in details
     assert f"{root / '.git'} is still at {staging / '.git'}" in details
@@ -728,7 +728,7 @@ def with_database(root: Path, machine: Any, relative: str = "db.sqlite3") -> Non
                 "!! .env",
                 "?? .env.local",
                 "?? notes.txt",
-                "?? .wasm/",
+                "?? .noust/",
                 f"!! {relative}",
                 f"!! {relative}-wal",
                 f"!! {relative}-shm",

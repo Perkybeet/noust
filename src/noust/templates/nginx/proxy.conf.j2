@@ -16,6 +16,14 @@ upstream {{ relay.name }} {
     include {{ relay.file }};
     keepalive 64;
 }
+{% if relay.alias | default(none) %}
+
+# Alias: a site somebody else wrote still names the upstream above by its old name.
+upstream {{ relay.alias }} {
+    include {{ relay.file }};
+    keepalive 64;
+}
+{% endif %}
 {% endfor %}
 {% for zone_name, rate in (rate_limit_zones | default({})).items() %}
 

@@ -79,16 +79,16 @@ async function master(server: ConsoleServer): Promise<APIRequestContext> {
   const api = await playwrightRequest.newContext({ baseURL: server.url });
   expect((await api.post("/api/auth/login", { data: { token: server.token, totp_code: server.secondFactor() } })).ok()).toBe(true);
   const { cookies } = await api.storageState();
-  const token = cookies.find((cookie) => cookie.name === "wasm_csrf");
-  const headers: Record<string, string> = token ? { "X-WASM-CSRF": token.value } : {};
+  const token = cookies.find((cookie) => cookie.name === "noust_csrf");
+  const headers: Record<string, string> = token ? { "X-Noust-CSRF": token.value } : {};
   expect((await api.post("/api/auth/elevate", { data: { code: server.secondFactor() }, headers })).ok()).toBe(true);
   return api;
 }
 
 async function headers(api: APIRequestContext): Promise<Record<string, string>> {
   const { cookies } = await api.storageState();
-  const token = cookies.find((cookie) => cookie.name === "wasm_csrf");
-  return token ? { "X-WASM-CSRF": token.value } : {};
+  const token = cookies.find((cookie) => cookie.name === "noust_csrf");
+  return token ? { "X-Noust-CSRF": token.value } : {};
 }
 
 const APP = "shop.example.net";
@@ -267,8 +267,8 @@ async function createViewer(server: ConsoleServer, admin: APIRequestContext, use
   const own = await playwrightRequest.newContext({ baseURL: server.url });
   expect((await own.post("/api/auth/login", { data: { username, password } })).ok()).toBe(true);
   const { cookies } = await own.storageState();
-  const csrfToken = cookies.find((cookie) => cookie.name === "wasm_csrf");
-  const own2fa: Record<string, string> = csrfToken ? { "X-WASM-CSRF": csrfToken.value } : {};
+  const csrfToken = cookies.find((cookie) => cookie.name === "noust_csrf");
+  const own2fa: Record<string, string> = csrfToken ? { "X-Noust-CSRF": csrfToken.value } : {};
   const enrol = (await (await own.post("/api/auth/2fa/enroll", { headers: own2fa })).json()) as { secret: string };
   const confirmed = await own.post("/api/auth/2fa/confirm", { data: { code: totpCode(enrol.secret) }, headers: own2fa });
   expect(confirmed.ok(), await confirmed.text()).toBe(true);

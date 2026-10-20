@@ -205,7 +205,13 @@ def shop(store: NoustStore, tmp_path: Path, cron: FakeCron) -> App:
 def test_export_carries_the_definition(shop: App, cron: FakeCron) -> None:
     doc = export_app(DOMAIN, cron=cron)  # type: ignore[arg-type]
 
-    assert list(doc)[:5] == ["format", "version", "exported_at", "wasm_version", "secrets_included"]
+    assert list(doc)[:5] == [
+        "format",
+        "version",
+        "exported_at",
+        "noust_version",
+        "secrets_included",
+    ]
     assert doc["format"] == FORMAT and doc["version"] == VERSION
     app = doc["app"]
     assert app["domain"] == DOMAIN

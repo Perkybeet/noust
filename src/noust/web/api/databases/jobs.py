@@ -19,6 +19,7 @@ from noust.core.audit import Actor
 from noust.core.exceptions import DatabaseEngineError
 from noust.deployers.recorder import CapturingLogger
 from noust.managers.database.backups import DatabaseBackups
+from noust.managers.database.instance_launch import InstanceLaunch
 from noust.managers.database.instance_migration import InstanceMigrations
 from noust.managers.database.instance_tls import InstanceTls
 from noust.managers.database.instance_tuning import InstanceTuning
@@ -337,6 +338,10 @@ def instance_job(
     confirm: bool = False,
     variant: str | None = None,
     init_scripts: list[dict[str, str]] | None = None,
+    image: str | None = None,
+    command: list[str] | None = None,
+    args: list[str] | None = None,
+    accept_untested: bool = False,
     actor: str | None = None,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
@@ -358,6 +363,12 @@ def instance_job(
         variant: The image variant, for ``create``.
         init_scripts: SQL scripts (``name`` and ``content``) the engine runs the first time it
             starts, for ``create``.
+        image: An image of the operator's own, pinned by digest: for ``create``, and for an
+            ``upgrade`` of an instance already on one.
+        command: The container's whole command, for ``create``.
+        args: Arguments added after the engine's, for ``create``.
+        accept_untested: The operator accepted that Noust did not test what they chose, checked
+            when the job was queued.
         actor: Who queued it, as the audit trail names them.
         job_context: Injected by the job manager.
 
@@ -385,12 +396,20 @@ def instance_job(
                 init_scripts=[
                     (item["name"], item["content"].encode("utf-8")) for item in init_scripts or []
                 ],
+                image=image,
+                command=command,
+                args=args,
+                accept_untested=accept_untested,
             )
         }
     elif action == "start":
         result = {"instance": managed.start(name)}
     elif action == "upgrade":
-        result = {"upgrade": managed.upgrade(name, backup=backup).to_dict()}
+        result = {
+            "upgrade": managed.upgrade(
+                name, backup=backup, image=image, accept_untested=accept_untested
+            ).to_dict()
+        }
     elif action == "remove":
         result = {"removed": managed.remove(name, confirm=confirm).to_dict()}
     else:
@@ -514,6 +533,38 @@ def tls_job(
     what = f"Serving TLS as {mode}" if mode else "Renewing the certificate of"
     tls = InstanceTls(ManagedInstances(_service(job_context, f"{what} {name}", actor)))
     status = tls.renew(name) if mode is None else tls.set_mode(name, mode)
+    _done(job_context)
+    return status
+
+
+def launch_job(
+    name: str,
+    command: list[str] | None = None,
+    args: list[str] | None = None,
+    reset: bool = False,
+    actor: str | None = None,
+    job_context: JobContext | None = None,
+) -> dict[str, Any]:
+    """
+    Change what an instance's container is started with.
+
+    The engine restarts on the new words and the job waits for it to answer, which is work that
+    must not sit on a request. The price of words Noust did not test was accepted when the job
+    was queued.
+
+    Args:
+        name: The instance.
+        command: The container's whole command, or None.
+        args: Arguments added after the engine's, or None.
+        reset: Take both back to what Noust passes.
+        actor: Who queued it, as the audit trail names them.
+        job_context: Injected by the job manager.
+
+    Returns:
+        What the container is started with afterwards, as ``InstanceLaunch.status`` says.
+    """
+    launch = InstanceLaunch(ManagedInstances(_service(job_context, f"Changing {name}", actor)))
+    status = launch.apply(name, command=command, args=args, reset=reset, accept_untested=True)
     _done(job_context)
     return status
 

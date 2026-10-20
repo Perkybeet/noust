@@ -29,7 +29,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
-from noust.core import paths
+from noust.core import legacy_names, paths
 from noust.core.config import SYSTEMD_DIR, Config
 from noust.core.exceptions import NoustError, ServiceError, ValidationError
 from noust.core.exceptions import PermissionError as NoustPermissionError
@@ -506,8 +506,9 @@ def list_services(
     noust_only: bool | None = Query(
         default=None, description="Only show the units Noust manages (the default)"
     ),
-    wasm_only: bool | None = Query(
+    legacy_only: bool | None = Query(
         default=None,
+        alias=legacy_names.ONLY_PARAMETER,
         deprecated=True,
         description="The name noust_only had before 3.0; read when noust_only is absent",
     ),
@@ -523,7 +524,7 @@ def list_services(
     """
     List services.
 
-    ``noust_only`` (the default; ``wasm_only`` before 3.0, still read) lists
+    ``noust_only`` (the default; it had another name before 3.0, which is still read) lists
     the units Noust manages - the one
     definition in :meth:`~noust.managers.service_manager.ServiceManager.managed_units`
     the console's top bar counts too, so the two always agree. Set it to false
@@ -536,7 +537,7 @@ def list_services(
     is what a degraded server's security check sends the operator to: every failed
     unit on the host, Noust's or not.
     """
-    only = noust_only if noust_only is not None else wasm_only
+    only = noust_only if noust_only is not None else legacy_only
     statuses = ServiceManager(verbose=False).list_statuses(all_services=only is False, state=state)
     commands = {service.name: service.command for service in get_store().list_services()}
     result = [

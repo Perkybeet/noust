@@ -22,9 +22,10 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+from noust.core import legacy_names
 from noust.core.teams import scoped_store
+from noust.deployers.app_clone import deploy_through_job
 from noust.deployers.app_export import (
-    CreateSpec,
     ImportPlan,
     apply_import,
     export_app,
@@ -44,7 +45,7 @@ from noust.web.api.deps import (
     strict_domain,
 )
 from noust.web.auth import actor_label, ensure_scope, get_audit_logger, get_client_ip
-from noust.web.jobs import JobContext, JobType, deploy_app_job, get_job_manager
+from noust.web.jobs import JobContext, JobType, get_job_manager
 from noust.web.pydantic_compat import dump_model
 
 router = APIRouter(route_class=NoustErrorRoute)
@@ -89,6 +90,9 @@ class ExportApp(BaseModel):
     include_www: bool = False
     persistent_paths: list[str] = Field(default_factory=list)
     keep_releases: int | None = None
+    build: str | None = Field(
+        default=None, description="The operator's build block, as YAML; null for the repository's"
+    )
     limits: ExportLimits = Field(default_factory=ExportLimits)
     health: ExportHealth = Field(default_factory=ExportHealth)
     zero_downtime: ExportZeroDowntime = Field(default_factory=ExportZeroDowntime)
@@ -162,18 +166,70 @@ class ExportDatabase(BaseModel):
     name: str | None = None
 
 
+class ExportMount(BaseModel):
+    """A file Noust keeps for the application, or a path of the server bound into a container."""
+
+    kind: str = Field(description="file or path")
+    target: str = Field(description="Where the application sees it")
+    mode: str | None = Field(default=None, description="A file's permissions, in octal")
+    secret: bool = Field(default=False, description="A file's text may hold a secret")
+    content: str | None = Field(
+        default=None,
+        description="A file's text; null unless secrets were included (or it could not travel)",
+    )
+    note: str | None = Field(default=None, description="Why a file's text is not here")
+    source: str | None = Field(default=None, description="A path's location on the server")
+    read_only: bool = True
+
+
+class ExportContainer(BaseModel):
+    """How a container application is built and run; its registry password never is."""
+
+    method: str = "dockerfile"
+    image: str | None = None
+    dockerfile: str | None = None
+    context: str = "."
+    target: str | None = None
+    build_args: dict[str, str] = Field(default_factory=dict)
+    build_secrets: list[str] = Field(
+        default_factory=list, description="Ids only: their values are not exported"
+    )
+    container_port: int | None = None
+    volumes: list[str] = Field(default_factory=list)
+    restart_policy: str = "unless-stopped"
+    registry_server: str | None = None
+    registry_username: str | None = None
+    entrypoint: list[str] | None = None
+    command: list[str] | None = None
+
+
 class AppExportDocument(BaseModel):
     """An application's definition, as ``noust app export`` writes it."""
 
-    format: str = Field(description='Always "wasm-app"')
+    format: str = Field(description='Always "noust-app"; the name before 4.0 is still read')
     version: int = Field(description="Shape of the document; this release writes 1")
     exported_at: str | None = None
-    wasm_version: str | None = None
+    noust_version: str | None = None
+    legacy_version: str | None = Field(  # type: ignore[literal-required]  # the name is spelled once
+        default=None,
+        alias=legacy_names.EXPORT_VERSION_KEY,
+        description="Which release made an export of before 4.0 (this release writes "
+        "noust_version); read, never written",
+    )
     secrets_included: bool = False
     app: ExportApp
     domains: ExportDomains = Field(default_factory=ExportDomains)
+    source_options: dict[str, Any] = Field(
+        default_factory=dict, description="How the repository is fetched (submodules, lfs, ...)"
+    )
+    container: ExportContainer | None = None
     env: dict[str, ExportEnvEntry] = Field(default_factory=dict)
     env_secret_marks: dict[str, bool] = Field(default_factory=dict)
+    mounts: list[ExportMount] = Field(default_factory=list)
+    delivery: dict[str, Any] = Field(
+        default_factory=dict,
+        description="History, stop policy, rollback pause and update schedule",
+    )
     cron: list[ExportCronJob] = Field(default_factory=list)
     backup: ExportBackup | None = None
     previews: ExportPreviews | None = None
@@ -230,7 +286,7 @@ def get_app_export(
     validated = strict_domain(domain)
     if scoped_store().get_app(validated) is None:
         raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
-    document = export_app(validated, with_secrets=with_secrets)
+    document = export_app(validated, with_secrets=with_secrets, actor=actor_label(session))
     if with_secrets:
         audit = get_audit_logger()
         if audit:
@@ -275,29 +331,7 @@ def import_app_job(
     for skipped in plan.skipped:
         logger.substep(f"will not apply {skipped.part}")
 
-    def deploy(spec: CreateSpec) -> None:
-        deploy_app_job(
-            domain=spec.domain,
-            source=spec.source,
-            app_type=spec.app_type,
-            port=spec.port,
-            branch=spec.branch,
-            env_vars=dict(spec.env_vars),
-            webserver=spec.webserver,
-            ssl=spec.ssl,
-            layout=spec.layout,
-            include_www=spec.include_www,
-            persistent_paths=list(spec.persistent_paths) or None,
-            memory_max_mb=spec.memory_max_mb,
-            cpu_quota_percent=spec.cpu_quota_percent,
-            tasks_max=spec.tasks_max,
-            env_secret_marks=dict(spec.env_secret_marks),
-            health_path=spec.health_path,
-            health_expect=spec.health_expect,
-            health_timeout=spec.health_timeout,
-            build_document=spec.build_document,
-            job_context=job_context,
-        )
+    deploy = deploy_through_job(job_context)
 
     report = apply_import(plan, deploy=deploy, logger=logger, actor=actor)
     if job_context is not None:

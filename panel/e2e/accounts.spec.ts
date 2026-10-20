@@ -59,8 +59,8 @@ function spare(who: Person): string {
 
 async function csrf(context: APIRequestContext): Promise<Record<string, string>> {
   const { cookies } = await context.storageState();
-  const token = cookies.find((cookie) => cookie.name === "wasm_csrf");
-  return token ? { "X-WASM-CSRF": token.value } : {};
+  const token = cookies.find((cookie) => cookie.name === "noust_csrf");
+  return token ? { "X-Noust-CSRF": token.value } : {};
 }
 
 /** The access token's session over the API, in sudo mode. */

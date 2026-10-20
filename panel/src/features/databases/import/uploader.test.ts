@@ -6,7 +6,7 @@ import { CHUNK_BYTES, DUMP_EXTENSIONS, DumpUploader, MAX_AUTOMATIC_RETRIES, Uplo
 import type { UploadApi, UploadSnapshot } from "./uploader";
 
 const CHUNK = 4;
-const FORMAT = { kind: "sql", compression: "gzip", description: "A SQL dump, compressed with gzip.", engines: ["postgresql", "mysql"] };
+const FORMAT = { kind: "sql", compression: "gzip", description: "A SQL dump, compressed with gzip.", engines: ["postgresql", "mysql"], scope: "database" };
 
 function file(name: string, bytes: number): File {
   return new File([new Uint8Array(bytes)], name);

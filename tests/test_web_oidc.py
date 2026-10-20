@@ -268,7 +268,7 @@ class TestTheWholeSignIn:
         assert callback.headers["referrer-policy"] == "no-referrer"
         assert (
             "set-cookie" not in callback.headers
-            or "wasm_session" not in callback.headers["set-cookie"]
+            or "noust_session" not in callback.headers["set-cookie"]
         )
 
         done = client.post("/api/auth/oidc/complete", json={"ticket": ticket})
@@ -327,7 +327,7 @@ class TestTheWholeSignIn:
         callback = through_the_provider(client, idp)
 
         assert client.get("/api/auth/session").json()["authenticated"] is False
-        assert "wasm_session" not in client.cookies
+        assert "noust_session" not in client.cookies
         ticket_of(callback)
 
     def test_the_providers_claims_about_its_own_mfa_do_not_skip_ours(
@@ -684,7 +684,7 @@ class TestSudoMode:
         self, app: Any, idp: FakeIdP
     ) -> None:
         client, codes = self.sso_account_with_a_factor(app, idp)
-        csrf = client.cookies.get("wasm_csrf")
+        csrf = client.cookies.get("noust_csrf")
 
         session = client.get("/api/auth/session").json()
         assert session["elevation_requires_password"] is False
@@ -706,7 +706,7 @@ class TestSudoMode:
             )
         )
         client, codes = self.sso_account_with_a_factor(app, idp)
-        csrf = client.cookies.get("wasm_csrf")
+        csrf = client.cookies.get("noust_csrf")
 
         response = client.post(
             "/api/auth/elevate", json={"code": codes[0]}, headers={CSRF_HEADER_NAME: csrf or ""}

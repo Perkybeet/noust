@@ -40,7 +40,7 @@ import json
 import pwd
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, TypeVar
@@ -640,6 +640,25 @@ class PitrManager:
             except (OSError, ValueError) as exc:
                 self.manager.logger.warning(f"Ignoring {sidecar}: {exc}")
         return sorted(found, key=lambda base: (base.finished_at, base.id))
+
+    def record_resealed(self, system_id: str, base: BaseBackup, *, size: int, sha256: str) -> None:
+        """
+        Write a base backup's sidecar again after its archive was sealed in place.
+
+        The digest in it is checked before every recovery, so it has to be the stored file's.
+
+        Args:
+            system_id: The cluster's system identifier.
+            base: The base backup.
+            size: The stored archive's size now.
+            sha256: Its SHA-256 now.
+        """
+        updated = replace(base, size=size, sha256=sha256)
+        self.fs.write_text(
+            self.base_directory(system_id) / f"{base.id}.json",
+            json.dumps(updated.to_dict(), indent=2),
+            mode=0o600,
+        )
 
     def base_path(self, system_id: str, base: BaseBackup) -> Path:
         """

@@ -157,7 +157,7 @@ describe("the new-app wizard in Spanish", () => {
     await user.upload(screen.getByLabelText("Fichero de exportación"), new File(["{"], "x.json", { type: "application/json" }));
     expect(await screen.findByText(/^Este fichero no es JSON\./)).toBeInTheDocument();
 
-    await user.upload(screen.getByLabelText("Fichero de exportación"), new File([JSON.stringify(EXPORT)], "shop.wasm-app.json", { type: "application/json" }));
+    await user.upload(screen.getByLabelText("Fichero de exportación"), new File([JSON.stringify(EXPORT)], "shop.noust-app.json", { type: "application/json" }));
     expect(await screen.findByText("Una exportación de shop.example.com, una aplicación Next.js.")).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
     await user.click(screen.getByRole("button", { name: "Continuar" }));

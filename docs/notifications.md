@@ -262,6 +262,13 @@ goes straight to the channel and shows what it answered.
 backup, patches, cron and token ones, certificates, disks) are produced only while the monitor
 runs (`noust monitor status`).
 
+**A failed backup says where all of it is.** The excerpt of a `backup_failed` notice is the end of what
+the tool said, as many lines as a chat message holds. The whole output is kept (512 KiB at most,
+scrubbed, the newest 200 failures) and the notice carries `noust backup failures show ID` as the
+command to run next and, when `web.public_url` is set, a second link, `output`, to
+`GET /api/backups/failures/ID/output`: plain text, for a browser signed in to the console. The
+webhook publishes the command as the fact `full_output` and the page in `links`.
+
 The checks have their own settings, all under `monitor.`:
 
 | Key | Default | |

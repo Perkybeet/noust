@@ -28,6 +28,7 @@ import pytest
 
 from noust.core.exceptions import BackupError
 from noust.core.runner import FakeRunner
+from noust.managers.backup_manager import DATABASES_DIR, PAYLOAD_DIR
 from noust.managers.stack_databases import (
     CLIENT_SCRIPT,
     StackBackupError,
@@ -962,23 +963,24 @@ class TestDumpingEveryDatabaseOfAStack:
         runner.script(["docker"], stdout=json.dumps(proggest_config))
         runner.script(exec_prefix(host), stdout="PGDMP")
 
+        archive_dir = f"{PAYLOAD_DIR}/{DATABASES_DIR}"
+
         entries = dump_stack_databases(
-            host, tmp_path / "databases", archive_dir="wasm-backup/databases", declared="auto"
+            host, tmp_path / "databases", archive_dir=archive_dir, declared="auto"
         )
 
         (entry,) = entries
         assert entry["engine"] == "postgres"
         assert entry["name"] == "proggest"
-        assert (
-            entry["archive_path"]
-            == "wasm-backup/databases/stack-postgres-postgres-proggest.dump.gz"
-        )
+        assert entry["archive_path"] == f"{archive_dir}/stack-postgres-postgres-proggest.dump.gz"
         assert entry["size_bytes"] == len("PGDMP")
         assert entry["stack"] == {
             "service": "postgres",
             "engine": "postgres",
             "database": "proggest",
             "user": "proggest",
+            # The image the dump was taken from, so a drill can load it into the same version.
+            "image": "postgres:16-alpine",
         }
         assert (tmp_path / "databases" / "stack-postgres-postgres-proggest.dump.gz").is_file()
         assert StackDatabase.from_entry(entry["stack"]) == POSTGRES

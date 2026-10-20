@@ -34,6 +34,7 @@ from noust.web.auth import (
     WS_CLOSE_UNAUTHORIZED,
     WS_SUBPROTOCOL,
     WS_TOKEN_PREFIX,
+    accepted_subprotocol,
     actor_label,
     authenticate_connection,
     credential_is_current,
@@ -268,12 +269,7 @@ async def _accept(websocket: WebSocket, session: dict[str, Any], path: str) -> N
         session: The authenticated session payload.
         path: Resource being streamed, for the audit trail.
     """
-    subprotocol = (
-        WS_SUBPROTOCOL
-        if WS_SUBPROTOCOL in websocket.headers.get("sec-websocket-protocol", "")
-        else None
-    )
-    await websocket.accept(subprotocol=subprotocol)
+    await websocket.accept(subprotocol=accepted_subprotocol(websocket))
 
     audit = get_audit_logger()
     if audit:
@@ -400,7 +396,8 @@ async def websocket_logs(
     Stream application logs in real-time.
 
     Connect with the session cookie, with ``Sec-WebSocket-Protocol:
-    wasm.auth, wasm.token.<token>``, or with ``?ticket=<single-use ticket>``.
+    noust.auth, noust.token.<token>`` (the ``wasm.`` spelling of before 4.0 is answered in
+    kind), or with ``?ticket=<single-use ticket>``.
 
     Only a unit Noust manages is streamed. What the path names is resolved by
     :func:`_resolve_log_units`: an application's domain streams the unit(s)

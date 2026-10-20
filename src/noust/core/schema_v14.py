@@ -127,6 +127,8 @@ BUILD_COLUMNS: list[tuple[str, str, str]] = []
 # volumes: JSON list of container paths kept in named volumes.
 # registry_*: the account the image (or a private base image) is pulled with.
 # digest: the digest the last deployment of a registry image resolved.
+# entrypoint, command: JSON lists of words that replace the image's ENTRYPOINT and CMD; NULL
+#   leaves the image's own, an empty list clears it (added in 4.0, as columns).
 CONTAINER_SQL = """
 CREATE TABLE IF NOT EXISTS app_container (
     app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
@@ -149,7 +151,10 @@ CREATE TABLE IF NOT EXISTS app_container (
     updated_at TEXT NOT NULL
 );
 """
-CONTAINER_COLUMNS: list[tuple[str, str, str]] = []
+CONTAINER_COLUMNS: list[tuple[str, str, str]] = [
+    ("app_container", "entrypoint", "TEXT"),
+    ("app_container", "command", "TEXT"),
+]
 
 # Owned by the recipes lane: which recipe an application was installed from,
 # and at which version. One row per application, in a table of its own so a
@@ -509,6 +514,11 @@ DBINSTANCES_COLUMNS: list[tuple[str, str, str]] = [
     # The names of the SQL scripts the engine ran the first time it started (a JSON list):
     # the Compose file mounts their directory only when there are some.
     ("db_instances", "init_scripts", "TEXT"),
+    # What the operator chose for the container beyond the catalog (a JSON list each, NULL for
+    # none): a command that replaces the engine's whole one, or arguments appended to it. The image
+    # an operator pins is the existing image, digest and image_tag, with variant 'custom'.
+    ("db_instances", "custom_command", "TEXT"),
+    ("db_instances", "custom_args", "TEXT"),
 ]
 
 # Owned by the backups lane: volume backups and the backup of Noust itself.
@@ -528,6 +538,9 @@ DBINSTANCES_COLUMNS: list[tuple[str, str, str]] = [
 # app_update_policy: whether an application's update is refused when its backup
 #   fails (noust.core.update_policy_store). No row means the default: required
 #   for an application with a database.
+# backup_timer_options: the time limit and the time zone of a backup timer, one row per unit
+#   (noust.managers.backup_timer_options). Apart from the policies on purpose: a policy is written
+#   whole by whoever saves it, and a limit set on a timer must not be put back by that write.
 # db_pitr: the continuous archiving of an engine's write-ahead log, which a point-in-time
 #   recovery is made from (noust.managers.database.pitr_records): one row per engine, with
 #   the cluster it archives (its system identifier), where the archive is, how often a base
@@ -586,6 +599,22 @@ CREATE TABLE IF NOT EXISTS app_update_policy (
     updated_by TEXT,
     updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS backup_timer_options (
+    unit TEXT PRIMARY KEY,
+    max_runtime_seconds INTEGER,
+    timezone TEXT,
+    updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS backup_failures (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    destination TEXT,
+    output TEXT NOT NULL,
+    truncated INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_backup_failures_subject ON backup_failures(subject, id DESC);
 CREATE TABLE IF NOT EXISTS db_pitr (
     engine TEXT PRIMARY KEY,
     system_id TEXT NOT NULL,

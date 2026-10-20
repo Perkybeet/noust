@@ -23,7 +23,12 @@ no new dependency):
 - the certificates (``/etc/letsencrypt``) with the links certbot's ``live``
   folders are made of;
 - the units Noust wrote (``/etc/systemd/system``: its own, every
-  application's, their drop-ins), and which of them were enabled.
+  application's, their drop-ins), and which of them were enabled;
+- the roles of each PostgreSQL server a database lives on (``pg_dumpall --globals-only``), which
+  no database dump carries and a restored database needs for its owners;
+- the web server's configuration (``/etc/nginx``, Apache's directory) with each file's mode
+  and its links, because a site edited by hand, the site of an adopted application and the
+  settings an operator added to the http block are in no store and cannot be rendered again.
 
 It holds what is needed to read its own secrets except the one thing that
 cannot be stored beside them: the passphrase. A sealed store keeps its seal
@@ -80,8 +85,10 @@ from noust.core.runner import CommandRunner, get_runner
 from noust.core.secrets import SecretStore
 from noust.core.store import SCHEMA_VERSION, NoustStore, get_store
 from noust.managers.backup_destination_files import DestinationFileManager, file_sha256
+from noust.managers.backup_failures import record_failure
 from noust.managers.backup_manager import server_id, sidecar_mac_state, sign_sidecar
 from noust.managers.backup_scheduler import BackupScheduler, validate_calendar
+from noust.managers.backup_timer_options import validate_options
 from noust.managers.cert_manager import CertManager
 from noust.managers.retention import (
     check_gigabytes,
@@ -133,6 +140,14 @@ MAX_RETENTION_DAYS = 3650
 #: Members and bytes an extraction takes at most.
 MAX_ENTRIES = 2_000_000
 MAX_BYTES = 256 * 1024**3
+
+#: What the roles of the PostgreSQL servers are called in a bundle, and the directory of the
+#: state they are put back into for ``restore-server`` to read.
+PG_GLOBALS_LABEL = "pg-globals"
+
+#: The largest file of a web server's directory a bundle takes: a configuration file, never a
+#: log or a cache someone left there.
+_MAX_CONFIG_FILE = 16 * 1024 * 1024
 
 #: Most units a bundle takes: a server runs hundreds, never tens of thousands.
 _MAX_UNITS = 20_000
@@ -289,6 +304,8 @@ class SelfBackupManager:
         sources: dict[str, Path] | None = None,
         letsencrypt: Path | None = None,
         systemd_dir: Path | None = None,
+        webservers: dict[str, Path] | None = None,
+        database_service: Callable[[], Any] | None = None,
     ) -> None:
         """
         Args:
@@ -306,6 +323,11 @@ class SelfBackupManager:
                 server's own directories by default.
             letsencrypt: The certificates' directory.
             systemd_dir: Where the units are.
+            webservers: The web servers' configuration directories by label (``nginx``,
+                ``apache2``, ``httpd``); the server's own by default. One that does not
+                exist is not in the bundle.
+            database_service: Builds the service that resolves an engine to its manager,
+                for the roles of the PostgreSQL servers; the real one by default.
         """
         self._runner = runner
         self._fs = fs
@@ -320,6 +342,10 @@ class SelfBackupManager:
         self._sources = sources
         self.letsencrypt = letsencrypt if letsencrypt is not None else CertManager.LETSENCRYPT_DIR
         self.systemd_dir = systemd_dir if systemd_dir is not None else SYSTEMD_DIR
+        self._database_service = database_service
+        self.webservers = (
+            dict(webservers) if webservers is not None else dict(paths.WEBSERVER_CONFIG_DIRS)
+        )
 
     # ------------------------------------------------------------ plumbing
 
@@ -451,13 +477,16 @@ class SelfBackupManager:
         Returns:
             Label to this server's directory: ``config`` and ``state``
             whether or not they exist yet, any other directory this server
-            backs up under the same label, ``letsencrypt`` and ``units``.
+            backs up under the same label, ``letsencrypt``, ``units`` and the web servers'
+            directories.
         """
         known = dict(self._labels())
         known.setdefault("config", paths.config_dir())
         known.setdefault("state", paths.state_dir())
         known["letsencrypt"] = self.letsencrypt
         known["units"] = self.systemd_dir
+        known.update(self.webservers)
+        known[PG_GLOBALS_LABEL] = known["state"] / PG_GLOBALS_LABEL
         return known
 
     def _stage_letsencrypt(self, staging: Path, manifest: dict[str, Any]) -> None:
@@ -468,10 +497,45 @@ class SelfBackupManager:
             staging: The archive's root directory.
             manifest: Filled with ``files``, ``links`` and ``skipped``.
         """
-        root = self.letsencrypt
+        self._stage_tree("letsencrypt", self.letsencrypt, staging, manifest)
+
+    def _stage_webservers(self, staging: Path, manifest: dict[str, Any]) -> None:
+        """
+        Copy each web server's configuration directory that exists, with each file's mode.
+
+        Args:
+            staging: The archive's root directory.
+            manifest: Filled with ``files``, ``links`` and ``skipped``.
+        """
+        for label, root in self.webservers.items():
+            self._stage_tree(label, root, staging, manifest, keep_modes=True)
+
+    def _stage_tree(
+        self,
+        label: str,
+        root: Path,
+        staging: Path,
+        manifest: dict[str, Any],
+        *,
+        keep_modes: bool = False,
+    ) -> None:
+        """
+        Copy a directory tree, never following a link, and record its links.
+
+        A link that stays inside the tree is recorded relative to where it is (Debian's
+        ``sites-enabled`` links to an absolute path of the same tree, which a restore on
+        another layout would not accept); one that leaves the tree is left out and said.
+
+        Args:
+            label: What the tree is called in the bundle.
+            root: The directory.
+            staging: The archive's root directory.
+            manifest: Filled with ``files``, ``links`` and ``skipped``.
+            keep_modes: Record each file's permission bits, so a restore gives them back
+                (a web server's private key stays private and its configuration readable).
+        """
         if not root.is_dir() or root.is_symlink():
             return
-        label = "letsencrypt"
         manifest["sources"][label] = str(root)
         for directory, dirnames, filenames in os.walk(root, followlinks=False):
             current = Path(directory)
@@ -484,32 +548,109 @@ class SelfBackupManager:
                 if full.is_symlink():
                     target = os.readlink(full)
                     resolved = Path(os.path.normpath(os.path.join(full.parent, target)))
-                    if os.path.isabs(target) or not resolved.is_relative_to(root):
+                    if not resolved.is_relative_to(root):
+                        manifest["skipped"].append(
+                            {"path": relative, "reason": "link out of the tree"}
+                        )
+                    elif os.path.isabs(target) and not keep_modes:
                         manifest["skipped"].append(
                             {"path": relative, "reason": "link out of the tree"}
                         )
                     else:
-                        manifest["links"].append({"path": relative, "target": target})
+                        manifest["links"].append(
+                            {
+                                "path": relative,
+                                "target": os.path.relpath(resolved, full.parent)
+                                if os.path.isabs(target)
+                                else target,
+                            }
+                        )
                     if name in dirnames:
                         # A link to a directory is a link, not a place to walk into.
                         dirnames.remove(name)
                     continue
                 if name in filenames:
-                    if not stat.S_ISREG(full.lstat().st_mode):
+                    status = full.lstat()
+                    if not stat.S_ISREG(status.st_mode):
                         manifest["skipped"].append(
                             {"path": relative, "reason": "not a regular file"}
+                        )
+                        continue
+                    if keep_modes and status.st_size > _MAX_CONFIG_FILE:
+                        manifest["skipped"].append(
+                            {"path": relative, "reason": "larger than a configuration file"}
                         )
                         continue
                     destination = target_dir / name
                     shutil.copyfile(full, destination, follow_symlinks=False)
                     os.chmod(destination, SECRET_MODE)
-                    manifest["files"].append(
-                        {
-                            "path": relative,
-                            "size": destination.stat().st_size,
-                            "sha256": file_sha256(destination),
-                        }
-                    )
+                    entry: dict[str, Any] = {
+                        "path": relative,
+                        "size": destination.stat().st_size,
+                        "sha256": file_sha256(destination),
+                    }
+                    if keep_modes:
+                        entry["mode"] = stat.S_IMODE(status.st_mode)
+                    manifest["files"].append(entry)
+
+    def _stage_pg_globals(self, staging: Path, manifest: dict[str, Any]) -> None:
+        """
+        Dump the roles of each PostgreSQL server a database of the store lives on.
+
+        A database dump carries none of its roles, and the restore of a server needs them
+        before it loads a dump. They are in the bundle because it is sealed: the file holds
+        the roles' password hashes. A server whose roles cannot be dumped is said in the
+        manifest and does not fail the bundle.
+
+        Args:
+            staging: The archive's root directory.
+            manifest: Filled with ``pg_globals``, ``files``, ``skipped`` and ``sources``.
+        """
+        from noust.managers.database.instances import engine_of, storage_name
+
+        manifest["pg_globals"] = []
+        try:
+            engines = sorted({row.engine for row in self.store.list_databases()})
+        except (NoustError, sqlite3.Error) as exc:
+            self.logger.warning(f"Could not list the databases to dump their roles: {exc}")
+            return
+        engines = [engine for engine in engines if engine_of(engine) == "postgresql"]
+        if not engines:
+            return
+        if self._database_service is not None:
+            service = self._database_service()
+        else:
+            from noust.managers.database.service import DatabaseService
+
+            service = DatabaseService(logger=self.logger)
+        for engine in engines:
+            relative = f"{PG_GLOBALS_LABEL}/{storage_name(engine)}.sql"
+            target = staging / relative
+            self.fs.make_dir(target.parent, mode=SECRET_DIR_MODE, parents=True)
+            try:
+                manager = service.manager(engine)
+                if not getattr(manager, "HAS_GLOBALS", False):
+                    continue
+                info = manager.backup_globals(output_path=target, compress=False)
+                if Path(info.path) != target:
+                    shutil.move(str(info.path), target)
+            except (NoustError, OSError) as exc:
+                manifest["skipped"].append(
+                    {
+                        "path": relative,
+                        "reason": f"the roles of {engine} could not be dumped: {exc}",
+                    }
+                )
+                self.fs.remove(target)
+                continue
+            os.chmod(target, SECRET_MODE)
+            manifest["sources"][PG_GLOBALS_LABEL] = str(
+                self._labels().get("state", paths.state_dir()) / PG_GLOBALS_LABEL
+            )
+            manifest["files"].append(
+                {"path": relative, "size": target.stat().st_size, "sha256": file_sha256(target)}
+            )
+            manifest["pg_globals"].append({"engine": engine, "path": relative})
 
     def _enabled_names(self) -> set[str]:
         """
@@ -607,6 +748,10 @@ class SelfBackupManager:
             "seal_header": any(name.endswith(f"/{sealing.SEAL_FILE}") for name in names),
             "certificates": any(name.startswith("letsencrypt/archive/") for name in names),
             "units": len(manifest["enabled_units"]),
+            "webservers": sorted(
+                label for label in paths.WEBSERVER_CONFIG_DIRS if label in manifest["sources"]
+            ),
+            "pg_globals": len(manifest.get("pg_globals", [])),
         }
 
     def _store_version(self, snapshot: Path) -> int | None:
@@ -699,6 +844,8 @@ class SelfBackupManager:
                         label, directory, staging, manifest, exclude, self.fs, SKIP_FILES
                     )
                 self._stage_letsencrypt(staging, manifest)
+                self._stage_webservers(staging, manifest)
+                self._stage_pg_globals(staging, manifest)
                 self._stage_units(staging, manifest)
                 manifest["contains"] = self._contains(manifest)
                 snapshot = next(
@@ -1336,6 +1483,8 @@ class SelfBackupManager:
         enabled: bool = True,
         retention_gb: float | None = None,
         remote_only: bool = False,
+        max_runtime: int | str | None = None,
+        zone: str | None = None,
     ) -> dict[str, Any]:
         """
         Create or replace the schedule, and its timer.
@@ -1357,6 +1506,9 @@ class SelfBackupManager:
                 in gigabytes (the newest always stays); None for no limit by size.
             remote_only: Delete each scheduled bundle from this server once every
                 destination holds it and its upload was checked. It needs a destination.
+            max_runtime: The longest a run may take (seconds, or ``90m``/``2h``); systemd stops
+                a run past it. None for no limit.
+            zone: The time zone the schedule is read in; None for the server's clock.
 
         Returns:
             The schedule as :meth:`get_schedule` describes it.
@@ -1366,6 +1518,7 @@ class SelfBackupManager:
             BackupError: When the timer cannot be made.
         """
         calendar = validate_calendar(schedule)
+        timer_options = validate_options(max_runtime, zone)
         count = _limit(retention_count, MAX_RETENTION_COUNT, "retention_count")
         days = _limit(retention_days, MAX_RETENTION_DAYS, "retention_days")
         budget = check_gigabytes(retention_gb, "retention_gb")
@@ -1408,7 +1561,7 @@ class SelfBackupManager:
                 field="passphrase",
             )
         if enabled:
-            self.scheduler.install_self_backup_timer(calendar)
+            self.scheduler.install_self_backup_timer(calendar, options=timer_options)
         else:
             self.scheduler.remove_self_backup_timer()
         self.records.save(
@@ -1429,6 +1582,8 @@ class SelfBackupManager:
             retention_days=days,
             retention_gb=budget,
             remote_only=remote_only,
+            max_runtime_seconds=timer_options.max_runtime_seconds,
+            timezone=timer_options.timezone,
             destinations=[entry["name"] for entry in checked],
             enabled=enabled,
         )
@@ -1517,7 +1672,8 @@ class SelfBackupManager:
             text = str(exc)
             if self.records.get():
                 self.records.record_run(ok=False, error=text, file=result["file"])
-            announce(lambda: compose_backup_failed(None, text, context))
+            failure_id = record_failure("backup", "Noust", text)
+            announce(lambda: compose_backup_failed(None, text, context, failure_id=failure_id))
             raise
 
         failures: list[tuple[str, str]] = []
@@ -1538,7 +1694,12 @@ class SelfBackupManager:
                 failures.append((name, str(exc)))
                 announce(
                     functools.partial(
-                        compose_backup_upload_failed, "Noust", name, str(exc), context
+                        compose_backup_upload_failed,
+                        "Noust",
+                        name,
+                        str(exc),
+                        context,
+                        failure_id=record_failure("upload", "Noust", str(exc), destination=name),
                     )
                 )
         step("Applying local retention")
