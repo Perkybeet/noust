@@ -1057,12 +1057,41 @@
         "type": "object"
       },
       "AddAppDomainRequest": {
-        "description": "A domain to add to an application.\n\nAttributes:\n    domain: The bare domain name; ``*.example.com`` for a wildcard alias.\n    kind: ``alias`` or ``redirect``.\n    force: Add the name although another site of the web server already answers on it.\n    port: Proxy this name to another port of the application than its own.\n    dns: Point the name at this server in the DNS account that holds its zone.",
+        "description": "A domain to add to an application.\n\nAttributes:\n    domain: The bare domain name; ``*.example.com`` for a wildcard alias.\n    kind: ``alias`` or ``redirect``.\n    force: Add the name although another site of the web server already answers on it.\n    port: Proxy this name to another port of the application than its own.\n    dns: Point the name at this server in the DNS account that holds its zone.\n    certificate: ``own`` to give the name a certificate of its own instead of covering it\n        with the application's.\n    challenge: How that certificate is proven, ``http-01`` or ``dns-01``; the application's\n        own way by default.\n    dns_provider: The DNS account that answers ``dns-01``.",
         "properties": {
+          "certificate": {
+            "default": "shared",
+            "description": "shared or own",
+            "title": "Certificate",
+            "type": "string"
+          },
+          "challenge": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "http-01 or dns-01",
+            "title": "Challenge"
+          },
           "dns": {
             "default": true,
             "title": "Dns",
             "type": "boolean"
+          },
+          "dns_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dns Provider"
           },
           "domain": {
             "title": "Domain",
@@ -2502,8 +2531,18 @@
         "type": "object"
       },
       "AppDomain": {
-        "description": "One domain an application answers on.\n\nAttributes:\n    domain: The domain.\n    kind: ``primary`` (the domain the application was deployed as),\n        ``alias`` (served the same) or ``redirect`` (sent permanently to\n        the primary).\n    created_at: When it was added, ISO 8601 with an explicit UTC offset.\n    port: The port of the application this name is proxied to, when it is not\n        the application's own.\n    temporary: Whether it is a name made of this server's address (sslip.io), good\n        for trying an application out and not for keeping.\n    enabled: Whether it is served. A name that is switched off keeps its row and its\n        port; the site and the certificate leave it out.",
+        "description": "One domain an application answers on.\n\nAttributes:\n    domain: The domain.\n    kind: ``primary`` (the domain the application was deployed as),\n        ``alias`` (served the same) or ``redirect`` (sent permanently to\n        the primary).\n    created_at: When it was added, ISO 8601 with an explicit UTC offset.\n    port: The port of the application this name is proxied to, when it is not\n        the application's own.\n    temporary: Whether it is a name made of this server's address (sslip.io), good\n        for trying an application out and not for keeping.\n    enabled: Whether it is served. A name that is switched off keeps its row and its\n        port; the site and the certificate leave it out.\n    certificate: ``shared`` when the application's certificate covers the name, ``own`` when\n        it holds one of its own (a lineage named after it and a server block for it).\n    served_by: The certificate that presents the name: a lineage certbot keeps (the\n        application's, or the name's own) or an uploaded certificate. For a name whose own\n        certificate is not issued yet, the shared one, which serves it meanwhile.\n    certificate_pending: Whether the name asked for a certificate of its own that is not\n        issued yet.",
         "properties": {
+          "certificate": {
+            "default": "shared",
+            "title": "Certificate",
+            "type": "string"
+          },
+          "certificate_pending": {
+            "default": false,
+            "title": "Certificate Pending",
+            "type": "boolean"
+          },
           "created_at": {
             "anyOf": [
               {
@@ -2538,6 +2577,17 @@
               }
             ],
             "title": "Port"
+          },
+          "served_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Served By"
           },
           "temporary": {
             "default": false,
@@ -7811,7 +7861,7 @@
         "type": "object"
       },
       "CertInfo": {
-        "description": "One certificate as certbot reports it.\n\nAttributes:\n    domain: Certificate (lineage) name.\n    domains: Every domain the certificate covers.\n    valid_until: Raw expiry line from certbot, including its validity note.\n    expires_on: Expiry date as ``YYYY-MM-DD`` when it could be parsed.\n    days_remaining: Whole days until expiry, negative once expired.\n    auto_renew: Whether certbot's renewal timer covers this certificate.\n    path: Directory holding the certificate files.\n    key_path: Path of the private key. The key itself is never read.\n    issuer: The certificate authority that signed it, read from the\n        certificate itself. None when it could not be read.\n    source: ``letsencrypt`` for a lineage certbot keeps (whichever authority\n        issued it), ``custom`` for one that was uploaded, which is never renewed.\n    challenge: How it is renewed: ``http-01`` or ``dns-01``; empty for an upload.",
+        "description": "One certificate as certbot reports it.\n\nAttributes:\n    domain: Certificate (lineage) name.\n    domains: Every domain the certificate covers.\n    valid_until: Raw expiry line from certbot, including its validity note.\n    expires_on: Expiry date as ``YYYY-MM-DD`` when it could be parsed.\n    days_remaining: Whole days until expiry, negative once expired.\n    auto_renew: Whether certbot's renewal timer covers this certificate.\n    path: Directory holding the certificate files.\n    key_path: Path of the private key. The key itself is never read.\n    issuer: The certificate authority that signed it, read from the\n        certificate itself. None when it could not be read.\n    source: ``letsencrypt`` for a lineage certbot keeps (whichever authority\n        issued it), ``custom`` for one that was uploaded, which is never renewed.\n    challenge: How it is renewed: ``http-01`` or ``dns-01``; empty for an upload.\n    serves: The names of the applications this certificate presents: all of an\n        application's for its shared certificate, one for a certificate a name holds on\n        its own. Only the names the caller may see.",
         "properties": {
           "auto_renew": {
             "default": true,
@@ -7889,6 +7939,14 @@
               }
             ],
             "title": "Path"
+          },
+          "serves": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Serves",
+            "type": "array"
           },
           "source": {
             "default": "letsencrypt",
@@ -17461,6 +17519,44 @@
           "items"
         ],
         "title": "DoctorSectionOut",
+        "type": "object"
+      },
+      "DomainCertificateRequest": {
+        "description": "Whether a name holds a certificate of its own.\n\nAttributes:\n    certificate: ``own`` for a certificate kept under the name, ordered for it alone;\n        ``shared`` to cover it with the application's again.\n    challenge: With ``own``, how it is proven: ``http-01`` or ``dns-01``. What it already had,\n        else the application's own way.\n    dns_provider: The DNS account that answers ``dns-01``.",
+        "properties": {
+          "certificate": {
+            "description": "own or shared",
+            "title": "Certificate",
+            "type": "string"
+          },
+          "challenge": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "http-01 or dns-01",
+            "title": "Challenge"
+          },
+          "dns_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dns Provider"
+          }
+        },
+        "required": [
+          "certificate"
+        ],
+        "title": "DomainCertificateRequest",
         "type": "object"
       },
       "DomainEnabledRequest": {
@@ -67643,6 +67739,69 @@
         ],
         "x-noust-permission": "apps.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/domains/{name}/certificate": {
+      "put": {
+        "description": "Give a name a certificate of its own, or back to the application's.\n\nCertbot never runs on the request path: the change is queued as a job and its id returned\nas ``certificate_job_id``. The certificate is ordered while the site goes on serving the\nname as it did, and only then does the site get a server block for it; if the order fails\nthe job fails with certbot's own words and nothing has changed.\n\nArgs:\n    domain: The application's primary domain.\n    name: The alias or redirect.\n    data: Whether the name holds a certificate of its own, and how it is proven.\n    session: Authenticated session, injected.\n\nReturns:\n    The application's domains as they are now, and the job.\n\nRaises:\n    ValidationError: The mode or the way of proving it is not acceptable (400).\n    DomainError: The name is not the application's, or is its primary (400).",
+        "operationId": "put_domain_certificate_api_apps__domain__domains__name__certificate_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainCertificateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppDomainChange"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Domain Certificate",
+        "tags": [
+          "Domains"
+        ],
+        "x-noust-permission": "apps.manage"
       }
     },
     "/api/apps/{domain}/domains/{name}/dns": {

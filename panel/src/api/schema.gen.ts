@@ -2443,6 +2443,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/domains/{name}/certificate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Domain Certificate
+         * @description Give a name a certificate of its own, or back to the application's.
+         *
+         *     Certbot never runs on the request path: the change is queued as a job and its id returned
+         *     as ``certificate_job_id``. The certificate is ordered while the site goes on serving the
+         *     name as it did, and only then does the site get a server block for it; if the order fails
+         *     the job fails with certbot's own words and nothing has changed.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         name: The alias or redirect.
+         *         data: Whether the name holds a certificate of its own, and how it is proven.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The application's domains as they are now, and the job.
+         *
+         *     Raises:
+         *         ValidationError: The mode or the way of proving it is not acceptable (400).
+         *         DomainError: The name is not the application's, or is its primary (400).
+         */
+        put: operations["put_domain_certificate_api_apps__domain__domains__name__certificate_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/domains/{name}/dns": {
         parameters: {
             query?: never;
@@ -29610,13 +29648,31 @@ export interface components {
          *         force: Add the name although another site of the web server already answers on it.
          *         port: Proxy this name to another port of the application than its own.
          *         dns: Point the name at this server in the DNS account that holds its zone.
+         *         certificate: ``own`` to give the name a certificate of its own instead of covering it
+         *             with the application's.
+         *         challenge: How that certificate is proven, ``http-01`` or ``dns-01``; the application's
+         *             own way by default.
+         *         dns_provider: The DNS account that answers ``dns-01``.
          */
         AddAppDomainRequest: {
+            /**
+             * Certificate
+             * @description shared or own
+             * @default shared
+             */
+            certificate: string;
+            /**
+             * Challenge
+             * @description http-01 or dns-01
+             */
+            challenge?: string | null;
             /**
              * Dns
              * @default true
              */
             dns: boolean;
+            /** Dns Provider */
+            dns_provider?: string | null;
             /** Domain */
             domain: string;
             /**
@@ -30255,8 +30311,25 @@ export interface components {
          *             for trying an application out and not for keeping.
          *         enabled: Whether it is served. A name that is switched off keeps its row and its
          *             port; the site and the certificate leave it out.
+         *         certificate: ``shared`` when the application's certificate covers the name, ``own`` when
+         *             it holds one of its own (a lineage named after it and a server block for it).
+         *         served_by: The certificate that presents the name: a lineage certbot keeps (the
+         *             application's, or the name's own) or an uploaded certificate. For a name whose own
+         *             certificate is not issued yet, the shared one, which serves it meanwhile.
+         *         certificate_pending: Whether the name asked for a certificate of its own that is not
+         *             issued yet.
          */
         AppDomain: {
+            /**
+             * Certificate
+             * @default shared
+             */
+            certificate: string;
+            /**
+             * Certificate Pending
+             * @default false
+             */
+            certificate_pending: boolean;
             /** Created At */
             created_at?: string | null;
             /** Domain */
@@ -30270,6 +30343,8 @@ export interface components {
             kind: string;
             /** Port */
             port?: number | null;
+            /** Served By */
+            served_by?: string | null;
             /**
              * Temporary
              * @default false
@@ -33165,6 +33240,9 @@ export interface components {
          *         source: ``letsencrypt`` for a lineage certbot keeps (whichever authority
          *             issued it), ``custom`` for one that was uploaded, which is never renewed.
          *         challenge: How it is renewed: ``http-01`` or ``dns-01``; empty for an upload.
+         *         serves: The names of the applications this certificate presents: all of an
+         *             application's for its shared certificate, one for a certificate a name holds on
+         *             its own. Only the names the caller may see.
          */
         CertInfo: {
             /**
@@ -33194,6 +33272,11 @@ export interface components {
             key_path?: string | null;
             /** Path */
             path?: string | null;
+            /**
+             * Serves
+             * @default []
+             */
+            serves: string[];
             /**
              * Source
              * @default letsencrypt
@@ -38308,6 +38391,31 @@ export interface components {
             items: components["schemas"]["DoctorItemOut"][];
             /** Title */
             title: string;
+        };
+        /**
+         * DomainCertificateRequest
+         * @description Whether a name holds a certificate of its own.
+         *
+         *     Attributes:
+         *         certificate: ``own`` for a certificate kept under the name, ordered for it alone;
+         *             ``shared`` to cover it with the application's again.
+         *         challenge: With ``own``, how it is proven: ``http-01`` or ``dns-01``. What it already had,
+         *             else the application's own way.
+         *         dns_provider: The DNS account that answers ``dns-01``.
+         */
+        DomainCertificateRequest: {
+            /**
+             * Certificate
+             * @description own or shared
+             */
+            certificate: string;
+            /**
+             * Challenge
+             * @description http-01 or dns-01
+             */
+            challenge?: string | null;
+            /** Dns Provider */
+            dns_provider?: string | null;
         };
         /**
          * DomainEnabledRequest
@@ -65581,6 +65689,42 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppDomainChange"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_domain_certificate_api_apps__domain__domains__name__certificate_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DomainCertificateRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

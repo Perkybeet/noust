@@ -2,7 +2,8 @@
 
 An application in Noust answers on one primary domain and any number of aliases and
 redirects. Every name is a row in the store, the web server site is rendered from those rows,
-and one certificate covers all of them.
+and one certificate covers all of them, unless a name asks for one of its own
+([certificates.md](certificates.md#a-certificate-for-one-name)).
 
 ## Kinds
 
@@ -39,6 +40,8 @@ noust domain add shop.example.com api.example.com --no-dns
 noust domain port shop.example.com admin.example.com 9100    # or "none" for the application's own
 noust domain canonical shop.example.com www                  # www, apex or none
 noust domain certificate shop.example.com [--reduce]         # bring the certificate in line with the names
+noust domain certificate shop.example.com admin.example.com --own   # a certificate of its own for one name
+noust domain add shop.example.com api.example.com --own-certificate
 ```
 
 - **A wildcard** (`*.example.com`) is an alias that takes every name one level under it. Its
@@ -59,6 +62,12 @@ noust domain certificate shop.example.com [--reduce]         # bring the certifi
   name lets go of it (it is deleted only if Noust made it and nothing else uses it). `--no-dns`
   leaves DNS alone.
 
+- **A certificate of its own.** A name can hold a certificate that covers it alone
+  (`--own`, or `--own-certificate` when adding it): a lineage named after it, a server block of its
+  own, and the application's certificate stops naming it. It is ordered before the site changes, and
+  a refusal changes nothing. [certificates.md](certificates.md#a-certificate-for-one-name) has the
+  order of the steps, how it is proven (HTTP-01 or a DNS account) and how it is renewed. Removing
+  the name deletes just that lineage. `noust domain list` says which certificate serves each name.
 - **Switching a name off.** `noust domain disable` lets a name rest without forgetting it: the
   application stops answering on it, and its row, its kind, its port and the DNS record Noust made
   for it stay. The site is rendered again without the name, the web server tests it before the
