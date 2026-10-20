@@ -20,9 +20,10 @@ import { Mono } from "../../../components/ui/Mono";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import { formatBytes, formatBytesPair } from "../../../lib/format";
-import { ServerErrorBlock, useServerConfirm } from "../errors";
+import { useServerConfirm, ServerQueryState } from "../errors";
 import { serverKeys, swapQuery } from "../queries";
 import { useServerJob } from "../serverJob";
+import type { Swap } from "../queries";
 
 const MIB = 1024 ** 2;
 
@@ -30,30 +31,31 @@ type Opened = "create" | "remove" | "swappiness" | null;
 
 export function SwapCard() {
   const t = useT();
+  const swap = useQuery(swapQuery());
+  return (
+    <ServerQueryState
+      query={swap}
+      label={t("server.swap.label")}
+      skeleton={
+        // The header keeps the room of its action, so the card's body does not drop when it lands.
+        <Card loading level={2} title={t("server.swap.title")} padding="sm" actions={<Skeleton className="h-control-sm w-32 rounded-control" />}>
+          <Skeleton className="h-32 w-full" />
+        </Card>
+      }
+    >
+      {(data) => <SwapPanel data={data} />}
+    </ServerQueryState>
+  );
+}
+
+function SwapPanel({ data }: { data: Swap }) {
+  const t = useT();
   const jobs = useServerJob();
   const queryClient = useQueryClient();
   const confirmation = useServerConfirm();
-  const swap = useQuery(swapQuery());
   const [opened, setOpened] = useState<Opened>(null);
   const [size, setSize] = useState("");
   const [swappiness, setSwappiness] = useState("");
-
-  if (swap.isError && swap.data === undefined) {
-    return (
-      <Card level={2} title={t("server.swap.title")} padding="sm">
-        <ServerErrorBlock compact error={swap.error} title={t("server.swap.loadFailed")} onRetry={() => void swap.refetch()} />
-      </Card>
-    );
-  }
-  if (swap.data === undefined) {
-    return (
-      // The header keeps the room of its action, so the card's body does not drop when it lands.
-      <Card loading level={2} title={t("server.swap.title")} padding="sm" actions={<Skeleton className="h-control-sm w-32 rounded-control" />}>
-        <Skeleton className="h-32 w-full" />
-      </Card>
-    );
-  }
-  const data = swap.data;
   const none = data.total_bytes === 0;
   const suggestedMb = Math.max(256, Math.round(data.suggested_bytes / MIB));
   const items: KeyValueItem[] = [

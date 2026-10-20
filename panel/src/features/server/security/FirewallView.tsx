@@ -29,17 +29,17 @@ import { Menu, MenuItem } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
-import { LoadingRegion } from "../../../components/page/LoadingRegion";
-import { Skeleton } from "../../../components/ui/Skeleton";
+import { SkeletonSection } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import type { Status } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
-import { ServerErrorBlock, useServerConfirm } from "../errors";
+import { ServerErrorBlock, useServerConfirm, ServerQueryState } from "../errors";
 import { typedHost } from "../friction";
 import { firewallQuery, identityQuery } from "../queries";
 import type { Firewall, FirewallRule, ListeningPort } from "../queries";
 import { useServerJob } from "../serverJob";
+import { SystemOutput } from "../../../components/ui/SystemOutput";
 
 /** A port that is open by accident: a database or internal service answering everyone, or Docker around the firewall. */
 export function isExposed(port: Pick<ListeningPort, "verdict" | "risky" | "reachable">): boolean {
@@ -203,26 +203,23 @@ function Protected({ firewall }: { firewall: Firewall }) {
 /** The firewall view of the Security tab. */
 export function FirewallView() {
   const t = useT();
+  const query = useQuery(firewallQuery());
+  return (
+    <ServerQueryState query={query} label={t("server.firewall.label")} skeleton={<SkeletonSection rows={4} />}>
+      {(data) => <FirewallPanel data={data} />}
+    </ServerQueryState>
+  );
+}
+
+function FirewallPanel({ data }: { data: Firewall }) {
+  const t = useT();
   const confirmation = useServerConfirm();
   const jobs = useServerJob();
-  const query = useQuery(firewallQuery());
   const identity = useQuery(identityQuery());
   const hostname = identity.data?.hostname.hostname ?? "";
   const [opened, setOpened] = useState<Opened>(null);
   const [rule, setRule] = useState({ action: "allow", port: "", proto: "tcp", source: "any", comment: "" });
 
-  if (query.isError && query.data === undefined) {
-    return <ServerErrorBlock error={query.error} title={t("server.firewall.loadFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} />;
-  }
-  if (query.data === undefined) {
-    return (
-      <LoadingRegion label={t("server.firewall.loading")} className="flex flex-col gap-4">
-        <Skeleton className="h-5 w-72" />
-        <Skeleton className="h-64 w-full rounded-card" />
-      </LoadingRegion>
-    );
-  }
-  const data = query.data;
   const state = data.firewall;
   const bypass = data.ports.filter((port) => port.verdict === "docker_bypass");
   const exposed = data.ports.filter((port) => port.verdict !== "docker_bypass" && port.risky !== "" && port.reachable);
@@ -285,14 +282,8 @@ export function FirewallView() {
         </Notice>
       ) : null}
       {state.warnings.length + state.others.length > 0 ? (
-        // What the firewall tool itself said, one condition among several: one notice, not a stack of them.
-        <Notice tone="warning">
-          <ul className="flex flex-col gap-1">
-            {[...state.warnings, ...state.others].map((warning) => (
-              <li key={warning}>{warning}</li>
-            ))}
-          </ul>
-        </Notice>
+        // What the firewall tool itself said is shown as it said it, not as a third banner.
+        <SystemOutput label={t("server.firewall.toolSaid")}>{[...state.warnings, ...state.others].join("\n")}</SystemOutput>
       ) : null}
       <Ports firewall={data} />
       {state.backend !== "none" ? <Rules firewall={data} onDelete={(target) => setOpened({ kind: "delete", rule: target })} /> : null}

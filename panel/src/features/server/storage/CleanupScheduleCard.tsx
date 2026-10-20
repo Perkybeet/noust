@@ -29,7 +29,7 @@ import type { T } from "../../../i18n";
 import { calendarWords } from "../../cron/data";
 import { ScheduleFields } from "../../backups/policy/ScheduleFields";
 import { scheduleExpression } from "../../databases/backups/schedule";
-import { ServerErrorBlock, useServerConfirm } from "../errors";
+import { useServerConfirm, ServerQueryState } from "../errors";
 import { cleanupScheduleQuery, serverKeys } from "../queries";
 import type { CleanupPolicy, CleanupSchedule } from "../queries";
 import { useServerJob } from "../serverJob";
@@ -173,13 +173,13 @@ function PolicyEditor({ schedule, open, onOpenChange }: EditorProps) {
           </Field>
         ) : null}
         {docker ? (
-          <Notice tone="warning" title={t("server.storage.schedule.dockerTitle")}>
-            <div className="flex flex-col gap-3">
-              <p>{t("server.storage.schedule.dockerBody")}</p>
-              <Checkbox checked={draft.allowDocker} onCheckedChange={(allowDocker) => setDraft((previous) => ({ ...previous, allowDocker }))} label={t("server.storage.schedule.dockerAccept")} />
-              {tried && !draft.allowDocker ? <p className="text-12 text-fail">{t("server.storage.schedule.dockerRequired")}</p> : null}
-            </div>
-          </Notice>
+          <div className="flex flex-col gap-3">
+            <Notice tone="warning" title={t("server.storage.schedule.dockerTitle")}>
+              {t("server.storage.schedule.dockerBody")}
+            </Notice>
+            <Checkbox checked={draft.allowDocker} onCheckedChange={(allowDocker) => setDraft((previous) => ({ ...previous, allowDocker }))} label={t("server.storage.schedule.dockerAccept")} />
+            {tried && !draft.allowDocker ? <p className="text-12 text-fail">{t("server.storage.schedule.dockerRequired")}</p> : null}
+          </div>
         ) : null}
         {save.isError ? <ErrorBlock live compact error={save.error} title={t("server.storage.schedule.saveFailed")} /> : null}
       </form>
@@ -190,27 +190,28 @@ function PolicyEditor({ schedule, open, onOpenChange }: EditorProps) {
 /** Automatic cleanup: the policy, its timer, Edit and Run now. */
 export function CleanupScheduleCard() {
   const t = useT();
+  const query = useQuery(cleanupScheduleQuery());
+  return (
+    <ServerQueryState
+      query={query}
+      label={t("server.storage.schedule.label")}
+      skeleton={
+        <Card loading level={2} title={t("server.storage.schedule.title")} padding="sm" actions={<Skeleton className="h-control-sm w-24 rounded-control" />}>
+          <Skeleton className="h-32 w-full" />
+        </Card>
+      }
+    >
+      {(schedule) => <CleanupSchedulePanel schedule={schedule} />}
+    </ServerQueryState>
+  );
+}
+
+function CleanupSchedulePanel({ schedule }: { schedule: CleanupSchedule }) {
+  const t = useT();
   const confirmation = useServerConfirm();
   const jobs = useServerJob();
-  const query = useQuery(cleanupScheduleQuery());
   const [editing, setEditing] = useState(false);
   const [running, setRunning] = useState(false);
-
-  if (query.isError && query.data === undefined) {
-    return (
-      <Card level={2} title={t("server.storage.schedule.title")} padding="sm">
-        <ServerErrorBlock compact error={query.error} title={t("server.storage.schedule.loadFailed")} onRetry={() => void query.refetch()} />
-      </Card>
-    );
-  }
-  if (query.data === undefined) {
-    return (
-      <Card loading level={2} title={t("server.storage.schedule.title")} padding="sm" actions={<Skeleton className="h-control-sm w-24 rounded-control" />}>
-        <Skeleton className="h-32 w-full" />
-      </Card>
-    );
-  }
-  const schedule = query.data;
   const policy = schedule.policy;
   const on = policy.enabled && schedule.timer.installed;
   const items: KeyValueItem[] = [

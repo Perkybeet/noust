@@ -106,7 +106,7 @@ export const approvals = {
     caption: "Approval requests",
     noneWaiting: "Nothing waits for approval.",
     none: "No requests here.",
-    loadFailed: "Could not load the requests",
+    what: "the requests",
     fromTerminal: "From a terminal",
   },
   table: {

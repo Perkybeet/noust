@@ -12,7 +12,6 @@ import { useState } from "react";
 
 import { request } from "../../../api/client";
 import { CommandHint } from "../../../components/page/CommandHint";
-import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { SettingsGroup } from "../../../components/page/SettingsGroup";
 import { Badge } from "../../../components/ui/Badge";
@@ -27,7 +26,7 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Setting } from "../../../components/ui/Setting";
-import { Skeleton } from "../../../components/ui/Skeleton";
+import { Skeleton, SkeletonCard, SkeletonText } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import type { Status } from "../../../components/ui/StatusPill";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
@@ -36,7 +35,7 @@ import type { T } from "../../../i18n";
 import { NodeCapabilityGate } from "../../../nodes/capability";
 import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";
-import { ServerErrorBlock, explainServerError, useServerConfirm } from "../errors";
+import { ServerErrorBlock, explainServerError, useServerConfirm, ServerQueryState } from "../errors";
 import { usePowerDialog } from "../PowerDialog";
 import { SERVER_CAPABILITY, restartPlanQuery, updateRunsQuery, updatesQuery } from "../queries";
 import type { UpdatePackage, UpdateRun, UpdateScope, Updates } from "../queries";
@@ -305,46 +304,41 @@ function RestartDialog({ onClose }: { onClose: () => void }) {
         jobs.track(accepted.job_id, "restarts");
       }}
     >
-      {plan.isError && plan.data === undefined ? (
-        <ServerErrorBlock compact error={plan.error} title={t("server.updates.stale.planFailed")} onRetry={() => void plan.refetch()} />
-      ) : plan.data === undefined ? (
-        <LoadingRegion label={t("server.updates.stale.loading")} className="flex flex-col gap-2">
-          <Skeleton className="h-4 w-40" />
-          <Skeleton className="h-16 w-full rounded-control" />
-        </LoadingRegion>
-      ) : (
-        <>
-          {none ? (
-            <p className="text-13 text-fg-muted">{t("server.updates.stale.noneCanRestart")}</p>
-          ) : (
-            <div className="flex flex-col gap-1.5">
-              <p className="text-13 font-medium text-fg">{t("server.updates.stale.order")}</p>
-              <ol aria-label={t("server.updates.stale.order")} className="flex flex-col gap-1 rounded-control border border-border bg-bg-sunken p-2.5">
-                {restart.map((unit) => (
-                  <li key={unit} className="text-12">
-                    <Mono>{unit}</Mono>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
-          {refused.length > 0 ? (
-            <div className="flex flex-col gap-1.5">
-              <p className="text-13 font-medium text-fg">{t("server.updates.stale.refusedTitle")}</p>
-              <ul aria-label={t("server.updates.stale.refusedLabel")} className="flex flex-col gap-1.5">
-                {refused.map((item) => (
-                  <li key={item.unit} className="flex flex-col text-13">
-                    <Mono>{item.unit}</Mono>
-                    {/* The backend's reason, verbatim. */}
-                    <span className="text-12 text-fg-muted">{item.reason}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-          {plan.data.restarts_console && !none ? <p className="text-13 text-fg-muted">{t("server.updates.stale.consoleLast")}</p> : null}
-        </>
-      )}
+      <ServerQueryState query={plan} label={t("server.updates.stale.planWhat")} skeleton={<SkeletonText lines={3} />}>
+        {(data) => (
+          <>
+            {none ? (
+              <p className="text-13 text-fg-muted">{t("server.updates.stale.noneCanRestart")}</p>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                <p className="text-13 font-medium text-fg">{t("server.updates.stale.order")}</p>
+                <ol aria-label={t("server.updates.stale.order")} className="flex flex-col gap-1 rounded-control border border-border bg-bg-sunken p-2.5">
+                  {restart.map((unit) => (
+                    <li key={unit} className="text-12">
+                      <Mono>{unit}</Mono>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+            {refused.length > 0 ? (
+              <div className="flex flex-col gap-1.5">
+                <p className="text-13 font-medium text-fg">{t("server.updates.stale.refusedTitle")}</p>
+                <ul aria-label={t("server.updates.stale.refusedLabel")} className="flex flex-col gap-1.5">
+                  {refused.map((item) => (
+                    <li key={item.unit} className="flex flex-col text-13">
+                      <Mono>{item.unit}</Mono>
+                      {/* The backend's reason, verbatim. */}
+                      <span className="text-12 text-fg-muted">{item.reason}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {data.restarts_console && !none ? <p className="text-13 text-fg-muted">{t("server.updates.stale.consoleLast")}</p> : null}
+          </>
+        )}
+      </ServerQueryState>
     </ConfirmDialog>
   );
 }
@@ -417,9 +411,31 @@ function Packages({ updates }: { updates: Updates }) {
 
 function UpdatesView() {
   const t = useT();
+  const updates = useQuery(updatesQuery());
+  return (
+    <ServerQueryState
+      query={updates}
+      label={t("server.updates.label")}
+      skeleton={
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between gap-4">
+            <Skeleton className="h-5 w-72" />
+            <Skeleton className="h-control-md w-56 rounded-control" />
+          </div>
+          <SkeletonCard lines={2} />
+          <SkeletonCard lines={6} />
+        </div>
+      }
+    >
+      {(data) => <UpdatesBody data={data} />}
+    </ServerQueryState>
+  );
+}
+
+function UpdatesBody({ data }: { data: Updates }) {
+  const t = useT();
   const { node } = useNode();
   const jobs = useServerJob();
-  const updates = useQuery(updatesQuery());
   const [applying, setApplying] = useState<UpdateScope | null>(null);
 
   const refresh = useMutation({
@@ -433,22 +449,6 @@ function UpdatesView() {
     onError: (error) => reportActionError(t("server.job.repair.failed"), explainServerError(t, error, node)),
   });
 
-  if (updates.isError && updates.data === undefined) {
-    return <ServerErrorBlock error={updates.error} title={t("server.updates.loadFailed")} onRetry={() => void updates.refetch()} retrying={updates.isRefetching} />;
-  }
-  if (updates.data === undefined) {
-    return (
-      <LoadingRegion label={t("server.updates.loading")} className="flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-4">
-          <Skeleton className="h-5 w-72" />
-          <Skeleton className="h-control-md w-56 rounded-control" />
-        </div>
-        <Skeleton className="h-20 w-full rounded-card" />
-        <Skeleton className="h-72 w-full rounded-card" />
-      </LoadingRegion>
-    );
-  }
-  const data = updates.data;
   const busy = jobs.busy;
   const checkNow = (
     <Button disabled={busy} loading={refresh.isPending} onClick={() => refresh.mutate()}>

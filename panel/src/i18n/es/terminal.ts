@@ -64,7 +64,7 @@ export const terminal: Catalog<typeof en> = {
   },
   page: {
     title: "Terminal",
-    loading: "Cargando el terminal",
+    what: "el terminal",
   },
   disabled: {
     title: "Los terminales están desactivados en este servidor",

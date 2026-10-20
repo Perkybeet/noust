@@ -3,7 +3,6 @@ import { Mail } from "lucide-react";
 
 import { monitorConfigQuery, monitorStatusQuery, observationsQuery } from "../../api/queries/monitor";
 import type { MonitorStatus } from "../../api/queries/monitor";
-import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Subsection } from "../../components/page/Subsection";
 import { Button } from "../../components/ui/Button";
@@ -11,11 +10,13 @@ import { Card } from "../../components/ui/Card";
 import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
 import { Mono } from "../../components/ui/Mono";
-import { Skeleton } from "../../components/ui/Skeleton";
+import { SkeletonText, SkeletonRows } from "../../components/ui/Skeleton";
 import { StatusGlyph, StatusPill } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { useMonitorActions } from "./useMonitorActions";
+import { ServerQueryState } from "./errors";
+import { EmptyState } from "../../components/ui/EmptyState";
 
 /** One open finding: what stood out, and the button that dismisses it. */
 function ObservationRow({
@@ -136,54 +137,51 @@ export function MonitorCard() {
       }
       padding="sm"
     >
-      {status.isError && status.data === undefined ? (
-        <ErrorBlock compact error={status.error} title={t("server.monitor.couldNotReadStatus")} onRetry={() => void status.refetch()} />
-      ) : status.data === undefined ? (
-        <Skeleton className="h-24 w-full rounded-card" />
-      ) : (
-        <div className="flex flex-col gap-4">
-          <UnitRow t={t} status={status.data} />
+      <ServerQueryState query={status} label={t("server.monitor.statusLabel")} skeleton={<SkeletonText lines={4} />}>
+        {(data) => (
+          <div className="flex flex-col gap-4">
+            <UnitRow t={t} status={data} />
 
-          {config.data ? (
-            <p className="text-12 text-fg-muted">
-              {`${t("server.monitor.config", { interval: config.data.scan_interval, cpu: config.data.cpu_threshold, memory: config.data.memory_threshold })} `}
-              {config.data.notify ? t("server.monitor.findingsEmailed") : t("server.monitor.findingsNotEmailed")}
-            </p>
-          ) : null}
-
-          <Subsection title={t("server.monitor.openFindings")}>
-            {observations.isError && observations.data === undefined ? (
-              <ErrorBlock compact error={observations.error} title={t("server.monitor.couldNotLoadFindings")} onRetry={() => void observations.refetch()} />
-            ) : observations.data === undefined ? (
-              <Skeleton className="h-12 w-full" />
-            ) : observations.data.observations.length === 0 ? (
-              <p className="flex items-center gap-2 text-13 text-fg-muted">
-                <ICONS.success aria-hidden="true" className="size-icon-sm text-ok" />
-                {t("server.monitor.nothingOpen")}
+            {config.data ? (
+              <p className="text-12 text-fg-muted">
+                {`${t("server.monitor.config", { interval: config.data.scan_interval, cpu: config.data.cpu_threshold, memory: config.data.memory_threshold })} `}
+                {config.data.notify ? t("server.monitor.findingsEmailed") : t("server.monitor.findingsNotEmailed")}
               </p>
-            ) : (
-              <ul className="flex flex-col divide-y divide-border">
-                {observations.data.observations.map((observation) => (
-                  <ObservationRow
-                    key={observation.id ?? `${observation.process_name}-${String(observation.pid)}`}
-                    t={t}
-                    process={observation.process_name}
-                    pid={observation.pid}
-                    severity={observation.severity}
-                    signal={observation.signal}
-                    detail={observation.detail}
-                    when={observation.observed_at}
-                    pending={acknowledge.isPending}
-                    onAcknowledge={() => {
-                      if (observation.id !== null && observation.id !== undefined) acknowledge.mutate(observation.id);
-                    }}
-                  />
-                ))}
-              </ul>
-            )}
-          </Subsection>
-        </div>
-      )}
+            ) : null}
+
+            <Subsection title={t("server.monitor.openFindings")}>
+              <ServerQueryState
+                query={observations}
+                label={t("server.monitor.findingsLabel")}
+                skeleton={<SkeletonRows rows={2} />}
+                isEmpty={(found) => found.observations.length === 0}
+                empty={<EmptyState variant="inline" title={t("server.monitor.nothingOpen")} />}
+              >
+                {(found) => (
+                  <ul className="flex flex-col divide-y divide-border">
+                    {found.observations.map((observation) => (
+                      <ObservationRow
+                        key={observation.id ?? `${observation.process_name}-${String(observation.pid)}`}
+                        t={t}
+                        process={observation.process_name}
+                        pid={observation.pid}
+                        severity={observation.severity}
+                        signal={observation.signal}
+                        detail={observation.detail}
+                        when={observation.observed_at}
+                        pending={acknowledge.isPending}
+                        onAcknowledge={() => {
+                          if (observation.id !== null && observation.id !== undefined) acknowledge.mutate(observation.id);
+                        }}
+                      />
+                    ))}
+                  </ul>
+                )}
+              </ServerQueryState>
+            </Subsection>
+          </div>
+        )}
+      </ServerQueryState>
     </Card>
   );
 }

@@ -199,7 +199,7 @@ function VersionSection() {
     <Section
       level={3}
       title={t("settings.about.version.title")}
-      loading={version.data === undefined && !version.isError}
+      loading={version.isPending}
       actions={
         <Button size="sm" icon={<RotateCw aria-hidden="true" />} loading={version.isFetching} onClick={() => void version.refetch()}>
           {t("settings.about.version.checkAgain")}

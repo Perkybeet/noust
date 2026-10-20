@@ -18,7 +18,7 @@ export const services = {
   page: {
     description: "The workers and daemons Noust runs on this server, and on request every service of the system.",
     newService: "New service",
-    loadFailed: "Could not load services",
+    what: "the services",
     emptyTitle: "No services yet",
     emptyDescription: "A service runs a command under this machine's service user, restarted automatically and started at boot. Your applications' own services are managed from each application.",
     showSystem: "Show the system's services",
@@ -162,8 +162,7 @@ export const services = {
   },
   unitEditor: {
     label: "Configuration of {name}",
-    loading: "Loading the configuration",
-    loadFailed: "Could not load the configuration",
+    what: "the configuration",
     verifyFailed: "The configuration could not be checked",
     saveFailed: "The configuration was not saved",
   },

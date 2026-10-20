@@ -108,7 +108,7 @@ export const approvals: Catalog<typeof en> = {
     caption: "Solicitudes de aprobación",
     noneWaiting: "Nada espera aprobación.",
     none: "No hay solicitudes aquí.",
-    loadFailed: "No se pudieron cargar las solicitudes",
+    what: "las solicitudes",
     fromTerminal: "Desde una terminal",
   },
   table: {

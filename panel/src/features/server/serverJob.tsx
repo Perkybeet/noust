@@ -16,10 +16,9 @@ import type { ReactNode } from "react";
 import { activeJobsQuery, isJobFinished, jobLogQuery, useFollowedJob } from "../../api/queries/jobs";
 import type { Job } from "../../api/queries/jobs";
 import { serviceKeys } from "../../api/queries/services";
-import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { JobProgress } from "../../components/page/JobProgress";
 import type { JobState } from "../../components/page/JobProgress";
-import { ErrorBlock } from "../../components/page/QueryState";
+import { QueryState } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
 import { Drawer } from "../../components/ui/Drawer";
 import { LogViewer } from "../../components/ui/LogViewer";
@@ -198,16 +197,15 @@ function JobOutputDrawer({ job, open, onOpenChange, title }: { job: Job; open: b
     const content = log.data?.content ?? "";
     return content === "" ? jobLines(job) : content.split("\n").map((text, id) => ({ id, text }));
   }, [finished, job, log.data]);
+  const viewer = <LogViewer lines={lines} label={t("server.job.outputLabel", { title })} filename={`${job.id}.log`} height={560} emptyMessage={t("server.job.outputEmpty")} />;
   return (
     <Drawer open={open} onOpenChange={onOpenChange} size="lg" title={title} description={t("server.job.outputDescription")}>
-      {finished && log.isError && log.data === undefined ? (
-        <ErrorBlock compact error={log.error} title={t("server.job.outputFailed")} onRetry={() => void log.refetch()} />
-      ) : finished && log.isPending ? (
-        <LoadingRegion label={t("server.job.outputLoading")}>
-          <Skeleton className="h-80 w-full rounded-card" />
-        </LoadingRegion>
+      {finished ? (
+        <QueryState query={log} label={t("server.job.outputWhat")} skeleton={<Skeleton className="h-80 w-full rounded-card" />}>
+          {() => viewer}
+        </QueryState>
       ) : (
-        <LogViewer lines={lines} label={t("server.job.outputLabel", { title })} filename={`${job.id}.log`} height={560} emptyMessage={t("server.job.outputEmpty")} />
+        viewer
       )}
     </Drawer>
   );

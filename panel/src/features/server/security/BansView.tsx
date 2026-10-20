@@ -18,14 +18,13 @@ import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Mono } from "../../../components/ui/Mono";
-import { LoadingRegion } from "../../../components/page/LoadingRegion";
-import { Skeleton } from "../../../components/ui/Skeleton";
+import { SkeletonCard } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import { formatCount } from "../../../lib/format";
 import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";
-import { ServerErrorBlock, explainServerError, useServerConfirm } from "../errors";
+import { ServerErrorBlock, explainServerError, useServerConfirm, ServerQueryState } from "../errors";
 import { fail2banQuery } from "../queries";
 import type { Fail2ban } from "../queries";
 import { useServerJob } from "../serverJob";
@@ -97,23 +96,21 @@ function Jails({ state }: { state: Fail2ban }) {
 /** The brute-force view of the Security tab. */
 export function BansView() {
   const t = useT();
+  const query = useQuery(fail2banQuery());
+  return (
+    <ServerQueryState query={query} label={t("server.bans.label")} skeleton={<SkeletonCard lines={4} />}>
+      {(state) => <Bans state={state} />}
+    </ServerQueryState>
+  );
+}
+
+function Bans({ state }: { state: Fail2ban }) {
+  const t = useT();
   const confirmation = useServerConfirm();
   const jobs = useServerJob();
-  const query = useQuery(fail2banQuery());
   const [installing, setInstalling] = useState(false);
   const [epel, setEpel] = useState(false);
   const [watching, setWatching] = useState(false);
-  if (query.isError && query.data === undefined) {
-    return <ServerErrorBlock error={query.error} title={t("server.bans.loadFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} />;
-  }
-  if (query.data === undefined) {
-    return (
-      <LoadingRegion label={t("server.bans.loading")} className="flex flex-col gap-4">
-        <Skeleton className="h-40 w-full rounded-card" />
-      </LoadingRegion>
-    );
-  }
-  const state = query.data;
   return (
     <div className="flex min-w-0 flex-col gap-6">
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">

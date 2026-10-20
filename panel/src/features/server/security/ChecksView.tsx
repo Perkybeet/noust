@@ -13,20 +13,20 @@ import { Button, buttonClassName } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { LoadingRegion } from "../../../components/page/LoadingRegion";
-import { Skeleton } from "../../../components/ui/Skeleton";
+import { SkeletonCard } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatDate, parseTimestamp } from "../../../lib/format";
 import { useNode } from "../../../nodes/useNode";
-import { ServerErrorBlock, explainServerError } from "../errors";
+import { explainServerError, ServerQueryState } from "../errors";
 import { usePowerDialog } from "../PowerDialog";
 import { checksQuery, serverKeys } from "../queries";
-import type { SecurityCheck } from "../queries";
+import type { SecurityCheck, Checks } from "../queries";
 import { AcceptRiskDialog, FixDialog, GuidedDrawer } from "./FixDialogs";
 import { actionTarget, checkState, checkTitle, isOpen, sortChecks } from "./data";
+import { Disclosure } from "../../../components/ui/Disclosure";
 
 type Opened = { kind: "fix" | "guided" | "accept"; check: SecurityCheck } | null;
 
@@ -34,12 +34,11 @@ function Evidence({ check }: { check: SecurityCheck }) {
   const t = useT();
   if (check.evidence.length === 0) return null;
   return (
-    <details className="group text-12">
-      <summary className="w-fit cursor-pointer rounded-chip text-fg-muted hover:text-fg">{t("server.checks.evidence")}</summary>
-      <SystemOutput label={t("server.checks.evidenceLabel", { check: checkTitle(t, check) })} maxHeight="max-h-40" className="mt-1.5 rounded-control bg-bg-sunken p-2.5">
+    <Disclosure label={t("server.checks.evidence")}>
+      <SystemOutput label={t("server.checks.evidenceLabel", { check: checkTitle(t, check) })} maxHeight="max-h-40" className="rounded-control bg-bg-sunken p-2.5">
         {check.evidence.join("\n")}
       </SystemOutput>
-    </details>
+    </Disclosure>
   );
 }
 
@@ -206,18 +205,17 @@ function PassedList({ checks }: { checks: readonly SecurityCheck[] }) {
 export function ChecksView() {
   const t = useT();
   const checks = useQuery(checksQuery());
+  return (
+    <ServerQueryState query={checks} label={t("server.checks.label")} skeleton={<SkeletonCard lines={6} />}>
+      {(data) => <Findings data={data} />}
+    </ServerQueryState>
+  );
+}
+
+function Findings({ data }: { data: Checks }) {
+  const t = useT();
   const [opened, setOpened] = useState<Opened>(null);
-  if (checks.isError && checks.data === undefined) {
-    return <ServerErrorBlock error={checks.error} title={t("server.checks.loadFailed")} onRetry={() => void checks.refetch()} retrying={checks.isRefetching} />;
-  }
-  if (checks.data === undefined) {
-    return (
-      <LoadingRegion label={t("server.checks.loading")} className="flex flex-col gap-3">
-        <Skeleton className="h-64 w-full rounded-card" />
-      </LoadingRegion>
-    );
-  }
-  const sorted = sortChecks(checks.data.checks);
+  const sorted = sortChecks(data.checks);
   const open = sorted.filter(isOpen);
   const accepted = sorted.filter((check) => check.status === "accepted");
   const rest = sorted.filter((check) => check.status === "pass" || check.status === "n/a");

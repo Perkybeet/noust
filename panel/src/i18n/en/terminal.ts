@@ -70,7 +70,7 @@ export const terminal = {
   },
   page: {
     title: "Terminal",
-    loading: "Loading the terminal",
+    what: "the terminal",
   },
   /** Terminals as a whole are off (`terminal.enabled`). */
   disabled: {

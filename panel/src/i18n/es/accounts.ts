@@ -43,7 +43,7 @@ export const accounts: Catalog<typeof en> = {
     caption: "Todas las cuentas",
     noMatch: "Ninguna cuenta coincide con estos filtros.",
     clearFilters: "Quitar filtros",
-    loadFailed: "No se pudieron cargar las cuentas",
+    what: "las cuentas",
     emptyTitle: "Aún no hay cuentas",
     emptyDescription: "Mientras no haya ninguna, el token de acceso abre toda la consola. Crea las primeras cuentas y guarda el token para emergencias.",
     createFirst: "Crear las primeras cuentas",

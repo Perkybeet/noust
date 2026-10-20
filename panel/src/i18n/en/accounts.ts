@@ -44,7 +44,7 @@ export const accounts = {
     caption: "Every account",
     noMatch: "No account matches these filters.",
     clearFilters: "Clear filters",
-    loadFailed: "Could not load the accounts",
+    what: "the accounts",
     emptyTitle: "No accounts yet",
     emptyDescription: "Until there is one, the access token opens the whole console. Create the first accounts, then keep the token for emergencies.",
     createFirst: "Create the first accounts",

@@ -9,8 +9,8 @@ import { useState } from "react";
 
 import { request } from "../../../api/client";
 import { KeyValueList, KeyValueListSkeleton } from "../../../components/page/KeyValueList";
-import type { KeyValueItem } from "../../../components/page/KeyValueList";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
+import type { KeyValueItem } from "../../../components/page/KeyValueList";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { SettingsGroup } from "../../../components/page/SettingsGroup";
 import { Button } from "../../../components/ui/Button";
@@ -20,6 +20,7 @@ import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Notice } from "../../../components/ui/Notice";
+import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { Setting } from "../../../components/ui/Setting";
 import { toast } from "../../../components/ui/toast";
@@ -28,29 +29,37 @@ import type { T } from "../../../i18n";
 import { formatDate, formatDuration, formatLoad, formatMoment, parseTimestamp } from "../../../lib/format";
 import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";
-import { ServerErrorBlock, explainServerError, useServerConfirm } from "../errors";
+import { explainServerError, useServerConfirm, ServerQueryState } from "../errors";
 import { usePowerDialog } from "../PowerDialog";
 import { dayOf, identityQuery, serverKeys, summaryQuery, timeQuery } from "../queries";
-import type { Identity } from "../queries";
+import type { Identity, ServerClock } from "../queries";
 import { TimeZoneField } from "../TimeZoneField";
+import { EmptyState } from "../../../components/ui/EmptyState";
 
-function Loading({ title }: { title: string }) {
-  const t = useT();
+/** The card's shape while its read is in flight, inside the loading region QueryState draws. */
+function CardSkeleton({ title }: { title: string }) {
   return (
     <Card level={2} title={title} padding="sm">
-      <LoadingRegion label={t("server.system.loading")}>
-        <KeyValueListSkeleton rows={4} />
-      </LoadingRegion>
+      <KeyValueListSkeleton rows={4} />
     </Card>
   );
 }
 
 export function ClockCard() {
   const t = useT();
+  const clock = useQuery(timeQuery());
+  return (
+    <ServerQueryState query={clock} label={t("server.clock.label")} skeleton={<CardSkeleton title={t("server.clock.title")} />}>
+      {(data) => <ClockPanel data={data} />}
+    </ServerQueryState>
+  );
+}
+
+function ClockPanel({ data }: { data: ServerClock }) {
+  const t = useT();
   const confirmation = useServerConfirm();
   const { node } = useNode();
   const queryClient = useQueryClient();
-  const clock = useQuery(timeQuery());
   const [zoneOpen, setZoneOpen] = useState(false);
   const [installOpen, setInstallOpen] = useState(false);
   const [zone, setZone] = useState("");
@@ -64,15 +73,6 @@ export function ClockCard() {
     onSuccess: refresh,
     onError: (error) => reportActionError(t("server.clock.ntpFailed"), explainServerError(t, error, node)),
   });
-  if (clock.isError && clock.data === undefined) {
-    return (
-      <Card level={2} title={t("server.clock.title")} padding="sm">
-        <ServerErrorBlock compact error={clock.error} title={t("server.clock.loadFailed")} onRetry={() => void clock.refetch()} />
-      </Card>
-    );
-  }
-  if (clock.data === undefined) return <Loading title={t("server.clock.title")} />;
-  const data = clock.data;
   const items: KeyValueItem[] = [
     { label: t("server.clock.localTime"), value: data.local_time },
     { label: t("server.clock.timezone"), value: data.timezone },
@@ -174,21 +174,21 @@ export function ClockCard() {
 
 export function HostnameCard() {
   const t = useT();
+  const identity = useQuery(identityQuery());
+  return (
+    <ServerQueryState query={identity} label={t("server.hostname.label")} skeleton={<CardSkeleton title={t("server.hostname.title")} />}>
+      {(data) => <HostnamePanel host={data.hostname} />}
+    </ServerQueryState>
+  );
+}
+
+function HostnamePanel({ host }: { host: Identity["hostname"] }) {
+  const t = useT();
   const confirmation = useServerConfirm();
   const queryClient = useQueryClient();
-  const identity = useQuery(identityQuery());
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [keep, setKeep] = useState(true);
-  if (identity.isError && identity.data === undefined) {
-    return (
-      <Card level={2} title={t("server.hostname.title")} padding="sm">
-        <ServerErrorBlock compact error={identity.error} title={t("server.hostname.loadFailed")} onRetry={() => void identity.refetch()} />
-      </Card>
-    );
-  }
-  if (identity.data === undefined) return <Loading title={t("server.hostname.title")} />;
-  const host = identity.data.hostname;
   const items: KeyValueItem[] = [
     { label: t("server.hostname.hostname"), value: host.hostname },
     ...(host.static !== host.hostname ? [{ label: t("server.hostname.static"), value: host.static }] : []),
@@ -260,15 +260,15 @@ function supportLine(t: T, identity: Identity): string {
 export function SystemCard() {
   const t = useT();
   const identity = useQuery(identityQuery());
-  if (identity.isError && identity.data === undefined) {
-    return (
-      <Card level={2} title={t("server.os.title")} padding="sm">
-        <ServerErrorBlock compact error={identity.error} title={t("server.os.loadFailed")} onRetry={() => void identity.refetch()} />
-      </Card>
-    );
-  }
-  if (identity.data === undefined) return <Loading title={t("server.os.title")} />;
-  const data = identity.data;
+  return (
+    <ServerQueryState query={identity} label={t("server.os.label")} skeleton={<CardSkeleton title={t("server.os.title")} />}>
+      {(data) => <SystemFacts data={data} />}
+    </ServerQueryState>
+  );
+}
+
+function SystemFacts({ data }: { data: Identity }) {
+  const t = useT();
   const eolState = data.eol.status === "expired" ? "failed" : data.eol.status === "warn" ? "warning" : null;
   const items: KeyValueItem[] = [
     { label: t("server.os.name"), value: data.os_name, mono: false },
@@ -330,8 +330,13 @@ export function PowerCard() {
               {scheduled.action === "reboot" ? t("server.power.cancelReboot") : t("server.power.cancelShutdown")}
             </Button>
           </div>
+        ) : summary.data === undefined ? (
+          // Nothing is said about the schedule until the server has answered; the line keeps its room.
+          <LoadingRegion label={t("common.queryState.loading", { label: t("server.power.cardTitle") })}>
+            <Skeleton className="h-5 w-48" />
+          </LoadingRegion>
         ) : (
-          <p className="text-13 text-fg-muted">{t("server.overview.nothingScheduled")}</p>
+          <EmptyState variant="inline" title={t("server.overview.nothingScheduled")} />
         )}
         <div className="flex flex-wrap items-center gap-2">
           <Button onClick={() => power.open("reboot")}>{t("server.power.rebootEllipsis")}</Button>

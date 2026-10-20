@@ -15,8 +15,8 @@
 
 import { ApiError, isApiError } from "../../api/client";
 import { CommandHint } from "../../components/page/CommandHint";
-import { ErrorBlock } from "../../components/page/QueryState";
-import type { ErrorBlockProps } from "../../components/page/QueryState";
+import { ErrorBlock, QueryState } from "../../components/page/QueryState";
+import type { ErrorBlockProps, QueryStateProps } from "../../components/page/QueryState";
 import type { ConfirmDialogProps } from "../../components/ui/ConfirmDialog";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
@@ -101,6 +101,28 @@ export function ServerErrorBlock({ error, title, ...rest }: ErrorBlockProps) {
     );
   }
   return <ErrorBlock {...rest} error={explainServerError(t, error, node)} title={title} />;
+}
+
+/**
+ * QueryState for the Server area: what a read of the host answers is told the way the rest of the
+ * area tells it. A node that refused host access names the command that allows it, and a refusal
+ * with a list carries the list; any other state is QueryState's own.
+ */
+export function ServerQueryState<T>(props: QueryStateProps<T>) {
+  const t = useT();
+  const { node } = useNode();
+  const { query, label } = props;
+  if (query.data === undefined && isHostAccessRefusal(query.error, node)) {
+    return (
+      <ServerErrorBlock
+        error={query.error}
+        title={t("common.queryState.couldNotLoad", { label })}
+        {...(query.refetch ? { onRetry: () => void query.refetch?.() } : {})}
+        retrying={query.isRefetching ?? false}
+      />
+    );
+  }
+  return <QueryState {...props} query={{ ...query, error: explainServerError(t, query.error, node) }} />;
 }
 
 /**

@@ -4,8 +4,7 @@ import { useEffect, useState } from "react";
 
 import { announce } from "../../app/Announcer";
 import { useNow } from "../../components/page/clock";
-import { LoadingRegion } from "../../components/page/LoadingRegion";
-import { ErrorBlock } from "../../components/page/QueryState";
+import { ErrorBlock, QueryState } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Checkbox } from "../../components/ui/Checkbox";
@@ -31,6 +30,7 @@ import type { Phase, SessionState, TerminalTarget } from "./useTerminalSession";
 import { terminalStatusQuery, useHasPermission } from "./queries";
 import type { TerminalStatus } from "./queries";
 import { clock, endedSentence, secondsUntil } from "./words";
+import type { ReactNode } from "react";
 
 /** The commands that turn the server's shell on, verbatim: the ones the server's own refusal names. */
 export const SERVER_ENABLE_COMMAND = "noust config set terminal.server.enabled true";
@@ -294,100 +294,89 @@ export function TerminalPanel({ target, injected }: TerminalPanelProps) {
     if (sentence !== null) announce(sentence, "polite");
   }, [sentence]);
 
-  if (status.isError && status.data === undefined) {
-    return (
-      <ErrorBlock
-        error={status.error}
-        title={t("terminal.failed.title")}
-        onRetry={() => void status.refetch()}
-        retrying={status.isRefetching}
-      />
-    );
-  }
-  if (status.data === undefined) {
-    return (
-      <LoadingRegion label={t("terminal.page.loading")}>
-        <Skeleton className="h-40 w-full rounded-card" />
-      </LoadingRegion>
-    );
-  }
+  const render = (settings: NonNullable<typeof status.data>): ReactNode => {
+    const open = (options: { shell?: string; service?: string }): void => {
+      setLast(options);
+      session.open(options);
+    };
 
-  const settings = status.data;
-  const open = (options: { shell?: string; service?: string }): void => {
-    setLast(options);
-    session.open(options);
-  };
+    if (state.phase === "idle") {
+      if (target.kind === "server" && !settings.server.allowed) return <Off target={target} status={settings} t={t} />;
+      if (target.kind === "app" && !settings.enabled) return <Off target={target} status={settings} t={t} />;
+      return <Start target={target} status={settings} permitted={permitted} loading={false} onOpen={open} t={t} />;
+    }
 
-  if (state.phase === "idle") {
-    if (target.kind === "server" && !settings.server.allowed) return <Off target={target} status={settings} t={t} />;
-    if (target.kind === "app" && !settings.enabled) return <Off target={target} status={settings} t={t} />;
-    return <Start target={target} status={settings} permitted={permitted} loading={false} onOpen={open} t={t} />;
-  }
-
-  if (state.phase === "failed" && state.failure !== null) {
-    return (
-      <div className="flex flex-col gap-3">
-        <ErrorBlock live error={state.failure.error} title={t("terminal.failed.title")} />
-        <div>
-          <Button
-            variant="primary"
-            icon={<SquareTerminal aria-hidden="true" />}
-            onClick={() => {
-              session.restart();
-            }}
-          >
-            {t("terminal.actions.open")}
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  const label = target.kind === "app" ? t("terminal.document.app", { domain: target.domain }) : t("terminal.document.server");
-  const live = state.phase === "open" || state.phase === "reconnecting" || state.phase === "opening";
-
-  return (
-    <div className="flex min-w-0 flex-col gap-3">
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-6 gap-y-2">
-        <SessionHeader state={state} t={t} />
-        <div className="flex flex-wrap items-center gap-2">
-          <DisplayOptions textView={textView} onTextView={setTextView} announceOutput={announceOutput} onAnnounce={setAnnounceOutput} t={t} />
-          {live ? (
-            <Button icon={<LogOut aria-hidden="true" />} onClick={session.end}>
-              {t("terminal.actions.end")}
-            </Button>
-          ) : (
+    if (state.phase === "failed" && state.failure !== null) {
+      return (
+        <div className="flex flex-col gap-3">
+          <ErrorBlock live error={state.failure.error} title={t("terminal.failed.title")} />
+          <div>
             <Button
-              variant={target.kind === "app" ? "secondary" : "primary"}
-              icon={<Plus aria-hidden="true" />}
+              variant="primary"
+              icon={<SquareTerminal aria-hidden="true" />}
               onClick={() => {
-                // A new terminal is the same one again: the options it was opened with are kept.
                 session.restart();
-                open(last);
               }}
             >
-              {t("terminal.actions.newSession")}
+              {t("terminal.actions.open")}
             </Button>
-          )}
+          </div>
         </div>
+      );
+    }
+
+    const label = target.kind === "app" ? t("terminal.document.app", { domain: target.domain }) : t("terminal.document.server");
+    const live = state.phase === "open" || state.phase === "reconnecting" || state.phase === "opening";
+
+    return (
+      <div className="flex min-w-0 flex-col gap-3">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-6 gap-y-2">
+          <SessionHeader state={state} t={t} />
+          <div className="flex flex-wrap items-center gap-2">
+            <DisplayOptions textView={textView} onTextView={setTextView} announceOutput={announceOutput} onAnnounce={setAnnounceOutput} t={t} />
+            {live ? (
+              <Button icon={<LogOut aria-hidden="true" />} onClick={session.end}>
+                {t("terminal.actions.end")}
+              </Button>
+            ) : (
+              <Button
+                variant={target.kind === "app" ? "secondary" : "primary"}
+                icon={<Plus aria-hidden="true" />}
+                onClick={() => {
+                  // A new terminal is the same one again: the options it was opened with are kept.
+                  session.restart();
+                  open(last);
+                }}
+              >
+                {t("terminal.actions.newSession")}
+              </Button>
+            )}
+          </div>
+        </div>
+        <TerminalScreen
+          source={source}
+          label={label}
+          className="h-editor"
+          disabled={state.phase !== "open"}
+          textView={textView}
+          announce={announceOutput}
+          focusOnMount
+          onInput={session.send}
+          onResize={session.resize}
+          onCopied={(_text, ok) => {
+            if (ok) toast.success(t("common.copyButton.copied"));
+            else toast.error(t("common.copyButton.failed"));
+          }}
+        />
+        <Notices state={state} t={t} />
+        {sentence !== null ? <InlineMessage tone="info">{sentence}</InlineMessage> : null}
       </div>
-      <TerminalScreen
-        source={source}
-        label={label}
-        className="h-editor"
-        disabled={state.phase !== "open"}
-        textView={textView}
-        announce={announceOutput}
-        focusOnMount
-        onInput={session.send}
-        onResize={session.resize}
-        onCopied={(_text, ok) => {
-          if (ok) toast.success(t("common.copyButton.copied"));
-          else toast.error(t("common.copyButton.failed"));
-        }}
-      />
-      <Notices state={state} t={t} />
-      {sentence !== null ? <InlineMessage tone="info">{sentence}</InlineMessage> : null}
-    </div>
+    );
+  };
+
+  return (
+    <QueryState query={status} label={t("terminal.page.what")} skeleton={<Skeleton className="h-40 w-full rounded-card" />}>
+      {render}
+    </QueryState>
   );
 }

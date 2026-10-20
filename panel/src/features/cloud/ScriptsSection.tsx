@@ -21,6 +21,7 @@ import { cloudScriptsQuery } from "./data";
 import type { CloudScript } from "./data";
 import { ScriptDialog } from "./ScriptDialog";
 import { useCloudActions } from "./useCloudActions";
+import { EmptyState } from "../../components/ui/EmptyState";
 
 function columnsFor(t: T): readonly Column<CloudScript>[] {
   return [
@@ -114,7 +115,7 @@ export function ScriptsSection() {
         label={t("cloud.scripts.loadingLabel")}
         skeleton={<DataTable caption={t("cloud.scripts.caption")} columns={columns} rows={[]} getRowId={(script) => script.name} loading skeletonRows={3} />}
         isEmpty={(data) => data.length === 0}
-        empty={<p className="text-13 text-fg-muted">{t("cloud.scripts.empty")}</p>}
+        empty={<EmptyState variant="inline" title={t("cloud.scripts.empty")} />}
       >
         {(scripts) => <DataTable caption={t("cloud.scripts.caption")} columns={columns} rows={scripts} getRowId={(script) => script.name} rowActions={(script) => <RowActions script={script} />} />}
       </QueryState>

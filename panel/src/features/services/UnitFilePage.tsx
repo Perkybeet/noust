@@ -11,10 +11,9 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { serviceConfigQuery } from "../../api/queries/services";
-import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { CommandHint } from "../../components/page/CommandHint";
 import { FileEditorPage } from "../../components/page/FileEditorPage";
-import { ErrorBlock } from "../../components/page/QueryState";
+import { ErrorBlock, QueryState } from "../../components/page/QueryState";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { Mono } from "../../components/ui/Mono";
 import { InlineMessage } from "../../components/ui/InlineMessage";
@@ -142,24 +141,24 @@ export function UnitFilePage({ name }: { name: string }) {
       }}
       footer={<CommandHint command={`noust service status ${name}`} label={t("services.fromTerminal")} />}
     >
-      {config.isError && config.data === undefined ? (
-        <ErrorBlock error={config.error} title={t("services.unitEditor.loadFailed")} onRetry={() => void config.refetch()} retrying={config.isRefetching} />
-      ) : value === null ? (
-        <LoadingRegion label={t("services.unitEditor.loading")} className="h-full">
-          <Skeleton className="h-full w-full rounded-control" />
-        </LoadingRegion>
-      ) : (
-        <ConfigEditor
-          value={value}
-          onChange={(next) => {
-            setValue(next);
-            if (outcome?.kind !== "rejected") setOutcome(null);
-          }}
-          label={t("services.unitEditor.label", { name })}
-          disabled={updateConfig.isPending}
-          className="h-full"
-        />
-      )}
+      <QueryState query={config} label={t("services.unitEditor.what")} skeleton={<Skeleton className="h-96 w-full rounded-control" />}>
+        {() =>
+          value === null ? (
+            <Skeleton className="h-96 w-full rounded-control" />
+          ) : (
+            <ConfigEditor
+              value={value}
+              onChange={(next) => {
+                setValue(next);
+                if (outcome?.kind !== "rejected") setOutcome(null);
+              }}
+              label={t("services.unitEditor.label", { name })}
+              disabled={updateConfig.isPending}
+              className="h-full"
+            />
+          )
+        }
+      </QueryState>
     </FileEditorPage>
   );
 }

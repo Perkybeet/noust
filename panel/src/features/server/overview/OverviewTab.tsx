@@ -28,7 +28,7 @@ import { formatBytes, formatBytesPair, formatDate, formatDuration, formatPercent
 import { NodeCapabilityGate } from "../../../nodes/capability";
 import { attentionItems } from "../attention";
 import type { AttentionItem } from "../attention";
-import { ServerErrorBlock } from "../errors";
+import { ServerQueryState } from "../errors";
 import { usePowerDialog } from "../PowerDialog";
 import { SERVER_CAPABILITY, dayOf, securityOverviewQuery, summaryQuery } from "../queries";
 import type { SecurityOverview, ServerSummary } from "../queries";
@@ -360,23 +360,30 @@ function Readings({ summary, security }: { summary: ServerSummary | undefined; s
   );
 }
 
+/** The tab's layout; without a summary every tile draws the shape of what it will say. */
+function OverviewLayout({ summary, security }: { summary: ServerSummary | undefined; security: SecurityOverview | undefined }) {
+  const t = useT();
+  const items = attentionItems(summary, security);
+  return (
+    <div className="flex min-w-0 flex-col gap-6">
+      <div className="grid min-w-0 items-start gap-6 lg:grid-cols-3">
+        <NeedsAttention items={items} loading={summary === undefined} />
+        <Facts summary={summary} />
+      </div>
+      <Readings summary={summary} security={security} />
+      <CommandHint command="noust server status" label={t("server.fromTerminal")} />
+    </div>
+  );
+}
+
 function Overview() {
   const t = useT();
   const summary = useQuery(summaryQuery());
   const security = useQuery(securityOverviewQuery());
-  const items = attentionItems(summary.data, security.data);
   return (
-    <div className="flex min-w-0 flex-col gap-6">
-      {summary.isError && summary.data === undefined ? (
-        <ServerErrorBlock error={summary.error} title={t("server.overview.loadFailed")} onRetry={() => void summary.refetch()} retrying={summary.isRefetching} />
-      ) : null}
-      <div className="grid min-w-0 items-start gap-6 lg:grid-cols-3">
-        <NeedsAttention items={items} loading={summary.data === undefined && !summary.isError} />
-        <Facts summary={summary.data} />
-      </div>
-      <Readings summary={summary.data} security={security.data} />
-      <CommandHint command="noust server status" label={t("server.fromTerminal")} />
-    </div>
+    <ServerQueryState query={summary} label={t("server.overview.label")} skeleton={<OverviewLayout summary={undefined} security={undefined} />}>
+      {(data) => <OverviewLayout summary={data} security={security.data} />}
+    </ServerQueryState>
   );
 }
 

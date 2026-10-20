@@ -4,8 +4,7 @@ import type { Catalog } from "../types";
 export const autoUpdate: Catalog<typeof en> = {
   title: "Actualizaciones automáticas",
   description: "Deja que este servidor instale por sí mismo las nuevas versiones de Noust, solo dentro de las horas que elijas.",
-  loadFailed: "No se pudo leer la actualización automática",
-  loading: "Cargando la actualización automática",
+  what: "la actualización automática",
   pill: { on: "Activadas", off: "Desactivadas", problem: "Activadas, sin instalar" },
   offBody: "Noust solo se actualiza cuando pulsas Actualizar Noust o ejecutas el comando. Una versión que corrige una vulnerabilidad espera a que la instales.",
   onBody: "Noust instala {channel} por sí mismo, dentro de la ventana de abajo. Una versión mayor nueva nunca se instala por sí sola.",

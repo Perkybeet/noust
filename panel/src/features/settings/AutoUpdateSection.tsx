@@ -15,8 +15,7 @@ import type { AutoUpdate } from "../../api/queries/autoUpdate";
 import { announce } from "../../app/Announcer";
 import { KeyValueList } from "../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../components/page/KeyValueList";
-import { LoadingRegion } from "../../components/page/LoadingRegion";
-import { ErrorBlock } from "../../components/page/QueryState";
+import { ErrorBlock, QueryState } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
@@ -171,26 +170,27 @@ const PILL: Record<"on" | "problem" | "off", Status> = { on: "running", problem:
 export function AutoUpdateSection() {
   const t = useT();
   const query = useQuery(autoUpdateQuery());
-  const [editing, setEditing] = useState(false);
+  return (
+    <QueryState
+      query={query}
+      label={t("autoUpdate.what")}
+      skeleton={
+        <Card loading level={3} title={t("autoUpdate.title")} description={t("autoUpdate.description")}>
+          <div className="flex flex-col gap-3">
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+        </Card>
+      }
+    >
+      {(state) => <AutoUpdateCard state={state} />}
+    </QueryState>
+  );
+}
 
-  if (query.isError && query.data === undefined) {
-    return (
-      <Card level={3} title={t("autoUpdate.title")} description={t("autoUpdate.description")}>
-        <ErrorBlock compact error={query.error} title={t("autoUpdate.loadFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} />
-      </Card>
-    );
-  }
-  if (query.data === undefined) {
-    return (
-      <Card loading level={3} title={t("autoUpdate.title")} description={t("autoUpdate.description")}>
-        <LoadingRegion label={t("autoUpdate.loading")} className="flex flex-col gap-3">
-          <Skeleton className="h-16 w-full" />
-          <Skeleton className="h-24 w-full" />
-        </LoadingRegion>
-      </Card>
-    );
-  }
-  const state = query.data;
+function AutoUpdateCard({ state }: { state: AutoUpdate }) {
+  const t = useT();
+  const [editing, setEditing] = useState(false);
   const { settings } = state;
   const featureState = stateOf(state);
   const acrossMidnight = crossesMidnight(...(settings.window.split("-") as [string, string]));

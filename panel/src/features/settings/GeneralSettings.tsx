@@ -19,10 +19,9 @@ import {
 import type { BackupSettings, ConsoleConfig, DeliverySettings, SslSettings, WebSettings } from "../../api/queries/config";
 import { machineQuery } from "../../api/queries/system";
 import { useDocumentTitle } from "../../app/documentTitle";
-import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { CommandHint } from "../../components/page/CommandHint";
 import { KeyValueList, KeyValueListSkeleton } from "../../components/page/KeyValueList";
-import { ErrorBlock } from "../../components/page/QueryState";
+import { QueryState } from "../../components/page/QueryState";
 import { SaveBar } from "../../components/page/SaveBar";
 import { Section, Sections } from "../../components/page/Section";
 import { Card } from "../../components/ui/Card";
@@ -427,7 +426,7 @@ function Details({ loaded }: { loaded: Loaded }) {
 function GeneralSkeleton() {
   const t = useT();
   return (
-    <LoadingRegion label={t("settings.general.loading")} className="flex flex-col gap-8">
+    <div className="flex flex-col gap-8">
       <Section title={t("settings.general.server.title")} description={t("settings.general.server.description")}>
         <FieldsSkeleton rows={[2, 2, 1]} />
       </Section>
@@ -439,7 +438,7 @@ function GeneralSkeleton() {
           <KeyValueListSkeleton rows={3} />
         </Card>
       </Section>
-    </LoadingRegion>
+    </div>
   );
 }
 
@@ -461,20 +460,8 @@ export function GeneralSettings() {
   const machine = useQuery(machineQuery());
 
   const queries = [config, appsDirectory, webserver, ssl, backup, web, delivery];
-  const failed = queries.find((query) => query.isError && query.data === undefined);
-  if (failed !== undefined) {
-    return (
-      <ErrorBlock
-        error={failed.error}
-        title={t("settings.general.loadFailed")}
-        onRetry={() => {
-          for (const query of queries) if (query.isError) void query.refetch();
-        }}
-        retrying={queries.some((query) => query.isRefetching)}
-      />
-    );
-  }
-  if (
+  const failed = queries.find((query) => query.data === undefined && query.error !== null);
+  const loaded: Loaded | undefined =
     config.data === undefined ||
     appsDirectory.data === undefined ||
     webserver.data === undefined ||
@@ -482,22 +469,36 @@ export function GeneralSettings() {
     backup.data === undefined ||
     web.data === undefined ||
     delivery.data === undefined
-  ) {
-    return <GeneralSkeleton />;
-  }
-  const loaded: Loaded = {
-    config: config.data,
-    identity: readServerIdentity(config.data.config),
-    appsDirectory: appsDirectory.data.apps_directory,
-    webserver: webserver.data.webserver,
-    ssl: ssl.data,
-    backup: backup.data,
-    web: web.data,
-    delivery: delivery.data,
+      ? undefined
+      : {
+          config: config.data,
+          identity: readServerIdentity(config.data.config),
+          appsDirectory: appsDirectory.data.apps_directory,
+          webserver: webserver.data.webserver,
+          ssl: ssl.data,
+          backup: backup.data,
+          web: web.data,
+          delivery: delivery.data,
+        };
+  // Seven reads make one form: it opens when all of them answered, and the first failure is the
+  // one told, with a retry that asks again only for those that failed.
+  const everything = {
+    data: loaded,
+    error: failed?.error ?? null,
+    isPending: loaded === undefined && failed === undefined,
+    isError: failed !== undefined,
+    isRefetching: queries.some((query) => query.isRefetching),
+    refetch: () => {
+      for (const query of queries) if (query.isError) void query.refetch();
+    },
   };
   return (
-    <Sections>
-      <GeneralForm loaded={loaded} hostname={machine.data?.hostname} />
-    </Sections>
+    <QueryState query={everything} label={t("settings.general.what")} skeleton={<GeneralSkeleton />}>
+      {(data) => (
+        <Sections>
+          <GeneralForm loaded={data} hostname={machine.data?.hostname} />
+        </Sections>
+      )}
+    </QueryState>
   );
 }

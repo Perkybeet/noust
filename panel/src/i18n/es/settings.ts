@@ -23,8 +23,7 @@ export const settings: Catalog<typeof en> = {
 
   general: {
     documentTitle: "Ajustes generales",
-    loading: "Cargando los ajustes generales",
-    loadFailed: "No se pudieron cargar los ajustes generales",
+    what: "los ajustes generales",
     notSaved: "No se guardaron los ajustes generales",
     fromTerminal: "Todos los ajustes, desde un terminal",
     notWritableTitle: "Guardar fallará",

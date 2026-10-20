@@ -24,8 +24,7 @@ export const settings = {
 
   general: {
     documentTitle: "General settings",
-    loading: "Loading the general settings",
-    loadFailed: "Could not load the general settings",
+    what: "the general settings",
     notSaved: "The general settings were not saved",
     fromTerminal: "Every setting, from a terminal",
     notWritableTitle: "Saving will fail",

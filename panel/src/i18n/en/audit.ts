@@ -44,7 +44,7 @@ export const audit = {
     caption: "Audit events",
     none: "No events yet.",
     noMatch: "No event matches these filters.",
-    loadFailed: "Could not load the audit log",
+    what: "the audit log",
     loadMore: "Load older events",
     correlationTitle: "One request",
     correlation: "Only the events of {id}: what one request, command or job did.",

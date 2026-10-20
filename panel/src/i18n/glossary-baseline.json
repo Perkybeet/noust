@@ -188,7 +188,7 @@
       "promotion": 1,
       "rollout": 4,
       "runtime": 12,
-      "server": 12,
+      "server": 5,
       "settings": 2,
       "ssoAdmin": 1,
       "teams": 4
@@ -303,7 +303,7 @@
       "promotion": 1,
       "rollout": 4,
       "runtime": 12,
-      "server": 12,
+      "server": 5,
       "settings": 2,
       "ssoAdmin": 1,
       "teams": 4

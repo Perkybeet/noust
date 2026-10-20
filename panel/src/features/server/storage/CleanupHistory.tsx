@@ -22,10 +22,11 @@ import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatBytes, formatPercent } from "../../../lib/format";
-import { ServerErrorBlock } from "../errors";
+import { ServerQueryState } from "../errors";
 import { cleanupHistoryQuery } from "../queries";
 import type { CleanupRun } from "../queries";
 import { cleanupActionLabel } from "./CleanupScheduleCard";
+import { SkeletonCard } from "../../../components/ui/Skeleton";
 
 /** Runs the card keeps room for while they load. */
 const TYPICAL_RUNS = 4;
@@ -138,15 +139,16 @@ function RunDrawer({ run, onClose }: { run: CleanupRun; onClose: () => void }) {
 export function CleanupHistory() {
   const t = useT();
   const query = useQuery(cleanupHistoryQuery());
-  const [opened, setOpened] = useState<CleanupRun | null>(null);
+  return (
+    <ServerQueryState query={query} label={t("server.storage.history.label")} skeleton={<SkeletonCard lines={TYPICAL_RUNS} />}>
+      {(runs) => <CleanupRuns runs={runs} />}
+    </ServerQueryState>
+  );
+}
 
-  if (query.isError && query.data === undefined) {
-    return (
-      <Card level={2} title={t("server.storage.history.title")} padding="sm">
-        <ServerErrorBlock compact error={query.error} title={t("server.storage.history.loadFailed")} onRetry={() => void query.refetch()} />
-      </Card>
-    );
-  }
+function CleanupRuns({ runs }: { runs: CleanupRun[] }) {
+  const t = useT();
+  const [opened, setOpened] = useState<CleanupRun | null>(null);
   const columns: Column<CleanupRun>[] = [
     {
       id: "when",
@@ -190,9 +192,7 @@ export function CleanupHistory() {
     <Card level={2} title={t("server.storage.history.title")} description={t("server.storage.history.description")} padding="none">
       <DataTable
         columns={columns}
-        rows={query.data ?? []}
-        loading={query.data === undefined}
-        skeletonRows={TYPICAL_RUNS}
+        rows={runs}
         getRowId={(row) => String(row.id)}
         caption={t("server.storage.history.caption")}
         mobile="cards"

@@ -9,7 +9,7 @@ import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { KeyValueList } from "../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../components/page/KeyValueList";
-import { ErrorBlock } from "../../components/page/QueryState";
+import { ErrorBlock, QueryState } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Section, Sections } from "../../components/page/Section";
 import { Button, buttonClassName } from "../../components/ui/Button";
@@ -164,6 +164,7 @@ function EntryDrawer({ entry, onClose, onCorrelate }: { entry: AuditEntry; onClo
  * Whether the log can be trusted, said once above it: the chain verified end to end (or the
  * first broken link, where it is), and whether events are being written and shipped.
  */
+// design-exception: notice-stack the trail draws one notice for its worst state and the correlation chip is a filter, so the page shows two at most
 function TrailNotice({ t }: { t: T }) {
   const verify = useQuery(verifyQuery());
   const status = useQuery(statusQuery());
@@ -445,23 +446,37 @@ export function AuditPage({ search, onSearchChange }: AuditPageProps) {
               {t.rich("audit.page.correlation", { id: <Mono key="id">{search.correlation}</Mono> })}
             </Notice>
           ) : null}
-          {query.isError && query.data === undefined ? (
-            <ErrorBlock error={query.error} title={t("audit.page.loadFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} />
-          ) : (
-            <DataTable
-              caption={t("audit.page.caption")}
-              columns={columns}
-              rows={shown}
-              getRowId={(entry) => entry.id ?? `${entry.timestamp}-${entry.action}-${entry.actor}`}
-              density="compact"
-              layout="fixed"
-              mobile="cards"
-              loading={query.isPending}
-              skeletonRows={8}
-              onRowActivate={setOpen}
-              empty={<EmptyState variant="inline" title={isFiltered(search) ? t("audit.page.noMatch") : t("audit.page.none")} />}
-            />
-          )}
+          <QueryState
+            query={query}
+            label={t("audit.page.what")}
+            skeleton={
+              <DataTable
+                caption={t("audit.page.caption")}
+                columns={columns}
+                rows={[]}
+                getRowId={(entry) => entry.id ?? `${entry.timestamp}-${entry.action}-${entry.actor}`}
+                density="compact"
+                layout="fixed"
+                mobile="cards"
+                loading
+                skeletonRows={8}
+              />
+            }
+          >
+            {() => (
+              <DataTable
+                caption={t("audit.page.caption")}
+                columns={columns}
+                rows={shown}
+                getRowId={(entry) => entry.id ?? `${entry.timestamp}-${entry.action}-${entry.actor}`}
+                density="compact"
+                layout="fixed"
+                mobile="cards"
+                onRowActivate={setOpen}
+                empty={<EmptyState variant="inline" title={isFiltered(search) ? t("audit.page.noMatch") : t("audit.page.none")} />}
+              />
+            )}
+          </QueryState>
           {query.hasNextPage ? (
             <Button className="self-center" loading={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
               {t("audit.page.loadMore")}

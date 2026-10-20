@@ -372,6 +372,7 @@ function StorageView() {
     onError: (error) => reportActionError(t("server.job.analyze.failed"), explainServerError(t, error, node)),
   });
 
+  // design-exception: hand-error-ternary the tab keeps its parts mounted while the measurement is read, each with its own loading shape and its own query, so a single skeleton would remount the cards beside it
   if (storage.isError && storage.data === undefined) {
     return <ServerErrorBlock error={storage.error} title={t("server.storage.loadFailed")} onRetry={() => void storage.refetch()} retrying={storage.isRefetching} />;
   }

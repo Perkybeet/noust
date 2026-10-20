@@ -48,6 +48,7 @@ export function invitationLink(code: string, origin: string = window.location.or
   return `${origin}/invite#${encodeURIComponent(code)}`;
 }
 
+// design-exception: notice-stack the form shows the role clash and the result shows the delivery and the one-time warning; the dialog is one or the other
 /** The invitation, once: the link to send and the code, which cannot be shown again. */
 function IssuedOnce({ t, issued, expiresAt }: { t: T; issued: InvitationIssued; expiresAt: number }) {
   const link = invitationLink(issued.code);

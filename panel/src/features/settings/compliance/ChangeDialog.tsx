@@ -16,6 +16,7 @@ import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { controlTitle, formatValue, warningText } from "./model";
+import { EmptyState } from "../../../components/ui/EmptyState";
 
 type Effect = CompliancePlan["effects"][number];
 
@@ -130,7 +131,7 @@ export function ChangeDialog({ request, title, lead, action, loosens = false, do
             <Skeleton className="h-32 w-full rounded-card" />
           </LoadingRegion>
         ) : plan.effects.length === 0 ? (
-          <p className="text-13 text-fg-muted">{t("complianceSetup.dialog.nothing")}</p>
+          <EmptyState variant="inline" title={t("complianceSetup.dialog.nothing")} />
         ) : (
           <DataTable
             caption={title}

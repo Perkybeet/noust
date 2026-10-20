@@ -5,8 +5,7 @@
 export const autoUpdate = {
   title: "Automatic updates",
   description: "Let this server install Noust's new releases by itself, only inside the hours you choose.",
-  loadFailed: "Could not read the automatic update",
-  loading: "Loading the automatic update",
+  what: "the automatic update",
   pill: { on: "On", off: "Off", problem: "On, not installing" },
   offBody: "Noust updates only when you press Update Noust or run the command. A release that fixes a vulnerability waits for you.",
   onBody: "Noust installs {channel} by itself, inside the window below. A new major version is never installed by itself.",

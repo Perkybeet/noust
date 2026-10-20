@@ -277,7 +277,7 @@ describe("Settings > About", () => {
     renderConsole("/settings/about");
 
     expect(await screen.findByRole("region", { name: "Version" })).toBeInTheDocument();
-    expect(await screen.findByText("Could not read the automatic update")).toBeInTheDocument();
+    expect(await screen.findByText("Could not load the automatic update")).toBeInTheDocument();
     // A refusal answered, the section mounted and asked again: a page that went back to its
     // skeleton for that asked again and again.
     await new Promise((resolve) => setTimeout(resolve, 300));

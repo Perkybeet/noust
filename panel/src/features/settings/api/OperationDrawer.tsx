@@ -26,6 +26,7 @@ import { useNode } from "../../../nodes/useNode";
 import { focusFirstInvalid } from "../formErrors";
 import { addressOf, curlOf } from "./openapiModel";
 import type { ApiField, ApiOperation, ApiParameter, ApiResponseInfo } from "./openapiModel";
+import { Disclosure } from "../../../components/ui/Disclosure";
 
 /** The most of an answer shown in the page: a reading of the API, not a download of it. */
 const MAX_SHOWN = 20_000;
@@ -221,12 +222,11 @@ function TryIt({ operation }: { operation: ApiOperation }) {
         </div>
       ) : null}
       {answer !== null && answer.headers !== "" ? (
-        <details className="text-13">
-          <summary className="cursor-pointer text-fg-muted">{t("apiReference.drawer.responseHeaders")}</summary>
+        <Disclosure label={t("apiReference.drawer.responseHeaders")}>
           <SystemOutput label={t("apiReference.drawer.responseHeaders")} maxHeight="max-h-48">
             {answer.headers}
           </SystemOutput>
-        </details>
+        </Disclosure>
       ) : null}
     </Subsection>
   );
