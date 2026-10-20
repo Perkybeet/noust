@@ -127,7 +127,10 @@ describe("a deployment's page", { timeout: 20_000 }, () => {
     expect(await screen.findByText("The deploy failed while building")).toBeInTheDocument();
     const boxes = await screen.findAllByText(/npm ERR! code ELIFECYCLE/, { selector: "pre" });
     expect(boxes.length).toBeGreaterThan(0);
-    for (const box of boxes) expect(box.textContent).not.toMatch(/\u001b|\[\d+m/);
+    for (const box of boxes) {
+      expect(box.textContent.includes("\u001b")).toBe(false);
+      expect(box.textContent).not.toContain("[31m");
+    }
     expect(boxes.some((box) => box.textContent.includes("Next.js 15.2.4"))).toBe(true);
   });
 

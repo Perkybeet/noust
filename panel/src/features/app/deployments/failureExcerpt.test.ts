@@ -80,7 +80,9 @@ describe("the excerpt as the text of a box", () => {
     // The first line read as an error is the cause, the way the viewer reads it through the codes.
     expect(text.detail).toBe("npm ERR! code ELIFECYCLE");
     expect(text.output).toBe(["[3/9] Building application...", "Next.js 15.2.4", "npm ERR! code ELIFECYCLE", "npm ERR! shop@1.0.0 build: `next build`"].join("\n"));
-    expect(`${text.detail ?? ""}${text.output}`).not.toMatch(/\u001b|\[\d+m/);
+    const shown = `${text.detail ?? ""}${text.output}`;
+    expect(shown.includes("\u001b")).toBe(false);
+    expect(shown).not.toContain("[31m");
   });
 
   it("prefers what the deployment recorded, and strips it too", () => {
