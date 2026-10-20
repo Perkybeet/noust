@@ -116,6 +116,8 @@ export const network = {
       hstsOff: "Never send it",
       noindex: "Ask search engines not to index this site",
       noindexHelp: "Sends X-Robots-Tag: noindex. A good idea for anything that is not public.",
+      forceHttps: "Send visitors on port 80 to HTTPS",
+      forceHttpsHelp: "Once the site has a certificate. Turn it off for a client that cannot follow a redirect: the site then answers on both ports and never sends HSTS. nginx only.",
       custom: "Headers to send",
       customHelp: "One per line as Name: value. They replace the defaults of the same name.",
       hidden: "Default headers to leave out",
