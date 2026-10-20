@@ -2474,6 +2474,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/domains/{name}/enabled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Domain Enabled
+         * @description Switch a name off without deleting it, or serve it again.
+         *
+         *     The site is re-rendered and reloaded before this returns. When the site serves TLS,
+         *     ordering the certificate again (without the name, or with it) is queued as a job.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         name: The alias or redirect.
+         *         data: Whether it is served.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The application's domains afterwards.
+         *
+         *     Raises:
+         *         DomainError: The name is the primary or the canonical pair, or not the application's.
+         */
+        put: operations["put_domain_enabled_api_apps__domain__domains__name__enabled_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/domains/{name}/port": {
         parameters: {
             query?: never;
@@ -4084,6 +4119,37 @@ export interface paths {
          *         IntegrationError: The pull request cannot be read (502).
          */
         post: operations["create_preview_api_apps__domain__previews_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/previews/dns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Preview Dns
+         * @description Resolve the name the next preview would get, and say which record covers it.
+         *
+         *     Args:
+         *         domain: The application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The verdict, and the record to add when the name does not reach this server.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: Previews are off for it (400).
+         */
+        get: operations["get_preview_dns_api_apps__domain__previews_dns_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -29762,12 +29828,19 @@ export interface components {
          *             the application's own.
          *         temporary: Whether it is a name made of this server's address (sslip.io), good
          *             for trying an application out and not for keeping.
+         *         enabled: Whether it is served. A name that is switched off keeps its row and its
+         *             port; the site and the certificate leave it out.
          */
         AppDomain: {
             /** Created At */
             created_at?: string | null;
             /** Domain */
             domain: string;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
             /** Kind */
             kind: string;
             /** Port */
@@ -37753,6 +37826,18 @@ export interface components {
             title: string;
         };
         /**
+         * DomainEnabledRequest
+         * @description Whether a name is served.
+         *
+         *     Attributes:
+         *         enabled: False lets the name rest (the site and the certificate leave it out, the
+         *             row and its DNS record stay); True serves it again.
+         */
+        DomainEnabledRequest: {
+            /** Enabled */
+            enabled: boolean;
+        };
+        /**
          * DomainPortRequest
          * @description The port of the application a name is proxied to.
          *
@@ -37782,7 +37867,7 @@ export interface components {
             has_secret: boolean;
             /**
              * Kind
-             * @description loki, axiom, http, otlp or syslog
+             * @description loki, axiom, newrelic, http, otlp or syslog
              */
             kind: string;
             /** Last Error */
@@ -44097,7 +44182,7 @@ export interface components {
          *     Attributes:
          *         id: What a rule names.
          *         scope: ``server`` or ``app``.
-         *         unit: ``percent``, ``bytes``, ``bytes_s``, ``number`` or ``per_min``.
+         *         unit: ``percent``, ``bytes``, ``bytes_s``, ``number``, ``per_min`` or ``ms``.
          */
         MetricModel: {
             /** Id */
@@ -46464,6 +46549,8 @@ export interface components {
          *         waf: The web application firewall: ``detect``, ``block`` or empty for none.
          *         waf_exclusions: Numbers of the rules the firewall leaves out for this site.
          *         routes: What happens at prefixes of the site, longest path first.
+         *         force_https: Whether port 80 is sent to HTTPS once the site has a certificate. False
+         *             leaves the site answering on both (nginx only).
          */
         PolicyFields: {
             /**
@@ -46495,6 +46582,11 @@ export interface components {
             connection_limit: number;
             /** Deny Ips */
             deny_ips?: string[];
+            /**
+             * Force Https
+             * @default true
+             */
+            force_https: boolean;
             forward_auth?: components["schemas"]["ForwardAuthFields"] | null;
             /** Headers */
             headers?: {
@@ -46587,6 +46679,7 @@ export interface components {
          *         waf_exclusions: Replaces the numbers of the rules left out for this site whole.
          *         routes: Replaces the routes whole; an empty list clears them. A route that hands a
          *             prefix to a port no visible application listens on is the server's to ask for.
+         *         force_https: See :class:`PolicyFields`; refused on Apache and while HSTS is on.
          *         accept_lockout: Go ahead although the lists refuse the caller's own address.
          *         accept_unreachable_auth: Go ahead although the authentication service does not answer.
          */
@@ -46615,6 +46708,8 @@ export interface components {
             connection_limit?: number | null;
             /** Deny Ips */
             deny_ips?: string[] | null;
+            /** Force Https */
+            force_https?: boolean | null;
             forward_auth?: components["schemas"]["ForwardAuthFields"] | null;
             /** Headers */
             headers?: {
@@ -46824,6 +46919,44 @@ export interface components {
                 [key: string]: unknown;
             } | null;
             preview: components["schemas"]["noust__web__api__previews__PreviewOut"];
+        };
+        /**
+         * PreviewDnsResponse
+         * @description Whether the names of an application's previews reach this server.
+         *
+         *     Attributes:
+         *         app_domain: The application.
+         *         base_domain: The domain previews answer under.
+         *         probe: A name shaped like a preview's, which was resolved.
+         *         wildcard: The record that covers it.
+         *         verdict: ``here``, ``cdn``, ``elsewhere``, ``none`` or ``unknown``.
+         *         cdn: The CDN every address belongs to, when the verdict is ``cdn``.
+         *         resolved_addresses: What the probe resolves to.
+         *         expected_addresses: This server's addresses.
+         *         ok: Whether a preview would be reached.
+         *         advice: The record to add or change, when it would not.
+         */
+        PreviewDnsResponse: {
+            /** Advice */
+            advice?: string | null;
+            /** App Domain */
+            app_domain: string;
+            /** Base Domain */
+            base_domain: string;
+            /** Cdn */
+            cdn?: string | null;
+            /** Expected Addresses */
+            expected_addresses: string[];
+            /** Ok */
+            ok: boolean;
+            /** Probe */
+            probe: string;
+            /** Resolved Addresses */
+            resolved_addresses: string[];
+            /** Verdict */
+            verdict: string;
+            /** Wildcard */
+            wildcard: string;
         };
         /**
          * PreviewLogsResponse
@@ -52329,7 +52462,7 @@ export interface components {
             keep_secret: boolean;
             /**
              * Kind
-             * @description loki, axiom, http, otlp or syslog
+             * @description loki, axiom, newrelic, http, otlp or syslog
              */
             kind: string;
             /**
@@ -57075,10 +57208,19 @@ export interface components {
          *         s4xx: Answered 4xx.
          *         s5xx: Answered 5xx.
          *         bytes: Bytes of response bodies.
+         *         latency_p50_ms: The median time a request took, in milliseconds; null when no request
+         *             of the step said how long it took (the site's log is from before it was written).
+         *         latency_p95_ms: The p95 of it.
+         *         visitors: How many different visitors there were; null when their sketches are gone
+         *             (they are kept 90 days) or were never made.
          */
         TrafficPointModel: {
             /** Bytes */
             bytes: number;
+            /** Latency P50 Ms */
+            latency_p50_ms?: number | null;
+            /** Latency P95 Ms */
+            latency_p95_ms?: number | null;
             /** Requests */
             requests: number;
             /** S2Xx */
@@ -57091,6 +57233,8 @@ export interface components {
             s5xx: number;
             /** Ts */
             ts: number;
+            /** Visitors */
+            visitors?: number | null;
         };
         /**
          * TrustModel
@@ -64540,6 +64684,42 @@ export interface operations {
             };
         };
     };
+    put_domain_enabled_api_apps__domain__domains__name__enabled_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DomainEnabledRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppDomainChange"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     put_domain_port_api_apps__domain__domains__name__port_put: {
         parameters: {
             query?: never;
@@ -66388,6 +66568,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PreviewQueuedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_preview_dns_api_apps__domain__previews_dns_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewDnsResponse"];
                 };
             };
             /** @description Validation Error */

@@ -2040,6 +2040,237 @@ Sent by Noust · web-1 · 2026-09-29 10:45 UTC
 Change what you receive in Settings > Notifications
 
 ========================================================================
+### webserver.restarted
+Subject: [Noust] Web server restarted: nginx (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: unit_failed
+X-Noust-Code: webserver.restarted
+X-Noust-Server: web-1
+
+▲ Web server restarted · nginx
+It had stopped working and Noust started it again once its configuration test passed.
+
+Server: web-1
+Inspect with: journalctl -u nginx -n 50
+
+Open in the console: https://console.example.com/n/web-1/server
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### webserver.down
+Subject: [Noust] Web server down: nginx (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: unit_failed
+X-Noust-Code: webserver.down
+X-Noust-Server: web-1
+
+✕ Web server down · nginx
+It is not running, and the automatic restart is switched off.
+
+Server: web-1
+Inspect with: journalctl -u nginx -n 50
+
+Open in the console: https://console.example.com/n/web-1/server
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### webserver.config_invalid
+Subject: [Noust] Web server cannot start: nginx (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: unit_failed
+X-Noust-Code: webserver.config_invalid
+X-Noust-Server: web-1
+
+✕ Web server cannot start · nginx
+It is not running and its configuration does not pass its own test, so Noust did not restart it.
+
+Server: web-1
+Check it with: nginx -t
+
+What the system reported:
+  nginx: [emerg] unknown directive "servre_name" in /etc/nginx/sites-enabled/shop.example.com:4
+  nginx: configuration file /etc/nginx/nginx.conf test failed
+
+Open in the console: https://console.example.com/n/web-1/server
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### webserver.restart_failed
+Subject: [Noust] Web server restart failed: nginx (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: unit_failed
+X-Noust-Code: webserver.restart_failed
+X-Noust-Server: web-1
+
+✕ Web server restart failed · nginx
+It is not running and starting it again did not work.
+
+Server: web-1
+Inspect with: journalctl -u nginx -n 50
+
+What the system reported:
+  Job for nginx.service failed because the control process exited with error code.
+
+Open in the console: https://console.example.com/n/web-1/server
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### webserver.limit
+Subject: [Noust] Web server keeps falling: nginx (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: unit_failed
+X-Noust-Code: webserver.limit
+X-Noust-Server: web-1
+
+✕ Web server keeps falling · nginx
+It has fallen 3 times in the last hour, so Noust stopped starting it again.
+
+Server: web-1
+Inspect with: journalctl -u nginx -n 50
+
+Open in the console: https://console.example.com/n/web-1/server
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### webserver.stopped
+Subject: [Noust] Web server stopped: nginx (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: unit_failed
+X-Noust-Code: webserver.stopped
+X-Noust-Server: web-1
+
+▲ Web server stopped · nginx
+It is stopped but starts at boot, so every site on this server is down until somebody starts it.
+
+Server: web-1
+Start it with: systemctl start nginx
+
+Open in the console: https://console.example.com/n/web-1/server
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### security.release
+Subject: [Noust] Security release available: Noust 3.3.2 (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: security_release
+X-Noust-Code: security.release
+X-Noust-Server: web-1
+
+▲ Security release available · Noust 3.3.2
+Noust 3.3.2 fixes a vulnerability and this server still runs 3.3.1.
+
+Server: web-1
+Running: 3.3.1
+Fixed in: 3.3.2
+Advisory: https://github.com/Perkybeet/noust/security/advisories/GHSA-aaaa-bbbb-cccc
+Update with: pipx upgrade noust
+
+Open in the console: https://console.example.com/n/web-1/settings/about
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### container.restart_loop
+Subject: [Noust] Container restarting in a loop: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: container_restart_loop
+X-Noust-Code: container.restart_loop
+X-Noust-Server: web-1
+
+✕ Container restarting in a loop · shop.example.com
+Docker has restarted it 6 times since it was first seen, and the limit is 5.
+
+Server: web-1
+Container: shop-worker-1
+Restarts: 6
+Last exit code: 1
+Inspect with: docker logs --tail 50 shop-worker-1
+
+What the system reported:
+  Error: connect ECONNREFUSED 10.0.0.4:5432
+      at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16)
+  worker exiting with status 1
+
+Open in the console: https://console.example.com/n/web-1/apps/shop.example.com
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### container.recovered
+Subject: [Noust] Container stable again: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: container_restart_loop
+X-Noust-Code: container.recovered
+X-Noust-Server: web-1
+
+● Container stable again · shop.example.com
+It has run for 7 minutes without restarting.
+
+Server: web-1
+Container: shop-worker-1
+Inspect with: docker logs --tail 50 shop-worker-1
+
+Open in the console: https://console.example.com/n/web-1/apps/shop.example.com
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### recipe.outdated
+Subject: [Noust] Recipe updates available (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: recipe_outdated
+X-Noust-Code: recipe.outdated
+X-Noust-Server: web-1
+
+○ Recipe updates available
+2 installed recipes have a newer version in the catalogue.
+
+Server: web-1
+Recipe: vault.example.com: 1.37.4 -> 1.38.0
+Recipe: blog.example.com: 5.0.1 -> 5.1.0
+Update with: noust recipe outdated
+
+Open in the console: https://console.example.com/n/web-1/catalog
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
 ### hostile.deploy_failed
 Subject: [Noust] Deploy failed: shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
 Auto-Submitted: auto-generated

@@ -1488,6 +1488,196 @@
     "disable_notification": true,
     "parse_mode": "HTML"
   },
+  "webserver.restarted": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Web server restarted</b> · nginx\nIt had stopped working and Noust started it again once its configuration test passed.\n\n<b>Server:</b> web-1\n<b>Inspect with:</b> <code>journalctl -u nginx -n 50</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "webserver.down": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Web server down</b> · nginx\nIt is not running, and the automatic restart is switched off.\n\n<b>Server:</b> web-1\n<b>Inspect with:</b> <code>journalctl -u nginx -n 50</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "webserver.config_invalid": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Web server cannot start</b> · nginx\nIt is not running and its configuration does not pass its own test, so Noust did not restart it.\n\n<b>Server:</b> web-1\n<b>Check it with:</b> <code>nginx -t</code>\n\n<i>What the system reported</i>\n<pre>nginx: [emerg] unknown directive \"servre_name\" in /etc/nginx/sites-enabled/shop.example.com:4\nnginx: configuration file /etc/nginx/nginx.conf test failed</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "webserver.restart_failed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Web server restart failed</b> · nginx\nIt is not running and starting it again did not work.\n\n<b>Server:</b> web-1\n<b>Inspect with:</b> <code>journalctl -u nginx -n 50</code>\n\n<i>What the system reported</i>\n<pre>Job for nginx.service failed because the control process exited with error code.</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "webserver.limit": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Web server keeps falling</b> · nginx\nIt has fallen 3 times in the last hour, so Noust stopped starting it again.\n\n<b>Server:</b> web-1\n<b>Inspect with:</b> <code>journalctl -u nginx -n 50</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "webserver.stopped": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Web server stopped</b> · nginx\nIt is stopped but starts at boot, so every site on this server is down until somebody starts it.\n\n<b>Server:</b> web-1\n<b>Start it with:</b> <code>systemctl start nginx</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "security.release": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Security release available</b> · Noust 3.3.2\nNoust 3.3.2 fixes a vulnerability and this server still runs 3.3.1.\n\n<b>Server:</b> web-1\n<b>Running:</b> 3.3.1\n<b>Fixed in:</b> 3.3.2\n<b>Advisory:</b> <code>https://github.com/Perkybeet/noust/security/advisories/GHSA-aaaa-bbbb-cccc</code>\n<b>Update with:</b> <code>pipx upgrade noust</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/settings/about"
+          }
+        ]
+      ]
+    }
+  },
+  "container.restart_loop": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Container restarting in a loop</b> · shop.example.com\nDocker has restarted it 6 times since it was first seen, and the limit is 5.\n\n<b>Server:</b> web-1\n<b>Container:</b> <code>shop-worker-1</code>\n<b>Restarts:</b> 6\n<b>Last exit code:</b> 1\n<b>Inspect with:</b> <code>docker logs --tail 50 shop-worker-1</code>\n\n<i>What the system reported</i>\n<pre>Error: connect ECONNREFUSED 10.0.0.4:5432\n    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16)\nworker exiting with status 1</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+          }
+        ]
+      ]
+    }
+  },
+  "container.recovered": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Container stable again</b> · shop.example.com\nIt has run for 7 minutes without restarting.\n\n<b>Server:</b> web-1\n<b>Container:</b> <code>shop-worker-1</code>\n<b>Inspect with:</b> <code>docker logs --tail 50 shop-worker-1</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+          }
+        ]
+      ]
+    }
+  },
+  "recipe.outdated": {
+    "chat_id": "-1001234567890",
+    "text": "○ <b>Recipe updates available</b>\n2 installed recipes have a newer version in the catalogue.\n\n<b>Server:</b> web-1\n<b>Recipe:</b> <code>vault.example.com: 1.37.4 -&gt; 1.38.0</code>\n<b>Recipe:</b> <code>blog.example.com: 5.0.1 -&gt; 5.1.0</code>\n<b>Update with:</b> <code>noust recipe outdated</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/catalog"
+          }
+        ]
+      ]
+    }
+  },
   "hostile.deploy_failed": {
     "chat_id": "-1001234567890",
     "text": "✕ <b>Deploy failed</b> · shop.example.com\nIt stopped at an error before the new version could take over.\n\n<b>Server:</b> wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n<b>Release:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (&lt;b&gt;x&lt;/b&gt;&amp;amp;&lt;!channel&gt; @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here &lt;@U123&gt; &lt;#C1&gt; red emoji 🚀\n<b>Started by:</b> Webhook\n<b>Duration:</b> 1 min 12 s\n<b>Inspect with:</b> <code>noust diagnose shop.example.com</code>\n\n<i>What the system reported</i>\n<pre>Release did not pass &lt;its&gt; health &amp; check\n&lt;urlopen error [Errno 111] Connection refused&gt;\n```\n@everyone &lt;!channel&gt; &lt;@U123|admin&gt; &amp;lt;b&amp;gt;\nred *bold* _italic_ ~strike~ `code`\nnoitcnuf\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…</pre>",

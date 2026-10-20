@@ -238,14 +238,14 @@ def default_host_port() -> int | None:
     Returns:
         The port, or None when none is free (the container's own is used then).
     """
-    from noust.core.store import StoreError, get_store
-    from noust.validators.port import find_available_port
+    from noust.core.store import StoreError
+    from noust.managers.port_claims import PortClaims
 
     try:
-        owned = get_store().ports_owned_by_apps()
+        return PortClaims().choose(preferred=3000)
     except StoreError:
-        owned = set()  # no store yet (a rehearsal on a fresh machine): no application owns any
-    return find_available_port(preferred=3000, exclude=owned)
+        # no store yet (a rehearsal on a fresh machine): no application owns any
+        return 3000
 
 
 def convert(text: str, *, domain: str | None = None, port: int | None = None) -> CoolifyImport:

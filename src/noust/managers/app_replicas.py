@@ -57,6 +57,7 @@ from noust.managers.app_processes import (
     check_unit_fits,
     instance_name,
 )
+from noust.managers.port_claims import claimed_ports
 from noust.validators.domain import validate_domain
 from noust.validators.environment import validate_environment, validate_unit_value
 from noust.validators.port import find_available_port
@@ -605,7 +606,7 @@ class ReplicaManager:
             ValidationError: There is none free near it.
         """
         base = int(app.port or 0)
-        owned = self.store.ports_owned_by_apps() | set(taken) | {base}
+        owned = claimed_ports(self.store, self._runner) | set(taken) | {base}
         start = max([base, *taken]) + 1
         port = find_available_port(start=start, end=min(65536, start + PORT_SPAN), exclude=owned)
         if port is None:

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Globe, MoreHorizontal, Plug, Plus, RotateCw, Search, Trash2 } from "lucide-react";
+import { ArrowRight, Globe, MoreHorizontal, Plug, Plus, Power, RotateCw, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { request } from "../../api/client";
@@ -55,6 +55,7 @@ function Role({ entry, app }: { entry: AppDomain; app: string }) {
       <span className="inline-flex min-w-0 items-center gap-1.5">
         <Badge>{kindLabel(t, entry.kind)}</Badge>
         {entry.temporary ? <Badge tone="warn">{t("domains.temporary.badge")}</Badge> : null}
+        {!entry.enabled ? <Badge>{t("domains.appTab.switchedOffBadge")}</Badge> : null}
         {entry.port ? (
           <Mono tone="muted">
             <span className="sr-only">{t("network.port.goesToSr", { port: entry.port })}</span>
@@ -67,6 +68,7 @@ function Role({ entry, app }: { entry: AppDomain; app: string }) {
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5">
       <Badge>{t("domains.kindRedirect")}</Badge>
+      {!entry.enabled ? <Badge>{t("domains.appTab.switchedOffBadge")}</Badge> : null}
       <ArrowRight aria-hidden="true" className="size-3.5 shrink-0 text-fg-faint" />
       <span className="sr-only">{t("domains.appTab.roleToSr")}</span>
       <span translate="no" className="truncate text-13 text-fg-muted">
@@ -193,6 +195,19 @@ export function AppDomainsTab({ domain }: { domain: string }) {
     },
   });
 
+  const switchName = useMutation({
+    mutationFn: ({ entry, enabled }: { entry: AppDomain; enabled: boolean }) =>
+      request("put", "/api/apps/{domain}/domains/{name}/enabled", { params: { domain, name: entry.domain }, body: { enabled } }),
+    onSuccess: (change, { entry, enabled }) => {
+      applyChange(change);
+      if (change.certificate_job_id) followed.follow(change.certificate_job_id);
+      toast.success(t(enabled ? "domains.appTab.switchedOnToast" : "domains.appTab.switchedOffToast", { name: entry.domain, domain }));
+    },
+    onError: (error, { entry, enabled }) => {
+      reportActionError(t(enabled ? "domains.appTab.switchOnFailedError" : "domains.appTab.switchOffFailedError", { name: entry.domain }), error);
+    },
+  });
+
   const columns: Column<AppDomain>[] = [
     {
       id: "domain",
@@ -289,6 +304,15 @@ export function AppDomainsTab({ domain }: { domain: string }) {
                 {entry.kind !== "primary" && lineage && !covers(lineage, entry.domain) ? (
                   <MenuItem icon={<RotateCw />} disabled={retry.isPending || extending} onClick={() => retry.mutate(entry)}>
                     {t("domains.appTab.retryCertificate")}
+                  </MenuItem>
+                ) : null}
+                {entry.kind !== "primary" ? (
+                  <MenuItem
+                    icon={<Power />}
+                    disabled={switchName.isPending}
+                    onClick={() => switchName.mutate({ entry, enabled: !entry.enabled })}
+                  >
+                    {!entry.enabled ? t("domains.appTab.switchOn") : t("domains.appTab.switchOff")}
                   </MenuItem>
                 ) : null}
                 {entry.kind !== "primary" ? (

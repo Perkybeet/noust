@@ -30,6 +30,7 @@ const METRIC_LABELS: Readonly<Record<string, PlainKey>> = {
   app_memory: "alerts.metrics.appMemory",
   app_requests: "alerts.metrics.appRequests",
   app_5xx: "alerts.metrics.app5xx",
+  app_latency_p95: "alerts.metrics.appLatencyP95",
   app_disk_read: "alerts.metrics.appDiskRead",
   app_disk_write: "alerts.metrics.appDiskWrite",
   app_net_rx: "alerts.metrics.appNetRx",
@@ -53,6 +54,8 @@ export function limitHint(t: T, unit: string): string {
       return t("alerts.form.limitHint.bytes_s");
     case "per_min":
       return t("alerts.form.limitHint.per_min");
+    case "ms":
+      return t("alerts.form.limitHint.ms");
     default:
       return t("alerts.form.limitHint.number");
   }
@@ -69,6 +72,8 @@ export function formatReading(unit: string, value: number, locale: Locale): stri
       return formatBytesRate(value, locale);
     case "per_min":
       return `${String(Math.round(value))}/min`;
+    case "ms":
+      return value < 1 ? "<1 ms" : value < 1000 ? `${String(Math.round(value))} ms` : formatDuration(value / 1000, locale);
     default:
       return String(Math.round(value * 100) / 100);
   }

@@ -24,6 +24,14 @@ Three decisions keep that safe to keep for months:
   :data:`KEYS_PER_HOUR`; a scan of a thousand different paths cannot make the
   table of one hour grow without limit.
 
+Two more questions are answered from the same lines when the site's log carries them. The sites
+Noust writes log the combined format and one word more, the time the request took
+(``rt=<seconds>`` for nginx, ``rtus=<microseconds>`` for Apache), and the digest keeps it as a
+:class:`~noust.monitor.latency.Histogram` per hour, from which the median and the p95 are read.
+The visitors of an hour are a :class:`~noust.monitor.sketch.Sketch` of the address and the agent
+of each line, which counts how many were different and keeps neither. A line from before the word
+existed is a request without a time: it is counted everywhere else.
+
 Pure: it parses bytes and returns counts. The metrics store keeps them
 (:meth:`~noust.monitor.timeseries.MetricsStore.add_traffic`).
 """
@@ -31,11 +39,15 @@ Pure: it parses bytes and returns counts. The metrics store keeps them
 from __future__ import annotations
 
 import ipaddress
+import math
 import re
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
+
+from noust.monitor.latency import Histogram
+from noust.monitor.sketch import Sketch
 
 #: The questions a site's traffic is asked.
 DIMENSIONS: tuple[str, ...] = ("path", "network", "status", "referrer")
@@ -57,6 +69,8 @@ _LINE = re.compile(
     rb'^(?P<ip>\S+) \S+ \S+ \[(?P<time>[^\]]*)\] "(?P<request>(?:[^"\\]|\\.)*)" '
     rb"(?P<status>\d{3})(?: (?P<bytes>\S+))?"
     rb'(?: "(?P<referrer>(?:[^"\\]|\\.)*)")?'
+    rb'(?: "(?P<agent>(?:[^"\\]|\\.)*)")?'
+    rb"(?: (?:rt=(?P<rt>\S+)|rtus=(?P<rtus>\S+)))?"
 )
 
 _MONTHS = {
@@ -92,6 +106,8 @@ class HourCounts:
             is the 5xx).
         bytes: Bytes of the bodies served.
         keys: For each of :data:`DIMENSIONS`, how many times each key was seen.
+        latency: How long the requests that said it took.
+        visitors: The different visitors, as a sketch.
     """
 
     requests: int = 0
@@ -100,6 +116,8 @@ class HourCounts:
     keys: dict[str, Counter[str]] = field(
         default_factory=lambda: {dimension: Counter() for dimension in DIMENSIONS}
     )
+    latency: Histogram = field(default_factory=Histogram)
+    visitors: Sketch = field(default_factory=Sketch)
 
     def merge(self, other: HourCounts) -> None:
         """
@@ -114,6 +132,8 @@ class HourCounts:
             self.classes[index] += count
         for dimension, counter in other.keys.items():
             self.keys[dimension].update(counter)
+        self.latency.merge(other.latency)
+        self.visitors.merge(other.visitors)
 
 
 @dataclass
@@ -241,6 +261,30 @@ def referrer_host(referrer: str) -> str:
     return (host or DIRECT)[:MAX_KEY]
 
 
+def milliseconds(rt: bytes | None, rtus: bytes | None) -> float | None:
+    """
+    Read the time a request took from the word the log carries.
+
+    Args:
+        rt: nginx's ``$request_time``, seconds with millisecond resolution.
+        rtus: Apache's ``%D``, microseconds.
+
+    Returns:
+        Milliseconds; None when the line has none or it is not a time (negative, not a number,
+        not finite).
+    """
+    try:
+        if rt is not None:
+            value = float(rt) * 1000.0
+        elif rtus is not None:
+            value = float(rtus) / 1000.0
+        else:
+            return None
+    except ValueError:
+        return None
+    return value if math.isfinite(value) and value >= 0 else None
+
+
 def analyse(data: bytes) -> Digest:
     """
     Digest complete access log lines.
@@ -281,6 +325,10 @@ def analyse(data: bytes) -> Digest:
         network = network_of(match.group("ip").decode("ascii", "replace"))
         if network is not None:
             counts.keys["network"][network] += 1
+        elapsed = milliseconds(match.group("rt"), match.group("rtus"))
+        if elapsed is not None:
+            counts.latency.add_ms(elapsed)
+        counts.visitors.add(match.group("ip") + b"|" + (match.group("agent") or b""))
         referrer = match.group("referrer")
         counts.keys["referrer"][
             referrer_host(referrer.decode("utf-8", "replace")) if referrer is not None else DIRECT

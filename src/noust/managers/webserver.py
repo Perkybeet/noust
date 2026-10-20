@@ -1375,7 +1375,7 @@ class WebServerManager(BaseManager):
             cannot be read, which is reported.
         """
         try:
-            records = self.store.list_domains(domain)
+            records = self.store.list_domains(domain, include_disabled=False)
             canonical = self.policies.get(domain).canonical
         except (NoustError, sqlite3.Error) as exc:
             # A rehearsal on a machine with no database yet has no rows to

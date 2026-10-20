@@ -142,7 +142,7 @@ class FakeStore(NetworkTables):
         """Report that the application is unknown."""
         return None
 
-    def list_domains(self, app_domain: str) -> list[Any]:
+    def list_domains(self, app_domain: str, *, include_disabled: bool = True) -> list[Any]:
         """Report that no application owns the domain."""
         return []
 

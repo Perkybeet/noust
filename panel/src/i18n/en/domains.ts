@@ -65,6 +65,13 @@ export const domains = {
     noDomainsTitle: "No domains recorded",
     noDomainsDescription: "Add the names this app should answer on.",
     retryCertificate: "Retry certificate",
+    switchOff: "Switch off",
+    switchOn: "Switch on",
+    switchedOffBadge: "Off",
+    switchedOffToast: "{domain} no longer answers on {name}; it is switched off, not removed",
+    switchedOnToast: "{domain} answers on {name} again",
+    switchOffFailedError: "Could not switch {name} off",
+    switchOnFailedError: "Could not switch {name} on",
     remove: "Remove",
     primaryDomainNote:
       "{domain} is the primary domain: the app's unit, directory and site are named after it, so it cannot be removed here. To move the app to another name, deploy it there and delete this one.",

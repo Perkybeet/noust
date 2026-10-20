@@ -52,6 +52,7 @@ const SERVER_FIELD: Record<AccessField, string> = {
   connection_limit: "connection_limit",
   hsts: "hsts",
   noindex: "noindex",
+  force_https: "force_https",
   headers: "headers",
   hidden_headers: "hidden_headers",
   routes: "routes",
@@ -318,6 +319,12 @@ function HeadersCard({ form, policy, t }: { form: ReturnType<typeof useAccessFor
           description={t("network.access.headers.noindexHelp")}
           checked={draft.noindex}
           onCheckedChange={(checked) => edit("noindex", checked)}
+        />
+        <Checkbox
+          label={t("network.access.headers.forceHttps")}
+          description={t("network.access.headers.forceHttpsHelp")}
+          checked={draft.force_https}
+          onCheckedChange={(checked) => edit("force_https", checked)}
         />
         <Field label={t("network.access.headers.hsts")} nativeLabel={false}>
           <Select

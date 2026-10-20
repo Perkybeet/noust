@@ -18,6 +18,7 @@ import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { Drawer } from "../../components/ui/Drawer";
 import { IconButton } from "../../components/ui/IconButton";
 import { Input } from "../../components/ui/Input";
+import { Textarea } from "../../components/ui/Textarea";
 import { Mono } from "../../components/ui/Mono";
 import { StatusGlyph, StatusPill } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
@@ -120,6 +121,45 @@ export function SecretInput({
           }}
         />
       }
+    />
+  );
+}
+
+/**
+ * A write-only field of several lines (the headers of a webhook, one per line): what is typed is
+ * shown while it is typed, what is stored never comes back.
+ */
+export function SecretTextarea({
+  label,
+  placeholder,
+  value,
+  configured,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  placeholder: string;
+  value: string;
+  configured: boolean;
+  onChange: (value: string) => void;
+  disabled: boolean;
+}) {
+  const t = useT();
+  return (
+    <Textarea
+      mono
+      rows={3}
+      wrap="off"
+      aria-label={label}
+      autoComplete="off"
+      autoCapitalize="off"
+      spellCheck={false}
+      placeholder={configured ? t("settings.notifications.channels.secretPlaceholder") : placeholder}
+      value={value}
+      disabled={disabled}
+      onChange={(event) => {
+        onChange(event.target.value);
+      }}
     />
   );
 }

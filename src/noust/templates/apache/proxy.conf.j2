@@ -52,7 +52,7 @@ ServerSignature Off
 {% include "_policy.j2" %}
     # Logging
     ErrorLog ${APACHE_LOG_DIR}/{{ domain }}.error.log
-    CustomLog ${APACHE_LOG_DIR}/{{ domain }}.access.log combined
+{% include "_log_format.j2" %}    CustomLog ${APACHE_LOG_DIR}/{{ domain }}.access.log noust_{{ domain }}
 
     # Security headers
 {% include "_headers.j2" %}

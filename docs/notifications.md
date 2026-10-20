@@ -16,7 +16,7 @@ A channel is a place a message can go. There are thirteen types:
 
 | Type | What it needs | Notes |
 |---|---|---|
-| `webhook` | `webhook_url`, optionally `secret` | JSON, signed with HMAC-SHA256 in `X-Noust-Signature` when a secret is set |
+| `webhook` | `webhook_url`, optionally `secret` and `webhook_headers` | JSON, signed with HMAC-SHA256 in `X-Noust-Signature` when a secret is set; `webhook_headers` adds the receiver's own headers |
 | `slack` | `webhook_url` | An incoming webhook |
 | `discord` | `webhook_url` | `mention_role_id` and `mention_user_id` ping someone on failures |
 | `telegram` | `bot_token`, `chat_id` | `thread_id` posts to a topic of a forum group; `threads` gives each event its own topic |
@@ -32,6 +32,32 @@ A channel is a place a message can go. There are thirteen types:
 
 Every credential is write-only: it is never shown again, in the console, the command line, the
 API or the logs. Saving a form with a credential left alone keeps the stored one.
+
+**At rest** the credentials of the channels (a webhook URL, a token, a bot's key, the signing
+secret, the headers) are sealed in `/etc/noust/config.yaml` with AES-256-CBC and HMAC-SHA256 under a
+key that stays beside it (`/etc/noust/secrets.key`, `0600`, root's), so a copy of the file, a
+backup of `/etc` or a screenshot of it leaks nothing. They open when Noust reads the file and are
+sealed again when it writes it; a configuration written before 4.0 is sealed the first time Noust
+starts (or with `noust config protect`, which does nothing to a file with nothing in clear). Keep
+the key with the file in a backup, or the credentials cannot be opened: the error says which file to
+restore. See [security.md](security.md) and [downgrading.md](downgrading.md).
+
+### Headers of the generic webhook
+
+A receiver that wants its own credential in the request (an `Authorization: Bearer` token for n8n or
+Home Assistant, a vendor's API key header) gets it from `webhook_headers`: one `Name: value` per line,
+at most 20, kept sealed like the rest.
+
+```bash
+printf '%s' 'Authorization: Bearer 3f9a...' | \
+  noust config set notifications.channels.webhook.webhook_headers --stdin
+```
+
+A name is a token (letters, digits and a few symbols, `-` included), a value is one line of printable
+ASCII, a name cannot be given twice. The headers that frame the request or say what Noust says about
+a delivery (`Content-Type`, `Content-Length`, `Host`, `User-Agent`, `Transfer-Encoding`, `Connection`,
+`X-Noust-Event`, `X-Noust-Delivery`, `X-Noust-Signature`) cannot be replaced, so a configured header
+cannot forge a signature. A line that is not accepted is refused when it is saved, naming the line.
 
 ### More than one channel of a type
 
@@ -283,6 +309,7 @@ What a rule can watch (`noust alert metrics`):
 | `app_cpu` | An application | Percent of one core |
 | `app_memory` | An application | Bytes |
 | `app_requests`, `app_5xx` | An application | Per minute (from the access log) |
+| `app_latency_p95` | An application | Milliseconds: the 95th percentile of the time requests took in the last minute (the access log of a site Noust wrote; see [MONITOR.md](MONITOR.md#traffic-of-an-application)) |
 | `app_disk_read`, `app_disk_write` | An application | Bytes per second |
 | `app_net_rx`, `app_net_tx` | An application | Bytes per second |
 

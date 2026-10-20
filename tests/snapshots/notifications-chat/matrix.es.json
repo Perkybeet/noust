@@ -566,6 +566,76 @@
     "formatted_body": "<b>○ Resumen programado</b><br>3 avisos desde el último resumen.<ul><li><b>Servidor:</b> web-1</li><li><b>Avisos:</b> 3</li><li><b>Entre:</b> 2026-09-29 10:45 UTC - 2026-09-29 10:51 UTC</li></ul><b>Disco limpiado · /</b><ul><li><b>Cuándo:</b> 2026-09-29 10:45 UTC</li><li><b>Detalle:</b> La política de limpieza del servidor se ha ejecutado y ha liberado espacio.</li></ul><b>La tarea programada vuelve a ejecutarse · shop-sync</b><ul><li><b>Cuándo:</b> 2026-09-29 10:48 UTC</li><li><b>Detalle:</b> El temporizador de la tarea vuelve a estar en marcha.</li></ul><b>La dirección vuelve a responder · shop-site</b><ul><li><b>Cuándo:</b> 2026-09-29 10:51 UTC</li><li><b>Detalle:</b> Contesta otra vez a lo que le pide la sonda.</li></ul>",
     "m.mentions": {}
   },
+  "webserver.restarted": {
+    "msgtype": "m.text",
+    "body": "▲ Servidor web reiniciado · nginx\nHabía dejado de funcionar y Noust lo ha arrancado de nuevo tras pasar su prueba de configuración.\n\nServidor: web-1\nRevísalo con: journalctl -u nginx -n 50\n\nAbrir en la consola: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Servidor web reiniciado · nginx</b><br>Había dejado de funcionar y Noust lo ha arrancado de nuevo tras pasar su prueba de configuración.<ul><li><b>Servidor:</b> web-1</li><li><b>Revísalo con:</b> <code>journalctl -u nginx -n 50</code></li></ul><a href=\"https://console.example.com/n/web-1/server\">Abrir en la consola</a>",
+    "m.mentions": {}
+  },
+  "webserver.down": {
+    "msgtype": "m.text",
+    "body": "✕ Servidor web caído · nginx\nNo está en marcha y el reinicio automático está desactivado.\n\nServidor: web-1\nRevísalo con: journalctl -u nginx -n 50\n\nAbrir en la consola: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Servidor web caído · nginx</b><br>No está en marcha y el reinicio automático está desactivado.<ul><li><b>Servidor:</b> web-1</li><li><b>Revísalo con:</b> <code>journalctl -u nginx -n 50</code></li></ul><a href=\"https://console.example.com/n/web-1/server\">Abrir en la consola</a>",
+    "m.mentions": {}
+  },
+  "webserver.config_invalid": {
+    "msgtype": "m.text",
+    "body": "✕ El servidor web no puede arrancar · nginx\nNo está en marcha y su configuración no pasa su propia prueba, así que Noust no lo ha reiniciado.\n\nServidor: web-1\nCompruébalo con: nginx -t\n\nLo que ha informado el sistema:\n  nginx: [emerg] unknown directive \"servre_name\" in /etc/nginx/sites-enabled/shop.example.com:4\n  nginx: configuration file /etc/nginx/nginx.conf test failed\n\nAbrir en la consola: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ El servidor web no puede arrancar · nginx</b><br>No está en marcha y su configuración no pasa su propia prueba, así que Noust no lo ha reiniciado.<ul><li><b>Servidor:</b> web-1</li><li><b>Compruébalo con:</b> <code>nginx -t</code></li></ul><i>Lo que ha informado el sistema</i><pre><code>nginx: [emerg] unknown directive &quot;servre_name&quot; in /etc/nginx/sites-enabled/shop.example.com:4\nnginx: configuration file /etc/nginx/nginx.conf test failed</code></pre><a href=\"https://console.example.com/n/web-1/server\">Abrir en la consola</a>",
+    "m.mentions": {}
+  },
+  "webserver.restart_failed": {
+    "msgtype": "m.text",
+    "body": "✕ Ha fallado el reinicio del servidor web · nginx\nNo está en marcha y arrancarlo de nuevo no ha funcionado.\n\nServidor: web-1\nRevísalo con: journalctl -u nginx -n 50\n\nLo que ha informado el sistema:\n  Job for nginx.service failed because the control process exited with error code.\n\nAbrir en la consola: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Ha fallado el reinicio del servidor web · nginx</b><br>No está en marcha y arrancarlo de nuevo no ha funcionado.<ul><li><b>Servidor:</b> web-1</li><li><b>Revísalo con:</b> <code>journalctl -u nginx -n 50</code></li></ul><i>Lo que ha informado el sistema</i><pre><code>Job for nginx.service failed because the control process exited with error code.</code></pre><a href=\"https://console.example.com/n/web-1/server\">Abrir en la consola</a>",
+    "m.mentions": {}
+  },
+  "webserver.limit": {
+    "msgtype": "m.text",
+    "body": "✕ El servidor web sigue cayendo · nginx\nHa caído 3 veces en la última hora, así que Noust ha dejado de arrancarlo de nuevo.\n\nServidor: web-1\nRevísalo con: journalctl -u nginx -n 50\n\nAbrir en la consola: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ El servidor web sigue cayendo · nginx</b><br>Ha caído 3 veces en la última hora, así que Noust ha dejado de arrancarlo de nuevo.<ul><li><b>Servidor:</b> web-1</li><li><b>Revísalo con:</b> <code>journalctl -u nginx -n 50</code></li></ul><a href=\"https://console.example.com/n/web-1/server\">Abrir en la consola</a>",
+    "m.mentions": {}
+  },
+  "webserver.stopped": {
+    "msgtype": "m.text",
+    "body": "▲ Servidor web detenido · nginx\nEstá detenido pero arranca con el sistema, así que todos los sitios de este servidor están caídos hasta que alguien lo arranque.\n\nServidor: web-1\nArráncalo con: systemctl start nginx\n\nAbrir en la consola: https://console.example.com/n/web-1/server",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Servidor web detenido · nginx</b><br>Está detenido pero arranca con el sistema, así que todos los sitios de este servidor están caídos hasta que alguien lo arranque.<ul><li><b>Servidor:</b> web-1</li><li><b>Arráncalo con:</b> <code>systemctl start nginx</code></li></ul><a href=\"https://console.example.com/n/web-1/server\">Abrir en la consola</a>",
+    "m.mentions": {}
+  },
+  "security.release": {
+    "msgtype": "m.text",
+    "body": "▲ Versión de seguridad disponible · Noust 3.3.2\nNoust 3.3.2 corrige una vulnerabilidad y este servidor sigue en la versión 3.3.1.\n\nServidor: web-1\nEn marcha: 3.3.1\nCorregida en: 3.3.2\nAviso: https://github.com/Perkybeet/noust/security/advisories/GHSA-aaaa-bbbb-cccc\nActualiza con: pipx upgrade noust\n\nAbrir en la consola: https://console.example.com/n/web-1/settings/about",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Versión de seguridad disponible · Noust 3.3.2</b><br>Noust 3.3.2 corrige una vulnerabilidad y este servidor sigue en la versión 3.3.1.<ul><li><b>Servidor:</b> web-1</li><li><b>En marcha:</b> 3.3.1</li><li><b>Corregida en:</b> 3.3.2</li><li><b>Aviso:</b> <code>https://github.com/Perkybeet/noust/security/advisories/GHSA-aaaa-bbbb-cccc</code></li><li><b>Actualiza con:</b> <code>pipx upgrade noust</code></li></ul><a href=\"https://console.example.com/n/web-1/settings/about\">Abrir en la consola</a>",
+    "m.mentions": {}
+  },
+  "container.restart_loop": {
+    "msgtype": "m.text",
+    "body": "✕ Contenedor reiniciándose en bucle · shop.example.com\nDocker lo ha reiniciado 6 veces desde que se vio por primera vez, y el límite es 5.\n\nServidor: web-1\nContenedor: shop-worker-1\nReinicios: 6\nÚltimo código de salida: 1\nRevísalo con: docker logs --tail 50 shop-worker-1\n\nLo que ha informado el sistema:\n  Error: connect ECONNREFUSED 10.0.0.4:5432\n      at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16)\n  worker exiting with status 1\n\nAbrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Contenedor reiniciándose en bucle · shop.example.com</b><br>Docker lo ha reiniciado 6 veces desde que se vio por primera vez, y el límite es 5.<ul><li><b>Servidor:</b> web-1</li><li><b>Contenedor:</b> <code>shop-worker-1</code></li><li><b>Reinicios:</b> 6</li><li><b>Último código de salida:</b> 1</li><li><b>Revísalo con:</b> <code>docker logs --tail 50 shop-worker-1</code></li></ul><i>Lo que ha informado el sistema</i><pre><code>Error: connect ECONNREFUSED 10.0.0.4:5432\n    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16)\nworker exiting with status 1</code></pre><a href=\"https://console.example.com/n/web-1/apps/shop.example.com\">Abrir en la consola</a>",
+    "m.mentions": {}
+  },
+  "container.recovered": {
+    "msgtype": "m.text",
+    "body": "● Contenedor estable de nuevo · shop.example.com\nLleva 7 minutos en marcha sin reiniciarse.\n\nServidor: web-1\nContenedor: shop-worker-1\nRevísalo con: docker logs --tail 50 shop-worker-1\n\nAbrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● Contenedor estable de nuevo · shop.example.com</b><br>Lleva 7 minutos en marcha sin reiniciarse.<ul><li><b>Servidor:</b> web-1</li><li><b>Contenedor:</b> <code>shop-worker-1</code></li><li><b>Revísalo con:</b> <code>docker logs --tail 50 shop-worker-1</code></li></ul><a href=\"https://console.example.com/n/web-1/apps/shop.example.com\">Abrir en la consola</a>",
+    "m.mentions": {}
+  },
+  "recipe.outdated": {
+    "msgtype": "m.text",
+    "body": "○ Actualizaciones de recetas disponibles\n2 recetas instaladas tienen una versión más nueva en el catálogo.\n\nServidor: web-1\nReceta: vault.example.com: 1.37.4 -> 1.38.0\nReceta: blog.example.com: 5.0.1 -> 5.1.0\nActualiza con: noust recipe outdated\n\nAbrir en la consola: https://console.example.com/n/web-1/catalog",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>○ Actualizaciones de recetas disponibles</b><br>2 recetas instaladas tienen una versión más nueva en el catálogo.<ul><li><b>Servidor:</b> web-1</li><li><b>Receta:</b> <code>vault.example.com: 1.37.4 -&gt; 1.38.0</code></li><li><b>Receta:</b> <code>blog.example.com: 5.0.1 -&gt; 5.1.0</code></li><li><b>Actualiza con:</b> <code>noust recipe outdated</code></li></ul><a href=\"https://console.example.com/n/web-1/catalog\">Abrir en la consola</a>",
+    "m.mentions": {}
+  },
   "hostile.deploy_failed": {
     "msgtype": "m.text",
     "body": "✕ Despliegue fallido · shop.example.com\nSe ha detenido por un error antes de que la nueva versión tomara el relevo.\n\nServidor: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nVersión: 20260929-104449\nCommit: a1b2c3d (<b>x</b>&amp;<!channel> @​everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @​here <@​U123> <#C1> red emoji 🚀\nIniciado por: Webhook\nDuración: 1 min 12 s\nRevísalo con: noust diagnose shop.example.com\n\nLo que ha informado el sistema:\n  Release did not pass <its> health & check\n  <urlopen error [Errno 111] Connection refused>\n  ```\n  @​everyone <!channel> <@​U123|admin> &lt;b&gt;\n  red *bold* _italic_ ~strike~ `code`\n  noitcnuf\n  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…\n\nAbrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",

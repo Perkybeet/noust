@@ -38,6 +38,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from noust.monitor.latency import Histogram
 from noust.monitor.plan import SamplingPlan
 from noust.monitor.timeseries import MetricsStore
 from noust.monitor.traffic_digest import Digest, analyse
@@ -59,6 +60,20 @@ _LINE = re.compile(rb'^\S+ \S+ \S+ \[[^\]]*\] "(?:[^"\\]|\\.)*" (\d{3}) ')
 
 REQUESTS_SUFFIX = "http.requests_per_min"
 ERRORS_SUFFIX = "http.errors_5xx_per_min"
+LATENCY_SUFFIX = "http.latency_p95_ms"
+
+
+def latency_metric_name(domain: str) -> str:
+    """
+    Name the series that holds the p95 of the time requests took.
+
+    Args:
+        domain: The application's domain.
+
+    Returns:
+        The metric name an alert rule (``app_latency_p95``) watches.
+    """
+    return f"app.{domain}.{LATENCY_SUFFIX}"
 
 
 def traffic_metric_names(domain: str) -> tuple[str, str]:
@@ -193,6 +208,23 @@ def read_log_delta(
     )
 
 
+def _p95(digest: Digest | None) -> float | None:
+    """
+    Args:
+        digest: What the lines of one read said.
+
+    Returns:
+        The p95 of the time those requests took, in milliseconds; None when no line said how
+        long it took (a quiet site, or a log in the format of before the time was written).
+    """
+    if digest is None:
+        return None
+    times = Histogram()
+    for counts in digest.hours.values():
+        times.merge(counts.latency)
+    return times.percentile(95)
+
+
 class TrafficSampler:
     """
     Turns the access logs of the applications that have one into rate series.
@@ -275,6 +307,9 @@ class TrafficSampler:
             requests_name, errors_name = traffic_metric_names(plan.domain)
             pairs.append((requests_name, delta.requests / minutes))
             pairs.append((errors_name, delta.errors_5xx / minutes))
+            slowest = _p95(delta.digest)
+            if slowest is not None:
+                pairs.append((latency_metric_name(plan.domain), slowest))
 
         self.store.prune_log_cursors(str(path) for _plan, path in logged)
         return pairs

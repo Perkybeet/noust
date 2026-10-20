@@ -409,8 +409,8 @@ Over the API: `GET /api/apps/{domain}/files` (list), `DELETE` (remove), `GET`/`P
 
 ## Log shipping
 
-The logs of applications, sent besides the journal to Grafana Loki, Axiom, an HTTP endpoint
-(Fluent Bit, Vector, Logstash), an OpenTelemetry collector or a remote syslog.
+The logs of applications, sent besides the journal to Grafana Loki, Axiom, New Relic, an HTTP
+endpoint (Fluent Bit, Vector, Logstash), an OpenTelemetry collector or a remote syslog.
 
 ```bash
 printf '%s' "$TOKEN" | noust logdrain add grafana --kind loki --url https://logs.example.com \
@@ -422,6 +422,10 @@ noust logdrain remove grafana
 noust logdrain service              # the unit that runs the shipper
 ```
 
+- **New Relic** (`--kind newrelic`) takes the license key as its token (sent as `Api-Key`) and
+  `--region us` or `eu` (the Log API of that region; `--url` overrides it for an endpoint of your own).
+  Each line carries its application, process, unit and level as attributes, and the `--label` pairs;
+  a message longer than 4000 characters is cut, because the API refuses it.
 - **The token is only written.** It is read from standard input (or a hidden prompt), kept in the
   secret store and never shown again; editing a destination without typing one keeps the one it
   has.

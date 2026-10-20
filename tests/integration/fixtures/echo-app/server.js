@@ -19,6 +19,15 @@ const NOT_HERE =
 
 const server = http.createServer((req, res) => {
   const path = (req.url || "/").split("?")[0];
+  if (path === "/slow") {
+    // /slow?ms=600 answers after that long: the time of a request, for the access-log scenarios.
+    const wait = Math.min(Number(new URL(req.url, "http://x").searchParams.get("ms")) || 0, 5000);
+    setTimeout(() => {
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end("slow\n");
+    }, wait);
+    return;
+  }
   if (NOT_HERE.test(path)) {
     res.writeHead(404, { "Content-Type": "text/plain" });
     res.end("not found\n");

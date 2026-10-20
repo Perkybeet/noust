@@ -79,11 +79,15 @@ from noust.monitor.reachability import (
 from noust.monitor.signals import observe_processes
 from noust.monitor.timeseries import EVENT_UNIT_FAILED, EVENT_UNIT_RECOVERED
 from noust.monitor.watch_backups import BackupWatch
+from noust.monitor.watch_containers import ContainerWatch
 from noust.monitor.watch_cron import CronWatch
 from noust.monitor.watch_destinations import DestinationWatch
 from noust.monitor.watch_patches import PatchWatch
 from noust.monitor.watch_probes import ProbeWatch
+from noust.monitor.watch_recipes import RecipeWatch
+from noust.monitor.watch_security import SecurityReleaseWatch
 from noust.monitor.watch_tokens import TokenWatch
+from noust.monitor.watch_webserver import WebServerWatch
 from noust.monitor.watches import Watch, WatchServices, run_due
 
 #: Seconds between scans. A minute is enough for capacity planning and cheap
@@ -486,6 +490,10 @@ class ProcessMonitor:
                 PatchWatch(),
                 TokenWatch(),
                 ProbeWatch(),
+                WebServerWatch(),
+                ContainerWatch(),
+                SecurityReleaseWatch(),
+                RecipeWatch(),
             ]
         )
         self._alert_engine = alert_engine

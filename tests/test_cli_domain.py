@@ -89,6 +89,7 @@ def test_list_prints_json_on_either_side_of_the_command(calls: list[Any], args: 
                 "port": None,
                 "created_at": "2026-09-25",
                 "temporary": False,
+                "enabled": True,
             },
             {
                 "domain": "shop.example.com",
@@ -96,6 +97,7 @@ def test_list_prints_json_on_either_side_of_the_command(calls: list[Any], args: 
                 "port": 9000,
                 "created_at": "t1",
                 "temporary": False,
+                "enabled": True,
             },
         ],
     }

@@ -166,6 +166,30 @@ def _run_show(logger: Logger, *, json_output: bool = False) -> int:
     return 0
 
 
+def _run_protect(logger: Logger) -> int:
+    """
+    Encrypt the channel secrets the configuration file still holds as text.
+
+    Args:
+        logger: Logger used to report progress.
+
+    Returns:
+        Exit code.
+    """
+    from noust.core import channel_secrets
+
+    try:
+        count = channel_secrets.protect(Config())
+    except OSError as exc:
+        logger.error(f"Could not encrypt the secrets in {DEFAULT_CONFIG_PATH}: {exc}")
+        return 1
+    if count:
+        logger.success(f"Encrypted {count} secret(s) of the notification channels")
+    else:
+        logger.success("The secrets of the notification channels are already encrypted")
+    return 0
+
+
 def _run_clean(logger: Logger, *, quiet: bool, dry_run: bool = False) -> int:
     """
     Remove the obsolete settings from the configuration file.
@@ -504,6 +528,7 @@ def handle_config(args: Namespace) -> int:
     logger.info("Commands:")
     logger.info("  upgrade    Add the options a newer Noust expects")
     logger.info("  clean      Remove the settings no version reads any more")
+    logger.info("  protect    Encrypt the notification channels' secrets in the file")
     logger.info("  show       Show the configuration in effect")
     logger.info("  path       Show where the configuration file lives")
     logger.info("  get        Print one configuration value")
@@ -557,6 +582,21 @@ def clean(ctx: Context, quiet: bool) -> None:
     --dry-run to see what would be removed.
     """
     _exit(_run_clean(ctx.logger, quiet=quiet, dry_run=ctx.dry_run))
+
+
+@cli.command("protect")
+@global_flags
+@pass_context
+def protect(ctx: Context) -> None:
+    """
+    Encrypt the secrets of the notification channels that config.yaml holds as text.
+
+    The webhook URLs, bot tokens, the SMTP password and a mail provider's key are encrypted
+    in the file with this server's key (secrets.key, next to it), and are text again only in
+    memory. The console does this when it starts, and every save of the configuration does
+    it; this is for a server that has not restarted its console since the upgrade.
+    """
+    _exit(_run_protect(ctx.logger))
 
 
 @cli.command("show")

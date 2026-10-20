@@ -90,6 +90,11 @@ EVENT_KINDS: tuple[str, ...] = (
     "cron_missed",
     "probe_failed",
     "probe_recovered",
+    # A release of Noust that fixes a vulnerability, a container Docker keeps restarting, and
+    # installed recipes with a newer version.
+    "security_release",
+    "container_restart_loop",
+    "recipe_outdated",
 )
 
 #: Kinds that ship switched off: ``deploy_started`` fires once per attempt with

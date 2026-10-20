@@ -46,7 +46,7 @@ ServerSignature Off
 
     # Logging
     ErrorLog ${APACHE_LOG_DIR}/{{ domain }}.error.log
-    CustomLog ${APACHE_LOG_DIR}/{{ domain }}.access.log combined
+{% include "_log_format.j2" %}    CustomLog ${APACHE_LOG_DIR}/{{ domain }}.access.log noust_{{ domain }}
 
     # Directory options
     <Directory {{ static_dir | default(app_path) }}>

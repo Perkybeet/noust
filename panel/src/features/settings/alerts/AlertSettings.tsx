@@ -10,23 +10,22 @@ import { useSaveBar } from "../../app/settings/formParts";
 import { useRefreshConfig } from "../SettingsForm";
 import { useSettingsForm } from "../useSettingsForm";
 import { RuleList } from "./RuleList";
-import { CHECK_CONFIG_KEYS, CHECK_KEYS, Thresholds, checkValue, readChecks } from "./Thresholds";
+import { CHECK_CONFIG_KEYS, CHECK_KEYS, CHECK_SETTINGS, Thresholds, checkPath, checkValue, readChecks } from "./Thresholds";
 
 /** The monitor's built-in checks as one form, saved from the page's save bar. */
 function Checks() {
   const t = useT();
   const refresh = useRefreshConfig();
   const config = useQuery(configQuery());
-  const monitor = (config.data?.config as Record<string, unknown> | undefined)?.["monitor"];
-  const server = config.data === undefined ? undefined : readChecks(monitor);
+  const server = config.data === undefined ? undefined : readChecks(config.data.config);
   const form = useSettingsForm<Record<string, string>>({
     server,
     names: CHECK_KEYS,
     configKeys: CHECK_CONFIG_KEYS,
     save: async (values) => {
       // Only what changed is written: a setting the operator never touched stays whatever the file says.
-      for (const key of CHECK_KEYS) {
-        if (server !== undefined && values[key] !== server[key]) await patchConfig(`monitor.${key}`, checkValue(values[key] ?? ""));
+      for (const setting of CHECK_SETTINGS) {
+        if (server !== undefined && values[setting.key] !== server[setting.key]) await patchConfig(checkPath(setting), checkValue(values[setting.key] ?? ""));
       }
       await refresh();
     },

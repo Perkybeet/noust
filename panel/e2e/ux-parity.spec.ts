@@ -174,11 +174,15 @@ test("the palette finds what a machine holds, by name, and opens it", async ({ p
   await page.getByRole("option", { name: new RegExp(`deploy ${String(deployment.id)}\\b`) }).first().click();
   await expect(page).toHaveURL(new RegExp(`/apps/${deployment.domain.replace(/\./g, "\\.")}/deployments/${String(deployment.id)}$`));
 
+  // Enter takes the first result, so it is pressed once the list has been filtered to the one wanted:
+  // pressed on the list of the words before, on a slow machine, it opened that one's first result.
   await searchFor("tokens");
+  await expect(page.getByRole("option").first()).toContainText("API tokens");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/settings\/tokens$/);
 
   await searchFor("new application from a recipe");
+  await expect(page.getByRole("option").first()).toContainText("New application from a recipe");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/apps\/new\?start=recipe$/);
   await expect(page.getByRole("radio", { name: "From a recipe" })).toBeChecked();

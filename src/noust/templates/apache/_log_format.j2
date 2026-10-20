@@ -1,0 +1,4 @@
+{# The format the traffic page reads: the combined one, then the time the request took, in
+   microseconds. Named after the site, inside its virtual host. #}
+    LogFormat "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\" rtus=%D" noust_{{ domain }}
+

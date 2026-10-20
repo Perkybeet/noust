@@ -866,8 +866,13 @@ CREATE INDEX IF NOT EXISTS idx_client_certificates_app ON client_certificates(ap
 # The port an alias is proxied to, when it is not the application's own: a name
 # answered by another listener of the same application (an admin interface).
 # NULL is the application's port.
+#
+# Whether a name is served. A name that is switched off keeps its row, its kind, its port and its
+# DNS record, and the site and the certificate leave it out: the operator who wants a name to rest
+# does not have to delete it and add it back.
 NETWORK_COLUMNS: list[tuple[str, str, str]] = [
     ("domains", "port", "INTEGER"),
+    ("domains", "enabled", "INTEGER NOT NULL DEFAULT 1"),
 ]
 
 # Owned by the notifications lane (noust.core.notification_ledger and
@@ -1414,7 +1419,7 @@ CREATE TABLE IF NOT EXISTS app_mounts (
 CREATE TABLE IF NOT EXISTS log_drains (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
-    kind TEXT NOT NULL CHECK (kind IN ('loki', 'axiom', 'http', 'otlp', 'syslog')),
+    kind TEXT NOT NULL CHECK (kind IN ('loki', 'axiom', 'newrelic', 'http', 'otlp', 'syslog')),
     settings TEXT NOT NULL DEFAULT '{}',
     apps TEXT NOT NULL DEFAULT '[]',
     enabled INTEGER NOT NULL DEFAULT 1,

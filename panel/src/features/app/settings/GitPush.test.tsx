@@ -46,6 +46,18 @@ function page(state: object | (() => object), routes: Record<string, RouteHandle
 
 const card = () => part("Push from your computer");
 
+/**
+ * The card's form to turn push on, once it has been read. The heading is there from the card's first
+ * frame, over a skeleton, and the card is only drawn after the webhook's status, so a test that
+ * reached for a field the moment it saw the heading would be racing the second query.
+ */
+async function turnOnForm() {
+  await screen.findByRole("heading", { name: "Push from your computer" });
+  const form = within(card());
+  await form.findByRole("button", { name: "Turn on git push" });
+  return form;
+}
+
 describe("which applications a push can deploy", () => {
   it("are the ones on releases that are not built from their own files", () => {
     expect(canPush({ layout: "releases", app_type: "nodejs" })).toBe("yes");
@@ -55,10 +67,34 @@ describe("which applications a push can deploy", () => {
   });
 });
 
+describe("git push, beside the webhook's status", () => {
+  it("is drawn once the status has been read, never beside its skeleton to be pushed out of view by what replaces it", { timeout: 40_000 }, async () => {
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const { backend } = await page(PUSH_OFF, {
+      [`GET /api/apps/${DOMAIN}/webhook`]: async () => {
+        await held;
+        return json(200, WEBHOOK);
+      },
+    });
+    await waitFor(() => expect(backend.callsTo(`GET /api/apps/${DOMAIN}/webhook`)).toHaveLength(1));
+
+    expect(screen.queryByRole("heading", { name: "Push from your computer" })).not.toBeInTheDocument();
+    expect(screen.queryByText(`noust app webhook show ${DOMAIN}`)).not.toBeInTheDocument();
+    expect(backend.callsTo(`GET /api/apps/${DOMAIN}/push`)).toHaveLength(0);
+
+    release();
+    expect(await screen.findByRole("heading", { name: "Push from your computer" })).toBeInTheDocument();
+    expect(screen.getByText(`noust app webhook show ${DOMAIN}`)).toBeInTheDocument();
+  });
+});
+
 describe("git push, off", () => {
   it("offers to turn it on, with a branch and a first key that are both optional", { timeout: 40_000 }, async () => {
     const { container } = await page(PUSH_OFF);
-    const form = within(await screen.findByRole("heading", { name: "Push from your computer" }).then(() => card()));
+    const form = await turnOnForm();
 
     expect(form.getByLabelText(/^Branch/)).toHaveValue("");
     expect(form.getByLabelText(/^Name of the key/)).toBeInTheDocument();
@@ -77,8 +113,7 @@ describe("git push, off", () => {
         return json(200, ON);
       },
     });
-    await screen.findByRole("heading", { name: "Push from your computer" });
-    const form = within(card());
+    const form = await turnOnForm();
 
     await user.click(form.getByRole("button", { name: "Turn on git push" }));
 
@@ -90,8 +125,7 @@ describe("git push, off", () => {
 
   it("sends the branch and the key with the name it was given", { timeout: 40_000 }, async () => {
     const { user, backend } = await page(PUSH_OFF, { [`PUT /api/apps/${DOMAIN}/push`]: () => json(200, ON) });
-    await screen.findByRole("heading", { name: "Push from your computer" });
-    const form = within(card());
+    const form = await turnOnForm();
 
     await user.type(form.getByLabelText(/^Branch/), "release");
     await user.type(form.getByLabelText(/^Name of the key/), "laptop");
@@ -104,8 +138,7 @@ describe("git push, off", () => {
 
   it("asks for the key's name before sending a key, and the key before sending a name", { timeout: 40_000 }, async () => {
     const { user, backend } = await page(PUSH_OFF);
-    await screen.findByRole("heading", { name: "Push from your computer" });
-    const form = within(card());
+    const form = await turnOnForm();
 
     await user.type(form.getByLabelText(/^Public key/), KEY);
     await user.click(form.getByRole("button", { name: "Turn on git push" }));
@@ -147,8 +180,8 @@ describe("git push, off", () => {
     const { user } = await page(PUSH_OFF, {
       [`PUT /api/apps/${DOMAIN}/push`]: () => problem(400, "validationerror", "The RSA key has 1024 bits", { hint: "Keys of fewer than 2048 bits are refused." }),
     });
-    await screen.findByRole("heading", { name: "Push from your computer" });
-    await user.click(within(card()).getByRole("button", { name: "Turn on git push" }));
+    const form = await turnOnForm();
+    await user.click(form.getByRole("button", { name: "Turn on git push" }));
 
     expect(await screen.findByText("Git push was not turned on for shop.example.com")).toBeInTheDocument();
     expect(within(card()).getByRole("button", { name: "Turn on git push" })).toBeEnabled();

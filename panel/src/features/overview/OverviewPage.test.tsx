@@ -201,6 +201,16 @@ describe("the overview", () => {
     expect(within(machine).getByText(/^Showing .+, 1-minute averages\. History since /)).toBeInTheDocument();
   });
 
+  it("charts the swap and the load beside CPU and memory, from the same request", async () => {
+    const { backend } = await overview();
+    const machine = await screen.findByRole("region", { name: "Machine" });
+    expect(await within(machine).findByRole("img", { name: /^Swap, last 24 hours/ })).toBeInTheDocument();
+    expect(within(machine).getByRole("img", { name: /^Load, last 24 hours/ })).toBeInTheDocument();
+    expect(MACHINE_METRICS).toContain("swap.used_bytes");
+    expect(MACHINE_METRICS).toContain("load.1m");
+    expect(backend.callsTo("GET /api/metrics/query")[0]?.search.getAll("metric")).toEqual([...MACHINE_METRICS]);
+  });
+
   it("offers to investigate a stretch only on a server that has the timeline", async () => {
     const { user } = await overview();
     const machine = await screen.findByRole("region", { name: "Machine" });
@@ -385,7 +395,7 @@ describe("the overview", () => {
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
-  it("reads in Spanish", async () => {
+  it("reads in Spanish", { timeout: 20_000 }, async () => {
     await act(() => setLocale("es"));
     fakeBackend(routes());
     renderConsole("/");

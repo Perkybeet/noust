@@ -43,6 +43,7 @@ from noust.core.exceptions import (
     DeploymentError,
     DockerError,
     NoustError,
+    PortConflictError,
     RolledBackError,
     SecurityError,
     ValidationError,
@@ -65,8 +66,10 @@ from noust.core.variables.predefined import RESERVED, Deployment
 from noust.deployers.helpers import compose_preview, compose_retention, compose_variables
 from noust.deployers.helpers.build_config import BuildConfig, refuse_unsupported, resolve_build
 from noust.deployers.helpers.compose_ports import (
+    PortMapping,
     host_port_variables,
     is_headless_stack,
+    parse_ports,
     published_port,
     web_root_service,
 )
@@ -110,6 +113,7 @@ from noust.deployers.registry import DeployerRegistry
 from noust.deployers.releases import ReleaseManager, persistent_path, release_order_key
 from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
+from noust.managers.port_claims import PortClaims
 from noust.managers.service_manager import ServiceManager
 from noust.managers.source_manager import SourceManager
 from noust.managers.upstream_names import rename as rename_upstreams
@@ -1238,6 +1242,7 @@ class DockerComposeDeployer(AppDeployer):
             # Read before anything is built, so a hook that cannot be run is
             # refused before minutes of image builds.
             self._resolve_hooks()
+            self._require_ports_free()
 
             headless = self._is_headless()
 
@@ -1545,6 +1550,56 @@ class DockerComposeDeployer(AppDeployer):
         except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
             self.logger.debug(f"Compose file not inspected: {exc}")
             return None
+
+    def _require_ports_free(self) -> None:
+        """
+        Refuse a stack that would publish a host port something else holds (checklist E-44).
+
+        Docker's own error for this, found when the containers are recreated, says only that the
+        address is in use. This asks the registry of who holds which port first, before anything
+        is built or stopped, and names the holder. The ports the stack's own containers hold now
+        are not in its way.
+
+        Raises:
+            PortConflictError: A published port is held by something else.
+        """
+        mappings = [
+            mapping
+            for service in self.services
+            for mapping in parse_ports(list(service.ports))
+            if mapping.host_port is not None
+        ]
+        if not mappings:
+            return
+        claims = PortClaims(self.runner, self.store)
+        try:
+            claims.require_stack_free(self.domain, mappings)
+            return
+        except PortConflictError:
+            # The common case of a conflict is the stack itself: its containers listen on the
+            # ports its file publishes. Only then are they listed, so a stack with nothing in the
+            # way asks Docker for nothing beyond what it always did.
+            own = self._ports_published_by_containers()
+            if not own:
+                raise
+        claims.require_stack_free(self.domain, mappings, own=own)
+
+    def _ports_published_by_containers(self) -> set[tuple[int, str]]:
+        """
+        Returns:
+            ``(port, protocol)`` for every host port the stack's running containers publish.
+            Asked whatever ``_is_new_deployment`` says: only ``deploy`` sets it, an update reaches
+            the check with its default, and a stack with no containers lists none.
+        """
+        own: set[tuple[int, str]] = set()
+        result = self._run(self._compose("ps", "--format", "json"))
+        if result.success:
+            for container in parse_compose_ps(result.stdout):
+                for published in container.get("Publishers") or []:
+                    number = published.get("PublishedPort")
+                    if number:
+                        own.add((int(number), str(published.get("Protocol") or "tcp")))
+        return own
 
     def _check_host_privileges(
         self, document: Any, *, accepted: Sequence[str] | None = None
@@ -2619,6 +2674,7 @@ class DockerComposeDeployer(AppDeployer):
         # is a web at all, and which service a hook without one runs in.
         self.services = parse_services(document)
         hooks = self._resolve_hooks()
+        self._require_ports_free()
         self._resolve_leftover_relays()
 
         report("Recording what is serving")
@@ -3706,6 +3762,42 @@ def stack_deployer(
         deployer.preview_parent = app.preview_parent
         deployer.port = app.port
     return deployer
+
+
+def stack_published_ports(app: App, *, runner: CommandRunner | None = None) -> list[PortMapping]:
+    """
+    Read the host ports a deployed stack's compose file publishes.
+
+    What the file declares, whether or not the containers run: a stopped stack still holds
+    its ports, because starting it would take them. The one reader a port check asks (E-44),
+    over the same compose file an update reads.
+
+    Args:
+        app: The application's row.
+        runner: The runner the unit is read through.
+
+    Returns:
+        One mapping per published container port that has a host port the file names, ranges
+        expanded; empty for anything but a Compose stack, or one whose file cannot be read.
+    """
+    if app.app_type != AppType.DOCKER_COMPOSE.value:
+        return []
+    deployer = stack_deployer(app, runner=runner)
+    if not deployer.app_path.is_dir():
+        return []
+    try:
+        deployer._discover_compose_file()
+    except DeploymentError:
+        return []
+    document = deployer._load_compose_document()
+    if document is None:
+        return []
+    return [
+        mapping
+        for service in parse_services(document)
+        for mapping in parse_ports(list(service.ports))
+        if mapping.host_port is not None
+    ]
 
 
 def headless_stack_state(

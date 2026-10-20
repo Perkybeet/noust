@@ -660,6 +660,7 @@ def test_a_prefix_is_never_handed_to_the_machines_own_services(machine: Machine,
     assert SitePolicyManager().get("example.com").routes == ()
 
 
+@pytest.mark.real_listeners
 def test_ssh_is_one_of_those_services(machine: Machine, runner: Any) -> None:
     machine.deploy(app_type="nodejs")
     runner.script(

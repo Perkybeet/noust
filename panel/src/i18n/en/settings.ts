@@ -323,6 +323,8 @@ export const settings = {
         endpointUrlDescription: "An https:// address that accepts a POST.",
         secretLabel: "Signing secret",
         secretDescription: "Signs each delivery with HMAC-SHA256 in X-Noust-Signature, so your endpoint can check it came from this server.",
+        headersLabel: "Headers to send",
+        headersDescription: "The receiver's own headers, one per line as Name: value (an Authorization: Bearer for n8n or Home Assistant). They are credentials: kept sealed and never shown again.",
         generate: "Generate",
         secretCopyLabel: "the signing secret",
         generatedHint: "Copy it to your endpoint now: once saved it is never shown again.",
@@ -550,6 +552,9 @@ export const settings = {
         cronMissed: { label: "Scheduled job will not run", description: "A job's timer stopped, so it will not run when it should." },
         probeFailed: { label: "Address stopped answering", description: "An address a probe asks has failed as many times in a row as it was told to put up with." },
         probeRecovered: { label: "Address answers again", description: "A probe that was down gets a good answer." },
+        securityRelease: { label: "Security release", description: "A Noust release that fixes a vulnerability is out and this server has not installed it." },
+        containerRestartLoop: { label: "Container restarting in a loop", description: "Docker has restarted a container of a Compose stack as many times as monitor.container_restart_limit allows." },
+        recipeOutdated: { label: "Recipe updates", description: "Applications installed from a recipe have a newer version in the catalogue." },
       },
     },
     messages: {
@@ -705,6 +710,7 @@ export const settings = {
 
   about: {
     documentTitle: "About",
+    loading: "Reading the version and the automatic updates",
     method: {
       apt: "the apt repository",
       rpm: "the RPM repository ({tool})",

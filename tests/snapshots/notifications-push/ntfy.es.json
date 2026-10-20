@@ -1417,6 +1417,186 @@
       "web-1"
     ]
   },
+  "webserver.restarted": {
+    "topic": "noust-alerts",
+    "title": "▲ Servidor web reiniciado · nginx",
+    "message": "Había dejado de funcionar y Noust lo ha arrancado de nuevo tras pasar su prueba de configuración.\n\nServidor: web-1\nRevísalo con: journalctl -u nginx -n 50",
+    "priority": 3,
+    "tags": [
+      "unit_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/server",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "webserver.down": {
+    "topic": "noust-alerts",
+    "title": "✕ Servidor web caído · nginx",
+    "message": "No está en marcha y el reinicio automático está desactivado.\n\nServidor: web-1\nRevísalo con: journalctl -u nginx -n 50",
+    "priority": 4,
+    "tags": [
+      "unit_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/server",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "webserver.config_invalid": {
+    "topic": "noust-alerts",
+    "title": "✕ El servidor web no puede arrancar · nginx",
+    "message": "No está en marcha y su configuración no pasa su propia prueba, así que Noust no lo ha reiniciado.\n\nServidor: web-1\nCompruébalo con: nginx -t\n\nLo que ha informado el sistema:\n  nginx: [emerg] unknown directive \"servre_name\" in /etc/nginx/sites-enabled/shop.example.com:4\n  nginx: configuration file /etc/nginx/nginx.conf test failed",
+    "priority": 4,
+    "tags": [
+      "unit_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/server",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "webserver.restart_failed": {
+    "topic": "noust-alerts",
+    "title": "✕ Ha fallado el reinicio del servidor web · nginx",
+    "message": "No está en marcha y arrancarlo de nuevo no ha funcionado.\n\nServidor: web-1\nRevísalo con: journalctl -u nginx -n 50\n\nLo que ha informado el sistema:\n  Job for nginx.service failed because the control process exited with error code.",
+    "priority": 4,
+    "tags": [
+      "unit_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/server",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "webserver.limit": {
+    "topic": "noust-alerts",
+    "title": "✕ El servidor web sigue cayendo · nginx",
+    "message": "Ha caído 3 veces en la última hora, así que Noust ha dejado de arrancarlo de nuevo.\n\nServidor: web-1\nRevísalo con: journalctl -u nginx -n 50",
+    "priority": 4,
+    "tags": [
+      "unit_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/server",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "webserver.stopped": {
+    "topic": "noust-alerts",
+    "title": "▲ Servidor web detenido · nginx",
+    "message": "Está detenido pero arranca con el sistema, así que todos los sitios de este servidor están caídos hasta que alguien lo arranque.\n\nServidor: web-1\nArráncalo con: systemctl start nginx",
+    "priority": 3,
+    "tags": [
+      "unit_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/server",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "security.release": {
+    "topic": "noust-alerts",
+    "title": "▲ Versión de seguridad disponible · Noust 3.3.2",
+    "message": "Noust 3.3.2 corrige una vulnerabilidad y este servidor sigue en la versión 3.3.1.\n\nServidor: web-1\nEn marcha: 3.3.1\nCorregida en: 3.3.2\nAviso: https://github.com/Perkybeet/noust/security/advisories/GHSA-aaaa-bbbb-cccc\nActualiza con: pipx upgrade noust",
+    "priority": 3,
+    "tags": [
+      "security_release",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/settings/about",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/settings/about"
+      }
+    ]
+  },
+  "container.restart_loop": {
+    "topic": "noust-alerts",
+    "title": "✕ Contenedor reiniciándose en bucle · shop.example.com",
+    "message": "Docker lo ha reiniciado 6 veces desde que se vio por primera vez, y el límite es 5.\n\nServidor: web-1\nContenedor: shop-worker-1\nReinicios: 6\nÚltimo código de salida: 1\nRevísalo con: docker logs --tail 50 shop-worker-1\n\nLo que ha informado el sistema:\n  Error: connect ECONNREFUSED 10.0.0.4:5432\n      at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16)\n  worker exiting with status 1",
+    "priority": 4,
+    "tags": [
+      "container_restart_loop",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ]
+  },
+  "container.recovered": {
+    "topic": "noust-alerts",
+    "title": "● Contenedor estable de nuevo · shop.example.com",
+    "message": "Lleva 7 minutos en marcha sin reiniciarse.\n\nServidor: web-1\nContenedor: shop-worker-1\nRevísalo con: docker logs --tail 50 shop-worker-1",
+    "priority": 2,
+    "tags": [
+      "container_restart_loop",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ]
+  },
+  "recipe.outdated": {
+    "topic": "noust-alerts",
+    "title": "○ Actualizaciones de recetas disponibles",
+    "message": "2 recetas instaladas tienen una versión más nueva en el catálogo.\n\nServidor: web-1\nReceta: vault.example.com: 1.37.4 -> 1.38.0\nReceta: blog.example.com: 5.0.1 -> 5.1.0\nActualiza con: noust recipe outdated",
+    "priority": 2,
+    "tags": [
+      "recipe_outdated",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/catalog",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/catalog"
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "topic": "noust-alerts",
     "title": "✕ Despliegue fallido · shop.example.com",

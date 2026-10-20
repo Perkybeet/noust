@@ -63,6 +63,13 @@ export const domains: Catalog<typeof en> = {
     noDomainsTitle: "No hay dominios registrados",
     noDomainsDescription: "Añade los nombres por los que debería responder esta aplicación.",
     retryCertificate: "Reintentar certificado",
+    switchOff: "Desactivar",
+    switchOn: "Activar",
+    switchedOffBadge: "Desactivado",
+    switchedOffToast: "{domain} ya no responde por {name}; está desactivado, no quitado",
+    switchedOnToast: "{domain} vuelve a responder por {name}",
+    switchOffFailedError: "No se pudo desactivar {name}",
+    switchOnFailedError: "No se pudo activar {name}",
     remove: "Quitar",
     primaryDomainNote:
       "{domain} es el dominio principal: la unidad, el directorio y el sitio de la aplicación llevan su nombre, así que no se puede quitar aquí. Para mover la aplicación a otro nombre, despliégala allí y elimina este.",

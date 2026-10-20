@@ -129,7 +129,9 @@ describe("Settings > About > Automatic updates", () => {
     await user.click(within(drawer).getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(saved).toEqual({ enabled: true, channel: "security", window: "23:00-01:00", days: "mon,thu" }));
-    expect(await screen.findByText("Automatic updates saved")).toBeInTheDocument();
+    // The toast, not the announcer that says it again for assistive technology a moment later: a bare
+    // lookup finds one element or two depending on how fast the machine is.
+    expect(await within(await screen.findByRole("region", { name: "Notifications" })).findByText("Automatic updates saved")).toBeInTheDocument();
     expect(await within(section).findByText("Noust installs its security fixes by itself")).toBeInTheDocument();
   });
 
@@ -195,7 +197,9 @@ describe("Settings > About > Automatic updates", () => {
     await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
     await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
 
-    expect(await screen.findByText("Automatic updates saved")).toBeInTheDocument();
+    // The toast, not the announcer that says it again for assistive technology a moment later: a bare
+    // lookup finds one element or two depending on how fast the machine is.
+    expect(await within(await screen.findByRole("region", { name: "Notifications" })).findByText("Automatic updates saved")).toBeInTheDocument();
     expect(backend.callsTo("PUT /api/system/update/auto")).toHaveLength(2);
   });
 

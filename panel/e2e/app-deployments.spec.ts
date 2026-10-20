@@ -234,8 +234,12 @@ test("a release app goes back to a deployment through its own endpoint, and forw
   await expect(page.getByText(`Went back to deployment ${String(id)}.`)).toBeVisible({ timeout: 30_000 });
   expect(await serving(page, RELEASES_APP)).toMatch(/-19d3f6e$/);
 
-  // Forward again, so the worker's machine is as it was for the next test.
+  // Forward again, so the worker's machine is as it was for the next test. Going back also paused the
+  // app's automatic deploys (so the next push does not undo it), which a test that starts from "they
+  // are running" would find still paused: the machine is only as it was once they run again.
   await activate(page, RELEASES_APP, before);
+  const resumed = await page.request.post(`/api/apps/${RELEASES_APP}/rollout/resume`, { headers: await csrf(page) });
+  expect(resumed.ok(), await resumed.text()).toBe(true);
 });
 
 test("the deploy that is live offers nothing to go back to; the header lists the other versions", async ({ page, consoleServer }) => {
