@@ -117,7 +117,7 @@ describe("the automatic cleanup card", () => {
       "POST /api/server/storage/schedule/run": () => json(202, { job_id: "j9", message: "Cleanup queued", status: "pending" }),
     });
     await user.click(await screen.findByRole("button", { name: "Run now" }));
-    const dialog = await screen.findByRole("dialog", { name: "Run the cleanup policy now?" });
+    const dialog = await screen.findByRole("alertdialog", { name: "Run the cleanup policy now?" });
     expect(within(within(dialog).getByRole("list", { name: "What the policy cleans" })).getAllByRole("listitem")).toHaveLength(2);
     await user.click(within(dialog).getByRole("button", { name: "Run the policy" }));
     await waitFor(() => {

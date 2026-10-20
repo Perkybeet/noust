@@ -16,6 +16,7 @@ import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
 import { Drawer } from "../../../components/ui/Drawer";
@@ -32,8 +33,7 @@ import { formatBytes, formatBytesPair, formatPercent } from "../../../lib/format
 import { NodeCapabilityGate } from "../../../nodes/capability";
 import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";
-import { ActionDialog } from "../ActionDialog";
-import { ServerErrorBlock, explainServerError } from "../errors";
+import { ServerErrorBlock, explainServerError, useServerConfirm } from "../errors";
 import { SERVER_CAPABILITY, cleanupPlanQuery, dockerImagesQuery, serverKeys, storageQuery } from "../queries";
 import type { Candidate, Mount, Storage } from "../queries";
 import { useServerJob } from "../serverJob";
@@ -154,18 +154,26 @@ type Opened = { kind: "clean"; candidate: Candidate } | { kind: "images" } | nul
 
 function CleanupDialog({ action, onClose }: { action: string; onClose: () => void }) {
   const t = useT();
+  const confirmation = useServerConfirm();
   const jobs = useServerJob();
   const [size, setSize] = useState("200");
   const journal = action === "journal";
   const sizeMb = journal && /^\d+$/.test(size) ? Number(size) : null;
   const plan = useQuery(cleanupPlanQuery(action, sizeMb));
   return (
-    <ActionDialog
+    <ConfirmDialog
+      {...confirmation}
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      friction="simple"
+      size="md"
       title={t("server.storage.cleanTitle", { what: candidateLabel(t, action) })}
       description={t("server.storage.cleanDescription")}
       actionLabel={t("server.storage.cleanAction")}
       destructive={plan.data?.needs_confirmation === true}
-      onClose={onClose}
+      ready={plan.data !== undefined}
       onConfirm={async () => {
         const accepted = await request("post", "/api/server/storage/cleanup", {
           body: { action, confirm: plan.data?.needs_confirmation === true, ...(sizeMb !== null ? { size_mb: sizeMb } : {}) },
@@ -200,12 +208,13 @@ function CleanupDialog({ action, onClose }: { action: string; onClose: () => voi
           ))}
         </div>
       )}
-    </ActionDialog>
+    </ConfirmDialog>
   );
 }
 
 function ImagesDrawer({ onClose }: { onClose: () => void }) {
   const t = useT();
+  const confirmation = useServerConfirm();
   const jobs = useServerJob();
   const images = useQuery(dockerImagesQuery());
   const [removing, setRemoving] = useState<string | null>(null);
@@ -253,12 +262,17 @@ function ImagesDrawer({ onClose }: { onClose: () => void }) {
         />
       )}
       {removing !== null ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          open
+          onOpenChange={(open) => {
+            if (!open) setRemoving(null);
+          }}
+          friction="simple"
+          size="md"
           title={t("server.storage.removeImageTitle")}
           description={t("server.storage.removeImageDescription")}
           actionLabel={t("server.storage.removeImageAction")}
-          destructive
-          onClose={() => setRemoving(null)}
           onConfirm={async () => {
             const accepted = await request("post", "/api/server/storage/cleanup", { body: { action: "docker-image", target: removing, confirm: true } });
             jobs.track(accepted.job_id, "cleanup");
@@ -267,7 +281,7 @@ function ImagesDrawer({ onClose }: { onClose: () => void }) {
           <p className="text-13">
             <Mono>{removing}</Mono>
           </p>
-        </ActionDialog>
+        </ConfirmDialog>
       ) : null}
     </Drawer>
   );

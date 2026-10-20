@@ -17,6 +17,7 @@ import { ApiError, isApiError } from "../../api/client";
 import { CommandHint } from "../../components/page/CommandHint";
 import { ErrorBlock } from "../../components/page/QueryState";
 import type { ErrorBlockProps } from "../../components/page/QueryState";
+import type { ConfirmDialogProps } from "../../components/ui/ConfirmDialog";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
@@ -100,4 +101,21 @@ export function ServerErrorBlock({ error, title, ...rest }: ErrorBlockProps) {
     );
   }
   return <ErrorBlock {...rest} error={explainServerError(t, error, node)} title={title} />;
+}
+
+/**
+ * What `ConfirmDialog` needs to say this area's refusals in its words, so no dialog of the Server
+ * area keeps a failure box of its own: the node named in the question, a host-access refusal
+ * explained, and the command that allows it under the system's words, in a terminal of that node.
+ * Spread it on the dialog: `<ConfirmDialog {...useServerConfirm()} ... />`.
+ */
+export function useServerConfirm(): Pick<ConfirmDialogProps, "server" | "explainError" | "failureAction"> {
+  const t = useT();
+  const { node } = useNode();
+  return {
+    server: node,
+    explainError: (error) => explainServerError(t, error, node, false),
+    failureAction: (error) =>
+      isHostAccessRefusal(error, node) ? <CommandHint command={HOST_ACCESS_COMMAND} label={t("server.hostAccess.onNode", { node: node ?? "" })} /> : null,
+  };
 }

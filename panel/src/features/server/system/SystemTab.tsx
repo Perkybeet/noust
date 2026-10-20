@@ -13,13 +13,13 @@ import { CommandHint } from "../../../components/page/CommandHint";
 import { SegmentedControl } from "../../../components/page/SegmentedControl";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
+import { Checkbox } from "../../../components/ui/Checkbox";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column, SortState } from "../../../components/ui/DataTable";
 import { EmptyCell } from "../../../components/ui/EmptyCell";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Mono } from "../../../components/ui/Mono";
 import { StatusPill } from "../../../components/ui/StatusPill";
-import { Switch } from "../../../components/ui/Switch";
 import { useT } from "../../../i18n";
 import { formatBytes, formatPercent } from "../../../lib/format";
 import { NodeCapabilityGate } from "../../../nodes/capability";
@@ -92,7 +92,7 @@ function ProcessesView() {
       description={t("server.processes.description")}
       padding="none"
       actions={
-        <Switch
+        <Checkbox
           label={t("server.processes.byUnit")}
           checked={byUnit}
           onCheckedChange={(next) => {

@@ -18,6 +18,7 @@ import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Checkbox } from "../../../components/ui/Checkbox";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
@@ -28,8 +29,7 @@ import type { T } from "../../../i18n";
 import { calendarWords } from "../../cron/data";
 import { ScheduleFields } from "../../backups/policy/ScheduleFields";
 import { scheduleExpression } from "../../databases/backups/schedule";
-import { ActionDialog } from "../ActionDialog";
-import { ServerErrorBlock } from "../errors";
+import { ServerErrorBlock, useServerConfirm } from "../errors";
 import { cleanupScheduleQuery, serverKeys } from "../queries";
 import type { CleanupPolicy, CleanupSchedule } from "../queries";
 import { useServerJob } from "../serverJob";
@@ -190,6 +190,7 @@ function PolicyEditor({ schedule, open, onOpenChange }: EditorProps) {
 /** Automatic cleanup: the policy, its timer, Edit and Run now. */
 export function CleanupScheduleCard() {
   const t = useT();
+  const confirmation = useServerConfirm();
   const jobs = useServerJob();
   const query = useQuery(cleanupScheduleQuery());
   const [editing, setEditing] = useState(false);
@@ -275,12 +276,18 @@ export function CleanupScheduleCard() {
       {/* Re-mounted on each open so the form starts from what is stored now. */}
       {editing ? <PolicyEditor schedule={schedule} open onOpenChange={setEditing} /> : null}
       {running ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          open
+          onOpenChange={(open) => {
+            if (!open) setRunning(false);
+          }}
+          friction="simple"
+          size="md"
           title={t("server.storage.schedule.runTitle")}
           description={t("server.storage.schedule.runDescription")}
           actionLabel={t("server.storage.schedule.runAction")}
           destructive={policy.allow_docker && (policy.actions ?? []).some((action) => schedule.docker_actions.includes(action))}
-          onClose={() => setRunning(false)}
           onConfirm={async () => {
             const accepted = await request("post", "/api/server/storage/schedule/run");
             jobs.track(accepted.job_id, "cleanup");
@@ -291,7 +298,7 @@ export function CleanupScheduleCard() {
               <li key={action}>{cleanupActionLabel(t, action)}</li>
             ))}
           </ul>
-        </ActionDialog>
+        </ConfirmDialog>
       ) : null}
     </Card>
   );

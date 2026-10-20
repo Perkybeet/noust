@@ -13,6 +13,7 @@ import { KeyValueList } from "../../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../../components/page/KeyValueList";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
@@ -20,8 +21,7 @@ import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import { formatBytes, formatBytesPair } from "../../../lib/format";
-import { ActionDialog } from "../ActionDialog";
-import { ServerErrorBlock } from "../errors";
+import { ServerErrorBlock, useServerConfirm } from "../errors";
 import { serverKeys, swapQuery } from "../queries";
 import { useServerJob } from "../serverJob";
 
@@ -33,6 +33,7 @@ export function SwapCard() {
   const t = useT();
   const jobs = useServerJob();
   const queryClient = useQueryClient();
+  const confirmation = useServerConfirm();
   const swap = useQuery(swapQuery());
   const [opened, setOpened] = useState<Opened>(null);
   const [size, setSize] = useState("");
@@ -129,11 +130,18 @@ export function SwapCard() {
         ))}
       </div>
       {opened === "create" ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          open
+          onOpenChange={(open) => {
+            if (!open) setOpened(null);
+          }}
+          friction="simple"
+          destructive={false}
+          size="md"
           title={t("server.swap.createTitle")}
           description={t("server.swap.createDescription")}
           actionLabel={t("server.swap.createAction")}
-          onClose={() => setOpened(null)}
           onConfirm={async () => {
             const accepted = await request("post", "/api/server/swap", { body: { size_mb: Number(size) } });
             jobs.track(accepted.job_id, "swap");
@@ -142,15 +150,20 @@ export function SwapCard() {
           <Field label={t("server.swap.sizeLabel")} description={t("server.swap.sizeHelp", { suggested: String(suggestedMb) })}>
             <Input mono inputMode="numeric" value={size} onValueChange={(value: string) => setSize(value)} suffix={<span className="px-2 text-12 text-fg-faint">MiB</span>} className="w-40" />
           </Field>
-        </ActionDialog>
+        </ConfirmDialog>
       ) : null}
       {opened === "remove" ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          open
+          onOpenChange={(open) => {
+            if (!open) setOpened(null);
+          }}
+          friction="simple"
+          size="md"
           title={t("server.swap.removeTitle")}
           description={t("server.swap.removeDescription")}
           actionLabel={t("server.swap.removeAction")}
-          destructive
-          onClose={() => setOpened(null)}
           onConfirm={async () => {
             const accepted = await request("delete", "/api/server/swap");
             jobs.track(accepted.job_id, "swap");
@@ -158,12 +171,17 @@ export function SwapCard() {
         />
       ) : null}
       {opened === "swappiness" ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          open
+          onOpenChange={(open) => {
+            if (!open) setOpened(null);
+          }}
+          friction="simple"
+          destructive={false}
           title={t("server.swap.swappinessTitle")}
           description={t("server.swap.swappinessDescription")}
           actionLabel={t("server.swap.swappinessAction")}
-          size="sm"
-          onClose={() => setOpened(null)}
           onConfirm={async () => {
             await request("put", "/api/server/swap/swappiness", { body: { value: Number(swappiness) } });
             void queryClient.invalidateQueries({ queryKey: serverKeys.swap });
@@ -172,7 +190,7 @@ export function SwapCard() {
           <Field label={t("server.swap.swappiness")} description={t("server.swap.swappinessHelp")}>
             <Input mono inputMode="numeric" value={swappiness} onValueChange={(value: string) => setSwappiness(value)} className="w-24" />
           </Field>
-        </ActionDialog>
+        </ConfirmDialog>
       ) : null}
     </Card>
   );

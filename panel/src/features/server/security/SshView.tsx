@@ -18,6 +18,7 @@ import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
 import { EmptyCell } from "../../../components/ui/EmptyCell";
@@ -36,8 +37,8 @@ import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatDate, parseTimestamp } from "../../../lib/format";
-import { ActionDialog } from "../ActionDialog";
-import { ServerErrorBlock } from "../errors";
+import { ServerErrorBlock, useServerConfirm } from "../errors";
+import { typedHost } from "../friction";
 import { identityQuery, sshKeysQuery, sshQuery } from "../queries";
 import type { AccountKeys, FixPlan, SshKey, SshStatus } from "../queries";
 import { useServerJob } from "../serverJob";
@@ -126,6 +127,7 @@ const TYPED_FIXES: ReadonlySet<string> = new Set(["disable-passwords", "root-no"
 
 function Fixes({ ssh, hostname }: { ssh: SshStatus; hostname: string }) {
   const t = useT();
+  const confirmation = useServerConfirm();
   const jobs = useServerJob();
   const [applying, setApplying] = useState<{ fix: string; plan: FixPlan } | null>(null);
   const needed = Object.entries(ssh.fixes).filter(([, plan]) => plan.needed);
@@ -157,12 +159,18 @@ function Fixes({ ssh, hostname }: { ssh: SshStatus; hostname: string }) {
         ))}
       </ul>
       {applying !== null ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          {...typedHost(hostname, TYPED_FIXES.has(applying.fix))}
+          open
+          onOpenChange={(open) => {
+            if (!open) setApplying(null);
+          }}
+          destructive={false}
+          size="md"
           title={fixLabel(t, applying.fix, applying.plan)}
           description={t("server.ssh.applyDescription", { count: minutes })}
           actionLabel={t("server.ssh.applyAction")}
-          confirmText={TYPED_FIXES.has(applying.fix) ? hostname : undefined}
-          onClose={() => setApplying(null)}
           onConfirm={async () => {
             const accepted = await request("post", "/api/server/security/ssh/fixes/{fix}", { params: { fix: applying.fix } });
             jobs.track(accepted.job_id, "security");
@@ -171,7 +179,7 @@ function Fixes({ ssh, hostname }: { ssh: SshStatus; hostname: string }) {
           <DirectiveChanges plan={applying.plan} />
           {/* The evidence that another way in works, as the guard found it. */}
           {applying.plan.proof ? <p className="text-13 text-fg-muted">{applying.plan.proof}</p> : null}
-        </ActionDialog>
+        </ConfirmDialog>
       ) : null}
     </Card>
   );
@@ -208,6 +216,7 @@ function lastUsed(t: T, key: SshKey) {
 
 function Keys({ hostname }: { hostname: string }) {
   const t = useT();
+  const confirmation = useServerConfirm();
   const jobs = useServerJob();
   const keys = useQuery(sshKeysQuery());
   const [adding, setAdding] = useState(false);
@@ -289,11 +298,18 @@ function Keys({ hostname }: { hostname: string }) {
         </div>
       ) : null}
       {adding ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          open
+          onOpenChange={(open) => {
+            if (!open) setAdding(false);
+          }}
+          friction="simple"
+          destructive={false}
+          size="md"
           title={t("server.ssh.keys.addTitle")}
           description={t("server.ssh.keys.addDescription")}
           actionLabel={t("server.ssh.keys.addAction")}
-          onClose={() => setAdding(false)}
           onConfirm={async () => {
             const accepted = await request("post", "/api/server/security/ssh/keys", { body: { user, public_key: publicKey.trim() } });
             jobs.track(accepted.job_id, "security");
@@ -305,16 +321,20 @@ function Keys({ hostname }: { hostname: string }) {
           <Field label={t("server.ssh.keys.publicKeyLabel")} description={t("server.ssh.keys.publicKeyDescription")}>
             <Textarea mono rows={4} value={publicKey} onChange={(event) => setPublicKey(event.target.value)} spellCheck={false} />
           </Field>
-        </ActionDialog>
+        </ConfirmDialog>
       ) : null}
       {removing !== null ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          {...typedHost(hostname)}
+          open
+          onOpenChange={(open) => {
+            if (!open) setRemoving(null);
+          }}
+          size="md"
           title={t("server.ssh.keys.removeTitle")}
           description={t("server.ssh.keys.removeDescription", { user: removing.user })}
           actionLabel={t("server.ssh.keys.removeAction")}
-          destructive
-          confirmText={hostname !== "" ? hostname : undefined}
-          onClose={() => setRemoving(null)}
           onConfirm={async () => {
             const accepted = await request("post", "/api/server/security/ssh/keys/remove", { body: { user: removing.user, fingerprint: removing.key.fingerprint, force: false } });
             jobs.track(accepted.job_id, "security");
@@ -324,7 +344,7 @@ function Keys({ hostname }: { hostname: string }) {
             <Mono>{removing.key.fingerprint}</Mono>
           </p>
           {removing.key.in_use ? <Notice tone="warning">{t("server.ssh.keys.inUse")}</Notice> : null}
-        </ActionDialog>
+        </ConfirmDialog>
       ) : null}
     </Card>
   );

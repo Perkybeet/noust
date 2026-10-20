@@ -16,6 +16,7 @@ import { isApiError, request } from "../../../api/client";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { Button } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Field } from "../../../components/ui/Field";
@@ -27,8 +28,8 @@ import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
 import { useReasonRequired } from "../../settings/compliance/useReasonRequired";
-import { ActionDialog } from "../ActionDialog";
-import { ServerErrorBlock } from "../errors";
+import { ServerErrorBlock, useServerConfirm } from "../errors";
+import { typedHost } from "../friction";
 import { identityQuery, serverKeys, sshFixQuery } from "../queries";
 import type { FixPlan, SecurityCheck } from "../queries";
 import { useServerJob } from "../serverJob";
@@ -113,6 +114,7 @@ export interface FixDialogProps {
 /** Applies a check's automatic fix, as a job, after showing what it changes. */
 export function FixDialog({ check, onClose }: FixDialogProps) {
   const t = useT();
+  const confirmation = useServerConfirm();
   const jobs = useServerJob();
   const identity = useQuery(identityQuery());
   const [epel, setEpel] = useState(false);
@@ -135,19 +137,25 @@ export function FixDialog({ check, onClose }: FixDialogProps) {
   // Typing needs the name to type: until the identity answers, the question waits for it.
   if (typedFriction(action) && hostname === "" && !identity.isError) return null;
   return (
-    <ActionDialog
+    <ConfirmDialog
+      {...confirmation}
+      {...typedHost(hostname, typedFriction(action))}
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      destructive={false}
+      size="md"
       title={t("server.fix.title", { check: checkTitle(t, check) })}
       description={fix?.summary !== undefined && fix.summary !== "" ? fix.summary : t("server.fix.description")}
       actionLabel={t("server.fix.apply")}
-      confirmText={typedFriction(action) ? hostname : undefined}
       onConfirm={run}
-      onClose={onClose}
     >
       {sshFix !== null ? <SshPlan fix={sshFix} /> : null}
-      {fix?.reverts ? <Notice title={t("server.fix.revertsTitle")}>{t("server.fix.reverts")}</Notice> : null}
+      {fix?.reverts ? <p className="text-13 text-fg-muted">{t("server.fix.reverts")}</p> : null}
       {needsEpel ? <Checkbox label={t("server.fix.epelLabel")} description={t("server.fix.epelDescription")} checked={epel} onCheckedChange={setEpel} /> : null}
       {fix?.cli ? <CommandHint command={fix.cli} label={t("server.fromTerminal")} /> : null}
-    </ActionDialog>
+    </ConfirmDialog>
   );
 }
 

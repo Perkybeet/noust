@@ -3,12 +3,12 @@ import { useState } from "react";
 
 import { changeCompliance, complianceKeys, planCompliance } from "../../../api/queries/compliance";
 import type { ComplianceChange, ComplianceControl, CompliancePlan } from "../../../api/queries/compliance";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
-import { Button } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
-import { Dialog } from "../../../components/ui/Dialog";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
@@ -100,47 +100,35 @@ export function ChangeDialog({ request, title, lead, action, loosens = false, do
       // The session says which profile is on, and the policy the rest of the console reads.
       void queryClient.invalidateQueries({ queryKey: ["ens"] });
       void queryClient.invalidateQueries({ queryKey: ["auth"] });
-      onClose();
     },
   });
-  const blocked = plan === undefined || (warnings.length > 0 && !understood);
+  // Nothing to confirm until the plan is here, and nothing to go on with until the warnings are read.
+  const ready = plan !== undefined && (warnings.length === 0 || understood);
 
   return (
-    <Dialog
+    <ConfirmDialog
       open
       onOpenChange={(next) => {
-        if (!next && !save.isPending) onClose();
+        if (!next) onClose();
       }}
+      friction="simple"
+      destructive={loosens}
       size="lg"
+      ready={ready}
       title={title}
       description={lead}
-      footer={
-        <>
-          <Button disabled={save.isPending} onClick={onClose}>
-            {t("settings.shared.cancel")}
-          </Button>
-          <Button
-            variant={loosens ? "danger" : "primary"}
-            disabled={blocked}
-            loading={save.isPending}
-            onClick={() => {
-              save.mutate();
-            }}
-          >
-            {action}
-          </Button>
-        </>
-      }
+      actionLabel={action}
+      onConfirm={async () => {
+        await save.mutateAsync();
+      }}
     >
       <div className="flex flex-col gap-4">
-        {save.isError ? <ErrorBlock live compact error={save.error} title={t("complianceSetup.dialog.failed")} /> : null}
         {planned.isError ? (
           <ErrorBlock compact error={planned.error} title={t("complianceSetup.dialog.planFailed")} onRetry={() => void planned.refetch()} />
         ) : plan === undefined ? (
-          <div aria-busy="true">
-            <span className="sr-only">{t("complianceSetup.dialog.planning")}</span>
+          <LoadingRegion label={t("complianceSetup.dialog.planning")}>
             <Skeleton className="h-32 w-full rounded-card" />
-          </div>
+          </LoadingRegion>
         ) : plan.effects.length === 0 ? (
           <p className="text-13 text-fg-muted">{t("complianceSetup.dialog.nothing")}</p>
         ) : (
@@ -172,6 +160,6 @@ export function ChangeDialog({ request, title, lead, action, loosens = false, do
           />
         ) : null}
       </div>
-    </Dialog>
+    </ConfirmDialog>
   );
 }

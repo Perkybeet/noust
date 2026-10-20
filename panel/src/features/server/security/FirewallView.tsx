@@ -16,6 +16,7 @@ import { CommandHint } from "../../../components/page/CommandHint";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
 import { EmptyCell } from "../../../components/ui/EmptyCell";
@@ -34,8 +35,8 @@ import { StatusPill } from "../../../components/ui/StatusPill";
 import type { Status } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
-import { ActionDialog } from "../ActionDialog";
-import { ServerErrorBlock } from "../errors";
+import { ServerErrorBlock, useServerConfirm } from "../errors";
+import { typedHost } from "../friction";
 import { firewallQuery, identityQuery } from "../queries";
 import type { Firewall, FirewallRule, ListeningPort } from "../queries";
 import { useServerJob } from "../serverJob";
@@ -202,6 +203,7 @@ function Protected({ firewall }: { firewall: Firewall }) {
 /** The firewall view of the Security tab. */
 export function FirewallView() {
   const t = useT();
+  const confirmation = useServerConfirm();
   const jobs = useServerJob();
   const query = useQuery(firewallQuery());
   const identity = useQuery(identityQuery());
@@ -293,52 +295,74 @@ export function FirewallView() {
       <CommandHint command="noust server security firewall status" label={t("server.fromTerminal")} />
 
       {opened?.kind === "enable" ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          open
+          onOpenChange={(open) => {
+            if (!open) setOpened(null);
+          }}
+          {...typedHost(hostname)}
+          destructive={false}
+          size="md"
           title={t("server.firewall.enableTitle")}
           description={t("server.firewall.enableDescription")}
           actionLabel={t("server.firewall.enableAction")}
-          confirmText={hostname !== "" ? hostname : undefined}
-          onClose={() => setOpened(null)}
           onConfirm={() => run(() => request("post", "/api/server/security/firewall/enable"))}
         >
           <Protected firewall={data} />
-          <Notice>{t("server.firewall.reverts")}</Notice>
-        </ActionDialog>
+          <p className="text-13 text-fg-muted">{t("server.firewall.reverts")}</p>
+        </ConfirmDialog>
       ) : null}
       {opened?.kind === "disable" ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          open
+          onOpenChange={(open) => {
+            if (!open) setOpened(null);
+          }}
+          {...typedHost(hostname)}
+          size="md"
           title={t("server.firewall.disableTitle")}
           description={t("server.firewall.disableDescription")}
           actionLabel={t("server.firewall.disableAction")}
-          destructive
-          confirmText={hostname !== "" ? hostname : undefined}
-          onClose={() => setOpened(null)}
           onConfirm={() => run(() => request("post", "/api/server/security/firewall/disable"))}
         >
-          <Notice>{t("server.firewall.revertsDisable")}</Notice>
-        </ActionDialog>
+          <p className="text-13 text-fg-muted">{t("server.firewall.revertsDisable")}</p>
+        </ConfirmDialog>
       ) : null}
       {opened?.kind === "delete" ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          open
+          onOpenChange={(open) => {
+            if (!open) setOpened(null);
+          }}
+          friction="simple"
+          size="md"
           title={t("server.firewall.deleteTitle", { rule: `${rulePorts(opened.rule)}/${opened.rule.proto}` })}
           description={t("server.firewall.deleteDescription")}
           actionLabel={t("server.firewall.deleteAction")}
-          destructive
-          onClose={() => setOpened(null)}
           onConfirm={() => run(() => request("delete", "/api/server/security/firewall/rules/{rule_id}", { params: { rule_id: opened.rule.id } }))}
         >
           <p className="text-13">
             <Mono>{opened.rule.spec}</Mono>
           </p>
-          <Notice>{t("server.firewall.reverts")}</Notice>
-        </ActionDialog>
+          <p className="text-13 text-fg-muted">{t("server.firewall.reverts")}</p>
+        </ConfirmDialog>
       ) : null}
       {opened?.kind === "add" ? (
-        <ActionDialog
+        <ConfirmDialog
+          {...confirmation}
+          open
+          onOpenChange={(open) => {
+            if (!open) setOpened(null);
+          }}
+          friction="simple"
+          destructive={false}
+          size="md"
           title={t("server.firewall.addTitle")}
           description={t("server.firewall.addDescription")}
           actionLabel={t("server.firewall.addAction")}
-          onClose={() => setOpened(null)}
           onConfirm={() =>
             run(() =>
               request("post", "/api/server/security/firewall/rules", {
@@ -379,8 +403,8 @@ export function FirewallView() {
           <Field label={t("server.firewall.form.comment")} optional>
             <Input value={rule.comment} onValueChange={(comment: string) => setRule((current) => ({ ...current, comment }))} autoComplete="off" />
           </Field>
-          <Notice>{t("server.firewall.reverts")}</Notice>
-        </ActionDialog>
+          <p className="text-13 text-fg-muted">{t("server.firewall.reverts")}</p>
+        </ConfirmDialog>
       ) : null}
     </div>
   );
