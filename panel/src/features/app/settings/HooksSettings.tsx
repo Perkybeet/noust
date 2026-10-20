@@ -217,14 +217,21 @@ export function HooksSettings() {
                   </div>
                 </Notice>
               ) : null}
-              <div className="flex flex-col gap-2">
-                <p className="text-13 font-medium text-fg">{t("appSettings.hooks.preDeploy")}</p>
-                <HookList label={t("appSettings.hooks.preDeploy")} hooks={hooks.data.pre_deploy} t={t} />
-              </div>
-              <div className="flex flex-col gap-2">
-                <p className="text-13 font-medium text-fg">{t("appSettings.hooks.postDeploy")}</p>
-                <HookList label={t("appSettings.hooks.postDeploy")} hooks={hooks.data.post_deploy} t={t} />
-              </div>
+              {/* Both phases empty is one line, not two headings over two lines of nothing. */}
+              {hooks.data.pre_deploy.length === 0 && hooks.data.post_deploy.length === 0 ? (
+                <EmptyState variant="inline" title={t("appSettings.hooks.noneRunning")} />
+              ) : (
+                <>
+                  <div className="flex flex-col gap-2">
+                    <p className="text-13 font-medium text-fg">{t("appSettings.hooks.preDeploy")}</p>
+                    <HookList label={t("appSettings.hooks.preDeploy")} hooks={hooks.data.pre_deploy} t={t} />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <p className="text-13 font-medium text-fg">{t("appSettings.hooks.postDeploy")}</p>
+                    <HookList label={t("appSettings.hooks.postDeploy")} hooks={hooks.data.post_deploy} t={t} />
+                  </div>
+                </>
+              )}
               {/* The phases of a preview are shown when there are hooks for them: most apps have none. */}
               {(hooks.data.preview_post_create ?? []).length > 0 ? (
                 <div className="flex flex-col gap-2">

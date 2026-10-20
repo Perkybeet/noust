@@ -469,6 +469,7 @@ export const appSettings: Catalog<typeof en> = {
     remove: "Quitar los hooks del operador",
     removeTitle: "¿Quitar los hooks del operador de {domain}?",
     removeDescription: "El siguiente despliegue ejecuta los hooks del noust.yaml del repositorio, si tiene.",
+    noneRunning: "Ningún hook se ejecuta antes ni después de servir la nueva versión.",
   },
   identity: {
     title: "La cuenta con la que se ejecuta",

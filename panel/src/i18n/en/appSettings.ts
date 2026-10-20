@@ -472,6 +472,7 @@ export const appSettings = {
     remove: "Remove the operator's hooks",
     removeTitle: "Remove the operator's hooks of {domain}?",
     removeDescription: "The next deploy runs the hooks of the repository's noust.yaml, if it has any.",
+    noneRunning: "No hook runs before or after the new version serves.",
   },
   identity: {
     title: "The account it runs as",

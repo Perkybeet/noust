@@ -39,6 +39,25 @@ describe("deploy hooks in an app's settings", { timeout: 20_000 }, () => {
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
+  it("says in one line that no hook runs, and keeps the two phases when one of them has a hook", async () => {
+    const none = await renderSettings("/hooks", "Deploy hooks", COMPOSE_APP, {
+      [`GET /api/apps/${DOMAIN}/hooks`]: () => json(200, { ...REPO_HOOKS, pre_deploy: [], post_deploy: [] }),
+    });
+    await screen.findByRole("heading", { name: "In use" });
+    const inUse = within(part("In use"));
+    expect(await inUse.findByText("No hook runs before or after the new version serves.")).toBeInTheDocument();
+    expect(inUse.queryByText("Before serving")).not.toBeInTheDocument();
+    none.unmount();
+
+    await renderSettings("/hooks", "Deploy hooks", COMPOSE_APP, {
+      [`GET /api/apps/${DOMAIN}/hooks`]: () => json(200, { ...REPO_HOOKS, pre_deploy: [] }),
+    });
+    await screen.findByRole("heading", { name: "In use" });
+    const phases = within(part("In use"));
+    expect(await phases.findByText("Before serving")).toBeInTheDocument();
+    expect(phases.getByText("Nothing runs here.")).toBeInTheDocument();
+  });
+
   it("shows why the repository's noust.yaml is not valid, verbatim", async () => {
     await renderSettings("/hooks", "Deploy hooks", COMPOSE_APP, {
       [`GET /api/apps/${DOMAIN}/hooks`]: () => json(200, { ...REPO_HOOKS, repository_error: "hooks.pre_deploy[0].user: unknown key" }),

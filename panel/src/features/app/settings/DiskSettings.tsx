@@ -234,12 +234,15 @@ function DiskCard({ app, disk, limit }: { app: App; disk: UseQueryResult<AppDisk
             </Field>
             {limit.unplaced !== null ? <ErrorBlock live compact error={limit.unplaced} title={t("runtime.disk.saveFailed")} /> : null}
           </div>
-          <p className="max-w-measure text-12 text-pretty text-fg-muted">{t("runtime.disk.softNote")}</p>
-          <p className="max-w-measure text-12 text-pretty text-fg-muted">
-            {filesystem.fstype === null
-              ? t("runtime.disk.quota.unknown")
-              : t(`runtime.disk.quota.${filesystem.project_quota}`, { fstype: filesystem.fstype, mount: filesystem.mount ?? "/" })}
-          </p>
+          {/* What the limit is and what the filesystem could add to it are one note, not two blocks of the card. */}
+          <div className="flex flex-col gap-1">
+            <p className="max-w-measure text-12 text-pretty text-fg-muted">{t("runtime.disk.softNote")}</p>
+            <p className="max-w-measure text-12 text-pretty text-fg-muted">
+              {filesystem.fstype === null
+                ? t("runtime.disk.quota.unknown")
+                : t(`runtime.disk.quota.${filesystem.project_quota}`, { fstype: filesystem.fstype, mount: filesystem.mount ?? "/" })}
+            </p>
+          </div>
           <KernelQuota disk={disk.data} domain={domain} />
         </div>
       </Card>
