@@ -91,6 +91,8 @@ def lineage_name(name: str) -> str:
     Raises:
         ValidationError: The name is not a domain or a wildcard of one.
     """
+    if not isinstance(name, str):
+        raise ValidationError("A certificate is named after a host name", field="name")
     candidate = name.strip().lower()
     if is_wildcard(candidate):
         return f"{_WILDCARD_LINEAGE_PREFIX}{wildcard_base(candidate)}"
