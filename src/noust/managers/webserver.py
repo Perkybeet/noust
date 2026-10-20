@@ -3303,6 +3303,8 @@ class SiteDeletion(MappingRecord):
         nginx_removed: Whether an nginx vhost was found and removed.
         apache_removed: Whether an apache vhost was found and removed.
         certificate_removed: Whether a certificate was found and removed.
+        own_certificates_removed: The names whose certificate of their own was removed with
+            the application's.
         kept_operator: The web servers whose site for the domain was written
             by the operator and kept, when that was asked for.
     """
@@ -3312,11 +3314,17 @@ class SiteDeletion(MappingRecord):
     apache_removed: bool = False
     certificate_removed: bool = False
     kept_operator: tuple[str, ...] = ()
+    own_certificates_removed: tuple[str, ...] = ()
 
     @property
     def removed_anything(self) -> bool:
-        """True when at least one vhost or the certificate was removed."""
-        return self.nginx_removed or self.apache_removed or self.certificate_removed
+        """True when at least one vhost or a certificate was removed."""
+        return (
+            self.nginx_removed
+            or self.apache_removed
+            or self.certificate_removed
+            or bool(self.own_certificates_removed)
+        )
 
 
 def delete_site_completely(
@@ -3402,12 +3410,24 @@ def delete_site_completely(
         except CertificateError as exc:
             _logger.warning("Could not remove the certificate for %s: %s", domain, exc)
 
+    # The names that held a certificate of their own go with the application, each by itself:
+    # one that certbot refuses to delete does not keep the others from going.
+    own_removed: list[str] = []
+    if delete_certificate and not kept_operator and cert_manager.is_installed():
+        for name in cert_manager.own_names_of(domain):
+            try:
+                cert_manager.delete_name(name, with_application=True)
+                own_removed.append(name)
+            except CertificateError as exc:
+                _logger.warning("Could not remove the certificate of %s: %s", name, exc)
+
     return SiteDeletion(
         domain=domain,
         nginx_removed=nginx_removed,
         apache_removed=apache_removed,
         certificate_removed=certificate_removed,
         kept_operator=kept_operator,
+        own_certificates_removed=tuple(own_removed),
     )
 
 

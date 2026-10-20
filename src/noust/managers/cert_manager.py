@@ -1551,7 +1551,50 @@ class CertManager(BaseManager):
             output="\n\n".join(exc.output for exc in failures if exc.output) or None,
         )
 
-    def delete_name(self, name: str) -> bool:
+    def _refuse_while_presented(self, host: str) -> None:
+        """
+        Refuse to delete or revoke the lineage of a name an application still serves with.
+
+        Args:
+            host: The name.
+
+        Raises:
+            CertificateError: The name holds a certificate of its own, which its site presents
+                (or the store cannot say, which is treated the same way: a lineage the web
+                server is pointed at must not vanish on a guess).
+        """
+        try:
+            presented = self.store.domain_certificate(host) == OWN
+        except (NoustError, sqlite3.Error) as exc:
+            self.logger.warning(f"Could not tell whether {host} still holds its lineage: {exc}")
+            presented = True
+        if presented:
+            raise CertificateError(
+                f"{host} is served with the certificate of its own",
+                details=(
+                    "Give it back to the shared certificate first, or remove the name: "
+                    "noust domain certificate APP NAME --shared"
+                ),
+            )
+
+    def own_names_of(self, primary: str) -> list[str]:
+        """
+        List the names of an application that hold a certificate of their own.
+
+        Args:
+            primary: The application's primary domain.
+
+        Returns:
+            Those names, the ones switched off included: their lineages exist all the same.
+        """
+        try:
+            records = self.store.list_domains(primary)
+        except (NoustError, sqlite3.Error) as exc:
+            self.logger.warning(f"Could not read the domains of {primary}: {exc}")
+            return []
+        return own_names(records)
+
+    def delete_name(self, name: str, *, with_application: bool = False) -> bool:
         """
         Delete the certificate a name held on its own, without revoking it.
 
@@ -1560,6 +1603,8 @@ class CertManager(BaseManager):
 
         Args:
             name: The name, a wildcard included.
+            with_application: The application that serves it is being deleted, so nothing
+                presents the lineage any more.
 
         Returns:
             True when no certificate remains for it.
@@ -1570,19 +1615,8 @@ class CertManager(BaseManager):
         """
         host = self._validated_name(name)
         lineage = lineage_name(host)
-        try:
-            in_use = self.store.domain_certificate(host) == OWN
-        except (NoustError, sqlite3.Error) as exc:
-            self.logger.warning(f"Could not tell whether {host} still holds its lineage: {exc}")
-            in_use = True
-        if in_use:
-            raise CertificateError(
-                f"{host} is served with the certificate of its own",
-                details=(
-                    "Give it back to the shared certificate first, or remove the name: "
-                    "noust domain certificate APP NAME --shared"
-                ),
-            )
+        if not with_application:
+            self._refuse_while_presented(host)
         if (self.LIVE_DIR / lineage / "fullchain.pem").exists():
             result = self._exec(
                 ["certbot", "delete", "--cert-name", lineage, "--non-interactive"],
@@ -2268,6 +2302,7 @@ class CertManager(BaseManager):
                 fails.
         """
         primary = self._validated(domain)
+        self._refuse_while_presented(primary)
         if self.certificate_settings(primary).source != SOURCE_ACME:
             raise CertificateError(
                 f"{primary} is not served with a certificate Noust ordered",
@@ -2318,6 +2353,7 @@ class CertManager(BaseManager):
             CertificateError: When the domain is invalid or deletion fails.
         """
         primary = self._validated(domain)
+        self._refuse_while_presented(primary)
         settings = self.certificate_settings(primary)
         if settings.source != SOURCE_ACME:
             # What the site was served with is not this lineage's to delete: an
