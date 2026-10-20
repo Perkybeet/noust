@@ -245,6 +245,9 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/databases/backup-policies/**", INSTANCE),
     # Archiving the engine's log and recovering the whole cluster are the server's.
     _rule("/api/databases/pitr/**", INSTANCE),
+    # A replica is another server following the engine's whole log, and joining one replaces
+    # the engine's data: the server's, whoever's databases are in it.
+    _rule("/api/databases/replicas/**", INSTANCE),
     # --- backups --------------------------------------------------------------
     _rule("/api/backup-schedules", SCOPED, methods=("GET",)),
     _rule("/api/backup-schedules", RESOURCE, _BODY_DOMAIN, methods=("POST",)),

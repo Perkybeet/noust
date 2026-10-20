@@ -3664,6 +3664,7 @@ class BackupManager:
             return
 
         try:
+            from noust.managers.database.base import OWN_DUMP_OPTIONS
             from noust.managers.database.service import DatabaseService
         except ImportError as exc:
             raise BackupError(
@@ -3688,7 +3689,8 @@ class BackupManager:
                 ) from exc
 
             try:
-                manager.restore(database=name, backup_path=dump_path)
+                # The dump this backup took of the database, as it was.
+                manager.restore(database=name, backup_path=dump_path, **OWN_DUMP_OPTIONS)
             except (DatabaseError, OSError) as exc:
                 raise BackupError(
                     f"Failed to restore {engine} database '{name}' from {dump_path.name}",

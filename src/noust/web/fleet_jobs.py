@@ -2458,5 +2458,6 @@ def new_job_id() -> str:
 
 # The actions of an application on several servers are in their own module, which
 # registers them in ACTIONS: it needs everything above to exist.
+from noust.web import fleet_database_actions as _database_actions  # noqa: E402,F401
 from noust.web import fleet_placement_actions as _placement_actions  # noqa: E402,F401
 from noust.web import fleet_ship_actions as _ship_actions  # noqa: E402,F401

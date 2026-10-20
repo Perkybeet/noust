@@ -672,6 +672,7 @@ def test_every_new_route_is_in_the_permission_map_and_the_destructive_ones_need_
         ("PUT", f"{BASE}/backup-policies/{{engine}}/{{database}}"),
         ("DELETE", f"{BASE}/backup-policies/{{engine}}/{{database}}"),
         ("GET", f"{BASE}/backups/{{name}}/download"),
+        ("GET", f"{BASE}/backups/{{name}}/data"),
         ("DELETE", f"{BASE}/backups/{{name}}"),
         ("POST", f"{BASE}/backups/restore-remote"),
         ("POST", f"{BASE}/backups/restore"),

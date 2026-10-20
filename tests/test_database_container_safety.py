@@ -188,7 +188,7 @@ class TestRestoringIntoAPostgresContainer:
         dump = tmp_path / "empleo.sql"
         dump.write_text("CREATE TABLE t (id int);\n")
 
-        manager.restore("empleo", dump, drop_existing=True)
+        manager.restore("empleo", dump, drop_existing=True, as_superuser=True)
 
         no_host_path_inside_a_container(docker, dump, tmp_path)
         assert cluster.loads == [dump]
@@ -201,7 +201,7 @@ class TestRestoringIntoAPostgresContainer:
         dump = tmp_path / "empleo.dump"
         dump.write_bytes(b"PGDMP\x01\x0e\x00archive")
 
-        manager.restore("empleo", dump, drop_existing=True)
+        manager.restore("empleo", dump, drop_existing=True, as_superuser=True)
 
         no_host_path_inside_a_container(docker, dump, tmp_path)
         (load,) = [call for call in docker.calls if inner(call)[:1] == ("pg_restore",)]
@@ -214,7 +214,7 @@ class TestRestoringIntoAPostgresContainer:
         dump = tmp_path / "empleo.sql.gz"
         dump.write_bytes(gzip.compress(b"CREATE TABLE t (id int);\n"))
 
-        manager.restore("empleo", dump, drop_existing=True)
+        manager.restore("empleo", dump, drop_existing=True, as_superuser=True)
 
         decompress = [i for i, c in enumerate(docker.calls) if c[:2] == ("gzip", "-dc")]
         assert docker.calls[decompress[0]] == ("gzip", "-dc", str(dump))
@@ -231,7 +231,7 @@ class TestRestoringIntoAPostgresContainer:
         dump.write_bytes(gzip.compress(b"CREATE TABLE t (id int);\n"))
 
         with pytest.raises(DatabaseBackupError) as raised:
-            manager.restore("empleo", dump, drop_existing=True)
+            manager.restore("empleo", dump, drop_existing=True, as_superuser=True)
 
         assert "No space left on device" in (raised.value.details or "")
         assert drops(docker) == []
@@ -245,7 +245,7 @@ class TestRestoringIntoAPostgresContainer:
         dump.write_text("CREAT TABLE t (id int);\n")
 
         with pytest.raises(DatabaseBackupError) as raised:
-            manager.restore("empleo", dump, drop_existing=True)
+            manager.restore("empleo", dump, drop_existing=True, as_superuser=True)
 
         assert "were put back" in raised.value.message
         first, safety = cluster.loads
@@ -262,7 +262,7 @@ class TestRestoringIntoAPostgresContainer:
         dump.write_text("CREATE TABLE t (id int);\n")
 
         with pytest.raises(DatabaseBackupError) as raised:
-            manager.restore("empleo", dump, drop_existing=True)
+            manager.restore("empleo", dump, drop_existing=True, as_superuser=True)
 
         assert "were put back" in raised.value.message
         assert "deadline" in (raised.value.details or "")

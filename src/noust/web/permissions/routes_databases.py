@@ -92,6 +92,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/databases/backups/{name}/verify"): Permission.BACKUPS_RUN,
     ("POST", "/api/databases/backups/{name}/push"): Permission.BACKUPS_MANAGE,
     ("GET", "/api/databases/backups/{name}/download"): Permission.DATABASES_MANAGE,
+    ("GET", "/api/databases/backups/{name}/data"): Permission.DATABASES_MANAGE,
     ("DELETE", "/api/databases/backups/{name}"): Permission.BACKUPS_MANAGE,
     ("GET", "/api/databases/backups/remote"): Permission.BACKUPS_READ,
     ("GET", "/api/databases/backups/remote/databases"): Permission.BACKUPS_READ,

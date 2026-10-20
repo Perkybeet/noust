@@ -112,8 +112,9 @@ class TestTheComposeProject:
         assert PASSWORD not in compose
         assert yaml.safe_load(compose)["services"]["db"]["env_file"]
 
-    def test_tls_is_refused_for_the_reason_it_is_for_the_rest_of_the_family(self) -> None:
-        reason = instance_compose.tls_supported("keydb", "6.3", "required")
+    def test_it_serves_tls_on_its_one_port_like_the_rest_of_the_family(self) -> None:
+        assert instance_compose.tls_supported("keydb", "6.3", "required") is None
+        reason = instance_compose.tls_supported("keydb", "6.3", "optional")
         assert reason is not None and "KeyDB" in reason
 
 

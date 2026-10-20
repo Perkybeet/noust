@@ -42,7 +42,7 @@ from typing import Any, cast
 from noust.core import audit
 from noust.core.config import Config
 from noust.core.database_exposures import ExposureStore
-from noust.core.db_instance_store import DbInstanceStore
+from noust.core.db_instance_store import TLS_REQUIRED, DbInstanceStore
 from noust.core.ens import profile as security_profile
 from noust.core.exceptions import (
     ConfigError,
@@ -2313,6 +2313,7 @@ class DatabaseService:
             host="localhost",
             port=manager.server_port(),
             options=options,
+            secure=link.tls_mode is not None,
         )
 
     def _link_values(self, link: DatabaseLink, *, password: str | None) -> dict[str, str]:
@@ -2541,6 +2542,19 @@ class DatabaseService:
         manager = self.running(engine)
         engine_name = manager.ENGINE_NAME
         check_link_tls(engine_name, tls_mode, instances=DbInstanceStore(self.store))
+        if (
+            tls_mode is None
+            and engine_of(engine_name) == "redis"
+            and manager.instance is not None
+            and manager.instance.tls_mode == TLS_REQUIRED
+        ):
+            # Its one port serves TLS and refuses the rest: a plain URL would never connect.
+            raise ValidationError(
+                f"{manager.DISPLAY_NAME} in {manager.instance.managed} serves TLS only",
+                details="Link with a TLS mode (require, verify-ca or verify-full): the "
+                "application then gets a rediss:// URL and the authority to verify it with.",
+                field="tls",
+            )
         database = manager.validate_database_name(database)
         if not manager.database_exists(database):
             raise DatabaseNotFoundError(f"Database '{database}' does not exist")
@@ -3216,6 +3230,7 @@ class DatabaseService:
                 password=_PLACEHOLDER,
                 host="localhost",
                 port=port,
+                secure=manager.tls_only_port,
             ),
             _PLACEHOLDER,
         )
@@ -3370,7 +3385,7 @@ class DatabaseService:
             on_safety_copy: Called with the safety copy before anything is
                 dropped or loaded (see the manager's ``restore``).
             options: Engine-specific loader options an import passes
-                (``keep_owners``, ``owner_role``).
+                (``keep_owners``, ``as_superuser``).
 
         Returns:
             What was done.
@@ -3491,6 +3506,7 @@ class DatabaseService:
                 password=_PLACEHOLDER if password or user else None,
                 host="127.0.0.1",
                 port=tunnel.local_port,
+                secure=manager.tls_only_port,
             ),
             _PLACEHOLDER,
         )

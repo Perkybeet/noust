@@ -289,7 +289,7 @@ def test_no_manager_operation_ever_invokes_a_shell(
     dump.write_text(NASTY_DUMP)
 
     postgres.backup("shop", compress=True)
-    postgres.restore("shop", dump)
+    postgres.restore("shop", dump, as_superuser=True)
     mysql.backup("shop", compress=True)
     mysql.restore("shop", dump)
     mongo_archive = tmp_path / "mongo.tar.gz"
@@ -434,7 +434,7 @@ def test_postgres_restore_gives_the_dump_to_psql_as_its_stdin(
     dump = tmp_path / "dump.sql"
     dump.write_text(NASTY_DUMP)
 
-    postgres.restore("shop", dump)
+    postgres.restore("shop", dump, as_superuser=True)
 
     assert runner.calls[-1] == (
         "runuser",
@@ -517,7 +517,7 @@ def test_postgres_gzipped_restore_decompresses_without_a_pipe(
     dump = tmp_path / "dump.sql.gz"
     dump.write_bytes(gzip.compress(NASTY_DUMP.encode("latin-1")))
 
-    postgres.restore("shop", dump)
+    postgres.restore("shop", dump, as_superuser=True)
 
     staged = postgres.BACKUP_DIR / ".staging" / "postgresql-restore-shop.sql"
     assert runner.calls[-2] == ("gzip", "-dc", str(dump))

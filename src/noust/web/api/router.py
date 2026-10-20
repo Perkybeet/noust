@@ -77,6 +77,7 @@ from noust.web.api.domains import router as domains_router
 from noust.web.api.ens import router as ens_router
 from noust.web.api.fleet import router as fleet_router
 from noust.web.api.fleet_builders import router as fleet_builders_router
+from noust.web.api.fleet_databases import router as fleet_databases_router
 from noust.web.api.fleet_placements import router as fleet_placements_router
 from noust.web.api.fleet_self import router as fleet_self_router
 from noust.web.api.git_credentials import router as git_credentials_router
@@ -404,6 +405,8 @@ router.include_router(approvals_router, prefix="/approvals", tags=["Approvals"])
 router.include_router(fleet_router, prefix="/fleet", tags=["Fleet"])
 router.include_router(fleet_placements_router, prefix="/fleet/placements", tags=["Fleet"])
 router.include_router(fleet_builders_router, prefix="/fleet/builders", tags=["Fleet"])
+# A database moved to another server: the fleet engine's action, with a typed body.
+router.include_router(fleet_databases_router, prefix="/fleet/databases", tags=["Fleet"])
 # Guided enrollment of a server: its host key, then the job that installs and joins it.
 router.include_router(node_enroll_router, prefix="/fleet/enroll", tags=["Fleet"])
 # Servers created at a cloud provider: accounts, the cloud-init library and the machines.

@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-996 operations.
+1018 operations.
 
 ## Access
 
@@ -460,6 +460,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/databases/backups/restore-remote` | Restore Remote Backup | `databases.manage` | yes |  |
 | GET | `/api/databases/backups/suggest-name` | Suggest Restore Name | `databases.read` |  |  |
 | DELETE | `/api/databases/backups/{name}` | Delete Backup | `backups.manage` | yes |  |
+| GET | `/api/databases/backups/{name}/data` | Dump Data | `databases.manage` | yes |  |
 | GET | `/api/databases/backups/{name}/download` | Download Backup | `databases.manage` | yes |  |
 | POST | `/api/databases/backups/{name}/push` | Push Backup | `backups.manage` |  |  |
 | POST | `/api/databases/backups/{name}/verify` | Verify Backup | `backups.run` |  |  |
@@ -499,6 +500,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/databases/databases/{engine}/{name}/slow-queries` | Slow Queries | `databases.read` |  |  |
 | GET | `/api/databases/engines` | List Engines | `databases.read` |  |  |
 | GET | `/api/databases/engines/catalog` | Get Engine Catalog | `databases.read` |  |  |
+| GET | `/api/databases/engines/tls` | List Status | `databases.read` |  |  |
+| POST | `/api/databases/engines/tls/refresh` | Refresh | `databases.manage` | yes |  |
 | PUT | `/api/databases/engines/{engine}/credentials` | Set Engine Credentials | `databases.manage` | yes |  |
 | GET | `/api/databases/engines/{engine}/exposure` | Get Engine Exposure | `databases.read` |  |  |
 | POST | `/api/databases/engines/{engine}/install` | Install Engine | `databases.manage` | yes |  |
@@ -513,9 +516,15 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/databases/engines/{engine}/start` | Start Engine | `apps.operate` |  |  |
 | GET | `/api/databases/engines/{engine}/status` | Get Engine Status | `databases.read` |  |  |
 | POST | `/api/databases/engines/{engine}/stop` | Stop Engine | `apps.operate` |  |  |
+| GET | `/api/databases/engines/{engine}/tls` | Get Status | `databases.read` |  |  |
+| PUT | `/api/databases/engines/{engine}/tls` | Enable Tls | `databases.manage` | yes |  |
+| DELETE | `/api/databases/engines/{engine}/tls` | Disable Tls | `databases.manage` | yes |  |
+| POST | `/api/databases/engines/{engine}/tls/plan` | Plan Tls | `databases.read` |  |  |
 | POST | `/api/databases/engines/{engine}/uninstall` | Uninstall Engine | `databases.manage` | yes |  |
 | GET | `/api/databases/exposure` | Get Exposure | `databases.read` |  |  |
 | POST | `/api/databases/imports` | Import Dump | `databases.manage` | yes |  |
+| POST | `/api/databases/imports/cluster` | Import Cluster | `databases.manage` | yes |  |
+| POST | `/api/databases/imports/cluster/plan` | Plan Cluster Import | `databases.manage` |  |  |
 | POST | `/api/databases/imports/inspect` | Inspect Dump | `databases.manage` |  |  |
 | POST | `/api/databases/imports/uploads` | Start Upload | `databases.manage` |  |  |
 | GET | `/api/databases/imports/uploads/{upload_id}` | Upload Status | `databases.manage` |  |  |
@@ -533,6 +542,9 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/databases/instances/tls-authority` | Get Authority | `databases.read` |  |  |
 | GET | `/api/databases/instances/{name}` | Get Instance | `databases.read` |  |  |
 | DELETE | `/api/databases/instances/{name}` | Remove Instance | `databases.manage` | yes |  |
+| GET | `/api/databases/instances/{name}/launch` | Get Launch | `databases.read` |  |  |
+| PUT | `/api/databases/instances/{name}/launch` | Set Launch | `databases.manage` | yes |  |
+| POST | `/api/databases/instances/{name}/launch/plan` | Plan Launch | `databases.read` |  |  |
 | GET | `/api/databases/instances/{name}/remove-plan` | Plan Remove Instance | `databases.read` |  |  |
 | POST | `/api/databases/instances/{name}/start` | Start Instance | `apps.operate` |  |  |
 | POST | `/api/databases/instances/{name}/stop` | Stop Instance | `apps.operate` |  |  |
@@ -566,6 +578,15 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/databases/query` | Execute Query | `databases.read` |  | yes |
 | POST | `/api/databases/query/explain` | Explain Query | `databases.read` |  | yes |
 | POST | `/api/databases/query/export` | Export Query | `databases.read` |  |  |
+| GET | `/api/databases/replicas` | List Status | `databases.read` |  |  |
+| POST | `/api/databases/replicas/join` | Join | `databases.manage` | yes |  |
+| POST | `/api/databases/replicas/join/plan` | Plan Join | `databases.manage` |  |  |
+| GET | `/api/databases/replicas/{engine}` | Get Status | `databases.read` |  |  |
+| POST | `/api/databases/replicas/{engine}` | Prepare | `databases.manage` | yes |  |
+| POST | `/api/databases/replicas/{engine}/plan` | Plan Prepare | `databases.read` |  |  |
+| POST | `/api/databases/replicas/{engine}/promote` | Promote | `databases.manage` | yes |  |
+| DELETE | `/api/databases/replicas/{engine}/{name}` | Remove | `databases.manage` | yes |  |
+| POST | `/api/databases/replicas/{engine}/{name}/token` | Show Token | `databases.manage` | yes |  |
 | POST | `/api/databases/users` | Create User | `databases.write` |  |  |
 | POST | `/api/databases/users/grant` | Grant Privileges | `databases.write` |  |  |
 | POST | `/api/databases/users/revoke` | Revoke Privileges | `databases.write` |  |  |
@@ -661,6 +682,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/fleet/cloud/servers/{node}/link` | Link Machine | `fleet.manage` | yes |  |
 | DELETE | `/api/fleet/cloud/servers/{node}/link` | Unlink Machine | `fleet.manage` | yes |  |
 | POST | `/api/fleet/cloud/servers/{node}/power-on` | Power On Machine | `fleet.manage` | yes |  |
+| POST | `/api/fleet/databases/transfer` | Transfer Database | `fleet.manage` |  |  |
 | POST | `/api/fleet/enroll` | Enroll Server | `fleet.manage` | yes | yes |
 | POST | `/api/fleet/enroll/host-key` | Scan Host Key | `fleet.manage` |  |  |
 | GET | `/api/fleet/jobs` | List Jobs | `fleet.read` |  |  |

@@ -81,6 +81,18 @@ from noust.managers.database.base import (
     validate_name,
 )
 from noust.managers.database.instances import storage_name
+from noust.managers.database.pg_loader import (
+    OwnerFacts,
+    asks_for_more_privilege,
+    load_role_name,
+    owner_query,
+    parse_owner,
+    provision_statements,
+    release_statements,
+    role_query,
+    superuser_hint,
+    sweep_statement,
+)
 from noust.managers.database.psql_script import check_plain_dump, strip_owners
 from noust.managers.database.registry import DatabaseRegistry
 from noust.managers.database.settings import read_config_file, write_config_file
@@ -312,6 +324,39 @@ def _dollar_tag(stem: str, *values: str) -> str:
         tag = f"${stem}_{secrets.token_hex(4)}$"
         if not any(tag in value for value in values):
             return tag
+
+
+@dataclass(frozen=True)
+class _LoaderLogin:
+    """
+    The login a dump is loaded with.
+
+    Attributes:
+        role: Its name.
+        password: Its password, for the client's environment and nowhere else.
+        port: The port it signs in on.
+        env: The environment the client runs with (``PGPASSWORD``, ``PGOPTIONS``).
+        connection: The client arguments that say where and as whom.
+    """
+
+    role: str
+    password: str
+    port: int
+    env: Mapping[str, str]
+    connection: tuple[str, ...]
+
+
+def _pgoptions_value(value: str) -> str:
+    """
+    Escape a value for ``PGOPTIONS``, which splits on blanks and reads a backslash as an escape.
+
+    Args:
+        value: A role name.
+
+    Returns:
+        The value as libpq's option parser reads it back.
+    """
+    return value.replace("\\", "\\\\").replace(" ", "\\ ")
 
 
 @dataclass(frozen=True)
@@ -1016,6 +1061,44 @@ class PostgresManager(BaseDatabaseManager):
         )
         return success and output.strip() == "1"
 
+    def role_names(self) -> set[str]:
+        """
+        List every role of the cluster, the server's own and Noust's included.
+
+        Returns:
+            The names, for a caller that has to know which roles a dump would find already there.
+
+        Raises:
+            DatabaseUserError: When the server does not answer.
+        """
+        success, output = self._execute_sql("SELECT rolname FROM pg_catalog.pg_roles;")
+        if not success:
+            raise DatabaseUserError("Could not list the roles", details=output.strip())
+        return {line for line in output.splitlines() if line}
+
+    def create_accounts(self, script: str, *, secrets: Sequence[str] = ()) -> None:
+        """
+        Run the statements that make the accounts of an imported dump, all or none.
+
+        The script is built by Noust from data it read, never the dump's own text
+        (:mod:`~noust.managers.database.cluster_dump`); it carries password hashes, so they are
+        kept out of the logs.
+
+        Args:
+            script: ``CREATE ROLE`` and ``GRANT`` statements.
+            secrets: The password hashes in it.
+
+        Raises:
+            DatabaseUserError: When the server refuses one; none is made.
+        """
+        success, output = self._execute_sql(
+            f"BEGIN;\n{script}COMMIT;\n", secrets=secrets, timeout=SERVICE_TIMEOUT
+        )
+        if not success:
+            raise DatabaseUserError(
+                "Could not create the accounts of the dump; none was made", details=output.strip()
+            )
+
     def list_users(self) -> list[UserInfo]:
         """
         List the roles that are not internal to PostgreSQL.
@@ -1440,11 +1523,14 @@ class PostgresManager(BaseDatabaseManager):
         """
         Refuse a plain dump in which psql would find a meta-command.
 
-        A restore trusts the dump's SQL: it runs as :data:`SUPERUSER`, which
-        is what ``ALTER ... OWNER TO``, ``CREATE EXTENSION`` and the rest of a
-        real dump need, and which also includes ``COPY ... TO PROGRAM``. That
-        is why it is an elevated, audited action. What it does not trust is
-        the client: psql reads a plain dump with ``-f``, where it would run
+        A dump from outside is loaded as the database's owner, by a login of
+        its own (:meth:`_load_backup`), so the server refuses what the SQL
+        asks beyond that; a dump Noust wrote, or one the operator chose to
+        trust, runs as :data:`SUPERUSER` (``as_superuser``), which is what
+        ``CREATE EXTENSION`` of an untrusted extension needs and which also
+        includes ``COPY ... TO PROGRAM``. That is why it is an elevated,
+        audited action. Whichever account loads it, the client is not
+        trusted: psql reads a plain dump with ``-f``, where it would run
         ``\\!``, ``\\o`` or ``\\set`` as happily as SQL, so the dump is checked
         by :func:`~noust.managers.database.psql_script.check_plain_dump` first,
         before the database is touched. pg_restore, for the custom and tar
@@ -1492,10 +1578,36 @@ class PostgresManager(BaseDatabaseManager):
         if dump_format == "plain" and kwargs.get("keep_owners") is False:
             # Owners and privileges named in a plain dump are the roles of the
             # server it came from; they are taken out before the file is staged.
+            # Who the objects then belong to is the loader's identity: the database's
+            # owner, whose role the unprivileged login starts as. No ``SET ROLE`` is
+            # written into the script: the superuser asked for by name must be one,
+            # and ``RESET ROLE`` would take any other away.
             with tempfile.TemporaryDirectory(prefix="noust-restore-") as scratch:
                 filtered = Path(scratch) / "owners-stripped.sql"
-                left_out = strip_owners(backup_path, filtered, role=kwargs.get("owner_role"))
+                left_out = strip_owners(backup_path, filtered)
                 self.logger.info(f"Left {left_out} ownership and privilege statement(s) out")
+                with self._staged_backup(filtered, staged_name, owner=owner) as staged:
+                    yield staged
+            return
+        if dump_format == "plain" and kwargs.get("role_filter") is not None:
+            # The dump's own accounts were made first: its statements are kept for the roles that
+            # are there and left out, one by one, for the rest (the source's superuser). Objects
+            # may be handed to the database's owner, whom the unprivileged loader becomes, and to
+            # nobody else: an account that is not the owner has no right to create in its schemas.
+            keep = kwargs["role_filter"]
+            if not kwargs.get("as_superuser"):
+                # The owner it will have when it is loaded: the one a replaced database is
+                # recreated with, else the one it has.
+                borrowed = self._loader_owner(database, kwargs.get("create_owner"))
+                if not borrowed.privileged:
+                    keep = replace(keep, owners=frozenset({*keep.owners, borrowed.name}))
+            with tempfile.TemporaryDirectory(prefix="noust-restore-") as scratch:
+                filtered = Path(scratch) / "owners-filtered.sql"
+                left_out = strip_owners(backup_path, filtered, keep=keep)
+                self.logger.info(
+                    f"Left {left_out} ownership and privilege statement(s) out: they name roles "
+                    "that are not here"
+                )
                 with self._staged_backup(filtered, staged_name, owner=owner) as staged:
                     yield staged
             return
@@ -1525,14 +1637,22 @@ class PostgresManager(BaseDatabaseManager):
         """
         Load a plain dump with psql or an archive with pg_restore.
 
+        The dump is a script and runs with the rights of whoever connects, so
+        by default that is a login made for the load which is not a
+        superuser (:meth:`_restricted_login`, checklist H-19): ``COPY ...
+        FROM PROGRAM`` and the like are refused by the server itself. Noust's
+        own dumps and a dump the operator trusts are loaded as the superuser
+        with ``as_superuser``.
+
         Args:
             database: The database to load into.
             backup_path: The dump as :meth:`_restore_input` prepared it.
             **kwargs: Accepts ``format`` to override the detected one, and
                 ``keep_owners``: False has pg_restore leave the owners and
                 privileges of an archive out (a plain dump is cleaned of them
-                by :meth:`_restore_input`), and ``owner_role``, the role the
-                objects are then created as.
+                by :meth:`_restore_input`) so that what it creates belongs to
+                whoever loads it. ``as_superuser`` loads it as the cluster's
+                superuser, which then owns what the dump does not give away.
 
         Raises:
             DatabaseBackupError: When psql or pg_restore fails or runs out of
@@ -1545,20 +1665,168 @@ class PostgresManager(BaseDatabaseManager):
         ownerless: list[str] = []
         if kwargs.get("keep_owners") is False:
             ownerless = ["--no-owner", "--no-acl"]
-            if kwargs.get("owner_role"):
-                # Objects are created as the database's owner, not as whoever loads them.
-                ownerless.append(f"--role={kwargs['owner_role']}")
         # The dump is the client's stdin, which psql (-f -) and pg_restore (no file) both
         # read: a client inside a container cannot open a file on the host, and the host's,
         # running as the postgres account, could not open one it cannot reach.
-        if dump_format == "plain":
-            argv = self._psql_argv(database, "-f", "-")
-        else:
-            argv = ["pg_restore", "--no-password", *ownerless, "-d", database]
-        result = self._exec(argv, stdin_path=backup_path, timeout=timeout, user=self.SUPERUSER)
+        if kwargs.get("as_superuser"):
+            if dump_format == "plain":
+                argv = self._psql_argv(database, "-f", "-")
+            else:
+                argv = ["pg_restore", "--no-password", *ownerless, "-d", database]
+            result = self._exec(argv, stdin_path=backup_path, timeout=timeout, user=self.SUPERUSER)
+            if not result.success:
+                raise load_failure(
+                    database, result, "The dump may be truncated or in another format."
+                )
+            return
 
-        if not result.success:
-            raise load_failure(database, result, "The dump may be truncated or in another format.")
+        with self._restricted_login(database) as login:
+            if dump_format == "plain":
+                argv = self._psql_argv(database, *login.connection, "-f", "-")
+            else:
+                argv = [
+                    "pg_restore",
+                    "--no-password",
+                    *login.connection,
+                    *ownerless,
+                    "-d",
+                    database,
+                ]
+            result = self._exec(
+                argv,
+                stdin_path=backup_path,
+                timeout=timeout,
+                env=login.env,
+                secrets=(login.password,),
+            )
+        if result.success:
+            return
+        said = (result.stderr or result.stdout).strip()
+        if _sign_in_failed(result):
+            raise self._loader_refused(database, login, said)
+        failure = load_failure(database, result, "The dump may be truncated or in another format.")
+        if asks_for_more_privilege(said):
+            failure.details = f"{failure.details}\n\n{superuser_hint(database)}"
+        raise failure
+
+    def _loader_owner(self, database: str, role: str | None = None) -> OwnerFacts:
+        """
+        Find out who owns a database and whether being them would be too much.
+
+        Args:
+            database: The database the dump is loaded into.
+            role: A role the database is about to be recreated with, asked about instead of
+                the owner it has now.
+
+        Returns:
+            The owner and whether it is privileged.
+
+        Raises:
+            DatabaseBackupError: When the server does not say.
+        """
+        success, output = self._execute_sql(role_query(role) if role else owner_query(database))
+        facts = parse_owner(output) if success else None
+        if facts is None:
+            raise DatabaseBackupError(
+                f"Could not tell who owns '{database}'",
+                details=(output or "PostgreSQL gave no answer").strip(),
+            )
+        return facts
+
+    @contextmanager
+    def _restricted_login(self, database: str) -> Iterator[_LoaderLogin]:
+        """
+        Make the login a dump is loaded with, and take it away afterwards.
+
+        See :mod:`noust.managers.database.pg_loader` for why it is a role of
+        its own and what it is allowed. The password is generated here, sent
+        to the server as a SCRAM verifier, and handed to the client only in
+        its environment. Logins left by a load that was killed before its
+        cleanup are swept first: their sign-in window has passed.
+
+        Args:
+            database: The database the dump is loaded into; it exists.
+
+        Yields:
+            What the client needs to sign in as the loader.
+
+        Raises:
+            DatabaseBackupError: When the login cannot be made.
+        """
+        owner = self._loader_owner(database)
+        port, _source = self._server_port()
+        role = load_role_name()
+        password = secrets.token_urlsafe(32)
+        verifier = _scram_sha256_verifier(password)
+        swept, note = self._execute_sql(sweep_statement())
+        if not swept:
+            self.logger.debug(f"Could not sweep old loader logins: {note.strip()}")
+        cluster_sql, inside_sql = provision_statements(role, verifier, database, owner)
+        made, said = self._execute_sql(cluster_sql, secrets=(verifier,))
+        if not made:
+            raise DatabaseBackupError(
+                f"Could not make the login '{database}' is loaded with",
+                details=f"{said.strip()}\n\n{superuser_hint(database)}",
+            )
+        try:
+            if inside_sql is not None:
+                granted, said = self._execute_sql(inside_sql, database=database)
+                if not granted:
+                    raise DatabaseBackupError(
+                        f"Could not give the login '{database}' is loaded with its schema",
+                        details=said.strip(),
+                    )
+            env = {"PGPASSWORD": password, "PGCONNECT_TIMEOUT": "10"}
+            if not owner.privileged:
+                env["PGOPTIONS"] = f"-c role={_pgoptions_value(owner.name)}"
+            yield _LoaderLogin(
+                role=role,
+                password=password,
+                port=port,
+                env=env,
+                connection=("-h", READ_ONLY_HOST, "-p", str(port), "-U", role, "-w"),
+            )
+        finally:
+            self._release_login(database, role, owner)
+
+    def _release_login(self, database: str, role: str, owner: OwnerFacts) -> None:
+        """
+        Drop a loader login, whether or not the load worked.
+
+        Args:
+            database: The database it loaded into.
+            role: The login.
+            owner: Who owns the database.
+        """
+        inside, drop = release_statements(role, owner)
+        for sql, where in ((inside, database), (drop, "postgres")):
+            done, said = self._execute_sql(sql, database=where)
+            if not done:
+                # Its sign-in window closes on its own and the next load sweeps it.
+                self.logger.warning(f"Could not remove the loader login {role}: {said.strip()}")
+                return
+
+    def _loader_refused(self, database: str, login: _LoaderLogin, said: str) -> DatabaseBackupError:
+        """
+        Build the error for a loader that could not sign in.
+
+        Args:
+            database: The database.
+            login: The login that was tried.
+            said: What psql or pg_restore printed.
+
+        Returns:
+            The error, carrying the client's own words.
+        """
+        return DatabaseBackupError(
+            f"Could not sign in to load '{database}' without the superuser",
+            details=(
+                f"{said}\n\nThe dump is loaded by a login made for it over "
+                f"{READ_ONLY_HOST}:{login.port}, which pg_hba.conf must allow (the default "
+                "'host all all 127.0.0.1/32 scram-sha-256' line does). Add that line, or "
+                f"load the dump as the superuser. {superuser_hint(database)}"
+            ),
+        )
 
     # ==================== Query Execution ====================
 

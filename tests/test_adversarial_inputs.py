@@ -683,6 +683,101 @@ class TestReplicasAndTheirJoinCodes:
 
 
 # ---------------------------------------------------------------------------
+# What an operator chooses for an instance, and what a move of a database names
+# ---------------------------------------------------------------------------
+
+
+class TestWhatAnOperatorChoosesForAnInstance:
+    @SETTINGS
+    @given(value=st.lists(HOSTILE, max_size=6))
+    def test_a_command_or_arguments_are_words_of_one_line_and_never_a_secret_flag(
+        self, value: list[str]
+    ) -> None:
+        from noust.core.db_instance_store import check_words
+
+        accepted, result = verdict(lambda words: check_words(words, field="args"), value)
+
+        if accepted:
+            assert all(word and not CONTROL.search(word) for word in result)
+            assert all(
+                word.split("=", 1)[0] not in ("--requirepass", "--masterauth") for word in result
+            )
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_a_line_is_never_taken_for_words(self, value: str) -> None:
+        from noust.core.db_instance_store import check_words
+
+        accepted, _ = verdict(lambda text: check_words(text, field="args"), value)
+
+        assert accepted is False
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_an_image_the_operator_chose_is_pinned_and_is_neither_an_option_nor_two_images(
+        self, value: str
+    ) -> None:
+        from noust.managers.database.instance_catalog import parse_custom_image
+
+        accepted, result = verdict(parse_custom_image, value)
+
+        if accepted:
+            assert result.digest and re.fullmatch(
+                r"sha256:[0-9a-f]{64}|sha512:[0-9a-f]{128}", result.digest
+            )
+            assert not result.repository.startswith("-")
+            # Lower case, but for a registry's host name.
+            path = result.repository.partition("/")[2] or result.repository
+            assert path == path.lower()
+            assert not CONTROL.search(result.repository) and "@" not in result.repository
+            assert " " not in result.repository and "://" not in result.repository
+
+    @pytest.mark.parametrize(
+        "reference",
+        [
+            "acme/pg:17",
+            "acme/pg@sha256:" + "a" * 63,
+            "acme/pg@sha256:" + "a" * 64 + "\n",
+            "acme/pg@sha256:" + "a" * 64 + "@sha256:" + "b" * 64,
+            "--privileged@sha256:" + "a" * 64,
+            "https://acme/pg@sha256:" + "a" * 64,
+            "ACME/pg@sha256:" + "a" * 64,
+        ],
+    )
+    def test_the_references_that_have_beaten_other_parsers(self, reference: str) -> None:
+        from noust.managers.database.instance_catalog import parse_custom_image
+
+        with pytest.raises(ValidationError):
+            parse_custom_image(reference)
+
+
+class TestWhatAMoveOfADatabaseNames:
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_a_database_name_becomes_a_file_a_path_and_a_statement(self, value: str) -> None:
+        from noust.web.fleet_database_actions import _database_name
+
+        accepted, result = verdict(lambda name: _database_name(name, "database"), value)
+
+        if accepted:
+            assert re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_$-]*", result)
+            assert len(result) <= 64 and not CONTROL.search(result)
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_an_engine_is_one_the_registry_knows_and_that_travels_as_a_dump(
+        self, value: str
+    ) -> None:
+        from noust.web.fleet_database_actions import _engine_key
+
+        accepted, result = verdict(lambda text: _engine_key(text, "engine"), value)
+
+        if accepted:
+            assert result.partition("@")[0] in ("postgresql", "mysql", "mongodb")
+            assert not CONTROL.search(result) and " " not in result
+
+
+# ---------------------------------------------------------------------------
 # The runner's own refusal
 # ---------------------------------------------------------------------------
 

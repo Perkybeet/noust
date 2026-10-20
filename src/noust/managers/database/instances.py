@@ -56,7 +56,11 @@ from noust.core.exceptions import DatabaseQueryError, ValidationError
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.secret_detection import name_looks_secret, redact_url_credentials
 from noust.core.utils import domain_to_app_name
-from noust.managers.database.instance_layout import INSTANCE_LABEL
+from noust.managers.database.instance_layout import (
+    FLAVOUR_LABEL,
+    INSTANCE_LABEL,
+    MANAGED_LABEL,
+)
 
 __all__ = [
     "CLIENT_SCRIPT",
@@ -72,6 +76,7 @@ __all__ = [
     "PublishedPort",
     "Reach",
     "assign_apps",
+    "catalog_engine",
     "discover",
     "engine_of",
     "image_engine",
@@ -445,6 +450,57 @@ class ImageMatch:
     repository: str
 
 
+#: How the catalog spells the flavours discovery spells otherwise.
+_CATALOG_FLAVOUR: dict[str, Flavour] = {
+    "postgresql": "postgres",
+    "mysql": "mysql",
+    "mariadb": "mariadb",
+    "redis": "redis",
+    "valkey": "valkey",
+    "keydb": "keydb",
+    "mongodb": "mongo",
+    "clickhouse": "clickhouse",
+}
+
+
+def catalog_engine(flavour: str, image: str = "") -> ImageMatch | None:
+    """
+    Say what a container runs from what Noust wrote on it, whatever its image is called.
+
+    An operator's own image (``ghcr.io/acme/pg-timescale``) has a name no table knows, and the
+    container Noust made from it carries the flavour it was made as.
+
+    Args:
+        flavour: The catalog's name for what it runs (``postgresql``, ``mongodb``...).
+        image: The image, for its repository.
+
+    Returns:
+        What it runs, never ``official``; None for a flavour that is not one Noust runs.
+    """
+    named = _CATALOG_FLAVOUR.get(flavour)
+    if named is None:
+        return None
+    repository = image.strip().split("@", 1)[0].rsplit(":", 1)[0] if image else ""
+    return ImageMatch(_FLAVOUR_ENGINE[named], named, False, repository)
+
+
+def _noust_made(labels: Mapping[str, str], image: str) -> ImageMatch | None:
+    """
+    Read what a container Noust made says it runs.
+
+    Args:
+        labels: The container's labels.
+        image: Its image.
+
+    Returns:
+        What it runs; None when it is not marked as Noust's, or does not name an instance, or
+        names a flavour Noust does not run.
+    """
+    if labels.get(MANAGED_LABEL) != "true" or not labels.get(INSTANCE_LABEL):
+        return None
+    return catalog_engine(labels.get(FLAVOUR_LABEL, ""), image)
+
+
 def image_engine(image: str | None) -> ImageMatch | None:
     """
     Tell which database engine an image runs, from its repository name.
@@ -593,6 +649,8 @@ class DatabaseInstance:
             stop, upgrade and remove, unlike a stack's.
         version: The tag a managed instance was made from (``17``).
         memory_limit_mb: A managed instance's memory limit.
+        tls_mode: How a managed instance serves TLS (``off``, ``optional``, ``required``): the
+            Redis family's client is told to speak it.
     """
 
     key: str
@@ -618,6 +676,7 @@ class DatabaseInstance:
     managed: str | None = None
     version: str | None = None
     memory_limit_mb: int | None = None
+    tls_mode: str = "off"
 
     # ---------------------------------------------------------------- state
 
@@ -1113,11 +1172,11 @@ def _instance(entry: Mapping[str, Any]) -> DatabaseInstance | None:
     raw_config = entry.get("Config")
     config: Mapping[str, Any] = raw_config if isinstance(raw_config, Mapping) else {}
     image = str(config.get("Image") or entry.get("Image") or "")
-    match = image_engine(image)
+    labels = _labels(config.get("Labels"))
+    match = image_engine(image) or _noust_made(labels, image)
     if match is None:
         return None
     name = str(entry.get("Name") or "").lstrip("/")
-    labels = _labels(config.get("Labels"))
     project = labels.get(PROJECT_LABEL) or None
     service = labels.get(SERVICE_LABEL) or None
     try:
@@ -1168,19 +1227,26 @@ def _candidates(stdout: str) -> list[str]:
     Pick the containers worth inspecting from ``docker ps``.
 
     Args:
-        stdout: ``docker ps -a --no-trunc --format '{{.ID}}\\t{{.Image}}'``.
+        stdout: ``docker ps -a --no-trunc --format '{{.ID}}\\t{{.Image}}\\t{{.Label
+            "io.noust.managed"}}'``; the label column may be missing.
 
     Returns:
         The ids whose image is a database's, or is an id ``docker ps``
         printed because the image lost its tag (inspect still knows the
-        reference it was created from).
+        reference it was created from), or that Noust marked as its own (an image of an
+        operator's has any name).
     """
     ids: list[str] = []
     for line in stdout.splitlines():
-        container_id, _, image = line.strip().partition("\t")
+        container_id, _, rest = line.strip().partition("\t")
+        image, _, managed = rest.partition("\t")
         if not container_id:
             continue
-        if image_engine(image) is not None or _IMAGE_ID.match(image.strip()):
+        if (
+            image_engine(image) is not None
+            or _IMAGE_ID.match(image.strip())
+            or managed.strip() == "true"
+        ):
             ids.append(container_id)
     return ids
 
@@ -1206,7 +1272,14 @@ def discover(runner: CommandRunner | None = None) -> list[DatabaseInstance]:
     if not active.exists("docker"):
         return []
     listed = active.run(
-        ["docker", "ps", "-a", "--no-trunc", "--format", "{{.ID}}\t{{.Image}}"],
+        [
+            "docker",
+            "ps",
+            "-a",
+            "--no-trunc",
+            "--format",
+            '{{.ID}}\t{{.Image}}\t{{.Label "' + MANAGED_LABEL + '"}}',
+        ],
         timeout=DOCKER_TIMEOUT,
     )
     if not listed.success:

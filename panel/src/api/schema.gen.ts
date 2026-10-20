@@ -12235,6 +12235,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/databases/backups/{name}/data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Dump Data
+         * @description Read a range of a dump, with sudo mode.
+         *
+         *     A dump is the whole database, so this is the download's power: a sensitive read, of a dump in
+         *     the engine's own backup folder, by name. The reading is recorded where it begins (offset 0),
+         *     once, with the dump's size; a piece asked again in the middle records nothing more.
+         *
+         *     Args:
+         *         name: The dump's file name.
+         *         engine: The engine.
+         *         offset: Where to start.
+         *         session: The authenticated, elevated session.
+         *         length: How many bytes at most.
+         *
+         *     Returns:
+         *         The raw bytes; fewer at the end of the dump, none past it.
+         *
+         *     Raises:
+         *         DatabaseNotFoundError: 404 when the dump does not exist.
+         */
+        get: operations["dump_data_api_databases_backups__name__data_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/databases/backups/{name}/download": {
         parameters: {
             query?: never;
@@ -13289,6 +13326,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/databases/engines/tls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Status
+         * @description Say which engines serve a certificate of Noust's, and whether each is current.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         One entry per engine Noust can give a certificate to; one that is not installed says so in
+         *         its warnings.
+         */
+        get: operations["list_status_api_databases_engines_tls_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/engines/tls/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh
+         * @description Queue bringing each engine's copy up to its certificate and proving what it presents, with sudo mode.
+         *
+         *     certbot runs the same thing after every renewal that succeeds; run it after uploading a new
+         *     certificate.
+         *
+         *     Args:
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job; its result says, per engine, whether the renewed certificate was loaded.
+         */
+        post: operations["refresh_api_databases_engines_tls_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/databases/engines/{engine}/credentials": {
         parameters: {
             query?: never;
@@ -13674,6 +13767,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/databases/engines/{engine}/tls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Status
+         * @description Say what an engine is given and whether it still matches its source.
+         *
+         *     Args:
+         *         engine: ``postgresql`` or ``mysql`` (MySQL and MariaDB).
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The state, with the fingerprint the engine presents asked of the engine itself.
+         *
+         *     Raises:
+         *         ValidationError: 400 for an engine Noust cannot give a certificate to.
+         */
+        get: operations["get_status_api_databases_engines__engine__tls_get"];
+        /**
+         * Enable Tls
+         * @description Queue giving an engine the certificate of a host name, with sudo mode.
+         *
+         *     The certificate is copied for the engine's account and the engine is told to use the copy
+         *     (PostgreSQL reloads; MySQL and MariaDB restart once); then the engine is asked what it presents.
+         *     When it presents another, its settings are put back and the job fails.
+         *
+         *     Args:
+         *         engine: ``postgresql`` or ``mysql``.
+         *         request: The name, where the certificate comes from, and the restart accepted.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         ValidationError: 400 when a check fails.
+         *         ConfirmationRequired: 400 ``confirmation_required`` when the engine restarts and the
+         *             operator has not accepted it.
+         */
+        put: operations["enable_tls_api_databases_engines__engine__tls_put"];
+        post?: never;
+        /**
+         * Disable Tls
+         * @description Queue taking the certificate off an engine: its settings go back as they were. Sudo mode.
+         *
+         *     Args:
+         *         engine: ``postgresql`` or ``mysql``.
+         *         session: The authenticated, elevated session.
+         *         confirm: The operator accepted the engine's restart, where there is one.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         ConfirmationRequired: 400 ``confirmation_required`` when the engine restarts and the
+         *             operator has not accepted it.
+         */
+        delete: operations["disable_tls_api_databases_engines__engine__tls_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/engines/{engine}/tls/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Tls
+         * @description Check a certificate for an engine and say what giving it would do. Changes nothing.
+         *
+         *     The certificate and its key are checked (the key is its own, it covers the name, it has not
+         *     expired).
+         *
+         *     Args:
+         *         engine: ``postgresql`` or ``mysql``.
+         *         request: The name and where the certificate comes from.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The files, the fingerprint, the expiry and whether the engine restarts.
+         *
+         *     Raises:
+         *         ValidationError: 400 when a check fails.
+         *         DatabaseEngineError: When the engine is not running.
+         */
+        post: operations["plan_tls_api_databases_engines__engine__tls_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/databases/engines/{engine}/uninstall": {
         parameters: {
             query?: never;
@@ -13758,9 +13953,79 @@ export interface paths {
          *     Raises:
          *         ValidationError: 400 for an unfinished upload, a path outside the
          *             allowed folders or an unusable name.
+         *         ConfirmationRequired: 400 ``confirmation_required`` for
+         *             ``as_superuser`` without ``confirm_superuser``.
          *         DatabaseEngineError: When the engine is not running.
          */
         post: operations["import_dump_api_databases_imports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/imports/cluster": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Cluster
+         * @description Queue importing a dump of all databases, with sudo mode.
+         *
+         *     What can be checked is checked before the job exists: the dump is a finished upload or a file
+         *     in an allowed folder, the engine reads such a dump, and the accounts, when asked for, were
+         *     accepted.
+         *
+         *     Args:
+         *         request: The engine, the dump and the options.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job; its result lists, per database, what happened.
+         *
+         *     Raises:
+         *         ValidationError: 400 for an unfinished upload, a path outside the allowed folders or an
+         *             engine with no such dump.
+         *         ConfirmationRequired: 400 ``confirmation_required`` for ``restore_users`` without
+         *             ``confirm_users``.
+         */
+        post: operations["import_cluster_api_databases_imports_cluster_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/imports/cluster/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Cluster Import
+         * @description Say what importing a dump of all databases would do. Changes nothing.
+         *
+         *     Args:
+         *         request: An upload or a server path, the engine and the options.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The accounts and the databases, each with what happens to it, and what is not carried.
+         *
+         *     Raises:
+         *         ValidationError: 400 for an engine with no such dump or a path outside the allowed folders.
+         *         DatabaseBackupError: 400 when the file is not a dump of all databases.
+         */
+        post: operations["plan_cluster_import_api_databases_imports_cluster_plan_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -13956,6 +14221,10 @@ export interface paths {
          *
          *     Returns:
          *         The queued job.
+         *
+         *     Raises:
+         *         ConfirmationRequired: An image, a command or arguments of the operator's own, without
+         *             ``accept_untested``.
          */
         post: operations["create_instance_api_databases_instances_post"];
         delete?: never;
@@ -14212,6 +14481,89 @@ export interface paths {
          *         ValidationError: Something uses it.
          */
         delete: operations["remove_instance_api_databases_instances__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/instances/{name}/launch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Launch
+         * @description Say what an instance's container is started with.
+         *
+         *     Args:
+         *         name: The instance.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The operator's command and arguments, and what the container runs.
+         *
+         *     Raises:
+         *         DatabaseNotFoundError: There is no such instance.
+         */
+        get: operations["get_launch_api_databases_instances__name__launch_get"];
+        /**
+         * Set Launch
+         * @description Queue changing what an instance's container is started with, with sudo mode.
+         *
+         *     The engine restarts on the new words; when it does not come up the previous ones are put
+         *     back and the job fails with the engine's own log. What cannot succeed, and words the
+         *     operator did not accept the price of, are refused here and not in a failed job.
+         *
+         *     Args:
+         *         name: The instance.
+         *         request: The change.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         ValidationError: A word is not valid, or the instance cannot be changed now.
+         *         ConfirmationRequired: Words of the operator's, without ``accept_untested``.
+         *         DatabaseNotFoundError: There is no such instance.
+         */
+        put: operations["set_launch_api_databases_instances__name__launch_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/instances/{name}/launch/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Launch
+         * @description Say what a change would do. Changes nothing.
+         *
+         *     Args:
+         *         name: The instance.
+         *         request: The change.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan, with the applications that lose their connections and what blocks it.
+         *
+         *     Raises:
+         *         ValidationError: Nothing or more than one thing is asked, or a word is not valid.
+         *         DatabaseNotFoundError: There is no such instance.
+         */
+        post: operations["plan_launch_api_databases_instances__name__launch_plan_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -14509,13 +14861,23 @@ export interface paths {
          *     dump stops it), the instance must become healthy and accept its superuser,
          *     and when it does not the previous image is put back.
          *
+         *     An instance on an image of the operator's own is never moved to what a registry serves:
+         *     the body names the next image (pinned by digest) and accepts again that Noust did not test
+         *     it. The catalog's takes no body.
+         *
          *     Args:
          *         name: Its name.
          *         session: The authenticated, elevated session.
          *         backup: Dump every database first; on by default.
+         *         request: The image to move to, for an instance on one of the operator's own.
          *
          *     Returns:
          *         The queued job.
+         *
+         *     Raises:
+         *         ValidationError: An image for an instance on the catalog's, none for one on the
+         *             operator's, or one that is not pinned by a digest.
+         *         ConfirmationRequired: The operator's image, without ``accept_untested``.
          */
         post: operations["upgrade_instance_api_databases_instances__name__upgrade_post"];
         delete?: never;
@@ -15149,6 +15511,279 @@ export interface paths {
          *         The file, as an attachment.
          */
         post: operations["export_query_api_databases_query_export_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/replicas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Status
+         * @description Say how the replicas of every engine installed here stand.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         One entry per engine that is installed; one that is not has no replicas to show.
+         */
+        get: operations["list_status_api_databases_replicas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/replicas/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Join
+         * @description Queue making this server a replica of a primary, with sudo mode.
+         *
+         *     Checked before the job exists: the code is one, the plan has no problems, and the operator
+         *     accepted that this server's data is replaced.
+         *
+         *     Args:
+         *         request: The join code and the confirmation.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         ValidationError: 400 when the code is not one or the plan has problems.
+         *         ConfirmationRequired: 400 ``confirmation_required`` when the data replaced is not accepted.
+         */
+        post: operations["join_api_databases_replicas_join_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/replicas/join/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Join
+         * @description Say what joining a primary would do to this server. Changes nothing.
+         *
+         *     The join code is a secret: it is checked, its password is not in the answer.
+         *
+         *     Args:
+         *         request: The join code.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan: where the copy goes, what is replaced, the space, and what stops it.
+         *
+         *     Raises:
+         *         ValidationError: When it is not a join code, or for an engine that has no replicas.
+         */
+        post: operations["plan_join_api_databases_replicas_join_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/replicas/{engine}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Status
+         * @description Say how the replicas of one engine, or the engine as a replica, stand.
+         *
+         *     Args:
+         *         engine: ``postgresql``, or ``mysql`` for MySQL and MariaDB.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The role, the replicas prepared here with their connection, and the primary it follows.
+         *
+         *     Raises:
+         *         ValidationError: 400 for an engine with no replicas.
+         *         DatabaseEngineError: When the engine is not installed or not running.
+         */
+        get: operations["get_status_api_databases_replicas__engine__get"];
+        put?: never;
+        /**
+         * Prepare
+         * @description Make room for a replica on this server and give back its join code, with sudo mode.
+         *
+         *     It creates an account that can only replicate, a slot that keeps the log the replica has not
+         *     read (PostgreSQL), and the line that lets that account in from ``source`` over TLS. The answer
+         *     is the only place the join code is given besides ``.../token``: it is not the result of a job.
+         *
+         *     Args:
+         *         engine: ``postgresql`` or ``mysql``.
+         *         request: Where the replica connects from and to, and the restart accepted.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The join code, what was done and what was recorded.
+         *
+         *     Raises:
+         *         ValidationError: 400 when the plan has problems or the name is not allowed.
+         *         ConfirmationRequired: 400 ``confirmation_required`` when the engine restarts and the
+         *             operator has not accepted it.
+         */
+        post: operations["prepare_api_databases_replicas__engine__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/replicas/{engine}/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Prepare
+         * @description Check everything and say what making room for a replica would do. Changes nothing.
+         *
+         *     Before anything is changed the certificate the engine presents is checked the way the replica
+         *     will check it, for the name in ``host``.
+         *
+         *     Args:
+         *         engine: ``postgresql`` or ``mysql``.
+         *         request: Where the replica connects from and to.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan, with what stops it.
+         *
+         *     Raises:
+         *         ValidationError: 400 for an engine with no replicas or a name that is not allowed.
+         */
+        post: operations["plan_prepare_api_databases_replicas__engine__plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/replicas/{engine}/promote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Promote
+         * @description Stop following the primary: this server becomes a primary and accepts writes. Sudo mode.
+         *
+         *     Args:
+         *         engine: ``postgresql`` or ``mysql``.
+         *         request: The operator's acceptance.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was done, with the note about pointing applications at this server.
+         *
+         *     Raises:
+         *         ConfirmationRequired: 400 ``confirmation_required`` without ``confirm``.
+         */
+        post: operations["promote_api_databases_replicas__engine__promote_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/replicas/{engine}/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove
+         * @description Take a replica away: its account, its slot and its access line go. Sudo mode.
+         *
+         *     Args:
+         *         engine: ``postgresql`` or ``mysql``.
+         *         name: The replica.
+         *         session: The authenticated, elevated session.
+         *         confirm: The operator accepts that the replica stops streaming for good.
+         *         restore_listen: Put the address the engine listens on back as it was before.
+         *
+         *     Returns:
+         *         What was removed, step by step.
+         *
+         *     Raises:
+         *         ConfirmationRequired: 400 ``confirmation_required`` without ``confirm``.
+         */
+        delete: operations["remove_api_databases_replicas__engine___name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/replicas/{engine}/{name}/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Show Token
+         * @description Show the join code of a replica prepared here again, with sudo mode. It is audited.
+         *
+         *     Args:
+         *         engine: ``postgresql`` or ``mysql``.
+         *         name: The replica.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The join code, a secret.
+         *
+         *     Raises:
+         *         ValidationError: 400 when no replica of that name was prepared here.
+         */
+        post: operations["show_token_api_databases_replicas__engine___name__token_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -16804,6 +17439,45 @@ export interface paths {
          *         The record, with the provider's live report.
          */
         post: operations["power_on_machine_api_fleet_cloud_servers__node__power_on_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/databases/transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transfer Database
+         * @description Move a database to another server: dump it there, carry it, load it here.
+         *
+         *     The source dumps the database and the central carries the dump through the two tunnels in
+         *     chunks that resume, never keeping it; the target loads it with its own import, as the
+         *     database's owner and never as the superuser. The accounts follow when asked, with the passwords
+         *     that pass through the central and are kept nowhere. The source keeps the database unless told
+         *     to drop it. Planned and queued like a bulk action: sudo mode when a server's schema asks for
+         *     it, a job to follow, a record per server.
+         *
+         *     Args:
+         *         request: The request.
+         *         body: What to move, from where and to where.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan and, unless ``plan``, the job.
+         *
+         *     Raises:
+         *         ValidationError: A server is not ready for it, the target holds the database, or a value is
+         *             invalid.
+         */
+        post: operations["transfer_database_api_fleet_databases_transfer_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -32657,6 +33331,164 @@ export interface components {
             team?: string | null;
         };
         /**
+         * ClusterDatabasePlan
+         * @description What would happen to one database of the dump.
+         *
+         *     Attributes:
+         *         name: The database.
+         *         action: ``create``, ``load``, ``replace`` or ``skip``.
+         *         owner: The account that will own it when it is created.
+         *         reason: Why, when it is skipped.
+         *         size: Bytes of its dump.
+         */
+        ClusterDatabasePlan: {
+            /** Action */
+            action: string;
+            /** Name */
+            name: string;
+            /** Owner */
+            owner?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Size
+             * @default 0
+             */
+            size: number;
+        };
+        /**
+         * ClusterPlanResponse
+         * @description What importing a dump of all databases would do. Nothing has been done.
+         *
+         *     Attributes:
+         *         engine: The engine.
+         *         format: What the file is.
+         *         restore_users: The accounts would be made.
+         *         roles: The accounts, each with what happens to it.
+         *         memberships: How many role-to-role grants would be kept.
+         *         databases: The databases, each with what happens to it.
+         *         ignored: What the dump holds that is not carried.
+         *         warnings: What the operator accepts by creating the accounts.
+         */
+        ClusterPlanResponse: {
+            /** Databases */
+            databases?: components["schemas"]["ClusterDatabasePlan"][];
+            /** Engine */
+            engine: string;
+            format: components["schemas"]["DumpFormatResponse"];
+            /** Ignored */
+            ignored?: string[];
+            /**
+             * Memberships
+             * @default 0
+             */
+            memberships: number;
+            /** Restore Users */
+            restore_users: boolean;
+            /** Roles */
+            roles?: components["schemas"]["ClusterRolePlan"][];
+            /** Warnings */
+            warnings?: string[];
+        };
+        /**
+         * ClusterRequest
+         * @description Request to plan or import a dump of all databases.
+         *
+         *     Attributes:
+         *         engine: The engine (``postgresql``).
+         *         restore_users: Also create the accounts of the dump, without the power the source gave them
+         *             and never over one that exists; the databases then keep the owners and privileges the
+         *             dump names for them.
+         *         databases: Only these databases; the server's own are loaded only when named.
+         *         replace: Drop each database that exists and load a fresh one. A safety copy is taken first.
+         *         safety_backup: Dump a database first when it is loaded over rather than replaced.
+         *         confirm_users: The operator accepted creating the accounts (read them in the plan).
+         *             Without it, ``restore_users`` is a 400 ``confirmation_required`` and nothing is queued.
+         *         as_superuser: Load every database as the server's superuser instead of as its owner. A
+         *             dump can run programs on the server with that account, so it needs
+         *             ``confirm_superuser`` too; for a file the operator made or has read.
+         *         confirm_superuser: The operator accepted what ``as_superuser`` costs.
+         *         accounts_upload_id: MySQL and MariaDB: a finished upload of the accounts, a file of
+         *             ``CREATE USER`` and ``GRANT`` statements (``mysqldump`` does not write them).
+         *         accounts_path: Or a path on the server, held to the folders dumps are read from.
+         */
+        ClusterRequest: {
+            /** Accounts Path */
+            accounts_path?: string | null;
+            /** Accounts Upload Id */
+            accounts_upload_id?: string | null;
+            /**
+             * As Superuser
+             * @default false
+             */
+            as_superuser: boolean;
+            /**
+             * Confirm Superuser
+             * @default false
+             */
+            confirm_superuser: boolean;
+            /**
+             * Confirm Users
+             * @default false
+             */
+            confirm_users: boolean;
+            /** Databases */
+            databases?: string[];
+            /** Engine */
+            engine: string;
+            /** Path */
+            path?: string | null;
+            /**
+             * Replace
+             * @default false
+             */
+            replace: boolean;
+            /**
+             * Restore Users
+             * @default false
+             */
+            restore_users: boolean;
+            /**
+             * Safety Backup
+             * @default true
+             */
+            safety_backup: boolean;
+            /** Upload Id */
+            upload_id?: string | null;
+        };
+        /**
+         * ClusterRolePlan
+         * @description What would happen to one account of the dump.
+         *
+         *     Attributes:
+         *         name: The account.
+         *         action: ``create``, ``exists`` (left exactly as it is) or ``skip``.
+         *         reason: Why, when it is not created.
+         *         dropped: Attributes it had at the source that are not carried.
+         *         has_password: The dump holds a password hash for it.
+         *         login: It can sign in.
+         */
+        ClusterRolePlan: {
+            /** Action */
+            action: string;
+            /** Dropped */
+            dropped?: string[];
+            /**
+             * Has Password
+             * @default false
+             */
+            has_password: boolean;
+            /**
+             * Login
+             * @default false
+             */
+            login: boolean;
+            /** Name */
+            name: string;
+            /** Reason */
+            reason?: string | null;
+        };
+        /**
          * CollectorModel
          * @description Whether history is being recorded, and by whom.
          *
@@ -34862,6 +35694,59 @@ export interface components {
             warnings: string[];
         };
         /**
+         * DatabaseTransferIn
+         * @description Move a database to another server.
+         *
+         *     Attributes:
+         *         database: The database on the source.
+         *         engine: The engine it is on there: ``postgresql``, ``mysql`` (MariaDB too) or ``mongodb``,
+         *             or an instance (``postgresql@pg16``).
+         *         from_node: The server that holds it.
+         *         to: The server that receives it.
+         *         target_engine: The engine or instance on the target; the source's when absent.
+         *         new_name: Its name on the target; the same when absent.
+         *         replace: Replace a database of that name the target holds, after a safety copy there.
+         *         accounts: Also make the accounts with access to it, with the password the source holds
+         *             for each and the profile they had.
+         *         drop_source: Drop it from the source once it has moved, after a last dump kept there;
+         *             refused for a database an application still uses.
+         *         plan: Only say what would happen.
+         */
+        DatabaseTransferIn: {
+            /**
+             * Accounts
+             * @default false
+             */
+            accounts: boolean;
+            /** Database */
+            database: string;
+            /**
+             * Drop Source
+             * @default false
+             */
+            drop_source: boolean;
+            /** Engine */
+            engine: string;
+            /** From Node */
+            from_node: string;
+            /** New Name */
+            new_name?: string | null;
+            /**
+             * Plan
+             * @default false
+             */
+            plan: boolean;
+            /**
+             * Replace
+             * @default false
+             */
+            replace: boolean;
+            /** Target Engine */
+            target_engine?: string | null;
+            /** To */
+            to: string;
+        };
+        /**
          * DecisionBody
          * @description A decision's comment.
          *
@@ -36589,6 +37474,8 @@ export interface components {
          *         compression: ``none``, ``gzip``, ``bz2``, ``xz`` or ``zip`` around it.
          *         description: One sentence to show.
          *         engines: The engines that can load it.
+         *         scope: ``database`` for the dump of one database, ``cluster`` for a dump of every
+         *             database of an engine (``/imports/cluster``).
          */
         DumpFormatResponse: {
             /** Compression */
@@ -36599,6 +37486,11 @@ export interface components {
             engines?: string[];
             /** Kind */
             kind: string;
+            /**
+             * Scope
+             * @default database
+             */
+            scope: string;
         };
         /**
          * EffectInfo
@@ -39719,6 +40611,101 @@ export interface components {
             port: number;
         };
         /**
+         * HostTlsPlanResponse
+         * @description What giving an engine a certificate would do. Nothing was changed.
+         *
+         *     Attributes:
+         *         engine: The engine.
+         *         hostname: The name clients reach it by.
+         *         source: Where the certificate comes from.
+         *         certificate: The lineage's or the upload's name.
+         *         fullchain: The certificate chain that will be copied.
+         *         directory: The engine's own copy of it.
+         *         fingerprint: The certificate's SHA-256 fingerprint, which the engine is asked to present.
+         *         not_after: When it expires.
+         *         restart: Whether the engine restarts.
+         */
+        HostTlsPlanResponse: {
+            /** Certificate */
+            certificate?: string | null;
+            /** Directory */
+            directory: string;
+            /** Engine */
+            engine: string;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Fullchain */
+            fullchain: string;
+            /** Hostname */
+            hostname: string;
+            /** Not After */
+            not_after: string;
+            /** Restart */
+            restart: boolean;
+            /** Source */
+            source: string;
+        };
+        /**
+         * HostTlsRequest
+         * @description The certificate to give an engine.
+         *
+         *     Attributes:
+         *         hostname: The name clients reach the engine by; the certificate must cover it.
+         *         source: ``acme`` (the Let's Encrypt lineage named after the host), ``lineage`` (another
+         *             lineage) or ``custom`` (a certificate uploaded to Noust).
+         *         certificate: The lineage's or the upload's name, for ``lineage`` and ``custom``.
+         *         confirm: The operator accepted the engine's restart, where there is one (MySQL and MariaDB
+         *             read the certificate only when they start; PostgreSQL reloads).
+         */
+        HostTlsRequest: {
+            /** Certificate */
+            certificate?: string | null;
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+            /** Hostname */
+            hostname: string;
+            /**
+             * Source
+             * @default acme
+             */
+            source: string;
+        };
+        /**
+         * HostTlsStatusResponse
+         * @description What an engine is given, and whether it still matches its source.
+         *
+         *     Attributes:
+         *         engine: The engine.
+         *         enabled: It serves a certificate of Noust's.
+         *         record: What was given: host name, source, fingerprint, expiry, last refresh.
+         *         warnings: What the operator should know (a renewal not loaded, an expiry near).
+         *         source_changed: The source certificate was renewed or replaced and the engine still serves
+         *             the old copy: refresh it.
+         *         served: The fingerprint the engine presents now, asked of the engine itself.
+         *         days_left: Days until the certificate expires.
+         */
+        HostTlsStatusResponse: {
+            /** Days Left */
+            days_left?: number | null;
+            /** Enabled */
+            enabled: boolean;
+            /** Engine */
+            engine: string;
+            /** Record */
+            record?: {
+                [key: string]: unknown;
+            } | null;
+            /** Served */
+            served?: string | null;
+            /** Source Changed */
+            source_changed?: boolean | null;
+            /** Warnings */
+            warnings?: string[];
+        };
+        /**
          * HostnameOut
          * @description The names of the machine.
          */
@@ -39988,8 +40975,27 @@ export interface components {
          *             instead of giving everything to the database's owner.
          *         safety_backup: Dump the database first when it is loaded over rather
          *             than replaced.
+         *         as_superuser: PostgreSQL: load the dump as the server's superuser
+         *             instead of the database's owner. A dump can run programs on the
+         *             server with that account, so it needs ``confirm_superuser`` too.
+         *         confirm_superuser: The operator accepted what ``as_superuser`` costs.
+         *             Without it the answer is a 400 ``confirmation_required`` carrying
+         *             the warning, and nothing is queued.
+         *         owner: PostgreSQL: the account a database this import makes (a new one, or one it drops
+         *             and recreates) belongs to, instead of the default. It must exist; a database loaded
+         *             over keeps its owner.
          */
         ImportRequest: {
+            /**
+             * As Superuser
+             * @default false
+             */
+            as_superuser: boolean;
+            /**
+             * Confirm Superuser
+             * @default false
+             */
+            confirm_superuser: boolean;
             /** Database */
             database: string;
             /** Engine */
@@ -39999,6 +41005,8 @@ export interface components {
              * @default false
              */
             keep_owners: boolean;
+            /** Owner */
+            owner?: string | null;
             /** Path */
             path?: string | null;
             /**
@@ -40313,10 +41321,31 @@ export interface components {
          *             them); the engine's own image when omitted.
          *         init_scripts: SQL scripts run, in name order, the first time the engine starts
          *             (PostgreSQL, MySQL and MariaDB; at most ten).
+         *         image: An image of your own instead of the catalog's, ``repository[:tag]@sha256:digest``.
+         *             The digest is mandatory (a tag can be moved after you looked) and ``version`` says
+         *             which version it is. Noust has not tested it; not with ``variant``.
+         *         command: The container's whole command, instead of the engine's: a list of words, never
+         *             a shell line. Noust adds nothing to it. Not with ``args``.
+         *         args: Arguments added after the ones Noust passes the engine, a list of words. A
+         *             password is never one: a command line is visible to every local user.
+         *         accept_untested: The operator accepts that Noust has not tested an image, a command or
+         *             arguments they chose. Without it, queueing one is a 400 ``confirmation_required``
+         *             carrying what is accepted, and nothing is queued.
          */
         InstanceRequest: {
+            /**
+             * Accept Untested
+             * @default false
+             */
+            accept_untested: boolean;
+            /** Args */
+            args?: string[] | null;
+            /** Command */
+            command?: string[] | null;
             /** Engine */
             engine: string;
+            /** Image */
+            image?: string | null;
             /** Init Scripts */
             init_scripts?: components["schemas"]["InitScript"][];
             /** Memory Mb */
@@ -40367,16 +41396,34 @@ export interface components {
          *         variant: The image variant it runs (``pgvector``); null for the engine's own.
          *         image_tag: The tag its digest was read from when that is not the version.
          *         init_scripts: The names of the scripts it ran the first time it started.
+         *         custom_image: The image is the operator's own, pinned by their digest.
+         *         command: The whole command the operator made the container run; empty for the engine's.
+         *         args: What the operator added after the arguments Noust passes; empty for none.
+         *         customised: Anything about the container is the operator's.
          */
         InstanceResponse: {
             /** Address */
             address: string;
+            /** Args */
+            args?: string[];
+            /** Command */
+            command?: string[];
             /** Container */
             container: string;
             /** Created At */
             created_at: string;
             /** Created By */
             created_by?: string | null;
+            /**
+             * Custom Image
+             * @default false
+             */
+            custom_image: boolean;
+            /**
+             * Customised
+             * @default false
+             */
+            customised: boolean;
             /** Digest */
             digest: string;
             /** Directory */
@@ -41384,6 +42431,100 @@ export interface components {
             id: number;
             /** Status */
             status: string;
+        };
+        /**
+         * LaunchPlanResponse
+         * @description What a change would do. Nothing was changed.
+         *
+         *     Attributes:
+         *         changes: The settings that would change, each with ``setting``, ``from`` and ``to``.
+         *         effective: The command the container would be started with afterwards.
+         *         restarts: Whether the engine restarts.
+         *         requires_confirmation: The words are the operator's: ``accept_untested`` is needed.
+         *         apps: The applications that lose their connections while it restarts.
+         *         blockers: What stops the change.
+         *         warnings: What the operator should know first, what is not tested included.
+         */
+        LaunchPlanResponse: {
+            /** Apps */
+            apps?: string[];
+            /** Blockers */
+            blockers?: string[];
+            /** Changes */
+            changes?: {
+                [key: string]: unknown;
+            }[];
+            /** Effective */
+            effective?: string[];
+            /** Name */
+            name: string;
+            /** Requires Confirmation */
+            requires_confirmation: boolean;
+            /** Restarts */
+            restarts: boolean;
+            /** Warnings */
+            warnings?: string[];
+        };
+        /**
+         * LaunchRequest
+         * @description A change of what an instance's container is started with.
+         *
+         *     Exactly one of ``command``, ``args`` and ``reset`` is given.
+         *
+         *     Attributes:
+         *         command: The container's whole command, instead of the engine's: Noust adds nothing to
+         *             it (the memory share, the TLS arguments), so it is refused for an instance that
+         *             serves TLS.
+         *         args: Arguments added after the ones Noust passes the engine. A password is never
+         *             one: a command line is visible to every local user.
+         *         reset: Take the command and the arguments back to what Noust passes.
+         *         accept_untested: The operator accepts that Noust has not tested their words. Without
+         *             it, setting them is a 400 ``confirmation_required`` carrying what is accepted;
+         *             taking them back needs nothing.
+         */
+        LaunchRequest: {
+            /**
+             * Accept Untested
+             * @default false
+             */
+            accept_untested: boolean;
+            /** Args */
+            args?: string[] | null;
+            /** Command */
+            command?: string[] | null;
+            /**
+             * Reset
+             * @default false
+             */
+            reset: boolean;
+        };
+        /**
+         * LaunchStatusResponse
+         * @description What an instance's container is started with.
+         *
+         *     Attributes:
+         *         command: The operator's whole command, or empty.
+         *         args: The operator's arguments, or empty.
+         *         customised: Anything about the container is the operator's: the image, the command or
+         *             the arguments.
+         *         custom_image: The image is the operator's.
+         *         effective: What the container runs; empty when the image's own command is left.
+         */
+        LaunchStatusResponse: {
+            /** Args */
+            args?: string[];
+            /** Command */
+            command?: string[];
+            /** Custom Image */
+            custom_image: boolean;
+            /** Customised */
+            customised: boolean;
+            /** Effective */
+            effective?: string[];
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
         };
         /**
          * LdapLoginRequest
@@ -48666,6 +49807,20 @@ export interface components {
             force: boolean;
         };
         /**
+         * ReplicaConfirmRequest
+         * @description The operator's acceptance of a promotion.
+         *
+         *     Attributes:
+         *         confirm: The operator accepts that this replica stops following its primary.
+         */
+        ReplicaConfirmRequest: {
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+        };
+        /**
          * ReplicaCopyOut
          * @description One copy of an application's web process.
          */
@@ -48689,6 +49844,270 @@ export interface components {
             state: string;
             /** Unit */
             unit: string;
+        };
+        /**
+         * ReplicaJoinPlanRequest
+         * @description A join code to check.
+         *
+         *     Attributes:
+         *         token: The join code the primary gave. A secret.
+         */
+        ReplicaJoinPlanRequest: {
+            /** Token */
+            token: string;
+        };
+        /**
+         * ReplicaJoinPlanResponse
+         * @description What joining a primary would do to this server. Nothing was changed.
+         *
+         *     Attributes:
+         *         name: The replica's name.
+         *         primary: The primary, ``host:port``.
+         *         account: The replication account.
+         *         slot: The slot (PostgreSQL).
+         *         data_directory: The data directory that is replaced or read.
+         *         saved_as: Where this server's own data is set aside.
+         *         databases: The databases on this server that the join replaces.
+         *         free_bytes: Free space where the copy is made.
+         *         needed_bytes: What the primary said it holds, with a margin.
+         *         capacity: The settings the replica starts with to match its primary.
+         *         problems: What stops it.
+         *         warnings: What the operator should know.
+         *         ok: There are no problems.
+         */
+        ReplicaJoinPlanResponse: {
+            /** Account */
+            account: string;
+            /** Capacity */
+            capacity?: {
+                [key: string]: number;
+            };
+            /** Data Directory */
+            data_directory: string;
+            /** Databases */
+            databases?: string[];
+            /**
+             * Free Bytes
+             * @default 0
+             */
+            free_bytes: number;
+            /** Name */
+            name: string;
+            /**
+             * Needed Bytes
+             * @default 0
+             */
+            needed_bytes: number;
+            /**
+             * Ok
+             * @default true
+             */
+            ok: boolean;
+            /** Primary */
+            primary: string;
+            /** Problems */
+            problems?: string[];
+            /** Saved As */
+            saved_as: string;
+            /**
+             * Slot
+             * @default
+             */
+            slot: string;
+            /** Warnings */
+            warnings?: string[];
+        };
+        /**
+         * ReplicaJoinRequest
+         * @description The join code of a primary, and what the operator accepts.
+         *
+         *     Attributes:
+         *         token: The join code the primary gave. A secret.
+         *         replace_data: The operator accepts that this server's data is replaced by the primary's.
+         *             Without it the answer is a 400 ``confirmation_required`` and nothing is done.
+         *         discard_previous: Delete this server's old data directory once the replica streams.
+         */
+        ReplicaJoinRequest: {
+            /**
+             * Discard Previous
+             * @default false
+             */
+            discard_previous: boolean;
+            /**
+             * Replace Data
+             * @default false
+             */
+            replace_data: boolean;
+            /** Token */
+            token: string;
+        };
+        /**
+         * ReplicaPlanResponse
+         * @description What making room for a replica would do. Nothing was changed.
+         *
+         *     Attributes:
+         *         name: The replica.
+         *         account: The replication account.
+         *         slot: The slot that keeps the log it has not read (PostgreSQL); empty for MySQL.
+         *         host: The name the replica connects to.
+         *         port: The engine's port.
+         *         source: Where the replica connects from.
+         *         listen: The address the engine is told to listen on, or null when it reaches the replica.
+         *         restart: Whether the engine restarts.
+         *         firewall: Whether a firewall rule is added.
+         *         settings: The settings the engine's configuration is given (MySQL and MariaDB).
+         *         steps: What will be done, in order.
+         *         problems: What stops it; nothing is done while there are any.
+         *         warnings: What the operator should know.
+         *         ok: There are no problems.
+         */
+        ReplicaPlanResponse: {
+            /** Account */
+            account: string;
+            /**
+             * Firewall
+             * @default false
+             */
+            firewall: boolean;
+            /** Host */
+            host: string;
+            /** Listen */
+            listen?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Ok
+             * @default true
+             */
+            ok: boolean;
+            /** Port */
+            port: number;
+            /** Problems */
+            problems?: string[];
+            /**
+             * Restart
+             * @default false
+             */
+            restart: boolean;
+            /** Settings */
+            settings?: {
+                [key: string]: string;
+            };
+            /**
+             * Slot
+             * @default
+             */
+            slot: string;
+            /** Source */
+            source: string;
+            /** Steps */
+            steps?: string[];
+            /** Warnings */
+            warnings?: string[];
+        };
+        /**
+         * ReplicaPrepareRequest
+         * @description Where a replica will connect from, and what to do about the primary's address.
+         *
+         *     Attributes:
+         *         name: The replica's name; it names its account and its slot.
+         *         source: Where the replica connects from: an address or a network.
+         *         host: The name or address it connects to; the engine's certificate must cover it.
+         *         listen: Make the engine listen here too (an address of this server, or ``*``), needed when
+         *             it listens on the loopback only; restarts it once.
+         *         ca_pem: The authority that signed the engine's certificate, PEM, when the replica does not
+         *             trust it already (a private authority).
+         *         open_firewall: Allow the engine's port from ``source`` in the firewall.
+         *         confirm: The operator accepted the engine's restart, where there is one.
+         */
+        ReplicaPrepareRequest: {
+            /**
+             * Ca Pem
+             * @default
+             */
+            ca_pem: string;
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+            /** Host */
+            host: string;
+            /** Listen */
+            listen?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Open Firewall
+             * @default false
+             */
+            open_firewall: boolean;
+            /** Source */
+            source: string;
+        };
+        /**
+         * ReplicaPreparedResponse
+         * @description A replica made room for, with the code the replica joins with.
+         *
+         *     Attributes:
+         *         token: The join code. It holds the replication password: carry it over a channel you
+         *             trust, and do not keep it.
+         *         plan: What was done.
+         *         record: What Noust recorded.
+         */
+        ReplicaPreparedResponse: {
+            /** Plan */
+            plan?: {
+                [key: string]: unknown;
+            } | null;
+            /** Record */
+            record?: {
+                [key: string]: unknown;
+            } | null;
+            /** Token */
+            token?: string | null;
+        };
+        /**
+         * ReplicaStatusResponse
+         * @description How the replicas of one engine, and the engine as a replica, stand.
+         *
+         *     Attributes:
+         *         engine: The engine.
+         *         role: ``primary``, ``replica`` or ``standalone``.
+         *         replicas: One entry per replica prepared here, with what the engine says about its
+         *             connection (state, TLS, lag, the log held for it).
+         *         follows: The primary this server follows, when it is a replica.
+         *         warnings: What the operator should know.
+         */
+        ReplicaStatusResponse: {
+            /** Engine */
+            engine: string;
+            /** Follows */
+            follows?: {
+                [key: string]: unknown;
+            } | null;
+            /** Replicas */
+            replicas?: {
+                [key: string]: unknown;
+            }[];
+            /** Role */
+            role: string;
+            /** Warnings */
+            warnings?: string[];
+        };
+        /**
+         * ReplicaTokenResponse
+         * @description The join code of a replica prepared here.
+         *
+         *     Attributes:
+         *         name: The replica.
+         *         token: The join code, a secret.
+         */
+        ReplicaTokenResponse: {
+            /** Name */
+            name: string;
+            /** Token */
+            token: string;
         };
         /**
          * ReplicasRequest
@@ -56297,6 +57716,25 @@ export interface components {
             supported: boolean;
         };
         /**
+         * UpgradeRequest
+         * @description What an upgrade is asked to move an instance to.
+         *
+         *     Attributes:
+         *         image: For an instance on an image of the operator's own: the next one,
+         *             ``repository[:tag]@sha256:digest``. Noust never looks for a newer image of one the
+         *             operator pinned. Refused for an instance on the catalog's.
+         *         accept_untested: The operator accepts that Noust has not tested that image.
+         */
+        UpgradeRequest: {
+            /**
+             * Accept Untested
+             * @default false
+             */
+            accept_untested: boolean;
+            /** Image */
+            image?: string | null;
+        };
+        /**
          * UploadRequest
          * @description A certificate and its key to keep.
          *
@@ -58533,8 +59971,22 @@ export interface components {
          *
          *     Attributes:
          *         warnings: What the operator should know before going ahead.
+         *         custom: The image is the operator's own.
+         *         command: The whole command the operator wrote, or empty.
+         *         args: The arguments the operator adds, or empty.
+         *         requires_confirmation: Making it needs ``accept_untested``: Noust has not tested what
+         *             the operator chose.
          */
         noust__web__api__databases__instances__PlanResponse: {
+            /** Args */
+            args?: string[];
+            /** Command */
+            command?: string[];
+            /**
+             * Custom
+             * @default false
+             */
+            custom: boolean;
             /** Digest */
             digest: string;
             /** Display Name */
@@ -58557,6 +60009,11 @@ export interface components {
             name: string;
             /** Reference */
             reference: string;
+            /**
+             * Requires Confirmation
+             * @default false
+             */
+            requires_confirmation: boolean;
             /** Tag */
             tag?: string | null;
             /** Variant */
@@ -72922,6 +74379,44 @@ export interface operations {
             };
         };
     };
+    dump_data_api_databases_backups__name__data_get: {
+        parameters: {
+            query: {
+                /** @description The engine */
+                engine: string;
+                /** @description Where to start in the dump */
+                offset: number;
+                /** @description How many bytes at most */
+                length?: number;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The bytes asked for: fewer at the end of the dump, none past it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     download_backup_api_databases_backups__name__download_get: {
         parameters: {
             query: {
@@ -74269,6 +75764,46 @@ export interface operations {
             };
         };
     };
+    list_status_api_databases_engines_tls_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostTlsStatusResponse"][];
+                };
+            };
+        };
+    };
+    refresh_api_databases_engines_tls_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+        };
+    };
     set_engine_credentials_api_databases_engines__engine__credentials_put: {
         parameters: {
             query?: never;
@@ -74721,6 +76256,141 @@ export interface operations {
             };
         };
     };
+    get_status_api_databases_engines__engine__tls_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostTlsStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enable_tls_api_databases_engines__engine__tls_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostTlsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disable_tls_api_databases_engines__engine__tls_delete: {
+        parameters: {
+            query?: {
+                /** @description Accept the engine's restart */
+                confirm?: boolean;
+            };
+            header?: never;
+            path: {
+                engine: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_tls_api_databases_engines__engine__tls_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostTlsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostTlsPlanResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     uninstall_engine_api_databases_engines__engine__uninstall_post: {
         parameters: {
             query?: {
@@ -74795,6 +76465,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_cluster_api_databases_imports_cluster_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClusterRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_cluster_import_api_databases_imports_cluster_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClusterRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClusterPlanResponse"];
                 };
             };
             /** @description Validation Error */
@@ -75309,6 +77045,107 @@ export interface operations {
             };
         };
     };
+    get_launch_api_databases_instances__name__launch_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LaunchStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_launch_api_databases_instances__name__launch_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LaunchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_launch_api_databases_instances__name__launch_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LaunchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LaunchPlanResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     plan_remove_instance_api_databases_instances__name__remove_plan_get: {
         parameters: {
             query?: never;
@@ -75647,7 +77484,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["UpgradeRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             202: {
@@ -76320,6 +78161,301 @@ export interface operations {
                 content: {
                     "application/json": Record<string, never>[];
                     "text/csv": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_status_api_databases_replicas_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplicaStatusResponse"][];
+                };
+            };
+        };
+    };
+    join_api_databases_replicas_join_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplicaJoinRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_join_api_databases_replicas_join_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplicaJoinPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplicaJoinPlanResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_status_api_databases_replicas__engine__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplicaStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prepare_api_databases_replicas__engine__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplicaPrepareRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplicaPreparedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_prepare_api_databases_replicas__engine__plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplicaPrepareRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplicaPlanResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    promote_api_databases_replicas__engine__promote_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplicaConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_api_databases_replicas__engine___name__delete: {
+        parameters: {
+            query?: {
+                /** @description Accept that it stops streaming for good */
+                confirm?: boolean;
+                /** @description Put the address the engine listens on back (restarts it) */
+                restore_listen?: boolean;
+            };
+            header?: never;
+            path: {
+                name: string;
+                engine: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    show_token_api_databases_replicas__engine___name__token_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                engine: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplicaTokenResponse"];
                 };
             };
             /** @description Validation Error */
@@ -78270,6 +80406,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["noust__web__api__cloud__MachineOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transfer_database_api_fleet_databases_transfer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DatabaseTransferIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__fleet__ActionOut"];
                 };
             };
             /** @description Validation Error */

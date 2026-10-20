@@ -132,6 +132,16 @@ READ_ONLY_ACCOUNT_PREFIX = "noust_ro_"
 LEGACY_READ_ONLY_ACCOUNT_PREFIX = legacy_names.READ_ONLY_PREFIX
 READ_ONLY_ACCOUNT_PREFIXES = (READ_ONLY_ACCOUNT_PREFIX, LEGACY_READ_ONLY_ACCOUNT_PREFIX)
 
+#: The prefix of the throw-away logins a PostgreSQL dump is loaded with (H-19).
+LOAD_ACCOUNT_PREFIX = "noust_load_"
+
+#: What a restore is told when the dump is one Noust itself wrote and keeps: a backup it took,
+#: the safety copy it put back, the dump of a move. PostgreSQL loads a dump from anywhere
+#: else as the database's owner, not as the superuser (H-19), so what Noust took out of a
+#: database (extensions that need a superuser, objects of several owners) is the one thing
+#: that is put back as it was.
+OWN_DUMP_OPTIONS: Mapping[str, Any] = {"as_superuser": True}
+
 #: Where apt is found, and the programs of the other two package managers an engine is
 #: installed through (see install()), by the name a plan gives its family.
 APT_GET = "apt-get"
@@ -2268,7 +2278,50 @@ class BaseDatabaseManager(BaseManager):
         """
         if self.instance is not None and username == self.instance.admin_user:
             return True
-        return username in self.INTERNAL_USERS or username.startswith(READ_ONLY_ACCOUNT_PREFIXES)
+        return username in self.INTERNAL_USERS or username.startswith(
+            (*READ_ONLY_ACCOUNT_PREFIXES, LOAD_ACCOUNT_PREFIX)
+        )
+
+    @property
+    def tls_only_port(self) -> bool:
+        """
+        Whether the one port clients reach serves TLS and nothing else.
+
+        True for a Redis, Valkey or KeyDB instance made to serve TLS: its URL then says so
+        (``rediss``), and a client that does not speak it cannot connect at all.
+
+        Returns:
+            False unless an engine says otherwise.
+        """
+        return False
+
+    def role_names(self) -> set[str]:
+        """
+        List every account the engine has, the engine's own included.
+
+        An import that creates the accounts of a dump asks first, so that it never
+        overwrites one.
+
+        Returns:
+            The names; empty for an engine with no accounts to import.
+        """
+        return set()
+
+    def create_accounts(self, script: str, *, secrets: Sequence[str] = ()) -> None:
+        """
+        Run the statements that make the accounts of an imported dump, all or none.
+
+        Args:
+            script: Statements Noust built from data it read, never the dump's own text.
+            secrets: Values in them (password hashes) to keep out of the logs.
+
+        Raises:
+            DatabaseUserError: Always here; an engine that can import accounts says how.
+        """
+        raise DatabaseUserError(
+            f"{self.DISPLAY_NAME} cannot create accounts from a dump",
+            details="Create them with 'noust db user-create'.",
+        )
 
     def apply_profile(
         self, username: str, database: str, profile: str, host: str = "localhost"
@@ -2870,7 +2923,9 @@ class BaseDatabaseManager(BaseManager):
                 back on record.
             **kwargs: Engine-specific options, handed to the checks and the
                 loader (``format`` for PostgreSQL; ``isolated`` for a load
-                beside a database, which must reach no other).
+                beside a database, which must reach no other; ``create_owner``,
+                the account a database that is replaced is recreated with instead
+                of the one it had, which a failed load still puts back).
 
         Returns:
             What was done, the safety copy included.
@@ -2914,7 +2969,7 @@ class BaseDatabaseManager(BaseManager):
                     self.drop_database(database, force=True)
                     dropped = True
                 if replaced or not exists:
-                    self._create_for_restore(database, owner)
+                    self._create_for_restore(database, kwargs.get("create_owner") or owner)
                 self._load_backup(database, loadable, **kwargs)
             except DatabaseError as exc:
                 failure = exc
@@ -2958,7 +3013,9 @@ class BaseDatabaseManager(BaseManager):
             ):
                 self.drop_database(database, force=True)
                 self._create_for_restore(database, owner)
-                self._load_backup(database, loadable)
+                # Noust's own dump, taken a moment ago from this very database: what it
+                # held (extensions, other owners) is put back as it was, not re-judged.
+                self._load_backup(database, loadable, as_superuser=True)
         except DatabaseError as again:
             return DatabaseBackupError(
                 f"Restoring '{database}' failed, and putting its previous contents back failed too",
@@ -3225,6 +3282,7 @@ class BaseDatabaseManager(BaseManager):
             host=host,
             port=self.server_port(),
             options=self._url_options(username),
+            secure=self.tls_only_port,
         )
 
     def _url_options(self, username: str) -> dict[str, str] | None:
