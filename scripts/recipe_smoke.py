@@ -244,12 +244,14 @@ def write_project(
         port: The loopback port the web service publishes on.
         domain: The domain the application believes it has.
         ssl: Whether that domain is served over TLS, for ``from: url``.
-        given: What the operator gives: ``--var``, and every required variable's value.
+        given: What the operator gives (``--var``; the ones the recipe does not declare are
+            left out, so one list can serve a batch) and every required variable's value.
 
     Returns:
         The variables written to ``.env`` (``PORT`` included).
     """
-    overrides = dict(given)
+    # --var is for every recipe of a batch: each takes the ones it declares.
+    overrides = {name: value for name, value in given.items() if recipe.variable(name)}
     # The extra address of a recipe with several (Typebot's viewer) is a name under the domain.
     addresses = {entry.domain_variable: f"{entry.name}.{domain}" for entry in recipe.entrypoints}
     for variable in recipe.variables:

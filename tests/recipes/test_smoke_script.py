@@ -504,3 +504,17 @@ def test_the_gate_waits_as_long_as_the_recipe_s_own_timeout_unless_told_otherwis
     slow = no_timeout
     run(None)
     assert len(asked) == 60
+
+
+def test_one_list_of_variables_serves_a_batch_and_each_recipe_takes_the_ones_it_declares(
+    smoke: ModuleType, tmp_path: Path
+) -> None:
+    """A batch passes the identity provider's addresses for Outline; Vaultwarden ignores them."""
+    recipe = get_recipe("vaultwarden")
+    shared = {"OIDC_AUTH_URI": "https://idp.example.com/auth", "SIGNUPS_ALLOWED": "false"}
+
+    values = smoke.write_project(
+        recipe, tmp_path, port=18080, domain="vault.example.com", ssl=True, given=shared
+    )
+
+    assert "OIDC_AUTH_URI" not in values and values["SIGNUPS_ALLOWED"] == "false"
