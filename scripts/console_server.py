@@ -2591,6 +2591,22 @@ def make_runner(
             # WHERE literal ("datistemplate = false" instead of "datname = '...'")
             # and must be checked first, or its listing query would be mistaken for
             # a lookup of one database and answer as though `name` were None.
+            #
+            # The dump loader (pg_loader.owner_query and role_query) asks who owns the
+            # database it loads into and whether that role could reach the machine: one
+            # row, "owner|f" for an ordinary role. It joins pg_roles the other way round
+            # ("r.oid = d.datdba"), so the owner lookups below do not match it, and the
+            # generic listing at the end would answer a question it was not asked.
+            if program == "psql" and "r.oid = d.datdba" in statement and "pg_has_role" in statement:
+                info = pg_databases.get(_sql_literal(statement) or "")
+                return f"{info[0]}|f\n" if info else ""
+            if (
+                program == "psql"
+                and "FROM pg_catalog.pg_roles r WHERE r.rolname" in statement
+                and "pg_has_role" in statement
+            ):
+                role = _sql_literal(statement)
+                return f"{role}|f\n" if role else ""
             if (
                 program == "psql"
                 and "d.datdba = r.oid" in statement

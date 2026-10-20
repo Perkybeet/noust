@@ -103,6 +103,39 @@ describe("reading a deploy's log", { timeout: 20_000 }, () => {
     expect(await within(region).findAllByText("18:00:03")).not.toHaveLength(0);
   });
 
+  it("holds the share button's place while the log is read, so it does not push the viewer down when it comes", async () => {
+    screenWidth(1440);
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(800);
+    let answer: (response: Response) => void = () => undefined;
+    const slow = new Promise<Response>((resolve) => {
+      answer = resolve;
+    });
+    fakeBackend(
+      appRoutes(
+        {},
+        {
+          "GET /api/deployments": () => json(200, { items: [DEPLOYMENT], total: 1, next_before_id: null }),
+          "GET /api/deployments/30": () => json(200, DEPLOYMENT),
+          "GET /api/deployments/30/log": () => slow,
+          "GET /api/jobs": () => json(200, { jobs: [], total: 0, active: 0 }),
+        },
+      ),
+    );
+    renderConsole(`/apps/${TAB_DOMAIN}/deployments/30`);
+
+    const waiting = await screen.findByText("Loading the build log", undefined, { timeout: 10_000 });
+    const section = waiting.closest("section");
+    if (section === null) throw new Error("the build log has no section");
+    // A box as tall as the button, before the log is there; no button yet.
+    expect(section.querySelector('div[aria-hidden="true"] .h-control-sm')).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Copy to share" })).not.toBeInTheDocument();
+
+    answer(json(200, { content: LOG, truncated: false, missing_reason: null }));
+    expect(await screen.findByRole("button", { name: "Copy to share" })).toBeInTheDocument();
+    expect(section.querySelector('div[aria-hidden="true"] .h-control-sm')).toBeNull();
+  });
+
   it("has one control of each, the viewer's: the page adds no level or times control of its own", async () => {
     await open();
 

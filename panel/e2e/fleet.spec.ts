@@ -277,7 +277,9 @@ withFleet(
     await create.getByLabel("Name", { exact: true }).fill(name);
     await create.getByRole("combobox", { name: "Backend" }).click();
     await page.getByRole("option", { name: /^SFTP server/ }).click();
-    await create.getByLabel("Host", { exact: true }).fill("backup.fleet.invalid");
+    // A host the node's model of rclone reaches (".invalid" is one no resolver answers): the node
+    // tries the connection before it keeps a destination, and this test is about who is asked.
+    await create.getByLabel("Host", { exact: true }).fill("backup.fleet.example");
     await create.getByLabel("User", { exact: true }).fill("noust");
     await create.getByLabel("Remote folder").fill("/volume1/backups");
     await create.getByRole("button", { name: "Add destination" }).click();
