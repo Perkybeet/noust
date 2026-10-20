@@ -576,11 +576,12 @@ class TestTheDocument:
         NoustStore(tmp_path / "noust.db")
         try:
             proposal = read_coolify()
-            document = proposal_document(
-                proposal, domain="shop.example.com", source="", env={"STRIPE_SECRET": "sk_live_x"}
-            )
+            # A connection string with a password in it is a credential whatever the variable is
+            # called: it is withheld, and a plan needs it given again (it names Coolify's database).
+            given = {"STRIPE_SECRET": "sk_live_x", "DATABASE_URL": "postgres://u:p@db.example/shop"}
+            document = proposal_document(proposal, domain="shop.example.com", source="", env=given)
 
-            plan = plan_import(document, env={"STRIPE_SECRET": "sk_live_x"})
+            plan = plan_import(document, env=given)
 
             create = plan.create
             assert create.source == "github:acme/shop"
@@ -608,6 +609,7 @@ class TestTheDocument:
             with pytest.raises(ValidationError) as caught:
                 plan_import(document)
             assert "STRIPE_SECRET" in caught.value.message
+            assert "DATABASE_URL" in caught.value.message
         finally:
             NoustStore.reset_instance()
 
@@ -618,12 +620,11 @@ class TestTheDocument:
         NoustStore(tmp_path / "noust.db")
         try:
             proposal = read_coolify()
-            document = proposal_document(
-                proposal, domain="shop.example.com", source="", env={"STRIPE_SECRET": "x"}
-            )
+            given = {"STRIPE_SECRET": "x", "DATABASE_URL": "postgres://u:p@db.example/shop"}
+            document = proposal_document(proposal, domain="shop.example.com", source="", env=given)
             document["app"]["build"] = "build:\n  base_directory: ../../etc\n"
             with pytest.raises(ValidationError) as caught:
-                plan_import(document, env={"STRIPE_SECRET": "x"})
+                plan_import(document, env=given)
             assert caught.value.field == "build.base_directory"
         finally:
             NoustStore.reset_instance()

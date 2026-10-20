@@ -209,6 +209,8 @@ class TestTheCommand:
             "shop.example.com",
             "--env",
             "STRIPE_SECRET=sk",
+            "--env",
+            "DATABASE_URL=postgres://u:p@db.example/shop",
         )
 
         assert result.exit_code == 0, result.output

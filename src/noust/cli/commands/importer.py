@@ -109,6 +109,17 @@ def print_proposal(logger: Logger, proposal: Proposal) -> None:
         logger.key_value("Persistent", ", ".join(proposal.persistent_paths))
     for job in proposal.cron:
         logger.key_value(f"  cron {job.name}", f"{job.schedule}  {job.command}")
+    for storage in proposal.storage:
+        where = storage.volume or storage.host_path or "?"
+        kept = (
+            f"--persist {storage.persistent_path}" if storage.persistent_path else "not persisted"
+        )
+        logger.key_value(f"  storage {storage.mount_path}", f"{where} ({kept})")
+    for database in proposal.database_details:
+        used = "used" if database.linked else "same environment, not named"
+        logger.key_value(
+            f"  database {database.name}", f"{database.engine}, {database.reference} ({used})"
+        )
     if proposal.equivalent:
         logger.key_value("Create it with", proposal.equivalent)
     for warning in proposal.warnings:

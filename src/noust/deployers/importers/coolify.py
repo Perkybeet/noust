@@ -14,10 +14,13 @@ handle a Coolify application like a Vercel project.
 What carries over: the repository and branch, the base and publish directories,
 the install, build and start commands that are plain commands, the domains, the
 port, the health check, the memory and CPU limits, the watch paths, the
-environment variables, the scheduled tasks and the persistent storage. What is
-only said, with what to do instead: the build pack (Noust detects the stack),
-Dockerfile and Compose applications, the databases and services Coolify runs
-beside it, and the variables whose values the token could not read.
+environment variables, the scheduled tasks, the persistent storage (as
+``--persist`` paths, with the commands that copy the data) and the databases the
+application connects to (found by the host name Coolify gives a database: its
+uuid), with the commands that dump and load them. What is only said, with what
+to do instead: the build pack (Noust detects the stack), Dockerfile and Compose
+applications, services Coolify runs beside it, and the variables whose values the
+token could not read.
 
 Nothing here writes to Coolify: it only issues GETs.
 """
@@ -30,12 +33,21 @@ from urllib.parse import urlsplit
 
 from noust.core.exceptions import IntegrationError
 from noust.deployers.importers.base import (
+    INSTANCE_ENGINES,
     Proposal,
     ProposedCron,
+    ProposedDatabase,
+    ProposedStorage,
     RemoteApplication,
+    database_commands,
+    database_name_for,
     declared_env,
+    directory_export,
     int_value,
+    persistent_path_for,
+    tarball_restore,
     text_value,
+    volume_export,
 )
 from noust.deployers.importers.remote import Opener, RemoteClient, read_token
 
@@ -241,8 +253,9 @@ def read_application(client: RemoteClient, ref: str) -> Proposal:
         proposal.warn("Auto deploy was off in Coolify: turn deploy on push on only if you want it.")
 
     _by_pack(pack, app, proposal)
-    _read_environment(client, ref, proposal)
-    _read_storage(client, ref, proposal)
+    values = _read_environment(client, ref, proposal)
+    _read_storage(client, ref, proposal, pack)
+    _read_databases(client, app, values, proposal)
     _read_tasks(client, ref, proposal)
     proposal.note_commands()
     return proposal
@@ -344,7 +357,7 @@ def _by_pack(pack: str, app: dict[str, Any], proposal: Proposal) -> None:
         proposal.warn(f"It runs a registry image. Create it with: {proposal.equivalent}")
 
 
-def _read_environment(client: RemoteClient, ref: str, proposal: Proposal) -> None:
+def _read_environment(client: RemoteClient, ref: str, proposal: Proposal) -> list[str]:
     """
     Add the application's variables to a proposal.
 
@@ -352,13 +365,18 @@ def _read_environment(client: RemoteClient, ref: str, proposal: Proposal) -> Non
         client: The client.
         ref: The application's uuid.
         proposal: The proposal being made.
+
+    Returns:
+        Every value the token could read, secrets included, for finding which databases the
+        application connects to. They go no further than that search.
     """
     try:
         variables = _list(client.get(f"{API}/applications/{ref}/envs"))
     except IntegrationError as exc:
         proposal.warn(f"The variables could not be read ({exc.message}); copy them by hand.")
-        return
+        return []
     hidden = 0
+    seen: list[str] = []
     for entry in variables:
         name = text_value(entry, "key")
         if name is None or entry.get("is_preview"):
@@ -368,6 +386,7 @@ def _read_environment(client: RemoteClient, ref: str, proposal: Proposal) -> Non
             hidden += 1
             proposal.add_env(declared_env(name, None, required=True))
             continue
+        seen.append(str(value))
         proposal.add_env(declared_env(name, str(value)))
         if entry.get("is_buildtime") and not entry.get("is_runtime", True):
             proposal.warn(
@@ -379,33 +398,147 @@ def _read_environment(client: RemoteClient, ref: str, proposal: Proposal) -> Non
             f"{hidden} variable(s) have no value the token could read (sensitive or shown "
             "once): give their values at import with --env-file or --env."
         )
+    return seen
 
 
-def _read_storage(client: RemoteClient, ref: str, proposal: Proposal) -> None:
+def _read_storage(client: RemoteClient, ref: str, proposal: Proposal, pack: str) -> None:
     """
-    Note the application's persistent storage.
+    Add the application's persistent storage to a proposal.
+
+    Coolify answers ``{"persistent_storages": [...], "file_storages": [...]}``: the first are
+    Docker volumes (or directories of the server, when they name a ``host_path``) holding data,
+    the second are files and directories it writes beside the application and mounts.
 
     Args:
         client: The client.
         ref: The application's uuid.
         proposal: The proposal being made.
+        pack: Coolify's build pack: the buildpack builders run the application in ``/app``, which
+            is what makes a mount under it a path of the application's own directory here.
     """
     try:
-        storages = _list(client.get(f"{API}/applications/{ref}/storages"))
-    except IntegrationError:
+        answer = client.get(f"{API}/applications/{ref}/storages")
+    except IntegrationError as exc:
+        proposal.warn(f"The storage could not be read ({exc.message}); copy its data by hand.")
         return
-    paths = [
-        text_value(item, "mount_path")
-        for item in storages
-        if isinstance(item, dict) and text_value(item, "mount_path")
-    ]
-    if paths:
-        proposal.warn(
-            "It keeps data on persistent storage at "
-            + ", ".join(str(path) for path in paths)
-            + " inside its container. Noust keeps paths of the application directory with "
-            "--persist; copy the data over first."
+    if isinstance(answer, dict):
+        persistent = _list(answer.get("persistent_storages"))
+        files = _list(answer.get("file_storages"))
+    else:
+        persistent, files = _list(answer), []
+    work_dir = "/app" if pack in ("nixpacks", "railpack", "static") else ""
+    for item in persistent:
+        target = text_value(item, "mount_path")
+        if target is None:
+            continue
+        volume = text_value(item, "name")
+        host = text_value(item, "host_path")
+        persistent_path = persistent_path_for(target, work_dir) if work_dir else None
+        storage = ProposedStorage(
+            mount_path=target,
+            volume=None if host else volume,
+            host_path=host,
+            persistent_path=persistent_path,
+            export=directory_export(host) if host else volume_export(volume) if volume else None,
+            restore=tarball_restore(persistent_path),
         )
+        proposal.storage.append(storage)
+        if persistent_path and persistent_path not in proposal.persistent_paths:
+            proposal.persistent_paths.append(persistent_path)
+        proposal.warn(storage.describe())
+    for item in files:
+        target = text_value(item, "mount_path")
+        if target is None:
+            continue
+        kind = "directory" if item.get("is_directory") else "file"
+        proposal.warn(
+            f"Coolify mounts a {kind} at {target} that it writes itself"
+            + (" (from the repository)" if item.get("is_based_on_git") else "")
+            + ". Keep a file with 'noust app mount file DOMAIN TARGET --from FILE' (its text is in"
+            " Coolify's Storages tab); a file the repository carries needs nothing."
+        )
+
+
+#: How Coolify spells the databases it runs and what Noust calls them.
+_DATABASE_TYPES = {
+    "standalone-postgresql": "postgresql",
+    "standalone-mysql": "mysql",
+    "standalone-mariadb": "mariadb",
+    "standalone-mongodb": "mongodb",
+    "standalone-redis": "redis",
+    "standalone-keydb": "keydb",
+    "standalone-dragonfly": "dragonfly",
+    "standalone-clickhouse": "clickhouse",
+}
+
+#: The attributes of a database in Coolify's answer that name its database and account, by engine.
+_DATABASE_FIELDS = {
+    "postgresql": ("postgres_db", "postgres_user"),
+    "mysql": ("mysql_database", "mysql_user"),
+    "mariadb": ("mariadb_database", "mariadb_user"),
+    "mongodb": ("mongo_initdb_database", "mongo_initdb_root_username"),
+}
+
+
+def _read_databases(
+    client: RemoteClient, app: dict[str, Any], values: list[str], proposal: Proposal
+) -> None:
+    """
+    Find the databases the application uses and say how to bring their data.
+
+    A Coolify database is a container named by its uuid, and that uuid is the host name every
+    application of the environment connects to, so a variable that holds a database's uuid is
+    the link. The databases that only share the application's environment are listed too, as not
+    linked: the operator decides.
+
+    Args:
+        client: The client.
+        app: Coolify's description of the application.
+        values: The values of its variables.
+        proposal: The proposal being made.
+    """
+    try:
+        databases = _list(client.get(f"{API}/databases"))
+    except IntegrationError as exc:
+        proposal.warn(f"The databases could not be listed ({exc.message}); check them by hand.")
+        return
+    environment = app.get("environment_id")
+    haystack = "\n".join(values)
+    for item in databases:
+        uuid = text_value(item, "uuid")
+        kind = text_value(item, "database_type") or ""
+        engine = _DATABASE_TYPES.get(kind)
+        if uuid is None or engine is None:
+            continue
+        linked = uuid in haystack
+        same_environment = environment is not None and item.get("environment_id") == environment
+        if not linked and not same_environment:
+            continue
+        name = text_value(item, "name") or uuid
+        image = text_value(item, "image")
+        database_key, user_key = _DATABASE_FIELDS.get(engine, ("", ""))
+        commands = database_commands(engine, uuid, database_name_for(name), uuid)
+        dump, restore = commands if commands is not None else (None, None)
+        detail = ProposedDatabase(
+            engine=engine,
+            name=name,
+            reference=uuid,
+            image=image,
+            version=image.rsplit(":", 1)[1] if image and ":" in image.rsplit("/", 1)[-1] else None,
+            database=text_value(item, database_key) if database_key else None,
+            user=text_value(item, user_key) if user_key else None,
+            linked=linked,
+            dump=dump,
+            restore=restore,
+            note=None
+            if linked
+            else "It is in the same environment, but no variable of the application names it.",
+        )
+        proposal.database_details.append(detail)
+        if linked and engine not in INSTANCE_ENGINES:
+            proposal.need_database(engine)
+        if linked:
+            proposal.warn(detail.describe())
 
 
 def _read_tasks(client: RemoteClient, ref: str, proposal: Proposal) -> None:
