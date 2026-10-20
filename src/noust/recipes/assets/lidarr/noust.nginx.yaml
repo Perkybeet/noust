@@ -1,0 +1,5 @@
+# How nginx proxies this application. The interface keeps a connection open for live updates, and backups are restored through it.
+max_body_size: 100m
+routes:
+  - path: /
+    read_timeout: 300

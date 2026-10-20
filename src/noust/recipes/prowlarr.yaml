@@ -1,0 +1,64 @@
+# Prowlarr from the image linuxserver.io publishes (ghcr.io/linuxserver/prowlarr), run as its
+# documentation describes (docs.linuxserver.io/images/docker-prowlarr, read 2026-10-20): the
+# configuration under /config, PUID, PGID and TZ for the account the process runs as, the
+# interface on 9696; the *arr applications answer /ping without a sign-in.
+# The image's s6 init changes the ownership of /config only, so a directory it writes to as
+# somebody other than root has to belong to PUID: the defaults here run as root inside the
+# container (PUID and PGID 0), which writes anywhere the operator mounts and nowhere else.
+# Since version 4 the first visit asks for the account that protects the interface.
+#
+# Pinned to the release tag and to the digest ghcr.io serves for it.
+schema: 2
+name: prowlarr
+kind: compose
+title: Prowlarr
+slogan: "An indexer manager that gives Sonarr, Radarr and Lidarr one place to search."
+description: "Keep your torrent and Usenet indexers in one place and sync them to the *arr apps you run, instead of configuring each one by hand. Part of the *arr family."
+category: media
+tags: [indexers, media, automation, torrent]
+logo: logo.svg
+version: "2.6.5.5623"
+revision: 1
+updated: 2026-10-20
+homepage: https://prowlarr.com
+docs: https://wiki.servarr.com/prowlarr
+repository: https://github.com/Prowlarr/Prowlarr
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 9696
+variables:
+  PUID:
+    default: "0"
+    description: The user ID the process runs as inside the container. 0 is root; use the owner of your library to keep its files yours.
+  PGID:
+    default: "0"
+    description: The group ID the process runs as inside the container.
+  TZ:
+    default: UTC
+    description: The time zone, such as Europe/Madrid.
+health:
+  path: /ping
+  expect: "200"
+  timeout: 120
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    prowlarr:
+      image: ghcr.io/linuxserver/prowlarr:2.6.5.5623-ls164@sha256:4e992f9b9229bc8c97c666b10b042a7360bce1d99b196e8aa29fd9805849cbf1
+      restart: unless-stopped
+      environment:
+        PUID: "${PUID}"
+        PGID: "${PGID}"
+        TZ: "${TZ}"
+      volumes:
+        - prowlarr-config:/config
+      ports:
+        - "127.0.0.1:${PORT}:9696"
+  volumes:
+    prowlarr-config:
+notes:
+  - "Open {{ url }} now: the first visit asks for the user name and password that protect Prowlarr, and until you set them anybody who reaches the page can."
+  - "Its settings and database are in the Docker volume prowlarr-config of this application: back it up before updating."
+  - "Add the *arr applications you run under Settings > Apps, with their addresses and API keys."
