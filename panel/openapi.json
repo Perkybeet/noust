@@ -450,7 +450,7 @@
         "type": "object"
       },
       "AccountInfo": {
-        "description": "One account, with no secret in it.\n\nAttributes:\n    id: Store id.\n    username: Sign-in name.\n    display_name: How the console greets them.\n    role: ``viewer``, ``operator``, ``admin``, ``security`` or ``auditor``.\n    status: ``active``, ``disabled``, ``locked`` or ``invited``.\n    person_ref: Who the account belongs to, for separation of duties.\n    mfa_enabled: Whether a second factor is enrolled: an authenticator\n        or a passkey.\n    passkeys: How many passkeys it has.\n    backup_codes_remaining: Unused recovery codes.\n    last_login_at: Last successful sign-in, UNIX seconds.\n    last_login_ip: Where it came from.\n    failures_since_login: Refused attempts since then.\n    locked_until: End of a lockout in force, UNIX seconds.\n    notice_accepted_at: When the usage notice was last accepted.\n    password_changed_at: When the password was last set.\n    created_at: When the account was created.\n    created_by: Who created it.\n    disabled_at: When it was disabled.\n    disabled_reason: Why.",
+        "description": "One account, with no secret in it.\n\nAttributes:\n    id: Store id.\n    username: Sign-in name.\n    display_name: How the console greets them.\n    role: ``viewer``, ``operator``, ``admin``, ``security`` or ``auditor``.\n    status: ``active``, ``disabled``, ``locked`` or ``invited``.\n    person_ref: Who the account belongs to, for separation of duties.\n    email: Where its invitations and password resets are mailed.\n    mfa_enabled: Whether a second factor is enrolled: an authenticator\n        or a passkey.\n    passkeys: How many passkeys it has.\n    backup_codes_remaining: Unused recovery codes.\n    last_login_at: Last successful sign-in, UNIX seconds.\n    last_login_ip: Where it came from.\n    failures_since_login: Refused attempts since then.\n    locked_until: End of a lockout in force, UNIX seconds.\n    notice_accepted_at: When the usage notice was last accepted.\n    password_changed_at: When the password was last set.\n    created_at: When the account was created.\n    created_by: Who created it.\n    disabled_at: When it was disabled.\n    disabled_reason: Why.",
         "properties": {
           "backup_codes_remaining": {
             "title": "Backup Codes Remaining",
@@ -496,6 +496,17 @@
           "display_name": {
             "title": "Display Name",
             "type": "string"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
           },
           "failures_since_login": {
             "default": 0,
@@ -733,7 +744,7 @@
         "type": "object"
       },
       "AccountUpdate": {
-        "description": "Changes to an account; a field left out is kept.\n\nAttributes:\n    role: A new role.\n    display_name: A new display name.\n    person_ref: A new person reference; empty clears it.",
+        "description": "Changes to an account; a field left out is kept.\n\nAttributes:\n    role: A new role.\n    display_name: A new display name.\n    person_ref: A new person reference; empty clears it.\n    email: A new address for invitations and password resets; empty clears it.",
         "properties": {
           "display_name": {
             "anyOf": [
@@ -746,6 +757,18 @@
               }
             ],
             "title": "Display Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
           },
           "person_ref": {
             "anyOf": [
@@ -2964,7 +2987,7 @@
         "type": "object"
       },
       "AppInfo": {
-        "description": "A deployed application and the live state of its service.\n\nAttributes:\n    name: Application name, which is its domain.\n    domain: Domain the application is served on.\n    status: What is true about it right now, resolved by\n        :func:`noust.core.app_state.resolve_state` - the one place the CLI\n        and the panel agree on this: ``running``, ``restarting`` (systemd\n        is crash-looping the unit), ``no_answer`` (the unit is up but\n        nothing accepts connections on its port), ``stopped``, ``failed``\n        (systemd gave up on it), ``static`` (served directly by the web\n        server, there is no unit), ``running_unmanaged`` (a Compose stack\n        whose containers run while its unit is stopped: hand it back with\n        ``POST .../reclaim``) or ``unknown`` (systemd could not be asked).\n    active: Whether the unit is active.\n    enabled: Whether the unit starts on boot.\n    pid: Main PID when running.\n    uptime: How long the unit has been up.\n    port: Upstream port.\n    app_type: Deployer that owns it.\n    path: Application directory.\n    source: Git URL or local path it was deployed from.\n    branch: Git branch it tracks, or None for a source that has none.\n    follow_tags: The glob of git tags it deploys instead of a branch\n        (``v*``), or None when it follows its branch.\n    layout: ``inplace`` or ``releases``.\n    keep_releases: Release directories kept before older ones are pruned.\n        Meaningful only on ``releases``; the in-place default otherwise.\n    build_command: Argv the deployer runs to build the project, read off\n        the same ``get_build_command()`` the deploy used. Empty in a\n        list response - computing it means instantiating the deployer\n        once per application, which this endpoint does not do for a\n        list - and filled in when this application is fetched on its own.\n    start_command: What its unit runs, exactly as the deploy recorded it\n        on the service row. None for a static site, which has no unit.\n    memory_max_mb: Memory limit of its unit, in MB, or None.\n    cpu_quota_percent: CPU quota of its unit, in percent of one CPU, or None.\n    tasks_max: Task limit of its unit, or None.\n    health_path: Path the health gate probes, or None for ``/``.\n    health_expect: Statuses the health gate accepts, such as\n        ``200-399``, or None for any status below 500.\n    health_timeout: Seconds the health gate waits, or None for its\n        default of 30.\n    webhook_enabled: Whether a webhook secret is set for it. The secret\n        itself is never part of this or any other response; it is set\n        through ``POST /api/apps/{domain}/webhook-secret`` and cleared\n        through the ``DELETE`` of the same path.\n    unit: The systemd unit that runs it, or None for a static site.\n    run_as: The account its unit runs as, or None for a static site.\n    last_deployment: Its most recent deployment attempt, or None when\n        nothing has ever been recorded for it.\n    zero_downtime: Whether it runs as two instances behind an nginx\n        upstream (blue/green); details at ``/zero-downtime``.\n    preview_parent: The application it previews a pull request of, or\n        None when it is not a preview.\n    backup_before_update: Whether an update of a Docker Compose stack\n        copies its databases first (on by default; meaningless for any\n        other kind). Set through ``PATCH .../backup-before-update``.\n    team: The slug of the team it belongs to.\n    project: The slug of its project.\n    environment: The slug of its environment. Change them with\n        ``POST /api/apps/{domain}/move``.\n    tags: The free labels it carries (``PUT /api/apps/{domain}/tags``).",
+        "description": "A deployed application and the live state of its service.\n\nAttributes:\n    name: Application name, which is its domain.\n    domain: Domain the application is served on.\n    status: What is true about it right now, resolved by\n        :func:`noust.core.app_state.resolve_state` - the one place the CLI\n        and the panel agree on this: ``running``, ``restarting`` (systemd\n        is crash-looping the unit), ``no_answer`` (the unit is up but\n        nothing accepts connections on its port), ``stopped``, ``failed``\n        (systemd gave up on it), ``static`` (served directly by the web\n        server, there is no unit), ``running_unmanaged`` (a Compose stack\n        whose containers run while its unit is stopped: hand it back with\n        ``POST .../reclaim``), ``degraded`` (an application of several units, some\n        serving and some not) or ``unknown`` (systemd could not be asked).\n    active: Whether the unit is active.\n    enabled: Whether the unit starts on boot.\n    pid: Main PID when running.\n    uptime: How long the unit has been up.\n    port: Upstream port.\n    app_type: Deployer that owns it.\n    path: Application directory.\n    source: Git URL or local path it was deployed from.\n    branch: Git branch it tracks, or None for a source that has none.\n    follow_tags: The glob of git tags it deploys instead of a branch\n        (``v*``), or None when it follows its branch.\n    layout: ``inplace`` or ``releases``.\n    keep_releases: Release directories kept before older ones are pruned.\n        Meaningful only on ``releases``; the in-place default otherwise.\n    build_command: Argv the deployer runs to build the project, read off\n        the same ``get_build_command()`` the deploy used. Empty in a\n        list response - computing it means instantiating the deployer\n        once per application, which this endpoint does not do for a\n        list - and filled in when this application is fetched on its own.\n    start_command: What its unit runs, exactly as the deploy recorded it\n        on the service row. None for a static site, which has no unit.\n    memory_max_mb: Memory limit of its unit, in MB, or None.\n    cpu_quota_percent: CPU quota of its unit, in percent of one CPU, or None.\n    tasks_max: Task limit of its unit, or None.\n    health_path: Path the health gate probes, or None for ``/``.\n    health_expect: Statuses the health gate accepts, such as\n        ``200-399``, or None for any status below 500.\n    health_timeout: Seconds the health gate waits, or None for its\n        default of 30.\n    webhook_enabled: Whether a webhook secret is set for it. The secret\n        itself is never part of this or any other response; it is set\n        through ``POST /api/apps/{domain}/webhook-secret`` and cleared\n        through the ``DELETE`` of the same path.\n    unit: The systemd unit that runs it, or None for a static site.\n    run_as: The account its unit runs as, or None for a static site.\n    last_deployment: Its most recent deployment attempt, or None when\n        nothing has ever been recorded for it.\n    zero_downtime: Whether it runs as two instances behind an nginx\n        upstream (blue/green); details at ``/zero-downtime``.\n    preview_parent: The application it previews a pull request of, or\n        None when it is not a preview.\n    backup_before_update: Whether an update of a Docker Compose stack\n        copies its databases first (on by default; meaningless for any\n        other kind). Set through ``PATCH .../backup-before-update``.\n    team: The slug of the team it belongs to.\n    project: The slug of its project.\n    environment: The slug of its environment. Change them with\n        ``POST /api/apps/{domain}/move``.\n    tags: The free labels it carries (``PUT /api/apps/{domain}/tags``).",
         "properties": {
           "active": {
             "title": "Active",
@@ -8590,7 +8613,7 @@
         "type": "object"
       },
       "ChannelModel": {
-        "description": "One notification channel, without its credentials.\n\nAttributes:\n    name: What the channel is called.\n    type: One of the types (``slack``, ``pushover``...).\n    enabled: Whether it is on.\n    configured: Whether it has what its type needs to deliver.\n    default: It is the default channel of its type: it cannot be removed,\n        only emptied.\n    settings: The type's own settings; a credential reads ``***`` when one\n        is stored and an empty string when none is.\n    events: This channel's own switch per event (those it does not name\n        follow ``notifications.events``).\n    route: What it is limited to (applications, projects, environments,\n        tags, a minimum severity).\n    quiet: When it stays silent, or null for never.\n    flood: The most it says in a stretch of time (``max`` messages in\n        ``minutes``), or null for no cap; what passes it arrives later as\n        one message.\n    summary: What waits for a periodic summary (``at``, ``timezone``,\n        ``below``, ``days``), or null for none.",
+        "description": "One notification channel, without its credentials.\n\nAttributes:\n    name: What the channel is called.\n    type: One of the types (``slack``, ``pushover``...).\n    enabled: Whether it is on.\n    configured: Whether it has what its type needs to deliver.\n    default: It is the default channel of its type: it cannot be removed,\n        only emptied.\n    settings: The type's own settings; a credential reads ``***`` when one\n        is stored and an empty string when none is.\n    events: This channel's own switch per event (those it does not name\n        follow ``notifications.events``).\n    route: What it is limited to (applications, projects, environments,\n        tags, a minimum severity).\n    quiet: When it stays silent, or null for never.\n    flood: The most it says in a stretch of time (``max`` messages in\n        ``minutes``), or null for no cap; what passes it arrives later as\n        one message.\n    summary: What waits for a periodic summary (``at``, ``timezone``,\n        ``below``, ``days``), or null for none.\n    team: The slug of the team that keeps it (``/api/teams/{team}/notifications``),\n        or null for the server's own.",
         "properties": {
           "configured": {
             "title": "Configured",
@@ -8660,6 +8683,17 @@
               }
             ],
             "title": "Summary"
+          },
+          "team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team"
           },
           "type": {
             "title": "Type",
@@ -13809,7 +13843,7 @@
         "type": "object"
       },
       "DatabaseInfoResponse": {
-        "description": "One database, as the engine and the store together describe it.\n\nAttributes:\n    owner: The owning role or account. Null for engines with no such\n        concept: MySQL/MariaDB and Redis have none, and MongoDB grants\n        roles to users rather than owning a database with one.\n    tables: Tables or collections; null when the listing does not count\n        them.\n    keys: Keys in a Redis slot.\n    tracked: Recorded by Noust: backed up with its application, linkable.\n    missing: Recorded by Noust but gone from the engine.\n    unverified: Recorded by Noust, on an engine that could not be read.\n    app: The application it belongs to, whose backups include it.\n    apps: Every application linked to it.\n    detected_apps: Applications whose environment names it, without a\n        recorded link.\n    username: The account Noust provisioned for it.\n    engine_version: The engine's version.\n    last_backup: When its newest dump was taken.\n    team: The slug of the team it belongs to; None for one an engine holds\n        that Noust never recorded, which belongs to nobody.\n    project: The slug of its project.\n    environment: The slug of its environment.",
+        "description": "One database, as the engine and the store together describe it.\n\nAttributes:\n    owner: The owning role or account. Null for engines with no such\n        concept: MySQL/MariaDB and Redis have none, and MongoDB grants\n        roles to users rather than owning a database with one.\n    tables: Tables or collections; null when the listing does not count\n        them.\n    keys: Keys in a Redis slot.\n    tracked: Recorded by Noust: backed up with its application, linkable.\n    missing: Recorded by Noust but gone from the engine.\n    unverified: Recorded by Noust, on an engine that could not be read.\n    app: The application it belongs to, whose backups include it.\n    apps: Every application linked to it.\n    detected_apps: Applications whose environment names it, without a\n        recorded link.\n    username: The account Noust provisioned for it.\n    engine_version: The engine's version.\n    last_backup: When its newest dump was taken.\n    team: The slug of the team it belongs to; None for one an engine holds\n        that Noust never recorded, which belongs to nobody.\n    project: The slug of its project.\n    environment: The slug of its environment.\n    tags: Its tags, sorted.",
         "properties": {
           "app": {
             "anyOf": [
@@ -13947,6 +13981,13 @@
               }
             ],
             "title": "Tables"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
           },
           "team": {
             "anyOf": [
@@ -14205,6 +14246,38 @@
           "backups"
         ],
         "title": "DatabaseOverviewResponse",
+        "type": "object"
+      },
+      "DatabaseTagsResponse": {
+        "description": "The tags of one database.\n\nAttributes:\n    engine: The engine it is on, as the listing names it.\n    database: Its name.\n    tags: Its tags, sorted.\n    max_tags: How many a database may carry.",
+        "properties": {
+          "database": {
+            "title": "Database",
+            "type": "string"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "max_tags": {
+            "default": 16,
+            "title": "Max Tags",
+            "type": "integer"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "engine",
+          "database",
+          "tags"
+        ],
+        "title": "DatabaseTagsResponse",
         "type": "object"
       },
       "DatabaseTransferIn": {
@@ -25677,7 +25750,7 @@
         "type": "object"
       },
       "InvitationCreate": {
-        "description": "An invitation: a new account, or a recovery for an existing one.\n\nAttributes:\n    username: The account's name.\n    role: The role of a new account; ignored for an existing one.\n    display_name: Display name of a new account.\n    person_ref: Person reference of a new account.\n    expires_hours: How long the code is valid.\n    team: The team a new account joins, instead of the default one.\n    team_role: Its role there (``viewer``, ``operator``, ``admin`` or\n        ``owner``); ``viewer`` when only ``team`` is given.",
+        "description": "An invitation: a new account, or a recovery for an existing one.\n\nAttributes:\n    username: The account's name.\n    role: The role of a new account; ignored for an existing one.\n    display_name: Display name of a new account.\n    person_ref: Person reference of a new account.\n    expires_hours: How long the code is valid.\n    team: The team a new account joins, instead of the default one.\n    team_role: Its role there (``viewer``, ``operator``, ``admin`` or\n        ``owner``); ``viewer`` when only ``team`` is given.\n    email: Where to mail the invitation, when the server can send mail: the\n        account keeps the address, and the code is also returned here.",
         "properties": {
           "display_name": {
             "anyOf": [
@@ -25690,6 +25763,18 @@
               }
             ],
             "title": "Display Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
           },
           "expires_hours": {
             "default": 24,
@@ -25759,7 +25844,7 @@
         "type": "object"
       },
       "InvitationIssued": {
-        "description": "An invitation code, shown exactly once.\n\nAttributes:\n    account: The account it is for.\n    code: The code; only its digest is stored.\n    expires_in: Seconds it is valid for.",
+        "description": "An invitation code, shown exactly once.\n\nAttributes:\n    account: The account it is for.\n    code: The code; only its digest is stored.\n    expires_in: Seconds it is valid for.\n    emailed: Whether the invitation was also mailed to the address given.\n    email_error: Why it was not, when it was asked for and failed: the invitation\n        exists, and its code is handed over by hand.",
         "properties": {
           "account": {
             "$ref": "#/components/schemas/AccountInfo"
@@ -25767,6 +25852,22 @@
           "code": {
             "title": "Code",
             "type": "string"
+          },
+          "email_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email Error"
+          },
+          "emailed": {
+            "default": false,
+            "title": "Emailed",
+            "type": "boolean"
           },
           "expires_in": {
             "title": "Expires In",
@@ -31269,7 +31370,7 @@
         "type": "object"
       },
       "NodeResponse": {
-        "description": "One node, as the central knows it.\n\nAttributes:\n    name: The node's name on this central.\n    ssh_host: Host the central's tunnel connects to.\n    ssh_port: SSH port on that host.\n    ssh_user: Account whose ``authorized_keys`` holds the central's key.\n    host_key: The pinned ``known_hosts`` line.\n    console_port: Loopback port of the node's console.\n    version: Noust version the node last reported.\n    status: ``unknown``, ``reachable``, ``unreachable`` or ``refused``.\n    last_seen: When the node last answered, ISO 8601 UTC.\n    allow_shell: Whether the node allows commands over SSH.\n    created_at: When the node was registered.\n    tunnel: The tunnel's current state, as the tunnel manager reports it.\n    monitoring: How long it has been silent and whether its monitoring is\n        paused; None when it answers and is watched as usual.\n    link: Set for a server that dials in (no SSH address to reach it at).",
+        "description": "One node, as the central knows it.\n\nAttributes:\n    name: The node's name on this central.\n    ssh_host: Host the central's tunnel connects to.\n    ssh_port: SSH port on that host.\n    ssh_user: Account whose ``authorized_keys`` holds the central's key.\n    host_key: The pinned ``known_hosts`` line.\n    console_port: Loopback port of the node's console.\n    version: Noust version the node last reported.\n    status: ``unknown``, ``reachable``, ``unreachable`` or ``refused``.\n    last_seen: When the node last answered, ISO 8601 UTC.\n    allow_shell: Whether the node allows commands over SSH.\n    created_at: When the node was registered.\n    tunnel: The tunnel's current state, as the tunnel manager reports it.\n    monitoring: How long it has been silent and whether its monitoring is\n        paused; None when it answers and is watched as usual.\n    link: Set for a server that dials in (no SSH address to reach it at).\n    team: The slug of the team the server is assigned to; null for the instance's.\n    labels: The labels the server carries (``PUT /api/fleet/servers/{node}/labels``).",
         "properties": {
           "allow_shell": {
             "default": false,
@@ -31294,6 +31395,13 @@
           "host_key": {
             "title": "Host Key",
             "type": "string"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "object"
           },
           "last_seen": {
             "anyOf": [
@@ -31346,6 +31454,17 @@
             "title": "Status",
             "type": "string"
           },
+          "team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team"
+          },
           "tunnel": {
             "additionalProperties": true,
             "title": "Tunnel",
@@ -31373,6 +31492,85 @@
           "status"
         ],
         "title": "NodeResponse",
+        "type": "object"
+      },
+      "NodeRotationRequest": {
+        "description": "Body of ``POST /api/nodes/{node}/rekey`` and ``POST /api/nodes/{node}/migrate-tunnel``.\n\nAttributes:\n    join_code: What ``noust fleet authorize`` printed on the node for the command the\n        first step gave. Omitted, the call is the first step and changes nothing there.",
+        "properties": {
+          "join_code": {
+            "anyOf": [
+              {
+                "maxLength": 8192,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Join Code"
+          }
+        },
+        "title": "NodeRotationRequest",
+        "type": "object"
+      },
+      "NodeRotationResponse": {
+        "description": "Response of either step of a rotation.\n\nAttributes:\n    name: The node.\n    step: ``authorize`` while the command is still to be run on the node, ``done`` once\n        this central reaches it with the new key or account.\n    authorize_command: The command to run on the node, as root, in the first step.\n    node: The node as it is reached afterwards, in the second.",
+        "properties": {
+          "authorize_command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authorize Command"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "node": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NodeResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "step": {
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "step"
+        ],
+        "title": "NodeRotationResponse",
+        "type": "object"
+      },
+      "NodeTeamRequest": {
+        "description": "Body of ``PUT /api/nodes/{node}/team``.\n\nAttributes:\n    team: The slug of the team to give the server to; null gives it back to\n        the instance.",
+        "properties": {
+          "team": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team"
+          }
+        },
+        "title": "NodeTeamRequest",
         "type": "object"
       },
       "NoisyRule": {
@@ -32425,6 +32623,87 @@
           "new_password"
         ],
         "title": "PasswordChange",
+        "type": "object"
+      },
+      "PasswordResetAsked": {
+        "description": "The one answer to a request for a link.\n\nAttributes:\n    message: What happens next, the same whether or not the account exists.\n    expires_in_minutes: How long a link lives.",
+        "properties": {
+          "expires_in_minutes": {
+            "title": "Expires In Minutes",
+            "type": "integer"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "expires_in_minutes"
+        ],
+        "title": "PasswordResetAsked",
+        "type": "object"
+      },
+      "PasswordResetConfirm": {
+        "description": "Choosing the new password with the link.\n\nAttributes:\n    code: The code the link carried.\n    password: The new password; checked against the policy.\n    second_factor: A code of the account's authenticator, or one of its backup codes.",
+        "properties": {
+          "code": {
+            "maxLength": 128,
+            "title": "Code",
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 1024,
+            "title": "Password",
+            "type": "string"
+          },
+          "second_factor": {
+            "maxLength": 64,
+            "title": "Second Factor",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "password",
+          "second_factor"
+        ],
+        "title": "PasswordResetConfirm",
+        "type": "object"
+      },
+      "PasswordResetDone": {
+        "description": "The reset worked.\n\nAttributes:\n    success: Always true here.\n    message: What to do next.",
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success",
+          "message"
+        ],
+        "title": "PasswordResetDone",
+        "type": "object"
+      },
+      "PasswordResetRequest": {
+        "description": "Asking for a link to choose a new password.\n\nAttributes:\n    identifier: The account's name, or the address its mail goes to.",
+        "properties": {
+          "identifier": {
+            "maxLength": 254,
+            "minLength": 1,
+            "title": "Identifier",
+            "type": "string"
+          }
+        },
+        "required": [
+          "identifier"
+        ],
+        "title": "PasswordResetRequest",
         "type": "object"
       },
       "PasswordResponse": {
@@ -36241,11 +36520,16 @@
         "type": "object"
       },
       "ProviderChoices": {
-        "description": "The ways to sign in besides an account's password.\n\nAttributes:\n    providers: Every enabled provider.\n    local_login: Whether a password or a passkey signs an account in.\n        False once single sign-on replaced them (I-23): the sign-in page\n        then offers the providers and, behind a link, the way an exempt\n        account still signs in.",
+        "description": "The ways to sign in besides an account's password.\n\nAttributes:\n    providers: Every enabled provider.\n    local_login: Whether a password or a passkey signs an account in.\n        False once single sign-on replaced them (I-23): the sign-in page\n        then offers the providers and, behind a link, the way an exempt\n        account still signs in.\n    password_reset: Whether the sign-in page offers \"forgot your password\": the\n        server can send mail, the console has a public address for the link, local\n        sign-in exists and the ENS profile is not in force.",
         "properties": {
           "local_login": {
             "default": true,
             "title": "Local Login",
+            "type": "boolean"
+          },
+          "password_reset": {
+            "default": false,
+            "title": "Password Reset",
             "type": "boolean"
           },
           "providers": {
@@ -36263,7 +36547,7 @@
         "type": "object"
       },
       "ProviderInfo": {
-        "description": "A configured provider, with no secret in it.\n\nAttributes:\n    name: Its short name.\n    label: What the button says after \"Sign in with\".\n    issuer: Its issuer, as its tokens write it.\n    client_id: The client Noust is registered as.\n    client_secret_set: Whether a client secret is stored (never its value).\n    scopes: Space separated.\n    enabled: Whether the sign-in page offers it.\n    require_email_verified: Whether the e-mail must be verified.\n    assume_email_verified: Whether an e-mail the provider says nothing\n        about counts as verified.\n    clock_skew_seconds: Tolerated clock difference.\n    provisioning: ``off``, ``invite`` or ``auto``.\n    default_role: The role of an account a first sign-in creates.\n    default_team: The team it joins instead of the default one.\n    default_team_role: Its role there.\n    link_by_email: Whether a first sign-in links by verified e-mail.\n    allowed_domains: When not empty, the e-mail domains allowed.\n    require_amr: When not empty, the methods one of which the provider must have used.\n    groups_claim: Where the token lists groups.\n    group_sync: Whether groups decide roles and teams.\n    group_mappings: What each group means.\n    redirect_uri: The callback address to register with the provider.\n    created_at: When it was configured, UNIX seconds.\n    created_by: Who configured it.\n    updated_at: Last change, UNIX seconds.\n    updated_by: Who made it.",
+        "description": "A configured provider, with no secret in it.\n\nAttributes:\n    name: Its short name.\n    label: What the button says after \"Sign in with\".\n    issuer: Its issuer, as its tokens write it.\n    client_id: The client Noust is registered as.\n    client_secret_set: Whether a client secret is stored (never its value).\n    scopes: Space separated.\n    enabled: Whether the sign-in page offers it.\n    require_email_verified: Whether the e-mail must be verified.\n    assume_email_verified: Whether an e-mail the provider says nothing\n        about counts as verified.\n    clock_skew_seconds: Tolerated clock difference.\n    provisioning: ``off``, ``invite`` or ``auto``.\n    default_role: The role of an account a first sign-in creates.\n    default_team: The team it joins instead of the default one.\n    default_team_role: Its role there.\n    link_by_email: Whether a first sign-in links by verified e-mail.\n    allowed_domains: When not empty, the e-mail domains allowed.\n    require_amr: When not empty, the methods one of which the provider must have used.\n    groups_claim: Where the token lists groups.\n    group_sync: Whether groups decide roles and teams.\n    group_mappings: What each group means.\n    redirect_uri: The callback address to register with the provider.\n    kind: ``oidc`` (an OpenID Connect provider) or ``github`` (OAuth 2.0 with GitHub).\n    created_at: When it was configured, UNIX seconds.\n    created_by: Who configured it.\n    updated_at: Last change, UNIX seconds.\n    updated_by: Who made it.",
         "properties": {
           "allowed_domains": {
             "items": {
@@ -36350,6 +36634,11 @@
           },
           "issuer": {
             "title": "Issuer",
+            "type": "string"
+          },
+          "kind": {
+            "default": "oidc",
+            "title": "Kind",
             "type": "string"
           },
           "label": {
@@ -36558,7 +36847,7 @@
         "type": "object"
       },
       "ProviderSettings": {
-        "description": "What to set on a provider; whatever is left out keeps its value.\n\nAn empty string clears a setting that can be empty (``default_team``,\n``default_team_role``, ``redirect_uri``).\n\nAttributes:\n    label: What the button says after \"Sign in with\".\n    issuer: The issuer URL, exactly as the provider's tokens write it.\n    client_id: The client id.\n    client_secret: The client secret to store; never returned.\n    clear_secret: Forget the stored secret (a public client).\n    scopes: Space separated; ``openid`` is always asked.\n    enabled: Whether the sign-in page offers it.\n    require_email_verified: Refuse a sign-in whose e-mail is not verified.\n    assume_email_verified: Count an e-mail the provider says nothing about\n        as verified (a directory the organisation controls).\n    clock_skew_seconds: Tolerated clock difference, up to 300.\n    provisioning: ``off``, ``invite`` or ``auto``.\n    default_role: ``viewer``, ``operator`` or ``admin``.\n    default_team: The team a created account joins.\n    default_team_role: Its role there.\n    link_by_email: Link a first sign-in to the account of its verified e-mail.\n    allowed_domains: Only these e-mail domains.\n    require_amr: The provider must have used one of these methods.\n    groups_claim: Where the token lists groups.\n    group_sync: Let groups decide roles and teams.\n    group_mappings: What each group means.\n    redirect_uri: The callback address, when it cannot be worked out.",
+        "description": "What to set on a provider; whatever is left out keeps its value.\n\nAn empty string clears a setting that can be empty (``default_team``,\n``default_team_role``, ``redirect_uri``).\n\nAttributes:\n    kind: ``oidc`` (the default) or ``github``; chosen when the provider is made.\n        A GitHub provider needs only the client id and secret of its OAuth App;\n        ``issuer`` names a GitHub Enterprise Server instead of github.com.\n    label: What the button says after \"Sign in with\".\n    issuer: The issuer URL, exactly as the provider's tokens write it.\n    client_id: The client id.\n    client_secret: The client secret to store; never returned.\n    clear_secret: Forget the stored secret (a public client).\n    scopes: Space separated; ``openid`` is always asked.\n    enabled: Whether the sign-in page offers it.\n    require_email_verified: Refuse a sign-in whose e-mail is not verified.\n    assume_email_verified: Count an e-mail the provider says nothing about\n        as verified (a directory the organisation controls).\n    clock_skew_seconds: Tolerated clock difference, up to 300.\n    provisioning: ``off``, ``invite`` or ``auto``.\n    default_role: ``viewer``, ``operator`` or ``admin``.\n    default_team: The team a created account joins.\n    default_team_role: Its role there.\n    link_by_email: Link a first sign-in to the account of its verified e-mail.\n    allowed_domains: Only these e-mail domains.\n    require_amr: The provider must have used one of these methods.\n    groups_claim: Where the token lists groups.\n    group_sync: Let groups decide roles and teams.\n    group_mappings: What each group means.\n    redirect_uri: The callback address, when it cannot be worked out.",
         "properties": {
           "allowed_domains": {
             "anyOf": [
@@ -36720,6 +37009,18 @@
               }
             ],
             "title": "Issuer"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
           },
           "label": {
             "anyOf": [
@@ -41948,6 +42249,50 @@
         "title": "RestartServicesRequest",
         "type": "object"
       },
+      "RestartTagRequest": {
+        "description": "Restart everything that carries a tag.\n\nAttributes:\n    dry_run: Say what would be restarted, and what would not and why, and restart nothing.",
+        "properties": {
+          "dry_run": {
+            "default": false,
+            "title": "Dry Run",
+            "type": "boolean"
+          }
+        },
+        "title": "RestartTagRequest",
+        "type": "object"
+      },
+      "RestartTagResponse": {
+        "description": "What restarting a tag did.\n\nAttributes:\n    tag: The tag.\n    dry_run: Whether nothing was restarted because it was only asked.\n    results: One row per thing that carries it that the caller sees.\n    restarted: How many were restarted.",
+        "properties": {
+          "dry_run": {
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "restarted": {
+            "title": "Restarted",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/TagRestartOut"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "tag": {
+            "title": "Tag",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag",
+          "dry_run",
+          "results",
+          "restarted"
+        ],
+        "title": "RestartTagResponse",
+        "type": "object"
+      },
       "RestoreFromDestinationRequest": {
         "description": "Request to restore a backup found on a remote destination.",
         "properties": {
@@ -46218,7 +46563,7 @@
         "type": "object"
       },
       "ServiceInfo": {
-        "description": "Service information.\n\nAttributes:\n    managed: Whether Noust manages this unit. False only when listing with\n        ``noust_only=false``, which walks every unit on the host; such a\n        row carries systemd's state fields and nothing else (``enabled``\n        false, no PID, memory or uptime), read from the one listing.\n    active_state: Systemd's own ``ActiveState`` (``active``, ``failed``,\n        ``activating``, ...). Distinguishes a unit systemd is repeatedly\n        restarting from one that is cleanly stopped, which ``active``\n        alone cannot: both report ``active=false`` between attempts.\n    sub_state: Systemd's own ``SubState`` (``running``, ``dead``,\n        ``auto-restart``, ...), the finer-grained half of the same story.\n    result: Systemd's own ``Result`` for the last run (``success``,\n        ``exit-code``, ``signal``, ...).",
+        "description": "Service information.\n\nAttributes:\n    managed: Whether Noust manages this unit. False only when listing with\n        ``noust_only=false``, which walks every unit on the host; such a\n        row carries systemd's state fields and nothing else (``enabled``\n        false, no PID, memory or uptime), read from the one listing.\n    active_state: Systemd's own ``ActiveState`` (``active``, ``failed``,\n        ``activating``, ...). Distinguishes a unit systemd is repeatedly\n        restarting from one that is cleanly stopped, which ``active``\n        alone cannot: both report ``active=false`` between attempts.\n    sub_state: Systemd's own ``SubState`` (``running``, ``dead``,\n        ``auto-restart``, ...), the finer-grained half of the same story.\n    result: Systemd's own ``Result`` for the last run (``success``,\n        ``exit-code``, ``signal``, ...).\n    tags: The unit's tags, sorted.",
         "properties": {
           "active": {
             "title": "Active",
@@ -46307,6 +46652,13 @@
             ],
             "title": "Sub State"
           },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
           "uptime": {
             "anyOf": [
               {
@@ -46372,6 +46724,33 @@
           "lines"
         ],
         "title": "ServiceLogsResponse",
+        "type": "object"
+      },
+      "ServiceTagsResponse": {
+        "description": "The tags of one unit.\n\nAttributes:\n    service: The unit.\n    tags: Its tags, sorted.\n    max_tags: How many a unit may carry.",
+        "properties": {
+          "max_tags": {
+            "default": 16,
+            "title": "Max Tags",
+            "type": "integer"
+          },
+          "service": {
+            "title": "Service",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "service",
+          "tags"
+        ],
+        "title": "ServiceTagsResponse",
         "type": "object"
       },
       "SessionEndedResponse": {
@@ -46696,6 +47075,20 @@
         "title": "SessionsListResponse",
         "type": "object"
       },
+      "SetDatabaseTagsRequest": {
+        "description": "The tags a database is to carry; any it has that are not here are removed.",
+        "properties": {
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "title": "SetDatabaseTagsRequest",
+        "type": "object"
+      },
       "SetPolicyRequest": {
         "description": "Request to create or replace a database's backup policy.\n\nAttributes:\n    schedule: ``hourly``, ``daily``, ``weekly``, ``monthly`` or a systemd\n        ``OnCalendar`` expression.\n    retention_count: Scheduled dumps to keep locally. Dumps taken by hand\n        and the safety copies of restores are never deleted by retention.\n    retention_days: Days to keep a scheduled dump locally.\n    retention_gb: The most the scheduled dumps kept locally may weigh\n        together, in gigabytes; the newest always stays.\n    remote_only: Delete each scheduled dump from this server once every\n        destination holds it (a small disk). Needs a destination.\n    destinations: Remote copies, each with its own retention.\n    dump_format: PostgreSQL's ``custom`` (default), ``plain`` or ``tar``.\n    verify_restore: Load each dump into a temporary database and drop it\n        as proof it restores. Not available for Redis.\n    enabled: Whether the timer runs; a disabled policy keeps its settings.\n    max_runtime_seconds: The longest a run may take; systemd stops one past it. Null for\n        no limit.\n    timezone: The time zone the schedule is read in (``Europe/Madrid``); null for the\n        server's clock.\n    exclude_databases: Databases an all-databases policy (stored under\n        ``*``) skips.\n    exclude_schemas: PostgreSQL schemas left out of every dump.\n    exclude_tables: Tables (PostgreSQL, MySQL, MariaDB) or collections\n        (MongoDB) left out of every dump.",
         "properties": {
@@ -46975,6 +47368,20 @@
           }
         },
         "title": "SetScheduleRequest",
+        "type": "object"
+      },
+      "SetServiceTagsRequest": {
+        "description": "The tags a unit is to carry; any it has that are not here are removed.",
+        "properties": {
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "title": "SetServiceTagsRequest",
         "type": "object"
       },
       "SetTagsRequest": {
@@ -52089,6 +52496,35 @@
         "title": "TagOut",
         "type": "object"
       },
+      "TagRestartOut": {
+        "description": "What came of one thing that carries the tag.\n\nAttributes:\n    kind: ``application``, ``service`` or ``database``.\n    name: A domain, a unit, or ``engine/database``.\n    outcome: ``restarted``, ``would_restart`` (a dry run), ``skipped`` or ``failed``.\n    detail: Why, for a skip or a failure.",
+        "properties": {
+          "detail": {
+            "default": "",
+            "title": "Detail",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "outcome"
+        ],
+        "title": "TagRestartOut",
+        "type": "object"
+      },
       "TagsResponse": {
         "description": "The tags of one application.\n\nAttributes:\n    domain: The application.\n    tags: Its tags, sorted.\n    max_tags: How many an application may carry.",
         "properties": {
@@ -52262,6 +52698,234 @@
           "role"
         ],
         "title": "TeamBindRequest",
+        "type": "object"
+      },
+      "TeamChannelBody": {
+        "description": "What to set on a team's channel; whatever is left out stays as it is.\n\nAttributes:\n    type: The type; needed for a new channel.\n    enabled: On or off.\n    settings: The type's settings to set (``***`` keeps a stored credential,\n        an empty string clears a setting).\n    events: Replaces the channel's own event switches (empty clears them).\n    route: Replaces which of the team's applications it hears (empty clears it).\n    quiet: Replaces its quiet hours (empty clears them).\n    flood: Replaces its anti-flood cap (empty clears it).\n    summary: Replaces its periodic summary (empty clears it).",
+        "properties": {
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "events": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "boolean"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Events"
+          },
+          "flood": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flood"
+          },
+          "quiet": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiet"
+          },
+          "route": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route"
+          },
+          "settings": {
+            "additionalProperties": true,
+            "title": "Settings",
+            "type": "object"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          }
+        },
+        "title": "TeamChannelBody",
+        "type": "object"
+      },
+      "TeamChannelListResponse": {
+        "description": "A team's channels and the types it may add.\n\nAttributes:\n    team: The team's slug.\n    items: Its channels, by name.\n    types: The types a team may use, with their settings.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TeamChannelModel"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "team": {
+            "title": "Team",
+            "type": "string"
+          },
+          "types": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Types",
+            "type": "array"
+          }
+        },
+        "required": [
+          "team",
+          "items",
+          "types"
+        ],
+        "title": "TeamChannelListResponse",
+        "type": "object"
+      },
+      "TeamChannelModel": {
+        "description": "One of a team's channels, without its credentials.\n\nAttributes:\n    name: What the team calls it.\n    type: One of the types a team may use (everything but email).\n    enabled: Whether it is on.\n    configured: Whether it has what its type needs to deliver.\n    settings: The type's settings; a credential reads ``***`` when stored.\n    events: Its own switch per event.\n    route: Which of the team's applications it hears (projects, environments,\n        tags, a minimum severity); empty is all of them.\n    quiet: When it stays silent, or null.\n    flood: The most it says in a stretch of time, or null.\n    summary: What waits for a periodic summary, or null.",
+        "properties": {
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "events": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Events",
+            "type": "object"
+          },
+          "flood": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flood"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "quiet": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiet"
+          },
+          "route": {
+            "additionalProperties": true,
+            "title": "Route",
+            "type": "object"
+          },
+          "settings": {
+            "additionalProperties": true,
+            "title": "Settings",
+            "type": "object"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "enabled",
+          "configured"
+        ],
+        "title": "TeamChannelModel",
+        "type": "object"
+      },
+      "TeamChannelTestResult": {
+        "description": "The outcome of a test message.\n\nAttributes:\n    ok: Whether it was delivered.\n    detail: A confirmation, or the failure in the receiving side's own words.",
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "detail"
+        ],
+        "title": "TeamChannelTestResult",
         "type": "object"
       },
       "TeamDetailOut": {
@@ -58331,7 +58995,7 @@
         "type": "object"
       },
       "WebhookReceivedOut": {
-        "description": "One delivery the forge sent.\n\nAttributes:\n    id: Row id; larger is newer.\n    received_at: When it arrived (the last of a burst, for a folded row),\n        with a UTC offset.\n    provider: ``github``, ``gitea``, ``gitlab``, ``bitbucket`` or ``github-app``; None\n        when no credential verified.\n    event: The forge's name for the event.\n    outcome: ``deploy_started``, ``preview_started``, ``ping``,\n        ``ignored_branch``, ``ignored_tag``, ``ignored_event``,\n        ``ignored_pull_request``, ``duplicate``, ``bad_signature`` or\n        ``locked``.\n    branch: The branch a push named.\n    detail: One short line of context.\n    job_id: The job it queued, to follow in the console's jobs.\n    delivery_id: The forge's id for the delivery.\n    count: How many identical refusals the row stands for.",
+        "description": "One delivery the forge sent.\n\nAttributes:\n    id: Row id; larger is newer.\n    received_at: When it arrived (the last of a burst, for a folded row),\n        with a UTC offset.\n    provider: ``github``, ``gitea``, ``forgejo``, ``gogs``, ``gitlab``, ``bitbucket`` or ``github-app``; None\n        when no credential verified.\n    event: The forge's name for the event.\n    outcome: ``deploy_started``, ``preview_started``, ``ping``,\n        ``ignored_branch``, ``ignored_tag``, ``ignored_event``,\n        ``ignored_pull_request``, ``duplicate``, ``bad_signature`` or\n        ``locked``.\n    branch: The branch a push named.\n    detail: One short line of context.\n    job_id: The job it queued, to follow in the console's jobs.\n    delivery_id: The forge's id for the delivery.\n    count: How many identical refusals the row stands for.",
         "properties": {
           "branch": {
             "anyOf": [
@@ -61181,7 +61845,7 @@
         "type": "object"
       },
       "noust__web__api__manifest__ActionOut": {
-        "description": "One change a manifest asks for.\n\nAttributes:\n    kind: ``project.create``, ``environment.create``, ``app.create``, ``app.move``,\n        ``app.branch``, ``app.limits``, ``app.health``, ``app.domain``, ``app.database``,\n        ``app.env`` or ``app.backups``.\n    target: What it is done to.\n    summary: What it does, with no value of any variable.\n    elevated: Applying it needs sudo mode.\n    unverified: Whether it is needed could not be checked.",
+        "description": "One change a manifest asks for.\n\nAttributes:\n    kind: ``project.create``, ``environment.create``, ``app.create``, ``app.move``,\n        ``app.branch``, ``app.limits``, ``app.health``, ``app.domain``, ``app.database``,\n        ``app.env``, ``app.backups``, ``cron.set``, ``cron.state``, ``server.team``,\n        ``server.labels`` or ``placement.set``.\n    target: What it is done to (``SERVER:target`` when it is on another server).\n    summary: What it does, with no value of any variable and no cron command.\n    elevated: Applying it needs sudo mode.\n    unverified: Whether it is needed could not be checked.\n    server: The server of the fleet it is done on, through this central; null for this one.",
         "properties": {
           "elevated": {
             "default": false,
@@ -61191,6 +61855,17 @@
           "kind": {
             "title": "Kind",
             "type": "string"
+          },
+          "server": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server"
           },
           "summary": {
             "title": "Summary",
@@ -61215,7 +61890,7 @@
         "type": "object"
       },
       "noust__web__api__manifest__PlanResponse": {
-        "description": "What applying a manifest would change.\n\nAttributes:\n    empty: Nothing would.\n    digest: What the preview says, in one hash: send it with the apply so\n        it is refused if the plan has changed since.\n    actions: The changes, in the order they would run.\n    warnings: Differences that are not reconciled, and what could not be checked.\n    unmanaged: Applications the caller sees that the manifest does not name.\n    counts: How many actions of each kind.",
+        "description": "What applying a manifest would change.\n\nAttributes:\n    empty: Nothing would.\n    digest: What the preview says, in one hash: send it with the apply so\n        it is refused if the plan has changed since.\n    actions: The changes, in the order they would run.\n    warnings: Differences that are not reconciled, and what could not be checked.\n    unmanaged: Applications and cron jobs (``cron:NAME``) the caller sees that the\n        manifest does not name.\n    counts: How many actions of each kind.",
         "properties": {
           "actions": {
             "items": {
@@ -77631,6 +78306,92 @@
         "x-noust-permission": "self"
       }
     },
+    "/api/auth/password-reset/confirm": {
+      "post": {
+        "description": "Choose a new password with a mailed link and a code of the second factor.\n\nAnonymous. The link is single-use; the account's other sessions are signed out.\nA wrong second factor counts like a wrong password at sign-in (it can lock the\naccount) and leaves the link usable.\n\nArgs:\n    request: The incoming request.\n    body: The code of the link, the new password and a second factor code.\n\nReturns:\n    A confirmation.\n\nRaises:\n    HTTPException: 401 ``invalid_reset`` for a link that is unknown, used or\n        expired; 401 ``invalid_credentials`` for a wrong second factor.\n    ValidationError: 400 when the password is refused; the link stays usable.",
+        "operationId": "confirm_password_reset_api_auth_password_reset_confirm_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetConfirm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordResetDone"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Password Reset",
+        "tags": [
+          "Authentication"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/auth/password-reset/request": {
+      "post": {
+        "description": "Ask for a link to choose a new password, mailed to the account's address.\n\nAnonymous. The answer is the same whether the account exists, has an address or\nhas anything to reset: nothing says which, and the mail is sent after the answer.\n\nArgs:\n    request: The incoming request.\n    body: The account's name or address.\n    background: Where the mail is sent from.\n\nReturns:\n    What happens next.\n\nRaises:\n    HTTPException: 404 ``reset_unavailable`` when the server has no mail channel,\n        has local sign-in off, or runs the ENS profile.",
+        "operationId": "request_password_reset_api_auth_password_reset_request_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordResetAsked"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Password Reset",
+        "tags": [
+          "Authentication"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
     "/api/auth/roles": {
       "get": {
         "description": "Describe the roles and the permissions they hold.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The role table and every permission's description.",
@@ -83737,7 +84498,7 @@
     },
     "/api/databases/databases": {
       "get": {
-        "description": "List databases across the running engines, joined with the store.\n\nArgs:\n    engine: Engine to restrict the listing to.\n    session: The authenticated session.\n    team: Only this team's databases.\n    project: Only the projects with this slug.\n    environment: Only the environments with this slug.\n\nReturns:\n    Every database the running engines report, the tracked ones they\n    no longer have (``missing``), and the engines that could not be read\n    (``problems``). A team member sees the databases its teams own: one an\n    engine holds that Noust never recorded belongs to nobody.",
+        "description": "List databases across the running engines, joined with the store.\n\nArgs:\n    engine: Engine to restrict the listing to.\n    session: The authenticated session.\n    team: Only this team's databases.\n    project: Only the projects with this slug.\n    environment: Only the environments with this slug.\n    tag: Only the databases that carry this tag.\n\nReturns:\n    Every database the running engines report, the tracked ones they\n    no longer have (``missing``), and the engines that could not be read\n    (``problems``). A team member sees the databases its teams own: one an\n    engine holds that Noust never recorded belongs to nobody.",
         "operationId": "list_databases_api_databases_databases_get",
         "parameters": [
           {
@@ -83810,6 +84571,24 @@
               ],
               "description": "Only this environment's databases",
               "title": "Environment"
+            }
+          },
+          {
+            "description": "Only the databases that carry this tag",
+            "in": "query",
+            "name": "tag",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only the databases that carry this tag",
+              "title": "Tag"
             }
           }
         ],
@@ -85762,6 +86541,120 @@
           "Databases"
         ],
         "x-noust-permission": "databases.read"
+      }
+    },
+    "/api/databases/databases/{engine}/{name}/tags": {
+      "get": {
+        "description": "Read the tags of a database.\n\nArgs:\n    engine: Engine name.\n    name: Database name.\n    session: The authenticated session.\n\nReturns:\n    Its tags.\n\nRaises:\n    DatabaseNotFoundError: When no such database exists.",
+        "operationId": "get_database_tags_api_databases_databases__engine___name__tags_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "engine",
+            "required": true,
+            "schema": {
+              "title": "Engine",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseTagsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Database Tags",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      },
+      "put": {
+        "description": "Make a database carry exactly these tags.\n\nArgs:\n    engine: Engine name.\n    name: Database name.\n    body: The tags.\n    session: The authenticated session.\n\nReturns:\n    The tags it carries now.\n\nRaises:\n    DatabaseNotFoundError: When no such database exists.\n    ValidationError: A tag is not one, or there are too many (400).",
+        "operationId": "put_database_tags_api_databases_databases__engine___name__tags_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "engine",
+            "required": true,
+            "schema": {
+              "title": "Engine",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetDatabaseTagsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseTagsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Database Tags",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.write"
       }
     },
     "/api/databases/engines": {
@@ -96978,7 +97871,7 @@
     },
     "/api/nodes": {
       "get": {
-        "description": "List every node with its status and its tunnel's.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The nodes.",
+        "description": "List the nodes the caller sees with their status and their tunnel's.\n\nThe instance sees every server; a member of a team sees those assigned to it.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The nodes.",
         "operationId": "list_nodes_api_nodes_get",
         "responses": {
           "200": {
@@ -97292,6 +98185,66 @@
         "x-noust-permission": "fleet.manage"
       }
     },
+    "/api/nodes/{node}/migrate-tunnel": {
+      "post": {
+        "description": "Move a server a 3.0 central authorized as root onto the unprivileged tunnel account.\n\nWithout a join code, the command to run on the server as root is returned: it creates\nthe restricted account, installs this central's key for it and takes that key out of\nroot's authorized_keys. With the code it printed, this central switches to it once the\nserver answers; otherwise nothing changes here and the same code can be sent again.\n\nArgs:\n    node: The node's name.\n    body: The join code, or nothing for the first step.\n    request: The incoming request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The command to run, or the node reached as the tunnel account.",
+        "operationId": "migrate_node_tunnel_api_nodes__node__migrate_tunnel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "title": "Node",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NodeRotationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodeRotationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Migrate Node Tunnel",
+        "tags": [
+          "Nodes"
+        ],
+        "x-noust-permission": "fleet.manage",
+        "x-noust-requires-approval": {
+          "action": "fleet.node.migrate",
+          "kind": "infrastructure",
+          "when": "always"
+        },
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/nodes/{node}/monitoring": {
       "put": {
         "description": "Pause a node's monitoring for maintenance, or resume it.\n\nA paused node is not probed, not counted as down and never announced: nothing\nabout it is hidden (the fleet still shows what it last answered), it is only\nnot made noise about until the operator resumes it.\n\nArgs:\n    node: The node's name.\n    body: Whether to pause, and why.\n    request: The incoming request, for the audit record.\n    session: The authenticated session, of ``admin`` scope.\n\nReturns:\n    The node, with its monitoring.",
@@ -97344,6 +98297,66 @@
           "Nodes"
         ],
         "x-noust-permission": "fleet.manage"
+      }
+    },
+    "/api/nodes/{node}/rekey": {
+      "post": {
+        "description": "Give a server a new key, in two steps.\n\nWithout a join code, a new key pair is generated (once: asking again gives the same)\nand the command that authorizes it is returned, to run on the server as root; that\nalso removes the old key there. With the join code it printed, this central switches\nto the new key once the server answers with it and the new token; otherwise nothing\nchanges here and the same code can be sent again.\n\nArgs:\n    node: The node's name.\n    body: The join code, or nothing for the first step.\n    request: The incoming request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The command to run, or the node reached with its new key.",
+        "operationId": "rekey_node_api_nodes__node__rekey_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "title": "Node",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NodeRotationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodeRotationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rekey Node",
+        "tags": [
+          "Nodes"
+        ],
+        "x-noust-permission": "fleet.manage",
+        "x-noust-requires-approval": {
+          "action": "fleet.node.rekey",
+          "kind": "infrastructure",
+          "when": "always"
+        },
+        "x-noust-requires-elevation": true
       }
     },
     "/api/nodes/{node}/ssh": {
@@ -97436,6 +98449,61 @@
           }
         },
         "summary": "Set Node Ssh",
+        "tags": [
+          "Nodes"
+        ],
+        "x-noust-permission": "fleet.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/nodes/{node}/team": {
+      "put": {
+        "description": "Assign a server to a team, or give it back to the instance.\n\nThe team's members then see the server and work on it through this central,\nwithin what their roles hold in the team and never on anything that is about\nthe machine. Moving a server to another team takes it from the first at once.\n\nArgs:\n    node: The node's name.\n    body: The team's slug, or null.\n    request: The incoming request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The node, with its team.\n\nRaises:\n    TeamNotFoundError: 404 when the team does not exist.",
+        "operationId": "set_node_team_api_nodes__node__team_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "title": "Node",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NodeTeamRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Node Team",
         "tags": [
           "Nodes"
         ],
@@ -104091,6 +105159,24 @@
               "description": "Only the units in this state. 'failed' also keeps the ones systemd keeps restarting; the console's Services page filters the same way",
               "title": "State"
             }
+          },
+          {
+            "description": "Only the units that carry this tag",
+            "in": "query",
+            "name": "tag",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only the units that carry this tag",
+              "title": "Tag"
+            }
           }
         ],
         "responses": {
@@ -104675,6 +105761,102 @@
           "Services"
         ],
         "x-noust-permission": "apps.operate"
+      }
+    },
+    "/api/services/{name}/tags": {
+      "get": {
+        "description": "Read the tags of a service.\n\nArgs:\n    name: Service name.\n    session: The authenticated session.\n\nReturns:\n    Its tags.",
+        "operationId": "get_service_tags_api_services__name__tags_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceTagsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Service Tags",
+        "tags": [
+          "Services"
+        ],
+        "x-noust-permission": "server.read"
+      },
+      "put": {
+        "description": "Make a service carry exactly these tags.\n\nArgs:\n    name: Service name.\n    body: The tags.\n    session: The authenticated session.\n\nReturns:\n    The tags it carries now.\n\nRaises:\n    ValidationError: A tag is not one, or there are too many (400).",
+        "operationId": "put_service_tags_api_services__name__tags_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetServiceTagsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceTagsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Service Tags",
+        "tags": [
+          "Services"
+        ],
+        "x-noust-permission": "server.manage"
       }
     },
     "/api/sites": {
@@ -106303,6 +107485,67 @@
         "x-noust-permission": "apps.deploy"
       }
     },
+    "/api/tags/{tag}/restart": {
+      "post": {
+        "description": "Restart every application and service that carries a tag.\n\nWhat a caller reaches is what it sees: a team's applications, never another team's, and the\nserver's units only for the instance. A database that carries the tag is listed and left,\nbecause a database is restarted with its engine, which every database on it shares. One that\nfails does not stop the others; ``dry_run`` says what would happen first.\n\nArgs:\n    tag: The tag.\n    session: The authenticated session.\n    body: ``dry_run`` to restart nothing.\n\nReturns:\n    What came of each.\n\nRaises:\n    ValidationError: The tag is not one, or it reaches more than :data:`MAX_RESTART` things.\n    HTTPException: 404 when nothing the caller sees carries it.",
+        "operationId": "restart_tag_api_tags__tag__restart_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tag",
+            "required": true,
+            "schema": {
+              "title": "Tag",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RestartTagRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestartTagResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restart Tag",
+        "tags": [
+          "Tags"
+        ],
+        "x-noust-permission": "apps.operate"
+      }
+    },
     "/api/teams": {
       "get": {
         "description": "List the teams the principal sees.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Every team for a principal that sees them all, otherwise its own.",
@@ -106957,6 +108200,212 @@
         ],
         "x-noust-permission": "teams.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/teams/{team}/notifications/channels": {
+      "get": {
+        "description": "List a team's notification channels.\n\nArgs:\n    team: The team's slug.\n    session: The authenticated session.\n\nReturns:\n    Its channels without credentials, and the types it may add.\n\nRaises:\n    TeamNotFoundError: 404 when there is no such team.",
+        "operationId": "list_team_channels_api_teams__team__notifications_channels_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamChannelListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Team Channels",
+        "tags": [
+          "Notifications"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/teams/{team}/notifications/channels/{name}": {
+      "delete": {
+        "description": "Remove one of a team's channels.\n\nArgs:\n    team: The team's slug.\n    name: What the team calls the channel.\n    session: The elevated session.\n\nRaises:\n    HTTPException: 404 when the team has no such channel.",
+        "operationId": "remove_team_channel_api_teams__team__notifications_channels__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Team Channel",
+        "tags": [
+          "Notifications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      },
+      "put": {
+        "description": "Create one of a team's channels or change one.\n\nA team's channel hears about the applications of that team and nothing else.\n\nArgs:\n    team: The team's slug.\n    name: What the team calls the channel.\n    body: What to set; what is left out stays.\n    session: The elevated session.\n\nReturns:\n    The channel as it now stands.\n\nRaises:\n    ValidationError: 400 for a name or a type that is not acceptable, an email\n        channel, a team with too many channels, or a setting the type refuses.",
+        "operationId": "save_team_channel_api_teams__team__notifications_channels__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamChannelBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamChannelModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Team Channel",
+        "tags": [
+          "Notifications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/teams/{team}/notifications/channels/{name}/test": {
+      "post": {
+        "description": "Send a test message through one of a team's channels.\n\nIgnores the master switch and the event filters, as the server's own test does,\nand goes through the notifier's own guard against private destinations.\n\nArgs:\n    team: The team's slug.\n    name: What the team calls the channel.\n    session: The authenticated session.\n\nReturns:\n    ``ok`` with a confirmation, or the failure in the receiving side's own words.\n\nRaises:\n    HTTPException: 404 when the team has no such channel.",
+        "operationId": "test_team_channel_api_teams__team__notifications_channels__name__test_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamChannelTestResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Test Team Channel",
+        "tags": [
+          "Notifications"
+        ],
+        "x-noust-permission": "apps.operate"
       }
     },
     "/api/teams/{team}/projects": {

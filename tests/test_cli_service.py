@@ -45,6 +45,7 @@ SPELLINGS: dict[str, tuple[str, ...]] = {
     "restart": ("restart",),
     "logs": ("logs",),
     "delete": ("delete", "remove", "rm"),
+    "tag": ("tag",),
 }
 
 ALL_SPELLINGS = [name for names in SPELLINGS.values() for name in names]
@@ -471,7 +472,14 @@ def test_list_json_before_the_command_name(runner: FakeRunner, unit_dir: Path) -
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload == [
-        {"name": "wasm-up", "status": "running", "state": "running", "managed": True, "app": None}
+        {
+            "name": "wasm-up",
+            "status": "running",
+            "state": "running",
+            "managed": True,
+            "app": None,
+            "tags": [],
+        }
     ]
 
 

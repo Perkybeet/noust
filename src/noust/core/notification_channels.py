@@ -56,6 +56,7 @@ class ChannelView:
         quiet: Its quiet hours, as they are written; None when it has none.
         flood: Its anti-flood cap, as it is written; None when it has none.
         summary: Its periodic summary, as it is written; None when it has none.
+        team: The slug of the team it belongs to; None for the server's own.
     """
 
     name: str
@@ -69,6 +70,7 @@ class ChannelView:
     quiet: dict[str, Any] | None = None
     flood: dict[str, Any] | None = None
     summary: dict[str, Any] | None = None
+    team: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -87,6 +89,7 @@ class ChannelView:
             "quiet": dict(self.quiet) if self.quiet is not None else None,
             "flood": dict(self.flood) if self.flood is not None else None,
             "summary": dict(self.summary) if self.summary is not None else None,
+            "team": self.team,
         }
 
 
@@ -145,6 +148,7 @@ def _view(instance: ChannelInstance) -> ChannelView:
         quiet=quiet.to_dict() if quiet is not None else None,
         flood=flood.to_dict() if flood is not None else None,
         summary=summary.to_dict() if summary is not None else None,
+        team=instance.routing.team,
     )
 
 
@@ -204,6 +208,7 @@ class ChannelAdmin:
         quiet: Mapping[str, Any] | None = None,
         flood: Mapping[str, Any] | None = None,
         summary: Mapping[str, Any] | None = None,
+        team: str | None = None,
     ) -> ChannelView:
         """
         Create a channel or change one, keeping what is not mentioned.
@@ -221,6 +226,10 @@ class ChannelAdmin:
             quiet: Replaces its quiet hours when given (empty clears them).
             flood: Replaces its anti-flood cap when given (empty clears it).
             summary: Replaces its periodic summary when given (empty clears it).
+            team: The team the channel belongs to, set when it is made by a team
+                (:class:`noust.core.notifications.team_channels.TeamChannels`, which
+                checks the team exists); unchanged when None. A channel's team is
+                never cleared here: a team's channel is removed, not handed over.
 
         Returns:
             The channel as it now stands.
@@ -260,6 +269,8 @@ class ChannelAdmin:
 
         if name not in TYPES:
             block["type"] = chosen
+        if team is not None:
+            block["team"] = team
         if enabled is not None:
             block["enabled"] = enabled
         allowed = TYPES[chosen].keys

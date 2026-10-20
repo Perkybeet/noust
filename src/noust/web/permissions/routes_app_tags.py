@@ -6,7 +6,8 @@ The permissions of tags on applications (:mod:`noust.web.api.app_tags`).
 
 Reading tags is ``apps.read``; setting them is ``apps.manage`` (they decide which
 applications a ``deploy`` by tag reaches); deploying a tag is ``apps.deploy``,
-which is what a pipeline's token holds to call it.
+which is what a pipeline's token holds to call it, and restarting one is ``apps.operate``,
+which is what a restart of a single application asks.
 """
 
 from __future__ import annotations
@@ -18,4 +19,5 @@ ROUTES: dict[tuple[str, str], str] = {
     ("PUT", "/api/apps/{domain}/tags"): Permission.APPS_MANAGE,
     ("GET", "/api/tags"): Permission.APPS_READ,
     ("POST", "/api/tags/{tag}/deploy"): Permission.APPS_DEPLOY,
+    ("POST", "/api/tags/{tag}/restart"): Permission.APPS_OPERATE,
 }

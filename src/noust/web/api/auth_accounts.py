@@ -18,14 +18,25 @@ one is counted by the same lockout as a wrong password.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from noust.core.accounts import Account, AuthenticationFailed, SodException
-from noust.core.accounts.model import ROLE_ADMIN, AccountError
+from noust.core.accounts.local_login import load_policy as load_local_login
+from noust.core.accounts.mail import AccountMailer
+from noust.core.accounts.model import ROLE_ADMIN, AccountError, clean_email
+from noust.core.accounts.reset import (
+    LIFETIME_MINUTES,
+    IssuedReset,
+    PasswordResets,
+    ResetRefused,
+)
 from noust.core.audit import record as audit_record
+from noust.core.ens.profile import is_ens
+from noust.core.exceptions import EmailError, ValidationError
 from noust.core.teams.onboarding import invite_to_team
 from noust.web.api.deps import NoustErrorRoute, require_elevated
 from noust.web.auth import (
@@ -38,7 +49,40 @@ from noust.web.auth import (
 from noust.web.permissions.principal import actor_of
 from noust.web.server import get_token_manager
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(route_class=NoustErrorRoute)
+
+
+def account_mailer() -> AccountMailer:
+    """
+    Returns:
+        The mailer that sends an invitation or a reset link. Module level so a test
+        can stand in another.
+    """
+    return AccountMailer()
+
+
+def ens_profile_active() -> bool:
+    """
+    Returns:
+        Whether the ENS profile is on. Module level so a test can stand in another.
+    """
+    return is_ens()
+
+
+def password_reset_offered() -> bool:
+    """
+    Whether a person may ask for a password reset link.
+
+    There must be a way to send mail and a public address for the link, local sign-in
+    must exist to be reset, and the ENS profile recovers accounts through a security
+    officer (an invitation), never through an inbox.
+
+    Returns:
+        True when the sign-in page should offer it.
+    """
+    return not ens_profile_active() and load_local_login().enabled and account_mailer().ready()
 
 
 class AccountInfo(BaseModel):
@@ -52,6 +96,7 @@ class AccountInfo(BaseModel):
         role: ``viewer``, ``operator``, ``admin``, ``security`` or ``auditor``.
         status: ``active``, ``disabled``, ``locked`` or ``invited``.
         person_ref: Who the account belongs to, for separation of duties.
+        email: Where its invitations and password resets are mailed.
         mfa_enabled: Whether a second factor is enrolled: an authenticator
             or a passkey.
         passkeys: How many passkeys it has.
@@ -74,6 +119,7 @@ class AccountInfo(BaseModel):
     role: str
     status: str
     person_ref: str | None = None
+    email: str | None = None
     mfa_enabled: bool
     passkeys: int = 0
     backup_codes_remaining: int
@@ -111,6 +157,7 @@ _ACCOUNT_FIELDS = (
     "role",
     "status",
     "person_ref",
+    "email",
     "mfa_enabled",
     "passkeys",
     "backup_codes_remaining",
@@ -182,11 +229,13 @@ class AccountUpdate(BaseModel):
         role: A new role.
         display_name: A new display name.
         person_ref: A new person reference; empty clears it.
+        email: A new address for invitations and password resets; empty clears it.
     """
 
     role: str | None = None
     display_name: str | None = Field(default=None, max_length=128)
     person_ref: str | None = Field(default=None, max_length=254)
+    email: str | None = Field(default=None, max_length=254)
 
 
 class AccountDisable(BaseModel):
@@ -213,6 +262,8 @@ class InvitationCreate(BaseModel):
         team: The team a new account joins, instead of the default one.
         team_role: Its role there (``viewer``, ``operator``, ``admin`` or
             ``owner``); ``viewer`` when only ``team`` is given.
+        email: Where to mail the invitation, when the server can send mail: the
+            account keeps the address, and the code is also returned here.
     """
 
     username: str = Field(min_length=2, max_length=64)
@@ -222,6 +273,7 @@ class InvitationCreate(BaseModel):
     expires_hours: int = Field(default=24, ge=1, le=24 * 14)
     team: str | None = Field(default=None, max_length=40)
     team_role: str | None = Field(default=None, max_length=16)
+    email: str | None = Field(default=None, max_length=254)
 
 
 class InvitationIssued(BaseModel):
@@ -232,11 +284,16 @@ class InvitationIssued(BaseModel):
         account: The account it is for.
         code: The code; only its digest is stored.
         expires_in: Seconds it is valid for.
+        emailed: Whether the invitation was also mailed to the address given.
+        email_error: Why it was not, when it was asked for and failed: the invitation
+            exists, and its code is handed over by hand.
     """
 
     account: AccountInfo
     code: str
     expires_in: int
+    emailed: bool = False
+    email_error: str | None = None
 
 
 class InvitationCode(BaseModel):
@@ -540,6 +597,198 @@ def accept_invitation(request: Request, body: InvitationAccept) -> InvitationAcc
     return InvitationAccepted(username=account.username, backup_codes=codes)
 
 
+class PasswordResetRequest(BaseModel):
+    """
+    Asking for a link to choose a new password.
+
+    Attributes:
+        identifier: The account's name, or the address its mail goes to.
+    """
+
+    identifier: str = Field(min_length=1, max_length=254)
+
+
+class PasswordResetConfirm(BaseModel):
+    """
+    Choosing the new password with the link.
+
+    Attributes:
+        code: The code the link carried.
+        password: The new password; checked against the policy.
+        second_factor: A code of the account's authenticator, or one of its backup codes.
+    """
+
+    code: str = Field(max_length=128)
+    password: str = Field(max_length=1024)
+    second_factor: str = Field(max_length=64)
+
+
+class PasswordResetAsked(BaseModel):
+    """
+    The one answer to a request for a link.
+
+    Attributes:
+        message: What happens next, the same whether or not the account exists.
+        expires_in_minutes: How long a link lives.
+    """
+
+    message: str
+    expires_in_minutes: int
+
+
+class PasswordResetDone(BaseModel):
+    """
+    The reset worked.
+
+    Attributes:
+        success: Always true here.
+        message: What to do next.
+    """
+
+    success: bool
+    message: str
+
+
+def _mail_reset_link(issued: IssuedReset, client_ip: str) -> None:
+    """
+    Send a reset link after the response went, so how long it takes says nothing.
+
+    Args:
+        issued: The link.
+        client_ip: Where the request came from, for the record.
+    """
+    try:
+        account_mailer().send_reset(issued.address, issued.account.username, issued.code)
+    except (EmailError, AccountError) as exc:
+        logger.warning("A password reset link could not be mailed: %s", exc.message)
+        audit_event(
+            "auth.password.reset_request",
+            "failure",
+            client_ip=client_ip,
+            target=f"account:{issued.account.username}",
+            detail="the mail could not be sent",
+        )
+
+
+@router.post("/password-reset/request", response_model=PasswordResetAsked, status_code=202)
+def request_password_reset(
+    request: Request, body: PasswordResetRequest, background: BackgroundTasks
+) -> PasswordResetAsked:
+    """
+    Ask for a link to choose a new password, mailed to the account's address.
+
+    Anonymous. The answer is the same whether the account exists, has an address or
+    has anything to reset: nothing says which, and the mail is sent after the answer.
+
+    Args:
+        request: The incoming request.
+        body: The account's name or address.
+        background: Where the mail is sent from.
+
+    Returns:
+        What happens next.
+
+    Raises:
+        HTTPException: 404 ``reset_unavailable`` when the server has no mail channel,
+            has local sign-in off, or runs the ENS profile.
+    """
+    if not password_reset_offered():
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "reset_unavailable",
+                "detail": "This server does not reset passwords by mail.",
+                "hint": "Ask a security officer for a new invitation.",
+                "fields": None,
+            },
+        )
+    client_ip = get_client_ip(request)
+    issued = PasswordResets(get_token_manager().accounts).request(
+        body.identifier, client_ip=client_ip
+    )
+    if issued is not None:
+        background.add_task(_mail_reset_link, issued, client_ip)
+    audit_event(
+        "auth.password.reset_request",
+        "success",
+        client_ip=client_ip,
+        target=f"account:{issued.account.username}" if issued else None,
+        detail="link issued" if issued else "nothing to send",
+    )
+    return PasswordResetAsked(
+        message=(
+            "If the account exists and has an address, a link to choose a new password "
+            "is on its way."
+        ),
+        expires_in_minutes=LIFETIME_MINUTES,
+    )
+
+
+@router.post("/password-reset/confirm", response_model=PasswordResetDone)
+def confirm_password_reset(request: Request, body: PasswordResetConfirm) -> PasswordResetDone:
+    """
+    Choose a new password with a mailed link and a code of the second factor.
+
+    Anonymous. The link is single-use; the account's other sessions are signed out.
+    A wrong second factor counts like a wrong password at sign-in (it can lock the
+    account) and leaves the link usable.
+
+    Args:
+        request: The incoming request.
+        body: The code of the link, the new password and a second factor code.
+
+    Returns:
+        A confirmation.
+
+    Raises:
+        HTTPException: 401 ``invalid_reset`` for a link that is unknown, used or
+            expired; 401 ``invalid_credentials`` for a wrong second factor.
+        ValidationError: 400 when the password is refused; the link stays usable.
+    """
+    from noust.web.api.auth import INVALID_CREDENTIALS, login_failure
+
+    if not password_reset_offered():
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "reset_unavailable",
+                "detail": "This server does not reset passwords by mail.",
+                "hint": "Ask a security officer for a new invitation.",
+                "fields": None,
+            },
+        )
+    token_manager = get_token_manager()
+    client_ip = get_client_ip(request)
+    try:
+        account = PasswordResets(token_manager.accounts).redeem(
+            body.code, body.password, body.second_factor, client_ip=client_ip
+        )
+    except ResetRefused as exc:
+        record_auth_failure(client_ip, "/api/auth/password-reset/confirm", "reset")
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "error": "invalid_reset",
+                "detail": exc.message,
+                "hint": exc.details,
+                "fields": None,
+            },
+        ) from exc
+    except AuthenticationFailed as exc:
+        record_auth_failure(client_ip, "/api/auth/password-reset/confirm", "reset")
+        raise login_failure("invalid_credentials", INVALID_CREDENTIALS) from exc
+    token_manager.sessions.revoke_account(account.id)
+    audit_event(
+        "auth.password.reset_done",
+        "success",
+        client_ip=client_ip,
+        session={"account_id": account.id, "username": account.username},
+        target=f"account:{account.username}",
+        detail="password chosen with a mailed link",
+    )
+    return PasswordResetDone(success=True, message="Password changed. Sign in with the new one.")
+
+
 def _invalid_invitation() -> HTTPException:
     """
     Returns:
@@ -640,6 +889,18 @@ def create_invitation(
         AccountError: When the role clashes or the account is disabled.
     """
     accounts = get_token_manager().accounts
+    address = clean_email(body.email)
+    mailer = account_mailer()
+    if address is not None and not mailer.ready():
+        # Before anything is made: an invitation nobody can be sent is the caller's to know.
+        raise ValidationError(
+            "This server cannot send mail yet",
+            details=(
+                "Set monitor.smtp.* or monitor.email_api.* and web.public_url, or leave the "
+                "address out and hand the code over yourself."
+            ),
+            field="email",
+        )
     existing = accounts.find(body.username)
     if existing is not None:
         # A recovery gives the account's role to whoever holds the code.
@@ -656,6 +917,7 @@ def create_invitation(
             person_ref=body.person_ref,
             created_by=actor_label(session),
             expires_hours=body.expires_hours,
+            email=address,
         )
         audit_record(
             "team.member.add",
@@ -671,17 +933,35 @@ def create_invitation(
             person_ref=body.person_ref,
             created_by=actor_label(session),
             expires_hours=body.expires_hours,
+            email=address,
         )
+    emailed, email_error = False, None
+    if address is not None:
+        try:
+            mailer.send_invitation(
+                address, account.username, code, body.expires_hours, invited_by=actor_label(session)
+            )
+            emailed = True
+        except (EmailError, AccountError) as exc:
+            # The invitation exists either way: the code is shown to the caller to hand over.
+            email_error = exc.message
     audit_event(
         "user.invite",
         "success",
         client_ip=get_client_ip(request),
         session=session,
         target=f"account:{account.username}",
-        detail=f"invitation valid for {body.expires_hours} hours",
+        detail=(
+            f"invitation valid for {body.expires_hours} hours"
+            + (", mailed" if emailed else ", mail failed" if address else "")
+        ),
     )
     return InvitationIssued(
-        account=AccountInfo.of(account), code=code, expires_in=body.expires_hours * 3600
+        account=AccountInfo.of(account),
+        code=code,
+        expires_in=body.expires_hours * 3600,
+        emailed=emailed,
+        email_error=email_error,
     )
 
 
@@ -745,6 +1025,16 @@ def update_account(
             client_ip=client_ip,
             session=session,
             target=f"account:{account.username}",
+        )
+    if body.email is not None and (clean_email(body.email) or "") != (account.email or ""):
+        account = accounts.set_email(username, body.email)
+        audit_event(
+            "user.email",
+            "success",
+            client_ip=client_ip,
+            session=session,
+            target=f"account:{account.username}",
+            detail="address set" if account.email else "address cleared",
         )
     if body.role is not None and body.role != account.role:
         _refuse_self(session, username, "change the role of")

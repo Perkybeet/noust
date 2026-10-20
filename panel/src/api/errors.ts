@@ -34,6 +34,8 @@ export const CREDENTIAL_ERRORS: ReadonlySet<string> = new Set([
   "passkey_origin",
   // An invitation code that opens nothing: the invitation page is anonymous.
   "invalid_invitation",
+  // A password-reset link that is unknown, used or expired: that page is anonymous too.
+  "invalid_reset",
 ]);
 
 /** A request the API refused or could not answer. */

@@ -103,6 +103,8 @@ export const databases = {
     unprotectedBody: "Without a schedule, a database is only as safe as its last manual dump.",
     showThem: "Show them",
     actionsFor: "Actions for {name}",
+    editTags: "Edit tags...",
+    noun: "database",
     open: "Open",
     query: "Query",
     connect: "Connect",

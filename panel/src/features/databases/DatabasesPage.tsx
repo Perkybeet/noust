@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { Archive, Database as DatabaseIcon, Link2, PanelTop, Plug, SquareTerminal, X } from "lucide-react";
+import { Archive, Database as DatabaseIcon, Link2, PanelTop, Plug, SquareTerminal, Tags, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { request } from "../../api/client";
@@ -23,6 +23,7 @@ import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
 import { useOwnerScope } from "../teams/ownership";
+import { ResourceTagsDialog } from "../app/settings/ResourceTagsDialog";
 import { DatabasesTable } from "./DatabasesTable";
 import { ListingProblemsNotice } from "./EngineAccess";
 import { can, engineName, instanceLabel, isContainer, sortInstances } from "./engines";
@@ -69,7 +70,9 @@ function RowActions({ database, engines, t }: { database: Database; engines: rea
     onError: (error, app) => reportActionError(t("databases.list.recordFailed", { app, name: database.name }), error),
   });
   const detected = (database.detected_apps ?? []).filter((app) => !(database.apps ?? []).includes(app));
+  const [editingTags, setEditingTags] = useState(false);
   return (
+    <>
     <Menu align="end" trigger={<IconButton label={t("databases.list.actionsFor", { name: database.name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
       <MenuItem icon={<PanelTop />} onClick={() => void navigate({ to: "/databases/$engine/$name", params })}>
         {t("databases.list.open")}
@@ -81,6 +84,9 @@ function RowActions({ database, engines, t }: { database: Database; engines: rea
       ) : null}
       <MenuItem icon={<Plug />} disabled={database.missing} onClick={() => void navigate({ to: "/databases/$engine/$name/connect", params })}>
         {t("databases.list.connect")}
+      </MenuItem>
+      <MenuItem icon={<Tags />} disabled={database.missing} onClick={() => setEditingTags(true)}>
+        {t("databases.list.editTags")}
       </MenuItem>
       {can(engine, "dump") ? (
         <>
@@ -109,6 +115,17 @@ function RowActions({ database, engines, t }: { database: Database; engines: rea
         </>
       ) : null}
     </Menu>
+    {editingTags ? (
+      <ResourceTagsDialog
+        name={database.name}
+        noun={t("databases.list.noun")}
+        tags={database.tags ?? []}
+        save={(tags) => request("put", "/api/databases/databases/{engine}/{name}/tags", { params: { engine: database.engine, name: database.name }, body: { tags } })}
+        onSaved={() => void queryClient.invalidateQueries({ queryKey: databaseKeys.lists })}
+        onClose={() => setEditingTags(false)}
+      />
+    ) : null}
+    </>
   );
 }
 
@@ -144,6 +161,7 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
   const byPolicy = useMemo(() => policiesById(policies.data), [policies.data]);
   const newest = useMemo(() => newestDumps(dumps.data?.backups), [dumps.data]);
   const shown = useMemo(() => filterDatabases(owner.shown, search, byPolicy), [owner.shown, search, byPolicy]);
+  const tagNames = useMemo(() => [...new Set(all.flatMap((database) => database.tags ?? []))].sort(), [all]);
   // The server's own engines, then each instance in a container, named by where it runs so two
   // PostgreSQLs are told apart.
   const engineOptions = useMemo(
@@ -157,6 +175,7 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
     if (next.q) clean.q = next.q;
     if (next.engine) clean.engine = next.engine;
     if (next.backups) clean.backups = next.backups;
+    if (next.tag) clean.tag = next.tag;
     if (next.project) clean.project = next.project;
     if (next.environment) clean.environment = next.environment;
     onSearchChange(clean, { replace });
@@ -168,8 +187,8 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
   useEffect(() => {
     if (!opening) return;
     openCreate();
-    const { q, engine, backups, project, environment } = search;
-    onSearchChange({ ...(q ? { q } : {}), ...(engine ? { engine } : {}), ...(backups ? { backups } : {}), ...(project ? { project } : {}), ...(environment ? { environment } : {}) }, { replace: true });
+    const { q, engine, backups, tag, project, environment } = search;
+    onSearchChange({ ...(q ? { q } : {}), ...(engine ? { engine } : {}), ...(backups ? { backups } : {}), ...(tag ? { tag } : {}), ...(project ? { project } : {}), ...(environment ? { environment } : {}) }, { replace: true });
     // Once per arrival: what it reads is what it was opened with.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opening]);
@@ -247,6 +266,15 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
             ]}
             className="min-w-40"
           />
+          {tagNames.length > 0 || search.tag !== undefined ? (
+            <Select
+              aria-label={t("appTags.filter.label")}
+              value={search.tag ?? ALL}
+              onValueChange={(value) => set({ tag: value === ALL ? undefined : value })}
+              options={[{ value: ALL, label: t("appTags.filter.every") }, ...tagNames.map((tag) => ({ value: tag, label: tag }))]}
+              className="min-w-36"
+            />
+          ) : null}
           {owner.filters(search, (patch) => set({ project: patch.project, environment: patch.environment }))}
         </>
       }

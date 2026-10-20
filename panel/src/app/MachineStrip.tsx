@@ -17,6 +17,7 @@ import { formatDuration, formatLoad } from "../lib/format";
 import { useHasFleet } from "../nodes/servers";
 import { useConsoleContext, useNode } from "../nodes/useNode";
 import { useStreamStatus } from "../realtime/events";
+import type { StreamStatus } from "../realtime/events";
 
 /** The one sentence that says what the unit tally means, for the tooltip and the link's accessible name alike. */
 export function unitTallySummary(units: Machine["units"], t: T): string {
@@ -97,6 +98,23 @@ function UnitTally({ units, named }: { units: Machine["units"]; named: boolean }
       </Link>
     </Tooltip>
   );
+}
+
+/**
+ * What the live stream is doing, in a word and a shape: "Live" while the readings and the lists
+ * are being kept current, "Reconnecting" while they are not. Before the first connection there
+ * is nothing to say yet. The word gives way on a narrow strip, but the reconnecting state never
+ * does: that is the one an operator must not miss.
+ */
+export function StreamBadge({ stream }: { stream: StreamStatus }) {
+  const t = useT();
+  if (stream === "reconnecting") {
+    return <StatusPill state="deploying" label={t("shell.machine.reconnecting")} appearance="inline" size="sm" className="shrink-0" />;
+  }
+  if (stream === "live") {
+    return <StatusPill state="running" label={t("shell.machine.live")} appearance="inline" size="sm" className="hidden shrink-0 @min-[26rem]:inline-flex" />;
+  }
+  return null;
 }
 
 /**
@@ -193,9 +211,7 @@ function ServerStrip({ className, showName }: { className?: string | undefined; 
           </div>
         )}
 
-        {stream === "reconnecting" ? (
-          <StatusPill state="deploying" label={t("shell.machine.reconnecting")} appearance="inline" size="sm" className="shrink-0" />
-        ) : null}
+        <StreamBadge stream={stream} />
       </div>
     </div>
   );

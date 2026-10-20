@@ -125,10 +125,14 @@ class ProviderChoices(BaseModel):
             False once single sign-on replaced them (I-23): the sign-in page
             then offers the providers and, behind a link, the way an exempt
             account still signs in.
+        password_reset: Whether the sign-in page offers "forgot your password": the
+            server can send mail, the console has a public address for the link, local
+            sign-in exists and the ENS profile is not in force.
     """
 
     providers: list[ProviderChoice]
     local_login: bool = True
+    password_reset: bool = False
 
 
 @router.get("/providers", response_model=ProviderChoices)
@@ -142,6 +146,8 @@ def list_choices(response: Response) -> ProviderChoices:
     Returns:
         The name and label of each enabled provider, nothing else of them.
     """
+    from noust.web.api.auth_accounts import password_reset_offered
+
     response.headers["Cache-Control"] = "no-store"
     return ProviderChoices(
         providers=[
@@ -156,6 +162,7 @@ def list_choices(response: Response) -> ProviderChoices:
             ),
         ],
         local_login=load_local_login().enabled,
+        password_reset=password_reset_offered(),
     )
 
 
@@ -413,6 +420,7 @@ class ProviderInfo(BaseModel):
         group_sync: Whether groups decide roles and teams.
         group_mappings: What each group means.
         redirect_uri: The callback address to register with the provider.
+        kind: ``oidc`` (an OpenID Connect provider) or ``github`` (OAuth 2.0 with GitHub).
         created_at: When it was configured, UNIX seconds.
         created_by: Who configured it.
         updated_at: Last change, UNIX seconds.
@@ -440,6 +448,7 @@ class ProviderInfo(BaseModel):
     group_sync: bool
     group_mappings: list[Mapping]
     redirect_uri: str
+    kind: str = "oidc"
     created_at: float
     created_by: str | None = None
     updated_at: float
@@ -483,6 +492,9 @@ class ProviderSettings(BaseModel):
     ``default_team_role``, ``redirect_uri``).
 
     Attributes:
+        kind: ``oidc`` (the default) or ``github``; chosen when the provider is made.
+            A GitHub provider needs only the client id and secret of its OAuth App;
+            ``issuer`` names a GitHub Enterprise Server instead of github.com.
         label: What the button says after "Sign in with".
         issuer: The issuer URL, exactly as the provider's tokens write it.
         client_id: The client id.
@@ -507,6 +519,7 @@ class ProviderSettings(BaseModel):
         redirect_uri: The callback address, when it cannot be worked out.
     """
 
+    kind: str | None = Field(default=None, max_length=16)
     label: str | None = Field(default=None, max_length=64)
     issuer: str | None = Field(default=None, max_length=512)
     client_id: str | None = Field(default=None, max_length=256)

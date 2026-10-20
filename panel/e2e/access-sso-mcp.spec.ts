@@ -262,7 +262,7 @@ serial("a manifest is applied as the person who asks, and the server then matche
   await expectNoA11yViolations(page, "Settings, Manifest, applied");
 });
 
-serial("every route of the API can be browsed, and a read tried with the session", async ({ page, consoleServer }) => {
+serial("every route of the API can be browsed, and a call tried with the session", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/settings/api");
   await expect(page.getByRole("region", { name: "API routes" })).toBeVisible();
   await settle(page);
@@ -273,9 +273,21 @@ serial("every route of the API can be browsed, and a read tried with the session
   const drawer = page.getByRole("dialog", { name: "POST /api/apps/{domain}/restart" });
   await expect(drawer.getByText("apps.operate")).toBeVisible();
   await expect(drawer.getByText(/^curl -sS -X POST/)).toContainText("$NOUST_TOKEN");
-  await expect(drawer.getByRole("button", { name: "Send request" })).toBeHidden();
+  // A change can be tried too, but never without asking: the question names the route.
+  await drawer.getByLabel(/^domain/).fill("shop.example.net");
   await settle(page);
   await expectNoA11yViolations(page, "an API route, a change");
+  await drawer.getByRole("button", { name: "Send request" }).click();
+  const question = page.getByRole("alertdialog", { name: "Send POST /api/apps/{domain}/restart?" });
+  await expect(question.getByText(/not a rehearsal/)).toBeVisible();
+  await settle(page);
+  await expectNoA11yViolations(page, "an API route, asking before a change");
+  await question.getByRole("button", { name: "Cancel" }).click();
+  await expect(drawer.getByText(/^Status \d/)).toBeHidden();
+  // Asked again and confirmed, it is sent with this session and the answer's status is shown.
+  await drawer.getByRole("button", { name: "Send request" }).click();
+  await page.getByRole("alertdialog", { name: "Send POST /api/apps/{domain}/restart?" }).getByRole("button", { name: "Send POST" }).click();
+  await expect(drawer.getByText(/^Status \d/)).toBeVisible();
   await page.keyboard.press("Escape");
 
   await page.getByRole("searchbox", { name: "Search routes" }).fill("/api/apps");

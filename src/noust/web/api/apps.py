@@ -182,7 +182,8 @@ class AppInfo(BaseModel):
             (systemd gave up on it), ``static`` (served directly by the web
             server, there is no unit), ``running_unmanaged`` (a Compose stack
             whose containers run while its unit is stopped: hand it back with
-            ``POST .../reclaim``) or ``unknown`` (systemd could not be asked).
+            ``POST .../reclaim``), ``degraded`` (an application of several units, some
+            serving and some not) or ``unknown`` (systemd could not be asked).
         active: Whether the unit is active.
         enabled: Whether the unit starts on boot.
         pid: Main PID when running.
@@ -1717,6 +1718,25 @@ def _service_action(domain: str, action: str, past_tense: str) -> AppActionRespo
     return AppActionResponse(
         success=True, message=f"Application {past_tense}: {validated}", domain=validated
     )
+
+
+def restart_application(domain: str) -> None:
+    """
+    Restart an application the way ``POST /api/apps/{domain}/restart`` does.
+
+    The one restart, for a caller that is not a request for that route: restarting everything
+    that carries a tag (:mod:`noust.web.api.app_tags`) comes through here, so its unit, its pool
+    and its processes are treated exactly as a single restart treats them.
+
+    Args:
+        domain: Domain of the application, as supplied by the client.
+
+    Raises:
+        HTTPException: 404 when the application has no unit.
+        ServiceError: When systemd refuses the operation.
+        DeploymentError: When a PHP application's pool cannot be controlled.
+    """
+    _service_action(domain, "restart", "restarted")
 
 
 @router.post("/{domain}/start", response_model=AppActionResponse)

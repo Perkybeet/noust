@@ -14,6 +14,7 @@ export type ConnectionOptions = ResponseOf<"/api/nodes/{node}/ssh", "get">;
 export type ConnectionBody = BodyOf<"/api/nodes/{node}/ssh", "put">;
 export type InventoryReport = ResponseOf<"/api/nodes/{node}/inventory", "post">;
 export type LinkBody = BodyOf<"/api/fleet/cloud/servers/{node}/link", "post">;
+export type Rotation = ResponseOf<"/api/nodes/{node}/rekey", "post">;
 
 export const connectionKey = (node: string) => [...nodeKeys.all, "ssh", node] as const;
 
@@ -38,6 +39,20 @@ export function fetchInventory(node: string): Promise<Record<string, unknown>> {
 /** Records, for a server just added here, an inventory another central exported for it. */
 export function applyInventory(node: string, document: Record<string, unknown>, includeSsh: boolean): Promise<InventoryReport> {
   return request("post", "/api/nodes/{node}/inventory", { params: { node }, body: { document, include_ssh: includeSsh } });
+}
+
+/**
+ * Gives a server a new key, in two steps. Without a join code it makes the new pair and answers
+ * the command to run on the server; with the code the server printed, it switches to the new key
+ * once the server answers with it. Sudo mode, and a second person where the policy asks.
+ */
+export function rekeyNode(node: string, joinCode?: string): Promise<Rotation> {
+  return request("post", "/api/nodes/{node}/rekey", { params: { node }, body: joinCode === undefined ? {} : { join_code: joinCode } });
+}
+
+/** Gives a server to a team, or back to the instance with null. Sudo mode. */
+export function setNodeTeam(node: string, team: string | null) {
+  return request("put", "/api/nodes/{node}/team", { params: { node }, body: { team } });
 }
 
 /** Links a server of the fleet to its machine at a provider. Sudo mode. */

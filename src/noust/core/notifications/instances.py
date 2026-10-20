@@ -65,13 +65,18 @@ REDACTED = "***"
 #: column of the delivery ledger and a path segment of the API.
 NAME_PATTERN = re.compile(r"[a-z][a-z0-9_-]{0,31}")
 
-#: Most instances a server may have; a handful of destinations, not a directory.
-MAX_INSTANCES = 32
+#: Most instances a server may have: a handful of destinations of its own, and room for the
+#: few each team keeps (:data:`noust.core.notifications.team_channels.MAX_CHANNELS`).
+MAX_INSTANCES = 128
 
 #: The settings every instance has whatever its type.
 SHARED_KEYS: frozenset[str] = frozenset(
-    {"type", "enabled", "events", "route", "quiet", "flood", "summary"}
+    {"type", "enabled", "events", "route", "quiet", "flood", "summary", "team"}
 )
+
+#: A team's slug, as the teams write it (:data:`noust.core.teams.model.SLUG_PATTERN`; this
+#: module is pure and does not import the teams).
+_TEAM_SLUG = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?")
 
 
 @dataclass(frozen=True)
@@ -276,6 +281,27 @@ def _events(value: Any, where: str) -> dict[str, bool]:
     return found
 
 
+def _team(value: Any) -> str | None:
+    """
+    Args:
+        value: A block's ``team``.
+
+    Returns:
+        The team's slug, or None for a channel that is the server's own.
+
+    Raises:
+        ValueError: When it is not a slug.
+    """
+    if value in (None, ""):
+        return None
+    text = str(value).strip()
+    if not _TEAM_SLUG.fullmatch(text):
+        raise ValueError(
+            f"team must be a team's short name (lower-case letters, digits and '-'), not {value!r}"
+        )
+    return text
+
+
 def _thread(value: Any, where: str) -> int:
     """
     Args:
@@ -447,6 +473,7 @@ def _instance(name: str, block: Mapping[str, Any], *, strict: bool = True) -> Ch
         events=read(lambda: _events(block.get("events"), where), "events", {}),
         flood=read(lambda: Flood.from_mapping(block.get("flood")), "flood", None),
         summary=read(lambda: Summary.from_mapping(block.get("summary")), "summary", None),
+        team=read(lambda: _team(block.get("team")), "team", None),
     )
     return ChannelInstance(name, kind, dict(block), enabled, routing)
 

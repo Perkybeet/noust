@@ -434,6 +434,7 @@ AUTH_PATHS = frozenset(
         "/api/auth/password",
         "/api/auth/invitations/open",
         "/api/auth/invitations/accept",
+        "/api/auth/password-reset/confirm",
         "/api/auth/passkeys/login",
         "/api/auth/passkeys/elevate",
         "/api/auth/oidc/complete",

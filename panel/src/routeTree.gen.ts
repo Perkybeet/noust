@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from "./routes/__root"
 import { Route as ConsoleRouteImport } from "./routes/_console"
 import { Route as InviteRouteImport } from "./routes/invite"
 import { Route as LoginRouteImport } from "./routes/login"
+import { Route as ResetPasswordRouteImport } from "./routes/reset-password"
 import { Route as SetupRouteImport } from "./routes/setup"
 import { Route as WelcomeRouteImport } from "./routes/welcome"
 import { Route as ConsoleIndexRouteImport } from "./routes/_console/index"
@@ -104,6 +105,7 @@ import { Route as ConsoleProjectsTeamProjectRouteImport } from "./routes/_consol
 import { Route as ConsoleServerServicesNameRouteImport } from "./routes/_console/server_/services/$name"
 import { Route as ConsoleTeamsTeamIndexRouteImport } from "./routes/_console/teams/$team/index"
 import { Route as ConsoleTeamsTeamMembersRouteImport } from "./routes/_console/teams/$team/members"
+import { Route as ConsoleTeamsTeamNotificationsRouteImport } from "./routes/_console/teams/$team/notifications"
 import { Route as ConsoleTeamsTeamSettingsRouteImport } from "./routes/_console/teams/$team/settings"
 import { Route as ConsoleTeamsTeamVariablesRouteImport } from "./routes/_console/teams/$team/variables"
 import { Route as ConsoleAppsDomainDeploymentsIndexRouteImport } from "./routes/_console/apps/$domain/deployments/index"
@@ -149,6 +151,11 @@ const InviteRoute = InviteRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: "/login",
   path: "/login",
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: "/reset-password",
+  path: "/reset-password",
   getParentRoute: () => rootRouteImport,
 } as any)
 const SetupRoute = SetupRouteImport.update({
@@ -633,6 +640,12 @@ const ConsoleTeamsTeamMembersRoute = ConsoleTeamsTeamMembersRouteImport.update({
   path: "/members",
   getParentRoute: () => ConsoleTeamsTeamRoute,
 } as any)
+const ConsoleTeamsTeamNotificationsRoute =
+  ConsoleTeamsTeamNotificationsRouteImport.update({
+    id: "/notifications",
+    path: "/notifications",
+    getParentRoute: () => ConsoleTeamsTeamRoute,
+  } as any)
 const ConsoleTeamsTeamSettingsRoute =
   ConsoleTeamsTeamSettingsRouteImport.update({
     id: "/settings",
@@ -830,6 +843,7 @@ export interface FileRoutesByFullPath {
   "/": typeof ConsoleIndexRoute
   "/invite": typeof InviteRoute
   "/login": typeof LoginRoute
+  "/reset-password": typeof ResetPasswordRoute
   "/setup": typeof SetupRoute
   "/welcome": typeof WelcomeRoute
   "/activity": typeof ConsoleActivityRoute
@@ -918,6 +932,7 @@ export interface FileRoutesByFullPath {
   "/projects/$team/$project": typeof ConsoleProjectsTeamProjectRoute
   "/server/services/$name": typeof ConsoleServerServicesNameRouteWithChildren
   "/teams/$team/members": typeof ConsoleTeamsTeamMembersRoute
+  "/teams/$team/notifications": typeof ConsoleTeamsTeamNotificationsRoute
   "/teams/$team/settings": typeof ConsoleTeamsTeamSettingsRoute
   "/teams/$team/variables": typeof ConsoleTeamsTeamVariablesRoute
   "/apps/$domain/": typeof ConsoleAppsDomainIndexRoute
@@ -957,6 +972,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   "/invite": typeof InviteRoute
   "/login": typeof LoginRoute
+  "/reset-password": typeof ResetPasswordRoute
   "/setup": typeof SetupRoute
   "/welcome": typeof WelcomeRoute
   "/activity": typeof ConsoleActivityRoute
@@ -1038,6 +1054,7 @@ export interface FileRoutesByTo {
   "/integrations/gitlab/callback": typeof ConsoleIntegrationsGitlabCallbackRoute
   "/projects/$team/$project": typeof ConsoleProjectsTeamProjectRoute
   "/teams/$team/members": typeof ConsoleTeamsTeamMembersRoute
+  "/teams/$team/notifications": typeof ConsoleTeamsTeamNotificationsRoute
   "/teams/$team/settings": typeof ConsoleTeamsTeamSettingsRoute
   "/teams/$team/variables": typeof ConsoleTeamsTeamVariablesRoute
   "/apps/$domain": typeof ConsoleAppsDomainIndexRoute
@@ -1079,6 +1096,7 @@ export interface FileRoutesById {
   "/_console": typeof ConsoleRouteWithChildren
   "/invite": typeof InviteRoute
   "/login": typeof LoginRoute
+  "/reset-password": typeof ResetPasswordRoute
   "/setup": typeof SetupRoute
   "/welcome": typeof WelcomeRoute
   "/_console/activity": typeof ConsoleActivityRoute
@@ -1168,6 +1186,7 @@ export interface FileRoutesById {
   "/_console/projects/$team/$project": typeof ConsoleProjectsTeamProjectRoute
   "/_console/server_/services/$name": typeof ConsoleServerServicesNameRouteWithChildren
   "/_console/teams/$team/members": typeof ConsoleTeamsTeamMembersRoute
+  "/_console/teams/$team/notifications": typeof ConsoleTeamsTeamNotificationsRoute
   "/_console/teams/$team/settings": typeof ConsoleTeamsTeamSettingsRoute
   "/_console/teams/$team/variables": typeof ConsoleTeamsTeamVariablesRoute
   "/_console/apps/$domain/": typeof ConsoleAppsDomainIndexRoute
@@ -1210,6 +1229,7 @@ export interface FileRouteTypes {
     | "/"
     | "/invite"
     | "/login"
+    | "/reset-password"
     | "/setup"
     | "/welcome"
     | "/activity"
@@ -1298,6 +1318,7 @@ export interface FileRouteTypes {
     | "/projects/$team/$project"
     | "/server/services/$name"
     | "/teams/$team/members"
+    | "/teams/$team/notifications"
     | "/teams/$team/settings"
     | "/teams/$team/variables"
     | "/apps/$domain/"
@@ -1337,6 +1358,7 @@ export interface FileRouteTypes {
   to:
     | "/invite"
     | "/login"
+    | "/reset-password"
     | "/setup"
     | "/welcome"
     | "/activity"
@@ -1418,6 +1440,7 @@ export interface FileRouteTypes {
     | "/integrations/gitlab/callback"
     | "/projects/$team/$project"
     | "/teams/$team/members"
+    | "/teams/$team/notifications"
     | "/teams/$team/settings"
     | "/teams/$team/variables"
     | "/apps/$domain"
@@ -1458,6 +1481,7 @@ export interface FileRouteTypes {
     | "/_console"
     | "/invite"
     | "/login"
+    | "/reset-password"
     | "/setup"
     | "/welcome"
     | "/_console/activity"
@@ -1547,6 +1571,7 @@ export interface FileRouteTypes {
     | "/_console/projects/$team/$project"
     | "/_console/server_/services/$name"
     | "/_console/teams/$team/members"
+    | "/_console/teams/$team/notifications"
     | "/_console/teams/$team/settings"
     | "/_console/teams/$team/variables"
     | "/_console/apps/$domain/"
@@ -1588,6 +1613,7 @@ export interface RootRouteChildren {
   ConsoleRoute: typeof ConsoleRouteWithChildren
   InviteRoute: typeof InviteRoute
   LoginRoute: typeof LoginRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   SetupRoute: typeof SetupRoute
   WelcomeRoute: typeof WelcomeRoute
 }
@@ -1613,6 +1639,13 @@ declare module "@tanstack/react-router" {
       path: "/login"
       fullPath: "/login"
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    "/reset-password": {
+      id: "/reset-password"
+      path: "/reset-password"
+      fullPath: "/reset-password"
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     "/setup": {
@@ -2259,6 +2292,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleTeamsTeamMembersRouteImport
       parentRoute: typeof ConsoleTeamsTeamRoute
     }
+    "/_console/teams/$team/notifications": {
+      id: "/_console/teams/$team/notifications"
+      path: "/notifications"
+      fullPath: "/teams/$team/notifications"
+      preLoaderRoute: typeof ConsoleTeamsTeamNotificationsRouteImport
+      parentRoute: typeof ConsoleTeamsTeamRoute
+    }
     "/_console/teams/$team/settings": {
       id: "/_console/teams/$team/settings"
       path: "/settings"
@@ -2685,6 +2725,7 @@ const ConsoleAppsDomainRouteWithChildren =
 
 interface ConsoleTeamsTeamRouteChildren {
   ConsoleTeamsTeamMembersRoute: typeof ConsoleTeamsTeamMembersRoute
+  ConsoleTeamsTeamNotificationsRoute: typeof ConsoleTeamsTeamNotificationsRoute
   ConsoleTeamsTeamSettingsRoute: typeof ConsoleTeamsTeamSettingsRoute
   ConsoleTeamsTeamVariablesRoute: typeof ConsoleTeamsTeamVariablesRoute
   ConsoleTeamsTeamIndexRoute: typeof ConsoleTeamsTeamIndexRoute
@@ -2692,6 +2733,7 @@ interface ConsoleTeamsTeamRouteChildren {
 
 const ConsoleTeamsTeamRouteChildren: ConsoleTeamsTeamRouteChildren = {
   ConsoleTeamsTeamMembersRoute: ConsoleTeamsTeamMembersRoute,
+  ConsoleTeamsTeamNotificationsRoute: ConsoleTeamsTeamNotificationsRoute,
   ConsoleTeamsTeamSettingsRoute: ConsoleTeamsTeamSettingsRoute,
   ConsoleTeamsTeamVariablesRoute: ConsoleTeamsTeamVariablesRoute,
   ConsoleTeamsTeamIndexRoute: ConsoleTeamsTeamIndexRoute,
@@ -2841,6 +2883,7 @@ const rootRouteChildren: RootRouteChildren = {
   ConsoleRoute: ConsoleRouteWithChildren,
   InviteRoute: InviteRoute,
   LoginRoute: LoginRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   SetupRoute: SetupRoute,
   WelcomeRoute: WelcomeRoute,
 }

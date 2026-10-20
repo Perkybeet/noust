@@ -16,7 +16,8 @@ import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import { splitErrors } from "../formErrors";
 import { ADMISSION_FOLDED, AdmissionFields } from "./AdmissionFields";
-import { NEW_DRAFT, draftOf, settingsOf } from "./providerForm";
+import { ChoiceCards } from "../../../components/ui/ChoiceCards";
+import { KINDS, NEW_DRAFT, draftOf, settingsOf } from "./providerForm";
 import type { ProviderDraft } from "./providerForm";
 
 const FIELDS = [
@@ -93,7 +94,9 @@ export function ProviderDrawer({ provider, redirectUri, onClose }: ProviderDrawe
     event.preventDefault();
     if (!save.isPending) save.mutate();
   };
-  const ready = draft.issuer.trim() !== "" && draft.clientId.trim() !== "" && (!creating || draft.name.trim() !== "");
+  const github = draft.kind === "github";
+  // GitHub needs only the OAuth App's client id and secret; the issuer names an Enterprise Server.
+  const ready = (github || draft.issuer.trim() !== "") && draft.clientId.trim() !== "" && (!creating || draft.name.trim() !== "");
 
   return (
     <Drawer
@@ -129,6 +132,20 @@ export function ProviderDrawer({ provider, redirectUri, onClose }: ProviderDrawe
         ) : null}
 
         {creating ? (
+          <ChoiceCards
+            legend={t("ssoAdmin.form.fields.kind")}
+            options={KINDS.map((value) => ({
+              value,
+              label: t(value === "github" ? "ssoAdmin.form.fields.kindGithub" : "ssoAdmin.form.fields.kindOidc"),
+              description: t(value === "github" ? "ssoAdmin.form.fields.kindGithubHelp" : "ssoAdmin.form.fields.kindOidcHelp"),
+            }))}
+            value={draft.kind}
+            onValueChange={(value) => {
+              set("kind", value);
+            }}
+          />
+        ) : null}
+        {creating ? (
           <Field label={t("ssoAdmin.form.fields.name")} description={t("ssoAdmin.form.fields.nameHelp")}>
             <Input
               mono
@@ -152,13 +169,18 @@ export function ProviderDrawer({ provider, redirectUri, onClose }: ProviderDrawe
             }}
           />
         </Field>
-        <Field label={t("ssoAdmin.form.fields.issuer")} description={t("ssoAdmin.form.fields.issuerHelp")} error={errors.fields.issuer}>
+        <Field
+          label={github ? t("ssoAdmin.form.fields.githubHost") : t("ssoAdmin.form.fields.issuer")}
+          {...(github ? { optional: true } : {})}
+          description={github ? t("ssoAdmin.form.fields.githubHostHelp") : t("ssoAdmin.form.fields.issuerHelp")}
+          error={errors.fields.issuer}
+        >
           <Input
             mono
             type="url"
             autoComplete="off"
             spellCheck={false}
-            placeholder="https://sso.example.com/realms/acme"
+            placeholder={github ? "https://ghe.example.com" : "https://sso.example.com/realms/acme"}
             value={draft.issuer}
             onValueChange={(value: string) => {
               set("issuer", value);
@@ -224,17 +246,19 @@ export function ProviderDrawer({ provider, redirectUri, onClose }: ProviderDrawe
 
         <Disclosure label={t("ssoAdmin.form.groups.more")}>
           <div className="flex flex-col gap-5">
-            <Field label={t("ssoAdmin.form.fields.scopes")} description={t("ssoAdmin.form.fields.scopesHelp")} error={errors.fields.scopes}>
-              <Input
-                mono
-                autoComplete="off"
-                spellCheck={false}
-                value={draft.scopes}
-                onValueChange={(value: string) => {
-                  set("scopes", value);
-                }}
-              />
-            </Field>
+            {github ? null : (
+              <Field label={t("ssoAdmin.form.fields.scopes")} description={t("ssoAdmin.form.fields.scopesHelp")} error={errors.fields.scopes}>
+                <Input
+                  mono
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={draft.scopes}
+                  onValueChange={(value: string) => {
+                    set("scopes", value);
+                  }}
+                />
+              </Field>
+            )}
             <Field label={t("ssoAdmin.form.fields.clockSkew")} description={t("ssoAdmin.form.fields.clockSkewHelp")} error={errors.fields.clock_skew_seconds}>
               <Input
                 mono

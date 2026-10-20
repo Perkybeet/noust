@@ -29,6 +29,37 @@ export const appTags = {
     label: "Tag",
     every: "Every tag",
   },
+  /** Databases and services carry tags too: the same rules, edited from their own lists. */
+  resource: {
+    chips: "Tags",
+    edit: "Edit tags...",
+    title: "Tags of the {noun} {name}",
+    description: "Names that group things, such as web or client-acme. One carries up to {max}. Saving them restarts nothing.",
+    saved: "Tags of {name} saved",
+    failed: "The tags of {name} were not saved",
+  },
+  restart: {
+    action: "Restart tagged",
+    title: "Restart everything tagged {tag}?",
+    description: {
+      one: "{count} app carries {tag}, and so may databases and the server's services. Each service is restarted, one by one, and it is interrupted while it restarts. A database is left: it restarts with its engine.",
+      other: "{count} apps carry {tag}, and so may databases and the server's services. Each service is restarted, one by one, and it is interrupted while it restarts. A database is left: it restarts with its engine.",
+    },
+    confirm: "Restart them",
+    done: {
+      one: "Restarted {count} thing tagged {tag}",
+      other: "Restarted {count} things tagged {tag}",
+    },
+    left: {
+      one: "{count} was left alone",
+      other: "{count} were left alone",
+    },
+    failedTitle: {
+      one: "{count} could not be restarted",
+      other: "{count} could not be restarted",
+    },
+    nothing: "Nothing tagged {tag} was restarted",
+  },
   update: {
     action: "Update tagged apps",
     title: "Update the apps tagged {tag}?",

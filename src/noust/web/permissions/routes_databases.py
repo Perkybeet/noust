@@ -64,6 +64,9 @@ ROUTES: dict[tuple[str, str], str] = {
         "DELETE",
         "/api/databases/databases/{engine}/{name}/extensions/{extension}",
     ): Permission.DATABASES_MANAGE,
+    # 4.0 (M-07): free labels; a restart by tag leaves databases alone, so a label reaches nothing.
+    ("GET", "/api/databases/databases/{engine}/{name}/tags"): Permission.DATABASES_READ,
+    ("PUT", "/api/databases/databases/{engine}/{name}/tags"): Permission.DATABASES_WRITE,
     ("POST", "/api/databases/databases/{engine}/{name}/forget"): Permission.DATABASES_MANAGE,
     ("GET", "/api/databases/databases/{engine}/{name}/fix-owner"): Permission.DATABASES_READ,
     ("POST", "/api/databases/databases/{engine}/{name}/fix-owner"): Permission.DATABASES_MANAGE,

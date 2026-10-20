@@ -247,3 +247,116 @@ describe("a server's machine at a provider", () => {
     expect(within(dialog).getByRole("button", { name: "Link" })).toBeDisabled();
   });
 });
+
+const COMMAND = "noust fleet authorize --central-key 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINEW noust-central@nas' --name nas";
+
+describe("a new key for a server", () => {
+  it("makes the key, shows the command for the server, and switches only with the code it printed", { timeout: 40_000 }, async () => {
+    const backend = backendWith({
+      "POST /api/nodes/web-2/rekey": (call) =>
+        (call.body as { join_code?: string }).join_code === undefined
+          ? json(200, { name: "web-2", step: "authorize", authorize_command: COMMAND, node: null })
+          : json(200, { name: "web-2", step: "done", authorize_command: null, node: { name: "web-2" } }),
+    });
+    const { user, container } = renderConsole("/fleet/servers");
+
+    await openTool(user, "Rotate its key");
+    const dialog = await screen.findByRole("dialog", { name: "Give web-2 a new key" });
+    // Nothing is asked of the server until the key is made.
+    expect(within(dialog).queryByLabelText(/Join code it printed/)).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Make the new key" }));
+
+    expect(await within(dialog).findByText(COMMAND)).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/nodes/web-2/rekey")[0]?.body).toEqual({});
+    await expectNoAxeViolations(container, { page: true });
+
+    // The code is needed before the switch.
+    await user.click(within(dialog).getByRole("button", { name: "Switch to the new key" }));
+    expect(await within(dialog).findByText("Paste the join code the server printed.")).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/nodes/web-2/rekey")).toHaveLength(1);
+
+    await user.type(within(dialog).getByLabelText(/Join code it printed/), "noust-join:abc");
+    await user.click(within(dialog).getByRole("button", { name: "Switch to the new key" }));
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/nodes/web-2/rekey")).toHaveLength(2);
+    });
+    expect(backend.callsTo("POST /api/nodes/web-2/rekey")[1]?.body).toEqual({ join_code: "noust-join:abc" });
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Give web-2 a new key" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("says why the switch did not happen, in the server's words, and keeps the dialog for another try", { timeout: 40_000 }, async () => {
+    backendWith({
+      "POST /api/nodes/web-2/rekey": (call) =>
+        (call.body as { join_code?: string }).join_code === undefined
+          ? json(200, { name: "web-2", step: "authorize", authorize_command: COMMAND, node: null })
+          : problem(502, "node_unreachable", "web-2 did not answer with the new key", { output: "Permission denied (publickey)." }),
+    });
+    const { user } = renderConsole("/fleet/servers");
+
+    await openTool(user, "Rotate its key");
+    const dialog = await screen.findByRole("dialog", { name: "Give web-2 a new key" });
+    await user.click(within(dialog).getByRole("button", { name: "Make the new key" }));
+    await user.type(await within(dialog).findByLabelText(/Join code it printed/), "noust-join:abc");
+    await user.click(within(dialog).getByRole("button", { name: "Switch to the new key" }));
+
+    expect(await within(dialog).findByText("Could not switch web-2 to the new key")).toBeInTheDocument();
+    expect(within(dialog).getByText("web-2 did not answer with the new key")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/Join code it printed/)).toHaveValue("noust-join:abc");
+  });
+});
+
+describe("who has a server", () => {
+  const TEAMS = {
+    teams: [
+      { id: 1, slug: "acme", name: "Acme", role: "owner", active: true },
+      { id: 2, slug: "globex", name: "Globex", role: "owner", active: false },
+    ],
+    active: "acme",
+  };
+
+  it("gives the server to a team and says so", { timeout: 40_000 }, async () => {
+    const backend = backendWith({
+      "GET /api/teams/mine": () => json(200, TEAMS),
+      "PUT /api/nodes/web-2/team": () => json(200, { name: "web-2", team: "globex" }),
+    });
+    const { user } = renderConsole("/fleet/servers");
+
+    await openTool(user, "Give it to a team");
+    const dialog = await screen.findByRole("dialog", { name: "Who has web-2" });
+    expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
+    await user.click(await within(dialog).findByRole("combobox", { name: /^Team/ }));
+    await user.click(await screen.findByRole("option", { name: "Globex" }));
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(backend.callsTo("PUT /api/nodes/web-2/team")).toHaveLength(1);
+    });
+    expect(backend.callsTo("PUT /api/nodes/web-2/team")[0]?.body).toEqual({ team: "globex" });
+  });
+
+  it("gives it back to the instance with a null", { timeout: 40_000 }, async () => {
+    const backend = backendWith({
+      "GET /api/teams/mine": () => json(200, TEAMS),
+      "GET /api/nodes": () => json(200, { items: [{ name: "web-2", team: "acme" }] }),
+      "PUT /api/nodes/web-2/team": () => json(200, { name: "web-2", team: null }),
+    });
+    const { user } = renderConsole("/fleet/servers");
+
+    await openTool(user, "Give it to a team");
+    const dialog = await screen.findByRole("dialog", { name: "Who has web-2" });
+    const select = await within(dialog).findByRole("combobox", { name: /^Team/ });
+    await waitFor(() => {
+      expect(select).toHaveTextContent("Acme");
+    });
+    await user.click(select);
+    await user.click(await screen.findByRole("option", { name: "No team (the instance's)" }));
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(backend.callsTo("PUT /api/nodes/web-2/team")).toHaveLength(1);
+    });
+    expect(backend.callsTo("PUT /api/nodes/web-2/team")[0]?.body).toEqual({ team: null });
+  });
+});

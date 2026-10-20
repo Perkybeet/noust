@@ -151,6 +151,7 @@ export const TEAM_TABS: readonly TabItem[] = [
   { label: "nav.teamTabs.overview.label", to: "/teams/$team", exact: true },
   { label: "nav.teamTabs.members.label", to: "/teams/$team/members", keywords: "nav.teamTabs.members.keywords" },
   { label: "variables.nav.teamTab.label", to: "/teams/$team/variables", keywords: "variables.nav.teamTab.keywords" },
+  { label: "nav.teamTabs.notifications.label", to: "/teams/$team/notifications", keywords: "nav.teamTabs.notifications.keywords" },
   { label: "nav.teamTabs.settings.label", to: "/teams/$team/settings", keywords: "nav.teamTabs.settings.keywords" },
 ];
 

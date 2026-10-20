@@ -36,6 +36,7 @@ all live below it.
 - :mod:`.metrics`: engine and database metrics, slow queries.
 - :mod:`.pitr`: recover PostgreSQL to an instant: the log archived, base backups, the recovery.
 - :mod:`.replicas`: read replicas of PostgreSQL, MySQL and MariaDB: make room, join, watch, promote, remove.
+- :mod:`.tags`: free labels on a database.
 - :mod:`.transfer`: a dump read by ranges, for a central that moves a database to another server.
 - :mod:`.links`: ``/api/apps/{domain}/databases``, mounted under ``/apps``
   as :data:`apps_router`.
@@ -69,6 +70,7 @@ from noust.web.api.databases import (
     public,
     query,
     replicas,
+    tags,
     tls,
     transfer,
     tuning,
@@ -104,6 +106,7 @@ AREAS = (
     public.router,
     pitr.router,
     replicas.router,
+    tags.router,
 )
 
 router = APIRouter(route_class=NoustErrorRoute)

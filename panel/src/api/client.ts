@@ -139,8 +139,20 @@ export function readCookie(name: string): string | null {
   return null;
 }
 
+/** What the server answered, for a caller that shows it as it came (the API reference's "Try it"). */
+export interface ApiAnswer {
+  status: number;
+  headers: Headers;
+}
+
 export interface ApiInit {
   signal?: AbortSignal | undefined;
+  /**
+   * Told the final answer's status and headers, success or refusal. Called once per call that
+   * reaches an answer: after an approval, a "Confirm it's you" or a rate limit made the call go
+   * again, it is the last one that is reported.
+   */
+  onResponse?: ((answer: ApiAnswer) => void) | undefined;
 }
 
 /** What a call carries for the approval protocol, when it does. */
@@ -234,7 +246,10 @@ async function send(
     return send(method, path, body, init, node, true, mayRetryRateLimit, { approval: requested });
   }
 
-  if (response.ok) return readBody(response);
+  if (response.ok) {
+    init.onResponse?.({ status: response.status, headers: response.headers });
+    return readBody(response);
+  }
 
   const error = await errorFromResponse(response, node);
   if (error.sessionExpired) {
@@ -267,6 +282,7 @@ async function send(
       return send(method, path, body, init, node, mayElevate, false, approval);
     }
   }
+  init.onResponse?.({ status: response.status, headers: response.headers });
   throw error;
 }
 

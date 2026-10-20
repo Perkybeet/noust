@@ -257,6 +257,27 @@ what a pipeline's token holds, and answers what came of each application. Only t
 caller sees are reached. In the console: the list's **Tag** filter, **Update tagged apps** when it is
 narrowed to one, and **App tags** in an application's General settings.
 
+Databases and services carry tags too, with the same rules, so one label can mark the pieces of a
+customer or of a stage:
+
+```bash
+noust db tag add shop --engine postgresql client-acme
+noust db list --tag client-acme
+noust service tag add worker client-acme       # the server's units: the instance's, never a team's
+noust service list --tag client-acme
+noust app tag restart client-acme              # restart every application and service that carries it
+curl -X POST -H "Authorization: Bearer $TOKEN" -d '{"dry_run": true}' https://noust.example.com/api/tags/client-acme/restart
+```
+
+Restarting by tag reaches what the caller sees: a team's applications, never another team's, and the
+server's units only for the instance. It restarts each one the way its own restart does, one that
+fails does not stop the others, and `dry_run` (the global `--dry-run` on the command line) says what
+would happen first. A database that carries the tag is listed and left: a database is restarted with
+its engine, which every other database on it shares. The API call needs only `apps.operate`, the
+permission a restart of a single application asks, so a pipeline's token can hold it. A database is
+tagged with `databases.write` (a team's own databases, 404 for another team's); a service with
+`server.manage`, because the tag chooses what a restart reaches.
+
 ## From the API
 
 ```
@@ -291,6 +312,52 @@ Adding a person to a team needs an account that exists. A new person is invited 
 accounts (`POST /api/auth/invitations` with `team`), because creating a credential is the security
 role's decision, not a team's.
 
+## Notifications of a team
+
+A team keeps its own notification channels (Slack, ntfy, Telegram, a webhook...) and they hear the
+applications of that team only. See [notifications.md](notifications.md#a-teams-own-channels):
+`noust notify channel set NAME --team acme ...` and `/api/teams/{team}/notifications/channels`.
+
+In the console it is the team's **Notifications** tab: its channels with whether each sends, **Add a
+channel** (a name, a type, the type's settings, and optionally the applications, projects, environments,
+tags and lowest severity it hears), a test whose answer is shown as the receiving side wrote it, and
+**Remove channel**. A credential is never shown: a stored one reads as saved, and typing replaces it.
+Any member sees the list; changing it takes the admin role in the team (and sudo mode).
+
+## Servers of the fleet
+
+A central's servers (see [CENTRAL.md](CENTRAL.md)) are the instance's until one is **assigned to a team**.
+The team then sees the server in its server selector, reads its status and tests its connection, and
+works on it through the central: its members open the server's console pages (applications, sites,
+databases, backups, logs, jobs) as they open the central's own. Every other team reads the server as
+absent (`404`, the body of one that is not registered), and so does any account that belongs to no team.
+
+```
+noust node assign web-2 --team acme       # the administrator of the central
+noust node unassign web-2                 # back to the instance
+noust node list                           # the Team column
+PUT /api/nodes/web-2/team   {"team": "acme"}     # null gives it back (fleet.manage, sudo mode)
+```
+
+What a member does on a team's server is held twice, by the central, before the call is forwarded:
+
+- **The permission is held in the server's team.** An account that administers `acme` and only reads
+  `globex` deletes applications on the `acme` server and is refused on the `globex` one, even though
+  the union of its roles would allow it.
+- **Nothing about the machine.** The server takes the central's token for the instance, so the central
+  applies to the server's own path the table that already holds a team member on the central: the
+  server's services, cron jobs, processes, configuration, backups and the rest of what is "the server's"
+  answer `403` with `instance_scope_required`. A path the central cannot classify (a server newer than
+  the central) is refused with `scope_undeclared`. The server is also told the widest role the member
+  holds in full *in that team* (a team administrator is an `operator` there, a team viewer a `viewer`),
+  so it refuses what only its own administrators may do, creating or deleting applications included:
+  an administrator of the central does that, or the server's own console.
+
+How the central reaches a server (its key, SSH options, bastion, inventory, monitoring pause), adding and
+removing servers, labels, placements across servers and the fleet's aggregate views stay the
+administrator's. A team that is given a server cannot be deleted until the server is given back, and
+a server removed from the central leaves its team with it.
+
 ## What a team member cannot reach
 
 Anything that is about the whole server is closed to an account that does not see every team, and
@@ -298,7 +365,7 @@ answers `403` with `"error": "instance_scope_required"`: the server's own pages 
 `/api/system/processes`, `/api/services`, `/api/cron`, `/api/monitor`, `/api/metrics`, the
 overview and timeline), backups and their destinations (database dumps, data volumes and Noust's
 own backup, with the policies that schedule them: each writes a root timer and names a destination
-the server owns), certificates in bulk, the GitHub App, the fleet and every node, an adopted
+the server owns), certificates in bulk, the GitHub App, the fleet's own views and the way the central reaches each server, an adopted
 Compose stack, an import of an exported application and the install of a recipe (create the
 application through `POST /api/apps` with a recipe instead). These are what 3.4 does not yet
 filter by team; the pages come to a team member as each is filtered. Database engines (the
@@ -354,7 +421,7 @@ What a team member is shown of that is limited to its own applications:
 
 ## Audit
 
-Every change is on the audit trail with whoever made it: `team.create`, `team.update`,
+Every change is on the audit trail with whoever made it: `fleet.node.team`, `team.create`, `team.update`,
 `team.delete`, `team.member.add`, `team.member.remove`, `project.create`, `project.delete`,
 `project.update`, `environment.create`, `environment.update`, `environment.delete` and `apps.move`.
 

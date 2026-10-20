@@ -24,12 +24,22 @@ describe("appStatus", () => {
     // A Compose stack whose containers run while its unit is stopped.
     ["running_unmanaged", "warning", "Running outside Noust", true],
     ["Running outside Noust", "warning", "Running outside Noust", true],
+    // Some of its units serve and some do not; and one that serves with nothing checking it.
+    ["degraded", "warning", "Degraded", true],
+    ["Degraded", "warning", "Degraded", true],
+    ["running_no_healthcheck", "running", "Running, no health check", false],
+    ["Running without healthcheck", "running", "Running, no health check", false],
   ])("%s is drawn %s, labelled %s, attention %s", (status, state, label, attention) => {
     expect(appStatus(status)).toEqual({ state, label, attention });
   });
 
   it("shows a word it does not know verbatim, with the unknown shape", () => {
-    expect(appStatus("degraded")).toEqual({ state: "unknown", label: "Degraded", attention: false });
+    expect(appStatus("overheating")).toEqual({ state: "unknown", label: "Overheating", attention: false });
+  });
+
+  it("ranks a degraded application with the warnings, between a failure and work in progress", () => {
+    expect(STATE_RANK[appStatus("degraded").state]).toBeGreaterThan(STATE_RANK[appStatus("failed").state]);
+    expect(STATE_RANK[appStatus("degraded").state]).toBeLessThan(STATE_RANK[appStatus("deploying").state]);
   });
 
   it("says Unknown when there is no word at all", () => {
@@ -71,7 +81,9 @@ describe("in Spanish", () => {
     expect(appStatus("running", "es").label).toBe("En ejecución");
     expect(appStatus("No answer", "es")).toEqual({ state: "failed", label: "Sin respuesta", attention: true });
     expect(appStatus(null, "es").label).toBe("Desconocido");
-    expect(appStatus("degraded", "es").label).toBe("Degraded");
+    expect(appStatus("overheating", "es").label).toBe("Overheating");
+    expect(appStatus("degraded", "es").label).toBe("Degradada");
+    expect(appStatus("running_no_healthcheck", "es").label).toBe("En marcha, sin comprobación de salud");
     expect(deployStatus("success", "es").label).toBe("Correcto");
     expect(deployStatus("rolled_back", "es").label).toBe("Revertido");
     expect(deployStatus("half_done", "es").label).toBe("Half done");

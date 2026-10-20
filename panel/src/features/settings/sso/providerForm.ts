@@ -50,7 +50,16 @@ export const NEW_ADMISSION: AdmissionDraft = {
   mappings: "",
 };
 
+/**
+ * What kind of provider it is, chosen when it is made: an OpenID Connect provider (discovery,
+ * an ID token) or GitHub (OAuth 2.0 without OpenID Connect: fixed endpoints, the person read
+ * from GitHub's API).
+ */
+export const KINDS = ["oidc", "github"] as const;
+export type ProviderKind = (typeof KINDS)[number];
+
 export interface ProviderDraft extends AdmissionDraft {
+  kind: ProviderKind;
   name: string;
   label: string;
   issuer: string;
@@ -67,6 +76,7 @@ export interface ProviderDraft extends AdmissionDraft {
 /** The defaults of a provider nobody configured yet, as the server's own are. */
 export const NEW_DRAFT: ProviderDraft = {
   ...NEW_ADMISSION,
+  kind: "oidc",
   name: "",
   label: "",
   issuer: "",
@@ -166,6 +176,7 @@ export function parseMappings(text: string): ParsedMappings {
 /** A provider the server has, as a form. */
 export function draftOf(info: SsoProviderInfo): ProviderDraft {
   return {
+    kind: info.kind === "github" ? "github" : "oidc",
     name: info.name,
     label: info.label,
     issuer: info.issuer,
@@ -201,12 +212,16 @@ export function settingsOf(draft: ProviderDraft): { settings: SsoProviderSetting
   const parsed = parseMappings(draft.mappings);
   if (parsed.error !== null) return { settings: null, badLine: parsed.error };
   const skew = Number.parseInt(draft.clockSkew, 10);
+  const github = draft.kind === "github";
   const settings: SsoProviderSettings = {
+    kind: draft.kind,
     label: draft.label.trim(),
-    issuer: draft.issuer.trim(),
+    // GitHub is github.com unless an Enterprise Server is named: an empty issuer is "leave it".
+    ...(github && draft.issuer.trim() === "" ? {} : { issuer: draft.issuer.trim() }),
     client_id: draft.clientId.trim(),
     enabled: draft.enabled,
-    scopes: draft.scopes.trim(),
+    // GitHub's scopes are fixed by Noust (it never asks for one that writes).
+    ...(github ? {} : { scopes: draft.scopes.trim() }),
     provisioning: draft.provisioning,
     default_role: draft.defaultRole,
     default_team: draft.defaultTeam === "" ? null : draft.defaultTeam,

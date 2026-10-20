@@ -46,6 +46,7 @@ export function ServicesPage({ search, onSearchChange }: ServicesPageProps) {
 
   const fetched = useMemo(() => services.data?.services ?? [], [services.data]);
   const shown = useMemo(() => filterServices(fetched, search), [fetched, search]);
+  const tagNames = useMemo(() => [...new Set(fetched.flatMap((service) => service.tags ?? []))].sort(), [fetched]);
   const appList = apps.data?.apps ?? [];
   const appOf = (service: ServiceInfo): string | null => appOfUnit(appList, service.name)?.domain ?? null;
 
@@ -55,6 +56,7 @@ export function ServicesPage({ search, onSearchChange }: ServicesPageProps) {
     if (next.q) clean.q = next.q;
     if (next.all) clean.all = true;
     if (next.state) clean.state = next.state;
+    if (next.tag) clean.tag = next.tag;
     onSearchChange(clean, { replace });
   };
 
@@ -119,6 +121,14 @@ export function ServicesPage({ search, onSearchChange }: ServicesPageProps) {
                     { value: "stopped", label: t("services.page.stateStopped") },
                   ]}
                 />
+                {tagNames.length > 0 || search.tag !== undefined ? (
+                  <Select
+                    aria-label={t("appTags.filter.label")}
+                    value={search.tag ?? ANY}
+                    onValueChange={(tag) => set({ tag: tag === ANY ? undefined : tag }, true)}
+                    options={[{ value: ANY, label: t("appTags.filter.every") }, ...tagNames.map((tag) => ({ value: tag, label: tag }))]}
+                  />
+                ) : null}
               </>
             }
             count={

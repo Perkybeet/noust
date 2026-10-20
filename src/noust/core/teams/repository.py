@@ -351,6 +351,14 @@ class TeamStore:
                     "or delete them."
                 ),
             )
+        servers = int(
+            self._rows("SELECT COUNT(*) AS n FROM node_teams WHERE team_id = ?", (team.id,))[0]["n"]
+        )
+        if servers:
+            raise TeamConflictError(
+                f"The team {team.slug!r} still has {servers} server{'' if servers == 1 else 's'}",
+                details="Give them back to the instance first ('noust node unassign NODE').",
+            )
         with self.store._transaction() as cursor:
             cursor.execute(
                 "DELETE FROM access_bindings WHERE (scope_kind = 'team' AND scope_id = ?) "

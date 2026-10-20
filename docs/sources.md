@@ -133,6 +133,53 @@ reaches every project of that host: give it a user that can read only what shoul
 Webhooks are as before ([api.md](api.md#deploy-webhooks)); GitLab's push events list the files a
 push touched, so watch paths filter them.
 
+## Gitea, Forgejo and Gogs
+
+They deliver pushes, tags and (Gitea and Forgejo) pull requests through the deploy webhook
+([api.md](api.md#deploy-webhooks)), signed with the application's secret: `X-Gitea-Signature`,
+`X-Forgejo-Signature` or `X-Gogs-Signature`, the HMAC-SHA256 of the body in hex. Forgejo is a fork of
+Gitea and Gogs the project Gitea was forked from: Noust reads their payloads with one parser, and the
+delivery log names which of the three signed. Add the webhook at the repository's Settings > Webhooks
+(`noust app webhook show DOMAIN` prints the page: `/settings/hooks/gitea/new`, `/forgejo/new` or
+`/gogs/new`), content type `application/json`, events Push (and Pull request for previews).
+
+A **Gogs** pull request names its branches in flat fields (`head_branch`, `head_repo`) and gives no
+commit: a preview is built from the branch, as a push to it would be. Gogs has no commit statuses.
+
+A host that does not say what it is (`git.example.com`) is named once, so Noust knows how to link to its
+settings and where its API is:
+
+```bash
+noust config set integrations.forge_hosts git.example.com=gitea,code.example.com=forgejo
+```
+
+Hosts named `gitlab...`, `gitea...`, `forgejo...`, `gogs...` or `bitbucket...`, and `codeberg.org` and
+`gitea.com`, are known without it.
+
+## Commit statuses and comments on GitLab, Gitea, Forgejo and Bitbucket
+
+A deployment marks the commit it deploys, the way the [GitHub App](#github-and-github-enterprise) does:
+**running** when it starts, then **success**, **failure** (with "Rolled back" when what served before was
+put back) or **cancelled**, as the check `noust/deploy` (`noust/preview` for a preview), with a link to
+the application (or, when it failed, to its page in the console if `web.public_url` is set). A
+preview's pull request (merge request on GitLab) gets **one comment** that is edited in place as the
+preview changes, and made again if somebody deleted it.
+
+| Host | Status | Comment | What signs in |
+|---|---|---|---|
+| GitLab | `POST /projects/:id/statuses/:sha` | merge request notes | the repository's token (scope **`api`**), else the GitLab connection of its host |
+| Gitea, Forgejo | `POST /repos/{o}/{r}/statuses/{sha}` | issue comments | the repository's token (write access) |
+| Gogs | none (the host has no such API) | issue comments | the repository's token |
+| Bitbucket Cloud | `commit/{sha}/statuses/build` | pull request comments | a repository access token (user `x-token-auth`, scope `repository:write`) or an API token |
+
+What signs in is what already clones the repository: its [https credential](api.md#deploy-keys)
+(`noust app git-credential DOMAIN`), or a GitLab connection for its host. **A token that can clone may
+not be allowed to write**: a GitLab connection has `read_api read_repository`, and a status needs `api`, so
+give the repository a credential of its own with the scope the host asks for. The refusal is in the log
+with that hint; nothing else about the deployment changes. A repository with no https credential (a
+source reached with a deploy key) gets no status and no comment, because there is nothing to write them
+with. Writing happens on a worker of its own, in order, and never delays or fails a deployment.
+
 ## Bitbucket
 
 Bitbucket Cloud delivers pushes and, for previews, pull requests through the deploy webhook

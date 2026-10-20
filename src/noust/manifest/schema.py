@@ -7,10 +7,13 @@ The manifest: what a server should hold, written down (J-15).
 A manifest is a YAML document the operator keeps in git and applies to a server
 (``noust --context prod manifest apply noust-manifest.yaml``): the projects and
 applications that should exist, where each lives, its variables, its domains,
-its limits, its health check, its databases and its backup schedule. It is
+its limits, its health check, its databases and its backup schedule, and the cron
+jobs the server runs. On a central it also says the servers it manages (their
+labels and the team that has each), where an application is placed across them,
+and which server an application, or a cron job, lives on. It is
 declarative and *non-destructive*: applying it creates what is missing and
 brings what exists to what is written, and never deletes anything the manifest
-does not mention (an application missing from it is reported, not touched).
+does not mention (an application or a cron job missing from it is reported, not touched).
 
 The schema is closed, like ``noust.yaml``'s: an unknown key is an error that
 names the path, never ignored, because a typo in a key (``memory_mb``) that is
@@ -49,6 +52,13 @@ MAX_BYTES = 1024 * 1024
 
 _SLUG = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?")
 _CALENDAR = re.compile(r"^[A-Za-z0-9 :*,/.\-]{1,100}$")
+#: A cron job's name becomes part of two unit names; the manager holds it to the same rule.
+_JOB = re.compile(r"[a-z0-9][a-z0-9._-]{0,62}")
+#: A server's name on a central.
+_SERVER = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+#: Most cron jobs, servers and placements a manifest may hold.
+MAX_CRON = 200
+MAX_SERVERS = 200
 
 
 class ManifestError(ValidationError):
@@ -122,6 +132,85 @@ class BackupSpec:
 
 
 @dataclass(frozen=True)
+class CronSpec:
+    """
+    A cron job the server should run.
+
+    Attributes:
+        name: The job's name (it names two systemd units).
+        command: One command line, split with shlex and run without a shell. A command may
+            hold a secret, so a plan never prints it.
+        schedule: ``hourly``, ``daily``, ``weekly``, ``monthly`` or a systemd calendar.
+        user: Unix user to run as; None leaves the server's default (and what it has).
+        working_directory: Absolute directory to run in; None leaves it.
+        app: The application it belongs to; None leaves it.
+        timeout: Seconds before it is stopped; None leaves it.
+        service: The Compose service to run it in; None leaves it.
+        enabled: Whether the timer is on.
+        server: The server of the fleet it runs on; None for the server the manifest is
+            applied to.
+    """
+
+    name: str
+    command: str
+    schedule: str = "daily"
+    user: str | None = None
+    working_directory: str | None = None
+    app: str | None = None
+    timeout: int | None = None
+    service: str | None = None
+    enabled: bool = True
+    server: str | None = None
+
+
+@dataclass(frozen=True)
+class ServerSpec:
+    """
+    A server of the fleet a central manages, as it should be.
+
+    Adding a server needs the join code its own ``noust fleet authorize`` printed, which does
+    not belong in a document in git: a manifest sets what a server already registered
+    carries, never registers one.
+
+    Attributes:
+        name: Its name on the central.
+        labels: Labels it should carry, merged into the ones it has; None leaves them.
+        team: The team it should be assigned to; None leaves it where it is.
+    """
+
+    name: str
+    labels: Mapping[str, str] | None = None
+    team: str | None = None
+
+
+@dataclass(frozen=True)
+class PlacementSpec:
+    """
+    Where an application runs across the servers of a fleet, and how an update goes out.
+
+    The servers (``nodes`` and ``labels``) are kept when the manifest does not say them;
+    the way an update goes out is what the manifest says, so a field it leaves out is cleared.
+
+    Attributes:
+        domain: The application.
+        nodes: The servers it is named on; None keeps the current ones.
+        labels: A label selector adding the servers that carry it; None keeps the current one.
+        serial: Servers an update goes to at a time (a number or ``"25%"``).
+        max_failures: Failures that stop an update.
+        canary: The server that goes first.
+        rollback_on_failure: Put the servers already moved back when an update stops.
+    """
+
+    domain: str
+    nodes: tuple[str, ...] | None = None
+    labels: Mapping[str, str] | None = None
+    serial: int | str | None = None
+    max_failures: int | None = None
+    canary: str | None = None
+    rollback_on_failure: bool = True
+
+
+@dataclass(frozen=True)
 class AppSpec:
     """
     One application, as it should be.
@@ -145,6 +234,8 @@ class AppSpec:
         health: The health gate's path, statuses and timeout, set together; None leaves them.
         databases: Databases it should use.
         backups: Its backup schedule; None leaves it.
+        server: The server of the fleet it lives on, reached through the central the manifest is
+            applied to; None for the server the manifest is applied to.
     """
 
     domain: str
@@ -163,6 +254,7 @@ class AppSpec:
     health: Mapping[str, Any] | None = None
     databases: tuple[DatabaseSpec, ...] = ()
     backups: BackupSpec | None = None
+    server: str | None = None
 
 
 @dataclass(frozen=True)
@@ -174,11 +266,17 @@ class Manifest:
         name: What it is called, for people.
         projects: The projects and environments that should exist.
         applications: The applications that should exist.
+        cron: The cron jobs that should run.
+        servers: The servers of the fleet, as they should be.
+        placements: Where applications run across the fleet.
     """
 
     name: str = ""
     projects: tuple[ProjectSpec, ...] = ()
     applications: tuple[AppSpec, ...] = field(default_factory=tuple)
+    cron: tuple[CronSpec, ...] = ()
+    servers: tuple[ServerSpec, ...] = ()
+    placements: tuple[PlacementSpec, ...] = ()
 
     def secrets(self) -> list[tuple[str, str, Secret]]:
         """
@@ -357,6 +455,7 @@ def _application(raw: Any, path: str) -> AppSpec:
             "health",
             "databases",
             "backups",
+            "server",
         },
         {"domain"},
     )
@@ -483,6 +582,217 @@ def _application(raw: Any, path: str) -> AppSpec:
         health=health,
         databases=tuple(databases),
         backups=backups,
+        server=_optional_server(data, "server", path),
+    )
+
+
+def _server_name(value: Any, path: str) -> str:
+    """
+    Args:
+        value: A server's name as written.
+        path: Where.
+
+    Returns:
+        It.
+
+    Raises:
+        ManifestError: When it cannot be the name of a server.
+    """
+    text = _text(value, path, maximum=64)
+    if not _SERVER.fullmatch(text):
+        raise _fail(
+            path,
+            f"{text!r} is not the name of a server",
+            "Use letters, digits, '.', '_' and '-', as 'noust node list' shows it.",
+        )
+    return text
+
+
+def _optional_server(data: Mapping[str, Any], key: str, path: str) -> str | None:
+    """
+    Args:
+        data: A mapping.
+        key: The key.
+        path: Where the mapping is.
+
+    Returns:
+        The server's name, or None when the key is absent or null.
+    """
+    value = data.get(key)
+    return None if value is None else _server_name(value, f"{path}.{key}")
+
+
+def _labels(value: Any, path: str) -> dict[str, str]:
+    """
+    Args:
+        value: A mapping of labels as written.
+        path: Where.
+
+    Returns:
+        The labels, each key and value held to the fleet's own rules.
+
+    Raises:
+        ManifestError: When it is not a mapping of valid labels.
+    """
+    from noust.fleet.labels import MAX_LABELS, validate_key, validate_value
+
+    if not isinstance(value, dict):
+        raise _fail(path, "must be a mapping of label to value")
+    if len(value) > MAX_LABELS:
+        raise _fail(path, f"has more than {MAX_LABELS} labels")
+    labels: dict[str, str] = {}
+    for key, item in value.items():
+        try:
+            labels[validate_key(str(key))] = validate_value(
+                "true" if item is True else "false" if item is False else str(item)
+            )
+        except ValidationError as exc:
+            raise _fail(path, exc.message, exc.details) from exc
+    return labels
+
+
+def _cron(raw: Any, path: str) -> CronSpec:
+    """
+    Args:
+        raw: One cron job as written.
+        path: Where.
+
+    Returns:
+        The job.
+
+    Raises:
+        ManifestError: When it is not valid.
+    """
+    data = _mapping(
+        raw,
+        path,
+        {
+            "name",
+            "command",
+            "schedule",
+            "user",
+            "working_directory",
+            "app",
+            "timeout",
+            "service",
+            "enabled",
+            "server",
+        },
+        {"name", "command"},
+    )
+    name = _text(data["name"], f"{path}.name", maximum=63).lower()
+    if not _JOB.fullmatch(name):
+        raise _fail(
+            f"{path}.name",
+            f"{name!r} is not a name for a cron job",
+            "Use lower-case letters, digits, '.', '_' and '-': it becomes part of two unit names.",
+        )
+    schedule = _text(data.get("schedule", "daily"), f"{path}.schedule", maximum=100)
+    if not _CALENDAR.fullmatch(schedule):
+        raise _fail(
+            f"{path}.schedule",
+            "is not a schedule",
+            "Use hourly, daily, weekly, monthly or a systemd calendar.",
+        )
+    directory = _optional_text(data, "working_directory", path, maximum=1024)
+    if directory is not None and not directory.startswith("/"):
+        raise _fail(f"{path}.working_directory", "must be an absolute path")
+    app = _optional_text(data, "app", path)
+    if app is not None:
+        app = app.lower()
+        valid, why = is_valid_domain(app)
+        if not valid:
+            raise _fail(f"{path}.app", why, "Write the domain of an application.")
+    enabled = data.get("enabled", True)
+    if not isinstance(enabled, bool):
+        raise _fail(f"{path}.enabled", "must be true or false")
+    return CronSpec(
+        name=name,
+        command=_text(data["command"], f"{path}.command", maximum=4096),
+        schedule=schedule,
+        user=_optional_text(data, "user", path, maximum=64),
+        working_directory=directory,
+        app=app,
+        timeout=_optional_int(data, "timeout", path, 1, 86400),
+        service=_optional_text(data, "service", path, maximum=64),
+        enabled=enabled,
+        server=_optional_server(data, "server", path),
+    )
+
+
+def _server(raw: Any, path: str) -> ServerSpec:
+    """
+    Args:
+        raw: One server of the fleet as written.
+        path: Where.
+
+    Returns:
+        The server.
+
+    Raises:
+        ManifestError: When it is not valid.
+    """
+    data = _mapping(raw, path, {"name", "labels", "team"}, {"name"})
+    return ServerSpec(
+        name=_server_name(data["name"], f"{path}.name"),
+        labels=_labels(data["labels"], f"{path}.labels")
+        if data.get("labels") is not None
+        else None,
+        team=_optional_slug(data, "team", path),
+    )
+
+
+def _placement(raw: Any, path: str) -> PlacementSpec:
+    """
+    Args:
+        raw: One placement as written.
+        path: Where.
+
+    Returns:
+        The placement.
+
+    Raises:
+        ManifestError: When it is not valid.
+    """
+    data = _mapping(
+        raw,
+        path,
+        {"domain", "servers", "labels", "serial", "max_failures", "canary", "rollback_on_failure"},
+        {"domain"},
+    )
+    domain = _text(data["domain"], f"{path}.domain").lower()
+    valid, why = is_valid_domain(domain)
+    if not valid:
+        raise _fail(f"{path}.domain", why, "Write the domain of an application.")
+    nodes: tuple[str, ...] | None = None
+    if data.get("servers") is not None:
+        if not isinstance(data["servers"], list):
+            raise _fail(f"{path}.servers", "must be a list of servers")
+        names: list[str] = []
+        for index, item in enumerate(data["servers"]):
+            name = _server_name(item, f"{path}.servers[{index}]")
+            if name not in names:
+                names.append(name)
+        nodes = tuple(names)
+    serial: int | str | None = data.get("serial")
+    if isinstance(serial, str):
+        if not re.fullmatch(r"[1-9][0-9]{0,2}%", serial) or int(serial[:-1]) > 100:
+            raise _fail(f"{path}.serial", "must be a number of servers or a percentage like 25%")
+    elif serial is not None:
+        serial = _integer(serial, f"{path}.serial", 1, 1000)
+    rollback = data.get("rollback_on_failure", True)
+    if not isinstance(rollback, bool):
+        raise _fail(f"{path}.rollback_on_failure", "must be true or false")
+    return PlacementSpec(
+        domain=domain,
+        nodes=nodes,
+        labels=_labels(data["labels"], f"{path}.labels")
+        if data.get("labels") is not None
+        else None,
+        serial=serial,
+        max_failures=_optional_int(data, "max_failures", path, 0, 1000),
+        canary=_optional_server(data, "canary", path),
+        rollback_on_failure=rollback,
     )
 
 
@@ -552,7 +862,12 @@ def parse(text: str) -> Manifest:
         document = yaml.safe_load(text)
     except yaml.YAMLError as exc:
         raise _fail("manifest", f"is not valid YAML: {exc}") from exc
-    data = _mapping(document, "", {"version", "name", "projects", "applications"}, {"version"})
+    data = _mapping(
+        document,
+        "",
+        {"version", "name", "projects", "applications", "cron", "servers", "placements"},
+        {"version"},
+    )
     if data["version"] != VERSION:
         raise _fail(
             "version",
@@ -586,11 +901,55 @@ def parse(text: str) -> Manifest:
     ]
     seen: set[str] = set()
     for index, app in enumerate(applications):
-        if app.domain in seen:
+        key = f"{app.server}:{app.domain}" if app.server else app.domain
+        if key in seen:
             raise _fail(f"applications[{index}].domain", f"{app.domain} appears twice")
-        seen.add(app.domain)
+        seen.add(key)
+    cron = _listed(data, "cron", MAX_CRON, _cron)
+    taken: set[tuple[str | None, str]] = set()
+    for index, job in enumerate(cron):
+        if (job.server, job.name) in taken:
+            raise _fail(f"cron[{index}].name", f"{job.name} appears twice")
+        taken.add((job.server, job.name))
+    servers = _listed(data, "servers", MAX_SERVERS, _server)
+    named: set[str] = set()
+    for index, node in enumerate(servers):
+        if node.name in named:
+            raise _fail(f"servers[{index}].name", f"{node.name} appears twice")
+        named.add(node.name)
+    placements = _listed(data, "placements", MAX_APPLICATIONS, _placement)
+    placed: set[str] = set()
+    for index, item in enumerate(placements):
+        if item.domain in placed:
+            raise _fail(f"placements[{index}].domain", f"{item.domain} appears twice")
+        placed.add(item.domain)
     return Manifest(
         name=_optional_text(data, "name", "", maximum=120) or "",
         projects=tuple(projects),
         applications=tuple(applications),
+        cron=tuple(cron),
+        servers=tuple(servers),
+        placements=tuple(placements),
     )
+
+
+def _listed(data: Mapping[str, Any], key: str, maximum: int, read: Any) -> list[Any]:
+    """
+    Args:
+        data: The document.
+        key: The section.
+        maximum: Most entries it may hold.
+        read: Reads one entry: ``read(raw, path)``.
+
+    Returns:
+        The entries, read.
+
+    Raises:
+        ManifestError: When the section is not a list, is too long or an entry is not valid.
+    """
+    raw = data.get(key) or []
+    if not isinstance(raw, list):
+        raise _fail(key, "must be a list")
+    if len(raw) > maximum:
+        raise _fail(key, f"has more than {maximum} entries")
+    return [read(item, f"{key}[{index}]") for index, item in enumerate(raw)]

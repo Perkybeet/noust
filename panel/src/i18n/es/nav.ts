@@ -62,6 +62,7 @@ export const nav: Catalog<typeof en> = {
   teamTabs: {
     overview: { label: "Resumen" },
     members: { label: "Miembros", keywords: "personas roles invitar propietario acceso members people" },
+    notifications: { label: "Notificaciones", keywords: "alertas slack ntfy telegram webhook canales avisos notifications" },
     settings: { label: "Ajustes", keywords: "renombrar borrar nombre rename delete" },
   },
   settingsTabs: {
