@@ -1,0 +1,64 @@
+# Glance from the image the project publishes (glanceapp/glance on Docker Hub, the same
+# release as ghcr.io/glanceapp/glance). Configuration is what the project documents
+# (docs/configuration.md): one glance.yml mounted at /app/config/glance.yml, in which ${NAME}
+# is read from the container's environment, so the password and the session key stay in the
+# application's variables and not in the file; the "auth" block makes it ask for a sign-in
+# (without it the page is public). The page the file ships is a starting point: calendar,
+# news feeds, Hacker News and the weather, edited in the file and reloaded by Glance on save.
+#
+# Derived in part from Coolify's template "glance" (Apache-2.0,
+# https://github.com/coollabsio/coolify/blob/next/templates/compose/glance.yaml): the layout
+# of its starting page. Pinned to the release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: glance
+kind: compose
+title: Glance
+slogan: "A self-hosted dashboard that puts your feeds, weather and links in one page."
+description: "A lightweight start page for the things you follow: news feeds, Hacker News, Reddit, videos, the weather, a calendar, service monitors and more, in columns you arrange in one file. Starts behind a sign-in."
+category: productivity
+tags: [dashboard, feeds, rss, start-page]
+logo: logo.svg
+version: "0.8.7"
+revision: 1
+updated: 2026-10-20
+homepage: https://github.com/glanceapp/glance
+docs: https://github.com/glanceapp/glance/blob/main/docs/configuration.md
+repository: https://github.com/glanceapp/glance
+license: AGPL-3.0-only
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8080
+variables:
+  GLANCE_USER:
+    default: admin
+    description: The user name you sign in with.
+  GLANCE_PASSWORD:
+    generate: password32
+    description: The password you sign in with.
+  GLANCE_SECRET_KEY:
+    generate: base64_64
+    description: "Signs the session cookies: 64 random bytes in base64, what glance secret:make writes. Changing it signs everybody out."
+health:
+  path: /api/healthz
+  expect: "200"
+files: {glance.yml: {asset: glance.yml, mode: "0644"}}
+compose: |
+  services:
+    glance:
+      image: glanceapp/glance:v0.8.7@sha256:bc5a392672c1ec8823c50b61f3bd4b7e5acc34fcbb8477862577b3af1c633875
+      restart: unless-stopped
+      environment:
+        GLANCE_USER: "${GLANCE_USER}"
+        GLANCE_PASSWORD: "${GLANCE_PASSWORD}"
+        GLANCE_SECRET_KEY: "${GLANCE_SECRET_KEY}"
+      volumes:
+        - ./glance.yml:/app/config/glance.yml
+        - glance-assets:/app/assets
+      ports:
+        - "127.0.0.1:${PORT}:8080"
+  volumes:
+    glance-assets:
+notes:
+  - "Sign in at {{ url }} as {{ vars.GLANCE_USER }}; the password is GLANCE_PASSWORD (noust env show {{ domain }} --unmask)."
+  - "The page is the file glance.yml in this application's directory: edit it (feeds, widgets, columns) and Glance reloads it when it is saved. Files you serve from it (icons, custom CSS) go in the Docker volume glance-assets."

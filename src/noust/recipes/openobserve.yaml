@@ -1,0 +1,61 @@
+# OpenObserve from the image the project publishes (openobserve/openobserve on Docker Hub).
+# Configuration is what the project documents (openobserve.ai/docs "Environment variables" and
+# "Quickstart"): ZO_ROOT_USER_EMAIL and ZO_ROOT_USER_PASSWORD create the root account on the
+# first start (so there is no first visitor to win it), ZO_DATA_DIR is where it keeps its data
+# (local disk, the single-node mode), and the server listens on 5080. /healthz answers without
+# a login. Telemetry to the project is turned off with ZO_TELEMETRY.
+#
+# Derived in part from Coolify's template "openobserve" (Apache-2.0,
+# https://github.com/coollabsio/coolify/blob/next/templates/compose/openobserve.yaml). Pinned to
+# the release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: openobserve
+kind: compose
+title: OpenObserve
+slogan: "Logs, metrics and traces in one light observability platform."
+description: "Ingest and search logs, metrics and traces with SQL and dashboards, in a single binary that keeps its data compressed on local disk. Started in its single-node mode, with the root account you are given."
+category: monitoring
+tags: [logs, metrics, traces, observability, opentelemetry]
+logo: logo.svg
+version: "1.1.1"
+revision: 1
+updated: 2026-10-20
+homepage: https://openobserve.ai
+docs: https://openobserve.ai/docs/
+repository: https://github.com/openobserve/openobserve
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 5080
+variables:
+  ZO_ROOT_USER_EMAIL:
+    required: true
+    description: The e-mail address of the root account, which you sign in with.
+  ZO_ROOT_USER_PASSWORD:
+    generate: password32
+    description: The password of the root account.
+health:
+  path: /healthz
+  expect: "200"
+  timeout: 120
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    openobserve:
+      image: openobserve/openobserve:v1.1.1@sha256:dae91bc1f9d4c11db54e924d8d25bac7f6c50e080a8f06fc90d9468eaab81b67
+      restart: unless-stopped
+      environment:
+        ZO_ROOT_USER_EMAIL: "${ZO_ROOT_USER_EMAIL}"
+        ZO_ROOT_USER_PASSWORD: "${ZO_ROOT_USER_PASSWORD}"
+        ZO_DATA_DIR: /data
+        ZO_TELEMETRY: "false"
+      volumes:
+        - openobserve-data:/data
+      ports:
+        - "127.0.0.1:${PORT}:5080"
+  volumes:
+    openobserve-data:
+notes:
+  - "Sign in at {{ url }} as {{ vars.ZO_ROOT_USER_EMAIL }}; the password is ZO_ROOT_USER_PASSWORD (noust env show {{ domain }} --unmask). It is read only when the data directory is empty: change it in OpenObserve afterwards, not in the environment."
+  - "Your streams are in the Docker volume openobserve-data of this application: back it up before updating. Send data to {{ url }}/api/default/ with the credentials of an account (its ingestion page shows the exact request)."

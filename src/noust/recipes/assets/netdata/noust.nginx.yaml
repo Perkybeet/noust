@@ -1,0 +1,5 @@
+# How nginx proxies this application. The dashboard keeps a connection open for live charts.
+max_body_size: 1m
+routes:
+  - path: /
+    read_timeout: 3600

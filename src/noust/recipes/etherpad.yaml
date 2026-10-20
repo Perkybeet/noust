@@ -1,0 +1,61 @@
+# Etherpad from the image the project publishes (etherpad/etherpad on Docker Hub), configured as
+# its Docker documentation describes (docs "Docker" and doc/docker.md of the repository, read
+# 2026-10-20): the settings are environment variables (DB_TYPE and DB_FILENAME put the pads in
+# SQLite under /opt/etherpad-lite/var instead of the "dirty" file database the project says is
+# for development only, TRUST_PROXY because it sits behind nginx, ADMIN_PASSWORD, which turns on
+# /admin and is the only password there is), and the image listens on 9001. Pads are public by
+# their link, as the project designs them: anybody who knows the name of a pad can edit it, and
+# anybody who reaches the page can create one. /health answers without a sign-in.
+#
+# Pinned to the release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: etherpad
+kind: compose
+title: Etherpad
+slogan: "A real-time collaborative editor for documents, with no accounts."
+description: "Write together in the browser, see each other's changes as they are typed, and keep every revision. Pads are public by their link and anybody who reaches the page can create one: it fits a team that trusts its address. The admin page is protected by a password."
+category: productivity
+tags: [collaboration, editor, notes, real-time]
+logo: logo.svg
+version: "3.3.9"
+revision: 1
+updated: 2026-10-20
+homepage: https://etherpad.org
+docs: https://etherpad.org/doc/
+repository: https://github.com/ether/etherpad-lite
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 9001
+variables:
+  ADMIN_PASSWORD:
+    generate: password32
+    description: The password of the admin page (/admin), where you manage plugins and settings; the user is admin.
+health:
+  path: /health
+  expect: "200"
+  timeout: 120
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    etherpad:
+      image: etherpad/etherpad:3.3.9@sha256:3d59d633d285de17cb5d4a479b1f27b90e3194a09d5030c498de98a04f47cf77
+      restart: unless-stopped
+      environment:
+        NODE_ENV: production
+        TRUST_PROXY: "true"
+        DB_TYPE: sqlite
+        DB_FILENAME: /opt/etherpad-lite/var/etherpad.db
+        ADMIN_PASSWORD: "${ADMIN_PASSWORD}"
+        DEFAULT_PAD_TEXT: "Welcome to Etherpad.\n"
+      volumes:
+        - etherpad-data:/opt/etherpad-lite/var
+      ports:
+        - "127.0.0.1:${PORT}:9001"
+  volumes:
+    etherpad-data:
+notes:
+  - "Open {{ url }}: anybody who reaches the page can create a pad, and anybody who knows a pad's name can edit it. Keep the address to people you trust, or put access control in front of it."
+  - "The admin page is {{ url }}/admin: sign in as admin with ADMIN_PASSWORD (noust env show {{ domain }} --unmask)."
+  - "Every pad and its revisions are in the Docker volume etherpad-data of this application: back it up before updating."

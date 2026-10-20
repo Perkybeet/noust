@@ -1,0 +1,2 @@
+# How nginx proxies this application. Snapshots and batch uploads of vectors are large requests.
+max_body_size: 512m
