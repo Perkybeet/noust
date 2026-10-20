@@ -196,7 +196,19 @@ def transfer(env: Any, body: dict[str, Any]) -> tuple[int, Any]:
     Returns:
         The HTTP status and the decoded answer.
     """
-    return ship.api(env.central, env.token, "POST", "/api/fleet/databases/transfer", body)
+    started = time.monotonic()
+    status, answer = ship.api(env.central, env.token, "POST", "/api/fleet/databases/transfer", body)
+    # A plan only reads, so a read that timed out on a machine other work is hammering is asked
+    # again; a request that starts a move is never repeated.
+    for _ in range(2):
+        if status != 0 or not body.get("plan"):
+            break
+        env.central.evidence.append("(the plan timed out; asking it again, it only reads)")
+        status, answer = ship.api(
+            env.central, env.token, "POST", "/api/fleet/databases/transfer", body
+        )
+    env.central.evidence.append(f"(that took {time.monotonic() - started:.1f}s)")
+    return status, answer
 
 
 def finished(env: Any, body: dict[str, Any]) -> dict[str, Any]:
