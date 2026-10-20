@@ -1,31 +1,14 @@
-# The toolchains image (Dockerfile.toolchains) with what the rest of examples/ needs, for
-# tests/integration/examples_run.py: a machine that has, installed the way an operator would
-# install them from the distribution, a Go, a Rust, a Ruby with a compiler for its gems, and its own
-# Docker for the two examples that run containers.
-#
-#   Go    golang-go            (Ubuntu 24.04: Go 1.22)
-#   Rust  cargo rustc          (Ubuntu 24.04: 1.75; the Cargo.lock of the example is version 3)
-#   Ruby  ruby ruby-dev bundler build-essential
+# The toolchains image (Dockerfile.toolchains: Java, .NET, Elixir, Deno, Go, Rust, Ruby, Gradle and
+# pnpm, installed the way each deployer's advice says) with its own Docker back, for
+# tests/integration/examples_run.py.
 #
 # The toolchains layer masks the Docker units (nothing there used them) so that systemd reports
-# "running"; the two container examples need the daemon, so they are given back here. Its data lives
-# on the named volume run.py mounts on /var/lib/docker, never on the host's Docker.
+# "running"; the two examples that run containers (Compose and a Dockerfile) need the daemon, so the
+# units are given back here. Its data lives on the named volume run.py mounts on /var/lib/docker,
+# never on the host's Docker.
 
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
-
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        golang-go \
-        cargo \
-        rustc \
-        ruby \
-        ruby-dev \
-        bundler \
-        build-essential \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
 
 RUN systemctl unmask docker.service docker.socket containerd.service \
     && systemctl enable docker.socket docker.service containerd.service

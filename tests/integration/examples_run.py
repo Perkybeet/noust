@@ -4,9 +4,9 @@ Every application of ``examples/`` deployed for real (checklist N-20).
 
 ``examples/`` holds a minimal application for each type Noust deploys, and a folder that says "this
 deploys" is worth what has been run. This harness builds the wheel from the working tree, builds an
-image of its own (``Dockerfile.systemd``, then the toolchains, then ``Dockerfile.examples``: Go, Rust,
-Ruby and Docker on top of Java, .NET, Elixir and Deno), starts one privileged container with systemd
-as PID 1 and a Docker of its own, installs Noust into it, and for each example:
+image of its own (``Dockerfile.systemd``, then the toolchains of ``Dockerfile.toolchains``: Java, .NET,
+Elixir, Deno, Go, Rust and Ruby, then ``Dockerfile.examples``, which gives the Docker daemon back),
+starts one privileged container with systemd as PID 1 and a Docker of its own, installs Noust into it, and for each example:
 
 1. turns the folder into a git repository served by ``git daemon``, as a person's repository would be;
 2. creates an application from it (``noust create -d ex-NAME.test -s git://... --no-ssl``), and checks
@@ -140,7 +140,7 @@ def build_images(*, rebuild: bool) -> None:
     )
     for tag, parent, dockerfile, what in (
         (TOOLCHAINS_TAG, BASE_TAG, TOOLCHAINS_DOCKERFILE, "the toolchains (a long download)"),
-        (IMAGE_TAG, TOOLCHAINS_TAG, EXAMPLES_DOCKERFILE, "Go, Rust, Ruby and Docker"),
+        (IMAGE_TAG, TOOLCHAINS_TAG, EXAMPLES_DOCKERFILE, "the Docker daemon back"),
     ):
         print(f"[setup] building {tag}: {what}")
         sh(
