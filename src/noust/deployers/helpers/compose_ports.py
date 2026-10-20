@@ -22,7 +22,7 @@ entry as published, because calling a stack headless removes its site.
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -44,6 +44,9 @@ _DEFAULTED_VARIABLE = re.compile(r"\$\{[A-Za-z_][A-Za-z0-9_]*:?-([^}]*)\}")
 
 #: A variable a value reads: ``${NAME}``, ``${NAME:-x}``, ``$NAME``.
 _VARIABLE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)[^}]*\}|\$([A-Za-z_][A-Za-z0-9_]*)")
+
+#: A variable reference with its operator and default, or the bare ``$NAME`` form.
+_FILLED = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?:(:?-)([^}]*))?\}|\$([A-Za-z_][A-Za-z0-9_]*)")
 
 #: A port or a range of them.
 _PORT_RANGE = re.compile(r"^(\d+)(?:-(\d+))?$")
@@ -100,6 +103,35 @@ def parse_ports(value: object) -> list[PortMapping]:
     for entry in entries:
         mappings.extend(_parse_entry(entry) or [])
     return mappings
+
+
+def interpolate(text: str, values: Mapping[str, str]) -> str:
+    """
+    Fill the variables of a value the way Compose does from a project's ``.env``.
+
+    ``${NAME}`` and ``$NAME`` take the value; ``${NAME:-default}`` and ``${NAME-default}`` take
+    the default when the value is missing (or, with the colon, empty). A variable with neither
+    stays as written, so that the reading above keeps treating it as unknown.
+
+    Args:
+        text: The value, such as ``127.0.0.1:${VIEWER_PORT}:3000``.
+        values: The ``.env``.
+
+    Returns:
+        The text with the variables Compose would fill in filled in.
+    """
+
+    def fill(match: re.Match[str]) -> str:
+        name = match.group(1) or match.group(4)
+        operator, default = match.group(2), match.group(3)
+        value = values.get(name)
+        if value is not None and (value != "" or operator != ":-"):
+            return value
+        if operator is not None and default is not None:
+            return default
+        return match.group(0)
+
+    return _FILLED.sub(fill, text)
 
 
 def host_port_variables(value: object) -> set[str]:

@@ -1,0 +1,79 @@
+# AnythingLLM from the image the project publishes (mintplexlabs/anythingllm on Docker Hub), run
+# the way its docker documentation (docker/HOW_TO_USE_DOCKER.md and docker/.env.example, read
+# 2026-10-20) describes: the state under /app/server/storage (SQLite, LanceDB vectors,
+# documents), STORAGE_DIR, SERVER_PORT 3001, JWT_SECRET, SIG_KEY and SIG_SALT, and AUTH_TOKEN, the
+# password that protects the instance as soon as it starts (otherwise whoever opens it first
+# configures it). LanceDB is its embedded vector database. The project's compose file adds the
+# SYS_ADMIN capability for the Chromium its web page scraper starts; a recipe cannot add a
+# capability, so that one feature is not available here (uploading files and the other
+# connectors work), which the notes say. /api/ping answers without the password.
+#
+# Derived in part from Coolify's template "anythingllm" (Apache-2.0,
+# https://github.com/coollabsio/coolify/blob/next/templates/compose/anythingllm.yaml). Pinned to
+# the release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: anythingllm
+kind: compose
+title: AnythingLLM
+slogan: "A private AI workspace: chat with your documents using any LLM."
+description: "Turn documents, web pages and repositories into context that any language model can chat with, with workspaces, agents and an embedded vector database. Bring your own model (Ollama, OpenAI and many more). Protected by a password from the start."
+category: ai
+tags: [llm, rag, chat, documents, agents]
+logo: logo.svg
+version: "1.18.0"
+revision: 1
+updated: 2026-10-20
+homepage: https://anythingllm.com
+docs: https://docs.anythingllm.com
+repository: https://github.com/Mintplex-Labs/anything-llm
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3001
+variables:
+  AUTH_TOKEN:
+    generate: password32
+    description: The password you sign in with (the single-user password; multi-user mode is turned on from the settings).
+  JWT_SECRET:
+    generate: hex32
+    description: Signs the sessions. Changing it signs everybody out.
+  SIG_KEY:
+    generate: hex32
+    description: Encrypts the credentials AnythingLLM stores. Do not change it once you have saved any.
+  SIG_SALT:
+    generate: hex32
+    description: The salt that goes with SIG_KEY.
+health:
+  path: /api/ping
+  expect: "200"
+  timeout: 240
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    anythingllm:
+      image: mintplexlabs/anythingllm:1.18.0@sha256:5461782e7db41318a516925949a8f8366e258dd576411fca7961fe77dff054cc
+      restart: unless-stopped
+      environment:
+        STORAGE_DIR: /app/server/storage
+        SERVER_PORT: "3001"
+        DISABLE_TELEMETRY: "true"
+        VECTOR_DB: lancedb
+        AUTH_TOKEN: "${AUTH_TOKEN}"
+        JWT_SECRET: "${JWT_SECRET}"
+        SIG_KEY: "${SIG_KEY}"
+        SIG_SALT: "${SIG_SALT}"
+      volumes:
+        - anythingllm-storage:/app/server/storage
+        - anythingllm-hotdir:/app/collector/hotdir
+        - anythingllm-outputs:/app/collector/outputs
+      ports:
+        - "127.0.0.1:${PORT}:3001"
+  volumes:
+    anythingllm-storage:
+    anythingllm-hotdir:
+    anythingllm-outputs:
+notes:
+  - "Open {{ url }} and sign in with the password AUTH_TOKEN (noust env show {{ domain }} --unmask); the setup that follows asks which model and which embedding service to use."
+  - "Its web page scraper starts Chromium, which needs a capability (SYS_ADMIN) a recipe cannot add: scraping a URL does not work here. Uploading files, the connectors and the agents' other skills do."
+  - "Your workspaces, documents and vectors are in the Docker volume anythingllm-storage of this application: back it up before updating."

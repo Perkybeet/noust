@@ -1,0 +1,66 @@
+# Weaviate from the image the project publishes (semitechnologies/weaviate). Configuration is
+# what the project documents (docs.weaviate.io "Docker Compose" and "Authentication"): the
+# server is started with --host 0.0.0.0 --port 8080 --scheme http, data is kept under
+# PERSISTENCE_DATA_PATH, anonymous access is turned off and API key authentication on
+# (AUTHENTICATION_APIKEY_*), and the key's user is the one admin list names. No vectorizer
+# module is enabled: vectors come from the client. /v1/.well-known/ready answers without a key.
+# gRPC (50051) is not published; the REST API and the GraphQL endpoint go through nginx.
+#
+# Derived in part from Coolify's template "weaviate" (Apache-2.0,
+# https://github.com/coollabsio/coolify/blob/next/templates/compose/weaviate.yaml). Pinned to the
+# release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: weaviate
+kind: compose
+title: Weaviate
+slogan: "An open source vector database with hybrid search and an API key from the start."
+description: "Store objects and their vectors and search them by meaning, by keyword or both, through REST and GraphQL. Anonymous access is off: every request carries the API key Noust generates. Vectors come from your own models; no hosted vectorizer is configured."
+category: ai
+tags: [vector-database, embeddings, search, llm]
+logo: logo.svg
+version: "1.40.1"
+revision: 1
+updated: 2026-10-20
+homepage: https://weaviate.io
+docs: https://docs.weaviate.io/weaviate
+repository: https://github.com/weaviate/weaviate
+license: BSD-3-Clause
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8080
+variables:
+  WEAVIATE_API_KEY:
+    generate: password32
+    description: The key every request carries (Authorization Bearer); it belongs to the user admin, who is the administrator.
+health:
+  path: /v1/.well-known/ready
+  expect: "200"
+  timeout: 120
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    weaviate:
+      image: semitechnologies/weaviate:1.40.1@sha256:267e13af7248383aebfd7c61b0a17c7c5cbaea2f6b44fb6218dbb5af9e83762a
+      restart: unless-stopped
+      command: ["--host", "0.0.0.0", "--port", "8080", "--scheme", "http"]
+      environment:
+        QUERY_DEFAULTS_LIMIT: "25"
+        PERSISTENCE_DATA_PATH: /var/lib/weaviate
+        DEFAULT_VECTORIZER_MODULE: none
+        CLUSTER_HOSTNAME: node1
+        AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "false"
+        AUTHENTICATION_APIKEY_ENABLED: "true"
+        AUTHENTICATION_APIKEY_ALLOWED_KEYS: "${WEAVIATE_API_KEY}"
+        AUTHENTICATION_APIKEY_USERS: admin
+        AUTHORIZATION_ADMINLIST_ENABLED: "true"
+        AUTHORIZATION_ADMINLIST_USERS: admin
+      volumes:
+        - weaviate-data:/var/lib/weaviate
+      ports:
+        - "127.0.0.1:${PORT}:8080"
+  volumes:
+    weaviate-data:
+notes:
+  - "The API is {{ url }}/v1; the key is WEAVIATE_API_KEY (noust env show {{ domain }} --unmask), sent as Authorization: Bearer <key>. There is no anonymous access."
+  - "Your collections are in the Docker volume weaviate-data of this application: back it up before updating. The gRPC port (50051) is not published, so clients that need gRPC must run on this server's network or use the REST client."

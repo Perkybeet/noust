@@ -1,0 +1,5 @@
+# How nginx proxies this application. Redirects and API calls are small and quick.
+max_body_size: 1m
+routes:
+  - path: /
+    read_timeout: 60

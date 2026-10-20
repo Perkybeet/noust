@@ -107,7 +107,9 @@ class TestShow:
     def test_without_a_key_it_says_the_server_wide_key_is_used(
         self, seeded: App, plain: TestClient
     ) -> None:
-        body = plain.get(URL).json()
+        response = plain.get(URL)
+        assert response.status_code == 200, response.text
+        body = response.json()
         assert body["domain"] == DOMAIN
         assert body["repository"] == "github.com/acme/shop"
         assert body["source_is_ssh"] is True
@@ -286,7 +288,9 @@ class TestList:
     """Every key, and the pinned host keys."""
 
     def test_list(self, seeded: App, plain: TestClient) -> None:
-        made = plain.post(URL, json={}).json()["key"]
+        created = plain.post(URL, json={})
+        assert created.status_code == 201, created.text
+        made = created.json()["key"]
         body = plain.get("/api/deploy-keys").json()
         assert body["total"] == 1
         assert body["keys"][0]["name"] == made["name"]

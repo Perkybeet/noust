@@ -1,0 +1,5 @@
+# How nginx proxies this application. Files of any size are uploaded to be converted, and a conversion can take minutes before it answers.
+max_body_size: 2g
+routes:
+  - path: /
+    read_timeout: 900

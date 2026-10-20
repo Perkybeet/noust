@@ -1,0 +1,54 @@
+# Homarr from the image the project publishes (ghcr.io/homarr-labs/homarr), run as its
+# documentation describes (homarr.dev "Installation > Docker", read 2026-10-20): the data
+# (SQLite, icons, uploads) under /appdata, SECRET_ENCRYPTION_KEY (64 hexadecimal characters: it
+# encrypts the integrations' credentials) and the interface on 7575. The first visit is an
+# onboarding that creates the administrator, which the first note says. The project's compose
+# file also mounts the Docker socket to show containers; it is left out, because a recipe may
+# not mount it. The interface answers / with a redirect to its onboarding or sign-in page.
+#
+# Pinned to the release tag and to the digest ghcr.io serves for it.
+schema: 2
+name: homarr
+kind: compose
+title: Homarr
+slogan: "A customizable dashboard for your self-hosted services, with integrations."
+description: "A start page for your servers and apps with drag-and-drop boards, a search over your services and integrations that show live data from your media servers, downloaders and monitors. The first person to open it creates the administrator."
+category: productivity
+tags: [dashboard, start-page, homelab, integrations]
+logo: logo.svg
+version: "2.6.0"
+revision: 1
+updated: 2026-10-20
+homepage: https://homarr.dev
+docs: https://homarr.dev/docs
+repository: https://github.com/homarr-labs/homarr
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 7575
+variables:
+  SECRET_ENCRYPTION_KEY:
+    generate: hex64
+    description: Encrypts the credentials of the integrations (64 hexadecimal characters). Do not change it once any are saved.
+health:
+  path: /
+  expect: "200-399"
+  timeout: 180
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    homarr:
+      image: ghcr.io/homarr-labs/homarr:v2.6.0@sha256:1e077fc77d3ad7482376bab964b89cfc8c1f31fe2ddeb5154cf2a1058d40b32d
+      restart: unless-stopped
+      environment:
+        SECRET_ENCRYPTION_KEY: "${SECRET_ENCRYPTION_KEY}"
+      volumes:
+        - homarr-appdata:/appdata
+      ports:
+        - "127.0.0.1:${PORT}:7575"
+  volumes:
+    homarr-appdata:
+notes:
+  - "Open {{ url }} now and create the administrator: until you do, anybody who reaches it can."
+  - "Its database and uploads are in the Docker volume homarr-appdata of this application: back it up before updating, and keep SECRET_ENCRYPTION_KEY with the copy."

@@ -1,0 +1,57 @@
+# Netdata Agent from the image the project publishes (netdata/netdata on Docker Hub), run as
+# its Docker installation page describes (learn.netdata.cloud "Install Netdata with Docker", read
+# 2026-10-20) without what that page adds to see the host: the host's /proc, /sys and
+# /etc/os-release mounts, the Docker socket and the SYS_PTRACE and SYS_ADMIN capabilities. A
+# recipe may have none of them, so this Netdata sees what a container sees: its own processes and
+# network, the CPU, memory, disks and load the kernel shows to every container, and the
+# applications it finds by their ports. Its configuration, its database of metrics and its cache
+# are three volumes. DO_NOT_TRACK stops the anonymous statistics. The dashboard is the agent's
+# own and has no sign-in, which the description says. /api/v1/info answers without a login.
+#
+# Pinned to the release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: netdata
+kind: compose
+title: Netdata
+slogan: "Real-time performance monitoring with thousands of charts and no setup."
+description: "Per-second metrics and charts for CPU, memory, disks, network and the applications it finds, with alerts and a Prometheus endpoint. Runs as a container, so it sees what a container sees, not the whole host (that needs the host's namespaces and capabilities, which a recipe cannot have). Its dashboard has no sign-in: anybody who reaches it sees the metrics."
+category: monitoring
+tags: [monitoring, metrics, performance, alerts, prometheus]
+logo: logo.svg
+version: "2.12.1"
+revision: 1
+updated: 2026-10-20
+homepage: https://www.netdata.cloud
+docs: https://learn.netdata.cloud/docs
+repository: https://github.com/netdata/netdata
+license: GPL-3.0-or-later
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 19999
+health:
+  path: /api/v1/info
+  expect: "200"
+  timeout: 180
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    netdata:
+      image: netdata/netdata:v2.12.1@sha256:5cfa05a5fa5686b98e0c70e884f00685fb3c662e9c5d727cf46c96d8e37b7818
+      restart: unless-stopped
+      environment:
+        DO_NOT_TRACK: "1"
+      volumes:
+        - netdata-config:/etc/netdata
+        - netdata-lib:/var/lib/netdata
+        - netdata-cache:/var/cache/netdata
+      ports:
+        - "127.0.0.1:${PORT}:19999"
+  volumes:
+    netdata-config:
+    netdata-lib:
+    netdata-cache:
+notes:
+  - "Open {{ url }}: the dashboard has no sign-in, so anybody who reaches it sees the metrics. Keep the address to people you trust, or put access control in front of it."
+  - "This Netdata runs in a container and sees what a container sees. Noust's own monitor and the server's metrics page cover the host; Netdata is here for its charts of the applications and the Prometheus endpoint at {{ url }}/api/v1/allmetrics?format=prometheus."
+  - "Its configuration, metrics and cache are in the Docker volumes netdata-config, netdata-lib and netdata-cache of this application: back them up before updating."

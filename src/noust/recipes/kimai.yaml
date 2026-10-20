@@ -1,0 +1,108 @@
+# Kimai from the image the project publishes (kimai/kimai2, the Apache build) with the MySQL its
+# documentation supports (kimai.org "Docker"): DATABASE_URL, ADMINMAIL and ADMINPASS (the first
+# administrator, made on the first start, so there is no first visitor to win it), APP_SECRET,
+# TRUSTED_HOSTS (a regular expression of the hosts it answers to: the public host, and 127.0.0.1
+# for the health gate; Kimai answers 400 to a host it does not trust), TRUSTED_PROXIES (nginx is on
+# the same machine, so the peer is trusted and its forwarded headers are read), MAILER_URL (null://null until you give an SMTP one).
+# The data is under /opt/kimai/var/data and the plug-ins under /opt/kimai/var/plugins, the image
+# listens on 8001, and /en/login answers without a login.
+#
+# Derived in part from Coolify's template "kimai" (Apache-2.0,
+# https://github.com/coollabsio/coolify/blob/next/templates/compose/kimai.yaml). Pinned to the
+# release tag and to the digests Docker Hub serves for it.
+schema: 2
+name: kimai
+kind: compose
+title: Kimai
+slogan: "A time-tracking app for teams and freelancers, with invoices and reports."
+description: "Track the time you and your team spend on customers, projects and activities, from the browser or the mobile apps, then report on it and invoice it. Starts with the administrator you name, with its own MySQL."
+category: business
+tags: [time-tracking, invoicing, projects, timesheet]
+logo: logo.svg
+version: "2.70.0"
+revision: 1
+updated: 2026-10-20
+homepage: https://www.kimai.org
+docs: https://www.kimai.org/documentation/
+repository: https://github.com/kimai/kimai
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8001
+variables:
+  KIMAI_DOMAIN:
+    from: fqdn
+    description: The public host name, the one trusted host besides 127.0.0.1.
+  ADMINMAIL:
+    required: true
+    description: The e-mail address of the administrator, which you sign in with.
+  ADMINPASS:
+    generate: password32
+    description: The administrator's password. Kimai reads it only when it installs.
+  APP_SECRET:
+    generate: hex32
+    description: Signs the sessions. Changing it signs everybody out.
+  MAILER_URL:
+    default: "null://null"
+    description: The SMTP address Kimai sends e-mail through, such as smtp://user:pass@mail.example.com:587. The default sends nothing.
+  MAILER_FROM:
+    default: kimai@example.com
+    description: The address e-mails come from.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's MySQL account.
+  MYSQL_ROOT_PASSWORD:
+    generate: password32
+    description: The password of the MySQL root account, which stays inside the stack.
+health:
+  path: /en/login
+  expect: "200"
+  timeout: 300
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    kimai:
+      image: kimai/kimai2:2.70.0@sha256:e0a98b329fccef0aa006b4ae3ef3d01e0fe88c7bb0d64aea6742412e34b7265d
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        DATABASE_URL: "mysql://kimai:${DB_PASSWORD}@db/kimai?charset=utf8mb4&serverVersion=8.4.11"
+        ADMINMAIL: "${ADMINMAIL}"
+        ADMINPASS: "${ADMINPASS}"
+        APP_SECRET: "${APP_SECRET}"
+        TRUSTED_HOSTS: "^(${KIMAI_DOMAIN}|localhost|127.0.0.1)$$"
+        TRUSTED_PROXIES: "127.0.0.1,REMOTE_ADDR"
+        MAILER_URL: "${MAILER_URL}"
+        MAILER_FROM: "${MAILER_FROM}"
+      volumes:
+        - kimai-data:/opt/kimai/var/data
+        - kimai-plugins:/opt/kimai/var/plugins
+      ports:
+        - "127.0.0.1:${PORT}:8001"
+    db:
+      image: mysql:8.4.11@sha256:6ea90827b1100f8f2ae306a539f86d2c264a26ed435a2a9f75551dd5c3aeb242
+      restart: unless-stopped
+      environment:
+        MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+        MYSQL_DATABASE: kimai
+        MYSQL_USER: kimai
+        MYSQL_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 30s
+      volumes:
+        - kimai-db:/var/lib/mysql
+  volumes:
+    kimai-data:
+    kimai-plugins:
+    kimai-db:
+notes:
+  - "Sign in at {{ url }} as {{ vars.ADMINMAIL }}; the password is ADMINPASS (noust env show {{ domain }} --unmask). Kimai reads it only when it installs: change it in Kimai afterwards, not in the environment."
+  - "Kimai sends no e-mail until you set MAILER_URL to an SMTP address (the application's Environment tab) and restart it."
+  - "Its files and plug-ins are in the Docker volumes kimai-data and kimai-plugins, and the database in kimai-db (MySQL, dumped by Noust before every update). Back them up before updating."

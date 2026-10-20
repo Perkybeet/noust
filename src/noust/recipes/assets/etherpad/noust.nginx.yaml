@@ -1,0 +1,5 @@
+# How nginx proxies this application. Pads are edited over a WebSocket that stays open.
+max_body_size: 50m
+routes:
+  - path: /
+    read_timeout: 3600

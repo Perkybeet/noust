@@ -1,0 +1,5 @@
+# How nginx proxies this application. Secret imports and certificates are posted to it.
+max_body_size: 50m
+routes:
+  - path: /
+    read_timeout: 120

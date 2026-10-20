@@ -208,7 +208,7 @@ install -Dm644 packaging/install.sh %{buildroot}%{_datadir}/noust/install.sh
 install -d %{buildroot}/var/log/noust
 
 %files
-%license LICENSE
+%license LICENSE LICENSE-APACHE-2.0 LICENSE-OFL-1.1 NOTICE
 %doc README.md
 %doc docs/
 %doc docs/UPGRADING-3.0.md

@@ -1,0 +1,56 @@
+# The Beszel hub from the image the project publishes (henrygd/beszel on Docker Hub), run as its
+# documentation describes (beszel.dev "Guide > Getting started", read 2026-10-20): the hub is a
+# PocketBase application on 8090 that keeps its data under /beszel_data, APP_URL is the public
+# address, and the servers it monitors run the agent, which is a different program that the
+# hub's "Add system" dialog shows how to start on each of them (the agent needs the host's
+# network and Docker socket to see the host, which a recipe cannot have; it runs where the host
+# is). The first visit creates the administrator, which the first note says. /api/health answers
+# without a sign-in.
+#
+# Pinned to the release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: beszel
+kind: compose
+title: Beszel
+slogan: "A lightweight server monitoring hub with Docker stats, history and alerts."
+description: "See the CPU, memory, disk, network and container usage of every server you run, with history and alerts, from one small hub. Servers report through a tiny agent you start on each of them. The first person to open the hub creates the administrator."
+category: monitoring
+tags: [monitoring, servers, docker, alerts]
+logo: logo.svg
+version: "0.21.0"
+revision: 1
+updated: 2026-10-20
+homepage: https://beszel.dev
+docs: https://beszel.dev/guide/getting-started
+repository: https://github.com/henrygd/beszel
+license: MIT
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8090
+variables:
+  APP_URL:
+    from: url
+    description: The address people use; sign-in callbacks and the agent's install command are built from it.
+health:
+  path: /api/health
+  expect: "200"
+  timeout: 90
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    beszel:
+      image: henrygd/beszel:0.21.0@sha256:6b39a8b64f9b15d00a25e7683e31a93c46161182a54f62713525107064e10599
+      restart: unless-stopped
+      environment:
+        APP_URL: "${APP_URL}"
+      volumes:
+        - beszel-data:/beszel_data
+      ports:
+        - "127.0.0.1:${PORT}:8090"
+  volumes:
+    beszel-data:
+notes:
+  - "Open {{ url }} now and create the administrator: until you do, anybody who reaches it can."
+  - "Add a system from the hub's \"Add system\" dialog: it shows the command that starts the agent on that server, with the hub's public key."
+  - "Its database and the history of every system are in the Docker volume beszel-data of this application: back it up before updating."

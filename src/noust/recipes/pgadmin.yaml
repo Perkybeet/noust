@@ -1,0 +1,62 @@
+# pgAdmin 4 from the image the project publishes (dpage/pgadmin4 on Docker Hub). Configuration is
+# what its container documentation describes (pgadmin.org/docs/pgadmin4/latest/container_deployment.html):
+# PGADMIN_DEFAULT_EMAIL and PGADMIN_DEFAULT_PASSWORD create the first account when the data
+# directory is empty (so there is no first visitor to win it), the data is under /var/lib/pgadmin,
+# the image listens on 80 and /misc/ping answers without a login. PGADMIN_CONFIG_* variables are
+# lines of its config.py: SERVER_MODE makes it a multi-user web application (the default of the
+# image), where saved passwords are encrypted with each user's own sign-in.
+#
+# Derived in part from Coolify's template "pgadmin" (Apache-2.0,
+# https://github.com/coollabsio/coolify/blob/next/templates/compose/pgadmin.yaml). Pinned to the
+# release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: pgadmin
+kind: compose
+title: pgAdmin
+slogan: "The administration and development platform for PostgreSQL, in the browser."
+description: "Browse, query and administer PostgreSQL servers from the web: a query tool, an explorer for every object, backups and a dashboard. Starts with the administrator you name, and reaches the servers you add from it."
+category: data
+tags: [postgresql, database, admin, sql]
+logo: logo.svg
+version: "9.18.0"
+revision: 1
+updated: 2026-10-20
+homepage: https://www.pgadmin.org
+docs: https://www.pgadmin.org/docs/pgadmin4/latest/
+repository: https://github.com/pgadmin-org/pgadmin4
+license: PostgreSQL
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8280
+variables:
+  PGADMIN_DEFAULT_EMAIL:
+    required: true
+    description: "The e-mail address of the first account, which you sign in with (a real-looking domain: .local is refused)."
+  PGADMIN_DEFAULT_PASSWORD:
+    generate: password32
+    description: The password of the first account.
+health:
+  path: /misc/ping
+  expect: "200"
+  timeout: 120
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    pgadmin:
+      image: dpage/pgadmin4:9.18.0@sha256:c332c5f6dfba995d9ebc4af261d93506d6876085d712eaaa3defc8dd1a3f26de
+      restart: unless-stopped
+      environment:
+        PGADMIN_DEFAULT_EMAIL: "${PGADMIN_DEFAULT_EMAIL}"
+        PGADMIN_DEFAULT_PASSWORD: "${PGADMIN_DEFAULT_PASSWORD}"
+        PGADMIN_CONFIG_SERVER_MODE: "True"
+      volumes:
+        - pgadmin-data:/var/lib/pgadmin
+      ports:
+        - "127.0.0.1:${PORT}:80"
+  volumes:
+    pgadmin-data:
+notes:
+  - "Sign in at {{ url }} as {{ vars.PGADMIN_DEFAULT_EMAIL }}; the password is PGADMIN_DEFAULT_PASSWORD (noust env show {{ domain }} --unmask). The account is made when the data directory is empty: change the password in pgAdmin afterwards."
+  - "pgAdmin runs in a container, so 127.0.0.1 there is the container itself, not this server. Add the servers it should reach by their address."
+  - "Your saved servers and settings are in the Docker volume pgadmin-data of this application: back it up before updating."

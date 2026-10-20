@@ -1,0 +1,66 @@
+# RabbitMQ from the official image with the management plug-in (rabbitmq:<version>-management on
+# Docker Hub). Configuration is what the image documents: RABBITMQ_DEFAULT_USER and
+# RABBITMQ_DEFAULT_PASS create the first account and take the place of the guest/guest one,
+# which RabbitMQ only lets in from the same host, and the data is under /var/lib/rabbitmq.
+# The node name derives from the hostname, so it is fixed: the data of a node that is
+# recreated with another hostname is not found. The management interface listens on 15672 and
+# answers / without a login; AMQP (5672) is published on 127.0.0.1 only, so the applications
+# of this server connect to it and nothing else does.
+#
+# Derived in part from Coolify's template "rabbitmq" (Apache-2.0,
+# https://github.com/coollabsio/coolify/blob/next/templates/compose/rabbitmq.yaml). Pinned to the
+# release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: rabbitmq
+kind: compose
+title: RabbitMQ
+slogan: "A message broker for queues and streams, with its management console."
+description: "The widely deployed open source message broker: AMQP queues, MQTT and STOMP plug-ins, streams and a management console to see them. AMQP is published on 127.0.0.1 only, for the applications of this server."
+category: backend
+tags: [message-broker, amqp, queue, streams]
+logo: logo.svg
+version: "4.4.0"
+revision: 1
+updated: 2026-10-20
+homepage: https://www.rabbitmq.com
+docs: https://www.rabbitmq.com/docs
+repository: https://github.com/rabbitmq/rabbitmq-server
+license: MPL-2.0
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 15672
+variables:
+  RABBITMQ_DEFAULT_USER:
+    default: admin
+    description: The user name of the first account, for the console and for AMQP.
+  RABBITMQ_DEFAULT_PASS:
+    generate: password32
+    description: The password of that account.
+  RABBITMQ_AMQP_PORT:
+    default: "5672"
+    description: The port on 127.0.0.1 the applications of this server connect to with AMQP.
+health:
+  path: /
+  expect: "200"
+  timeout: 180
+compose: |
+  services:
+    rabbitmq:
+      image: rabbitmq:4.4.0-management@sha256:c200fd496482cda18c412be4e6f244830e1e75949b8cf5f0e887cea9ea456109
+      restart: unless-stopped
+      hostname: rabbitmq
+      environment:
+        RABBITMQ_DEFAULT_USER: "${RABBITMQ_DEFAULT_USER}"
+        RABBITMQ_DEFAULT_PASS: "${RABBITMQ_DEFAULT_PASS}"
+      volumes:
+        - rabbitmq-data:/var/lib/rabbitmq
+      ports:
+        - "127.0.0.1:${PORT}:15672"
+        - "127.0.0.1:${RABBITMQ_AMQP_PORT}:5672"
+  volumes:
+    rabbitmq-data:
+notes:
+  - "The console is {{ url }}; sign in as {{ vars.RABBITMQ_DEFAULT_USER }} with RABBITMQ_DEFAULT_PASS (noust env show {{ domain }} --unmask). The account is made when the data directory is empty: change its password in the console afterwards."
+  - "Applications on this server connect with AMQP to 127.0.0.1 port {{ vars.RABBITMQ_AMQP_PORT }}; it is not reachable from outside. Applications elsewhere need a tunnel or a VPN."
+  - "Queues and messages are in the Docker volume rabbitmq-data of this application: back it up before updating."

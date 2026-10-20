@@ -63,9 +63,11 @@ def required(name: str) -> dict[str, str]:
     """What an operator must give a recipe for it to install."""
     from noust.recipes import get_recipe
 
+    recipe = get_recipe(name)
+    addresses = {entry.domain_variable: f"{entry.name}.{DOMAIN}" for entry in recipe.entrypoints}
     return {
-        variable.name: "given@example.com"
-        for variable in get_recipe(name).variables
+        variable.name: addresses.get(variable.name, "given@example.com")
+        for variable in recipe.variables
         if variable.is_required
     }
 

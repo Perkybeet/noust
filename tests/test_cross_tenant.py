@@ -425,7 +425,6 @@ class TestWhatIsAboutTheWholeServerIsClosedToATeamMember:
             ("GET", "/api/monitor/status"),
             ("GET", "/api/metrics"),
             ("GET", "/api/system/processes"),
-            ("GET", "/api/nodes"),
             ("GET", "/api/fleet/servers"),
             ("GET", "/api/integrations/github"),
             ("POST", "/api/sites/reload"),
@@ -445,11 +444,16 @@ class TestWhatIsAboutTheWholeServerIsClosedToATeamMember:
             response = world.client.get(path, headers=world.as_("admin"))
             assert response.status_code != 403, (path, response.text)
 
-    def test_a_node_is_not_reached_through_a_team_scope(self, world: World) -> None:
-        response = world.client.get("/api/nodes/lisbon/api/apps", headers=world.as_("alice"))
+    def test_a_node_of_no_team_of_its_own_is_neither_listed_nor_reached(self, world: World) -> None:
+        # Servers of the fleet can be given to a team (docs/teams.md); one that is not given to
+        # any of the member's teams is a resource that does not exist, never a 403.
+        listed = world.client.get("/api/nodes", headers=world.as_("alice"))
+        reached = world.client.get("/api/nodes/lisbon/api/apps", headers=world.as_("alice"))
 
-        assert response.status_code == 403
-        assert response.json()["error"] == "instance_scope_required"
+        assert listed.status_code == 200, listed.text
+        assert listed.json()["items"] == []
+        assert reached.status_code == 404
+        assert reached.json()["error"] == "not_found"
 
     def test_what_is_about_nobodys_resources_answers_as_before(self, world: World) -> None:
         for path in ("/api/config", "/api/recipes", "/api/apps/types", "/api/teams/mine"):
@@ -486,6 +490,21 @@ class TestCreatingNamesWhereItGoes:
             world.targets["acme"].project_id,
             world.targets["acme"].environment_id,
         )
+
+    def test_a_port_another_team_holds_is_refused_without_naming_its_application(
+        self, world: World
+    ) -> None:
+        theirs = world.store.get_app(GLOBEX)
+        assert theirs is not None
+        theirs.port = 3100
+        world.store.update_app(theirs)
+        body = {"domain": "new.acme.example", "source": "https://x.test/r.git", "port": 3100}
+
+        response = world.client.post("/api/apps", json=body, headers=world.as_("alice"))
+
+        assert response.status_code == 400, response.text
+        assert "another application" in response.text
+        assert GLOBEX not in response.text
 
     def test_a_domain_another_team_holds_is_a_conflict_for_everyone(self, world: World) -> None:
         body = {"domain": GLOBEX, "source": "https://x.test/r.git"}

@@ -1,0 +1,64 @@
+# Seerr from the image the project publishes (ghcr.io/seerr-team/seerr), run as its documentation
+# describes (docs.seerr.dev "Getting started > Docker", read 2026-10-20): a Node server on 5055
+# that keeps its SQLite database and settings under /app/config, as the unprivileged `node` user
+# (the image's /app/config belongs to it, so a named volume starts writable). `init` reaps the
+# processes the server spawns and the project's own healthcheck asks /api/v1/settings/public,
+# which answers without a sign-in. Seerr is the successor of Overseerr and Jellyseerr: it takes
+# the requests of the people who use a Jellyfin, Emby or Plex server and hands them to Sonarr
+# and Radarr. The first visit is its setup, which asks for the media server and signs in the
+# administrator with an account of it, so the first note says to do it now.
+#
+# Licence: MIT (LICENSE, read 2026-10-20). Pinned to the release tag and to the digest ghcr.io
+# serves for it.
+schema: 2
+name: seerr
+kind: compose
+title: Seerr
+slogan: "Let the people of your media server ask for the movies and shows they want."
+description: "Seerr connects to your Jellyfin, Emby or Plex server and to Sonarr and Radarr: people sign in with their media server account, browse what exists, and request what is missing, and the request goes to the right downloader. The successor of Overseerr and Jellyseerr."
+category: media
+tags: [media, requests, jellyfin, plex, emby, sonarr, radarr]
+logo: logo.svg
+version: "3.5.0"
+revision: 1
+updated: 2026-10-20
+homepage: https://seerr.dev
+docs: https://docs.seerr.dev
+repository: https://github.com/seerr-team/seerr
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 5055
+variables:
+  TZ:
+    default: UTC
+    description: The time zone, such as Europe/Madrid.
+health:
+  path: /api/v1/settings/public
+  expect: "200"
+  timeout: 120
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    seerr:
+      image: ghcr.io/seerr-team/seerr:v3.5.0@sha256:27602401178d54f1964442287b9f23f67a3fa2252645ee8065839ea1c3f69e45
+      restart: unless-stopped
+      init: true
+      environment:
+        TZ: "${TZ}"
+        PORT: "5055"
+      volumes:
+        - seerr-config:/app/config
+      ports:
+        - "127.0.0.1:${PORT}:5055"
+      security_opt:
+        - no-new-privileges:true
+      cap_drop:
+        - ALL
+  volumes:
+    seerr-config:
+notes:
+  - "Open {{ url }} now: the first visit is the setup, which asks for your Jellyfin, Emby or Plex server and signs the administrator in with an account of it. Until it is finished, anybody who reaches the page can complete it."
+  - "Then add Sonarr and Radarr under Settings > Services: use the addresses they have on this server, and their API keys (Settings > General in each)."
+  - "Its database and settings are in the Docker volume seerr-config of this application: back it up before updating."
