@@ -15,8 +15,8 @@ const PAGES: [path: string, heading: string, content: string][] = [
   ["/", "Overview", "Needs attention"],
   ["/apps", "Applications", "Applications"],
   ["/apps/new", "New application", "Source"],
-  ["/apps/shop.example.com", "shop.example.com", "How it runs"],
-  ["/apps/shop.example.com/deployments", "shop.example.com", "History"],
+  ["/apps/shop.example.com", "shop.example.com", "Health"],
+  ["/apps/shop.example.com/deployments", "shop.example.com", "No deploys recorded yet"],
   ["/apps/shop.example.com/deployments/42", "shop.example.com", "No deployment 42"],
   ["/apps/shop.example.com/logs", "shop.example.com", "Logs of shop.example.com"],
   ["/apps/shop.example.com/metrics", "shop.example.com", "CPU and memory"],
@@ -100,6 +100,8 @@ describe("the route tree", () => {
       json(200, { domain: "shop.example.com", variables: { NODE_ENV: "production" }, unmasked: false, secrets: { NODE_ENV: { secret: false, reason: "plain", marked: false } } }),
     );
     backend.on("GET /api/apps/shop.example.com/metrics", () => new Promise<Response>(() => undefined));
+    // A history with nothing in it says what it is for; its heading is the page's second level.
+    backend.on("GET /api/deployments", () => json(200, { items: [], total: 0, next_before_id: null }));
     renderConsole(path);
     expect(await screen.findByRole("heading", { level: 1, name: heading })).toBeInTheDocument();
     // A section heading, or for a page that is one table, the table's region.

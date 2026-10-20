@@ -9,6 +9,7 @@ import { appMetricsStatusQuery } from "../../../api/queries/metrics";
 import type { AppMetricsStatus, MetricsReason } from "../../../api/queries/metrics";
 import { useDocumentTitle } from "../../../app/documentTitle";
 import { CommandHint } from "../../../components/page/CommandHint";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Section } from "../../../components/page/Section";
 import { SegmentedControl } from "../../../components/page/SegmentedControl";
@@ -131,7 +132,7 @@ function DeployList({ domain, marks, t }: { domain: string; marks: readonly Depl
                   to="/apps/$domain/deployments/$id"
                   params={{ domain, id: String(mark.id) }}
                   aria-label={mark.label}
-                  className="flex h-7 items-center gap-1.5 rounded-pill border border-border bg-surface px-2.5 text-12 text-fg hover:bg-surface-hover"
+                  className="flex h-control-sm items-center gap-1.5 rounded-pill border border-border bg-surface px-2.5 text-12 text-fg hover:bg-surface-hover"
                 >
                   <span className={cx("flex", stateTextClass(view.state))}>
                     <StatusGlyph state={view.state} size={10} />
@@ -364,13 +365,13 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
   if (status.data === undefined) {
     return (
       <Section title={t("appPages.metrics.mainTitle")} description={<TruthLine read={undefined} range={range} reading />} actions={control}>
-        <div className="grid min-w-0 gap-4 xl:grid-cols-2" aria-busy="true">
+        <LoadingRegion label={t("appPages.metrics.loading")} className="grid min-w-0 gap-4 xl:grid-cols-2">
           {[t("appPages.common.cpu"), t("appPages.common.memory")].map((name) => (
             <Card key={name} padding="sm" as="div">
               <ChartSkeleton title={name} height={CHART_HEIGHT} />
             </Card>
           ))}
-        </div>
+        </LoadingRegion>
       </Section>
     );
   }

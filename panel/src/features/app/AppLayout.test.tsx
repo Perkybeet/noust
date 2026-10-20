@@ -69,6 +69,13 @@ async function appAt(extra: Record<string, RouteHandler> = {}, path = `/apps/${D
   return { ...harness, backend };
 }
 
+/** The nth element of a list the test has just proved is long enough. */
+function item(items: HTMLElement[], index: number): HTMLElement {
+  const found = items[index];
+  if (found === undefined) throw new Error(`no element at ${String(index)}`);
+  return found;
+}
+
 function header() {
   const h1 = screen.getByRole("heading", { level: 1, name: DOMAIN });
   const found = h1.closest("header");
@@ -95,8 +102,36 @@ describe("an application's page", () => {
     expect(within(top).getByRole("button", { name: "Stop" })).toHaveAttribute("data-variant", "secondary");
     expect(within(top).getByRole("button", { name: "Roll back" })).toHaveAttribute("data-variant", "secondary");
     expect(within(top).queryByRole("button", { name: "Start" })).not.toBeInTheDocument();
-    const primaries = within(top).getAllByRole("button").filter((button) => button.getAttribute("data-variant") === "primary");
-    expect(primaries).toHaveLength(1);
+    // A split button is one control of two parts, so it counts once.
+    const primaries = new Set(
+      within(top)
+        .getAllByRole("button")
+        .filter((button) => button.getAttribute("data-variant") === "primary")
+        .map((button) => button.closest('[data-slot="split-button"]') ?? button),
+    );
+    expect(primaries.size).toBe(1);
+  });
+
+  it("does Update from the main part and its variations from the menu beside it", async () => {
+    const { user, backend } = await appAt({
+      "POST /api/jobs/update": () => json(202, { message: "Update job created", job: JOB }),
+      [`GET /api/apps/${DOMAIN}`]: () => json(200, { ...APPS[0], layout: "releases" }),
+    });
+    const top = header();
+    await user.click(await within(top).findByRole("button", { name: "More options for Update" }));
+    const menu = await screen.findByRole("menu");
+    expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Update without cache", expect.stringMatching(/^Build without serving/)]);
+    await user.click(within(menu).getByRole("menuitem", { name: "Update without cache" }));
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/jobs/update")[0]?.body).toEqual({ domain: DOMAIN, force: true, no_cache: true });
+    });
+  });
+
+  it("offers Build without serving only to an app that keeps releases", async () => {
+    const { user } = await appAt();
+    await user.click(await within(header()).findByRole("button", { name: "More options for Update" }));
+    const menu = await screen.findByRole("menu");
+    expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Update without cache"]);
   });
 
   it("keeps only what is rare behind More actions", async () => {
@@ -104,7 +139,7 @@ describe("an application's page", () => {
     const top = header();
     await user.click(await within(top).findByRole("button", { name: "More actions" }));
     const menu = await screen.findByRole("menu");
-    expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Diagnose", "Rebuild without cache", expect.stringMatching(/^Clone application/), "Delete application"]);
+    expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Diagnose", expect.stringMatching(/^Clone application/), "Delete application"]);
   });
 
   it("offers Start, not Stop, while the app is stopped", async () => {
@@ -188,7 +223,7 @@ describe("an application's page", () => {
     await user.click(within(top).getByRole("button", { name: "More actions" }));
     const menu = await screen.findByRole("menu");
     expect(within(menu).queryByRole("menuitem", { name: "Restart" })).not.toBeInTheDocument();
-    expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Diagnose", "Rebuild without cache", expect.stringMatching(/^Clone application/), "Delete application"]);
+    expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Diagnose", expect.stringMatching(/^Clone application/), "Delete application"]);
   });
 
   it("has no accessibility violations on a phone with the verbs as icons", async () => {
@@ -338,22 +373,24 @@ describe("an application's page", () => {
     });
   });
 
-  it("rolls an in-place app back to a chosen backup", async () => {
-    const { user, backend } = await appAt({
-      [`GET /api/apps/${DOMAIN}/rollback-points`]: () =>
+  it("opens one question about going back, from the header, with what it does in it", async () => {
+    const { user } = await appAt({
+      "GET /api/deployments": () =>
         json(200, {
-          items: [{ id: "shop-example-com_20260923_182035", created_at: "2026-09-23T18:20:35", description: "Nightly backup", size_bytes: 2048, git_commit: "9f2c41a" }],
-          total: 1,
+          items: [
+            { id: 12, domain: DOMAIN, status: "success", triggered_by: "cli", git_commit: "c07d5e3", git_branch: "main", has_log: true, started_at: "2026-09-25T19:20:35", rollback_available: false },
+            { id: 11, domain: DOMAIN, status: "success", triggered_by: "cli", git_commit: "9f2c41a", git_branch: "main", has_log: true, started_at: "2026-09-25T18:20:35", commit_message: "Add gift cards", rollback_available: true, rollback_method: "instant" },
+          ],
+          total: 2,
+          next_before_id: null,
         }),
-      "POST /api/jobs/rollback": () => json(202, { message: "Rollback job created", job: { ...JOB, type: "rollback" } }),
     });
     // One click from the header, not two through a menu.
     await user.click(await within(header()).findByRole("button", { name: "Roll back" }));
-    const dialog = await screen.findByRole("dialog", { name: `Roll back ${DOMAIN}` });
-    await user.click(await within(dialog).findByRole("button", { name: "Go back to shop-example-com_20260923_182035" }));
-    await waitFor(() => {
-      expect(backend.callsTo("POST /api/jobs/rollback")[0]?.body).toEqual({ domain: DOMAIN, backup_id: "shop-example-com_20260923_182035", schema_changed_ok: false });
-    });
+    const dialog = await screen.findByRole("alertdialog", { name: `Roll back ${DOMAIN}` });
+    expect(await within(dialog).findByText("What goes back")).toBeInTheDocument();
+    expect(within(dialog).getByText("What stays as it is")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Go back to #11" })).toBeInTheDocument();
   });
 
   it("says plainly when there is no such application", async () => {
@@ -363,78 +400,105 @@ describe("an application's page", () => {
   });
 
   describe("its overview", () => {
-    it("summarises the current commit, the last deploys as dots, uptime and certificate", async () => {
+    it("says what serves now and what changed, then the last deploys, and which version kept serving through a failure", async () => {
       await appAt();
-      expect(await screen.findByText("9f2c41a")).toBeInTheDocument();
-      const dots = await screen.findByRole("list", { name: "Last 2 deploys, oldest first" });
-      const links = within(dots).getAllByRole("link");
-      expect(links.map((link) => link.getAttribute("href"))).toEqual([
-        `/apps/${DOMAIN}/deployments/11`,
-        `/apps/${DOMAIN}/deployments/12`,
-      ]);
-      expect(links[1]).toHaveAccessibleName(/^Deploy 12: Failed c07d5e3/);
-      expect(await screen.findByText("29 days left")).toBeInTheDocument();
+      const live = await screen.findByRole("region", { name: "Live now" });
+      expect(await within(live).findByText("9f2c41a")).toBeInTheDocument();
+      const list = await screen.findByRole("list", { name: `Last deployments of ${DOMAIN}` });
+      const rows = within(list).getAllByRole("listitem");
+      expect(rows).toHaveLength(2);
+      expect(within(item(rows, 0)).getByText("Failed")).toBeInTheDocument();
+      expect(within(item(rows, 0)).getByText("Version #11 kept serving")).toBeInTheDocument();
+      // The live one says so in words and a shape, not only in green.
+      expect(within(item(rows, 1)).getByText("Live")).toHaveAttribute("data-state", "running");
+      expect(within(list).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([`/apps/${DOMAIN}/deployments/12`, `/apps/${DOMAIN}/deployments/11`]);
+      expect(within(live).queryByRole("button")).not.toBeInTheDocument();
     });
 
-    it("lists the app's domains with what the certificate does for each, and the runtime facts", async () => {
+    it("leaves what the configuration says to Settings: nothing of how it runs is repeated here", async () => {
       await appAt();
-      const domains = await screen.findByRole("region", { name: "Domains" });
-      const www = (await within(domains).findByRole("link", { name: /^www\.shop\.example\.com/ })).closest("li");
-      if (!www) throw new Error("no row for www");
-      expect(within(www).getByText("Redirect")).toBeInTheDocument();
-      // HTTPS in words and neutral: a name the certificate covers is a fact, not a running state.
-      const https = within(domains).getAllByText("HTTPS");
-      expect(https).toHaveLength(2);
-      for (const label of https) expect(label.closest("[data-tone]")).toHaveAttribute("data-tone", "https");
-      // Served, and not on the certificate yet: said, not hidden.
-      const blog = within(domains).getByRole("link", { name: /^blog\.shop\.example\.com/ }).closest("li");
-      if (!blog) throw new Error("no row for blog");
-      expect(within(blog).getByText("No HTTPS")).toBeInTheDocument();
-      expect(within(blog).getByRole("link", { name: /^blog/ })).toHaveAttribute("href", "http://blog.shop.example.com");
-      const runtime = screen.getByRole("region", { name: "How it runs" });
-      expect(within(runtime).getByText("Single folder")).toBeInTheDocument();
-      // Not recorded for this seeded app: the labels still show, read as "None".
-      expect(within(runtime).getByText("Source")).toBeInTheDocument();
-      expect(within(runtime).getByText("Branch")).toBeInTheDocument();
+      await screen.findByRole("region", { name: "Live now" });
+      expect(screen.queryByRole("region", { name: "How it runs" })).not.toBeInTheDocument();
+      expect(screen.queryByText("Process ID")).not.toBeInTheDocument();
+      expect(screen.queryByRole("list", { name: /^Last \d+ deploys, oldest first$/ })).not.toBeInTheDocument();
     });
 
-    it("shows what the app runs from when the source and branch are recorded", async () => {
+    it("reads its health in one place: uptime, certificate, CPU and memory, with the way to change the limits", async () => {
+      await appAt();
+      const health = await screen.findByRole("region", { name: "Health" });
+      expect(await within(health).findByText("29 days left")).toBeInTheDocument();
+      expect(within(health).getByText("Uptime")).toBeInTheDocument();
+      expect(within(health).getByText("CPU")).toBeInTheDocument();
+      expect(within(health).getByText("Memory")).toBeInTheDocument();
+      expect(within(health).getByRole("link", { name: "Edit limits" })).toHaveAttribute("href", `/apps/${DOMAIN}/settings/resources`);
+    });
+
+    it("says where it answers and whether a push deploys it, each with its way on", async () => {
+      await appAt();
+      const reach = await screen.findByRole("list", { name: `Where ${DOMAIN} answers and what deploys it` });
+      const reachItems = within(reach).getAllByRole("listitem");
+      const [answers, push] = reachItems;
+      // Three names, one of them a redirect: the one it is said by, and how many more.
+      await waitFor(() => {
+        expect(answers).toHaveTextContent(`Answers on ${DOMAIN} over HTTPS, and on 2 more names.`);
+      });
+      expect(within(item(reachItems, 0)).getByRole("link", { name: "Manage domains" })).toHaveAttribute("href", `/apps/${DOMAIN}/domains`);
+      expect(push).toHaveTextContent("Pushes to the repository do not deploy this app.");
+      expect(within(item(reachItems, 1)).getByRole("link", { name: "Set it up" })).toHaveAttribute("href", `/apps/${DOMAIN}/settings/deploy-on-push`);
+    });
+
+    it("says deploy on push is on and waiting for its first push", async () => {
+      const app = { domain: DOMAIN, name: "shop", app_type: "nextjs", status: "running", active: true, enabled: true, port: 3000, layout: "inplace", branch: "main" };
+      await appAt({ [`GET /api/apps/${DOMAIN}`]: () => json(200, { ...app, webhook_enabled: true }) });
+      const reach = await screen.findByRole("list", { name: `Where ${DOMAIN} answers and what deploys it` });
+      const push = item(within(reach).getAllByRole("listitem"), 1);
+      await waitFor(() => {
+        expect(push).toHaveTextContent("Pushes to main deploy this app. No push has arrived yet.");
+      });
+      expect(within(push).getByRole("link", { name: "Settings" })).toHaveAttribute("href", `/apps/${DOMAIN}/settings/deploy-on-push`);
+    });
+
+    it("warns, in one line, that a running app will not come back with the server", async () => {
+      const app = { domain: DOMAIN, name: "shop", app_type: "nextjs", status: "running", active: true, enabled: false, port: 3000, layout: "inplace", unit: "shop-example-com.service" };
+      await appAt({ [`GET /api/apps/${DOMAIN}`]: () => json(200, app) });
+      expect(await screen.findByText("It runs now, but it does not start when the server boots.")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Open the service" })).toHaveAttribute("href", "/services/shop-example-com");
+    });
+
+    it("lists the previews of an app that has them on, each with its state, its address and its logs", async () => {
       await appAt({
-        [`GET /api/apps/${DOMAIN}`]: () =>
+        [`GET /api/apps/${DOMAIN}/previews`]: () =>
           json(200, {
-            domain: DOMAIN,
-            name: "shop",
-            app_type: "nextjs",
-            status: "running",
-            active: true,
-            enabled: true,
-            port: 3000,
-            layout: "inplace",
-            source: "https://github.com/shop/storefront.git",
-            branch: "main",
+            settings: { base_domain: "preview.example.com", max_previews: 3, ttl_hours: 168 },
+            previews: [
+              {
+                number: 123,
+                kind: "pr",
+                provider: "github",
+                repository: "acme/shop",
+                branch: "feat/cart",
+                head_sha: "abc1234def",
+                domain: "pr-123-shop.preview.example.com",
+                url: "https://pr-123-shop.preview.example.com",
+                status: "ready",
+                expires_at: "2026-10-01T10:00:00+00:00",
+                databases: [],
+              },
+            ],
           }),
       });
-      const runtime = await screen.findByRole("region", { name: "How it runs" });
-      const repo = within(runtime).getByRole("link", { name: /^https:\/\/github\.com\/shop\/storefront\.git/ });
-      expect(repo).toHaveAttribute("href", "https://github.com/shop/storefront.git");
-      expect(repo).toHaveAttribute("target", "_blank");
-      expect(within(runtime).getByText("main")).toBeInTheDocument();
+      const previews = await screen.findByRole("region", { name: "Previews" });
+      const list = within(previews).getByRole("list", { name: `Previews of ${DOMAIN}` });
+      expect(within(list).getByText("#123")).toBeInTheDocument();
+      expect(within(list).getByText("feat/cart")).toBeInTheDocument();
+      expect(within(list).getByRole("link", { name: /^Open the preview #123/ })).toHaveAttribute("href", "https://pr-123-shop.preview.example.com");
+      expect(within(list).getByRole("button", { name: "Logs of the preview #123" })).toBeInTheDocument();
     });
 
-    it("tells deploy on push off from on at a glance: grey and a ring, the dashed ring while it waits", async () => {
-      const app = { domain: DOMAIN, name: "shop", app_type: "nextjs", status: "running", active: true, enabled: true, port: 3000, layout: "inplace" };
-      await appAt({ [`GET /api/apps/${DOMAIN}`]: () => json(200, { ...app, webhook_enabled: false }) });
-      const off = await screen.findByRole("region", { name: "Deploy on push" });
-      const word = within(off).getByText("Off");
-      expect(word).toHaveAttribute("data-state", "stopped");
-      expect(word.closest("button, a")).toBeNull();
-    });
-
-    it("says deploy on push is on and waiting, as a state", async () => {
-      const app = { domain: DOMAIN, name: "shop", app_type: "nextjs", status: "running", active: true, enabled: true, port: 3000, layout: "inplace" };
-      await appAt({ [`GET /api/apps/${DOMAIN}`]: () => json(200, { ...app, webhook_enabled: true }) });
-      const push = await screen.findByRole("region", { name: "Deploy on push" });
-      expect(await within(push).findByText("On, waiting for the first push")).toHaveAttribute("data-state", "queued");
+    it("has no section of previews when there are none", async () => {
+      await appAt({ [`GET /api/apps/${DOMAIN}/previews`]: () => json(200, { settings: null, previews: [] }) });
+      await screen.findByRole("region", { name: "Live now" });
+      expect(screen.queryByRole("region", { name: "Previews" })).not.toBeInTheDocument();
     });
 
     it("has no accessibility violations", async () => {
@@ -480,13 +544,12 @@ describe("in Spanish", () => {
     expect(screen.getByRole("navigation", { name: "Secciones de la aplicación" })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Actualizar" })).toBeInTheDocument();
     expect(await screen.findByText("Quedan 29 días")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Dominios" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Cómo se ejecuta" })).toBeInTheDocument();
-    // The last deploys, as glyphs named by their outcome, and in words under them: how many
-    // succeeded and how the newest ended.
-    expect(await screen.findByRole("link", { name: /^Despliegue 12: Fallido c07d5e3/ })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /^Despliegue 11: Correcto 9f2c41a/ })).toBeInTheDocument();
-    expect(screen.getByText(/^\d+ de \d+ correctos; el último, fallido,/)).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Ahora en producción" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Salud" })).toBeInTheDocument();
+    // The last deploys, each named by its number and, when it failed, by the version that kept serving.
+    const list = await screen.findByRole("list", { name: `Últimos despliegues de ${DOMAIN}` });
+    expect(within(list).getByText("La versión #11 siguió sirviendo")).toBeInTheDocument();
+    expect(within(list).getByText("En producción")).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 });
@@ -637,5 +700,124 @@ describe("a Compose stack running outside its unit", { timeout: 20_000 }, () => 
     await appAt(stackRoutes(() => json(200, FOUND)));
     expect(await screen.findByText("Está en marcha fuera de Noust")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Devolverla a Noust" })).toBeInTheDocument();
+  });
+});
+
+const PENDING = {
+  domain: DOMAIN,
+  pending: true,
+  needs: "restart",
+  since: "2026-10-13T10:00:00",
+  deployment_id: 41,
+  baseline_created: false,
+  counts: { restart: 2, rebuild: 0, next_deploy: 0 },
+  items: [
+    { area: "limits", key: "memory_max_mb", change: "changed", before: "256", after: "512", needs: "restart" },
+    { area: "environment", key: "FEATURE_FLAG", change: "added", before: null, after: null, needs: "restart" },
+  ],
+};
+
+const ROLLOUT = {
+  domain: DOMAIN,
+  history_keep: null,
+  history_keep_server: 20,
+  history_keep_effective: 20,
+  stop_timeout: null,
+  stop_signal: null,
+  stop_supported: true,
+  pause_on_rollback: true,
+  paused: null,
+  held: 0,
+  automatic: [],
+  freeze: null,
+};
+
+describe("what is true of the whole app, on the header's state line", () => {
+  it("says how many settings are not applied, beside the banner of a failed deploy and on every tab", async () => {
+    const { user } = await appAt({ [`GET /api/apps/${DOMAIN}/pending`]: () => json(200, PENDING) });
+    const chip = await within(header()).findByRole("button", { name: "2 not applied" });
+    // The failed deploy's banner is there too: the chip does not wait for the page to be calm.
+    expect(screen.getByText(/^The last deploy failed/)).toBeInTheDocument();
+    await user.click(chip);
+    const dialog = await screen.findByRole("dialog", { name: `Settings not applied to ${DOMAIN}` });
+    expect(within(dialog).getByRole("button", { name: "Restart now" })).toBeInTheDocument();
+  });
+
+  it("counts the environment's unapplied settings on its tab, and nothing where there is nothing", async () => {
+    await appAt({ [`GET /api/apps/${DOMAIN}/pending`]: () => json(200, PENDING) });
+    const tabs = await screen.findByRole("navigation", { name: "Application sections" });
+    expect(within(tabs).getByRole("link", { name: /^Environment\s*1$/ })).toBeInTheDocument();
+    expect(within(tabs).getByRole("link", { name: "Deployments" })).toBeInTheDocument();
+  });
+
+  it("draws no chip for an app that runs with what it is set to", async () => {
+    await appAt({ [`GET /api/apps/${DOMAIN}/pending`]: () => json(200, { ...PENDING, pending: false, needs: null, items: [], counts: {} }) });
+    await screen.findByRole("navigation", { name: "Application sections" });
+    expect(within(header()).queryByRole("button", { name: /not applied/ })).not.toBeInTheDocument();
+  });
+
+  it("says deploys are paused, and leads to where they are resumed", async () => {
+    const { user, location } = await appAt({
+      [`GET /api/apps/${DOMAIN}/rollout`]: () => json(200, { ...ROLLOUT, paused: { at: "2026-10-13T10:00:00+00:00", by: "yago", reason: "Looking into the cart" } }),
+    });
+    const chip = await within(header()).findByRole("link", { name: "Deploys paused" });
+    await user.click(chip);
+    await waitFor(() => {
+      expect(location().pathname).toBe(`/apps/${DOMAIN}/deployments`);
+    });
+    expect(await screen.findByRole("button", { name: "Resume" })).toBeInTheDocument();
+  });
+
+  it("says deploys are frozen when a freeze holds them", async () => {
+    await appAt({
+      [`GET /api/apps/${DOMAIN}/rollout`]: () =>
+        json(200, { ...ROLLOUT, freeze: { id: 1, scope: "app", reason: "Sale weekend", starts_at: "2026-10-13T10:00:00+00:00", ends_at: null, created_by: "yago", active: true } }),
+    });
+    expect(await within(header()).findByRole("link", { name: "Deploys frozen" })).toBeInTheDocument();
+  });
+
+  it("draws neither when the server has no such setting", async () => {
+    await appAt({ [`GET /api/apps/${DOMAIN}/rollout`]: () => problem(404, "not_found", "No such route") });
+    await screen.findByRole("navigation", { name: "Application sections" });
+    expect(within(header()).queryByRole("link", { name: /Deploys (paused|frozen)/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("the job in hand", () => {
+  const RUNNING_JOB = { ...JOB, status: "running", current_step: "npm ci", logs: [{ timestamp: "2026-09-25T19:21:14", level: "info", message: "Installing dependencies", step: 1 }] };
+
+  it("opens the deployment it made, once there is one, from View log", async () => {
+    await appAt({
+      "GET /api/jobs/active": () => json(200, { jobs: [RUNNING_JOB], total: 1, active: 1 }),
+      "GET /api/deployments": () =>
+        json(200, {
+          items: [{ id: 13, domain: DOMAIN, status: "running", triggered_by: "panel", job_id: JOB.id, git_commit: "c0ffee1", git_branch: "main", has_log: true, started_at: "2026-09-25T19:21:14" }],
+          total: 1,
+          next_before_id: null,
+        }),
+    });
+    const link = await screen.findByRole("link", { name: "View log" });
+    expect(link).toHaveAttribute("href", `/apps/${DOMAIN}/deployments/13`);
+    expect(screen.getByRole("button", { name: /^Cancel/ })).toBeInTheDocument();
+    // The Deployments tab counts what is building.
+    const tabs = screen.getByRole("navigation", { name: "Application sections" });
+    expect(within(tabs).getByRole("link", { name: /^Deployments\s*1$/ })).toBeInTheDocument();
+  });
+
+  it("opens the job's own output beside the page while it has no deployment yet", async () => {
+    // The log viewer sizes its window from offsetHeight, which jsdom reports as 0.
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(800);
+    const { user } = await appAt({ "GET /api/jobs/active": () => json(200, { jobs: [RUNNING_JOB], total: 1, active: 1 }) });
+    await user.click(await screen.findByRole("button", { name: "View log" }));
+    const drawer = await screen.findByRole("dialog", { name: `Updating ${DOMAIN}` });
+    expect(await within(drawer).findByText(/Installing dependencies/)).toBeInTheDocument();
+  });
+
+  it("offers no log to a job that is still in line: the queue says its place", async () => {
+    await appAt({ "GET /api/jobs/active": () => json(200, { jobs: [{ ...RUNNING_JOB, status: "pending" }], total: 1, active: 1 }) });
+    await screen.findByText(`Updating ${DOMAIN}`);
+    expect(screen.queryByRole("button", { name: "View log" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "View log" })).not.toBeInTheDocument();
   });
 });

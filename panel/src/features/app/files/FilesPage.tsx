@@ -30,6 +30,7 @@ import { useT } from "../../../i18n";
 import { formatBytes } from "../../../lib/format";
 import { reportActionError } from "../../apps/useAppActions";
 import { downloadFile } from "./download";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 /** Joins a folder and a name the way the API reads a path: relative, no leading slash. */
 export function joinPath(folder: string, name: string): string {
@@ -130,12 +131,11 @@ function EditorDialog({ domain, path, open, onOpenChange }: { domain: string; pa
         {content.isError ? (
           <ErrorBlock compact error={content.error} title={t("runtime.files.editorFailed")} />
         ) : !loaded ? (
-          <div aria-busy="true" className="flex flex-col gap-2">
-            <span className="sr-only">{t("runtime.files.editorLoading")}</span>
+          <LoadingRegion label={t("runtime.files.editorLoading")} className="flex flex-col gap-2">
             <Skeleton className="h-4 w-2/3" />
             <Skeleton className="h-4 w-1/2" />
             <Skeleton className="h-4 w-3/4" />
-          </div>
+          </LoadingRegion>
         ) : (
           <Field label={t("runtime.files.editorLabel", { name })}>
             <Textarea
@@ -602,12 +602,11 @@ export function FilesPage({ domain, folder, onFolder }: FilesPageProps) {
               <ErrorBlock compact error={listing.error} title={t("runtime.files.loadFailed")} onRetry={() => void listing.refetch()} retrying={listing.isRefetching} />
             </div>
           ) : (
-            <div aria-busy="true" className="flex flex-col gap-2 p-4">
-              <span className="sr-only">{t("runtime.files.loading")}</span>
+            <LoadingRegion label={t("runtime.files.loading")} className="flex flex-col gap-2 p-4">
               <Skeleton className="h-8 w-full" />
               <Skeleton className="h-8 w-full" />
               <Skeleton className="h-8 w-full" />
-            </div>
+            </LoadingRegion>
           )
         ) : entries.length === 0 ? (
           <div className="p-4">

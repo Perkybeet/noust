@@ -20,6 +20,7 @@ import { Mono } from "../../../components/ui/Mono";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import { formatBytes, formatCount, formatDuration, formatPercent } from "../../../lib/format";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 const CHART_HEIGHT = 180;
 const DAY_S = 86_400;
@@ -139,13 +140,12 @@ export function TrafficSection({ domain }: { domain: string }) {
       ) : query.isError ? (
         <ErrorBlock compact error={query.error} title={t("appTraffic.traffic.loadFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} />
       ) : (
-        <div aria-busy="true" className="flex min-w-0 flex-col gap-3">
-          <span className="sr-only">{t("appTraffic.traffic.loading")}</span>
+        <LoadingRegion label={t("appTraffic.traffic.loading")} className="flex min-w-0 flex-col gap-3">
           <Skeleton className="h-20 w-full" />
           <Card padding="sm" as="div">
             <ChartSkeleton title={t("appTraffic.traffic.chartTitle")} height={CHART_HEIGHT} />
           </Card>
-        </div>
+        </LoadingRegion>
       )}
     </Subsection>
   );

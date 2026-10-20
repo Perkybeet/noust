@@ -59,7 +59,6 @@
       "Live": 3,
       "Missing": 2,
       "None": 2,
-      "None yet": 3,
       "Not checked yet": 2,
       "Not installed": 2,
       "Not known": 2,
@@ -83,7 +82,6 @@
       "Restart": 2,
       "Restore": 2,
       "Review": 2,
-      "Roll back": 3,
       "Running": 4,
       "Runs": 3,
       "Scheduled": 2,
@@ -154,7 +152,6 @@
     },
     "en:old-names": {
       "access": 2,
-      "appPages": 1,
       "appSettings": 1,
       "consoleAccess": 2,
       "nav": 1,
@@ -325,7 +322,6 @@
     },
     "es:old-names": {
       "access": 2,
-      "appPages": 1,
       "appSettings": 1,
       "consoleAccess": 2,
       "nav": 1,
@@ -338,7 +334,6 @@
       "services": 1
     },
     "es:reconstruir": {
-      "appPages": 1,
       "buildExtras": 1,
       "placements": 1
     },
@@ -364,7 +359,7 @@
       "probes": 1
     },
     "es:volver-back": {
-      "appPages": 2,
+      "appPages": 1,
       "catalog": 1
     },
     "es:vuestro": {
@@ -376,7 +371,7 @@
       "Delete|Borrar": 7,
       "Deploy|Despliegue": 5,
       "Dismiss|Descartar": 3,
-      "Done|Listo": 2,
+      "Done|Listo": 1,
       "Failed|Con fallo": 1,
       "Failed|Falló": 7,
       "Live|En vivo": 3,

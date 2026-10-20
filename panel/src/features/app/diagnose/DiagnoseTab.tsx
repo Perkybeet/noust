@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ChevronDown, CircleHelp, CircleMinus, CircleX, History, RotateCw, ScrollText } from "lucide-react";
-import { useState } from "react";
 import type { ReactNode } from "react";
 
 import { appQuery, diagnosisQuery } from "../../../api/queries/apps";
@@ -27,7 +26,7 @@ import type { T } from "../../../i18n";
 import { cx } from "../../../lib/cx";
 import { hasUnit } from "../../apps/AppRowActions";
 import { useAppActions } from "../../apps/useAppActions";
-import { RollbackDialog } from "../RollbackDialog";
+import { useRollback } from "../RollbackHost";
 import { checkLabel, checkStatus, headline, isProblem, openChecks, tally, verdictAnnouncement, verdictView } from "./view";
 import type { Check, Tone } from "./view";
 
@@ -101,7 +100,7 @@ function ZeroDowntimeSuggestion({ domain, t }: { domain: string; t: T }) {
 function Remedies({ domain, t }: { domain: string; t: T }) {
   const app = useQuery(appQuery(domain));
   const { restart } = useAppActions(domain);
-  const [rollingBack, setRollingBack] = useState(false);
+  const { openRollback } = useRollback();
   if (app.data === undefined) return null;
   const unit = hasUnit(app.data);
   return (
@@ -112,7 +111,7 @@ function Remedies({ domain, t }: { domain: string; t: T }) {
           {t("appPages.diagnose.viewLogs")}
         </Link>
       ) : null}
-      <Button size="sm" icon={<History aria-hidden="true" />} onClick={() => setRollingBack(true)}>
+      <Button size="sm" icon={<History aria-hidden="true" />} onClick={() => openRollback()}>
         {t("appPages.diagnose.rollBack")}
       </Button>
       {unit ? (
@@ -120,7 +119,6 @@ function Remedies({ domain, t }: { domain: string; t: T }) {
           {t("appPages.diagnose.restart")}
         </Button>
       ) : null}
-      <RollbackDialog domain={domain} layout={app.data.layout} open={rollingBack} onOpenChange={setRollingBack} />
     </div>
   );
 }
