@@ -97,11 +97,14 @@ class OidcHttp:
         self.timeout = timeout
         self._opener: Opener = opener or urllib.request.build_opener(_NoRedirects).open
 
-    def get_json(self, url: str, *, bearer: str | None = None) -> dict[str, Any]:
+    def get_json(
+        self, url: str, *, bearer: str | None = None, headers: Mapping[str, str] | None = None
+    ) -> dict[str, Any]:
         """
         Args:
             url: An endpoint the provider published.
             bearer: An access token to send, for the userinfo endpoint.
+            headers: Headers to send besides the defaults (GitHub's API version).
 
         Returns:
             The JSON object it answered.
@@ -110,10 +113,39 @@ class OidcHttp:
             OidcError: The provider is unreachable, answered an error status,
                 or answered something that is not a JSON object.
         """
-        headers = {"Accept": "application/json"}
+        body = self._send(self._get(url, bearer, headers))
+        if not isinstance(body, dict):
+            raise OidcError("idp_bad_response", "The identity provider did not answer an object")
+        return body
+
+    def get_list(
+        self, url: str, *, bearer: str | None = None, headers: Mapping[str, str] | None = None
+    ) -> list[Any]:
+        """
+        Args:
+            url: An endpoint of the provider's API that answers a list.
+            bearer: An access token to send.
+            headers: Headers to send besides the defaults.
+
+        Returns:
+            The JSON array it answered.
+
+        Raises:
+            OidcError: As :meth:`get_json`, with an array in place of an object.
+        """
+        body = self._send(self._get(url, bearer, headers))
+        if not isinstance(body, list):
+            raise OidcError("idp_bad_response", "The identity provider did not answer a list")
+        return body
+
+    @staticmethod
+    def _get(
+        url: str, bearer: str | None, headers: Mapping[str, str] | None
+    ) -> urllib.request.Request:
+        sent = {"Accept": "application/json", **(headers or {})}
         if bearer:
-            headers["Authorization"] = f"Bearer {bearer}"
-        return self._send(urllib.request.Request(url, headers=headers, method="GET"))
+            sent["Authorization"] = f"Bearer {bearer}"
+        return urllib.request.Request(url, headers=sent, method="GET")
 
     def post_form(
         self, url: str, form: Mapping[str, str], *, basic: tuple[str, str] | None = None
@@ -142,15 +174,18 @@ class OidcHttp:
         request = urllib.request.Request(
             url, data=urlencode(dict(form)).encode(), headers=headers, method="POST"
         )
-        return self._send(request)
+        body = self._send(request)
+        if not isinstance(body, dict):
+            raise OidcError("idp_bad_response", "The identity provider did not answer an object")
+        return body
 
-    def _send(self, request: urllib.request.Request) -> dict[str, Any]:
+    def _send(self, request: urllib.request.Request) -> Any:
         """
         Args:
             request: The request, with its URL already checked.
 
         Returns:
-            The decoded JSON object.
+            The decoded JSON: an object, or an array for a call that expects one.
 
         Raises:
             OidcError: ``idp_unreachable``, ``idp_<status>``, ``token_<error>``
@@ -181,8 +216,6 @@ class OidcHttp:
             raise OidcError(
                 "idp_bad_response", "The identity provider did not answer JSON"
             ) from None
-        if not isinstance(body, dict):
-            raise OidcError("idp_bad_response", "The identity provider did not answer an object")
         return body
 
     @staticmethod

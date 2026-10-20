@@ -159,6 +159,79 @@ describe("Settings > Accounts", () => {
     });
   });
 
+  it("mails the link when an address is given, and says so beside the link", { timeout: 20_000 }, async () => {
+    const backend = accountsBackend({
+      "POST /api/auth/invitations": (call) =>
+        json(201, {
+          account: account((call.body as { username: string }).username, "operator", { status: "invited", email: "fer@work.example" }),
+          code: "noust_inv_abc123",
+          expires_in: 86_400,
+          emailed: true,
+        }),
+    });
+    const { user } = renderConsole("/settings/accounts");
+    await screen.findByText("ana");
+    await user.click(screen.getByRole("button", { name: "Invite a person" }));
+    const dialog = await screen.findByRole("dialog", { name: "Invite a person" });
+    await user.type(within(dialog).getByLabelText(/^Username/), "fer");
+    await user.type(within(dialog).getByLabelText(/^Mail the link to/), "fer@work.example");
+    await user.click(within(dialog).getByRole("button", { name: "Create invitation" }));
+    await confirmItsYou(user);
+
+    const issued = await screen.findByRole("dialog", { name: "Send this invitation to fer" });
+    expect(within(issued).getByText("The invitation was mailed to fer@work.example.")).toBeInTheDocument();
+    // The link is shown all the same: a mail is the convenience, the invitation is the link.
+    expect(within(issued).getByTestId("invitation-link")).toHaveValue(`${window.location.origin}/invite#noust_inv_abc123`);
+    expect(backend.callsTo("POST /api/auth/invitations").at(-1)?.body).toMatchObject({ username: "fer", email: "fer@work.example" });
+  });
+
+  it("says why a mail did not go, in the server's words, and still shows the link", { timeout: 20_000 }, async () => {
+    accountsBackend({
+      "POST /api/auth/invitations": (call) =>
+        json(201, {
+          account: account((call.body as { username: string }).username, "operator", { status: "invited" }),
+          code: "noust_inv_abc123",
+          expires_in: 86_400,
+          emailed: false,
+          email_error: "This server has no way to send mail. Set one up under Settings > Notifications.",
+        }),
+    });
+    const { user } = renderConsole("/settings/accounts");
+    await screen.findByText("ana");
+    await user.click(screen.getByRole("button", { name: "Invite a person" }));
+    const dialog = await screen.findByRole("dialog", { name: "Invite a person" });
+    await user.type(within(dialog).getByLabelText(/^Username/), "fer");
+    await user.type(within(dialog).getByLabelText(/^Mail the link to/), "fer@work.example");
+    await user.click(within(dialog).getByRole("button", { name: "Create invitation" }));
+    await confirmItsYou(user);
+
+    const issued = await screen.findByRole("dialog", { name: "Send this invitation to fer" });
+    expect(within(issued).getByText("Not mailed")).toBeInTheDocument();
+    expect(within(issued).getByText("This server has no way to send mail. Set one up under Settings > Notifications.")).toBeInTheDocument();
+    expect(within(issued).getByTestId("invitation-link")).toBeInTheDocument();
+  });
+
+  it("sets the address mail goes to, and clears it with an empty one", { timeout: 30_000 }, async () => {
+    const backend = accountsBackend({
+      "PATCH /api/auth/accounts/ana": (call) => json(200, account("ana", "operator", { email: (call.body as { email: string }).email })),
+    });
+    const { user } = renderConsole("/settings/accounts");
+    await screen.findByText("ana");
+    await user.click(screen.getByRole("button", { name: "Actions for ana" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Mail address..." }));
+    const dialog = await screen.findByRole("dialog", { name: "Mail address of ana" });
+    expect(within(dialog).getByRole("button", { name: "Save the address" })).toBeDisabled();
+    await user.type(within(dialog).getByLabelText("Address"), "ana@work.example");
+    await expectNoAxeViolations(dialog);
+    await user.click(within(dialog).getByRole("button", { name: "Save the address" }));
+    await confirmItsYou(user);
+
+    await waitFor(() => {
+      expect(backend.callsTo("PATCH /api/auth/accounts/ana").length).toBeGreaterThan(0);
+    });
+    expect(backend.callsTo("PATCH /api/auth/accounts/ana").at(-1)?.body).toEqual({ email: "ana@work.example" });
+  });
+
   it("warns before giving one person roles that go against each other", async () => {
     accountsBackend();
     const { user } = renderConsole("/settings/accounts");

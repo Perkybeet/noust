@@ -257,6 +257,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("authentication", "logout"): ("POST", "/api/auth/logout", "self", False),
     ("authentication", "accept_notice"): ("POST", "/api/auth/notice/accept", "self", False),
     ("authentication", "change_password"): ("POST", "/api/auth/password", "self", False),
+    ("authentication", "confirm_password_reset"): ("POST", "/api/auth/password-reset/confirm", "public", False),
+    ("authentication", "request_password_reset"): ("POST", "/api/auth/password-reset/request", "public", False),
     ("authentication", "list_roles"): ("GET", "/api/auth/roles", "self", False),
     ("authentication", "get_session_info"): ("GET", "/api/auth/session", "public", False),
     ("authentication", "get_sessions"): ("GET", "/api/auth/sessions", "self", False),
@@ -446,6 +448,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("databases", "delete_row"): ("POST", "/api/databases/databases/{engine}/{name}/rows/delete", "databases.write", True),
     ("databases", "list_schemas"): ("GET", "/api/databases/databases/{engine}/{name}/schemas", "databases.read", False),
     ("databases", "slow_queries"): ("GET", "/api/databases/databases/{engine}/{name}/slow-queries", "databases.read", False),
+    ("databases", "get_database_tags"): ("GET", "/api/databases/databases/{engine}/{name}/tags", "databases.read", False),
+    ("databases", "put_database_tags"): ("PUT", "/api/databases/databases/{engine}/{name}/tags", "databases.write", False),
     ("databases", "list_engines"): ("GET", "/api/databases/engines", "databases.read", False),
     ("databases", "get_engine_catalog"): ("GET", "/api/databases/engines/catalog", "databases.read", False),
     ("databases", "list_status"): ("GET", "/api/databases/engines/tls", "databases.read", False),
@@ -560,6 +564,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("domains", "put_canonical"): ("PUT", "/api/apps/{domain}/domains/canonical", "apps.manage", False),
     ("domains", "delete_domain"): ("DELETE", "/api/apps/{domain}/domains/{name}", "apps.manage", True),
     ("domains", "get_domain_dns"): ("GET", "/api/apps/{domain}/domains/{name}/dns", "apps.read", False),
+    ("domains", "put_domain_enabled"): ("PUT", "/api/apps/{domain}/domains/{name}/enabled", "apps.manage", False),
     ("domains", "put_domain_port"): ("PUT", "/api/apps/{domain}/domains/{name}/port", "apps.manage", False),
     ("domains", "get_http3"): ("GET", "/api/apps/{domain}/http3", "apps.read", False),
     ("domains", "get_policy"): ("GET", "/api/apps/{domain}/policy", "apps.read", False),
@@ -715,9 +720,12 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("nodes", "get_node_inventory"): ("GET", "/api/nodes/{node}/inventory", "fleet.read", False),
     ("nodes", "apply_node_inventory"): ("POST", "/api/nodes/{node}/inventory", "fleet.manage", False),
     ("nodes", "get_node_key"): ("GET", "/api/nodes/{node}/key", "fleet.manage", False),
+    ("nodes", "migrate_node_tunnel"): ("POST", "/api/nodes/{node}/migrate-tunnel", "fleet.manage", True),
     ("nodes", "set_node_monitoring"): ("PUT", "/api/nodes/{node}/monitoring", "fleet.manage", False),
+    ("nodes", "rekey_node"): ("POST", "/api/nodes/{node}/rekey", "fleet.manage", True),
     ("nodes", "get_node_ssh"): ("GET", "/api/nodes/{node}/ssh", "fleet.read", False),
     ("nodes", "set_node_ssh"): ("PUT", "/api/nodes/{node}/ssh", "fleet.manage", True),
+    ("nodes", "set_node_team"): ("PUT", "/api/nodes/{node}/team", "fleet.manage", True),
     ("nodes", "test_node"): ("POST", "/api/nodes/{node}/test", "fleet.read", False),
     ("notifications", "list_channels"): ("GET", "/api/notifications/channels", "settings.read", False),
     ("notifications", "save_channel"): ("PUT", "/api/notifications/channels/{name}", "settings.manage", True),
@@ -726,6 +734,10 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("notifications", "sweep_deliveries"): ("POST", "/api/notifications/deliveries/sweep", "settings.manage", False),
     ("notifications", "retry_delivery"): ("POST", "/api/notifications/deliveries/{delivery_id}/retry", "settings.manage", False),
     ("notifications", "list_events"): ("GET", "/api/notifications/events", "settings.read", False),
+    ("notifications", "list_team_channels"): ("GET", "/api/teams/{team}/notifications/channels", "apps.read", False),
+    ("notifications", "save_team_channel"): ("PUT", "/api/teams/{team}/notifications/channels/{name}", "apps.manage", True),
+    ("notifications", "remove_team_channel"): ("DELETE", "/api/teams/{team}/notifications/channels/{name}", "apps.manage", True),
+    ("notifications", "test_team_channel"): ("POST", "/api/teams/{team}/notifications/channels/{name}/test", "apps.operate", False),
     ("open_api", "get_openapi_schema"): ("GET", "/api/openapi.json", "self", False),
     ("other", "health_check"): ("GET", "/health", "public", False),
     ("overview", "overview"): ("GET", "/api/overview", "server.read", False),
@@ -740,6 +752,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("passkeys", "remove_passkey"): ("DELETE", "/api/auth/passkeys/{passkey_id}", "self", False),
     ("previews", "list_previews"): ("GET", "/api/apps/{domain}/previews", "apps.read", False),
     ("previews", "create_preview"): ("POST", "/api/apps/{domain}/previews", "apps.deploy", True),
+    ("previews", "get_preview_dns"): ("GET", "/api/apps/{domain}/previews/dns", "apps.read", False),
     ("previews", "list_pull_requests"): ("GET", "/api/apps/{domain}/previews/pull-requests", "apps.read", False),
     ("previews", "put_preview_settings"): ("PUT", "/api/apps/{domain}/previews/settings", "apps.manage", True),
     ("previews", "delete_preview_settings"): ("DELETE", "/api/apps/{domain}/previews/settings", "apps.manage", True),
@@ -898,6 +911,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("services", "restart_service"): ("POST", "/api/services/{name}/restart", "apps.operate", False),
     ("services", "start_service"): ("POST", "/api/services/{name}/start", "apps.operate", False),
     ("services", "stop_service"): ("POST", "/api/services/{name}/stop", "apps.operate", False),
+    ("services", "get_service_tags"): ("GET", "/api/services/{name}/tags", "server.read", False),
+    ("services", "put_service_tags"): ("PUT", "/api/services/{name}/tags", "server.manage", False),
     ("single_sign_on", "list_directories"): ("GET", "/api/auth/ldap/directories", "accounts.read", False),
     ("single_sign_on", "put_directory"): ("PUT", "/api/auth/ldap/directories/{name}", "accounts.manage", True),
     ("single_sign_on", "delete_directory"): ("DELETE", "/api/auth/ldap/directories/{name}", "accounts.manage", True),
@@ -974,6 +989,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("tags", "put_app_tags"): ("PUT", "/api/apps/{domain}/tags", "apps.manage", False),
     ("tags", "list_tags"): ("GET", "/api/tags", "apps.read", False),
     ("tags", "deploy_tag"): ("POST", "/api/tags/{tag}/deploy", "apps.deploy", False),
+    ("tags", "restart_tag"): ("POST", "/api/tags/{tag}/restart", "apps.operate", False),
     ("teams", "move_app"): ("POST", "/api/apps/{domain}/move", "apps.manage", True),
     ("teams", "list_environments"): ("GET", "/api/environments", "teams.read", False),
     ("teams", "list_projects"): ("GET", "/api/projects", "teams.read", False),
@@ -2690,7 +2706,7 @@ class Audit:
 
 
 class Authentication:
-    """Authentication: 39 operations."""
+    """Authentication: 41 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -2910,6 +2926,22 @@ class Authentication:
 
         Needs: permission `self`."""
         return self._call("POST", "/api/auth/password", query=None, body=body)
+
+    def confirm_password_reset(self, body: "PasswordResetConfirm") -> "PasswordResetDone":
+        """POST /api/auth/password-reset/confirm
+
+        Confirm Password Reset
+
+        Needs: permission `public`."""
+        return self._call("POST", "/api/auth/password-reset/confirm", query=None, body=body)
+
+    def request_password_reset(self, body: "PasswordResetRequest") -> "PasswordResetAsked":
+        """POST /api/auth/password-reset/request
+
+        Request Password Reset
+
+        Needs: permission `public`."""
+        return self._call("POST", "/api/auth/password-reset/request", query=None, body=body)
 
     def list_roles(self) -> "NoustWebApiAuthRolesResponse":
         """GET /api/auth/roles
@@ -4066,7 +4098,7 @@ class DNS:
 
 
 class Databases:
-    """Databases: 152 operations."""
+    """Databases: 154 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -4303,13 +4335,13 @@ class Databases:
         Needs: permission `databases.read`."""
         return self._call("DELETE", f"/api/databases/console/saved/{quote(str(saved_id), safe='')}", query=None, body=None)
 
-    def list_databases(self, *, engine: Union[str, None] = None, team: Union[str, None] = None, project: Union[str, None] = None, environment: Union[str, None] = None) -> "DatabaseListResponse":
+    def list_databases(self, *, engine: Union[str, None] = None, team: Union[str, None] = None, project: Union[str, None] = None, environment: Union[str, None] = None, tag: Union[str, None] = None) -> "DatabaseListResponse":
         """GET /api/databases/databases
 
         List Databases
 
         Needs: permission `databases.read`."""
-        return self._call("GET", "/api/databases/databases", query={"engine": engine, "team": team, "project": project, "environment": environment}, body=None)
+        return self._call("GET", "/api/databases/databases", query={"engine": engine, "team": team, "project": project, "environment": environment, "tag": tag}, body=None)
 
     def create_database(self, body: "CreateDatabaseRequest") -> "DatabaseInfoResponse":
         """POST /api/databases/databases
@@ -4518,6 +4550,22 @@ class Databases:
 
         Needs: permission `databases.read`."""
         return self._call("GET", f"/api/databases/databases/{quote(str(engine), safe='')}/{quote(str(name), safe='')}/slow-queries", query={"limit": limit}, body=None)
+
+    def get_database_tags(self, engine: str, name: str) -> "DatabaseTagsResponse":
+        """GET /api/databases/databases/{engine}/{name}/tags
+
+        Get Database Tags
+
+        Needs: permission `databases.read`."""
+        return self._call("GET", f"/api/databases/databases/{quote(str(engine), safe='')}/{quote(str(name), safe='')}/tags", query=None, body=None)
+
+    def put_database_tags(self, engine: str, name: str, body: "SetDatabaseTagsRequest") -> "DatabaseTagsResponse":
+        """PUT /api/databases/databases/{engine}/{name}/tags
+
+        Put Database Tags
+
+        Needs: permission `databases.write`."""
+        return self._call("PUT", f"/api/databases/databases/{quote(str(engine), safe='')}/{quote(str(name), safe='')}/tags", query=None, body=body)
 
     def list_engines(self) -> "EngineListResponse":
         """GET /api/databases/engines
@@ -5378,7 +5426,7 @@ class Deployments:
 
 
 class Domains:
-    """Domains: 29 operations."""
+    """Domains: 30 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -5454,6 +5502,14 @@ class Domains:
 
         Needs: permission `apps.read`."""
         return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/domains/{quote(str(name), safe='')}/dns", query=None, body=None)
+
+    def put_domain_enabled(self, domain: str, name: str, body: "DomainEnabledRequest") -> "AppDomainChange":
+        """PUT /api/apps/{domain}/domains/{name}/enabled
+
+        Put Domain Enabled
+
+        Needs: permission `apps.manage`."""
+        return self._call("PUT", f"/api/apps/{quote(str(domain), safe='')}/domains/{quote(str(name), safe='')}/enabled", query=None, body=body)
 
     def put_domain_port(self, domain: str, name: str, body: "DomainPortRequest") -> "AppDomainChange":
         """PUT /api/apps/{domain}/domains/{name}/port
@@ -6730,7 +6786,7 @@ class Monitor:
 
 
 class Nodes:
-    """Nodes: 11 operations."""
+    """Nodes: 14 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -6791,6 +6847,14 @@ class Nodes:
         Needs: permission `fleet.manage`."""
         return self._call("GET", f"/api/nodes/{quote(str(node), safe='')}/key", query=None, body=None)
 
+    def migrate_node_tunnel(self, node: str, body: "NodeRotationRequest") -> "NodeRotationResponse":
+        """POST /api/nodes/{node}/migrate-tunnel
+
+        Migrate Node Tunnel
+
+        Needs: permission `fleet.manage`, sudo mode, a second person's approval can be required."""
+        return self._call("POST", f"/api/nodes/{quote(str(node), safe='')}/migrate-tunnel", query=None, body=body)
+
     def set_node_monitoring(self, node: str, body: "MonitoringRequest") -> "NodeResponse":
         """PUT /api/nodes/{node}/monitoring
 
@@ -6798,6 +6862,14 @@ class Nodes:
 
         Needs: permission `fleet.manage`."""
         return self._call("PUT", f"/api/nodes/{quote(str(node), safe='')}/monitoring", query=None, body=body)
+
+    def rekey_node(self, node: str, body: "NodeRotationRequest") -> "NodeRotationResponse":
+        """POST /api/nodes/{node}/rekey
+
+        Rekey Node
+
+        Needs: permission `fleet.manage`, sudo mode, a second person's approval can be required."""
+        return self._call("POST", f"/api/nodes/{quote(str(node), safe='')}/rekey", query=None, body=body)
 
     def get_node_ssh(self, node: str) -> "SSHOptionsOut":
         """GET /api/nodes/{node}/ssh
@@ -6815,6 +6887,14 @@ class Nodes:
         Needs: permission `fleet.manage`, sudo mode."""
         return self._call("PUT", f"/api/nodes/{quote(str(node), safe='')}/ssh", query=None, body=body)
 
+    def set_node_team(self, node: str, body: "NodeTeamRequest") -> "NodeResponse":
+        """PUT /api/nodes/{node}/team
+
+        Set Node Team
+
+        Needs: permission `fleet.manage`, sudo mode."""
+        return self._call("PUT", f"/api/nodes/{quote(str(node), safe='')}/team", query=None, body=body)
+
     def test_node(self, node: str) -> dict[str, Any]:
         """POST /api/nodes/{node}/test
 
@@ -6826,7 +6906,7 @@ class Nodes:
 
 
 class Notifications:
-    """Notifications: 7 operations."""
+    """Notifications: 11 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -6886,6 +6966,38 @@ class Notifications:
 
         Needs: permission `settings.read`."""
         return self._call("GET", "/api/notifications/events", query=None, body=None)
+
+    def list_team_channels(self, team: str) -> "TeamChannelListResponse":
+        """GET /api/teams/{team}/notifications/channels
+
+        List Team Channels
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/teams/{quote(str(team), safe='')}/notifications/channels", query=None, body=None)
+
+    def save_team_channel(self, team: str, name: str, body: "TeamChannelBody") -> "TeamChannelModel":
+        """PUT /api/teams/{team}/notifications/channels/{name}
+
+        Save Team Channel
+
+        Needs: permission `apps.manage`, sudo mode."""
+        return self._call("PUT", f"/api/teams/{quote(str(team), safe='')}/notifications/channels/{quote(str(name), safe='')}", query=None, body=body)
+
+    def remove_team_channel(self, team: str, name: str) -> Any:
+        """DELETE /api/teams/{team}/notifications/channels/{name}
+
+        Remove Team Channel
+
+        Needs: permission `apps.manage`, sudo mode."""
+        return self._call("DELETE", f"/api/teams/{quote(str(team), safe='')}/notifications/channels/{quote(str(name), safe='')}", query=None, body=None)
+
+    def test_team_channel(self, team: str, name: str) -> "TeamChannelTestResult":
+        """POST /api/teams/{team}/notifications/channels/{name}/test
+
+        Test Team Channel
+
+        Needs: permission `apps.operate`."""
+        return self._call("POST", f"/api/teams/{quote(str(team), safe='')}/notifications/channels/{quote(str(name), safe='')}/test", query=None, body=None)
 
 
 
@@ -7018,7 +7130,7 @@ class Passkeys:
 
 
 class Previews:
-    """Previews: 16 operations."""
+    """Previews: 17 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -7038,6 +7150,14 @@ class Previews:
 
         Needs: permission `apps.deploy`, sudo mode."""
         return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/previews", query=None, body=body)
+
+    def get_preview_dns(self, domain: str) -> "PreviewDnsResponse":
+        """GET /api/apps/{domain}/previews/dns
+
+        Get Preview Dns
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/previews/dns", query=None, body=None)
 
     def list_pull_requests(self, domain: str) -> "PullRequestsResponse":
         """GET /api/apps/{domain}/previews/pull-requests
@@ -8250,18 +8370,18 @@ class Server:
 
 
 class Services:
-    """Services: 13 operations."""
+    """Services: 15 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
 
-    def list_services(self, *, noust_only: Union[bool, None] = None, wasm_only: Union[bool, None] = None, state: Union[Literal["failed", "running", "stopped"], None] = None) -> "ServiceListResponse":
+    def list_services(self, *, noust_only: Union[bool, None] = None, wasm_only: Union[bool, None] = None, state: Union[Literal["failed", "running", "stopped"], None] = None, tag: Union[str, None] = None) -> "ServiceListResponse":
         """GET /api/services
 
         List Services
 
         Needs: permission `server.read`."""
-        return self._call("GET", "/api/services", query={"noust_only": noust_only, "wasm_only": wasm_only, "state": state}, body=None)
+        return self._call("GET", "/api/services", query={"noust_only": noust_only, "wasm_only": wasm_only, "state": state, "tag": tag}, body=None)
 
     def create_service(self, body: "CreateServiceRequest") -> "ServiceActionResponse":
         """POST /api/services
@@ -8358,6 +8478,22 @@ class Services:
 
         Needs: permission `apps.operate`."""
         return self._call("POST", f"/api/services/{quote(str(name), safe='')}/stop", query=None, body=None)
+
+    def get_service_tags(self, name: str) -> "ServiceTagsResponse":
+        """GET /api/services/{name}/tags
+
+        Get Service Tags
+
+        Needs: permission `server.read`."""
+        return self._call("GET", f"/api/services/{quote(str(name), safe='')}/tags", query=None, body=None)
+
+    def put_service_tags(self, name: str, body: "SetServiceTagsRequest") -> "ServiceTagsResponse":
+        """PUT /api/services/{name}/tags
+
+        Put Service Tags
+
+        Needs: permission `server.manage`."""
+        return self._call("PUT", f"/api/services/{quote(str(name), safe='')}/tags", query=None, body=body)
 
 
 
@@ -8970,7 +9106,7 @@ class System:
 
 
 class Tags:
-    """Tags: 4 operations."""
+    """Tags: 5 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -9006,6 +9142,14 @@ class Tags:
 
         Needs: permission `apps.deploy`."""
         return self._call("POST", f"/api/tags/{quote(str(tag), safe='')}/deploy", query=None, body=body)
+
+    def restart_tag(self, tag: str, *, body: Union["RestartTagRequest", None] = None) -> "RestartTagResponse":
+        """POST /api/tags/{tag}/restart
+
+        Restart Tag
+
+        Needs: permission `apps.operate`."""
+        return self._call("POST", f"/api/tags/{quote(str(tag), safe='')}/restart", query=None, body=body)
 
 
 

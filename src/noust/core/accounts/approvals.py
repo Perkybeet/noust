@@ -305,6 +305,16 @@ ROUTE_RULES: dict[tuple[str, str], ApprovalRule] = {
     ("DELETE", "/api/nodes/{node}"): ApprovalRule(
         "fleet.node.remove", KIND_INFRASTRUCTURE, "Removing a server from this central."
     ),
+    # A new key for a server, or its move to another account, changes who can reach it as
+    # root-equivalent; the join code that finishes it carries the server's token (ONE_TIME_FIELDS).
+    ("POST", "/api/nodes/{node}/rekey"): ApprovalRule(
+        "fleet.node.rekey", KIND_INFRASTRUCTURE, "Giving a server of this fleet a new key."
+    ),
+    ("POST", "/api/nodes/{node}/migrate-tunnel"): ApprovalRule(
+        "fleet.node.migrate",
+        KIND_INFRASTRUCTURE,
+        "Moving a server of this fleet onto the restricted tunnel account.",
+    ),
     # Opening the root-equivalent console to the internet, even behind a second factor.
     ("POST", "/api/console/exposure"): ApprovalRule(
         "console.expose",
@@ -378,6 +388,8 @@ ROUTE_RULES: dict[tuple[str, str], ApprovalRule] = {
 #: a stored, checkable hash of it, and an approval is not the place a password
 #: is kept. What is approved is everything else about the call.
 ONE_TIME_FIELDS: dict[tuple[str, str], tuple[str, ...]] = {
+    ("POST", "/api/nodes/{node}/rekey"): ("join_code",),
+    ("POST", "/api/nodes/{node}/migrate-tunnel"): ("join_code",),
     ("POST", "/api/fleet/enroll"): ("password", "private_key", "passphrase"),
     ("POST", "/api/fleet/cloud/accounts"): ("token",),
     ("PUT", "/api/fleet/cloud/accounts/{name}/token"): ("token",),

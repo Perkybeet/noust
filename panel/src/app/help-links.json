@@ -9,6 +9,7 @@
     { "route": "/teams", "slug": "teams", "source": "docs/teams.md" },
     { "route": "/teams/$team", "slug": "teams", "source": "docs/teams.md" },
     { "route": "/teams/$team/members", "slug": "teams", "source": "docs/teams.md" },
+    { "route": "/teams/$team/notifications", "slug": "teams", "source": "docs/teams.md", "anchor": "notifications-of-a-team" },
     { "route": "/teams/$team/settings", "slug": "teams", "source": "docs/teams.md" },
 
     { "route": "/apps", "slug": "console", "source": "docs/console.md", "anchor": "applications" },

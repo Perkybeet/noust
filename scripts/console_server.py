@@ -6205,6 +6205,21 @@ def seed_settings_api_tokens() -> None:
             manager.revoke_api_token(int(issued["id"]))
 
 
+def warm_recipe_library() -> None:
+    """
+    Load the recipe library before the server says it is ready.
+
+    The first request that lists recipes imports the recipe schema and validates every file of the
+    library: a second and a half on an idle machine and several on a busy one. It is a cost of a
+    process that has just started, not of the page that asks, and the wizard's recipe start and the
+    catalog wait for it with a ten-second budget, so whichever test of a worker came first paid it
+    and failed when the machine was loaded.
+    """
+    from noust.recipes import search_recipes
+
+    search_recipes()
+
+
 def pin_settings_update_check() -> str:
     """
     Answer the update check from the sandbox instead of GitHub.
@@ -8242,6 +8257,7 @@ def seed_showcase_machine_metrics() -> None:
                 ("mem.used_bytes", mem_used),
                 ("mem.total_bytes", float(mem_total)),
                 ("swap.used_bytes", mem_total * 0.015),
+                ("swap.total_bytes", float(2 * 1024**3)),
                 ("disk.used_bytes", disk_used),
                 ("disk.total_bytes", float(disk_total)),
                 ("net.rx_bytes_s", net_rx),
@@ -10025,6 +10041,7 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     totp_secret, backup_codes = enable_totp(args.backup_codes) if args.totp else (None, [])
     seed_settings_api_tokens()
     pin_settings_update_check()
+    warm_recipe_library()
 
     sock = bind(args.host, args.port)
     host, port = sock.getsockname()[:2]

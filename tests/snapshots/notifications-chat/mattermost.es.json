@@ -2524,6 +2524,251 @@
       }
     ]
   },
+  "webserver.restarted": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Servidor web reiniciado · nginx",
+        "color": "#e3a73c",
+        "title": "▲ Servidor web reiniciado · nginx",
+        "text": "Había dejado de funcionar y Noust lo ha arrancado de nuevo tras pasar su prueba de configuración.\n\n**Revísalo con:** `journalctl -u nginx -n 50`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "webserver.down": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Servidor web caído · nginx",
+        "color": "#cf3a30",
+        "title": "✕ Servidor web caído · nginx",
+        "text": "No está en marcha y el reinicio automático está desactivado.\n\n**Revísalo con:** `journalctl -u nginx -n 50`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "webserver.config_invalid": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ El servidor web no puede arrancar · nginx",
+        "color": "#cf3a30",
+        "title": "✕ El servidor web no puede arrancar · nginx",
+        "text": "No está en marcha y su configuración no pasa su propia prueba, así que Noust no lo ha reiniciado.\n\n**Compruébalo con:** `nginx -t`\n\n*Lo que ha informado el sistema*\n```\nnginx: [emerg] unknown directive \"servre_name\" in /etc/nginx/sites-enabled/shop.example.com:4\nnginx: configuration file /etc/nginx/nginx.conf test failed\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "webserver.restart_failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Ha fallado el reinicio del servidor web · nginx",
+        "color": "#cf3a30",
+        "title": "✕ Ha fallado el reinicio del servidor web · nginx",
+        "text": "No está en marcha y arrancarlo de nuevo no ha funcionado.\n\n**Revísalo con:** `journalctl -u nginx -n 50`\n\n*Lo que ha informado el sistema*\n```\nJob for nginx.service failed because the control process exited with error code.\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "webserver.limit": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ El servidor web sigue cayendo · nginx",
+        "color": "#cf3a30",
+        "title": "✕ El servidor web sigue cayendo · nginx",
+        "text": "Ha caído 3 veces en la última hora, así que Noust ha dejado de arrancarlo de nuevo.\n\n**Revísalo con:** `journalctl -u nginx -n 50`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "webserver.stopped": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Servidor web detenido · nginx",
+        "color": "#e3a73c",
+        "title": "▲ Servidor web detenido · nginx",
+        "text": "Está detenido pero arranca con el sistema, así que todos los sitios de este servidor están caídos hasta que alguien lo arranque.\n\n**Arráncalo con:** `systemctl start nginx`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/server"
+      }
+    ]
+  },
+  "security.release": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Versión de seguridad disponible · Noust 3.3.2",
+        "color": "#e3a73c",
+        "title": "▲ Versión de seguridad disponible · Noust 3.3.2",
+        "text": "Noust 3.3.2 corrige una vulnerabilidad y este servidor sigue en la versión 3.3.1.\n\n**Actualiza con:** `pipx upgrade noust`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "En marcha",
+            "value": "3.3.1"
+          },
+          {
+            "short": true,
+            "title": "Corregida en",
+            "value": "3.3.2"
+          },
+          {
+            "short": false,
+            "title": "Aviso",
+            "value": "`https://github.com/Perkybeet/noust/security/advisories/GHSA-aaaa-bbbb-cccc`"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/settings/about"
+      }
+    ]
+  },
+  "container.restart_loop": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Contenedor reiniciándose en bucle · shop.example.com",
+        "color": "#cf3a30",
+        "title": "✕ Contenedor reiniciándose en bucle · shop.example.com",
+        "text": "Docker lo ha reiniciado 6 veces desde que se vio por primera vez, y el límite es 5.\n\n**Revísalo con:** `docker logs --tail 50 shop-worker-1`\n\n*Lo que ha informado el sistema*\n```\nError: connect ECONNREFUSED 10.0.0.4:5432\n    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16)\nworker exiting with status 1\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Contenedor",
+            "value": "`shop-worker-1`"
+          },
+          {
+            "short": true,
+            "title": "Reinicios",
+            "value": "6"
+          },
+          {
+            "short": true,
+            "title": "Último código de salida",
+            "value": "1"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ]
+  },
+  "container.recovered": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Contenedor estable de nuevo · shop.example.com",
+        "color": "#4dc47e",
+        "title": "● Contenedor estable de nuevo · shop.example.com",
+        "text": "Lleva 7 minutos en marcha sin reiniciarse.\n\n**Revísalo con:** `docker logs --tail 50 shop-worker-1`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Contenedor",
+            "value": "`shop-worker-1`"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ]
+  },
+  "recipe.outdated": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "○ Actualizaciones de recetas disponibles",
+        "color": "#9e9e9e",
+        "title": "○ Actualizaciones de recetas disponibles",
+        "text": "2 recetas instaladas tienen una versión más nueva en el catálogo.\n\n**Actualiza con:** `noust recipe outdated`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Receta",
+            "value": "`vault.example.com: 1.37.4 -> 1.38.0`"
+          },
+          {
+            "short": true,
+            "title": "Receta",
+            "value": "`blog.example.com: 5.0.1 -> 5.1.0`"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/catalog"
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "username": "Noust",
     "attachments": [

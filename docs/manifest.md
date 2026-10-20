@@ -2,7 +2,9 @@
 
 A manifest is a YAML file that says which projects and applications a server should hold, where
 each one lives, its variables, its domains, its limits, its health check, its databases and its backup
-schedule. It lives in git. **`plan`** says what applying it would change; **`apply`** makes the server
+schedule, the cron jobs it runs and, on a central, the servers of the fleet: their labels and team, where
+an application is placed across them and which server an application or a cron job lives on. It lives
+in git. **`plan`** says what applying it would change; **`apply`** makes the server
 match it; **`export`** writes down a server that already runs. Applying is idempotent: apply it twice
 and the second time finds nothing to do.
 
@@ -49,6 +51,37 @@ applications:
     backups: { schedule: daily, retention_count: 7, retention_days: 30, include_databases: true }
 ```
 
+```yaml
+cron:                            # the jobs this server runs
+  - name: nightly-report
+    command: /usr/bin/python3 /opt/report.py --all
+    schedule: daily              # hourly, daily, weekly, monthly or a systemd calendar
+    user: www-data               # what the manifest leaves out stays as it is
+    working_directory: /opt
+    app: shop.example.com
+    timeout: 600
+    enabled: true
+    # server: web-2              # run it on that server of the fleet instead
+
+servers:                         # on a central: servers it already manages
+  - name: web-2
+    labels: { role: web, region: eu }   # merged into the labels it has
+    team: acme                          # the team that has it (docs/teams.md)
+
+placements:                      # where an application runs across the fleet
+  - domain: shop.example.com
+    servers: [web-1, web-2]
+    serial: 1                    # a number of servers, or "25%"
+    canary: web-1
+    max_failures: 0
+    rollback_on_failure: true
+
+applications:
+  - domain: api.example.com
+    server: web-2                # lives on that server, reached through this central
+    source: https://github.com/acme/api
+```
+
 Only `domain` is required of an application. `source` or `recipe` (one of them, to create it), `type`,
 `branch`, `port`, `ssl`, `team`, `project` and `environment` say where it comes from and where it
 lives. The schema is **closed**: a key it does not know is an error that names the path
@@ -56,11 +89,38 @@ lives. The schema is **closed**: a key it does not know is an error that names t
 and silently dropped is a limit that was never set. A document over 1 MiB, more than 200 applications
 or the same domain twice is refused.
 
+## Cron and the fleet
+
+**Cron jobs.** A job is created, or rewritten when its command, schedule, user, directory, application,
+timeout or service differ from what the manifest says; what the manifest leaves out of a job it already
+has stays as it is. A command is compared as the words it splits into (`a  b` is `a b`) and a schedule as
+the calendar the server normalises it to (`daily` is `*-*-* 00:00:00`), so a plan converges. A plan names
+what differs and **never prints a command**, which may hold a secret; `noust manifest export` writes them
+as they are, and its header says to read them before committing. Writing a job is root-equivalent, so it
+needs sudo mode; switching one on or off does not. Jobs the manifest does not name are listed as
+`cron:NAME` and left alone.
+
+**The fleet.** A central's manifest can also set what its servers carry and where applications run:
+`servers` merges labels and assigns the team that has a server; `placements` says the servers an
+application is named on, the selector that adds more, and how an update goes out. Registering a server
+needs the join code its own `noust fleet authorize` printed, which does not belong in a document in git, so
+a manifest only configures servers that are already managed (`noust node add`) and warns about one that is
+not. On a server that is not a central, or with a token that may not see the fleet, these sections are a
+warning and no change, so one manifest can be applied to either.
+
+**An application on another server.** `server: web-2` makes the same calls the console would, one level
+down: through the central, at `/api/nodes/web-2/api/...`, as the same token, with the node's own sudo mode
+and permissions. Its project, team, variables, domains, databases and backups are planned and applied
+there, a deployment is followed there, and the plan shows `web-2:api.example.com`. A server the central
+does not manage is a warning, and what the manifest puts on it waits. `projects` are those of the server
+the manifest is applied to.
+
 ## Plan
 
 `plan` reads the server as the token, compares, and prints one line per change, in the order they would
-run: projects, environments, applications, moving, branch, limits, health check, domains, databases,
-variables, backups. It changes nothing and never prints the value of a variable.
+run: the fleet's servers, projects, environments, applications, moving, branch, limits, health check,
+domains, databases, variables, backups, cron jobs and placements. It changes nothing and never prints the
+value of a variable or a cron command.
 
 ```
 $ noust --context prod manifest plan noust-manifest.yaml
@@ -155,7 +215,8 @@ waiting (`plan --check`).
 ## What it does not do
 
 * It does not delete. Taking an application out of the manifest leaves it running; delete it on purpose
-  (`noust delete`).
+  (`noust delete`). The same goes for a cron job, a label and a placement.
+* It does not register servers (their join code is a secret), create teams or run a node's own manifest.
 * It does not manage accounts, roles or tokens, certificates' issuers, firewall rules or the server's own
   settings. Those have commands and routes of their own.
 * It does not read a manifest from an application's repository. `noust.yaml` there is the project's

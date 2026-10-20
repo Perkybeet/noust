@@ -145,6 +145,11 @@ def list_command(ctx: Context, **_: Any) -> None:
     help="http, otlp: how to authenticate.",
 )
 @click.option("--dataset", help="Axiom: the dataset.")
+@click.option(
+    "--region",
+    type=click.Choice(["us", "eu"]),
+    help="New Relic: where the account lives (us by default).",
+)
 @click.option("--transport", type=click.Choice(SYSLOG_TRANSPORTS), help="Syslog: udp, tcp or tls.")
 @click.option("--host", help="Syslog: the receiver.")
 @click.option("--port", type=int, help="Syslog: its port (6514 for tls, 514 otherwise).")
@@ -178,6 +183,7 @@ def add_command(
     username: str | None,
     auth: str | None,
     dataset: str | None,
+    region: str | None,
     transport: str | None,
     host: str | None,
     port: int | None,
@@ -204,6 +210,7 @@ def add_command(
         ("username", username),
         ("auth", auth),
         ("dataset", dataset),
+        ("region", region),
         ("transport", transport),
         ("host", host),
         ("port", port),

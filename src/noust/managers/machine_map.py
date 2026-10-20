@@ -66,6 +66,7 @@ _STATE_OF = {
     "restarting": "fail",
     "failed": "fail",
     "no_answer": "fail",
+    "degraded": "fail",
     "stopped": "unknown",
     "unknown": "unknown",
 }

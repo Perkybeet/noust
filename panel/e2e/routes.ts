@@ -70,6 +70,8 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "team", path: "/teams/default" },
   { name: "team-members", path: "/teams/default/members" },
   { name: "team-settings", path: "/teams/default/settings" },
+  // 4.0: the channels a team keeps for its own applications.
+  { name: "team-notifications", path: "/teams/default/notifications" },
   // 3.4: shared variables by scope, and the secret managers they can refer to.
   { name: "team-variables", path: "/teams/default/variables" },
   { name: "settings-variables", path: "/settings/variables" },

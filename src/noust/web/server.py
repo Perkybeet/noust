@@ -434,6 +434,7 @@ AUTH_PATHS = frozenset(
         "/api/auth/password",
         "/api/auth/invitations/open",
         "/api/auth/invitations/accept",
+        "/api/auth/password-reset/confirm",
         "/api/auth/passkeys/login",
         "/api/auth/passkeys/elevate",
         "/api/auth/oidc/complete",
@@ -895,6 +896,10 @@ async def lifespan(app: FastAPI):
     from noust.managers.backup_destinations import protect_credentials_at_start
 
     await asyncio.to_thread(protect_credentials_at_start)
+    # K-12: the secrets of the notification channels an earlier build stored as text.
+    from noust.core.channel_secrets import protect_at_start as protect_channel_secrets
+
+    await asyncio.to_thread(protect_channel_secrets)
     # What a console killed mid-inspection could not remove itself.
     remove_stale_checkouts()
     jobs = get_job_manager()

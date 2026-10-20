@@ -71,6 +71,8 @@ STATIC = "Static"
 UNKNOWN = "Unknown"
 #: A Compose stack whose containers run while its unit does not.
 RUNNING_UNMANAGED = "Running outside Noust"
+#: An application of several units, some serving and some not: it works, in part (M-33).
+DEGRADED = "Degraded"
 
 #: The labels above in the fixed vocabulary the API speaks, which clients parse. Decoupled from
 #: :attr:`AppState.label` on purpose: that string is for a terminal column and free to reword.
@@ -83,6 +85,7 @@ PUBLIC_STATUS: dict[str, str] = {
     STATIC: "static",
     UNKNOWN: "unknown",
     RUNNING_UNMANAGED: "running_unmanaged",
+    DEGRADED: "degraded",
 }
 
 
@@ -206,19 +209,30 @@ def resolve_state_with_status(
     # serving_units: in zero-downtime mode the idle instance is stopped by
     # design, and must not make a serving application read as stopped.
     units = service_manager.serving_units(app) or [domain_to_app_name(app.domain)]
-    resolved: list[tuple[AppState, dict[str, Any]]] = []
+    resolved: list[tuple[str, AppState, dict[str, Any]]] = []
     for unit in units:
         try:
             status = service_manager.get_status(unit)
         except (NoustError, ValidationError) as error:
             return AppState(UNKNOWN, healthy=False, detail=str(error)), {}
         state = _state_from_status(app, status, probe=probe)
-        if not state.healthy:
+        if not state.healthy and len(units) == 1:
             if look_at_containers and _unit_down(app, state, status):
                 return _outside_unit(app, _running_stacks([app]).get(app.domain), state), status
             return state, status
-        resolved.append((state, status))
-    return resolved[0]
+        resolved.append((unit, state, status))
+    broken = [(unit, state, status) for unit, state, status in resolved if not state.healthy]
+    if not broken:
+        return resolved[0][1], resolved[0][2]
+    if len(broken) < len(resolved):
+        # Some of its units serve and some do not: neither "Running" nor "Failed" is true.
+        words = "; ".join(f"{unit}: {state.label.lower()}" for unit, state, _ in broken)
+        return AppState(DEGRADED, healthy=False, detail=words), resolved[0][2]
+    # None serves: it is as unhealthy as its first unit, which says why.
+    _, state, status = broken[0]
+    if look_at_containers and _unit_down(app, state, status):
+        return _outside_unit(app, _running_stacks([app]).get(app.domain), state), status
+    return state, status
 
 
 def _unit_down(app: App, state: AppState, status: dict[str, Any]) -> bool:

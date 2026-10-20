@@ -2112,6 +2112,7 @@ Arguments: `domain`
 | `--accept-unreachable-auth` | Go ahead although the authentication service does not answer (everyone is refused until it does). |  |
 | `--http3`, `--no-http3` | Serve the site over HTTP/3 (QUIC) as well (nginx 1.25 or later with the HTTP/3 module). |  |
 | `--client-certs`, `--no-client-certs` | Answer only a visitor with a certificate this site's own authority signed (noust app policy clients issue makes them). |  |
+| `--force-https`, `--no-force-https` | Send port 80 to HTTPS once the site has a certificate (the default). --no-force-https leaves the site answering on both, for a client that cannot follow a redirect (nginx only). |  |
 | `--waf` | The web application firewall (OWASP Core Rule Set): detect writes down what the rules see, block also refuses what they score too high. |  |
 | `--waf-exclude` | Leave this rule out for the site (repeat for more); replaces the list. |  |
 | `--clear-waf-exclusions` | Leave no rule out for the site. |  |
@@ -2633,7 +2634,7 @@ Tags on applications: find them, and deploy the ones that share a tag.
 noust app tag [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`add`](#noust-app-tag-add), [`deploy`](#noust-app-tag-deploy), [`list`](#noust-app-tag-list), [`remove`](#noust-app-tag-remove), [`set`](#noust-app-tag-set)
+Subcommands: [`add`](#noust-app-tag-add), [`deploy`](#noust-app-tag-deploy), [`list`](#noust-app-tag-list), [`remove`](#noust-app-tag-remove), [`restart`](#noust-app-tag-restart), [`set`](#noust-app-tag-set)
 
 ### noust app tag add
 
@@ -2694,6 +2695,21 @@ Arguments: `domain`, `tags`
 
 | Option | What it does | Default |
 |---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust app tag restart
+
+Restart every application and service that carries TAG.
+
+```
+noust app tag restart [OPTIONS] TAG
+```
+
+Arguments: `tag_name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print what came of each as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust app tag set
@@ -3450,7 +3466,8 @@ Arguments: `name`
 
 | Option | What it does | Default |
 |---|---|---|
-| `--issuer` | The provider's issuer URL, exactly as its tokens write it. |  |
+| `--kind` | oidc (the default) or github: OAuth 2.0 with GitHub, chosen when the provider is made. |  |
+| `--issuer` | The provider's issuer URL, exactly as its tokens write it (a GitHub Enterprise Server's address for --kind github). |  |
 | `--client-id` | The client id Noust is registered as. |  |
 | `--client-secret-stdin` | Read the client secret from standard input. |  |
 | `--prompt-secret` | Ask for the client secret at a hidden prompt. |  |
@@ -5214,7 +5231,7 @@ noust config [OPTIONS] COMMAND [ARGS]...
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
 
-Subcommands: [`clean`](#noust-config-clean), [`get`](#noust-config-get), [`path`](#noust-config-path), [`set`](#noust-config-set), [`show`](#noust-config-show), [`upgrade`](#noust-config-upgrade)
+Subcommands: [`clean`](#noust-config-clean), [`get`](#noust-config-get), [`path`](#noust-config-path), [`protect`](#noust-config-protect), [`set`](#noust-config-set), [`show`](#noust-config-show), [`upgrade`](#noust-config-upgrade)
 
 ### noust config clean
 
@@ -5255,6 +5272,21 @@ Show where the configuration file lives, and whether it exists.
 
 ```
 noust config path [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust config protect
+
+Encrypt the secrets of the notification channels that config.yaml holds as text.
+
+```
+noust config protect [OPTIONS]
 ```
 
 | Option | What it does | Default |
@@ -5670,7 +5702,7 @@ Install engines, and manage databases, users, backups and application links.
 noust db [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`access`](#noust-db-access), [`adopt`](#noust-db-adopt), [`backup`](#noust-db-backup), [`backup-delete`](#noust-db-backup-delete), [`backup-push`](#noust-db-backup-push), [`backup-remote`](#noust-db-backup-remote), [`backup-run`](#noust-db-backup-run), [`backup-schedule`](#noust-db-backup-schedule), [`backup-verify`](#noust-db-backup-verify), [`backups`](#noust-db-backups), [`catalog`](#noust-db-catalog), [`choices`](#noust-db-choices), [`config`](#noust-db-config), [`connect`](#noust-db-connect), [`connect-info`](#noust-db-connect-info), [`connection-string`](#noust-db-connection-string), [`create`](#noust-db-create), [`describe`](#noust-db-describe), [`drop`](#noust-db-drop), [`engines`](#noust-db-engines), [`explain`](#noust-db-explain), [`export`](#noust-db-export), [`exposure`](#noust-db-exposure), [`extension`](#noust-db-extension), [`fix-owner`](#noust-db-fix-owner), [`forget`](#noust-db-forget), [`globals`](#noust-db-globals), [`grant`](#noust-db-grant), [`history`](#noust-db-history), [`import`](#noust-db-import), [`import-all`](#noust-db-import-all), [`info`](#noust-db-info), [`install`](#noust-db-install), [`instance`](#noust-db-instance), [`key`](#noust-db-key), [`keys`](#noust-db-keys), [`limits`](#noust-db-limits), [`link`](#noust-db-link), [`links`](#noust-db-links), [`list`](#noust-db-list), [`metrics`](#noust-db-metrics), [`move`](#noust-db-move), [`pitr`](#noust-db-pitr), [`provision`](#noust-db-provision), [`public`](#noust-db-public), [`query`](#noust-db-query), [`replica`](#noust-db-replica), [`restart`](#noust-db-restart), [`restore`](#noust-db-restore), [`restore-remote`](#noust-db-restore-remote), [`revoke`](#noust-db-revoke), [`row`](#noust-db-row), [`rows`](#noust-db-rows), [`saved`](#noust-db-saved), [`settings`](#noust-db-settings), [`slow-queries`](#noust-db-slow-queries), [`sqlite`](#noust-db-sqlite), [`start`](#noust-db-start), [`status`](#noust-db-status), [`stop`](#noust-db-stop), [`tables`](#noust-db-tables), [`tls`](#noust-db-tls), [`transfer`](#noust-db-transfer), [`uninstall`](#noust-db-uninstall), [`unlink`](#noust-db-unlink), [`user-create`](#noust-db-user-create), [`user-delete`](#noust-db-user-delete), [`user-list`](#noust-db-user-list), [`user-password`](#noust-db-user-password)
+Subcommands: [`access`](#noust-db-access), [`adopt`](#noust-db-adopt), [`backup`](#noust-db-backup), [`backup-delete`](#noust-db-backup-delete), [`backup-push`](#noust-db-backup-push), [`backup-remote`](#noust-db-backup-remote), [`backup-run`](#noust-db-backup-run), [`backup-schedule`](#noust-db-backup-schedule), [`backup-verify`](#noust-db-backup-verify), [`backups`](#noust-db-backups), [`catalog`](#noust-db-catalog), [`choices`](#noust-db-choices), [`config`](#noust-db-config), [`connect`](#noust-db-connect), [`connect-info`](#noust-db-connect-info), [`connection-string`](#noust-db-connection-string), [`create`](#noust-db-create), [`describe`](#noust-db-describe), [`drop`](#noust-db-drop), [`engines`](#noust-db-engines), [`explain`](#noust-db-explain), [`export`](#noust-db-export), [`exposure`](#noust-db-exposure), [`extension`](#noust-db-extension), [`fix-owner`](#noust-db-fix-owner), [`forget`](#noust-db-forget), [`globals`](#noust-db-globals), [`grant`](#noust-db-grant), [`history`](#noust-db-history), [`import`](#noust-db-import), [`import-all`](#noust-db-import-all), [`info`](#noust-db-info), [`install`](#noust-db-install), [`instance`](#noust-db-instance), [`key`](#noust-db-key), [`keys`](#noust-db-keys), [`limits`](#noust-db-limits), [`link`](#noust-db-link), [`links`](#noust-db-links), [`list`](#noust-db-list), [`metrics`](#noust-db-metrics), [`move`](#noust-db-move), [`pitr`](#noust-db-pitr), [`provision`](#noust-db-provision), [`public`](#noust-db-public), [`query`](#noust-db-query), [`replica`](#noust-db-replica), [`restart`](#noust-db-restart), [`restore`](#noust-db-restore), [`restore-remote`](#noust-db-restore-remote), [`revoke`](#noust-db-revoke), [`row`](#noust-db-row), [`rows`](#noust-db-rows), [`saved`](#noust-db-saved), [`settings`](#noust-db-settings), [`slow-queries`](#noust-db-slow-queries), [`sqlite`](#noust-db-sqlite), [`start`](#noust-db-start), [`status`](#noust-db-status), [`stop`](#noust-db-stop), [`tables`](#noust-db-tables), [`tag`](#noust-db-tag), [`tls`](#noust-db-tls), [`transfer`](#noust-db-transfer), [`uninstall`](#noust-db-uninstall), [`unlink`](#noust-db-unlink), [`user-create`](#noust-db-user-create), [`user-delete`](#noust-db-user-delete), [`user-list`](#noust-db-user-list), [`user-password`](#noust-db-user-password)
 
 ### noust db access
 
@@ -6828,6 +6860,7 @@ noust db list [OPTIONS]
 |---|---|---|
 | `--engine`, `-e` | Only this engine. Defaults to all of them. |  |
 | `--open` | Print the panel URL for the database list, opening it if a display is available. |  |
+| `--tag` | Only the databases that carry this tag. |  |
 | `--team` | Only this team's. |  |
 | `--project` | Only what lives in the projects with this name. |  |
 | `--env` | Only what lives in the environments with this name. |  |
@@ -7623,6 +7656,78 @@ Arguments: `database`
 | `--json` | Print the tables as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
+### noust db tag
+
+Free labels on databases, to find them by.
+
+```
+noust db tag [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`add`](#noust-db-tag-add), [`list`](#noust-db-tag-list), [`remove`](#noust-db-tag-remove), [`set`](#noust-db-tag-set)
+
+### noust db tag add
+
+Give a database more tags.
+
+```
+noust db tag add [OPTIONS] NAME TAGS...
+```
+
+Arguments: `name`, `tags`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--engine`, `-e` | The engine the database is on (postgresql, ...). |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust db tag list
+
+List the tags of a database, or every tagged one.
+
+```
+noust db tag list [OPTIONS] [NAME]
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--tag` | Only the databases with this tag. |  |
+| `--engine`, `-e` | The engine the database is on (postgresql, ...). |  |
+| `--json` | Print the tags as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust db tag remove
+
+Take tags off a database.
+
+```
+noust db tag remove [OPTIONS] NAME TAGS...
+```
+
+Arguments: `name`, `tags`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--engine`, `-e` | The engine the database is on (postgresql, ...). |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust db tag set
+
+Make a database carry exactly these tags (none clears them).
+
+```
+noust db tag set [OPTIONS] NAME [TAGS]...
+```
+
+Arguments: `name`, `tags`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--engine`, `-e` | The engine the database is on (postgresql, ...). |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
 ### noust db tls
 
 Give a host engine a certificate clients can verify, and keep it current.
@@ -8054,7 +8159,7 @@ Serve an application on more domains: aliases and redirects.
 noust domain [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`add`](#noust-domain-add), [`canonical`](#noust-domain-canonical), [`certificate`](#noust-domain-certificate), [`list`](#noust-domain-list), [`port`](#noust-domain-port), [`remove`](#noust-domain-remove), [`temporary`](#noust-domain-temporary)
+Subcommands: [`add`](#noust-domain-add), [`canonical`](#noust-domain-canonical), [`certificate`](#noust-domain-certificate), [`disable`](#noust-domain-disable), [`enable`](#noust-domain-enable), [`list`](#noust-domain-list), [`port`](#noust-domain-port), [`remove`](#noust-domain-remove), [`temporary`](#noust-domain-temporary)
 
 ### noust domain add
 
@@ -8103,6 +8208,35 @@ Arguments: `app_domain`
 | Option | What it does | Default |
 |---|---|---|
 | `--reduce` | Order it again with only the names the application answers on (after a removal). |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust domain disable
+
+Stop APP answering on DOMAIN without forgetting it.
+
+```
+noust domain disable [OPTIONS] APP DOMAIN
+```
+
+Arguments: `app_domain`, `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust domain enable
+
+Serve DOMAIN again, after 'noust domain disable'.
+
+```
+noust domain enable [OPTIONS] APP DOMAIN
+```
+
+Arguments: `app_domain`, `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--no-cert` | Do not extend the certificate now. Run the command again to. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust domain list
@@ -9954,6 +10088,7 @@ Arguments: `name`
 | `--username` | Loki, http, otlp: the user, for basic authentication. |  |
 | `--auth` | http, otlp: how to authenticate. |  |
 | `--dataset` | Axiom: the dataset. |  |
+| `--region` | New Relic: where the account lives (us by default). |  |
 | `--transport` | Syslog: udp, tcp or tls. |  |
 | `--host` | Syslog: the receiver. |  |
 | `--port` | Syslog: its port (6514 for tls, 514 otherwise). |  |
@@ -10457,7 +10592,7 @@ Manage the servers this central manages, through their API over SSH tunnels.
 noust node [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`add`](#noust-node-add), [`export`](#noust-node-export), [`inventory`](#noust-node-inventory), [`key`](#noust-node-key), [`label`](#noust-node-label), [`link`](#noust-node-link), [`list`](#noust-node-list), [`migrate-tunnel`](#noust-node-migrate-tunnel), [`pause`](#noust-node-pause), [`rekey`](#noust-node-rekey), [`remove`](#noust-node-remove), [`resume`](#noust-node-resume), [`show`](#noust-node-show), [`ssh`](#noust-node-ssh), [`test`](#noust-node-test)
+Subcommands: [`add`](#noust-node-add), [`assign`](#noust-node-assign), [`export`](#noust-node-export), [`inventory`](#noust-node-inventory), [`key`](#noust-node-key), [`label`](#noust-node-label), [`link`](#noust-node-link), [`list`](#noust-node-list), [`migrate-tunnel`](#noust-node-migrate-tunnel), [`pause`](#noust-node-pause), [`rekey`](#noust-node-rekey), [`remove`](#noust-node-remove), [`resume`](#noust-node-resume), [`show`](#noust-node-show), [`ssh`](#noust-node-ssh), [`test`](#noust-node-test), [`unassign`](#noust-node-unassign)
 
 ### noust node add
 
@@ -10480,6 +10615,22 @@ Arguments: `name`
 | `--inventory` | An inventory exported by the central the server comes from (noust node export): its labels, placements and the rest are recorded here once the server is added. |  |
 | `--include-ssh` | With --inventory: also apply how that central reached the server (its wait, its bastion). |  |
 | `--json` | Print the registered node as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust node assign
+
+Give NAME to a team.
+
+```
+noust node assign [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--team` | The team's short name ('noust team list'). |  |
+| `--json` | Print the assignment as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust node export
@@ -10770,6 +10921,21 @@ Arguments: `name`
 | `--json` | Print the result as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
+### noust node unassign
+
+Give NAME back to the instance: no team sees it any more.
+
+```
+noust node unassign [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the result as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
 ### noust notify
 
 Notification channels: what Noust tells you, and where.
@@ -10802,6 +10968,7 @@ Arguments: `name`
 
 | Option | What it does | Default |
 |---|---|---|
+| `--team` | Remove this team's channel NAME. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust notify channel set
@@ -10842,6 +11009,7 @@ Arguments: `name`
 | `--summary-below` | What waits for the summary: what is below this severity (warning by default). |  |
 | `--summary-days` | The days it goes out on, such as mon,wed,fri (every day by default). |  |
 | `--clear-summary` | Remove the channel's summary. |  |
+| `--team` | Make it the channel of this team: it hears only that team's applications. NAME is then what the team calls it. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust notify deliveries
@@ -11005,7 +11173,7 @@ Pull request previews: a short-lived copy of an application per pull request.
 noust preview [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`approve`](#noust-preview-approve), [`create`](#noust-preview-create), [`disable`](#noust-preview-disable), [`enable`](#noust-preview-enable), [`list`](#noust-preview-list), [`logs`](#noust-preview-logs), [`pulls`](#noust-preview-pulls), [`redeploy`](#noust-preview-redeploy), [`reject`](#noust-preview-reject), [`remove`](#noust-preview-remove), [`start`](#noust-preview-start), [`stop`](#noust-preview-stop), [`sweep`](#noust-preview-sweep), [`vars`](#noust-preview-vars)
+Subcommands: [`approve`](#noust-preview-approve), [`create`](#noust-preview-create), [`disable`](#noust-preview-disable), [`dns`](#noust-preview-dns), [`enable`](#noust-preview-enable), [`list`](#noust-preview-list), [`logs`](#noust-preview-logs), [`pulls`](#noust-preview-pulls), [`redeploy`](#noust-preview-redeploy), [`reject`](#noust-preview-reject), [`remove`](#noust-preview-remove), [`start`](#noust-preview-start), [`stop`](#noust-preview-stop), [`sweep`](#noust-preview-sweep), [`vars`](#noust-preview-vars)
 
 ### noust preview approve
 
@@ -11066,6 +11234,21 @@ Arguments: `domain`
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
 | `--json` | Print the previews removed as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust preview dns
+
+Does the wildcard record of the previews of DOMAIN reach this server?
+
+```
+noust preview dns [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the verdict as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust preview enable
@@ -13695,7 +13878,7 @@ Manage the systemd services Noust owns.
 noust service [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`create`](#noust-service-create), [`delete`](#noust-service-delete), [`list`](#noust-service-list), [`logs`](#noust-service-logs), [`restart`](#noust-service-restart), [`start`](#noust-service-start), [`status`](#noust-service-status), [`stop`](#noust-service-stop)
+Subcommands: [`create`](#noust-service-create), [`delete`](#noust-service-delete), [`list`](#noust-service-list), [`logs`](#noust-service-logs), [`restart`](#noust-service-restart), [`start`](#noust-service-start), [`status`](#noust-service-status), [`stop`](#noust-service-stop), [`tag`](#noust-service-tag)
 
 ### noust service create
 
@@ -13741,6 +13924,7 @@ noust service list [OPTIONS]
 |---|---|---|
 | `--all`, `-a` | Include units Noust does not own. |  |
 | `--state` | Only the units in this state; failed also keeps the ones systemd keeps restarting. |  |
+| `--tag` | Only the units that carry this tag. |  |
 | `--json` | Print the service list as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
@@ -13812,6 +13996,74 @@ noust service stop [OPTIONS] NAME
 ```
 
 Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust service tag
+
+Free labels on services, to find them by.
+
+```
+noust service tag [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`add`](#noust-service-tag-add), [`list`](#noust-service-tag-list), [`remove`](#noust-service-tag-remove), [`set`](#noust-service-tag-set)
+
+### noust service tag add
+
+Give a service more tags.
+
+```
+noust service tag add [OPTIONS] NAME TAGS...
+```
+
+Arguments: `name`, `tags`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust service tag list
+
+List the tags of a service, or every tagged one.
+
+```
+noust service tag list [OPTIONS] [NAME]
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--tag` | Only the services with this tag. |  |
+| `--json` | Print the tags as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust service tag remove
+
+Take tags off a service.
+
+```
+noust service tag remove [OPTIONS] NAME TAGS...
+```
+
+Arguments: `name`, `tags`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust service tag set
+
+Make a service carry exactly these tags (none clears them).
+
+```
+noust service tag set [OPTIONS] NAME [TAGS]...
+```
+
+Arguments: `name`, `tags`
 
 | Option | What it does | Default |
 |---|---|---|
@@ -14912,7 +15164,7 @@ Manage the accounts that sign in to the console, each with one role.
 noust user [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`create`](#noust-user-create), [`disable`](#noust-user-disable), [`enable`](#noust-user-enable), [`exception`](#noust-user-exception), [`invite`](#noust-user-invite), [`list`](#noust-user-list), [`remove`](#noust-user-remove), [`reset-mfa`](#noust-user-reset-mfa), [`set-role`](#noust-user-set-role), [`unlock`](#noust-user-unlock)
+Subcommands: [`create`](#noust-user-create), [`disable`](#noust-user-disable), [`enable`](#noust-user-enable), [`exception`](#noust-user-exception), [`invite`](#noust-user-invite), [`list`](#noust-user-list), [`remove`](#noust-user-remove), [`reset-mfa`](#noust-user-reset-mfa), [`set-email`](#noust-user-set-email), [`set-role`](#noust-user-set-role), [`unlock`](#noust-user-unlock)
 
 ### noust user create
 
@@ -15032,6 +15284,8 @@ Arguments: `username`
 | `--expires-hours` | How long the invitation code is valid. | `24` |
 | `--team` | Invite them into this team only, instead of the default one (a new account). |  |
 | `--team-role` | Their role in --team (viewer when omitted). |  |
+| `--email` | Mail the invitation to this address (needs mail set up and web.public_url). |  |
+| `--json` | Print the account, the code and whether it was mailed as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust user list
@@ -15074,6 +15328,21 @@ Arguments: `username`
 
 | Option | What it does | Default |
 |---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust user set-email
+
+Set the address an account's invitations and password resets are mailed to.
+
+```
+noust user set-email [OPTIONS] USERNAME [ADDRESS]
+```
+
+Arguments: `username`, `address`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the account as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust user set-role

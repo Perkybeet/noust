@@ -33,6 +33,7 @@ from noust.core.notification_channels import ChannelAdmin, ChannelView, event_ca
 from noust.core.notification_ledger import STATES, DeliveryLedger
 from noust.core.notifications.instances import TYPES
 from noust.core.notifications.routing import QUIET_ALLOW, SEVERITIES
+from noust.core.notifications.team_channels import TeamChannels
 from noust.core.notifier import Notifier, fresh_config
 
 _ROUTE_LISTS = {
@@ -103,12 +104,13 @@ def list_command(ctx: Context) -> None:
         click.echo(json.dumps([view.to_dict() for view in views]))
         return
     ctx.logger.table(
-        ["Name", "Type", "State", "Receives"],
+        ["Name", "Type", "State", "Team", "Receives"],
         [
             [
                 view.name,
                 view.type,
                 ("on" if view.enabled else "off") if view.configured else "not configured",
+                view.team or "-",
                 _describe(view) if view.configured else "-",
             ]
             for view in views
@@ -292,6 +294,13 @@ def channel_group() -> None:
     help="The days it goes out on, such as mon,wed,fri (every day by default).",
 )
 @click.option("--clear-summary", is_flag=True, help="Remove the channel's summary.")
+@click.option(
+    "--team",
+    metavar="TEAM",
+    default=None,
+    help="Make it the channel of this team: it hears only that team's applications. "
+    "NAME is then what the team calls it.",
+)
 @pass_context
 def channel_set(
     ctx: Context,
@@ -318,6 +327,7 @@ def channel_set(
     summary_below: str | None,
     summary_days: str | None,
     clear_summary: bool,
+    team: str | None,
     **route_lists: tuple[str, ...],
 ) -> None:
     """
@@ -334,6 +344,14 @@ def channel_set(
       noust notify channel set slack-shop --route-project shop --event deploy_started=on
     """
     admin = ChannelAdmin()
+    display = name
+    owner = TeamChannels(team, admin) if team else None
+    if owner is not None:
+        try:
+            name = owner.key_of(display)
+        except NoustError as exc:
+            ctx.logger.error(exc.message, details=exc.details)
+            raise SystemExit(1) from exc
     existing = admin.get(name)
     values: dict[str, Any] = dict(_kv(settings, "--set"))
     kind = type_ or (existing.type if existing else (name if name in TYPES else None))
@@ -411,17 +429,30 @@ def channel_set(
             raise click.UsageError("a summary needs a time: add --summary-at HH:MM")
 
     try:
-        view = admin.save(
-            name,
-            type=type_,
-            enabled=enabled,
-            settings=values or None,
-            events=switches,
-            route=route,
-            quiet=quiet,
-            flood=flood,
-            summary=summary,
-        )
+        if owner is not None:
+            view = owner.save(
+                display,
+                type=type_,
+                enabled=enabled,
+                settings=values or None,
+                events=switches,
+                route=route,
+                quiet=quiet,
+                flood=flood,
+                summary=summary,
+            )
+        else:
+            view = admin.save(
+                name,
+                type=type_,
+                enabled=enabled,
+                settings=values or None,
+                events=switches,
+                route=route,
+                quiet=quiet,
+                flood=flood,
+                summary=summary,
+            )
     except NoustError as exc:
         ctx.logger.error(exc.message, details=exc.details)
         raise SystemExit(1) from exc
@@ -433,12 +464,13 @@ def channel_set(
 
 @channel_group.command("remove")
 @click.argument("name")
+@click.option("--team", metavar="TEAM", default=None, help="Remove this team's channel NAME.")
 @pass_context
-def channel_remove(ctx: Context, name: str) -> None:
+def channel_remove(ctx: Context, name: str, team: str | None) -> None:
     """Remove a channel. A default channel is emptied instead."""
     admin = ChannelAdmin()
     try:
-        removed = admin.remove(name)
+        removed = TeamChannels(team, admin).remove(name) if team else admin.remove(name)
     except NoustError as exc:
         ctx.logger.error(exc.message, details=exc.details)
         raise SystemExit(1) from exc

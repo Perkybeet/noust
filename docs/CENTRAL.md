@@ -772,6 +772,19 @@ The central switches to the new key and token only once `vps1` answers with them
 it keeps the old ones and the same code can be pasted again. Running `noust node rekey vps1`
 again before finishing prints the same command.
 
+The same two steps are an API, and the console's **Fleet > Servers** menu uses them (**Rotate its key**):
+
+```
+POST /api/nodes/vps1/rekey   {}                          # step 1: {"step": "authorize", "authorize_command": "..."}
+POST /api/nodes/vps1/rekey   {"join_code": "<the code>"}  # step 2: {"step": "done", "node": {...}}
+```
+
+Both need `fleet.manage`, sudo mode and, when approvals are on, a second person; they are the instance's,
+never a team's, because they decide who can reach the machine as root. The join code carries the server's
+token, so it is left out of the approval's fingerprint and of the audit trail, which records
+`fleet.node.rekey` with the account and address the server is now reached as, or as a failure with the
+reason. `POST /api/nodes/vps1/migrate-tunnel` is the same for the move below (`fleet.node.migrate`).
+
 ## Moving a server to another central
 
 A server is not owned by a central: it trusts one because its own operator ran `noust fleet authorize`

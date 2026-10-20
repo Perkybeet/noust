@@ -49,6 +49,9 @@ EXPECTED_PUBLIC = {
     ("GET", "/api/auth/session"),
     ("POST", "/api/auth/invitations/open"),
     ("POST", "/api/auth/invitations/accept"),
+    # A mailed link and a code of the second factor are the credential; a wrong one is counted.
+    ("POST", "/api/auth/password-reset/request"),
+    ("POST", "/api/auth/password-reset/confirm"),
     ("POST", "/api/auth/passkeys/login/options"),
     ("POST", "/api/auth/passkeys/login"),
     # Single sign-in: the provider's answer is the credential, counted by the lockout.

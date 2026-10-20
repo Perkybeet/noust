@@ -141,6 +141,7 @@ def current_operation() -> str:
 DEFAULT_SUBSCRIBERS: tuple[str, ...] = (
     "noust.core.deploy_notifications",
     "noust.integrations.github.statuses",
+    "noust.integrations.forges.statuses",
 )
 
 _lock = threading.Lock()

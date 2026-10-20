@@ -27,6 +27,7 @@ const POLICY: PolicyFields = {
   canonical: "",
   http3: false,
   client_certs: false,
+  force_https: true,
   waf: "",
   waf_exclusions: [] as number[],
   forward_auth: null,

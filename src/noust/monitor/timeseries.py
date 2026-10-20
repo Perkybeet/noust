@@ -330,10 +330,12 @@ class MonitorEvent:
 
     Attributes:
         ts: When, epoch seconds.
-        kind: ``unit_failed`` or ``unit_recovered``.
-        subject: The unit.
+        kind: ``unit_failed``, ``unit_recovered`` or ``docker_event``.
+        subject: The unit, or the container.
         detail: The monitor's own sentence, verbatim.
-        reason: The failure's kind (``failed``, ``crash_loop``...), or None.
+        reason: The failure's kind (``failed``, ``crash_loop``...), the Docker action
+            (``die``, ``oom``...), or None.
+        app: The application a container belongs to; None for a unit.
     """
 
     ts: int
@@ -341,11 +343,15 @@ class MonitorEvent:
     subject: str
     detail: str | None = None
     reason: str | None = None
+    app: str | None = None
 
 
 #: Kinds of :class:`MonitorEvent`.
 EVENT_UNIT_FAILED = "unit_failed"
 EVENT_UNIT_RECOVERED = "unit_recovered"
+#: Something Docker did to a container of an application's stack: it died, was killed for lack
+#: of memory, was restarted, or failed its health check.
+EVENT_DOCKER = "docker_event"
 
 #: Most rows one read of the process samples returns: a day of minutes, ten a minute.
 MAX_PROCESS_ROWS = 15_000
@@ -1396,10 +1402,14 @@ class MetricsStore:
                 kind TEXT NOT NULL,
                 subject TEXT NOT NULL,
                 detail TEXT,
-                reason TEXT
+                reason TEXT,
+                app TEXT
             )
             """
         )
+        # Written before Docker's events were kept, the table had no application column.
+        if "app" not in {row[1] for row in conn.execute("PRAGMA table_info(monitor_events)")}:
+            conn.execute("ALTER TABLE monitor_events ADD COLUMN app TEXT")
         conn.execute("CREATE INDEX IF NOT EXISTS monitor_events_by_time ON monitor_events (ts)")
         traffic_store.create_tables(conn)
 
@@ -1507,24 +1517,27 @@ class MetricsStore:
         detail: str | None = None,
         reason: str | None = None,
         ts: int | None = None,
+        app: str | None = None,
     ) -> None:
         """
-        Remember something the monitor saw happen to a unit.
+        Remember something the monitor saw happen to a unit or to a container.
 
         Args:
-            kind: :data:`EVENT_UNIT_FAILED` or :data:`EVENT_UNIT_RECOVERED`.
-            subject: The unit.
+            kind: :data:`EVENT_UNIT_FAILED`, :data:`EVENT_UNIT_RECOVERED` or
+                :data:`EVENT_DOCKER`.
+            subject: The unit, or the container.
             detail: The monitor's own sentence.
-            reason: The failure's kind.
+            reason: The failure's kind, or Docker's action.
             ts: When; the store's clock by default.
+            app: The application a container belongs to.
         """
         stamp = int(self._clock()) if ts is None else int(ts)
         conn = self._get_connection()
         with conn:
             conn.execute(
-                "INSERT INTO monitor_events (ts, kind, subject, detail, reason) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (stamp, kind, subject, detail, reason),
+                "INSERT INTO monitor_events (ts, kind, subject, detail, reason, app) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (stamp, kind, subject, detail, reason, app),
             )
 
     def monitor_events(self, start: int, end: int, *, limit: int = 1_000) -> list[MonitorEvent]:
@@ -1542,7 +1555,7 @@ class MetricsStore:
         rows = (
             self._get_connection()
             .execute(
-                "SELECT ts, kind, subject, detail, reason FROM monitor_events "
+                "SELECT ts, kind, subject, detail, reason, app FROM monitor_events "
                 "WHERE ts >= ? AND ts <= ? ORDER BY ts, id LIMIT ?",
                 (int(start), int(end), int(limit)),
             )
@@ -1555,6 +1568,7 @@ class MetricsStore:
                 subject=str(row["subject"]),
                 detail=row["detail"],
                 reason=row["reason"],
+                app=row["app"],
             )
             for row in rows
         ]

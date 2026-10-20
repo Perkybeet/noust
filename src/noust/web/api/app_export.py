@@ -23,7 +23,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from noust.core import legacy_names
-from noust.core.store import get_store
 from noust.core.teams import scoped_store
 from noust.deployers.app_clone import deploy_through_job
 from noust.deployers.app_export import (
@@ -35,7 +34,7 @@ from noust.deployers.app_export import (
     report_summary,
 )
 from noust.deployers.recorder import CapturingLogger
-from noust.validators.port import find_available_port
+from noust.managers.port_claims import PortClaims
 from noust.web.api.apps import DEFAULT_PORT, _require_local_source_privilege
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import (
@@ -402,9 +401,7 @@ def queue_import(
     if plan.create.port is None:
         # As POST /api/apps does: the deploy job would otherwise fall back to
         # the type's default port, which another application may hold.
-        port = find_available_port(
-            preferred=DEFAULT_PORT, exclude=get_store().ports_owned_by_apps()
-        )
+        port = PortClaims().choose(preferred=DEFAULT_PORT)
         if port is None:
             raise HTTPException(status_code=503, detail="No available port found")
         plan.create = dataclasses.replace(plan.create, port=port)

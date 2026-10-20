@@ -16,7 +16,7 @@ A channel is a place a message can go. There are thirteen types:
 
 | Type | What it needs | Notes |
 |---|---|---|
-| `webhook` | `webhook_url`, optionally `secret` | JSON, signed with HMAC-SHA256 in `X-Noust-Signature` when a secret is set |
+| `webhook` | `webhook_url`, optionally `secret` and `webhook_headers` | JSON, signed with HMAC-SHA256 in `X-Noust-Signature` when a secret is set; `webhook_headers` adds the receiver's own headers |
 | `slack` | `webhook_url` | An incoming webhook |
 | `discord` | `webhook_url` | `mention_role_id` and `mention_user_id` ping someone on failures |
 | `telegram` | `bot_token`, `chat_id` | `thread_id` posts to a topic of a forum group; `threads` gives each event its own topic |
@@ -32,6 +32,32 @@ A channel is a place a message can go. There are thirteen types:
 
 Every credential is write-only: it is never shown again, in the console, the command line, the
 API or the logs. Saving a form with a credential left alone keeps the stored one.
+
+**At rest** the credentials of the channels (a webhook URL, a token, a bot's key, the signing
+secret, the headers) are sealed in `/etc/noust/config.yaml` with AES-256-CBC and HMAC-SHA256 under a
+key that stays beside it (`/etc/noust/secrets.key`, `0600`, root's), so a copy of the file, a
+backup of `/etc` or a screenshot of it leaks nothing. They open when Noust reads the file and are
+sealed again when it writes it; a configuration written before 4.0 is sealed the first time Noust
+starts (or with `noust config protect`, which does nothing to a file with nothing in clear). Keep
+the key with the file in a backup, or the credentials cannot be opened: the error says which file to
+restore. See [security.md](security.md) and [downgrading.md](downgrading.md).
+
+### Headers of the generic webhook
+
+A receiver that wants its own credential in the request (an `Authorization: Bearer` token for n8n or
+Home Assistant, a vendor's API key header) gets it from `webhook_headers`: one `Name: value` per line,
+at most 20, kept sealed like the rest.
+
+```bash
+printf '%s' 'Authorization: Bearer 3f9a...' | \
+  noust config set notifications.channels.webhook.webhook_headers --stdin
+```
+
+A name is a token (letters, digits and a few symbols, `-` included), a value is one line of printable
+ASCII, a name cannot be given twice. The headers that frame the request or say what Noust says about
+a delivery (`Content-Type`, `Content-Length`, `Host`, `User-Agent`, `Transfer-Encoding`, `Connection`,
+`X-Noust-Event`, `X-Noust-Delivery`, `X-Noust-Signature`) cannot be replaced, so a configured header
+cannot forge a signature. A line that is not accepted is refused when it is saved, naming the line.
 
 ### More than one channel of a type
 
@@ -151,6 +177,42 @@ notifications:
       summary: {at: "08:00", timezone: Europe/Madrid, below: warning, days: [mon, tue, wed, thu, fri]}
       events: {deploy_started: false}
 ```
+
+## A team's own channels
+
+On a shared server a team keeps channels of its own and decides where the notices about its
+applications go. A team's channel is an ordinary channel (same types, same retries, same record of
+deliveries) that belongs to one team: it hears about **the applications of that team and nothing else**,
+whatever its route says. It does not hear the server itself (a full disk, a node going down) and it
+never hears another team's applications. The team's route narrows further inside the team
+(`projects`, `environments`, `tags`, `min_severity`).
+
+```bash
+noust notify channel set alerts --team acme --type slack --secret-stdin webhook_url
+noust notify channel set alerts --team acme --route-project web --min-severity failed
+noust notify channel remove alerts --team acme
+noust notify list                     # the Team column
+```
+
+The same through the API, under the team's path (`apps.read` to look, `apps.manage` to change, in that
+team, and sudo mode to change one):
+
+| Route | |
+|---|---|
+| `GET /api/teams/{team}/notifications/channels` | The team's channels without credentials, and the types it may add |
+| `PUT`, `DELETE /api/teams/{team}/notifications/channels/{name}` | Create, change or remove one |
+| `POST /api/teams/{team}/notifications/channels/{name}/test` | Send a test message through it |
+
+* Two teams may both have an `alerts`; the key in `config.yaml` is `t<team id>-<name>` and carries
+  `team: <slug>`.
+* **Email is not offered to a team**: it goes out through the server's own mail account, which its
+  administrator gives. A team uses a chat or push channel.
+* A team has at most 8 channels, and a destination on a private network is refused unless the
+  administrator lists it under `notifications.allow_private_hosts`, as for the server's own channels.
+* Another team's channels do not exist for a member: the team's path answers 404, the configuration a
+  member reads leaves them out, and testing one by its key says there is no such channel. The
+  administrator sees them all, with their team, in Settings and in `GET /api/notifications/channels`.
+* The team's own page has them too: **Teams > the team > Notifications**.
 
 ## Paging someone
 
@@ -283,6 +345,7 @@ What a rule can watch (`noust alert metrics`):
 | `app_cpu` | An application | Percent of one core |
 | `app_memory` | An application | Bytes |
 | `app_requests`, `app_5xx` | An application | Per minute (from the access log) |
+| `app_latency_p95` | An application | Milliseconds: the 95th percentile of the time requests took in the last minute (the access log of a site Noust wrote; see [MONITOR.md](MONITOR.md#traffic-of-an-application)) |
 | `app_disk_read`, `app_disk_write` | An application | Bytes per second |
 | `app_net_rx`, `app_net_tx` | An application | Bytes per second |
 

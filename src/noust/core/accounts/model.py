@@ -152,6 +152,40 @@ def clean_display_name(value: str | None) -> str:
     return name
 
 
+#: An address as a person types one: no whitespace, one ``@``, a dot in the domain. A mail
+#: server decides whether it exists; this only keeps out what could never be one, and what could
+#: add a header to the message that carries a link.
+_EMAIL = re.compile(r"[^@\s<>,;:\"]+@[^@\s<>,;:\"]+\.[^@\s<>,;:\".]+")
+
+#: The longest address RFC 5321 allows.
+MAX_EMAIL = 254
+
+
+def clean_email(value: str | None) -> str | None:
+    """
+    Normalise the address an invitation or a password reset is mailed to.
+
+    Args:
+        value: An e-mail address, or None.
+
+    Returns:
+        The trimmed, lower-cased address, or None when empty.
+
+    Raises:
+        ValidationError: When it is not an address.
+    """
+    address = (value or "").strip().lower()
+    if not address:
+        return None
+    if len(address) > MAX_EMAIL or not _EMAIL.fullmatch(address):
+        raise ValidationError(
+            f"Not an e-mail address: {value!r}",
+            details="Use an address such as maria@example.com.",
+            field="email",
+        )
+    return address
+
+
 def clean_person_ref(value: str | None) -> str | None:
     """
     Normalise the reference that says which person an account belongs to.
@@ -249,6 +283,7 @@ class Account:
         updated_at: Last change to the record.
         disabled_at: When it was disabled.
         disabled_reason: Why.
+        email: Where an invitation or a password reset is mailed; never a way to sign in.
     """
 
     id: int
@@ -283,6 +318,8 @@ class Account:
     #: (:mod:`noust.core.accounts.oidc`); an account with one and no password
     #: signs in only through its provider.
     identities: int = 0
+    #: Last, with a default, like the two above.
+    email: str | None = None
 
     def is_locked(self, now: float | None = None) -> bool:
         """
@@ -351,6 +388,7 @@ class Account:
             "role": self.role,
             "status": self.effective_status(),
             "person_ref": self.person_ref,
+            "email": self.email,
             "has_password": self.has_password,
             "mfa_enabled": self.has_mfa,
             "totp_enabled": self.totp_enabled,

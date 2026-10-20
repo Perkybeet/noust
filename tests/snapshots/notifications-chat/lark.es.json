@@ -6711,6 +6711,750 @@
       ]
     }
   },
+  "webserver.restarted": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Servidor web reiniciado · nginx"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Había dejado de funcionar y Noust lo ha arrancado de nuevo tras pasar su prueba de configuración."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Revísalo con: journalctl -u nginx -n 50"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/server",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "webserver.down": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Servidor web caído · nginx"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "No está en marcha y el reinicio automático está desactivado."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Revísalo con: journalctl -u nginx -n 50"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/server",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "webserver.config_invalid": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ El servidor web no puede arrancar · nginx"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "No está en marcha y su configuración no pasa su propia prueba, así que Noust no lo ha reiniciado."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Compruébalo con: nginx -t"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha informado el sistema\nnginx: [emerg] unknown directive \"servre_name\" in /etc/nginx/sites-enabled/shop.example.com:4\nnginx: configuration file /etc/nginx/nginx.conf test failed"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/server",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "webserver.restart_failed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Ha fallado el reinicio del servidor web · nginx"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "No está en marcha y arrancarlo de nuevo no ha funcionado."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Revísalo con: journalctl -u nginx -n 50"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha informado el sistema\nJob for nginx.service failed because the control process exited with error code."
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/server",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "webserver.limit": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ El servidor web sigue cayendo · nginx"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Ha caído 3 veces en la última hora, así que Noust ha dejado de arrancarlo de nuevo."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Revísalo con: journalctl -u nginx -n 50"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/server",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "webserver.stopped": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Servidor web detenido · nginx"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Está detenido pero arranca con el sistema, así que todos los sitios de este servidor están caídos hasta que alguien lo arranque."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Arráncalo con: systemctl start nginx"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/server",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "security.release": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Versión de seguridad disponible · Noust 3.3.2"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Noust 3.3.2 corrige una vulnerabilidad y este servidor sigue en la versión 3.3.1."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "En marcha\n3.3.1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Corregida en\n3.3.2"
+              }
+            },
+            {
+              "is_short": false,
+              "text": {
+                "tag": "plain_text",
+                "content": "Aviso\nhttps://github.com/Perkybeet/noust/security/advisories/GHSA-aaaa-bbbb-cccc"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Actualiza con: pipx upgrade noust"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/settings/about",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "container.restart_loop": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Contenedor reiniciándose en bucle · shop.example.com"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Docker lo ha reiniciado 6 veces desde que se vio por primera vez, y el límite es 5."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Contenedor\nshop-worker-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Reinicios\n6"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Último código de salida\n1"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Revísalo con: docker logs --tail 50 shop-worker-1"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha informado el sistema\nError: connect ECONNREFUSED 10.0.0.4:5432\n    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16)\nworker exiting with status 1"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "container.recovered": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "● Contenedor estable de nuevo · shop.example.com"
+        },
+        "template": "green"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lleva 7 minutos en marcha sin reiniciarse."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Contenedor\nshop-worker-1"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Revísalo con: docker logs --tail 50 shop-worker-1"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "recipe.outdated": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "○ Actualizaciones de recetas disponibles"
+        },
+        "template": "grey"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "2 recetas instaladas tienen una versión más nueva en el catálogo."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Receta\nvault.example.com: 1.37.4 -> 1.38.0"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Receta\nblog.example.com: 5.0.1 -> 5.1.0"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Actualiza con: noust recipe outdated"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/catalog",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
   "hostile.deploy_failed": {
     "msg_type": "interactive",
     "card": {

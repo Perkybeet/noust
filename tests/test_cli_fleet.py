@@ -868,6 +868,7 @@ class TestNodeCommands:
             "access_level",
             "host_access",
             "access_read_at",
+            "team",
         }
 
         shown = json.loads(CliRunner().invoke(root_cli, ["node", "show", "web-2", "--json"]).output)

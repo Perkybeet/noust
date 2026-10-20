@@ -50,6 +50,7 @@ export const nav = {
   teamTabs: {
     overview: { label: "Overview" },
     members: { label: "Members", keywords: "people roles invite owner access" },
+    notifications: { label: "Notifications", keywords: "alerts slack ntfy telegram webhook channels notices" },
     settings: { label: "Settings", keywords: "rename delete name" },
   },
   settingsTabs: {

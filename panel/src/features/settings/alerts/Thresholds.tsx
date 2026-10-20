@@ -14,9 +14,12 @@ import type { PlainKey } from "../../../i18n";
 import { FormFailure } from "../SettingsForm";
 import type { SettingsForm } from "../useSettingsForm";
 
-/** One built-in check's setting: the key under `monitor`, its default, and its words. */
+/** One built-in check's setting: its key, where it lives, its default, and its words. */
 export interface CheckSetting {
+  /** The form's name for it; the key under `monitor` unless `path` says where else. */
   key: string;
+  /** The dotted configuration key, when it is not under `monitor`. */
+  path?: string;
   /** What the server uses when the file says nothing (noust.core.config.DEFAULT_CONFIG). */
   fallback: number;
   label: PlainKey;
@@ -35,16 +38,30 @@ export const CHECK_SETTINGS: readonly CheckSetting[] = [
   { key: "backup_missing_renotify_hours", fallback: 24, label: "alerts.thresholds.backupRenotify.label", description: "alerts.thresholds.backupRenotify.description" },
   { key: "os_patches_check_hours", fallback: 24, label: "alerts.thresholds.patchesCheck.label", description: "alerts.thresholds.patchesCheck.description" },
   { key: "token_warning_days", fallback: 7, label: "alerts.thresholds.tokenWarning.label", description: "alerts.thresholds.tokenWarning.description" },
+  { key: "webserver_check_seconds", fallback: 60, label: "alerts.thresholds.webserverCheck.label", description: "alerts.thresholds.webserverCheck.description" },
+  { key: "webserver_restart_limit", fallback: 3, label: "alerts.thresholds.webserverRestarts.label", description: "alerts.thresholds.webserverRestarts.description" },
+  { key: "container_check_seconds", fallback: 60, label: "alerts.thresholds.containerCheck.label", description: "alerts.thresholds.containerCheck.description" },
+  { key: "container_restart_limit", fallback: 5, label: "alerts.thresholds.containerRestarts.label", description: "alerts.thresholds.containerRestarts.description" },
+  { key: "security_check_hours", fallback: 6, label: "alerts.thresholds.securityCheck.label", description: "alerts.thresholds.securityCheck.description" },
+  { key: "recipe_check_hours", fallback: 24, label: "alerts.thresholds.recipeCheck.label", description: "alerts.thresholds.recipeCheck.description" },
+  { key: "metrics_retention_days", path: "metrics.retention_days", fallback: 400, label: "alerts.thresholds.metricsRetention.label", description: "alerts.thresholds.metricsRetention.description" },
 ];
+
+/** The dotted configuration key a check is read from and written to. */
+export function checkPath(setting: CheckSetting): string {
+  return setting.path ?? `monitor.${setting.key}`;
+}
 
 export const CHECK_KEYS: readonly string[] = CHECK_SETTINGS.map((setting) => setting.key);
 
 /** What the configuration holds for each check, as the strings the form shows. */
-export function readChecks(monitor: unknown): Record<string, string> {
-  const block = typeof monitor === "object" && monitor !== null ? (monitor as Record<string, unknown>) : {};
+export function readChecks(config: unknown): Record<string, string> {
   return Object.fromEntries(
     CHECK_SETTINGS.map((setting) => {
-      const value = block[setting.key];
+      let value: unknown = config;
+      for (const part of checkPath(setting).split(".")) {
+        value = typeof value === "object" && value !== null ? (value as Record<string, unknown>)[part] : undefined;
+      }
       return [setting.key, typeof value === "number" ? String(value) : String(setting.fallback)];
     }),
   );
@@ -57,7 +74,7 @@ export function checkValue(text: string): number | string {
 }
 
 /** The dotted configuration key of each check, to the field it is about. */
-export const CHECK_CONFIG_KEYS: Readonly<Record<string, string>> = Object.fromEntries(CHECK_KEYS.map((key) => [`monitor.${key}`, key]));
+export const CHECK_CONFIG_KEYS: Readonly<Record<string, string>> = Object.fromEntries(CHECK_SETTINGS.map((setting) => [checkPath(setting), setting.key]));
 
 export function Thresholds({ form }: { form: SettingsForm<Record<string, string>> }) {
   const t = useT();

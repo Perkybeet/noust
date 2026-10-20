@@ -48,7 +48,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from noust.core.notifications.model import EVENT_KINDS, Notification
-from noust.core.notifications.render import pagerduty
+from noust.core.notifications.render import pagerduty, webhook
 from noust.core.notifications.routing import Flood, QuietHours, Route, Routing, Summary
 from noust.core.notifier_requests import MATRIX_ROOM_ID
 from noust.validators.discord import validate_discord_id
@@ -65,13 +65,18 @@ REDACTED = "***"
 #: column of the delivery ledger and a path segment of the API.
 NAME_PATTERN = re.compile(r"[a-z][a-z0-9_-]{0,31}")
 
-#: Most instances a server may have; a handful of destinations, not a directory.
-MAX_INSTANCES = 32
+#: Most instances a server may have: a handful of destinations of its own, and room for the
+#: few each team keeps (:data:`noust.core.notifications.team_channels.MAX_CHANNELS`).
+MAX_INSTANCES = 128
 
 #: The settings every instance has whatever its type.
 SHARED_KEYS: frozenset[str] = frozenset(
-    {"type", "enabled", "events", "route", "quiet", "flood", "summary"}
+    {"type", "enabled", "events", "route", "quiet", "flood", "summary", "team"}
 )
+
+#: A team's slug, as the teams write it (:data:`noust.core.teams.model.SLUG_PATTERN`; this
+#: module is pure and does not import the teams).
+_TEAM_SLUG = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?")
 
 
 @dataclass(frozen=True)
@@ -142,7 +147,11 @@ TYPES: dict[str, ChannelType] = {
     for spec in (
         ChannelType(
             "webhook",
-            (ChannelField("webhook_url", True, True), ChannelField("secret", True)),
+            (
+                ChannelField("webhook_url", True, True),
+                ChannelField("secret", True),
+                ChannelField("webhook_headers", True),
+            ),
         ),
         ChannelType("slack", (ChannelField("webhook_url", True, True),)),
         ChannelType(
@@ -272,6 +281,27 @@ def _events(value: Any, where: str) -> dict[str, bool]:
     return found
 
 
+def _team(value: Any) -> str | None:
+    """
+    Args:
+        value: A block's ``team``.
+
+    Returns:
+        The team's slug, or None for a channel that is the server's own.
+
+    Raises:
+        ValueError: When it is not a slug.
+    """
+    if value in (None, ""):
+        return None
+    text = str(value).strip()
+    if not _TEAM_SLUG.fullmatch(text):
+        raise ValueError(
+            f"team must be a team's short name (lower-case letters, digits and '-'), not {value!r}"
+        )
+    return text
+
+
 def _thread(value: Any, where: str) -> int:
     """
     Args:
@@ -316,6 +346,14 @@ def _check_type_settings(kind: str, block: Mapping[str, Any], where: str) -> Non
         # the stored one takes its place when the block is written.
         if url and url != REDACTED and not re.match(r"https?://[^\s/]+", url, re.IGNORECASE):
             raise ValueError(f"{where}.{key} must be an http:// or https:// URL")
+    if kind == "webhook":
+        headers = str(block.get("webhook_headers") or "")
+        # "***" is the credential a form was shown redacted and sends back unchanged.
+        if headers.strip() and headers.strip() != REDACTED:
+            try:
+                webhook.parse_headers(headers)
+            except ValueError as exc:
+                raise ValueError(f"{where}.webhook_headers: {exc}") from exc
     if kind == "telegram":
         chat = str(block.get("chat_id") or "").strip()
         if chat:
@@ -435,6 +473,7 @@ def _instance(name: str, block: Mapping[str, Any], *, strict: bool = True) -> Ch
         events=read(lambda: _events(block.get("events"), where), "events", {}),
         flood=read(lambda: Flood.from_mapping(block.get("flood")), "flood", None),
         summary=read(lambda: Summary.from_mapping(block.get("summary")), "summary", None),
+        team=read(lambda: _team(block.get("team")), "team", None),
     )
     return ChannelInstance(name, kind, dict(block), enabled, routing)
 

@@ -139,12 +139,13 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/teams", "/teams"],
   ["/teams/$team", "/teams/acme"],
   ["/teams/$team/members", "/teams/acme/members"],
+  ["/teams/$team/notifications", "/teams/acme/notifications"],
   ["/teams/$team/settings", "/teams/acme/settings"],
   ["/teams/$team/variables", "/teams/acme/variables"],
 ];
 
 /** Routes outside the console's shell: before there is a session there is no page to wait on. */
-const BEFORE_SIGN_IN = ["/invite", "/login", "/setup", "/welcome"];
+const BEFORE_SIGN_IN = ["/invite", "/login", "/reset-password", "/setup", "/welcome"];
 
 /**
  * Pages that read nothing the operator waits for. The page is the form or the notice itself,

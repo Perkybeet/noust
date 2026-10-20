@@ -435,7 +435,7 @@ describe("what the components that predate the register read", () => {
       "/apps/$domain/settings",
     ]);
     expect(APP_TABS[0]).toEqual({ label: "nav.appTabs.overview.label", to: "/apps/$domain", exact: true });
-    expect(paths(TEAM_TABS)).toEqual(["/teams/$team", "/teams/$team/members", "/teams/$team/variables", "/teams/$team/settings"]);
+    expect(paths(TEAM_TABS)).toEqual(["/teams/$team", "/teams/$team/members", "/teams/$team/variables", "/teams/$team/notifications", "/teams/$team/settings"]);
     expect(paths(FLEET_TABS)).toEqual([
       "/fleet",
       "/fleet/servers",

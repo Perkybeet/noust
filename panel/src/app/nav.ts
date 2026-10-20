@@ -107,6 +107,7 @@ export const EXCEPTIONS: Readonly<Record<string, string>> = {
   "/setup": "access (T7): the first administrator",
   "/welcome": "access (T7): the page a new installation opens on",
   "/invite": "access (T7): accepting an invitation",
+  "/reset-password": "access (T7): choosing a new password with the link in a mail",
   "/integrations/github/callback": "where GitHub sends the browser back after creating or installing the App",
   "/integrations/gitlab/callback": "where GitLab sends the browser back after authorising the application",
   "/apps/$domain/deployments/$id": "one deployment, opened from the Deployments list (L4)",

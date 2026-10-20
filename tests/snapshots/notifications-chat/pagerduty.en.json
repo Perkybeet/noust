@@ -1395,6 +1395,218 @@
   },
   "digest.flood": null,
   "digest.summary": null,
+  "webserver.restarted": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/unit/nginx",
+    "payload": {
+      "summary": "Web server restarted · nginx: It had stopped working and Noust started it again once its configuration test passed.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "unit_failed",
+      "class": "webserver.restarted",
+      "custom_details": {
+        "server": "web-1",
+        "command": "journalctl -u nginx -n 50"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/server",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/server",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "webserver.down": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/unit/nginx",
+    "payload": {
+      "summary": "Web server down · nginx: It is not running, and the automatic restart is switched off.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "unit_failed",
+      "class": "webserver.down",
+      "custom_details": {
+        "server": "web-1",
+        "command": "journalctl -u nginx -n 50"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/server",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/server",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "webserver.config_invalid": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/unit/nginx",
+    "payload": {
+      "summary": "Web server cannot start · nginx: It is not running and its configuration does not pass its own test, so Noust did not restart it.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "unit_failed",
+      "class": "webserver.config_invalid",
+      "custom_details": {
+        "server": "web-1",
+        "command": "nginx -t",
+        "excerpt": "nginx: [emerg] unknown directive \"servre_name\" in /etc/nginx/sites-enabled/shop.example.com:4\nnginx: configuration file /etc/nginx/nginx.conf test failed"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/server",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/server",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "webserver.restart_failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/unit/nginx",
+    "payload": {
+      "summary": "Web server restart failed · nginx: It is not running and starting it again did not work.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "unit_failed",
+      "class": "webserver.restart_failed",
+      "custom_details": {
+        "server": "web-1",
+        "command": "journalctl -u nginx -n 50",
+        "excerpt": "Job for nginx.service failed because the control process exited with error code."
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/server",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/server",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "webserver.limit": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/unit/nginx",
+    "payload": {
+      "summary": "Web server keeps falling · nginx: It has fallen 3 times in the last hour, so Noust stopped starting it again.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "unit_failed",
+      "class": "webserver.limit",
+      "custom_details": {
+        "server": "web-1",
+        "command": "journalctl -u nginx -n 50"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/server",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/server",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "webserver.stopped": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/unit/nginx",
+    "payload": {
+      "summary": "Web server stopped · nginx: It is stopped but starts at boot, so every site on this server is down until somebody starts it.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "unit_failed",
+      "class": "webserver.stopped",
+      "custom_details": {
+        "server": "web-1",
+        "command": "systemctl start nginx"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/server",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/server",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "security.release": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/security_release/Noust 3.3.2",
+    "payload": {
+      "summary": "Security release available · Noust 3.3.2: Noust 3.3.2 fixes a vulnerability and this server still runs 3.3.1.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "security_release",
+      "class": "security.release",
+      "custom_details": {
+        "server": "web-1",
+        "running": "3.3.1",
+        "fixed_in": "3.3.2",
+        "advisory": "https://github.com/Perkybeet/noust/security/advisories/GHSA-aaaa-bbbb-cccc",
+        "command": "pipx upgrade noust"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/settings/about",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/settings/about",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "container.restart_loop": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/container_restart_loop/shop.example.com",
+    "payload": {
+      "summary": "Container restarting in a loop · shop.example.com: Docker has restarted it 6 times since it was first seen, and the limit is 5.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "container_restart_loop",
+      "class": "container.restart_loop",
+      "custom_details": {
+        "server": "web-1",
+        "container": "shop-worker-1",
+        "restarts": "6",
+        "exit_code": "1",
+        "command": "docker logs --tail 50 shop-worker-1",
+        "excerpt": "Error: connect ECONNREFUSED 10.0.0.4:5432\n    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16)\nworker exiting with status 1"
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/apps/shop.example.com",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/apps/shop.example.com",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "container.recovered": null,
+  "recipe.outdated": null,
   "hostile.deploy_failed": {
     "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
     "event_action": "trigger",

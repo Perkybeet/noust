@@ -50,6 +50,18 @@ class _NoRedirects(urllib.request.HTTPRedirectHandler):
         raise HTTPError(req.full_url, code, f"redirected to {newurl}", headers, fp)
 
 
+class RemoteRefused(IntegrationError):
+    """
+    A platform answered an error status.
+
+    Attributes:
+        status: The HTTP status, so a caller can tell "that comment is gone" (404)
+            from "the token may not write" (403) without reading a sentence.
+    """
+
+    status: int = 0
+
+
 def check_base_url(url: str, platform: str) -> str:
     """
     Check the address of another platform's server.
@@ -153,24 +165,90 @@ class RemoteClient:
         """
         return self._request("POST", path, None, form)
 
+    def put_form(self, path: str, form: Mapping[str, Any]) -> Any:
+        """
+        Replace a resource with a form, as GitLab edits a merge request's note.
+
+        Args:
+            path: Path on the platform's server, starting with ``/``.
+            form: The fields, sent ``application/x-www-form-urlencoded``.
+
+        Returns:
+            The decoded JSON.
+
+        Raises:
+            IntegrationError: As :meth:`get`.
+        """
+        return self._request("PUT", path, None, form)
+
+    def post_json(self, path: str, payload: Mapping[str, Any]) -> Any:
+        """
+        Create something with a JSON body (a commit status, a comment).
+
+        Args:
+            path: Path on the platform's server, starting with ``/``.
+            payload: The body.
+
+        Returns:
+            The decoded JSON.
+
+        Raises:
+            IntegrationError: As :meth:`get`; a :class:`RemoteRefused` carries the status.
+        """
+        return self._request("POST", path, None, None, payload)
+
+    def put_json(self, path: str, payload: Mapping[str, Any]) -> Any:
+        """
+        Replace something with a JSON body (Bitbucket edits a comment with ``PUT``).
+
+        Args:
+            path: Path on the platform's server, starting with ``/``.
+            payload: The body.
+
+        Returns:
+            The decoded JSON.
+
+        Raises:
+            IntegrationError: As :meth:`post_json`.
+        """
+        return self._request("PUT", path, None, None, payload)
+
+    def patch_json(self, path: str, payload: Mapping[str, Any]) -> Any:
+        """
+        Change something with a JSON body (Gitea edits a comment with ``PATCH``).
+
+        Args:
+            path: Path on the platform's server, starting with ``/``.
+            payload: The body.
+
+        Returns:
+            The decoded JSON.
+
+        Raises:
+            IntegrationError: As :meth:`post_json`.
+        """
+        return self._request("PATCH", path, None, None, payload)
+
     def _request(
         self,
         method: str,
         path: str,
         query: Mapping[str, Any] | None,
         form: Mapping[str, Any] | None,
+        payload: Mapping[str, Any] | None = None,
     ) -> Any:
         """
         Make one guarded request.
 
         Args:
-            method: ``GET`` or ``POST``.
+            method: ``GET``, ``POST``, ``PUT`` or ``PATCH``.
             path: Path on the platform's server.
             query: Query parameters.
-            form: Form fields of a POST.
+            form: Form fields.
+            payload: A JSON body, instead of a form.
 
         Returns:
-            The decoded JSON.
+            The decoded JSON; None for an answer with no body.
 
         Raises:
             IntegrationError: As :meth:`get`.
@@ -196,6 +274,9 @@ class RemoteClient:
         if form is not None:
             body = urlencode(form).encode()
             headers["Content-Type"] = "application/x-www-form-urlencoded"
+        elif payload is not None:
+            body = json.dumps(payload).encode()
+            headers["Content-Type"] = "application/json"
         request = urllib.request.Request(url, data=body, method=method, headers=headers)
         try:
             with self._opener(request, timeout=self.timeout) as response:
@@ -211,6 +292,8 @@ class RemoteClient:
             ) from None
         if len(raw) > MAX_RESPONSE_BYTES:
             raise IntegrationError(f"{self.platform}'s answer to {path} is too large")
+        if not raw.strip() and method != "GET":
+            return None
         try:
             return json.loads(raw)
         except (json.JSONDecodeError, UnicodeDecodeError):
@@ -219,7 +302,7 @@ class RemoteClient:
                 details=f"Is {self.base_url} really a {self.platform} server's address?",
             ) from None
 
-    def _refusal(self, method: str, path: str, exc: HTTPError) -> IntegrationError:
+    def _refusal(self, method: str, path: str, exc: HTTPError) -> RemoteRefused:
         """
         Turn an error status into the error Noust raises.
 
@@ -243,9 +326,11 @@ class RemoteClient:
             hint = f"The server redirected the request ({exc.reason}). Use its final https address."
         else:
             hint = hints.get(exc.code, "Retry in a moment.")
-        return IntegrationError(
+        refused = RemoteRefused(
             f"{self.platform} refused {method} {path} ({exc.code})", details=hint
         )
+        refused.status = exc.code
+        return refused
 
 
 def read_token(value: str | None, *, source: str) -> str:

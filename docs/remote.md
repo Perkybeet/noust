@@ -64,7 +64,7 @@ another server. A command with no remote form says so and offers `--local`.
 * **`noust env list DOMAIN`** lists the names of an application's variables; their values are never
   printed, whatever the token may reveal. Variables are set with a manifest ([manifest.md](manifest.md)).
 * **`noust api METHOD PATH`** calls any route and prints the JSON: `noust api POST /jobs/update -d
-  '{"domain": "shop.acme.test"}'`. Settings > API reference lists them all.
+  '{"domain": "shop.acme.test"}'`. Settings > API reference lists them all and can try them.
 * **`noust manifest plan|apply|export`** ([manifest.md](manifest.md)) writes a server down and makes it
   match.
 

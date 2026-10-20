@@ -990,7 +990,7 @@ class CertManager(BaseManager):
             caller asked for, which is what it did before domains had rows.
         """
         try:
-            records = self.store.list_domains(primary)
+            records = self.store.list_domains(primary, include_disabled=False)
         except (NoustError, sqlite3.Error) as exc:
             self.logger.warning(f"Could not read the domains of {primary}: {exc}")
             return []

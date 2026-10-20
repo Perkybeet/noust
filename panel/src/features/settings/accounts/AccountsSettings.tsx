@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { LockOpen, MailPlus, ShieldOff, UserCheck, UserCog, UserPlus, UserX, Users } from "lucide-react";
+import { LockOpen, Mail, MailPlus, ShieldOff, UserCheck, UserCog, UserPlus, UserX, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { sessionQuery } from "../../../api/queries/auth";
@@ -29,7 +29,7 @@ import type { T } from "../../../i18n";
 import { reportActionError } from "../../apps/useAppActions";
 import { SettingsPrimaryAction } from "../SettingsShell";
 import { AccessReviewSection } from "./AccessReview";
-import { DisableDialog, ExceptionDialog, RoleDialog } from "./AccountDialogs";
+import { DisableDialog, EmailDialog, ExceptionDialog, RoleDialog } from "./AccountDialogs";
 import { accountKeys, accountsQuery, enableAccount, exceptionsQuery, removeAccount, resetMfa, revokeException, unlockAccount } from "./api";
 import type { Account, SeparationConflict, SodException } from "./api";
 import { accountStatus, factorLabel, filterAccounts, isFiltered, stateView } from "./data";
@@ -89,6 +89,7 @@ function columnsFor(t: T): Column<Account>[] {
 type Pending =
   | { kind: "invite"; recover: Account | null }
   | { kind: "role"; account: Account }
+  | { kind: "email"; account: Account }
   | { kind: "disable"; account: Account }
   | { kind: "reset"; account: Account }
   | { kind: "remove"; account: Account }
@@ -127,6 +128,9 @@ function RowActions({ t, account, self, onOpen }: { t: T; account: Account; self
       </MenuItem>
       <MenuItem icon={<MailPlus />} onClick={() => onOpen({ kind: "invite", recover: account })}>
         {t("accounts.actions.newInvitation")}
+      </MenuItem>
+      <MenuItem icon={<Mail />} onClick={() => onOpen({ kind: "email", account })}>
+        {t("accounts.actions.mailAddress")}
       </MenuItem>
       {account.mfa_enabled ? (
         <MenuItem icon={<ShieldOff />} disabled={self} onClick={() => onOpen({ kind: "reset", account })}>
@@ -419,6 +423,7 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
       <CommandHint label={t("accounts.page.fromTerminal")} command="noust user list" />
 
       {pending?.kind === "invite" ? <InviteDialog open accounts={all} recover={pending.recover} onClose={() => setPending(null)} /> : null}
+      {pending?.kind === "email" ? <EmailDialog account={pending.account} onClose={() => setPending(null)} /> : null}
       {pending?.kind === "role" ? <RoleDialog account={pending.account} accounts={all} onClose={() => setPending(null)} /> : null}
       {pending?.kind === "disable" ? <DisableDialog account={pending.account} onClose={() => setPending(null)} /> : null}
       {pending?.kind === "exception" ? <ExceptionDialog person={pending.person} onClose={() => setPending(null)} /> : null}

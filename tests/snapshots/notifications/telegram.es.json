@@ -1488,6 +1488,196 @@
     "disable_notification": true,
     "parse_mode": "HTML"
   },
+  "webserver.restarted": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Servidor web reiniciado</b> · nginx\nHabía dejado de funcionar y Noust lo ha arrancado de nuevo tras pasar su prueba de configuración.\n\n<b>Servidor:</b> web-1\n<b>Revísalo con:</b> <code>journalctl -u nginx -n 50</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "webserver.down": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Servidor web caído</b> · nginx\nNo está en marcha y el reinicio automático está desactivado.\n\n<b>Servidor:</b> web-1\n<b>Revísalo con:</b> <code>journalctl -u nginx -n 50</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "webserver.config_invalid": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>El servidor web no puede arrancar</b> · nginx\nNo está en marcha y su configuración no pasa su propia prueba, así que Noust no lo ha reiniciado.\n\n<b>Servidor:</b> web-1\n<b>Compruébalo con:</b> <code>nginx -t</code>\n\n<i>Lo que ha informado el sistema</i>\n<pre>nginx: [emerg] unknown directive \"servre_name\" in /etc/nginx/sites-enabled/shop.example.com:4\nnginx: configuration file /etc/nginx/nginx.conf test failed</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "webserver.restart_failed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Ha fallado el reinicio del servidor web</b> · nginx\nNo está en marcha y arrancarlo de nuevo no ha funcionado.\n\n<b>Servidor:</b> web-1\n<b>Revísalo con:</b> <code>journalctl -u nginx -n 50</code>\n\n<i>Lo que ha informado el sistema</i>\n<pre>Job for nginx.service failed because the control process exited with error code.</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "webserver.limit": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>El servidor web sigue cayendo</b> · nginx\nHa caído 3 veces en la última hora, así que Noust ha dejado de arrancarlo de nuevo.\n\n<b>Servidor:</b> web-1\n<b>Revísalo con:</b> <code>journalctl -u nginx -n 50</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "webserver.stopped": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Servidor web detenido</b> · nginx\nEstá detenido pero arranca con el sistema, así que todos los sitios de este servidor están caídos hasta que alguien lo arranque.\n\n<b>Servidor:</b> web-1\n<b>Arráncalo con:</b> <code>systemctl start nginx</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "security.release": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Versión de seguridad disponible</b> · Noust 3.3.2\nNoust 3.3.2 corrige una vulnerabilidad y este servidor sigue en la versión 3.3.1.\n\n<b>Servidor:</b> web-1\n<b>En marcha:</b> 3.3.1\n<b>Corregida en:</b> 3.3.2\n<b>Aviso:</b> <code>https://github.com/Perkybeet/noust/security/advisories/GHSA-aaaa-bbbb-cccc</code>\n<b>Actualiza con:</b> <code>pipx upgrade noust</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/settings/about"
+          }
+        ]
+      ]
+    }
+  },
+  "container.restart_loop": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Contenedor reiniciándose en bucle</b> · shop.example.com\nDocker lo ha reiniciado 6 veces desde que se vio por primera vez, y el límite es 5.\n\n<b>Servidor:</b> web-1\n<b>Contenedor:</b> <code>shop-worker-1</code>\n<b>Reinicios:</b> 6\n<b>Último código de salida:</b> 1\n<b>Revísalo con:</b> <code>docker logs --tail 50 shop-worker-1</code>\n\n<i>Lo que ha informado el sistema</i>\n<pre>Error: connect ECONNREFUSED 10.0.0.4:5432\n    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16)\nworker exiting with status 1</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+          }
+        ]
+      ]
+    }
+  },
+  "container.recovered": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Contenedor estable de nuevo</b> · shop.example.com\nLleva 7 minutos en marcha sin reiniciarse.\n\n<b>Servidor:</b> web-1\n<b>Contenedor:</b> <code>shop-worker-1</code>\n<b>Revísalo con:</b> <code>docker logs --tail 50 shop-worker-1</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+          }
+        ]
+      ]
+    }
+  },
+  "recipe.outdated": {
+    "chat_id": "-1001234567890",
+    "text": "○ <b>Actualizaciones de recetas disponibles</b>\n2 recetas instaladas tienen una versión más nueva en el catálogo.\n\n<b>Servidor:</b> web-1\n<b>Receta:</b> <code>vault.example.com: 1.37.4 -&gt; 1.38.0</code>\n<b>Receta:</b> <code>blog.example.com: 5.0.1 -&gt; 5.1.0</code>\n<b>Actualiza con:</b> <code>noust recipe outdated</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/catalog"
+          }
+        ]
+      ]
+    }
+  },
   "hostile.deploy_failed": {
     "chat_id": "-1001234567890",
     "text": "✕ <b>Despliegue fallido</b> · shop.example.com\nSe ha detenido por un error antes de que la nueva versión tomara el relevo.\n\n<b>Servidor:</b> wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n<b>Versión:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (&lt;b&gt;x&lt;/b&gt;&amp;amp;&lt;!channel&gt; @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here &lt;@U123&gt; &lt;#C1&gt; red emoji 🚀\n<b>Iniciado por:</b> Webhook\n<b>Duración:</b> 1 min 12 s\n<b>Revísalo con:</b> <code>noust diagnose shop.example.com</code>\n\n<i>Lo que ha informado el sistema</i>\n<pre>Release did not pass &lt;its&gt; health &amp; check\n&lt;urlopen error [Errno 111] Connection refused&gt;\n```\n@everyone &lt;!channel&gt; &lt;@U123|admin&gt; &amp;lt;b&amp;gt;\nred *bold* _italic_ ~strike~ `code`\nnoitcnuf\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…</pre>",

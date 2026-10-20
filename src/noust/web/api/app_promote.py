@@ -21,7 +21,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from noust.core.audit import record as audit_record
-from noust.core.store import get_store
 from noust.core.teams import TeamStore, current_scope, scoped_store
 from noust.deployers.app_clone import (
     ClonePlan,
@@ -34,7 +33,7 @@ from noust.deployers.helpers.layout import app_root
 from noust.deployers.promote import plan_promotion, promotion_targets
 from noust.deployers.recorder import CapturingLogger
 from noust.deployers.releases import ReleaseManager
-from noust.validators.port import find_available_port
+from noust.managers.port_claims import PortClaims
 from noust.web.api.apps import DEFAULT_PORT, _require_local_source_privilege
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated, strict_domain
@@ -313,9 +312,7 @@ def clone_app(
         server_parts=not current_scope().restricted,
     )
     if plan.plan.create.port is None:
-        port = find_available_port(
-            preferred=DEFAULT_PORT, exclude=get_store().ports_owned_by_apps()
-        )
+        port = PortClaims().choose(preferred=DEFAULT_PORT)
         if port is None:
             raise HTTPException(status_code=503, detail="No available port found")
         plan.plan.create = dataclasses.replace(plan.plan.create, port=port)

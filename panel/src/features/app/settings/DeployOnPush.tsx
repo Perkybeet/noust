@@ -502,8 +502,14 @@ export function DeployOnPush() {
           <PushesReceived domain={domain} status={data} />
         </>
       )}
-      <GitPushCard app={app} />
-      <CommandHint command={`noust app webhook show ${domain}`} label={t("appSettings.fromTerminal")} />
+      {/* Below the status, not beside its skeleton: the skeleton is a third of the page it becomes, so
+          anything drawn under it would be on screen for a moment and then pushed out of view. */}
+      {status.isPending ? null : (
+        <>
+          <GitPushCard app={app} />
+          <CommandHint command={`noust app webhook show ${domain}`} label={t("appSettings.fromTerminal")} />
+        </>
+      )}
       {branchPin.dialogs}
       <ConfirmDialog
         open={confirm === "rotate"}

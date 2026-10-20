@@ -8,6 +8,7 @@ export const TEAM_SCREENS: Strip = [
   team,
   tab(team, "members", "nav.teamTabs.members.label", { keywords: "nav.teamTabs.members.keywords" }),
   tab(team, "variables", "variables.nav.teamTab.label", { keywords: "variables.nav.teamTab.keywords" }),
+  tab(team, "notifications", "nav.teamTabs.notifications.label", { keywords: "nav.teamTabs.notifications.keywords" }),
   tab(team, "settings", "nav.teamTabs.settings.label", { keywords: "nav.teamTabs.settings.keywords" }),
 ];
 

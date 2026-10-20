@@ -56,6 +56,17 @@ Each release has up to four lists:
   password or build-secret values), and, as `GET /api/apps/{domain}/export` and `POST
   /api/apps/import` now keep them, `delivery`, `source_options` and `app.build`, which the
   endpoints used to drop. A copy to another server through the central carries all of them.
+- `PUT /api/apps/{domain}/domains/{name}/enabled` (`{"enabled": false}`) switches a name off without
+  deleting it, or serves it again; `enabled` in every entry of `GET|POST /api/apps/{domain}/domains`.
+- `GET /api/apps/{domain}/previews/dns`: whether the names of an application's previews reach this
+  server, and the record to add when they do not.
+- `force_https` in the policy of an application (`GET|PUT /api/apps/{domain}/policy`).
+- `latency_p50_ms`, `latency_p95_ms` and `visitors` in the totals and the points of
+  `GET /api/apps/{domain}/traffic`; the alert metric `app_latency_p95` (unit `ms`).
+- The event kinds `security_release`, `container_restart_loop` and `recipe_outdated`, and the
+  `webhook_headers` setting of the generic webhook channel.
+- The log-shipping kind `newrelic` (and `region`).
+- The DNS check's `cdn` is also `fastly`, `bunnycdn` or `arvancloud`.
 
 ## 3.4.0
 

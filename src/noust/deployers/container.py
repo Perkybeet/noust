@@ -93,9 +93,9 @@ from noust.deployers.registry import DeployerRegistry
 from noust.deployers.releases import ReleaseManager, release_order_key
 from noust.managers import railpack
 from noust.managers.app_mounts import MountManager
+from noust.managers.port_claims import PortClaims
 from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.validators.container import METHOD_DOCKERFILE, METHOD_IMAGE, METHOD_RAILPACK
-from noust.validators.port import find_available_port
 
 #: Root files of the stacks Noust has no deployer of its own for, and what each
 #: is called. Railpack builds all of them, so when it is installed a repository
@@ -490,8 +490,8 @@ class ContainerDeployer(DockerComposeDeployer):
         if not self.port:
             # The port on 127.0.0.1 is Noust's to give: a container publishes
             # the one the web server is told, there is no compose file to read it from.
-            self.port = find_available_port(
-                preferred=self.DEFAULT_PORT_START, exclude=self.store.ports_owned_by_apps()
+            self.port = PortClaims(self.runner, self.store).choose(
+                preferred=self.DEFAULT_PORT_START
             )
             if not self.port:
                 raise DeploymentError(

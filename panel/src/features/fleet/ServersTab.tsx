@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { Cable, Download, FileUp, Link2, PanelTop, Play, RotateCw, Tags, Trash2, X } from "lucide-react";
+import { Cable, Download, FileUp, KeyRound, Link2, PanelTop, Play, RotateCw, Tags, Trash2, UsersRound, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { CommandHint } from "../../components/page/CommandHint";
@@ -31,6 +31,7 @@ import type { FleetRow, NodeOutcome } from "./data";
 import { isFiltered, matchesQuery, patchSearch } from "./filters";
 import type { FleetSearch, FleetSearchPatch } from "./filters";
 import { LabelsDialog } from "./LabelsDialog";
+import { NodeTeamDialog, RekeyDialog } from "./NodeAccessDialogs";
 import { ConnectionDialog, InventoryDialog, LinkMachineDialog } from "./NodeToolsDialogs";
 import { fetchInventory } from "./nodeTools";
 import { OutcomePill, PartialNotice, ServerCell, StateFilter, useFleetView } from "./parts";
@@ -161,7 +162,7 @@ function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>, handlers: Row
   ];
 }
 
-type Tool = "connection" | "inventory" | "link";
+type Tool = "connection" | "inventory" | "link" | "rekey" | "team";
 
 function RowActions({
   t,
@@ -258,6 +259,22 @@ function RowActions({
             }}
           >
             {t("nodeTools.menu.linkMachine")}
+          </MenuItem>
+          <MenuItem
+            icon={<KeyRound />}
+            onClick={() => {
+              onTool("rekey");
+            }}
+          >
+            {t("nodeTools.menu.rotateKey")}
+          </MenuItem>
+          <MenuItem
+            icon={<UsersRound />}
+            onClick={() => {
+              onTool("team");
+            }}
+          >
+            {t("nodeTools.menu.assignTeam")}
           </MenuItem>
           <MenuItem icon={<Download />} disabled={exportInventory.isPending} onClick={() => exportInventory.mutate()}>
             {t("nodeTools.menu.exportInventory")}
@@ -447,6 +464,24 @@ export function ServersTab({ search, onSearchChange }: ServersTabProps) {
       ) : null}
       {tool?.kind === "link" ? (
         <LinkMachineDialog
+          key={tool.node}
+          node={tool.node}
+          onClose={() => {
+            setTool(null);
+          }}
+        />
+      ) : null}
+      {tool?.kind === "rekey" ? (
+        <RekeyDialog
+          key={tool.node}
+          node={tool.node}
+          onClose={() => {
+            setTool(null);
+          }}
+        />
+      ) : null}
+      {tool?.kind === "team" ? (
+        <NodeTeamDialog
           key={tool.node}
           node={tool.node}
           onClose={() => {

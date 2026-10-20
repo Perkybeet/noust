@@ -77,6 +77,9 @@ src/noust/
     store.py        SQLite persistence (WAL) with versioned migrations
     config.py       layered config; secrets written 0600, redacted on the way out
     exceptions.py   NoustError hierarchy, used for real
+    channel_secrets.py  the notification channels' credentials in config.yaml, sealed with
+                    at_rest.py under a key beside the file
+    cdn_networks.py the networks of Fastly, Bunny and ArvanCloud, so the DNS check names the CDN
     sealing.py      a central's secrets at rest: scrypt, then AES-256-CBC and HMAC-SHA256
                     through openssl, never a new dependency
     store_secrets.py  which columns of the store hold a secret value and are emptied in a copy
@@ -94,6 +97,8 @@ src/noust/
                     version, or an engine the host lacks): make, start, stop, upgrade, remove, from
                     the catalog of official images pinned by digest (instance_catalog.py); once
                     made, an instance is one more key (`postgresql@pg16`) to every database manager
+    port_claims.py  who holds a port: applications, the ports a Compose stack publishes, streams,
+                    databases, engines, SSH, the console and the kernel; every caller asks it
     app_identity.py the one answer to "which account does this app run as"
     site_topology.py, timeline.py   what a site reaches, live; one timeline over a stretch
     internal_ca.py, ca_trust.py  the server's own authority for names that only resolve inside a
@@ -170,6 +175,9 @@ tests/integration/network_run.py      fail2ban, HTTP/3, forward-auth, prefix rou
                             Coolify templates and the private certificate authority against the real
                             programs and real clients (Debian server, Alpine client, AlmaLinux device);
                             not part of pytest
+tests/integration/forge_run.py        a real Gitea and a real Forgejo: a deployment's commit status, a
+                            preview's pull request comment and the signed webhooks the receiver reads
+                            (docs/sources.md); one loopback port, `noust-test-w6x-*`, not part of pytest
 packaging/install.sh        the one-line installer (POSIX sh, shellcheck-clean), published with a
                             signed SHA256SUMS; its platform table is generated, never edited
 ```

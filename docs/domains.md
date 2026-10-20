@@ -22,6 +22,8 @@ noust domain list shop.example.com                       # primary, then aliases
 noust domain add shop.example.com shop.example.org       # alias (the default kind)
 noust domain add shop.example.com old-shop.example.com --kind redirect
 noust domain remove shop.example.com shop.example.org
+noust domain disable shop.example.com shop.example.org   # stop answering on it, keep it
+noust domain enable shop.example.com shop.example.org    # and serve it again
 ```
 
 `noust domain list` takes `--json`. `noust domain add` takes `--no-cert` to skip extending the
@@ -56,6 +58,17 @@ noust domain certificate shop.example.com [--reduce]         # bring the certifi
   records without asking holds the name's zone, adding the name makes its record, and removing the
   name lets go of it (it is deleted only if Noust made it and nothing else uses it). `--no-dns`
   leaves DNS alone.
+
+- **Switching a name off.** `noust domain disable` lets a name rest without forgetting it: the
+  application stops answering on it, and its row, its kind, its port and the DNS record Noust made
+  for it stay. The site is rendered again without the name, the web server tests it before the
+  reload, and, when the site serves TLS, the certificate is ordered again without the name (the
+  console queues that as a job, like removing a name). `noust domain enable` brings all of it back and
+  extends the certificate. `noust domain list` marks the names that are off, `--json` carries
+  `enabled`, and so does `GET /api/apps/{domain}/domains`; the switch is
+  `PUT /api/apps/{domain}/domains/{name}/enabled` with `{"enabled": false}`. The primary and the
+  names of the canonical `www` pair cannot be switched off (choose `none` first), and adding a name
+  that is off says to switch it on instead. Nothing is revoked.
 
 Each change goes through the same steps, in this order:
 
@@ -166,8 +179,13 @@ How it decides:
 - It is compared with the addresses of this machine's network interfaces, leaving out
   loopback, link-local, multicast and unspecified addresses, plus `dns.public_addresses`.
 - The answer is a **verdict**: `here` (every address is this machine's), `cdn` (every address is
-  Cloudflare's: it proxies the name and reaches this server by itself, so it is not a mismatch),
-  `elsewhere`, `none` (it does not resolve) or `unknown`.
+  one CDN's, which proxies the name and reaches this server by itself, so it is not a mismatch:
+  Cloudflare, Fastly, Bunny CDN or ArvanCloud, and the answer says which), `elsewhere` (a name that
+  mixes two CDNs is this, because no one proxy reaches the server for it), `none` (it does not
+  resolve) or `unknown`. Cloudflare's networks are fetched and kept fresh; the others are the ones
+  their operators publish, shipped with Noust. Bunny's list changes most: an edge address that is not
+  in it reads as `elsewhere` until the next release, and the certificate is not affected, only the
+  sentence the check says.
 - `points_here` is true for `here` and `cdn`.
 
 A server **behind NAT** (cloud instances whose public address is mapped by the provider, servers
@@ -178,6 +196,26 @@ have it compared: `noust config set dns.public_addresses 203.0.113.10`.
 The check is advisory. `noust domain add` runs it first and prints a warning with both address
 lists when the name does not point here, then goes ahead; `noust cert create` does not run it.
 Certbot is the final judge. `noust dns check NAME` runs the same check alone.
+
+## Answering over HTTP as well
+
+Once a site has a certificate, every request on port 80 is redirected to HTTPS. Some applications
+cannot live with that: an old client that cannot follow a redirect or speak TLS 1.2, a probe on a
+device with no trust store, a vendor webhook that refuses redirects. The site policy has a switch for
+it, per application:
+
+```bash
+noust app policy set shop.example.com --no-force-https     # one server answers on 80 and 443
+noust app policy set shop.example.com --force-https        # the default again
+```
+
+With it off, the nginx site is **one server on ports 80 and 443** with no redirect; the challenge of
+the certificate authority stays open to everyone on port 80, even when the site asks for a password;
+and **HSTS is not sent**, because it promises browsers that the site is only reached over HTTPS (a
+policy with HSTS on is refused together with `--no-force-https`, and the server-wide `ssl.hsts` is
+ignored for that site). Apache is refused: the answer says to move the application to nginx. A site
+without a certificate has nothing to force. API: `force_https` in
+`GET|PUT /api/apps/{domain}/policy`.
 
 ## Operator sites
 

@@ -22,6 +22,9 @@ ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/services/{name}/restart"): Permission.APPS_OPERATE,
     ("POST", "/api/services/{name}/enable"): Permission.APPS_OPERATE,
     ("POST", "/api/services/{name}/disable"): Permission.APPS_OPERATE,
+    # A tag chooses what a restart by tag reaches, so setting one is the server's to manage.
+    ("GET", "/api/services/{name}/tags"): Permission.SERVER_READ,
+    ("PUT", "/api/services/{name}/tags"): Permission.SERVER_MANAGE,
     ("GET", "/api/services/{name}/logs"): Permission.SERVER_READ,
     ("GET", "/api/services/{name}/config"): Permission.SECRETS_REVEAL,
     ("PUT", "/api/services/{name}/config"): Permission.ROOT_EQUIVALENT,

@@ -40,11 +40,13 @@ from noust.core.log_drain_store import KINDS, MAX_NAME_LENGTH, NAME, Drain, secr
 from noust.core.secrets import SecretStore
 from noust.core.store import NoustStore, get_store
 from noust.managers.log_transports import (
+    NEW_RELIC_ENDPOINTS,
     AxiomTransport,
     DeliveryError,
     JsonTransport,
     LogEvent,
     LokiTransport,
+    NewRelicTransport,
     OtlpTransport,
     SyslogTransport,
     Transport,
@@ -78,6 +80,7 @@ AUTH_KINDS = ("none", "bearer", "basic")
 _KIND_KEYS: dict[str, tuple[str, ...]] = {
     "loki": ("url", "tenant", "username"),
     "axiom": ("url", "dataset"),
+    "newrelic": ("region", "url"),
     "http": ("url", "auth", "username"),
     "otlp": ("url", "auth", "username"),
     "syslog": (
@@ -227,7 +230,7 @@ def validate_settings(kind: str, raw: Mapping[str, Any], *, has_secret: bool) ->
     Check what a destination of a kind is told.
 
     Args:
-        kind: ``loki``, ``axiom``, ``http``, ``otlp`` or ``syslog``.
+        kind: ``loki``, ``axiom``, ``newrelic``, ``http``, ``otlp`` or ``syslog``.
         raw: The settings, as the operator gave them.
         has_secret: Whether the drain has a token or a password.
 
@@ -298,6 +301,20 @@ def validate_settings(kind: str, raw: Mapping[str, Any], *, has_secret: bool) ->
             cleaned["server_name"] = str(raw["server_name"])
         return cleaned
 
+    if kind == "newrelic":
+        region = str(raw.get("region") or "us")
+        if region not in NEW_RELIC_ENDPOINTS:
+            raise ValidationError(
+                f"{region!r} is not a New Relic region",
+                details=f"Use one of: {', '.join(NEW_RELIC_ENDPOINTS)}.",
+                field="region",
+            )
+        cleaned["region"] = region
+        if raw.get("url"):
+            cleaned["url"] = check_url(str(raw["url"]))
+        if not has_secret:
+            raise ValidationError("A New Relic destination needs its license key", field="secret")
+        return cleaned
     url = raw.get("url") or (AXIOM_URL if kind == "axiom" else None)
     if url is None:
         raise ValidationError(f"A {kind} destination needs an address", field="url")
@@ -391,6 +408,13 @@ def build_transport(drain: Drain, secret: str | None) -> Transport:
     if drain.kind == "axiom":
         return AxiomTransport(
             settings["url"], dataset=settings["dataset"], secret=secret, labels=labels
+        )
+    if drain.kind == "newrelic":
+        return NewRelicTransport(
+            region=settings.get("region", "us"),
+            secret=secret,
+            labels=labels,
+            url=settings.get("url"),
         )
     if drain.kind == "loki":
         username = settings.get("username")

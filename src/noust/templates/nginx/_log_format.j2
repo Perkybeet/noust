@@ -1,0 +1,7 @@
+{# The format the traffic page reads: the combined one, then the time the request took, in
+   seconds. One format per site, named after it: a log_format is a global name and a second
+   site file defining the same one would stop nginx. #}
+log_format noust_{{ domain }} '$remote_addr - $remote_user [$time_local] "$request" '
+                              '$status $body_bytes_sent "$http_referer" "$http_user_agent" '
+                              'rt=$request_time';
+

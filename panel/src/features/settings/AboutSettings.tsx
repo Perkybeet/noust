@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, CircleArrowUp, CircleDashed, CircleHelp, RefreshCw, RotateCw } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 import { request } from "../../api/client";
@@ -9,8 +9,10 @@ import { configQuery } from "../../api/queries/config";
 import { isJobFinished, useFollowedJob } from "../../api/queries/jobs";
 import { machineQuery, systemKeys, versionQuery } from "../../api/queries/system";
 import { useDocumentTitle } from "../../app/documentTitle";
+import { autoUpdateQuery } from "../../api/queries/autoUpdate";
 import { CommandHint } from "../../components/page/CommandHint";
 import { KeyValueList } from "../../components/page/KeyValueList";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Section, Sections } from "../../components/page/Section";
 import { Button } from "../../components/ui/Button";
@@ -320,10 +322,48 @@ function ProjectSection() {
   );
 }
 
+/**
+ * The page waits for the two answers that decide the height of what is on screen. The update state
+ * is one line or a paragraph and a disclosure, the automatic updates are a sentence or a sentence
+ * and six facts, and each lands on its own: drawn as they arrived, each pushed every section under
+ * it, and the page scored twice what the layout gate allows when the server had them on. Both are
+ * read once (the sections below find them in the cache), and a failed one counts as read, for its
+ * section to say so.
+ */
+function useAboutRead(): boolean {
+  const version = useQuery(versionQuery());
+  const automatic = useQuery(autoUpdateQuery());
+  // Once, and for good: a section that mounts on a failed read asks again, which makes the query
+  // pending for a moment, and a page that went back to its skeleton for that would unmount the
+  // section and mount it again, asking again, for as long as the answer is a refusal.
+  const [read, setRead] = useState(false);
+  const answered = !version.isPending && !automatic.isPending;
+  if (answered && !read) setRead(true);
+  return read || answered;
+}
+
+function AboutSkeleton() {
+  const t = useT();
+  return (
+    <LoadingRegion label={t("settings.about.loading")} className="flex flex-col gap-8">
+      <div className="flex flex-col gap-4">
+        <Skeleton className="h-5 w-32" />
+        <Skeleton className="h-40 w-full rounded-card" />
+      </div>
+      <div className="flex flex-col gap-4">
+        <Skeleton className="h-5 w-48" />
+        <Skeleton className="h-52 w-full rounded-card" />
+      </div>
+    </LoadingRegion>
+  );
+}
+
 /** Settings > About: the version and whether a newer one can be installed, this installation, the project. */
 export function AboutSettings() {
   const t = useT();
   useDocumentTitle(t("settings.about.documentTitle"), 1);
+  const read = useAboutRead();
+  if (!read) return <AboutSkeleton />;
   return (
     <Sections>
       <VersionSection />

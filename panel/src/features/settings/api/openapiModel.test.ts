@@ -116,3 +116,30 @@ describe("the API document as operations", () => {
     expect(readDocument({ paths: { "/x": null } }).operations).toEqual([]);
   });
 });
+
+describe("a route that takes a file", () => {
+  it("says its body is not JSON, so the page does not pretend to compose one", () => {
+    const document = readDocument({
+      paths: {
+        "/api/uploads/{id}": {
+          put: {
+            requestBody: { content: { "application/octet-stream": { schema: { type: "string", format: "binary" } } } },
+            responses: { "200": { description: "ok" } },
+          },
+        },
+        "/api/jobs": {
+          post: {
+            requestBody: { content: { "application/json": { schema: { type: "object", properties: { name: { type: "string" } } } } } },
+            responses: { "202": { description: "ok" } },
+          },
+          get: { responses: { "200": { description: "ok" } } },
+        },
+      },
+    });
+
+    const byId = Object.fromEntries(document.operations.map((operation) => [operation.id, operation]));
+    expect(byId["PUT /api/uploads/{id}"]).toMatchObject({ rawBody: true, body: null });
+    expect(byId["POST /api/jobs"]).toMatchObject({ rawBody: false });
+    expect(byId["GET /api/jobs"]).toMatchObject({ rawBody: false });
+  });
+});

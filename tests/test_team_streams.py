@@ -23,7 +23,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from noust.core.store import NoustStore
 from noust.web import events
-from noust.web.auth import WS_CLOSE_FORBIDDEN
+from noust.web.api.node_proxy import WS_CLOSE_NODE_NOT_FOUND
 from noust.web.events import _frame_domain, _stream, hub
 from noust.web.jobs import Job, JobType, get_job_manager
 from noust.web.websockets.router import WS_SUBPROTOCOL, WS_TOKEN_PREFIX
@@ -273,11 +273,12 @@ class TestTheWebSockets:
         assert "all-shop" in names
         assert "all-blog" not in names
 
-    def test_a_node_stream_is_not_relayed_to_a_team_member(self, world: World) -> None:
+    def test_a_server_nobody_gave_the_team_has_no_stream_for_it(self, world: World) -> None:
+        # A server is the instance's until it is assigned to a team: to a member it is not there.
         with world.client.websocket_connect(
             "/ws/nodes/lisbon/events", subprotocols=subprotocols(world, "alice")
         ) as ws:
             with pytest.raises(WebSocketDisconnect) as closed:
                 ws.receive_json()
 
-        assert closed.value.code == WS_CLOSE_FORBIDDEN
+        assert closed.value.code == WS_CLOSE_NODE_NOT_FOUND
