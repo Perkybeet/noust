@@ -1,0 +1,5 @@
+# How nginx proxies this application. Covers are uploaded and pages are streamed.
+max_body_size: 100m
+routes:
+  - path: /
+    read_timeout: 600

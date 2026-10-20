@@ -1,16 +1,157 @@
+# Typebot from the images the project publishes (baptistearno/typebot-builder and
+# typebot-viewer on Docker Hub), arranged as its own docker-compose.yml does (repository root,
+# read 2026-10-20): the builder (where chatbots are designed) and the viewer (where visitors
+# talk to them) are two applications that must answer on two addresses, PostgreSQL, and a
+# Redis-compatible store (Valkey). The builder's address is the application's own
+# (NEXTAUTH_URL); the viewer's is a second one the recipe declares as an entrypoint, which the
+# install adds to the application as an alias proxied to the viewer's port
+# (NEXT_PUBLIC_VIEWER_URL). The builder migrates the database when it starts. ENCRYPTION_SECRET
+# is 32 characters that encrypt the credentials chatbots store. ADMIN_EMAIL is the account with
+# a Team workspace. People sign in with a link sent by e-mail or through an OAuth provider, so
+# one of them has to be configured (SMTP_* or a provider's client id and secret, passed through
+# from the environment when set).
+#
+# Licence: the Functional Source License 1.1 with Apache 2.0 as its future licence (LICENSE,
+# read 2026-10-20): free to run for yourself, not to offer as a competing service.
+#
+# Pinned to the release tag and to the digests Docker Hub serves for it.
 schema: 2
 name: typebot
 kind: compose
 title: Typebot
-slogan: "A powerful chatbot builder that you can self-host."
-description: "Design conversational forms and chatbots visually and embed them anywhere. Listed because it needs two public addresses."
+slogan: "A chatbot builder: design conversations visually and embed them anywhere."
+description: "Build chatbots and conversational forms with a visual editor, connect them to your tools and embed them in a page or a chat. Two addresses: one for the builder, one for the bots people talk to. Source-available under the Functional Source License: free to run for yourself, not to offer as a competing service."
 category: automation
-tags: [chatbot, forms, no-code]
+tags: [chatbot, forms, no-code, conversational]
 logo: logo.svg
-updated: 2026-10-06
+version: "3.19.0"
+revision: 1
+updated: 2026-10-20
 homepage: https://typebot.io
 docs: https://docs.typebot.io/self-hosting/deploy/docker
 repository: https://github.com/baptisteArno/typebot.io
 license: FSL-1.1-Apache-2.0
-available: false
-unavailable_reason: "Typebot is two applications on two addresses, the builder (NEXTAUTH_URL, port 8080) and the viewer (NEXT_PUBLIC_VIEWER_URL, port 8081), which its documentation asks to be proxied as separate virtual hosts (docs.typebot.io, Docker deployment, read 2026-10-06); this release routes one web endpoint per application. Not available in this release."
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3400
+variables:
+  TYPEBOT_URL:
+    from: url
+    description: The builder's address, the application's own; the sign-in callbacks are built from it.
+  SCHEME:
+    from: scheme
+    description: http or https, as the addresses are served.
+  VIEWER_DOMAIN:
+    required: true
+    description: "The viewer's address, a second name that must also point at this server (for example bot.example.com): where visitors open the chatbots."
+  VIEWER_PORT:
+    default: "3470"
+    description: The viewer's port on 127.0.0.1, which the second address is proxied to. Noust picks a free one near it.
+  NEXT_PUBLIC_VIEWER_URL:
+    value: "${SCHEME}://${VIEWER_DOMAIN}"
+    description: The viewer's public address, as the builder embeds it.
+  ADMIN_EMAIL:
+    required: true
+    description: The e-mail address of the administrator, whose workspace is a Team plan; it signs in with it.
+  ENCRYPTION_SECRET:
+    generate: hex32
+    description: 32 characters that encrypt the credentials chatbots store. Do not change it once any exist.
+  DISABLE_SIGNUP:
+    default: "false"
+    description: Set it to true to let only the people already known to Typebot sign in.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+entrypoints:
+  viewer:
+    title: Viewer
+    description: Where visitors open and answer the chatbots you publish.
+    domain_variable: VIEWER_DOMAIN
+    port_variable: VIEWER_PORT
+health:
+  path: /
+  expect: "200-399"
+  timeout: 300
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    typebot-builder:
+      image: baptistearno/typebot-builder:3.19.0@sha256:5483d1b4e030e6419ccde98cb0b935ca51e127a7d656c55121d66e8fe9ccf8f4
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      environment:
+        DATABASE_URL: "postgresql://typebot:${DB_PASSWORD}@db:5432/typebot"
+        REDIS_URL: redis://redis:6379
+        ENCRYPTION_SECRET: "${ENCRYPTION_SECRET}"
+        NEXTAUTH_URL: "${TYPEBOT_URL}"
+        NEXT_PUBLIC_VIEWER_URL: "${NEXT_PUBLIC_VIEWER_URL}"
+        ADMIN_EMAIL: "${ADMIN_EMAIL}"
+        DISABLE_SIGNUP: "${DISABLE_SIGNUP}"
+        NODE_OPTIONS: --no-node-snapshot
+        SMTP_HOST:
+        SMTP_PORT:
+        SMTP_USERNAME:
+        SMTP_PASSWORD:
+        SMTP_SECURE:
+        NEXT_PUBLIC_SMTP_FROM:
+        GITHUB_CLIENT_ID:
+        GITHUB_CLIENT_SECRET:
+        GOOGLE_CLIENT_ID:
+        GOOGLE_CLIENT_SECRET:
+      ports:
+        - "127.0.0.1:${PORT}:3000"
+    typebot-viewer:
+      image: baptistearno/typebot-viewer:3.19.0@sha256:9658d71b8310df97df4d48e5f1e8f159b70d738e8e33c5a087cda1d498278a5c
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      environment:
+        DATABASE_URL: "postgresql://typebot:${DB_PASSWORD}@db:5432/typebot"
+        REDIS_URL: redis://redis:6379
+        ENCRYPTION_SECRET: "${ENCRYPTION_SECRET}"
+        NEXTAUTH_URL: "${TYPEBOT_URL}"
+        NEXT_PUBLIC_VIEWER_URL: "${NEXT_PUBLIC_VIEWER_URL}"
+        NODE_OPTIONS: --no-node-snapshot
+      ports:
+        - "127.0.0.1:${VIEWER_PORT}:3000"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: typebot
+        POSTGRES_DB: typebot
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U typebot -d typebot"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - typebot-db:/var/lib/postgresql/data
+    redis:
+      image: valkey/valkey:9.0.6-alpine@sha256:187679e3bd4036959631e3f03983ab2ba503ab21e6fd0454d508e909db2ee989
+      restart: unless-stopped
+      healthcheck:
+        test: ["CMD", "valkey-cli", "ping"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      volumes:
+        - typebot-cache:/data
+  volumes:
+    typebot-db:
+    typebot-cache:
+notes:
+  - "The builder is {{ url }} and the viewer is {{ vars.NEXT_PUBLIC_VIEWER_URL }}: both names must point at this server. Noust added the viewer's name to this application and asked for a certificate that covers both; if that failed, the notes below say what to run."
+  - "Typebot signs people in with a link sent by e-mail or through GitHub or Google. Set SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD and NEXT_PUBLIC_SMTP_FROM, or a provider's client id and secret, in the application's Environment tab and restart it; then sign in as {{ vars.ADMIN_EMAIL }}."
+  - "Typebot is source-available under the Functional Source License: you may run it for yourself, not offer it as a competing service."
+  - "Your chatbots and their results are in the database, the Docker volume typebot-db of this application (PostgreSQL, dumped by Noust before every update): back it up before updating."

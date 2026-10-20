@@ -1,0 +1,77 @@
+# qBittorrent from the image linuxserver.io publishes (ghcr.io/linuxserver/qbittorrent), run as
+# its documentation describes (docs.linuxserver.io/images/docker-qbittorrent, read 2026-10-20):
+# WEBUI_PORT is the port of the interface and TORRENTING_PORT the one peers connect to, /config
+# holds the settings and /downloads what it fetches. The image prints a temporary password for
+# the admin user in its log on every start until the operator sets their own in the interface,
+# so nothing is open before that. PUID and PGID of 0 run it as root inside the container so that
+# a directory the operator mounts is writable (the image changes the ownership of /config only).
+# The peer port is published on every address, tcp and udp, because peers must reach it: the
+# recipe declares it. The interface answers 200 to the page that holds its sign-in form.
+#
+# Licence: GPL-2.0 with an OpenSSL exception (COPYING, read 2026-10-20); the image's own build
+# is GPL-3.0. Pinned to the release tag and to the digest ghcr.io serves for it.
+schema: 2
+name: qbittorrent
+kind: compose
+title: qBittorrent
+slogan: "A full-featured BitTorrent client with a web interface."
+description: "Download and seed torrents on the server and manage them from the browser: queues, categories, RSS rules, a search engine and limits per torrent. The web interface asks for a password; the peer port 6881 is open to the network so that others can connect to you."
+category: utilities
+tags: [torrent, bittorrent, downloads, p2p]
+logo: logo.svg
+version: "5.2.4"
+revision: 1
+updated: 2026-10-20
+homepage: https://www.qbittorrent.org
+docs: https://github.com/qbittorrent/qBittorrent/wiki
+repository: https://github.com/qbittorrent/qBittorrent
+license: GPL-2.0-or-later
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8080
+variables:
+  DOWNLOADS_PATH:
+    default: ./downloads
+    description: Where qBittorrent puts what it downloads. Inside the application by default; give an absolute path to share it with the applications that use the files.
+  PUID:
+    default: "0"
+    description: The user ID the process runs as inside the container. 0 is root; use the owner of your library to keep its files yours.
+  PGID:
+    default: "0"
+    description: The group ID the process runs as inside the container.
+  TZ:
+    default: UTC
+    description: The time zone, such as Europe/Madrid.
+public_ports:
+  - {port: 6881, protocol: tcp, purpose: "BitTorrent peers connect to it."}
+  - {port: 6881, protocol: udp, purpose: "The same for uTP and the DHT."}
+health:
+  path: /
+  expect: "200"
+  timeout: 120
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    qbittorrent:
+      image: ghcr.io/linuxserver/qbittorrent:5.2.4_v2.0.15-ls481@sha256:1ea873647c43d566f251a7122aee330b184509c57ee3257ed19f62dac0f8f24b
+      restart: unless-stopped
+      environment:
+        PUID: "${PUID}"
+        PGID: "${PGID}"
+        TZ: "${TZ}"
+        WEBUI_PORT: "8080"
+        TORRENTING_PORT: "6881"
+      volumes:
+        - qbittorrent-config:/config
+        - "${DOWNLOADS_PATH}:/downloads"
+      ports:
+        - "127.0.0.1:${PORT}:8080"
+        - "6881:6881"
+        - "6881:6881/udp"
+  volumes:
+    qbittorrent-config:
+notes:
+  - "Open {{ url }}: sign in as admin with the temporary password in the log (noust logs {{ domain }}), then set your own under Tools > Options > Web UI. Until you do, a new temporary password is printed every time the application starts."
+  - "Port 6881, tcp and udp, is open to the network so that peers can reach you: open it in your firewall if this server has one."
+  - "Downloads go to {{ app_path }}/downloads, or to DOWNLOADS_PATH if you set it; restart the application after changing it: noust restart {{ domain }}. The settings are in the Docker volume qbittorrent-config: back it up before updating."

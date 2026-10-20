@@ -1,0 +1,5 @@
+# How nginx proxies this application. Documents are imported in large batches.
+max_body_size: 256m
+routes:
+  - path: /
+    read_timeout: 300

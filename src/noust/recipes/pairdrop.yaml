@@ -1,0 +1,53 @@
+# PairDrop from the image the project publishes (ghcr.io/schlagmichdoch/pairdrop), run as its
+# documentation describes (github.com/schlagmichdoch/PairDrop/blob/master/docs/host-your-own.md,
+# read 2026-10-20): a Node server on 3000 that introduces browsers to each other over a WebSocket
+# and then lets them send files directly (WebRTC), or through the server when a direct
+# connection fails (WS_FALLBACK). Devices that open the page from the same public address see each
+# other, which it reads from X-Forwarded-For (nginx sets it); others pair with a code or a room.
+# RATE_LIMIT limits the connections one address may make. It keeps nothing, so there is no volume.
+#
+# Licence: GPL-3.0 (LICENSE, read 2026-10-20). Pinned to the release tag and to the digest ghcr.io
+# serves for it.
+schema: 2
+name: pairdrop
+kind: compose
+title: PairDrop
+slogan: "Share files between devices, straight from the browser, with no account."
+description: "Send files and text between phones, tablets and computers by opening the same page: devices behind the same network find each other, and others pair with a code. Files go directly between the browsers when they can. The page has no sign-in and anybody who reaches it can use it."
+category: utilities
+tags: [file-sharing, webrtc, airdrop, transfer]
+logo: logo.svg
+version: "1.11.2"
+revision: 1
+updated: 2026-10-20
+homepage: https://pairdrop.net
+docs: https://github.com/schlagmichdoch/PairDrop/blob/master/docs/host-your-own.md
+repository: https://github.com/schlagmichdoch/PairDrop
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  WS_FALLBACK:
+    default: "false"
+    description: Set it to true to let files go through this server when two browsers cannot connect directly. It uses this server's bandwidth.
+health:
+  path: /
+  expect: "200"
+  timeout: 90
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    pairdrop:
+      image: ghcr.io/schlagmichdoch/pairdrop:v1.11.2@sha256:c4b30977264a76e335740089e693a52a0d0d616330dec7f93c7b96beef7b4a02
+      restart: unless-stopped
+      environment:
+        RATE_LIMIT: "true"
+        WS_FALLBACK: "${WS_FALLBACK}"
+        DEBUG_MODE: "false"
+      ports:
+        - "127.0.0.1:${PORT}:3000"
+notes:
+  - "Open {{ url }} on two devices: they appear to each other. Anybody who reaches the page can use it, and a device that is not behind the same network pairs with a code, so there is no account to protect."
+  - "Nothing is stored on this server, so there is nothing to back up. Files go between the browsers unless WS_FALLBACK is true, in which case they may pass through this server."

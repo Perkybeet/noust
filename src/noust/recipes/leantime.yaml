@@ -1,0 +1,103 @@
+# Leantime from the image the project publishes (leantime/leantime on Docker Hub) with MySQL, as
+# its documentation describes (docs.leantime.io "Installation > Docker" and the docker-compose.yml
+# of leantime/docker-leantime, read 2026-10-20): LEAN_DB_HOST, LEAN_DB_USER, LEAN_DB_PASSWORD and
+# LEAN_DB_DATABASE, LEAN_APP_URL (the public address), LEAN_SESSION_PASSWORD (at least 32
+# characters), LEAN_SITENAME, and the user files under /var/www/html/userfiles. The first
+# visit runs the installer (the image serves on 8080), which creates the administrator: the root redirects to /install until
+# then, which is why the health check takes a redirect, and the first note says to run it now.
+#
+# Pinned to the release tag and to the digests Docker Hub serves for it.
+schema: 2
+name: leantime
+kind: compose
+title: Leantime
+slogan: "A lean project management system for non-project managers: goals, tasks, ideas."
+description: "Plan with strategy boards, goals and milestones, run work in Kanban, table and calendar views, track time and keep an idea board, in a tool built for teams that do not have a project manager. The first person to run the installer creates the administrator."
+category: productivity
+tags: [project-management, kanban, goals, time-tracking]
+logo: logo.svg
+version: "3.12.0"
+revision: 1
+updated: 2026-10-20
+homepage: https://leantime.io
+docs: https://docs.leantime.io
+repository: https://github.com/Leantime/leantime
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8580
+variables:
+  LEAN_APP_URL:
+    from: url
+    description: The address people use.
+  LEAN_SESSION_PASSWORD:
+    generate: password64
+    description: Signs the sessions (at least 32 characters). Changing it signs everybody out.
+  LEAN_SITENAME:
+    default: Leantime
+    description: The name shown in the title.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's MySQL account.
+  MYSQL_ROOT_PASSWORD:
+    generate: password32
+    description: The password of the MySQL root account, which stays inside the stack.
+health:
+  path: /
+  expect: "200-399"
+  timeout: 300
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    leantime:
+      image: leantime/leantime:3.12.0@sha256:8b2133d02640d618cb002fca4fe03a046d074bbb81388d4cb035152cef008905
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        LEAN_DB_HOST: db
+        LEAN_DB_USER: leantime
+        LEAN_DB_PASSWORD: "${DB_PASSWORD}"
+        LEAN_DB_DATABASE: leantime
+        LEAN_APP_URL: "${LEAN_APP_URL}"
+        LEAN_SESSION_PASSWORD: "${LEAN_SESSION_PASSWORD}"
+        LEAN_SITENAME: "${LEAN_SITENAME}"
+        LEAN_EMAIL_RETURN:
+        LEAN_EMAIL_USE_SMTP:
+        LEAN_EMAIL_SMTP_HOSTS:
+        LEAN_EMAIL_SMTP_USERNAME:
+        LEAN_EMAIL_SMTP_PASSWORD:
+        LEAN_EMAIL_SMTP_PORT:
+      volumes:
+        - leantime-userfiles:/var/www/html/userfiles
+        - leantime-public:/var/www/html/public/userfiles
+        - leantime-plugins:/var/www/html/app/Plugins
+      ports:
+        - "127.0.0.1:${PORT}:8080"
+    db:
+      image: mysql:8.4.11@sha256:6ea90827b1100f8f2ae306a539f86d2c264a26ed435a2a9f75551dd5c3aeb242
+      restart: unless-stopped
+      environment:
+        MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+        MYSQL_DATABASE: leantime
+        MYSQL_USER: leantime
+        MYSQL_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 30s
+      volumes:
+        - leantime-db:/var/lib/mysql
+  volumes:
+    leantime-userfiles:
+    leantime-public:
+    leantime-plugins:
+    leantime-db:
+notes:
+  - "Open {{ url }} now and run the installer, which creates the administrator: until you do, anybody who reaches it can."
+  - "Leantime sends no e-mail until you set the LEAN_EMAIL_* variables (the application's Environment tab) and restart it."
+  - "The files people upload are in the Docker volumes leantime-userfiles and leantime-public, the plug-ins in leantime-plugins and the database in leantime-db (MySQL, dumped by Noust before every update). Back them up before updating: the files are not in the database dump."

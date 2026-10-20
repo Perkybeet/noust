@@ -38,7 +38,6 @@ UNAVAILABLE = {
     "coder",
     "excalidraw",
     "hermes-agent",
-    "home-assistant",
     "joplin-server",
     "minio",
     "openclaw",
@@ -47,7 +46,6 @@ UNAVAILABLE = {
     "stalwart",
     "strapi",
     "supabase",
-    "typebot",
     "vault",
 }
 #: Wave one (checklist D-29) that ship as Docker recipes.

@@ -65,7 +65,9 @@ class ProposedStorageResponse(BaseModel):
 class ProposedDatabaseResponse(BaseModel):
     """A database the application used on the other platform."""
 
-    engine: str = Field(description="As noust db names it: postgresql, mysql, mariadb...")
+    engine: str = Field(
+        description="The engine, by the name Noust gives it: postgresql, mysql, mariadb..."
+    )
     name: str
     reference: str = Field(description="What names it there: a container, a service, a host")
     image: str | None = None

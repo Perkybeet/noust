@@ -1,0 +1,104 @@
+# Dolibarr from the image the project publishes (dolibarr/dolibarr on Docker Hub) with MariaDB, as
+# its container documentation describes (github.com/Dolibarr/dolibarr-docker, README, read
+# 2026-10-20): DOLI_DB_* for the database, DOLI_URL_ROOT (the public address), DOLI_ADMIN_LOGIN and
+# DOLI_ADMIN_PASSWORD (the administrator, made by the automatic installation on the first start:
+# DOLI_INSTALL_AUTO, so no visitor can claim it), DOLI_INIT_DEMO=0 (no demonstration data), the
+# documents under /var/www/documents and the modules and themes added under
+# /var/www/html/custom. The install runs when the container starts, which takes a few minutes the
+# first time.
+#
+# Pinned to the release tag and to the digests Docker Hub serves for it.
+schema: 2
+name: dolibarr
+kind: compose
+title: Dolibarr
+slogan: "An ERP and CRM for small companies: invoices, stock, contacts, projects."
+description: "Manage a small business from the browser: customers and suppliers, quotes and invoices, products and stock, projects, agenda and accounting, with modules you switch on as you need them. Starts with the administrator you name."
+category: business
+tags: [erp, crm, invoicing, accounting]
+logo: logo.svg
+version: "24.0.2"
+revision: 1
+updated: 2026-10-20
+homepage: https://www.dolibarr.org
+docs: https://wiki.dolibarr.org
+repository: https://github.com/Dolibarr/dolibarr
+license: GPL-3.0-or-later
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8880
+variables:
+  DOLI_URL_ROOT:
+    from: url
+    description: The address people use; Dolibarr builds its links from it.
+  DOLI_ADMIN_LOGIN:
+    default: admin
+    description: The administrator's login.
+  DOLI_ADMIN_PASSWORD:
+    generate: password32
+    description: The administrator's password. Dolibarr reads it only when it installs.
+  DOLI_COMPANY_NAME:
+    default: My company
+    description: The name of your company, as the installation records it.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's MariaDB account.
+  MARIADB_ROOT_PASSWORD:
+    generate: password32
+    description: The password of the MariaDB root account, which stays inside the stack.
+health:
+  path: /
+  expect: "200-399"
+  timeout: 600
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    dolibarr:
+      image: dolibarr/dolibarr:24.0.2@sha256:17692e7315b3f3c9eaac2558650d533315b45b027d9e56a138d73cc1364cdcf1
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        DOLI_DB_TYPE: mysqli
+        DOLI_DB_HOST: db
+        DOLI_DB_PORT: "3306"
+        DOLI_DB_USER: dolibarr
+        DOLI_DB_PASSWORD: "${DB_PASSWORD}"
+        DOLI_DB_NAME: dolibarr
+        DOLI_URL_ROOT: "${DOLI_URL_ROOT}"
+        DOLI_ADMIN_LOGIN: "${DOLI_ADMIN_LOGIN}"
+        DOLI_ADMIN_PASSWORD: "${DOLI_ADMIN_PASSWORD}"
+        DOLI_COMPANY_NAME: "${DOLI_COMPANY_NAME}"
+        DOLI_INSTALL_AUTO: "1"
+        DOLI_INIT_DEMO: "0"
+        DOLI_CRON: "0"
+      volumes:
+        - dolibarr-documents:/var/www/documents
+        - dolibarr-custom:/var/www/html/custom
+      ports:
+        - "127.0.0.1:${PORT}:80"
+    db:
+      image: mariadb:11.8.9@sha256:6422478cb8e159f080fb1d8ccf65101e26fe51385787fde7d16c3b165a331f15
+      restart: unless-stopped
+      environment:
+        MARIADB_ROOT_PASSWORD: "${MARIADB_ROOT_PASSWORD}"
+        MARIADB_DATABASE: dolibarr
+        MARIADB_USER: dolibarr
+        MARIADB_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 30s
+      volumes:
+        - dolibarr-db:/var/lib/mysql
+  volumes:
+    dolibarr-documents:
+    dolibarr-custom:
+    dolibarr-db:
+notes:
+  - "The first start installs Dolibarr, which takes a few minutes. Then sign in at {{ url }} as {{ vars.DOLI_ADMIN_LOGIN }}; the password is DOLI_ADMIN_PASSWORD (noust env show {{ domain }} --unmask). It is read only when Dolibarr installs: change it in Dolibarr afterwards."
+  - "Your documents are in the Docker volume dolibarr-documents, the modules you add in dolibarr-custom and the database in dolibarr-db (MariaDB, dumped by Noust before every update). Back all of them up before updating: the documents are not in the database dump."

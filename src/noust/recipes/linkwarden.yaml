@@ -1,0 +1,105 @@
+# Linkwarden from the image the project publishes (ghcr.io/linkwarden/linkwarden) with the
+# PostgreSQL and the Meilisearch its installation guide asks for (docs.linkwarden.app
+# "Installation", docker-compose.yml of the repository, read 2026-10-20): NEXTAUTH_URL (the
+# public address plus /api/v1/auth), NEXTAUTH_SECRET, DATABASE_URL, MEILI_HOST and
+# MEILI_MASTER_KEY, and the archived pages and screenshots under /data/data. The first account
+# to register becomes the administrator, so the first note says to do it now; setting
+# NEXT_PUBLIC_DISABLE_REGISTRATION closes sign-up afterwards. It answers / with a redirect to
+# the sign-in page.
+#
+# Derived in part from Coolify's template "linkwarden" (Apache-2.0,
+# https://github.com/coollabsio/coolify/blob/next/templates/compose/linkwarden.yaml). Pinned to
+# the release tag and to the digests the registries serve for it.
+schema: 2
+name: linkwarden
+kind: compose
+title: Linkwarden
+slogan: "A collaborative bookmark manager that archives the pages you save."
+description: "Collect links into collections you share with a team, and keep a screenshot, a PDF and a readable copy of every page so it outlives the site. Full-text search, tags and a browser extension. The first person to register becomes the administrator."
+category: productivity
+tags: [bookmarks, archive, links, read-it-later]
+logo: logo.svg
+version: "2.16.3"
+revision: 1
+updated: 2026-10-20
+homepage: https://linkwarden.app
+docs: https://docs.linkwarden.app
+repository: https://github.com/linkwarden/linkwarden
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3200
+variables:
+  LINKWARDEN_URL:
+    from: url
+    description: The address people use.
+  NEXTAUTH_SECRET:
+    generate: base64_32
+    description: Signs the sessions. Changing it signs everybody out.
+  MEILI_MASTER_KEY:
+    generate: password32
+    description: The key between Linkwarden and its search index; it stays inside the stack.
+  NEXT_PUBLIC_DISABLE_REGISTRATION:
+    default: "false"
+    description: Set it to true once the accounts you need exist, to close sign-up.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /
+  expect: "200-399"
+  timeout: 300
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    linkwarden:
+      image: ghcr.io/linkwarden/linkwarden:v2.16.3@sha256:0664c28a039bda8ffa6663389e8536b2fc717219e329f85b83faca7efed3b144
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+        meilisearch:
+          condition: service_started
+      environment:
+        NEXTAUTH_URL: "${LINKWARDEN_URL}/api/v1/auth"
+        NEXTAUTH_SECRET: "${NEXTAUTH_SECRET}"
+        DATABASE_URL: "postgresql://linkwarden:${DB_PASSWORD}@db:5432/linkwarden"
+        MEILI_HOST: http://meilisearch:7700
+        MEILI_MASTER_KEY: "${MEILI_MASTER_KEY}"
+        NEXT_PUBLIC_DISABLE_REGISTRATION: "${NEXT_PUBLIC_DISABLE_REGISTRATION}"
+        NEXT_PUBLIC_CREDENTIALS_ENABLED: "true"
+      volumes:
+        - linkwarden-data:/data/data
+      ports:
+        - "127.0.0.1:${PORT}:3000"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: linkwarden
+        POSTGRES_DB: linkwarden
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U linkwarden -d linkwarden"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - linkwarden-db:/var/lib/postgresql/data
+    meilisearch:
+      image: getmeili/meilisearch:v1.54.3@sha256:e68913ab7d6f5b159529e472cfd362ce3c741fafd3c127961b2142abbe41b3c9
+      restart: unless-stopped
+      environment:
+        MEILI_MASTER_KEY: "${MEILI_MASTER_KEY}"
+        MEILI_NO_ANALYTICS: "true"
+      volumes:
+        - linkwarden-search:/meili_data
+  volumes:
+    linkwarden-data:
+    linkwarden-db:
+    linkwarden-search:
+notes:
+  - "Open {{ url }} now and register: the first account becomes the administrator, and until you set NEXT_PUBLIC_DISABLE_REGISTRATION to true (the application's Environment tab) and restart, anybody who reaches it can register."
+  - "The archived pages and screenshots are in the Docker volume linkwarden-data, the database in linkwarden-db (PostgreSQL, dumped by Noust before every update) and the search index in linkwarden-search. Back them up before updating: the archives are not in the database dump."
