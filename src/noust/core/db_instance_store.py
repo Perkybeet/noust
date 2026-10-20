@@ -72,6 +72,11 @@ _FLAVOUR = re.compile(r"[a-z][a-z0-9]{1,23}")
 MAX_WORDS = 64
 MAX_WORD_LENGTH = 512
 
+#: What no word of a command may hold: a control character (a line break, a NUL, an escape) or
+#: the line separators of Unicode. Not an allowlist of the arguments an engine takes, which are the
+#: engine's to define; of the characters that are never one.
+_CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]")
+
 #: Arguments that would put a secret in a process list, which every local user can read: Noust
 #: writes the password to the configuration file the container reads, never to a command line.
 _SECRET_FLAGS = ("--requirepass", "--masterauth", "--tls-key-file-pass")
@@ -494,7 +499,7 @@ def check_words(values: object, *, field: str) -> tuple[str, ...]:
             not isinstance(word, str)
             or not word
             or len(word) > MAX_WORD_LENGTH
-            or any(char in word for char in "\n\r\x00")
+            or _CONTROL.search(word) is not None
         ):
             raise ValidationError(
                 f"{field} holds a word that is not an argument: {str(word)[:40]!r}",

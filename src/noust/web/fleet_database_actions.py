@@ -447,7 +447,7 @@ def _transfer_prepare(
         if options["database"] not in _names_on(source, engine):
             raise ValidationError(
                 f"{options['database']} is not a database of {engine} on {origin.name}",
-                details=f"List what it holds: noust node exec {origin.name} -- noust db list.",
+                details=f"List what {origin.name} holds with 'noust db list' there, or in its page of the console.",
                 field="database",
             )
         # A target that cannot be asked is reported by the plan itself, as unsupported or
@@ -741,7 +741,7 @@ def _carry_accounts(
         raise ActionFailed(
             f"{', '.join(accounts['failed'])} could not be made on {run.name}",
             details=f"The database itself is on {run.name}; make the accounts there "
-            "(noust db user create) and give them access.",
+            "(noust db user-create) and give them access.",
             output="\n\n".join(
                 f"{username}: {exc.output or exc.message}" for username, exc in failures
             )[:4000],
