@@ -253,6 +253,15 @@ sections:
       - source: docs/coolify.md
         slug: coolify
         summary: From Coolify to Noust, a map of concepts, screens and settings, what is not done by design, and moving a server in place.
+      - source: docs/dokploy.md
+        slug: dokploy
+        summary: From Dokploy to Noust, a map of concepts and screens, what is not done by design, the importer and the converter of its templates.
+      - source: docs/caprover.md
+        slug: caprover
+        summary: From CapRover to Noust, a map of concepts and screens, what is not done by design, and the importer.
+      - source: docs/dokku.md
+        slug: dokku
+        summary: From Dokku to Noust, its commands and their counterparts, what is not done by design, and the importer.
 
   - title: The project
     pages:

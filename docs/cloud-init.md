@@ -3,7 +3,8 @@
 For a server you create from a template, a script or a provider's API: Noust is installed, the
 server is prepared, an administrator exists and the first thing you do is sign in. The installer
 ([platforms.md](PLATFORMS.md)) has the options for it: `--yes`, `--admin-user`,
-`--admin-password-file` and `--json`, and the same as `NOUST_*` variables.
+`--admin-password-file`, `--admin-email`, `--auto-update` and `--json`, and the same as `NOUST_*`
+variables.
 
 What it never does unattended: ask. A question with nobody to answer it is an error that says how
 to go on (`--yes`), never a hang. What it does not do for you: choose your password (it reads the one
@@ -32,7 +33,8 @@ runcmd:
     curl -fsSLO https://github.com/Perkybeet/noust/releases/latest/download/SHA256SUMS
     sha256sum -c --ignore-missing SHA256SUMS
     NOUST_ASSUME_YES=1 sh install.sh --json --admin-user ops \
-      --admin-password-file /root/noust-admin.pw \
+      --admin-password-file /root/noust-admin.pw --admin-email ops@example.com \
+      --auto-update=security \
       > /var/log/noust-install.json 2>> /var/log/noust-install.log
     shred -u /root/noust-admin.pw
 ```
@@ -52,12 +54,26 @@ runcmd:
   ```json
   {"status":"ok","dry_run":false,"version":"3.4.0","method":"package",
    "platform":{"id":"ubuntu","version_id":"24.04","arch":"amd64","support":"supported"},
-   "console":{"state":"new","address":"127.0.0.1:8080"},
-   "admin":{"username":"ops","state":"created"}}
+   "resources":{"memory_mb":2048,"cpus":2,"disk_free_mb":30000,
+    "ports":{"80":{"state":"free","holders":null},"443":{"state":"free","holders":null}},
+    "warnings":[]},
+   "console":{"state":"new","address":"127.0.0.1:8080",
+    "url":"http://127.0.0.1:8080/login?with=token",
+    "tunnel":"ssh -N -L 8080:127.0.0.1:8080 root@203.0.113.7"},
+   "admin":{"username":"ops","state":"created","email":"ops@example.com","email_state":"set"},
+   "auto_update":{"state":"enabled","channel":"security","window":"03:00-05:00","days":"daily"}}
   ```
 
   A failure is `{"status":"error","error":"..."}` and exit status 1; a distribution Noust does not
-  install on is `{"status":"refused",...}` and exit status 3.
+  install on, or a machine below the [floor of memory, processors or disk](requirements.md#how-big-a-server),
+  is `{"status":"refused",...}` and exit status 3 (`--force` goes on anyway). A machine below the
+  minimum, or a port 80 or 443 another program holds, is a question: unattended it is answered by
+  `--yes` and listed in `resources.warnings`, so the template can decide to stop on it.
+- **The address of the administrator** (`--admin-email`) is where the invitations and password
+  resets of the console are mailed, and the automatic update (`--auto-update=security|patch|stable`,
+  with `--auto-update-window` and `--auto-update-days`) is off unless you ask for it: it installs
+  Noust's own releases of the channel you chose, inside the window, and never a new major version
+  ([the release policy](release-policy.md)).
 - Running it again is safe: it upgrades Noust, leaves an existing configuration and console alone,
   and says the account exists instead of failing.
 
