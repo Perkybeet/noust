@@ -1,6 +1,9 @@
+import type { LucideIcon } from "lucide-react";
+
 import type { App } from "../../../api/queries/apps";
 import type { PlainKey } from "../../../i18n";
 import { hasUnit } from "../../apps/AppRowActions";
+import { APP_SCREENS, APP_SETTINGS_SCREENS } from "../../nav/app";
 import { isAdopted } from "../adopted";
 
 /**
@@ -19,6 +22,8 @@ export interface SettingsSection {
   label: PlainKey;
   /** The heading it is listed under; absent for General. */
   group?: SettingsGroupId;
+  /** Drawn beside the name, when the register gives the destination one. */
+  icon?: LucideIcon;
   danger?: boolean;
   /** Leaves the section out for an application it does not concern. */
   when?: (app: App) => boolean;
@@ -30,31 +35,62 @@ function built(app: App): boolean {
 }
 
 /**
+ * Which applications each subsection concerns, by its name in the register (`features/nav/app.ts`,
+ * which owns the path, the label, the group and the icon: this file never spells them). A name that
+ * is not here concerns every application. Build is every built application's: the commands of a
+ * type that has a block, and the sandbox its builds run in, which every type has. A container
+ * application has its own settings, and a Compose stack its own page.
+ */
+const CONCERNS: Readonly<Record<string, (app: App) => boolean>> = {
+  source: built,
+  build: built,
+  container: (app) => app.app_type === "container",
+  deploys: built,
+  automation: built,
+  compose: (app) => built(app) && app.app_type === "docker-compose",
+  "deploy-on-push": built,
+  hooks: built,
+  previews: built,
+  resources: built,
+  processes: (app) => built(app) && hasUnit(app),
+  mounts: (app) => built(app) && hasUnit(app) && app.app_type !== "docker-compose",
+  disk: built,
+  security: (app) => built(app) && hasUnit(app),
+  access: built,
+  protection: built,
+  export: built,
+};
+
+/** The subsections that are set apart, last. */
+const APART: ReadonlySet<string> = new Set(["delete"]);
+
+function groupOf(id: string, group: string | undefined): SettingsGroupId {
+  const known = SETTINGS_GROUPS.find((candidate) => candidate === group);
+  if (known === undefined) throw new Error(`The register puts ${id} in the group ${group ?? "(none)"}, which the settings do not have`);
+  return known;
+}
+
+const SETTINGS_ROOT = "/apps/$domain/settings";
+
+/**
  * The subsections of an application's settings, in order and in their groups: each its own URL,
- * Delete last and apart. `when` leaves one out for an application it does not concern: a container
- * application's own settings and a Compose stack's. Build is every built application's: the commands
- * of a type that has a block, and the sandbox its builds run in, which every type has. The settings'
- * navigation and the command palette read this one list, so a section cannot be on a page and missing
- * from the search (checklist M-04).
+ * Delete last and apart. They are the register's (`APP_SETTINGS_SCREENS`), so what the side list
+ * draws, what the command palette finds and the icon of each are one list; this file only says
+ * which applications each concerns (`CONCERNS`). The settings' navigation and the command palette
+ * read it, so a section cannot be on a page and missing from the search (checklist M-04).
  */
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
-  { path: "", label: "appSettings.nav.general" },
-  { path: "/source", label: "appSettings.nav.source", group: "code", when: built },
-  { path: "/build", label: "appSettings.nav.build", group: "code", when: built },
-  { path: "/container", label: "appSettings.nav.container", group: "code", when: (app) => app.app_type === "container" },
-  { path: "/deploys", label: "appSettings.nav.deploys", group: "deploys", when: built },
-  { path: "/automation", label: "appSettings.nav.automation", group: "deploys", when: built },
-  { path: "/compose", label: "appSettings.nav.compose", group: "deploys", when: (app) => built(app) && app.app_type === "docker-compose" },
-  { path: "/deploy-on-push", label: "appSettings.nav.push", group: "triggers", when: built },
-  { path: "/hooks", label: "appSettings.nav.hooks", group: "triggers", when: built },
-  { path: "/previews", label: "appSettings.nav.previews", group: "triggers", when: built },
-  { path: "/resources", label: "appSettings.nav.resources", group: "runtime", when: built },
-  { path: "/processes", label: "runtime.nav.processes", group: "runtime", when: (app) => built(app) && hasUnit(app) },
-  { path: "/mounts", label: "runtime.nav.mounts", group: "runtime", when: (app) => built(app) && hasUnit(app) && app.app_type !== "docker-compose" },
-  { path: "/disk", label: "runtime.nav.disk", group: "runtime", when: built },
-  { path: "/security", label: "runtime.nav.security", group: "runtime", when: (app) => built(app) && hasUnit(app) },
-  { path: "/access", label: "network.access.nav", group: "access", when: built },
-  { path: "/protection", label: "network.protection.nav", group: "access", when: built },
-  { path: "/export", label: "appSettings.nav.export", group: "danger", when: built },
-  { path: "/delete", label: "appSettings.nav.delete", group: "danger", danger: true },
+  { path: "", label: APP_SCREENS.find((screen) => screen.id === "app.settings")?.rootLabel ?? "appSettings.nav.general" },
+  ...APP_SETTINGS_SCREENS.map((screen): SettingsSection => {
+    const name = screen.to.slice(SETTINGS_ROOT.length + 1);
+    const concerns = CONCERNS[name];
+    return {
+      path: `/${name}`,
+      label: screen.label,
+      group: groupOf(screen.id, screen.group),
+      ...(screen.icon !== undefined ? { icon: screen.icon } : {}),
+      ...(APART.has(name) ? { danger: true } : {}),
+      ...(concerns !== undefined ? { when: concerns } : {}),
+    };
+  }),
 ];

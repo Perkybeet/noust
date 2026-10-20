@@ -27,6 +27,7 @@ export function AppSettingsLayout({ domain, index, children }: { domain: string;
     label: t(section.label),
     ...(section.path === "" ? { exact: true } : {}),
     ...(section.danger === true ? { danger: true } : {}),
+    ...(section.icon !== undefined ? { icon: section.icon } : {}),
     ...(section.group !== undefined ? { group: t(`appSettings.groups.${section.group}`), groupKey: section.group } : {}),
   }));
   return (
