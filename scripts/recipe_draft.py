@@ -399,6 +399,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="ask the registry even for a tag another recipe already pins",
     )
+    pin.add_argument(
+        "--offline",
+        action="store_true",
+        help="ask no registry: digests come from the recipes already pinned, and the "
+        "architectures line is kept as the --to file (or the draft) has it",
+    )
     config = commands.add_parser("config")
     config.add_argument("reference")
     logo = commands.add_parser("logo")
@@ -422,14 +428,37 @@ def main(argv: Sequence[str] | None = None) -> int:
             known = {} if args.fresh else known_digests(ROOT / "src" / "noust" / "recipes")
 
             def resolve(reference: str) -> str:
-                return known.get(reference) or recipe_pins.resolve_digest(reference)
+                if known.get(reference):
+                    return known[reference]
+                if args.offline:
+                    raise RuntimeError(f"{reference} is pinned by no recipe yet: ask the registry")
+                return recipe_pins.resolve_digest(reference)
 
             pinned, archs = pin_lines(
-                lines, resolve=resolve, platforms=recipe_pins.resolve_platforms
+                lines,
+                resolve=resolve,
+                platforms=(lambda reference, digest: set())
+                if args.offline
+                else recipe_pins.resolve_platforms,
             )
             for reference, found in archs.items():
-                print(f"{reference}: {', '.join(sorted(found))}")
-            shared = json.dumps(common_architectures(archs))
+                print(f"{reference}: {', '.join(sorted(found)) or '(not asked)'}")
+            if args.offline:
+                kept = next(
+                    (
+                        line
+                        for line in (
+                            args.to.read_text(encoding="utf-8")
+                            if args.to and args.to.exists()
+                            else ""
+                        ).splitlines()
+                        if line.startswith("architectures:")
+                    ),
+                    next((line for line in lines if line.startswith("architectures:")), ""),
+                )
+                shared = kept.removeprefix("architectures:").strip()
+            else:
+                shared = json.dumps(common_architectures(archs))
             print(f"architectures: {shared}")
             if args.write or args.to:
                 # The recipe claims exactly what every one of its images is published for.

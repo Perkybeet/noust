@@ -174,3 +174,39 @@ def test_an_image_s_configuration_is_told_in_the_words_a_recipe_needs(draft: Mod
     ]
     assert "user: root" in draft.describe_config({})
     assert "ports: none" in draft.describe_config({})
+
+
+def test_pinning_offline_asks_no_registry_and_keeps_the_architectures_line(
+    draft: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A registry that answers 429 must not stop a recipe whose images are already pinned."""
+    digest = "sha256:" + "c" * 64
+    recipes = tmp_path / "src" / "noust" / "recipes"
+    recipes.mkdir(parents=True)
+    (recipes / "other.yaml").write_text(f"      image: ghcr.io/o/app:1.2.3@{digest}\n")
+    monkeypatch.setattr(draft, "ROOT", tmp_path)
+    monkeypatch.setattr(
+        draft.recipe_pins,
+        "resolve_digest",
+        lambda reference: (_ for _ in ()).throw(AssertionError("the registry was asked")),
+    )
+    monkeypatch.setattr(
+        draft.recipe_pins,
+        "resolve_platforms",
+        lambda reference, found: (_ for _ in ()).throw(AssertionError("the registry was asked")),
+    )
+    source = tmp_path / "draft.yaml"
+    source.write_text(
+        'architectures: ["amd64", "arm64"]\nservices:\n  app:\n    image: ghcr.io/o/app:1.2.3\n'
+    )
+    target = tmp_path / "pinned.yaml"
+    target.write_text('architectures: ["amd64"]\n')
+
+    assert draft.main(["pin", str(source), "--to", str(target), "--offline"]) == 0
+
+    text = target.read_text()
+    assert f"image: ghcr.io/o/app:1.2.3@{digest}" in text
+    assert text.startswith('architectures: ["amd64"]\n')
+    assert draft.main(["pin", str(source), "--to", str(target), "--offline"]) == 0
+    source.write_text("services:\n  app:\n    image: ghcr.io/o/unknown:9\n")
+    assert draft.main(["pin", str(source), "--to", str(target), "--offline"]) == 1
