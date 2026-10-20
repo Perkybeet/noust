@@ -506,6 +506,56 @@ def test_list_json_reports_name_domains_and_expiry(live_dir: Path, runner: FakeR
     assert "2026-11-30" in cert["expiry"]
 
 
+def test_list_json_says_which_names_each_certificate_serves(
+    live_dir: Path, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A certificate of its own and the shared one are told apart by the names they serve."""
+    runner.script(["certbot", "certificates"], stdout=CERTBOT_OUTPUT)
+    monkeypatch.setattr(
+        "noust.cli.commands.cert.names_served_by_certificate",
+        lambda: {"shop.tld": ["shop.tld", "www.shop.tld"], "admin.shop.tld": ["admin.shop.tld"]},
+    )
+
+    result = _invoke(["cert", "list", "--json"])
+
+    cert = json.loads(result.output)["certificates"][0]
+    assert cert["serves"] == ["shop.tld", "www.shop.tld"]
+
+
+def test_list_shows_a_certificate_nothing_serves_with_a_dash(
+    live_dir: Path, runner: FakeRunner, log: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runner.script(["certbot", "certificates"], stdout=CERTBOT_OUTPUT)
+    monkeypatch.setattr("noust.cli.commands.cert.names_served_by_certificate", lambda: {})
+    tables: list[tuple[list[Any], list[Any]]] = []
+    monkeypatch.setattr(
+        Logger, "table", lambda self, headers, rows, justify=None: tables.append((headers, rows))
+    )
+
+    _invoke(["cert", "list"])
+
+    assert tables[0][0] == ["Name", "Domains", "Expiry", "Serves"]
+    assert tables[0][1][0][3] == "-"
+
+
+def test_list_names_what_each_certificate_serves_and_how_many_more(
+    live_dir: Path, runner: FakeRunner, log: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runner.script(["certbot", "certificates"], stdout=CERTBOT_OUTPUT)
+    monkeypatch.setattr(
+        "noust.cli.commands.cert.names_served_by_certificate",
+        lambda: {"shop.tld": ["a.shop.tld", "b.shop.tld", "c.shop.tld"]},
+    )
+    tables: list[tuple[list[Any], list[Any]]] = []
+    monkeypatch.setattr(
+        Logger, "table", lambda self, headers, rows, justify=None: tables.append((headers, rows))
+    )
+
+    _invoke(["cert", "list"])
+
+    assert tables[0][1][0][3] == "a.shop.tld, b.shop.tld (+1 more)"
+
+
 def test_list_json_reports_an_empty_machine(live_dir: Path, runner: FakeRunner) -> None:
     """No certificates is {"certificates": [], "total": 0}, not the human text."""
     runner.script(["certbot", "certificates"], stdout="No certificates found.\n")

@@ -41,6 +41,11 @@ How a certificate comes to be is a property of the application, kept in the stor
 - **A lineage that already covers the name**: an application one label under a
   wildcard certificate is given that one instead of an order of its own, which is
   what keeps a preview per pull request from spending the authority's rate limit.
+- **A name with a certificate of its own** (:mod:`noust.core.domain_certificates`): a lineage
+  named after the name and holding only it, ordered the way the name's own settings say and
+  renewed with the application's. The lineage under the primary domain never names it
+  (:meth:`CertManager.certificate_domains`), and every order that covers an application covers
+  those names after it (:meth:`CertManager.obtain`).
 
 Which authority orders and as whom is :mod:`noust.managers.acme`'s.
 """
@@ -65,11 +70,12 @@ from noust.core.certificate_store import (
     CertificateSettings,
     CertificateStore,
 )
+from noust.core.domain_certificates import OWN, lineage_name, own_names, shared_names
 from noust.core.exceptions import CertificateError, NoustError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem
 from noust.core.pem import pem_block
 from noust.core.runner import DEFAULT_TIMEOUT, CommandResult, CommandRunner
-from noust.core.store import NoustStore, get_store
+from noust.core.store import DomainRecord, NoustStore, get_store
 from noust.core.utils import find_noust_executable
 from noust.managers.acme import AcmeSettings
 from noust.managers.base_manager import BaseManager, MappingRecord
@@ -968,33 +974,45 @@ class CertManager(BaseManager):
                 return list(cert.domains)
         return []
 
+    def _domain_records(self, primary: str) -> list[DomainRecord]:
+        """
+        Read the names an application answers on, the ones switched off left out.
+
+        Args:
+            primary: The application's primary domain.
+
+        Returns:
+            Its rows in the store's order, empty when the name is not an application's. A
+            store that cannot be read is reported and treated as empty: the order still
+            covers what the caller asked for, which is what it did before domains had rows.
+        """
+        try:
+            return self.store.list_domains(primary, include_disabled=False)
+        except (NoustError, sqlite3.Error) as exc:
+            self.logger.warning(f"Could not read the domains of {primary}: {exc}")
+            return []
+
     def _application_domains(self, primary: str) -> list[str]:
         """
-        Read the other domains of the application a lineage belongs to.
+        Read the other domains the application's shared lineage must cover.
 
         Every order for an application's certificate covers every name it
         answers on - aliases, and redirects too, since a redirect is served on
-        443 and a browser shown the wrong certificate never sees it. Reading
-        them where the list is built, not at each caller, is what keeps the
-        deploy step, ``noust cert create``, the panel and a domain change from
-        each asking for a different set and expanding the lineage back and
-        forth.
+        443 and a browser shown the wrong certificate never sees it - except the
+        names that hold a certificate of their own, which the shared lineage must
+        not name or it renews with them. Reading them where the list is built,
+        not at each caller, is what keeps the deploy step, ``noust cert create``,
+        the panel and a domain change from each asking for a different set and
+        expanding the lineage back and forth.
 
         Args:
             primary: Lineage name, which is the application's primary domain.
 
         Returns:
             The application's other domains in the store's order, empty when
-            the name is not an application's. A store that cannot be read is
-            reported and treated as empty: the order still covers what the
-            caller asked for, which is what it did before domains had rows.
+            the name is not an application's.
         """
-        try:
-            records = self.store.list_domains(primary, include_disabled=False)
-        except (NoustError, sqlite3.Error) as exc:
-            self.logger.warning(f"Could not read the domains of {primary}: {exc}")
-            return []
-        return [record.domain for record in records if record.domain != primary]
+        return [name for name in shared_names(self._domain_records(primary)) if name != primary]
 
     def _check_certbot_plugin(self, plugin: str) -> bool:
         """
@@ -1171,9 +1189,15 @@ class CertManager(BaseManager):
         expand: bool = False,
         include_www: bool = False,
         force_renewal: bool = False,
+        include_own: bool = True,
     ) -> bool:
         """
         Obtain a certificate, or confirm that a suitable one already exists.
+
+        The lineage under the primary domain comes first, and then, for an application, those
+        of the names that hold a certificate of their own (:meth:`obtain_name`): an order that
+        covers an application covers all of it. The shared certificate is in place and recorded
+        before the others are tried, so a name whose own order fails does not take it away.
 
         Args:
             domain: Primary domain, which becomes the lineage name.
@@ -1191,6 +1215,71 @@ class CertManager(BaseManager):
                 changes the way it is proven or the authority it comes from, since
                 certbot keeps both in the lineage's renewal configuration. It spends
                 the authority's rate limit, so nothing else uses it.
+            include_own: Also order the lineages of the names that hold a certificate of
+                their own. False for a change that is about the shared lineage alone, which
+                a name whose DNS is not ready must not keep from happening.
+
+        Returns:
+            True when the certificate covering every requested domain exists.
+
+        Raises:
+            CertificateError: When a domain is invalid, when the state of the
+                existing certificate cannot be read, or when issuance fails. A name with
+                a certificate of its own that could not be ordered is named in the error.
+        """
+        require_server_role("Certificates")
+        done = self._obtain_shared(
+            domain,
+            email=email,
+            webroot=webroot,
+            standalone=standalone,
+            nginx=nginx,
+            apache=apache,
+            dry_run=dry_run,
+            additional_domains=additional_domains,
+            expand=expand,
+            include_www=include_www,
+            force_renewal=force_renewal,
+        )
+        if include_own:
+            self._obtain_own_names(
+                self._validated(domain), email=email, nginx=nginx, apache=apache, dry_run=dry_run
+            )
+        return done
+
+    def _obtain_shared(
+        self,
+        domain: str,
+        email: str | None = None,
+        webroot: Path | None = None,
+        standalone: bool = False,
+        nginx: bool = False,
+        apache: bool = False,
+        dry_run: bool = False,
+        additional_domains: Sequence[str] | None = None,
+        expand: bool = False,
+        include_www: bool = False,
+        force_renewal: bool = False,
+    ) -> bool:
+        """
+        Obtain the certificate under the application's primary domain.
+
+        Everything :meth:`obtain` documents, for the lineage that covers the names which did
+        not ask for one of their own.
+
+        Args:
+            domain: Primary domain, which becomes the lineage name.
+            email: Email for registration and recovery.
+            webroot: Webroot path for the webroot plugin.
+            standalone: Use the standalone plugin.
+            nginx: Use the nginx plugin.
+            apache: Use the apache plugin.
+            dry_run: Ask certbot for a test certificate.
+            additional_domains: Further domains to cover.
+            expand: Expand the existing certificate even when it already covers
+                the requested domains.
+            include_www: Also cover ``www.<domain>`` when that makes sense.
+            force_renewal: Order it again although it is not due.
 
         Returns:
             True when the certificate covering every requested domain exists.
@@ -1250,19 +1339,7 @@ class CertManager(BaseManager):
             force_renewal=force_renewal,
         )
 
-        result = self._exec(cmd, timeout=_ISSUE_TIMEOUT)
-        if not result.success:
-            output = _certbot_failure_output(result)
-            diagnosis = _diagnose_challenge_failure(output, requested)
-            if diagnosis is not None:
-                message, details = diagnosis
-                raise CertificateError(message, details=details, output=output or None)
-            raise CertificateError(
-                f"Failed to obtain certificate for {primary}",
-                details=output
-                or "Check that the domain resolves to this host and port 80 is reachable.",
-                output=output or None,
-            )
+        self._order(cmd, requested, primary)
 
         if not dry_run:
             # Every order, whatever proves it: certbot reloads the web server after a renewal
@@ -1285,6 +1362,238 @@ class CertManager(BaseManager):
             self.logger.debug(f"Certbot reported success but {paths.fullchain} is not there")
 
         self.logger.debug(f"Obtained certificate for: {primary}")
+        return True
+
+    def _order(self, cmd: Sequence[str], requested: Sequence[str], label: str) -> None:
+        """
+        Run one ``certbot certonly`` and say, in certbot's own words, why it failed.
+
+        Args:
+            cmd: The order.
+            requested: The names it asks for, which a failed challenge is diagnosed against.
+            label: What the order is for, named in the error.
+
+        Raises:
+            CertificateError: certbot refused. A name whose DNS does not point here is
+                named first, and certbot's output is carried verbatim either way.
+        """
+        result = self._exec(cmd, timeout=_ISSUE_TIMEOUT)
+        if result.success:
+            return
+        output = _certbot_failure_output(result)
+        diagnosis = _diagnose_challenge_failure(output, requested)
+        if diagnosis is not None:
+            message, details = diagnosis
+            raise CertificateError(message, details=details, output=output or None)
+        raise CertificateError(
+            f"Failed to obtain certificate for {label}",
+            details=output
+            or "Check that the domain resolves to this host and port 80 is reachable.",
+            output=output or None,
+        )
+
+    # -- A name with a certificate of its own ----------------------------------
+
+    def own_lineages(self, primary: str) -> list[str]:
+        """
+        List the lineages of an application's names that hold a certificate of their own.
+
+        Args:
+            primary: The application's primary domain.
+
+        Returns:
+            Their lineage names, for the names switched on that have one, in the rows' order.
+            Only those on disk: one that was never ordered, or whose order failed, has
+            nothing to renew.
+        """
+        found = []
+        for name in own_names(self._domain_records(primary)):
+            lineage = lineage_name(name)
+            if (self.LIVE_DIR / lineage / "fullchain.pem").exists():
+                found.append(lineage)
+        return found
+
+    def obtain_name(
+        self,
+        name: str,
+        *,
+        email: str | None = None,
+        nginx: bool = False,
+        apache: bool = False,
+        dry_run: bool = False,
+        force: bool = False,
+        known: Sequence[CertificateInfo] | None = None,
+    ) -> bool:
+        """
+        Order the certificate a name holds on its own, or confirm that it already does.
+
+        The lineage is named after the name and holds only it. How it is proven is the
+        name's own settings (:class:`~noust.core.certificate_store.CertificateSettings`,
+        keyed by the name): HTTP-01 through the web server unless they say DNS-01 through an
+        account, which a wildcard needs. A certificate that already names it is left alone,
+        because an order spends the authority's rate limit.
+
+        Args:
+            name: The name, a wildcard included.
+            email: Email for registration and recovery.
+            nginx: Prove control through the nginx plugin.
+            apache: Prove control through the apache plugin.
+            dry_run: Ask certbot for a test certificate.
+            force: Order again although the certificate names it already: how a name changes
+                the way it is proven, which certbot keeps in the lineage's renewal file.
+            known: What ``certbot certificates`` listed a moment ago, to spare asking again
+                for each of several names.
+
+        Returns:
+            True when a certificate naming it exists.
+
+        Raises:
+            CertificateError: The name is not a domain, a wildcard has no DNS account to be
+                proven with, certbot's list cannot be read while a lineage is there, or
+                certbot refused (its output is carried verbatim).
+        """
+        require_server_role("Certificates")
+        host = self._validated_name(name)
+        lineage = lineage_name(host)
+        settings = self.certificate_settings(host)
+        dns_account = settings.dns_provider if settings.challenge == CHALLENGE_DNS else None
+        if is_wildcard(host) and dns_account is None:
+            raise CertificateError(
+                f"{host} can only be proven with the DNS challenge",
+                details=(
+                    "A wildcard certificate needs a record in the domain's DNS zone, not an "
+                    "open port. Choose the DNS account that manages it: "
+                    f"noust domain certificate APP {host} --own --dns NAME"
+                ),
+            )
+
+        covered: list[str] | None = None
+        on_disk = (self.LIVE_DIR / lineage / "fullchain.pem").exists()
+        if on_disk and not dry_run:
+            listed = list(known) if known is not None else self._query_certificates()
+            if listed is None:
+                raise CertificateError(
+                    f"Cannot read the certificates certbot manages, and {host} already has one",
+                    details=(
+                        "Ordering again without knowing what it covers would spend a rate limit "
+                        "for nothing. Run 'certbot certificates' as root to see what it "
+                        "reports, fix that, and run this command again."
+                    ),
+                )
+            covered = next((list(c.domains) for c in listed if c.name == lineage), [])
+            if host in covered and not force:
+                self.logger.info(f"{host} already has a certificate of its own")
+                return True
+
+        cmd = self._build_issue_command(
+            [host],
+            email=email,
+            webroot=None,
+            standalone=False,
+            nginx=nginx,
+            apache=apache,
+            expand=covered is not None and host not in covered,
+            dry_run=dry_run,
+            dns_account=dns_account,
+            force_renewal=force,
+            cert_name=lineage,
+        )
+        self._order(cmd, [host], host)
+        if not dry_run:
+            self._install_deploy_hook()
+        self.logger.debug(f"Obtained the certificate of its own for: {host}")
+        return True
+
+    def _obtain_own_names(
+        self,
+        primary: str,
+        *,
+        email: str | None,
+        nginx: bool,
+        apache: bool,
+        dry_run: bool,
+    ) -> None:
+        """
+        Order the lineage of every name of an application that holds a certificate of its own.
+
+        Every name is tried, so one whose DNS is not ready does not keep the others from theirs.
+
+        Args:
+            primary: The application's primary domain.
+            email: Email for registration and recovery.
+            nginx: Prove control through the nginx plugin.
+            apache: Prove control through the apache plugin.
+            dry_run: Ask certbot for test certificates.
+
+        Raises:
+            CertificateError: Some name could not be ordered; the error of the one that
+                failed, or all of them together when several did.
+        """
+        names = own_names(self._domain_records(primary))
+        if not names:
+            return
+        known = None if dry_run else self._query_certificates()
+        failures: list[CertificateError] = []
+        for name in names:
+            try:
+                self.obtain_name(
+                    name, email=email, nginx=nginx, apache=apache, dry_run=dry_run, known=known
+                )
+            except CertificateError as exc:
+                failures.append(exc)
+        if not failures:
+            return
+        if len(failures) == 1:
+            raise failures[0]
+        raise CertificateError(
+            f"Failed to obtain {len(failures)} certificates of their own",
+            details="\n\n".join(f"{exc.message}\n{exc.details or ''}".strip() for exc in failures),
+            output="\n\n".join(exc.output for exc in failures if exc.output) or None,
+        )
+
+    def delete_name(self, name: str) -> bool:
+        """
+        Delete the certificate a name held on its own, without revoking it.
+
+        A lineage that is already gone is not an error: the caller wanted it absent. Its
+        settings go with it, so the name starts over if it takes a certificate again.
+
+        Args:
+            name: The name, a wildcard included.
+
+        Returns:
+            True when no certificate remains for it.
+
+        Raises:
+            CertificateError: The name is not a domain, an application still serves it with
+                a certificate of its own, or certbot refused (its words are the details).
+        """
+        host = self._validated_name(name)
+        lineage = lineage_name(host)
+        try:
+            in_use = self.store.domain_certificate(host) == OWN
+        except (NoustError, sqlite3.Error) as exc:
+            self.logger.warning(f"Could not tell whether {host} still holds its lineage: {exc}")
+            in_use = True
+        if in_use:
+            raise CertificateError(
+                f"{host} is served with the certificate of its own",
+                details=(
+                    "Give it back to the shared certificate first, or remove the name: "
+                    "noust domain certificate APP NAME --shared"
+                ),
+            )
+        if (self.LIVE_DIR / lineage / "fullchain.pem").exists():
+            result = self._exec(
+                ["certbot", "delete", "--cert-name", lineage, "--non-interactive"],
+                timeout=_ISSUE_TIMEOUT,
+            )
+            if not result.success:
+                raise CertificateError(
+                    f"Failed to delete the certificate of {host}",
+                    details=(result.stderr or result.stdout).strip(),
+                )
+        self.certificates.forget(host)
         return True
 
     def _covering_lineage(self, names: Sequence[str]) -> str | None:
@@ -1498,6 +1807,7 @@ class CertManager(BaseManager):
         dry_run: bool,
         dns_account: str | None = None,
         force_renewal: bool = False,
+        cert_name: str | None = None,
     ) -> list[str]:
         """
         Assemble the ``certbot certonly`` argument vector.
@@ -1514,11 +1824,12 @@ class CertManager(BaseManager):
             dns_account: Prove control with the DNS challenge through this account
                 instead of any of the plugins above.
             force_renewal: Add ``--force-renewal``.
+            cert_name: The lineage, when it is not named after the first domain (a wildcard's).
 
         Returns:
             The full argument vector.
         """
-        primary = domains[0]
+        primary = cert_name or domains[0]
         # --cert-name pins the lineage: the same domain always renews and
         # expands in place instead of spawning example.com-0001.
         cmd = ["certbot", "certonly", "--cert-name", primary]
@@ -1819,25 +2130,26 @@ class CertManager(BaseManager):
         """
         Renew certificates.
 
+        An application's certificates are all of its lineages: the one under its primary
+        domain and one for each name that holds a certificate of its own. Each is renewed
+        by its own certbot command, so a lineage that cannot be (a name whose DNS stopped
+        pointing here) does not keep the others from it, and every one that failed is named.
+
         Args:
-            domain: Lineage to renew, or None for every certificate that is due.
+            domain: Lineage to renew, or None for every certificate that is due. An
+                application's primary domain stands for all of its lineages.
             force: Renew even when the certificate is not near expiry.
             dry_run: Rehearse the renewal against the staging environment.
 
         Returns:
-            True when certbot reported success.
+            True when certbot reported success for every lineage asked for.
 
         Raises:
             CertificateError: When the domain is invalid or renewal fails.
         """
         require_server_role("Certificates")
-        # Every caller is a command or a console job somebody is waiting on. certbot, run
-        # without a terminal, sleeps a random time of up to eight minutes first (it is meant for
-        # the cron and the timer, and spreads the load on the authority): with nothing printed,
-        # that looks like a hang. The timer certbot ships is certbot's own and keeps the sleep.
-        cmd = ["certbot", "renew", "--non-interactive", "--no-random-sleep-on-renew"]
-
         validated = self._validated(domain) if domain else None
+        lineages: list[str | None] = [None]
         if validated:
             settings = self.certificate_settings(validated)
             if settings.source == SOURCE_CUSTOM:
@@ -1845,30 +2157,65 @@ class CertManager(BaseManager):
                     f"{validated} is served with an uploaded certificate, which is not renewed",
                     details="Upload the new one over it: noust cert upload NAME --cert FILE --key FILE",
                 )
-            cmd.extend(["--cert-name", validated])
+            lineages = [validated, *self.own_lineages(validated)]
+
+        failures: list[tuple[str | None, str, CertificateError]] = []
+        for lineage in lineages:
+            try:
+                self._renew_lineage(lineage, force=force, dry_run=dry_run)
+            except CertificateError as exc:
+                failures.append((lineage, exc.output or exc.details or exc.message, exc))
+        if not failures:
+            return True
+        if len(failures) == 1:
+            raise failures[0][2]
+        raise CertificateError(
+            f"Certificate renewal failed for {', '.join(str(name) for name, _, _ in failures)}",
+            details="\n\n".join(f"{name}:\n{output}" for name, output, _ in failures),
+            output="\n\n".join(output for _, output, _ in failures) or None,
+        )
+
+    def _renew_lineage(self, lineage: str | None, *, force: bool, dry_run: bool) -> None:
+        """
+        Run one ``certbot renew``.
+
+        Args:
+            lineage: The lineage to renew, or None for every certificate that is due.
+            force: Renew even when the certificate is not near expiry.
+            dry_run: Rehearse the renewal against the staging environment.
+
+        Raises:
+            CertificateError: certbot refused; a lineage whose DNS does not point here is
+                named first, and certbot's output is carried verbatim.
+        """
+        # Every caller is a command or a console job somebody is waiting on. certbot, run
+        # without a terminal, sleeps a random time of up to eight minutes first (it is meant for
+        # the cron and the timer, and spreads the load on the authority): with nothing printed,
+        # that looks like a hang. The timer certbot ships is certbot's own and keeps the sleep.
+        cmd = ["certbot", "renew", "--non-interactive", "--no-random-sleep-on-renew"]
+        if lineage:
+            cmd.extend(["--cert-name", lineage])
         if force:
             cmd.append("--force-renewal")
         if dry_run:
             cmd.append("--dry-run")
 
         result = self._exec(cmd, timeout=_RENEW_TIMEOUT)
-        if not result.success:
-            output = _certbot_failure_output(result)
-            # A bulk "renew everything" failure can span several unrelated
-            # domains; diagnosing DNS only when one was named keeps this to a
-            # single lookup instead of re-reading every lineage from certbot.
-            diagnosis = _diagnose_challenge_failure(output, [validated] if validated else ())
-            if diagnosis is not None:
-                message, details = diagnosis
-                raise CertificateError(message, details=details, output=output or None)
-            raise CertificateError(
-                "Certificate renewal failed",
-                details=output
-                or "Run 'certbot renew --dry-run' to see what the ACME server reports.",
-                output=output or None,
-            )
-
-        return True
+        if result.success:
+            return
+        output = _certbot_failure_output(result)
+        # A bulk "renew everything" failure can span several unrelated
+        # domains; diagnosing DNS only when one was named keeps this to a
+        # single lookup instead of re-reading every lineage from certbot.
+        diagnosis = _diagnose_challenge_failure(output, [lineage] if lineage else ())
+        if diagnosis is not None:
+            message, details = diagnosis
+            raise CertificateError(message, details=details, output=output or None)
+        raise CertificateError(
+            "Certificate renewal failed",
+            details=output or "Run 'certbot renew --dry-run' to see what the ACME server reports.",
+            output=output or None,
+        )
 
     def renew_and_report(
         self, domain: str | None = None, force: bool = False

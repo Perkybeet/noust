@@ -58,6 +58,7 @@ from noust.core.config import (
     NGINX_SITES_ENABLED,
     Config,
 )
+from noust.core.domain_certificates import OWN, lineage_name
 from noust.core.exceptions import (
     ApacheError,
     CertificateError,
@@ -80,6 +81,7 @@ from noust.managers.site_history import SiteHistory
 from noust.managers.site_policy import (
     SitePolicy,
     SitePolicyManager,
+    counterpart,
     policy_context,
     response_headers,
     site_names,
@@ -493,6 +495,11 @@ APACHE_BACKEND = WebServerBackend(
     server_name_pattern=re.compile(r"^\s*Server(?:Name|Alias)\s+(.+?)\s*$", re.MULTILINE),
     main_config="apache2.conf",
 )
+
+
+#: Templates that write the server blocks of every name out of one, with one certificate: a
+#: monorepo's has a block per workspace subdomain, and nothing in it can be set apart.
+_TEMPLATES_WITH_ONE_CERTIFICATE = frozenset({"monorepo"})
 
 
 class WebServerManager(BaseManager):
@@ -1017,9 +1024,49 @@ class WebServerManager(BaseManager):
         ctx["redirect_domains"] = [
             name for name in ctx.get("redirect_domains") or [] if name not in served
         ]
+        # Every server block pair a template writes: the application's own names, then one
+        # for each group the store set apart (a name proxied to a port of its own, a name
+        # that holds a certificate of its own), each with the certificate it presents. The
+        # one place that turns the extra groups into what the templates loop over, so no
+        # template works out for itself which names go where.
+        ctx["servers"] = [
+            {
+                "names": ctx["server_names"],
+                "primary": ctx["server_primary"],
+                "aliases": ctx["server_aliases"],
+                "port": None,
+                "ssl_certificate": ctx["ssl_certificate"],
+                "ssl_certificate_key": ctx["ssl_certificate_key"],
+            },
+            *(self._extra_server(entry, ctx) for entry in ctx.get("extra_servers") or []),
+        ]
         for key, value in self._policy_variables(domain, ctx).items():
             ctx.setdefault(key, value)
         return ctx
+
+    @staticmethod
+    def _extra_server(entry: Mapping[str, Any], ctx: Mapping[str, Any]) -> dict[str, Any]:
+        """
+        Shape one group of names set apart from the application's own.
+
+        Args:
+            entry: ``names`` (space separated), and optionally ``port`` and the paths of the
+                certificate this group presents.
+            ctx: The context built so far, whose certificate a group without one presents.
+
+        Returns:
+            What a template reads of a server: its names (and the first as its main one),
+            the port it proxies to (None for the application's), and its certificate.
+        """
+        names = str(entry["names"]).split()
+        return {
+            "names": " ".join(names),
+            "primary": names[0],
+            "aliases": names[1:],
+            "port": entry.get("port"),
+            "ssl_certificate": entry.get("ssl_certificate") or ctx["ssl_certificate"],
+            "ssl_certificate_key": entry.get("ssl_certificate_key") or ctx["ssl_certificate_key"],
+        }
 
     def _policy_variables(self, domain: str, ctx: Mapping[str, Any]) -> dict[str, Any]:
         """
@@ -1117,10 +1164,10 @@ class WebServerManager(BaseManager):
         # build_context already rejoined server_names on single spaces, so a
         # newline in it can no longer end a directive; what is left to refuse
         # is a token that is not a domain, such as ``evil.com;``.
-        proxied = [
-            name for group in ctx.get("port_servers") or [] for name in str(group["names"]).split()
+        apart = [
+            name for group in ctx.get("extra_servers") or [] for name in str(group["names"]).split()
         ]
-        for name in [*ctx["server_names"].split(), *ctx["redirect_domains"], *proxied]:
+        for name in [*ctx["server_names"].split(), *ctx["redirect_domains"], *apart]:
             valid, reason = is_valid_server_name(name)
             if not valid or name != name.strip():
                 raise DomainError(
@@ -1300,7 +1347,7 @@ class WebServerManager(BaseManager):
             ApacheError: When the apache configuration cannot be written.
         """
         config_path = self.config_path(domain)
-        names = self._application_names(domain.strip().lower())
+        names = self._application_names(domain.strip().lower(), template)
         upstream = self._upstream_context(domain.strip().lower())
         served = self._certificate_context(domain.strip().lower())
         ctx = self.build_context(domain, {**(context or {}), **names, **upstream, **served})
@@ -1392,7 +1439,7 @@ class WebServerManager(BaseManager):
         for module in needed:
             self.enable_module(module)
 
-    def _application_names(self, domain: str) -> dict[str, Any]:
+    def _application_names(self, domain: str, template: str = "proxy") -> dict[str, Any]:
         """
         Read the names an application's site answers on, from the store.
 
@@ -1402,15 +1449,23 @@ class WebServerManager(BaseManager):
         decide which aliases survive, and a redeploy that knew nothing about
         domains would quietly drop them all.
 
+        A name that holds a certificate of its own (``domains.certificate``) is set apart
+        like one proxied to a port of its own: a server block pair of its own, presenting its
+        own lineage, and the shared block no longer claims it. It is set apart only once that
+        lineage is on disk, so a name whose order failed, or has not run yet, goes on being
+        served with the shared certificate instead of with a file the web server cannot open.
+
         Args:
             domain: Domain of the site being written.
+            template: The template it is rendered with. A monorepo's has its own server blocks
+                per workspace and one certificate, so no name is set apart from it.
 
         Returns:
-            ``server_names`` and ``redirect_domains`` for the template when the
-            domain is an application's, overriding whatever the caller passed;
-            empty for a site that is no application's, which keeps the names
-            it was given (``noust site create --www``), and for a store that
-            cannot be read, which is reported.
+            ``server_names``, ``extra_servers``, ``redirect_domains`` and
+            ``redirect_certificates`` for the template when the domain is an application's,
+            overriding whatever the caller passed; empty for a site that is no application's,
+            which keeps the names it was given (``noust site create --www``), and for a store
+            that cannot be read, which is reported.
         """
         try:
             records = self.store.list_domains(domain, include_disabled=False)
@@ -1423,21 +1478,72 @@ class WebServerManager(BaseManager):
         if not records:
             return {}
         names = site_names(domain, records, canonical)
-        by_port: dict[int, list[str]] = {}
-        for name, port in names.ports.items():
-            by_port.setdefault(port, []).append(name)
+        own = (
+            {}
+            if template in _TEMPLATES_WITH_ONE_CERTIFICATE
+            else self._own_certificates(records, names, canonical)
+        )
+        main = [name for name in names.served if name not in names.ports and name not in own]
+        if not main:
+            # Nothing would answer on the application's own block: the names stay together.
+            own = {}
+            main = [name for name in names.served if name not in names.ports]
+        apart: dict[tuple[int, str], list[str]] = {}
+        for name in names.served:
+            if name in main:
+                continue
+            port = names.ports.get(name)
+            apart.setdefault((port or 0, name if name in own else ""), []).append(name)
+        extra = []
+        for (port, owner), group in sorted(apart.items()):
+            entry: dict[str, Any] = {"names": " ".join(group), "port": port or None}
+            if owner:
+                entry.update(own[owner])
+            extra.append(entry)
         return {
-            # A name proxied to a port of its own is served by a server block of its
-            # own, so the main one does not claim it too.
-            "server_names": " ".join(name for name in names.served if name not in names.ports),
-            "port_servers": [
-                {"names": " ".join(group), "port": port} for port, group in sorted(by_port.items())
-            ],
+            # A name proxied to a port of its own, or holding a certificate of its own, is
+            # served by a server block of its own, so the main one does not claim it too.
+            "server_names": " ".join(main),
+            "extra_servers": extra,
             "redirect_domains": list(names.redirects),
+            "redirect_certificates": {name: own[name] for name in names.redirects if name in own},
             # Where the redirects go: the primary, or its www spelling when
             # that is the canonical one.
             "redirect_target": names.target,
         }
+
+    def _own_certificates(
+        self, records: Sequence[Any], names: Any, canonical: str
+    ) -> dict[str, dict[str, str]]:
+        """
+        Find the names that hold a certificate of their own, and say which files present it.
+
+        Args:
+            records: The application's domain rows that are switched on.
+            names: What the site answers on and redirects (:func:`site_names`).
+            canonical: The policy's choice of spelling, ``www``, ``apex`` or empty.
+
+        Returns:
+            For each served or redirected name that asked for one and whose lineage is on
+            disk, ``ssl_certificate`` and ``ssl_certificate_key``. The canonical spelling and
+            the one that redirects to it are served together and keep the shared certificate.
+        """
+        together = {names.target}
+        if canonical:
+            together.add(counterpart(names.target))
+        live = CertManager.LETSENCRYPT_DIR / "live"
+        found: dict[str, dict[str, str]] = {}
+        for record in records:
+            if record.certificate != OWN or record.domain in together:
+                continue
+            base = live / lineage_name(record.domain)
+            if not (base / "fullchain.pem").is_file():
+                continue
+            found[record.domain] = {
+                "ssl_certificate": str(base / "fullchain.pem"),
+                "ssl_certificate_key": str(base / "privkey.pem"),
+            }
+        return found
 
     def _upstream_context(self, domain: str) -> dict[str, Any]:
         """
