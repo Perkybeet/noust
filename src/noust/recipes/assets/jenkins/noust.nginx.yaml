@@ -1,0 +1,6 @@
+# How nginx proxies this application. Plugins are uploaded from the browser, a build's console output streams while it runs, and agents connect over a websocket.
+max_body_size: 200m
+routes:
+  - path: /
+    read_timeout: 600
+    buffering: false
