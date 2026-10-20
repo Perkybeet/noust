@@ -101,6 +101,8 @@ export const databases: Catalog<typeof en> = {
     unprotectedBody: "Sin programación, una base de datos solo está tan a salvo como su último volcado manual.",
     showThem: "Mostrarlas",
     actionsFor: "Acciones de {name}",
+    editTags: "Editar tags...",
+    noun: "la base de datos",
     open: "Abrir",
     query: "Consultar",
     connect: "Conectar",

@@ -1,13 +1,18 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { CirclePause, CirclePlay, PanelTop, RotateCw, ScrollText, ToggleLeft, ToggleRight } from "lucide-react";
+import { CirclePause, CirclePlay, PanelTop, RotateCw, ScrollText, Tags, ToggleLeft, ToggleRight } from "lucide-react";
 
+import { useQueryClient } from "@tanstack/react-query";
+
+import { request } from "../../api/client";
+import { serviceKeys } from "../../api/queries/services";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
 import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
+import { ResourceTagsDialog } from "../app/settings/ResourceTagsDialog";
 import type { ServiceInfo } from "./data";
 import { useServiceActions } from "./useServiceActions";
 
@@ -24,6 +29,8 @@ export function ServiceRowActions({ service }: { service: ServiceInfo }) {
   const { node } = useNode();
   const { start, stop, restart, enable, disable } = useServiceActions(name);
   const [confirmStop, setConfirmStop] = useState(false);
+  const [editingTags, setEditingTags] = useState(false);
+  const queryClient = useQueryClient();
 
   return (
     <>
@@ -36,6 +43,9 @@ export function ServiceRowActions({ service }: { service: ServiceInfo }) {
       </MenuItem>
       {service.managed ? (
         <>
+          <MenuItem icon={<Tags />} onClick={() => setEditingTags(true)}>
+            {t("services.actions.editTags")}
+          </MenuItem>
           <MenuSeparator />
           {service.active ? (
             <MenuItem icon={<CirclePause />} disabled={stop.isPending} onClick={() => setConfirmStop(true)}>
@@ -62,6 +72,16 @@ export function ServiceRowActions({ service }: { service: ServiceInfo }) {
         </>
       ) : null}
     </Menu>
+    {editingTags ? (
+      <ResourceTagsDialog
+        name={name}
+        noun={t("services.actions.noun")}
+        tags={service.tags ?? []}
+        save={(tags) => request("put", "/api/services/{name}/tags", { params: { name }, body: { tags } })}
+        onSaved={() => void queryClient.invalidateQueries({ queryKey: serviceKeys.all })}
+        onClose={() => setEditingTags(false)}
+      />
+    ) : null}
     <ConfirmDialog
       open={confirmStop}
       onOpenChange={setConfirmStop}
