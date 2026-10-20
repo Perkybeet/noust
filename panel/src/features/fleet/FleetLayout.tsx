@@ -3,7 +3,7 @@ import { Network } from "lucide-react";
 import { useState } from "react";
 
 import { LinkTabs } from "../../app/LinkTabs";
-import { FLEET_TABS } from "../../app/nav";
+import { FLEET_TABS } from "../nav/fleet";
 import { DetailPage } from "../../components/page/DetailPage";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";

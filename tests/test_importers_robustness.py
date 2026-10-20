@@ -88,6 +88,36 @@ PARITY: list[tuple[str, dict[str, Any]]] = [
     ("n = [0xff, 0o17, 0b101, -3, +4, 0]\n", {"n": [255, 15, 5, -3, 4, 0]}),
     ("f = [1.5, -0.25, 3e2, 6.02E+23, 1_000.5]\n", {"f": [1.5, -0.25, 300.0, 6.02e23, 1000.5]}),
     ("# comment only\n\n[t] # trailing\nk = 'v' # after\n", {"t": {"k": "v"}}),
+    (
+        "[[domains]]\nserviceName = 'web'\nport = 2_368\n[[domains]]\nserviceName = 'api'\n",
+        {"domains": [{"serviceName": "web", "port": 2368}, {"serviceName": "api"}]},
+    ),
+    (
+        "[config]\nenv = ['A=1']\n[[config.domains]]\nhost = 'a'\n[[config.domains]]\nhost = 'b'\n"
+        "[[config.mounts]]\nfilePath = '/x'\n",
+        {
+            "config": {
+                "env": ["A=1"],
+                "domains": [{"host": "a"}, {"host": "b"}],
+                "mounts": [{"filePath": "/x"}],
+            }
+        },
+    ),
+    (
+        "[[fruits]]\nname = 'apple'\n[fruits.physical]\ncolor = 'red'\n"
+        "[[fruits.varieties]]\nname = 'red delicious'\n[[fruits.varieties]]\nname = 'granny'\n"
+        "[[fruits]]\nname = 'banana'\n",
+        {
+            "fruits": [
+                {
+                    "name": "apple",
+                    "physical": {"color": "red"},
+                    "varieties": [{"name": "red delicious"}, {"name": "granny"}],
+                },
+                {"name": "banana"},
+            ]
+        },
+    ),
     ("a = 1\r\nb = 'x'\r\n", {"a": 1, "b": "x"}),
 ]
 
@@ -111,6 +141,10 @@ def test_the_fallback_reads_toml_as_tomllib_does(text: str, expected: dict[str, 
         "a = 1\na = 2\n",
         "a = 007\n",
         "[a\n",
+        "a = [1]\n[[a]]\nb = 1\n",
+        "[a]\nb = 1\n[[a]]\nc = 1\n",
+        "[[a]]\nb = 1\n[a]\nc = 1\n",
+        "a = [{b = 1}]\n[[a]]\nc = 1\n",
     ],
 )
 def test_the_fallback_refuses_what_tomllib_refuses(text: str) -> None:
@@ -132,9 +166,13 @@ def test_what_the_fallback_does_not_read_is_a_warning_not_a_failure() -> None:
 
     parsed = load_toml_fallback(text, name="railway.toml", warn=warnings.append)
 
-    assert parsed == {"deploy": {"startCommand": "npm start"}, "build": {"builder": "NIXPACKS"}}
+    assert parsed == {
+        "deploy": {"startCommand": "npm start"},
+        "services": [{"name": "web"}],
+        "build": {"builder": "NIXPACKS"},
+    }
     assert any("line 3: deploy.created holds a date" in w for w in warnings)
-    assert any("line 4: [[services]] is an array of tables" in w for w in warnings)
+    assert not any("array of tables" in w for w in warnings)
 
 
 def test_railway_on_python_3_10_unescapes_the_start_command(
@@ -152,7 +190,7 @@ def test_railway_on_python_3_10_unescapes_the_start_command(
     proposal = read_platform("railway", tmp_path)
 
     assert proposal.start_command == 'sh -c "npm start"'
-    assert "array of tables" in joined(proposal)
+    assert "array of tables" not in joined(proposal)
 
 
 # Render ---------------------------------------------------------------------------------

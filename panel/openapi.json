@@ -11938,7 +11938,7 @@
         "type": "object"
       },
       "CoolifyImportOut": {
-        "description": "A template, converted.\n\nAttributes:\n    document: The Compose document.\n    values: The values of the variables made here, by name: new secrets among them. Give\n        them as ``env_vars`` when the document is deployed.\n    variables: How each variable gets its value.\n    routed_service: The service the domain goes to.\n    routed_port: Its container port.\n    metadata: The template's header.\n    adjustments: What was changed to make it a Noust document.\n    warnings: What was not translated and why.\n    analysis: The same look any pasted document gets.",
+        "description": "A template, converted.\n\nAttributes:\n    document: The Compose document.\n    values: The values of the variables made here, by name: new secrets among them. Give\n        them as ``env_vars`` when the document is deployed.\n    variables: How each variable gets its value.\n    routed_service: The service the domain goes to.\n    routed_port: Its container port.\n    metadata: The template's header.\n    adjustments: What was changed to make it a Noust document.\n    warnings: What was not translated and why.\n    files: For a Dokploy template: the files it mounts, by path beside the document. Write\n        them where the document is before deploying that folder.\n    secret_files: The paths among ``files`` that hold a generated secret.\n    analysis: The same look any pasted document gets.",
         "properties": {
           "adjustments": {
             "items": {
@@ -11953,6 +11953,14 @@
           "document": {
             "title": "Document",
             "type": "string"
+          },
+          "files": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "title": "Files",
+            "type": "object"
           },
           "metadata": {
             "additionalProperties": {
@@ -11982,6 +11990,14 @@
               }
             ],
             "title": "Routed Service"
+          },
+          "secret_files": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Secret Files",
+            "type": "array"
           },
           "values": {
             "additionalProperties": {
@@ -12018,7 +12034,7 @@
         "type": "object"
       },
       "CoolifyImportRequest": {
-        "description": "A Coolify service template to convert.\n\nAttributes:\n    document: The template's text, up to 256 KiB.\n    domain: The name the stack will be served on; without one the addresses are left to give.\n    port: The host port the web service is published on (loopback); the container's own\n        port by default.",
+        "description": "A Coolify or Dokploy service template to convert.\n\nAttributes:\n    document: The template's text, up to 256 KiB: Coolify's Compose file, or Dokploy's\n        ``docker-compose.yml``.\n    format: Whose template it is.\n    template: For ``dokploy``: the ``template.toml`` that goes with the Compose file, up to\n        1 MiB.\n    domain: The name the stack will be served on; without one the addresses are left to give\n        (a Dokploy template that builds its addresses from the domain needs one).\n    port: The host port the web service is published on (loopback); the container's own\n        port by default.",
         "properties": {
           "document": {
             "maxLength": 262144,
@@ -12036,6 +12052,15 @@
             ],
             "title": "Domain"
           },
+          "format": {
+            "default": "coolify",
+            "enum": [
+              "coolify",
+              "dokploy"
+            ],
+            "title": "Format",
+            "type": "string"
+          },
           "port": {
             "anyOf": [
               {
@@ -12048,6 +12073,18 @@
               }
             ],
             "title": "Port"
+          },
+          "template": {
+            "anyOf": [
+              {
+                "maxLength": 1048576,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template"
           }
         },
         "required": [
@@ -33875,6 +33912,14 @@
             "title": "Cron",
             "type": "array"
           },
+          "database_details": {
+            "description": "The databases it used, and how to bring their data",
+            "items": {
+              "$ref": "#/components/schemas/ProposedDatabaseResponse"
+            },
+            "title": "Database Details",
+            "type": "array"
+          },
           "databases": {
             "description": "Engines it needs",
             "items": {
@@ -34004,7 +34049,7 @@
             "type": "array"
           },
           "platform": {
-            "description": "vercel, railway, render, heroku, coolify or dokploy",
+            "description": "vercel, railway, render, heroku, coolify, dokploy, caprover or dokku",
             "title": "Platform",
             "type": "string"
           },
@@ -34041,6 +34086,14 @@
               }
             ],
             "title": "Start Command"
+          },
+          "storage": {
+            "description": "The data it kept outside its image, and how to bring it",
+            "items": {
+              "$ref": "#/components/schemas/ProposedStorageResponse"
+            },
+            "title": "Storage",
+            "type": "array"
           },
           "warnings": {
             "description": "What has no equivalent, and what to do instead",
@@ -36404,6 +36457,117 @@
         "title": "ProposedCronResponse",
         "type": "object"
       },
+      "ProposedDatabaseResponse": {
+        "description": "A database the application used on the other platform.",
+        "properties": {
+          "database": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Database"
+          },
+          "dump": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The command that dumps it, for the other server. Not run",
+            "title": "Dump"
+          },
+          "engine": {
+            "description": "As noust db names it: postgresql, mysql, mariadb...",
+            "title": "Engine",
+            "type": "string"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          },
+          "linked": {
+            "default": false,
+            "description": "A variable of the application points at it",
+            "title": "Linked",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "reference": {
+            "description": "What names it there: a container, a service, a host",
+            "title": "Reference",
+            "type": "string"
+          },
+          "restore": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The command that loads the dump here",
+            "title": "Restore"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "engine",
+          "name",
+          "reference"
+        ],
+        "title": "ProposedDatabaseResponse",
+        "type": "object"
+      },
       "ProposedEnvResponse": {
         "description": "One environment variable the platform's configuration declares.",
         "properties": {
@@ -36457,6 +36621,86 @@
           "name"
         ],
         "title": "ProposedEnvResponse",
+        "type": "object"
+      },
+      "ProposedStorageResponse": {
+        "description": "Data the application kept outside its image on the other platform.",
+        "properties": {
+          "export": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The command to copy it out, for the other server. Not run",
+            "title": "Export"
+          },
+          "host_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The directory of the other server that held it",
+            "title": "Host Path"
+          },
+          "mount_path": {
+            "description": "Where the application saw it, inside its container",
+            "title": "Mount Path",
+            "type": "string"
+          },
+          "persistent_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The path --persist keeps for it here; null when there is none",
+            "title": "Persistent Path"
+          },
+          "read_only": {
+            "default": false,
+            "title": "Read Only",
+            "type": "boolean"
+          },
+          "restore": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The command that puts it back here",
+            "title": "Restore"
+          },
+          "volume": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Docker volume that held it",
+            "title": "Volume"
+          }
+        },
+        "required": [
+          "mount_path"
+        ],
+        "title": "ProposedStorageResponse",
         "type": "object"
       },
       "ProtectCredentialsResponse": {
@@ -41223,7 +41467,7 @@
             "title": "Domain"
           },
           "platform": {
-            "description": "coolify or dokploy",
+            "description": "coolify, dokploy or caprover",
             "title": "Platform",
             "type": "string"
           },
@@ -41246,7 +41490,7 @@
             "title": "Source"
           },
           "token": {
-            "description": "A read-only API token. Not stored",
+            "description": "A read-only API token (CapRover: the dashboard's password). Not stored",
             "maxLength": 512,
             "title": "Token",
             "type": "string"
@@ -41297,12 +41541,12 @@
         "description": "The server to read, and the token to read it with.",
         "properties": {
           "platform": {
-            "description": "coolify or dokploy",
+            "description": "coolify, dokploy or caprover",
             "title": "Platform",
             "type": "string"
           },
           "token": {
-            "description": "A read-only API token. Not stored",
+            "description": "A read-only API token (CapRover: the dashboard's password). Not stored",
             "maxLength": 512,
             "title": "Token",
             "type": "string"
@@ -81693,7 +81937,7 @@
     },
     "/api/compose/import": {
       "post": {
-        "description": "Convert a Coolify service template to a Compose document Noust deploys.\n\nNothing is run, fetched or saved. The values it makes (generated secrets, the addresses of the\ndomain) are in the answer and nowhere else: a second request makes new ones.\n\nArgs:\n    body: The template, and optionally the domain and the host port.\n    session: The authenticated session.\n\nReturns:\n    The document, the values, and what was changed or left.\n\nRaises:\n    ValidationError: It is not a Compose template, or the domain is not a name (400).",
+        "description": "Convert a Coolify or Dokploy service template to a Compose document Noust deploys.\n\nNothing is run, fetched or saved. The values it makes (generated secrets, the addresses of the\ndomain) are in the answer and nowhere else: a second request makes new ones.\n\nArgs:\n    body: The template, whose it is, and optionally the domain and the host port.\n    session: The authenticated session.\n\nReturns:\n    The document, the values, the files a Dokploy template mounts, and what was changed or left.\n\nRaises:\n    ValidationError: It is not a Compose template, a Dokploy template mounts a file whose path\n        leaves the folder or needs a domain that was not given, or the domain is not a name\n        (400).",
         "operationId": "import_coolify_api_compose_import_post",
         "requestBody": {
           "content": {

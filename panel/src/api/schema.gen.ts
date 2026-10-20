@@ -11316,20 +11316,22 @@ export interface paths {
         put?: never;
         /**
          * Import Coolify
-         * @description Convert a Coolify service template to a Compose document Noust deploys.
+         * @description Convert a Coolify or Dokploy service template to a Compose document Noust deploys.
          *
          *     Nothing is run, fetched or saved. The values it makes (generated secrets, the addresses of the
          *     domain) are in the answer and nowhere else: a second request makes new ones.
          *
          *     Args:
-         *         body: The template, and optionally the domain and the host port.
+         *         body: The template, whose it is, and optionally the domain and the host port.
          *         session: The authenticated session.
          *
          *     Returns:
-         *         The document, the values, and what was changed or left.
+         *         The document, the values, the files a Dokploy template mounts, and what was changed or left.
          *
          *     Raises:
-         *         ValidationError: It is not a Compose template, or the domain is not a name (400).
+         *         ValidationError: It is not a Compose template, a Dokploy template mounts a file whose path
+         *             leaves the folder or needs a domain that was not given, or the domain is not a name
+         *             (400).
          */
         post: operations["import_coolify_api_compose_import_post"];
         delete?: never;
@@ -35417,6 +35419,9 @@ export interface components {
          *         metadata: The template's header.
          *         adjustments: What was changed to make it a Noust document.
          *         warnings: What was not translated and why.
+         *         files: For a Dokploy template: the files it mounts, by path beside the document. Write
+         *             them where the document is before deploying that folder.
+         *         secret_files: The paths among ``files`` that hold a generated secret.
          *         analysis: The same look any pasted document gets.
          */
         CoolifyImportOut: {
@@ -35425,6 +35430,13 @@ export interface components {
             analysis: components["schemas"]["ComposeAnalysisOut"];
             /** Document */
             document: string;
+            /**
+             * Files
+             * @default {}
+             */
+            files: {
+                [key: string]: string;
+            };
             /** Metadata */
             metadata: {
                 [key: string]: string;
@@ -35433,6 +35445,11 @@ export interface components {
             routed_port?: number | null;
             /** Routed Service */
             routed_service?: string | null;
+            /**
+             * Secret Files
+             * @default []
+             */
+            secret_files: string[];
             /** Values */
             values: {
                 [key: string]: string;
@@ -35444,11 +35461,16 @@ export interface components {
         };
         /**
          * CoolifyImportRequest
-         * @description A Coolify service template to convert.
+         * @description A Coolify or Dokploy service template to convert.
          *
          *     Attributes:
-         *         document: The template's text, up to 256 KiB.
-         *         domain: The name the stack will be served on; without one the addresses are left to give.
+         *         document: The template's text, up to 256 KiB: Coolify's Compose file, or Dokploy's
+         *             ``docker-compose.yml``.
+         *         format: Whose template it is.
+         *         template: For ``dokploy``: the ``template.toml`` that goes with the Compose file, up to
+         *             1 MiB.
+         *         domain: The name the stack will be served on; without one the addresses are left to give
+         *             (a Dokploy template that builds its addresses from the domain needs one).
          *         port: The host port the web service is published on (loopback); the container's own
          *             port by default.
          */
@@ -35457,8 +35479,16 @@ export interface components {
             document: string;
             /** Domain */
             domain?: string | null;
+            /**
+             * Format
+             * @default coolify
+             * @enum {string}
+             */
+            format: "coolify" | "dokploy";
             /** Port */
             port?: number | null;
+            /** Template */
+            template?: string | null;
         };
         /**
          * CopyIn
@@ -47036,6 +47066,11 @@ export interface components {
             /** Cron */
             cron?: components["schemas"]["ProposedCronResponse"][];
             /**
+             * Database Details
+             * @description The databases it used, and how to bring their data
+             */
+            database_details?: components["schemas"]["ProposedDatabaseResponse"][];
+            /**
              * Databases
              * @description Engines it needs
              */
@@ -47078,7 +47113,7 @@ export interface components {
             persistent_paths?: string[];
             /**
              * Platform
-             * @description vercel, railway, render, heroku, coolify or dokploy
+             * @description vercel, railway, render, heroku, coolify, dokploy, caprover or dokku
              */
             platform: string;
             /** Port */
@@ -47090,6 +47125,11 @@ export interface components {
             source?: string | null;
             /** Start Command */
             start_command?: string | null;
+            /**
+             * Storage
+             * @description The data it kept outside its image, and how to bring it
+             */
+            storage?: components["schemas"]["ProposedStorageResponse"][];
             /**
              * Warnings
              * @description What has no equivalent, and what to do instead
@@ -48424,6 +48464,50 @@ export interface components {
             schedule: string;
         };
         /**
+         * ProposedDatabaseResponse
+         * @description A database the application used on the other platform.
+         */
+        ProposedDatabaseResponse: {
+            /** Database */
+            database?: string | null;
+            /**
+             * Dump
+             * @description The command that dumps it, for the other server. Not run
+             */
+            dump?: string | null;
+            /**
+             * Engine
+             * @description As noust db names it: postgresql, mysql, mariadb...
+             */
+            engine: string;
+            /** Image */
+            image?: string | null;
+            /**
+             * Linked
+             * @description A variable of the application points at it
+             * @default false
+             */
+            linked: boolean;
+            /** Name */
+            name: string;
+            /** Note */
+            note?: string | null;
+            /**
+             * Reference
+             * @description What names it there: a container, a service, a host
+             */
+            reference: string;
+            /**
+             * Restore
+             * @description The command that loads the dump here
+             */
+            restore?: string | null;
+            /** User */
+            user?: string | null;
+            /** Version */
+            version?: string | null;
+        };
+        /**
          * ProposedEnvResponse
          * @description One environment variable the platform's configuration declares.
          */
@@ -48457,6 +48541,47 @@ export interface components {
              * @description The default it gives; null for a secret or none
              */
             value?: string | null;
+        };
+        /**
+         * ProposedStorageResponse
+         * @description Data the application kept outside its image on the other platform.
+         */
+        ProposedStorageResponse: {
+            /**
+             * Export
+             * @description The command to copy it out, for the other server. Not run
+             */
+            export?: string | null;
+            /**
+             * Host Path
+             * @description The directory of the other server that held it
+             */
+            host_path?: string | null;
+            /**
+             * Mount Path
+             * @description Where the application saw it, inside its container
+             */
+            mount_path: string;
+            /**
+             * Persistent Path
+             * @description The path --persist keeps for it here; null when there is none
+             */
+            persistent_path?: string | null;
+            /**
+             * Read Only
+             * @default false
+             */
+            read_only: boolean;
+            /**
+             * Restore
+             * @description The command that puts it back here
+             */
+            restore?: string | null;
+            /**
+             * Volume
+             * @description The Docker volume that held it
+             */
+            volume?: string | null;
         };
         /**
          * ProtectCredentialsResponse
@@ -50951,7 +51076,7 @@ export interface components {
             domain?: string | null;
             /**
              * Platform
-             * @description coolify or dokploy
+             * @description coolify, dokploy or caprover
              */
             platform: string;
             /**
@@ -50966,7 +51091,7 @@ export interface components {
             source?: string | null;
             /**
              * Token
-             * @description A read-only API token. Not stored
+             * @description A read-only API token (CapRover: the dashboard's password). Not stored
              */
             token: string;
             /**
@@ -51001,12 +51126,12 @@ export interface components {
         RemoteServer: {
             /**
              * Platform
-             * @description coolify or dokploy
+             * @description coolify, dokploy or caprover
              */
             platform: string;
             /**
              * Token
-             * @description A read-only API token. Not stored
+             * @description A read-only API token (CapRover: the dashboard's password). Not stored
              */
             token: string;
             /**

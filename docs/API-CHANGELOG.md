@@ -56,6 +56,16 @@ Each release has up to four lists:
   password or build-secret values), and, as `GET /api/apps/{domain}/export` and `POST
   /api/apps/import` now keep them, `delivery`, `source_options` and `app.build`, which the
   endpoints used to drop. A copy to another server through the central carries all of them.
+- `POST /api/compose/import` takes `format` (`coolify`, the default, or `dokploy`) and, for a Dokploy
+  template, `template` (its `template.toml`); the answer gains `files` (the files the template
+  mounts, by path beside the document) and `secret_files` (the ones that hold a generated secret).
+  A request that sends neither is unchanged.
+- `POST /api/import/applications` and `POST /api/import/proposal` read CapRover too (`platform:
+  caprover`; its `token` is the dashboard's password, used to sign in for the request and not kept).
+  A proposal gains `storage` (the data the application kept outside its image, with the commands
+  that copy it) and `database_details` (the databases it used, with the commands that dump and load
+  them); a value that looks like a credential, such as a connection string with a password in it,
+  is withheld from `env` whatever its variable is called.
 - `PUT /api/apps/{domain}/domains/{name}/enabled` (`{"enabled": false}`) switches a name off without
   deleting it, or serves it again; `enabled` in every entry of `GET|POST /api/apps/{domain}/domains`.
 - `GET /api/apps/{domain}/previews/dns`: whether the names of an application's previews reach this

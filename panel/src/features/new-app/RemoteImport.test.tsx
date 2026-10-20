@@ -62,13 +62,13 @@ function listedOn(sentence: RegExp): Promise<HTMLElement> {
 }
 
 async function listThem(user: ReturnType<typeof renderConsole>["user"]) {
-  await user.click(await screen.findByRole("button", { name: "Read it from Coolify or Dokploy" }));
+  await user.click(await screen.findByRole("button", { name: "Read it from Coolify, Dokploy or CapRover" }));
   await user.type(await screen.findByLabelText(/^Address of the server/), "https://coolify.example.com");
   await user.type(screen.getByLabelText(/^API token/), "ro-token");
   await user.click(screen.getByRole("button", { name: "List the applications" }));
 }
 
-describe("importing from Coolify or Dokploy", () => {
+describe("importing from Coolify, Dokploy or CapRover", () => {
   it("lists what the other server has, with the token sent once and in the body only", { timeout: 40_000 }, async () => {
     const { backend, harness } = importer();
     await listThem(harness.user);
@@ -140,6 +140,31 @@ describe("importing from Coolify or Dokploy", () => {
     await harness.user.click(screen.getByRole("button", { name: "Read it" }));
     await waitFor(() => expect(backend.callsTo("POST /api/import/proposal")).toHaveLength(2));
     expect(backend.callsTo("POST /api/import/proposal")[1]?.body).toMatchObject({ domain: "shop.example.com" });
+  });
+
+  it("asks CapRover for its dashboard password, because it has no token that only reads", { timeout: 40_000 }, async () => {
+    const { backend, harness } = importer({
+      "POST /api/import/applications": () => json(200, { ...APPLICATIONS, platform: "caprover" }),
+    });
+    await harness.user.click(await screen.findByRole("button", { name: "Read it from Coolify, Dokploy or CapRover" }));
+    expect(await screen.findByLabelText(/^API token/)).toBeInTheDocument();
+
+    await harness.user.click(screen.getByRole("combobox", { name: "Platform" }));
+    await harness.user.click(await screen.findByRole("option", { name: "CapRover" }));
+
+    expect(await screen.findByLabelText(/^Dashboard password/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^API token/)).not.toBeInTheDocument();
+    expect(screen.getByText(/CapRover has no token that only reads/)).toBeInTheDocument();
+    await harness.user.type(screen.getByLabelText(/^Address of the server/), "https://captain.apps.example.com");
+    await harness.user.type(screen.getByLabelText(/^Dashboard password/), "captain42");
+    await harness.user.click(screen.getByRole("button", { name: "List the applications" }));
+
+    await waitFor(() => expect(backend.callsTo("POST /api/import/applications")).toHaveLength(1));
+    expect(backend.callsTo("POST /api/import/applications")[0]?.body).toEqual({
+      platform: "caprover",
+      url: "https://captain.apps.example.com",
+      token: "captain42",
+    });
   });
 
   it("shows why the other server could not be read, verbatim", { timeout: 40_000 }, async () => {

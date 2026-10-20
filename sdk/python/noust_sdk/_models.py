@@ -2057,9 +2057,11 @@ CoolifyImportOut = TypedDict("CoolifyImportOut", {
     "adjustments": Required[list[str]],
     "analysis": Required["ComposeAnalysisOut"],
     "document": Required[str],
+    "files": NotRequired[dict[str, str]],
     "metadata": Required[dict[str, str]],
     "routed_port": NotRequired[Union[int, None]],
     "routed_service": NotRequired[Union[str, None]],
+    "secret_files": NotRequired[list[str]],
     "values": Required[dict[str, str]],
     "variables": Required[list["ConvertedVariableOut"]],
     "warnings": Required[list[str]],
@@ -2068,7 +2070,9 @@ CoolifyImportOut = TypedDict("CoolifyImportOut", {
 CoolifyImportRequest = TypedDict("CoolifyImportRequest", {
     "document": Required[str],
     "domain": NotRequired[Union[str, None]],
+    "format": NotRequired[Literal["coolify", "dokploy"]],
     "port": NotRequired[Union[int, None]],
+    "template": NotRequired[Union[str, None]],
 })
 
 CopyIn = TypedDict("CopyIn", {
@@ -5867,6 +5871,7 @@ PlatformProposalResponse = TypedDict("PlatformProposalResponse", {
     "build_command": NotRequired[Union[str, None]],
     "cpu_quota_percent": NotRequired[Union[int, None]],
     "cron": NotRequired[list["ProposedCronResponse"]],
+    "database_details": NotRequired[list["ProposedDatabaseResponse"]],
     "databases": NotRequired[list[str]],
     "domains": NotRequired[list[str]],
     "env": NotRequired[list["ProposedEnvResponse"]],
@@ -5884,6 +5889,7 @@ PlatformProposalResponse = TypedDict("PlatformProposalResponse", {
     "port": NotRequired[Union[int, None]],
     "source": NotRequired[Union[str, None]],
     "start_command": NotRequired[Union[str, None]],
+    "storage": NotRequired[list["ProposedStorageResponse"]],
     "warnings": NotRequired[list[str]],
     "watch_paths": NotRequired[list[str]],
 })
@@ -6298,6 +6304,20 @@ ProposedCronResponse = TypedDict("ProposedCronResponse", {
     "schedule": Required[str],
 })
 
+ProposedDatabaseResponse = TypedDict("ProposedDatabaseResponse", {
+    "database": NotRequired[Union[str, None]],
+    "dump": NotRequired[Union[str, None]],
+    "engine": Required[str],
+    "image": NotRequired[Union[str, None]],
+    "linked": NotRequired[bool],
+    "name": Required[str],
+    "note": NotRequired[Union[str, None]],
+    "reference": Required[str],
+    "restore": NotRequired[Union[str, None]],
+    "user": NotRequired[Union[str, None]],
+    "version": NotRequired[Union[str, None]],
+})
+
 ProposedEnvResponse = TypedDict("ProposedEnvResponse", {
     "generated": NotRequired[bool],
     "name": Required[str],
@@ -6305,6 +6325,16 @@ ProposedEnvResponse = TypedDict("ProposedEnvResponse", {
     "required": NotRequired[bool],
     "secret": NotRequired[bool],
     "value": NotRequired[Union[str, None]],
+})
+
+ProposedStorageResponse = TypedDict("ProposedStorageResponse", {
+    "export": NotRequired[Union[str, None]],
+    "host_path": NotRequired[Union[str, None]],
+    "mount_path": Required[str],
+    "persistent_path": NotRequired[Union[str, None]],
+    "read_only": NotRequired[bool],
+    "restore": NotRequired[Union[str, None]],
+    "volume": NotRequired[Union[str, None]],
 })
 
 ProtectCredentialsResponse = TypedDict("ProtectCredentialsResponse", {

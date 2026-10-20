@@ -137,6 +137,13 @@ READ_ONLY_COMMANDS: frozenset[str] = frozenset(
     }
 )
 
+#: Commands that change only the operator's own client settings (the list of servers a laptop
+#: or a pipeline drives, ``contexts.json`` under the user's own configuration directory) and
+#: nothing of any server. The server they drive audits the calls it receives; there is no
+#: trail on the machine they run on to write them to (a laptop has no ``/etc/noust``), and an
+#: audited change would shout that the trail cannot be written every time a context is saved.
+CLIENT_COMMANDS: frozenset[str] = frozenset({"context add", "context remove", "context use"})
+
 #: Commands that run for the life of a service. They are audited like any
 #: other, but bind no correlation id: the console binds one per request and
 #: per job, and a process-wide one would be inherited by all of them.
@@ -203,9 +210,10 @@ def is_read_only(
 
     Returns:
         True when it declares ``read_only=True``, declares a predicate that
-        holds for ``params``, or is listed in :data:`READ_ONLY_COMMANDS`.
+        holds for ``params``, is listed in :data:`READ_ONLY_COMMANDS`, or changes
+        only the operator's own client settings (:data:`CLIENT_COMMANDS`).
     """
-    if path in READ_ONLY_COMMANDS:
+    if path in READ_ONLY_COMMANDS or path in CLIENT_COMMANDS:
         return True
     declared = getattr(command, "read_only", False)
     if callable(declared):

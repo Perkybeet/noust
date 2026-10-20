@@ -2,18 +2,21 @@ import type { remoteImport as en } from "../en/remoteImport";
 import type { Catalog } from "../types";
 
 export const remoteImport: Catalog<typeof en> = {
-  disclosure: "Leerla desde Coolify o Dokploy",
+  disclosure: "Leerla desde Coolify, Dokploy o CapRover",
   title: "Desde otra plataforma",
   description: "Noust lee una aplicación por la API del otro servidor con un token de solo lectura y propone cómo se ejecuta aquí. No se escribe nada en el otro servidor. El token se usa en esta petición y no se guarda.",
   platform: "Plataforma",
   platforms: {
     coolify: "Coolify",
     dokploy: "Dokploy",
+    caprover: "CapRover",
   },
   url: "Dirección del servidor",
   urlDescription: "Donde responde su API, como https://coolify.example.com.",
   token: "Token de la API",
   tokenDescription: "Un token de solo lectura creado en ese servidor.",
+  password: "Contraseña del panel",
+  passwordDescription: "CapRover no tiene un token que solo lea, así que se usa la contraseña de su panel para entrar en esta petición. No se guarda.",
   list: "Listar las aplicaciones",
   listFailed: "No se pudieron listar las aplicaciones",
   applications: "Aplicación",

@@ -21,6 +21,7 @@ from fastapi.testclient import TestClient
 from noust.core.runner import FakeRunner
 from noust.deployers import compose_relay
 from noust.managers import setup_doctor
+from noust.managers.server.requirements import DiskFree, Resources
 from noust.managers.setup_doctor import DoctorEnvironment
 from noust.validators import ssh as ssh_module
 from noust.web.api import system as system_api
@@ -58,6 +59,10 @@ def sandbox(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
             apps_dir=apps,
             log_dir=logs,
             config_path=config,
+            # The size of the machine and its web ports are described, not read: these tests are
+            # about what the doctor says, and must not depend on the laptop they run on.
+            resources=lambda: Resources(4096, 0, 2, (DiskFree(str(apps), 51200, 102400),)),
+            listeners=lambda: [(80, ("nginx",)), (443, ("nginx",))],
             **extra,
         ),
     }
@@ -87,7 +92,12 @@ def test_a_prepared_machine_is_ready_with_nothing_to_say(
     report = setup_doctor.collect(sandbox["env"]())
 
     assert report.ready and report.issues == 0
-    assert [s.title for s in report.sections][:3] == ["Platform", "Core Dependencies", "Web Server"]
+    assert [s.title for s in report.sections][:4] == [
+        "Platform",
+        "Resources",
+        "Core Dependencies",
+        "Web Server",
+    ]
     assert all(i.status != "fail" for s in report.sections for i in s.items)
 
 
@@ -122,6 +132,8 @@ def test_without_a_known_package_manager_the_fix_names_none(
         apps_dir=env.apps_dir,
         log_dir=env.log_dir,
         config_path=env.config_path,
+        resources=env.resources,
+        listeners=env.listeners,
     )
 
     curl = items(setup_doctor.collect(env), "Core Dependencies")[1]

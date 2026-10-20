@@ -53,11 +53,17 @@ by the package manager). Options, in `sh install.sh --help`:
 | `--admin-user NAME` | `NOUST_ADMIN_USER` | Create this administrator once Noust is installed (nothing happens if it exists) |
 | `--admin-password-file FILE` | `NOUST_ADMIN_PASSWORD_FILE` | Where the administrator's password is read from (its first line) |
 | | `NOUST_ADMIN_PASSWORD` | The administrator's password, from the environment, when a file is not convenient. Never an argument: `ps` shows every argument to every local user |
+| `--admin-email ADDRESS` | `NOUST_ADMIN_EMAIL` | The address that administrator's invitations and password resets are mailed to. Set again on every run, so it also fixes an account made earlier |
+| `--auto-update[=CHANNEL]` | `NOUST_AUTO_UPDATE` | Let this server install Noust's own new releases: `security`, `patch` (the default when the channel is left out) or `stable`. Off without it, and a new major version is never installed by itself. As a variable, a channel or `1` for `patch` |
+| `--auto-update-window HH:MM-HH:MM` | `NOUST_AUTO_UPDATE_WINDOW` | The hours an automatic update may start in (default `03:00-05:00`, the server's clock) |
+| `--auto-update-days daily\|mon,thu` | `NOUST_AUTO_UPDATE_DAYS` | The days that window opens on (default `daily`) |
 | `--json` | `NOUST_JSON=1` | Print one JSON document on standard output (when it ends, and when it fails or refuses) and everything else on standard error |
 | `--print-platform` | | Print what it detected as `key=value` lines and stop |
 | | `NOUST_REPO_BASE` | A mirror of the repository (https only) |
 | | `NOUST_REPO_KEY_FPR` | Replaces the pinned fingerprint, see [key rotation](#when-the-repository-key-is-rotated) |
 | | `NOUST_OS_RELEASE`, `NOUST_ARCH` | Replace `/etc/os-release` and `uname -m` (how the table is tested) |
+| | `NOUST_MEMORY_MB`, `NOUST_CPUS`, `NOUST_DISK_FREE_MB`, `NOUST_PORT_HOLDERS` | Replace what the installer reads of the machine (`NOUST_PORT_HOLDERS="80:caddy 443:nginx"`), the same way |
+| | `NOUST_SERVER_ADDRESS` | The address the console's link is printed for, when the installer cannot tell which is the server's |
 
 For a script (cloud-init, Ansible): `NOUST_ASSUME_YES=1 sh install.sh --json --admin-user ops
 --admin-password-file /root/ops.pw`, which installs Noust, creates the administrator and prints
@@ -68,14 +74,27 @@ The JSON document, when it succeeds:
 ```json
 {"status":"ok","dry_run":false,"version":"3.4.0","method":"package",
  "platform":{"id":"ubuntu","version_id":"24.04","arch":"amd64","support":"supported"},
- "console":{"state":"new","address":"127.0.0.1:8080"},
- "admin":{"username":"ops","state":"created"}}
+ "resources":{"memory_mb":2048,"cpus":2,"disk_free_mb":30000,
+  "ports":{"80":{"state":"free","holders":null},"443":{"state":"free","holders":null}},
+  "warnings":[]},
+ "console":{"state":"new","address":"127.0.0.1:8080",
+  "url":"http://127.0.0.1:8080/login?with=token",
+  "tunnel":"ssh -N -L 8080:127.0.0.1:8080 root@203.0.113.7"},
+ "admin":{"username":"ops","state":"created","email":"ops@example.com","email_state":"set"},
+ "auto_update":{"state":"enabled","channel":"security","window":"03:00-05:00","days":"daily"}}
 ```
 
-`console.state` is `new`, `existing`, `skipped` or `failed`; `admin.state` is `created`,
-`existing` (the account was already there and was left alone) or, in a dry run, `would-create`;
-`admin` is `null` when none was asked for. A failure is `{"status":"error","error":"..."}` with
-exit status 1, and a platform the table refuses is `{"status":"refused",...}` with exit status 3.
+`console.state` is `new`, `existing`, `skipped` or `failed`; `console.url` and `console.tunnel`
+are the address to open and the command that makes it reachable from a laptop (the console listens
+on the loopback address only). `admin.state` is `created`, `existing` (the account was already there
+and was left alone) or, in a dry run, `would-create`; `admin` is `null` when none was asked for, and
+carries `email` and `email_state` (`set`, or `would-set`) only when an address was given.
+`auto_update` is `{"state":"off"}` unless it was asked for; its state is then `enabled`, `skipped`
+(a machine without systemd has no timer to set) or, in a dry run, `would-enable`. `resources` is what the
+installer read of the machine and judged against [the sizes](requirements.md#how-big-a-server);
+`warnings` lists what was below the minimum. A failure is `{"status":"error","error":"..."}` with
+exit status 1, and a platform the table refuses, or a machine below the floor, is
+`{"status":"refused",...}` with exit status 3 (`--force` goes on anyway).
 
 ## What the status means
 
