@@ -106,7 +106,9 @@ function UnitTally({ units, named }: { units: Machine["units"]; named: boolean }
  * is nothing to say yet. The word gives way on a narrow strip, but the reconnecting state never
  * does: that is the one an operator must not miss. It sits at the end of the strip, not after
  * the last reading: the stream is usually up before the machine has answered, and a badge that
- * followed the readings would be pushed across the bar when they arrived.
+ * followed the readings would be pushed across the bar when they arrived. The hiding is on a
+ * wrapper: the pill's own `inline-flex` outranks a `hidden` put on the pill itself, which left the
+ * word standing on a phone, over the search button.
  */
 export function StreamBadge({ stream }: { stream: StreamStatus }) {
   const t = useT();
@@ -114,7 +116,11 @@ export function StreamBadge({ stream }: { stream: StreamStatus }) {
     return <StatusPill state="deploying" label={t("shell.machine.reconnecting")} appearance="inline" size="sm" className="ml-auto shrink-0" />;
   }
   if (stream === "live") {
-    return <StatusPill state="running" label={t("shell.machine.live")} appearance="inline" size="sm" className="ml-auto hidden shrink-0 @min-[26rem]:inline-flex" />;
+    return (
+      <span className="ml-auto hidden shrink-0 @min-[16rem]:inline-flex">
+        <StatusPill state="running" label={t("shell.machine.live")} appearance="inline" size="sm" />
+      </span>
+    );
   }
   return null;
 }
@@ -147,71 +153,75 @@ function ServerStrip({ className, showName }: { className?: string | undefined; 
       className={cx("@container min-w-0", className)}
     >
       <div className="flex items-center gap-2 @min-[26rem]:gap-4">
-        {showName ? (
-          // The name never gives way: which machine this is matters more than any reading.
-          <Link to="/server" className={cx("flex shrink-0 items-baseline gap-2", STRIP_LINK)}>
-            {name !== undefined ? (
-              <Mono className="text-13 font-medium">{name}</Mono>
-            ) : (
-              <Skeleton className="h-3.5 w-28" />
-            )}
-            {machine ? " " : null}
-            {machine ? (
-              <span className="hidden shrink-0 text-12 text-fg-muted tabular-nums @min-[62rem]:inline">
-                {t("shell.machine.upFor", { duration: formatDuration(machine.uptime_s) })}
-              </span>
-            ) : null}
-          </Link>
-        ) : machine ? (
-          // The selector beside the strip names the server already: only how long it has been up.
-          <span className="hidden shrink-0 text-12 text-fg-muted tabular-nums @min-[62rem]:inline">
-            {t("shell.machine.upFor", { duration: formatDuration(machine.uptime_s) })}
-          </span>
-        ) : null}
+        {/* The readings wrap on one line and what does not fit is cut off whole, from the right: the words
+            of a language are longer than the widths below assume, and the badge must never be what gives. */}
+        <div className="flex h-7 min-w-0 flex-1 flex-wrap items-center gap-x-2 overflow-hidden @min-[26rem]:gap-x-4">
+          {showName ? (
+            // The name never gives way: which machine this is matters more than any reading.
+            <Link to="/server" className={cx("flex shrink-0 items-baseline gap-2", STRIP_LINK)}>
+              {name !== undefined ? (
+                <Mono className="text-13 font-medium">{name}</Mono>
+              ) : (
+                <Skeleton className="h-3.5 w-28" />
+              )}
+              {machine ? " " : null}
+              {machine ? (
+                <span className="hidden shrink-0 text-12 text-fg-muted tabular-nums @min-[62rem]:inline">
+                  {t("shell.machine.upFor", { duration: formatDuration(machine.uptime_s) })}
+                </span>
+              ) : null}
+            </Link>
+          ) : machine ? (
+            // The selector beside the strip names the server already: only how long it has been up.
+            <span className="hidden shrink-0 text-12 text-fg-muted tabular-nums @min-[62rem]:inline">
+              {t("shell.machine.upFor", { duration: formatDuration(machine.uptime_s) })}
+            </span>
+          ) : null}
 
-        {machine ? (
-          <>
-            <div className="hidden shrink-0 items-center gap-4 @min-[36rem]:flex">
-              <Divider className={showName ? undefined : "hidden @min-[62rem]:block"} />
-              <UnitTally units={machine.units} named={showName} />
+          {machine ? (
+            <>
+              <div className="hidden shrink-0 items-center gap-4 @min-[36rem]:flex">
+                <Divider className={showName ? undefined : "hidden @min-[62rem]:block"} />
+                <UnitTally units={machine.units} named={showName} />
+              </div>
+              {/* Meters after the words: the Overview and Server show these readings in full. */}
+              <div className="hidden shrink-0 items-center gap-4 @min-[43rem]:flex">
+                <Divider />
+                <Meter size="sm" label={t("shell.machine.cpu")} value={machine.cpu_percent} className="w-24" />
+                <Meter size="sm" label={t("shell.machine.memory")} value={machine.memory.percent} className="w-24" />
+                <Meter size="sm" label={t("shell.machine.disk")} value={machine.disk.percent} className="w-24" />
+              </div>
+              <div className="hidden shrink-0 items-center gap-4 @min-[72rem]:flex">
+                <Divider />
+                <Load machine={machine} />
+              </div>
+              {machine.units.failed > 0 ? (
+                <Link
+                  to="/server/services"
+                  aria-label={t("shell.machine.failedUnits", { count: machine.units.failed })}
+                  className={cx("inline-flex shrink-0 items-center gap-1 text-12 font-medium text-fail @min-[36rem]:hidden", STRIP_LINK)}
+                >
+                  <StatusGlyph state="failed" size={10} />
+                  <span aria-hidden="true" className="hidden tabular-nums @min-[22rem]:inline">
+                    {t("shell.machine.failedUnits", { count: machine.units.failed })}
+                  </span>
+                  {/* A phone keeps the name whole and the count beside its cross; the link says it all. */}
+                  <span aria-hidden="true" className="tabular-nums @min-[22rem]:hidden">
+                    {machine.units.failed}
+                  </span>
+                </Link>
+              ) : null}
+            </>
+          ) : isError ? (
+            <span className="hidden truncate text-12 text-fg-muted @min-[26rem]:inline">{t("shell.machine.unavailable")}</span>
+          ) : (
+            <div aria-hidden="true" className="hidden items-center gap-4 @min-[30rem]:flex">
+              <Skeleton className="h-6 w-24" />
+              <Skeleton className="h-6 w-24" />
+              <Skeleton className="h-6 w-24" />
             </div>
-            {/* Meters after the words: the Overview and Server show these readings in full. */}
-            <div className="hidden shrink-0 items-center gap-4 @min-[43rem]:flex">
-              <Divider />
-              <Meter size="sm" label={t("shell.machine.cpu")} value={machine.cpu_percent} className="w-24" />
-              <Meter size="sm" label={t("shell.machine.memory")} value={machine.memory.percent} className="w-24" />
-              <Meter size="sm" label={t("shell.machine.disk")} value={machine.disk.percent} className="w-24" />
-            </div>
-            <div className="hidden shrink-0 items-center gap-4 @min-[72rem]:flex">
-              <Divider />
-              <Load machine={machine} />
-            </div>
-            {machine.units.failed > 0 ? (
-              <Link
-                to="/server/services"
-                aria-label={t("shell.machine.failedUnits", { count: machine.units.failed })}
-                className={cx("inline-flex shrink-0 items-center gap-1 text-12 font-medium text-fail @min-[36rem]:hidden", STRIP_LINK)}
-              >
-                <StatusGlyph state="failed" size={10} />
-                <span aria-hidden="true" className="hidden tabular-nums @min-[22rem]:inline">
-                  {t("shell.machine.failedUnits", { count: machine.units.failed })}
-                </span>
-                {/* A phone keeps the name whole and the count beside its cross; the link says it all. */}
-                <span aria-hidden="true" className="tabular-nums @min-[22rem]:hidden">
-                  {machine.units.failed}
-                </span>
-              </Link>
-            ) : null}
-          </>
-        ) : isError ? (
-          <span className="hidden truncate text-12 text-fg-muted @min-[26rem]:inline">{t("shell.machine.unavailable")}</span>
-        ) : (
-          <div aria-hidden="true" className="hidden items-center gap-4 @min-[30rem]:flex">
-            <Skeleton className="h-6 w-24" />
-            <Skeleton className="h-6 w-24" />
-            <Skeleton className="h-6 w-24" />
-          </div>
-        )}
+          )}
+        </div>
 
         <StreamBadge stream={stream} />
       </div>

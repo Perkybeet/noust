@@ -1103,7 +1103,9 @@ when it is not, so it works on AZERTY, QWERTZ and non-Latin layouts. `/` focuses
 No single-key shortcut acts unless the focus is in a list or table. Every shortcut is in the
 shortcuts dialog and in its control's tooltip. A live stream's state ("Live", "Reconnecting") uses a
 `StatusGlyph` and a word, at the end of the machine strip so the readings that arrive after it never
-push it across the bar; numbers that change every few seconds are never live regions.
+push it across the bar, and the readings give way whole, from the right, when the words of a language
+need more room than the strip has (the badge never does: "En vivo" is longer than "Live", and so are the
+service counts); numbers that change every few seconds are never live regions.
 
 ### 6.14 Navigation and where things live
 
