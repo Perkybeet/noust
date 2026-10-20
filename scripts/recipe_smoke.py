@@ -194,6 +194,8 @@ class SmokeReport:
         containers: One entry per container: name, state, restarts, whether it was killed
             for memory.
         error_lines: How many log lines look like errors, and the first few.
+        log_tail: The end of the stack's log, kept when the gate was not answered, so that the
+            report says why.
         problems: What stops the recipe from being accepted; empty when it passes.
     """
 
@@ -207,6 +209,7 @@ class SmokeReport:
     proxied_status: str = ""
     containers: list[dict[str, Any]] = field(default_factory=list)
     error_lines: dict[str, Any] = field(default_factory=dict)
+    log_tail: str = ""
     problems: list[str] = field(default_factory=list)
 
 
@@ -453,6 +456,8 @@ def smoke(
                 f"the health gate's request to {report.gate_path} got {status}, "
                 f"the recipe expects {report.gate_expected or '200'}"
             )
+            report.containers = project.inspect()
+            report.log_tail = project.run("logs", "--no-color", "--tail", "40").stdout[-4000:]
             return report
         proxied = {
             "Host": domain,
@@ -556,6 +561,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         for problem in report.problems:
             print(f"  {problem}")
+        if report.problems and report.log_tail:
+            tail = report.log_tail.splitlines()[-25:]
+            print("  log tail:\n" + "\n".join(f"    {line}" for line in tail))
         failed += bool(report.problems)
         if args.evidence is not None:
             args.evidence.mkdir(parents=True, exist_ok=True)

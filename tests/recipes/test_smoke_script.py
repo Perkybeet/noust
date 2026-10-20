@@ -220,10 +220,13 @@ def test_a_gate_that_is_not_answered_as_expected_is_a_problem_and_stops_the_run(
 
     report = run_smoke(smoke)
 
-    assert report.gate_status == "404" and report.containers == []
+    assert report.gate_status == "404"
     assert report.problems == [
         "the health gate's request to /alive got 404, the recipe expects 200"
     ]
+    # The report says why without a second run: what the containers did and what they logged.
+    assert report.containers == fake_docker.containers
+    assert "ERROR: one expected line" in report.log_tail
 
 
 def test_a_restart_loop_and_an_out_of_memory_kill_are_problems(
