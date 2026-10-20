@@ -84,6 +84,10 @@ Every scan interval (60 seconds by default, never less than 10):
 | API tokens | A token expires within `monitor.token_warning_days` (7; 0 turns it off), expires today, or expired in the last week; once per stage and token. | notification `token_expiring` |
 | Probes | An address the monitor asks from outside the application stops answering what the probe asks of it (`fail_after` bad answers in a row), and answers again. See [probes.md](probes.md). | notifications `probe_failed`, `probe_recovered` |
 | Alert rules | Every rule of [Settings > Alerts](notifications.md#alert-rules) is judged against the recorded history; a subject that stayed past its limit for the whole duration fires, and one that is back inside clears. | notifications `alert_firing`, `alert_resolved` |
+| Web server | nginx (or Apache, for the sites that use it) fell. See [The web server](#the-web-server). Looked at every `monitor.webserver_check_seconds` (60; 0 turns it off). | notification `unit_failed` (`webserver.*`) |
+| Containers | A container of a Compose stack that Docker restarted `monitor.container_restart_limit` times (5; 0 turns it off) since the monitor first saw it. See [Containers that keep restarting](#containers-that-keep-restarting). Looked at every `monitor.container_check_seconds` (60). | notification `container_restart_loop` |
+| Security releases | The update check found a Noust release that fixes a vulnerability and this server runs an earlier one. Once per release and again every `monitor.security_renotify_hours` (72; 0 never) while it stays behind; looked at every `monitor.security_check_hours` (6; 0 turns it off). `updates.check: false` silences it. | notification `security_release` |
+| Recipes | Recipes installed from the catalogue have a newer version in it (`noust recipe outdated`). Said when the list changes and every `monitor.recipe_renotify_days` (7; 0 never repeats) while it does not; looked at every `monitor.recipe_check_hours` (24; 0 turns it off). The catalogue ships inside Noust, so the look costs no request. | notification `recipe_outdated` |
 
 Observations are kept in `/var/lib/noust/observations.db` (`~/.local/share/noust/` when run
 without root). The same process and signal within an hour is recorded once; observations
@@ -94,6 +98,47 @@ process.
 
 Every one of these checks, the alert rules and the retries of failed deliveries only happen
 while the monitor runs.
+
+## The web server
+
+Every site of every application goes through one web server, and its unit is the one thing they
+have in common. When nginx falls, each application would otherwise be "unreachable" on its own and
+nothing would start the server again until somebody logged in. On every look the monitor reads the
+unit of the web server in use (nginx, and Apache for the sites that use it):
+
+- **Running**: nothing. If an outage was open, it is closed.
+- **Crashed** (`failed`, or stopped after a run that did not end well): the server's own
+  configuration test runs first, because starting a configuration that does not pass takes nothing
+  up and hides the cause. If it passes the unit is restarted and the notification says so
+  (`webserver.restarted`); if it does not, the notification carries the test's words verbatim and
+  nothing is restarted (`webserver.config_invalid`). A restart that does not hold is
+  `webserver.restart_failed`.
+- **At most `monitor.webserver_restart_limit` restarts an hour** (3). Past it the limit is said once
+  (`webserver.limit`) and the rest is yours, so a server that falls at every start is not restarted
+  forever.
+- **Stopped cleanly and still enabled**: somebody stopped it. It is said once
+  (`webserver.stopped`) and left alone. A web server that is disabled and stopped is off on
+  purpose.
+
+`monitor.restart_webserver: false` keeps the announcement and drops the restart
+(`webserver.down`). It is the one check of the monitor that acts, and the only thing it does is
+what `systemctl restart` would do; each restart is in the audit trail as `monitor.webserver_restart`.
+All of these go through the `unit_failed` switch of the notifications.
+
+## Containers that keep restarting
+
+A Compose stack's unit runs `docker compose up -d` and finishes, so systemd cannot say that a
+container of the stack restarts every few seconds, and a stack whose web still answers reads as
+healthy while one of its workers dies in a loop. The monitor reads the restart counter Docker keeps
+for each container (`RestartCount`):
+
+- A container Docker restarted `monitor.container_restart_limit` times (5) since it was first seen is
+  announced once (`container_restart_loop`), with the exit code of its last run and its last lines.
+  The count is a baseline, not an absolute: a container that restarted forty times last month is not
+  a loop today. The announcement closes when the container has run five minutes without restarting.
+- **Docker's events** (`die`, `oom`, `restart`, `health_status`) of those containers are kept beside
+  the metrics, so that the [timeline](#what-happened-in-a-stretch) of an application can say that
+  the container was killed for lack of memory at 03:12, long after the unit that started it finished.
 
 ## Metrics history
 
@@ -159,7 +204,14 @@ rotation recognised) and keeps it by the hour in `metrics.db`:
   the hourly metrics (`metrics.retention_days`);
 - the **pages** asked for most (`GET /orders/:n`), the **networks** they came from (`203.0.113.0/24`),
   the **status codes** and the **referrers** (a host), kept 90 days. Each hour of each application keeps
-  at most 50 keys of each, so a scan of a thousand paths cannot make the table grow.
+  at most 50 keys of each, so a scan of a thousand paths cannot make the table grow;
+- **how long requests took**, as the median and the 95th percentile (`p50`, `p95`), from a histogram
+  kept by the hour: 13 buckets from 5 milliseconds to 30 seconds (and one for what takes longer), so a day or a month
+  is the sum of its hours and the percentile is read from the sum, never the mean of percentiles;
+- **how many different visitors** there were, by the hour and by the stretch asked for. A person who
+  came at nine and again at ten is one visitor of the day, so the hours cannot just be added. What is
+  kept is a sketch of hashes (a short list up to 100 visitors, so a small site's count is exact; a
+  HyperLogLog past that, within about 5 percent) from which no address can be recovered.
 
 ```bash
 noust app traffic shop.example.com                    # the last 24 hours
@@ -181,6 +233,16 @@ the application charts it. What is kept is chosen to be safe to keep:
 
 There is no GeoIP: it needs a database whose licence is not Noust's to ship. The networks are the key
 to put one on yourself.
+
+**The log format.** The time of a request is not in nginx's default format. The sites Noust writes
+define their own (`log_format noust_<domain>`: the combined format and then `rt=$request_time`; an
+Apache vhost ends its format with `rtus=%D`, microseconds) and log with it. A site the operator wrote
+is never rewritten, so it keeps its own format and shows no times; a log line in the old format, in a
+file that also holds new ones (the site was written before this release and rewritten since), is
+counted like any other and simply has no time. A request without a time is not part of the
+percentiles. An alert rule can watch `app_latency_p95` (milliseconds, see
+[notifications.md](notifications.md#alert-rules)). The Metrics tab shows the 95th percentile (with
+the median beside it) and the visitors as tiles above the charts.
 
 ## Comparing servers
 
@@ -345,6 +407,15 @@ enabled, or an address that is not `name@domain` are refused with the reason, wh
 | `monitor.backup_missing_renotify_hours` | `24` | Hours between repeats of a missing backup |
 | `monitor.os_patches_check_hours` | `24` | Hours between looks for system updates; 0 turns it off |
 | `monitor.token_warning_days` | `7` | Days before an API token expires that it is announced; 0 turns it off |
+| `monitor.webserver_check_seconds` | `60` | Seconds between looks at the web server; 0 turns the watch off (0 to 3600) |
+| `monitor.restart_webserver` | `true` | Start a web server that fell, after its configuration test passes; false only announces it |
+| `monitor.webserver_restart_limit` | `3` | Restarts of the web server in an hour before the monitor stops and says so (1 to 20) |
+| `monitor.container_check_seconds` | `60` | Seconds between looks at the containers of the stacks; 0 turns the watch off |
+| `monitor.container_restart_limit` | `5` | Restarts of one container that make a loop worth announcing; 0 turns the announcement off |
+| `monitor.security_check_hours` | `6` | Hours between looks for a security release; 0 turns it off |
+| `monitor.security_renotify_hours` | `72` | Hours between repeats while the server stays below the fix; 0 says it once |
+| `monitor.recipe_check_hours` | `24` | Hours between looks for recipes that have a newer version; 0 turns it off |
+| `monitor.recipe_renotify_days` | `7` | Days between repeats of the same list; 0 says it only when the list changes |
 | `metrics.retention_days` | `400` | Days the hourly tier of the metrics history is kept (35 to 3650); also how long the unit failures and recoveries the timeline reads are kept. The process samples are kept 26 hours whatever it says |
 | `monitor.retention_days` | `30` | Days observations are kept |
 | `monitor.max_observations` | `5000` | Observations kept at most |
@@ -363,7 +434,7 @@ nginx.service,postgresql.service --list`.
 The events above (`unit_failed`, `app_unreachable`, `app_recovered`, `cert_expiring`,
 `disk_threshold`, `backup_missing`, `cron_failed`, `cron_success`, `os_patches`, `token_expiring`,
 `alert_firing`, `alert_resolved`, `alert_acknowledged`, `cron_missed`, `cleanup_failed`, `cleanup_success`,
-`probe_failed` and `probe_recovered`) go through Noust's notification channels (webhook, Slack,
+`probe_failed`, `probe_recovered`, `security_release`, `container_restart_loop` and `recipe_outdated`) go through Noust's notification channels (webhook, Slack,
 Discord, Telegram, email, Pushover, ntfy, Gotify, Teams, Mattermost, Matrix, Lark, PagerDuty, and any
 others you add by name), which are
 configured under `notifications.*` in the console's Settings > Notifications or with `noust notify`

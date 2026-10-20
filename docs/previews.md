@@ -27,6 +27,15 @@ noust preview enable shop.example.com --domain previews.example.com --max 3 --tt
 
 In the console: the application's **Settings > Previews**.
 
+**The DNS is checked for you.** `noust preview enable` ends by resolving a name shaped like a preview's
+(the application's own template, with a number no pull request has) through the same public resolvers
+the certificate authority asks, and says which wildcard record to add when it does not reach this
+server (`*.previews.example.com`, and the address). `noust preview dns shop.example.com` asks again
+(`--json` for a script, `GET /api/apps/{domain}/previews/dns` for the console). The job of every
+preview checks its own name before it builds, and says once in its log, with the addresses, that it
+points elsewhere, instead of failing minutes later at the certificate with certbot's words; the build
+goes on. `dns.check_previews: false` turns that look off.
+
 ## What a preview is given
 
 **Variables.** By default only the ones you name, then the set defined for previews alone. Nothing

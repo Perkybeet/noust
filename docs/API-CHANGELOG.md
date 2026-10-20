@@ -17,6 +17,22 @@ Each release has up to four lists:
   `panel/openapi.baseline.json` in the same commit (`python scripts/api_compat.py --update
   --accept-breaking`).
 
+## 4.0.0
+
+### Added
+
+- `PUT /api/apps/{domain}/domains/{name}/enabled` (`{"enabled": false}`) switches a name off without
+  deleting it, or serves it again; `enabled` in every entry of `GET|POST /api/apps/{domain}/domains`.
+- `GET /api/apps/{domain}/previews/dns`: whether the names of an application's previews reach this
+  server, and the record to add when they do not.
+- `force_https` in the policy of an application (`GET|PUT /api/apps/{domain}/policy`).
+- `latency_p50_ms`, `latency_p95_ms` and `visitors` in the totals and the points of
+  `GET /api/apps/{domain}/traffic`; the alert metric `app_latency_p95` (unit `ms`).
+- The event kinds `security_release`, `container_restart_loop` and `recipe_outdated`, and the
+  `webhook_headers` setting of the generic webhook channel.
+- The log-shipping kind `newrelic` (and `region`).
+- The DNS check's `cdn` is also `fastly`, `bunnycdn` or `arvancloud`.
+
 ## 3.4.0
 
 API version 1.
