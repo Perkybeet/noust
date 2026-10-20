@@ -75,10 +75,15 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("applications", "get_compose_settings"): ("GET", "/api/apps/{domain}/compose", "apps.read", False),
     ("applications", "put_compose_settings"): ("PUT", "/api/apps/{domain}/compose", "apps.manage", True),
     ("applications", "delete_compose_settings"): ("DELETE", "/api/apps/{domain}/compose", "apps.manage", True),
+    ("applications", "get_compose_document"): ("GET", "/api/apps/{domain}/compose/document", "secrets.reveal", False),
+    ("applications", "put_compose_document"): ("PUT", "/api/apps/{domain}/compose/document", "apps.manage", True),
+    ("applications", "check_compose_document"): ("POST", "/api/apps/{domain}/compose/document/check", "apps.manage", False),
     ("applications", "get_compose_variables"): ("GET", "/api/apps/{domain}/compose/variables", "apps.read", False),
     ("applications", "get_app_container"): ("GET", "/api/apps/{domain}/container", "apps.read", False),
     ("applications", "put_app_container"): ("PUT", "/api/apps/{domain}/container", "apps.manage", False),
+    ("applications", "check_app_image"): ("POST", "/api/apps/{domain}/container/check", "apps.deploy", False),
     ("applications", "get_declaration"): ("GET", "/api/apps/{domain}/declaration", "secrets.reveal", False),
+    ("applications", "get_deletion_plan"): ("GET", "/api/apps/{domain}/deletion", "apps.read", False),
     ("applications", "deploy_app"): ("POST", "/api/apps/{domain}/deploy", "apps.deploy", False),
     ("applications", "get_deploy_key"): ("GET", "/api/apps/{domain}/deploy-key", "apps.read", False),
     ("applications", "create_deploy_key"): ("POST", "/api/apps/{domain}/deploy-key", "apps.manage", False),
@@ -95,8 +100,10 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("applications", "get_app_env"): ("GET", "/api/apps/{domain}/env", "apps.read", False),
     ("applications", "update_app_env"): ("PUT", "/api/apps/{domain}/env", "apps.manage", True),
     ("applications", "merge_app_env"): ("PATCH", "/api/apps/{domain}/env", "apps.manage", True),
+    ("applications", "get_app_env_file"): ("GET", "/api/apps/{domain}/env/file", "apps.read", False),
     ("applications", "update_app_env_marks"): ("PUT", "/api/apps/{domain}/env/marks", "apps.manage", True),
     ("applications", "resolve_app_env"): ("POST", "/api/apps/{domain}/env/resolve", "apps.manage", True),
+    ("applications", "sync_app_env"): ("POST", "/api/apps/{domain}/env/sync", "apps.manage", True),
     ("applications", "get_app_export"): ("GET", "/api/apps/{domain}/export", "secrets.reveal", False),
     ("applications", "list_files"): ("GET", "/api/apps/{domain}/files", "apps.terminal", False),
     ("applications", "delete_file"): ("DELETE", "/api/apps/{domain}/files", "apps.terminal", True),
@@ -282,6 +289,17 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("backups", "run_drill"): ("POST", "/api/apps/{domain}/restore-drills", "backups.run", False),
     ("backups", "list_backups"): ("GET", "/api/backups", "backups.read", False),
     ("backups", "create_backup"): ("POST", "/api/backups", "backups.run", False),
+    ("backups", "status"): ("GET", "/api/backups/encryption", "backups.read", False),
+    ("backups", "disable"): ("POST", "/api/backups/encryption/disable", "backups.manage", True),
+    ("backups", "enable"): ("POST", "/api/backups/encryption/enable", "backups.manage", True),
+    ("backups", "import_key"): ("POST", "/api/backups/encryption/keys", "backups.manage", True),
+    ("backups", "show_key"): ("GET", "/api/backups/encryption/keys/{key_id}", "secrets.reveal", True),
+    ("backups", "rotate"): ("POST", "/api/backups/encryption/rotate", "backups.manage", True),
+    ("backups", "seal_plan"): ("GET", "/api/backups/encryption/seal-existing", "backups.read", False),
+    ("backups", "seal_existing"): ("POST", "/api/backups/encryption/seal-existing", "backups.manage", True),
+    ("backups", "list_failures"): ("GET", "/api/backups/failures", "backups.read", False),
+    ("backups", "failure_detail"): ("GET", "/api/backups/failures/{failure_id}", "backups.read", False),
+    ("backups", "failure_output"): ("GET", "/api/backups/failures/{failure_id}/output", "backups.read", False),
     ("backups", "get_storage_info"): ("GET", "/api/backups/storage", "backups.read", False),
     ("backups", "get_backup"): ("GET", "/api/backups/{backup_id}", "backups.read", False),
     ("backups", "delete_backup"): ("DELETE", "/api/backups/{backup_id}", "backups.manage", True),
@@ -392,6 +410,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("databases", "restore_remote_backup"): ("POST", "/api/databases/backups/restore-remote", "databases.manage", True),
     ("databases", "suggest_restore_name"): ("GET", "/api/databases/backups/suggest-name", "databases.read", False),
     ("databases", "delete_backup"): ("DELETE", "/api/databases/backups/{name}", "backups.manage", True),
+    ("databases", "dump_data"): ("GET", "/api/databases/backups/{name}/data", "databases.manage", True),
     ("databases", "download_backup"): ("GET", "/api/databases/backups/{name}/download", "databases.manage", True),
     ("databases", "push_backup"): ("POST", "/api/databases/backups/{name}/push", "backups.manage", False),
     ("databases", "verify_backup"): ("POST", "/api/databases/backups/{name}/verify", "backups.run", False),
@@ -433,6 +452,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("databases", "put_database_tags"): ("PUT", "/api/databases/databases/{engine}/{name}/tags", "databases.write", False),
     ("databases", "list_engines"): ("GET", "/api/databases/engines", "databases.read", False),
     ("databases", "get_engine_catalog"): ("GET", "/api/databases/engines/catalog", "databases.read", False),
+    ("databases", "list_status"): ("GET", "/api/databases/engines/tls", "databases.read", False),
+    ("databases", "refresh"): ("POST", "/api/databases/engines/tls/refresh", "databases.manage", True),
     ("databases", "set_engine_credentials"): ("PUT", "/api/databases/engines/{engine}/credentials", "databases.manage", True),
     ("databases", "get_engine_exposure"): ("GET", "/api/databases/engines/{engine}/exposure", "databases.read", False),
     ("databases", "install_engine"): ("POST", "/api/databases/engines/{engine}/install", "databases.manage", True),
@@ -447,9 +468,15 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("databases", "start_engine"): ("POST", "/api/databases/engines/{engine}/start", "apps.operate", False),
     ("databases", "get_engine_status"): ("GET", "/api/databases/engines/{engine}/status", "databases.read", False),
     ("databases", "stop_engine"): ("POST", "/api/databases/engines/{engine}/stop", "apps.operate", False),
+    ("databases", "get_status"): ("GET", "/api/databases/engines/{engine}/tls", "databases.read", False),
+    ("databases", "enable_tls"): ("PUT", "/api/databases/engines/{engine}/tls", "databases.manage", True),
+    ("databases", "disable_tls"): ("DELETE", "/api/databases/engines/{engine}/tls", "databases.manage", True),
+    ("databases", "plan_tls"): ("POST", "/api/databases/engines/{engine}/tls/plan", "databases.read", False),
     ("databases", "uninstall_engine"): ("POST", "/api/databases/engines/{engine}/uninstall", "databases.manage", True),
     ("databases", "get_exposure"): ("GET", "/api/databases/exposure", "databases.read", False),
     ("databases", "import_dump"): ("POST", "/api/databases/imports", "databases.manage", True),
+    ("databases", "import_cluster"): ("POST", "/api/databases/imports/cluster", "databases.manage", True),
+    ("databases", "plan_cluster_import"): ("POST", "/api/databases/imports/cluster/plan", "databases.manage", False),
     ("databases", "inspect_dump"): ("POST", "/api/databases/imports/inspect", "databases.manage", False),
     ("databases", "start_upload"): ("POST", "/api/databases/imports/uploads", "databases.manage", False),
     ("databases", "upload_status"): ("GET", "/api/databases/imports/uploads/{upload_id}", "databases.manage", False),
@@ -467,12 +494,15 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("databases", "get_authority"): ("GET", "/api/databases/instances/tls-authority", "databases.read", False),
     ("databases", "get_instance"): ("GET", "/api/databases/instances/{name}", "databases.read", False),
     ("databases", "remove_instance"): ("DELETE", "/api/databases/instances/{name}", "databases.manage", True),
+    ("databases", "get_launch"): ("GET", "/api/databases/instances/{name}/launch", "databases.read", False),
+    ("databases", "set_launch"): ("PUT", "/api/databases/instances/{name}/launch", "databases.manage", True),
+    ("databases", "plan_launch"): ("POST", "/api/databases/instances/{name}/launch/plan", "databases.read", False),
     ("databases", "plan_remove_instance"): ("GET", "/api/databases/instances/{name}/remove-plan", "databases.read", False),
     ("databases", "start_instance"): ("POST", "/api/databases/instances/{name}/start", "apps.operate", False),
     ("databases", "stop_instance"): ("POST", "/api/databases/instances/{name}/stop", "apps.operate", False),
     ("databases", "get_tls"): ("GET", "/api/databases/instances/{name}/tls", "databases.read", False),
     ("databases", "set_tls"): ("PUT", "/api/databases/instances/{name}/tls", "databases.manage", True),
-    ("databases", "plan_tls"): ("POST", "/api/databases/instances/{name}/tls/plan", "databases.read", False),
+    ("databases", "plan_tls_post"): ("POST", "/api/databases/instances/{name}/tls/plan", "databases.read", False),
     ("databases", "renew_tls"): ("POST", "/api/databases/instances/{name}/tls/renew", "databases.manage", True),
     ("databases", "get_tuning"): ("GET", "/api/databases/instances/{name}/tuning", "databases.read", False),
     ("databases", "set_tuning"): ("PUT", "/api/databases/instances/{name}/tuning", "databases.manage", True),
@@ -480,7 +510,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("databases", "upgrade_instance"): ("POST", "/api/databases/instances/{name}/upgrade", "databases.manage", True),
     ("databases", "move_database"): ("POST", "/api/databases/moves", "databases.manage", True),
     ("databases", "plan_move"): ("POST", "/api/databases/moves/plan", "databases.read", False),
-    ("databases", "get_status"): ("GET", "/api/databases/pitr", "databases.read", False),
+    ("databases", "get_status_get"): ("GET", "/api/databases/pitr", "databases.read", False),
     ("databases", "take_base"): ("POST", "/api/databases/pitr/base", "databases.manage", True),
     ("databases", "disable"): ("POST", "/api/databases/pitr/disable", "databases.manage", True),
     ("databases", "enable"): ("POST", "/api/databases/pitr/enable", "databases.manage", True),
@@ -500,6 +530,15 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("databases", "execute_query"): ("POST", "/api/databases/query", "databases.read", False),
     ("databases", "explain_query"): ("POST", "/api/databases/query/explain", "databases.read", False),
     ("databases", "export_query"): ("POST", "/api/databases/query/export", "databases.read", False),
+    ("databases", "list_status_get"): ("GET", "/api/databases/replicas", "databases.read", False),
+    ("databases", "join"): ("POST", "/api/databases/replicas/join", "databases.manage", True),
+    ("databases", "plan_join"): ("POST", "/api/databases/replicas/join/plan", "databases.manage", False),
+    ("databases", "get_status_get_"): ("GET", "/api/databases/replicas/{engine}", "databases.read", False),
+    ("databases", "prepare"): ("POST", "/api/databases/replicas/{engine}", "databases.manage", True),
+    ("databases", "plan_prepare"): ("POST", "/api/databases/replicas/{engine}/plan", "databases.read", False),
+    ("databases", "promote"): ("POST", "/api/databases/replicas/{engine}/promote", "databases.manage", True),
+    ("databases", "remove"): ("DELETE", "/api/databases/replicas/{engine}/{name}", "databases.manage", True),
+    ("databases", "show_token"): ("POST", "/api/databases/replicas/{engine}/{name}/token", "databases.manage", True),
     ("databases", "create_user"): ("POST", "/api/databases/users", "databases.write", False),
     ("databases", "grant_privileges"): ("POST", "/api/databases/users/grant", "databases.write", False),
     ("databases", "revoke_privileges"): ("POST", "/api/databases/users/revoke", "databases.write", False),
@@ -575,6 +614,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("fleet", "link_machine"): ("POST", "/api/fleet/cloud/servers/{node}/link", "fleet.manage", True),
     ("fleet", "unlink_machine"): ("DELETE", "/api/fleet/cloud/servers/{node}/link", "fleet.manage", True),
     ("fleet", "power_on_machine"): ("POST", "/api/fleet/cloud/servers/{node}/power-on", "fleet.manage", True),
+    ("fleet", "transfer_database"): ("POST", "/api/fleet/databases/transfer", "fleet.manage", False),
     ("fleet", "enroll_server"): ("POST", "/api/fleet/enroll", "fleet.manage", True),
     ("fleet", "scan_host_key"): ("POST", "/api/fleet/enroll/host-key", "fleet.manage", False),
     ("fleet", "list_jobs"): ("GET", "/api/fleet/jobs", "fleet.read", False),
@@ -801,6 +841,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("server", "cancel_scheduled"): ("DELETE", "/api/server/power/scheduled", "server.manage", False),
     ("server", "schedule_shutdown"): ("POST", "/api/server/power/shutdown", "server.host_access", True),
     ("server", "get_processes"): ("GET", "/api/server/processes", "server.read", False),
+    ("server", "restore"): ("POST", "/api/server/restore", "backups.manage", True),
+    ("server", "plan_restore"): ("GET", "/api/server/restore/plan", "server.read", False),
     ("server", "get_overview"): ("GET", "/api/server/security", "server.read", False),
     ("server", "get_changes"): ("GET", "/api/server/security/changes", "server.read", False),
     ("server", "confirm_change"): ("POST", "/api/server/security/changes/{change_id}/confirm", "server.host_access", True),
@@ -1028,9 +1070,13 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("webhooks", "delete_webhook_secret"): ("DELETE", "/api/apps/{domain}/webhook-secret", "apps.manage", True),
     ("webhooks", "webhook_deliveries"): ("GET", "/api/apps/{domain}/webhook/deliveries", "apps.read", False),
     ("webhooks", "webhook_received"): ("GET", "/api/apps/{domain}/webhook/received", "apps.read", False),
+    ("webhooks", "registry_hook_state"): ("GET", "/api/apps/{domain}/webhook/registry", "apps.read", False),
+    ("webhooks", "reveal_registry_hook"): ("POST", "/api/apps/{domain}/webhook/registry/reveal", "secrets.reveal", True),
     ("webhooks", "reveal_webhook_secret"): ("POST", "/api/apps/{domain}/webhook/reveal", "secrets.reveal", True),
     ("webhooks", "deliver"): ("POST", "/hooks/deploy/{domain}", "public", False),
     ("webhooks", "deliver_post"): ("POST", "/hooks/github", "public", False),
+    ("webhooks", "deliver_registry"): ("POST", "/hooks/registry/{domain}", "public", False),
+    ("webhooks", "deliver_registry_post"): ("POST", "/hooks/registry/{domain}/{token}", "public", False),
 }
 
 class Access:
@@ -1194,7 +1240,7 @@ class Alerts:
 
 
 class Applications:
-    """Applications: 161 operations."""
+    """Applications: 168 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -1271,13 +1317,13 @@ class Applications:
         Needs: permission `apps.read`."""
         return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}", query=None, body=None)
 
-    def delete_app(self, domain: str, *, remove_files: Union[bool, None] = None, remove_ssl: Union[bool, None] = None, remove_adopted_directory: Union[str, None] = None) -> "JobAcceptedResponse":
+    def delete_app(self, domain: str, *, remove_files: Union[bool, None] = None, remove_ssl: Union[bool, None] = None, remove_volumes: Union[bool, None] = None, remove_databases: Union[bool, None] = None, remove_adopted_directory: Union[str, None] = None) -> "JobAcceptedResponse":
         """DELETE /api/apps/{domain}
 
         Delete App
 
         Needs: permission `apps.manage`, sudo mode."""
-        return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}", query={"remove_files": remove_files, "remove_ssl": remove_ssl, "remove_adopted_directory": remove_adopted_directory}, body=None)
+        return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}", query={"remove_files": remove_files, "remove_ssl": remove_ssl, "remove_volumes": remove_volumes, "remove_databases": remove_databases, "remove_adopted_directory": remove_adopted_directory}, body=None)
 
     def get_adoption(self, domain: str) -> "AdoptionResponse":
         """GET /api/apps/{domain}/adoption
@@ -1399,6 +1445,30 @@ class Applications:
         Needs: permission `apps.manage`, sudo mode."""
         return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}/compose", query=None, body=None)
 
+    def get_compose_document(self, domain: str) -> "ComposeDocumentResponse":
+        """GET /api/apps/{domain}/compose/document
+
+        Get Compose Document
+
+        Needs: permission `secrets.reveal`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/compose/document", query=None, body=None)
+
+    def put_compose_document(self, domain: str, body: "ComposeDocumentRequest") -> "ComposeDocumentSavedResponse":
+        """PUT /api/apps/{domain}/compose/document
+
+        Put Compose Document
+
+        Needs: permission `apps.manage`, sudo mode."""
+        return self._call("PUT", f"/api/apps/{quote(str(domain), safe='')}/compose/document", query=None, body=body)
+
+    def check_compose_document(self, domain: str, body: "ComposeDocumentRequest") -> "ComposeDocumentCheckResponse":
+        """POST /api/apps/{domain}/compose/document/check
+
+        Check Compose Document
+
+        Needs: permission `apps.manage`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/compose/document/check", query=None, body=body)
+
     def get_compose_variables(self, domain: str) -> "ComposeVariablesResponse":
         """GET /api/apps/{domain}/compose/variables
 
@@ -1423,6 +1493,14 @@ class Applications:
         Needs: permission `apps.manage`."""
         return self._call("PUT", f"/api/apps/{quote(str(domain), safe='')}/container", query=None, body=body)
 
+    def check_app_image(self, domain: str) -> "ImageCheckResponse":
+        """POST /api/apps/{domain}/container/check
+
+        Check App Image
+
+        Needs: permission `apps.deploy`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/container/check", query=None, body=None)
+
     def get_declaration(self, domain: str) -> "DeclarationResponse":
         """GET /api/apps/{domain}/declaration
 
@@ -1430,6 +1508,14 @@ class Applications:
 
         Needs: permission `secrets.reveal`."""
         return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/declaration", query=None, body=None)
+
+    def get_deletion_plan(self, domain: str) -> "DeletionPlanResponse":
+        """GET /api/apps/{domain}/deletion
+
+        Get Deletion Plan
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/deletion", query=None, body=None)
 
     def deploy_app(self, domain: str, *, body: Union["DeployOptions", None] = None) -> "DeployResponse":
         """POST /api/apps/{domain}/deploy
@@ -1559,6 +1645,14 @@ class Applications:
         Needs: permission `apps.manage`, sudo mode."""
         return self._call("PATCH", f"/api/apps/{quote(str(domain), safe='')}/env", query=None, body=body)
 
+    def get_app_env_file(self, domain: str, *, unmask: Union[bool, None] = None, download: Union[bool, None] = None) -> bytes:
+        """GET /api/apps/{domain}/env/file
+
+        Get App Env File
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/env/file", query={"unmask": unmask, "download": download}, body=None, binary=True)
+
     def update_app_env_marks(self, domain: str, body: "UpdateEnvMarksRequest") -> "AppEnvSecretsResponse":
         """PUT /api/apps/{domain}/env/marks
 
@@ -1574,6 +1668,14 @@ class Applications:
 
         Needs: permission `apps.manage`, sudo mode."""
         return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/env/resolve", query=None, body=None)
+
+    def sync_app_env(self, domain: str, body: "SyncAppEnvRequest") -> "SyncAppEnvResponse":
+        """POST /api/apps/{domain}/env/sync
+
+        Sync App Env
+
+        Needs: permission `apps.manage`, sudo mode."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/env/sync", query=None, body=body)
 
     def get_app_export(self, domain: str, *, with_secrets: Union[bool, None] = None) -> "AppExportDocument":
         """GET /api/apps/{domain}/export
@@ -3066,7 +3168,7 @@ class BackupSchedules:
 
 
 class Backups:
-    """Backups: 10 operations."""
+    """Backups: 21 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -3102,6 +3204,94 @@ class Backups:
 
         Needs: permission `backups.run`."""
         return self._call("POST", "/api/backups", query=None, body=body)
+
+    def status(self) -> "EncryptionStatus":
+        """GET /api/backups/encryption
+
+        Status
+
+        Needs: permission `backups.read`."""
+        return self._call("GET", "/api/backups/encryption", query=None, body=None)
+
+    def disable(self) -> "DisableResult":
+        """POST /api/backups/encryption/disable
+
+        Disable
+
+        Needs: permission `backups.manage`, sudo mode."""
+        return self._call("POST", "/api/backups/encryption/disable", query=None, body=None)
+
+    def enable(self) -> "EnableResult":
+        """POST /api/backups/encryption/enable
+
+        Enable
+
+        Needs: permission `backups.manage`, sudo mode."""
+        return self._call("POST", "/api/backups/encryption/enable", query=None, body=None)
+
+    def import_key(self, body: "ImportKeyRequest") -> "KeyId":
+        """POST /api/backups/encryption/keys
+
+        Import Key
+
+        Needs: permission `backups.manage`, sudo mode."""
+        return self._call("POST", "/api/backups/encryption/keys", query=None, body=body)
+
+    def show_key(self, key_id: str) -> "KeyValue":
+        """GET /api/backups/encryption/keys/{key_id}
+
+        Show Key
+
+        Needs: permission `secrets.reveal`, sudo mode."""
+        return self._call("GET", f"/api/backups/encryption/keys/{quote(str(key_id), safe='')}", query=None, body=None)
+
+    def rotate(self) -> "RotateResult":
+        """POST /api/backups/encryption/rotate
+
+        Rotate
+
+        Needs: permission `backups.manage`, sudo mode."""
+        return self._call("POST", "/api/backups/encryption/rotate", query=None, body=None)
+
+    def seal_plan(self) -> "SealPlan":
+        """GET /api/backups/encryption/seal-existing
+
+        Seal Plan
+
+        Needs: permission `backups.read`."""
+        return self._call("GET", "/api/backups/encryption/seal-existing", query=None, body=None)
+
+    def seal_existing(self) -> "JobAcceptedResponse":
+        """POST /api/backups/encryption/seal-existing
+
+        Seal Existing
+
+        Needs: permission `backups.manage`, sudo mode."""
+        return self._call("POST", "/api/backups/encryption/seal-existing", query=None, body=None)
+
+    def list_failures(self, *, subject: Union[str, None] = None, limit: Union[int, None] = None) -> "BackupFailuresResponse":
+        """GET /api/backups/failures
+
+        List Failures
+
+        Needs: permission `backups.read`."""
+        return self._call("GET", "/api/backups/failures", query={"subject": subject, "limit": limit}, body=None)
+
+    def failure_detail(self, failure_id: int | str) -> "BackupFailureDetail":
+        """GET /api/backups/failures/{failure_id}
+
+        Failure Detail
+
+        Needs: permission `backups.read`."""
+        return self._call("GET", f"/api/backups/failures/{quote(str(failure_id), safe='')}", query=None, body=None)
+
+    def failure_output(self, failure_id: int | str) -> bytes:
+        """GET /api/backups/failures/{failure_id}/output
+
+        Failure Output
+
+        Needs: permission `backups.read`."""
+        return self._call("GET", f"/api/backups/failures/{quote(str(failure_id), safe='')}/output", query=None, body=None, binary=True)
 
     def get_storage_info(self) -> "BackupStorageResponse":
         """GET /api/backups/storage
@@ -3906,7 +4096,7 @@ class DNS:
 
 
 class Databases:
-    """Databases: 133 operations."""
+    """Databases: 154 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -4054,6 +4244,14 @@ class Databases:
 
         Needs: permission `backups.manage`, sudo mode."""
         return self._call("DELETE", f"/api/databases/backups/{quote(str(name), safe='')}", query={"engine": engine, "destination": destination, "database": database}, body=None)
+
+    def dump_data(self, name: str, *, offset: int, engine: str, length: Union[int, None] = None) -> bytes:
+        """GET /api/databases/backups/{name}/data
+
+        Dump Data
+
+        Needs: permission `databases.manage`, sudo mode."""
+        return self._call("GET", f"/api/databases/backups/{quote(str(name), safe='')}/data", query={"engine": engine, "offset": offset, "length": length}, body=None, binary=True)
 
     def download_backup(self, name: str, *, engine: str) -> bytes:
         """GET /api/databases/backups/{name}/download
@@ -4383,6 +4581,22 @@ class Databases:
         Needs: permission `databases.read`."""
         return self._call("GET", "/api/databases/engines/catalog", query=None, body=None)
 
+    def list_status(self) -> list["HostTlsStatusResponse"]:
+        """GET /api/databases/engines/tls
+
+        List Status
+
+        Needs: permission `databases.read`."""
+        return self._call("GET", "/api/databases/engines/tls", query=None, body=None)
+
+    def refresh(self) -> "JobAcceptedResponse":
+        """POST /api/databases/engines/tls/refresh
+
+        Refresh
+
+        Needs: permission `databases.manage`, sudo mode."""
+        return self._call("POST", "/api/databases/engines/tls/refresh", query=None, body=None)
+
     def set_engine_credentials(self, engine: str, body: "EngineCredentialsRequest") -> "NoustWebApiDatabasesCommonActionResponse":
         """PUT /api/databases/engines/{engine}/credentials
 
@@ -4495,6 +4709,38 @@ class Databases:
         Needs: permission `apps.operate`."""
         return self._call("POST", f"/api/databases/engines/{quote(str(engine), safe='')}/stop", query=None, body=None)
 
+    def get_status(self, engine: str) -> "HostTlsStatusResponse":
+        """GET /api/databases/engines/{engine}/tls
+
+        Get Status
+
+        Needs: permission `databases.read`."""
+        return self._call("GET", f"/api/databases/engines/{quote(str(engine), safe='')}/tls", query=None, body=None)
+
+    def enable_tls(self, engine: str, body: "HostTlsRequest") -> "JobAcceptedResponse":
+        """PUT /api/databases/engines/{engine}/tls
+
+        Enable Tls
+
+        Needs: permission `databases.manage`, sudo mode."""
+        return self._call("PUT", f"/api/databases/engines/{quote(str(engine), safe='')}/tls", query=None, body=body)
+
+    def disable_tls(self, engine: str, *, confirm: Union[bool, None] = None) -> "JobAcceptedResponse":
+        """DELETE /api/databases/engines/{engine}/tls
+
+        Disable Tls
+
+        Needs: permission `databases.manage`, sudo mode."""
+        return self._call("DELETE", f"/api/databases/engines/{quote(str(engine), safe='')}/tls", query={"confirm": confirm}, body=None)
+
+    def plan_tls(self, engine: str, body: "HostTlsRequest") -> "HostTlsPlanResponse":
+        """POST /api/databases/engines/{engine}/tls/plan
+
+        Plan Tls
+
+        Needs: permission `databases.read`."""
+        return self._call("POST", f"/api/databases/engines/{quote(str(engine), safe='')}/tls/plan", query=None, body=body)
+
     def uninstall_engine(self, engine: str, *, purge: Union[bool, None] = None) -> "JobAcceptedResponse":
         """POST /api/databases/engines/{engine}/uninstall
 
@@ -4518,6 +4764,22 @@ class Databases:
 
         Needs: permission `databases.manage`, sudo mode."""
         return self._call("POST", "/api/databases/imports", query=None, body=body)
+
+    def import_cluster(self, body: "ClusterRequest") -> "JobAcceptedResponse":
+        """POST /api/databases/imports/cluster
+
+        Import Cluster
+
+        Needs: permission `databases.manage`, sudo mode."""
+        return self._call("POST", "/api/databases/imports/cluster", query=None, body=body)
+
+    def plan_cluster_import(self, body: "ClusterRequest") -> "ClusterPlanResponse":
+        """POST /api/databases/imports/cluster/plan
+
+        Plan Cluster Import
+
+        Needs: permission `databases.manage`."""
+        return self._call("POST", "/api/databases/imports/cluster/plan", query=None, body=body)
 
     def inspect_dump(self, body: "InspectRequest") -> "InspectResponse":
         """POST /api/databases/imports/inspect
@@ -4655,6 +4917,30 @@ class Databases:
         Needs: permission `databases.manage`, sudo mode."""
         return self._call("DELETE", f"/api/databases/instances/{quote(str(name), safe='')}", query={"confirm": confirm}, body=None)
 
+    def get_launch(self, name: str) -> "LaunchStatusResponse":
+        """GET /api/databases/instances/{name}/launch
+
+        Get Launch
+
+        Needs: permission `databases.read`."""
+        return self._call("GET", f"/api/databases/instances/{quote(str(name), safe='')}/launch", query=None, body=None)
+
+    def set_launch(self, name: str, body: "LaunchRequest") -> "JobAcceptedResponse":
+        """PUT /api/databases/instances/{name}/launch
+
+        Set Launch
+
+        Needs: permission `databases.manage`, sudo mode."""
+        return self._call("PUT", f"/api/databases/instances/{quote(str(name), safe='')}/launch", query=None, body=body)
+
+    def plan_launch(self, name: str, body: "LaunchRequest") -> "LaunchPlanResponse":
+        """POST /api/databases/instances/{name}/launch/plan
+
+        Plan Launch
+
+        Needs: permission `databases.read`."""
+        return self._call("POST", f"/api/databases/instances/{quote(str(name), safe='')}/launch/plan", query=None, body=body)
+
     def plan_remove_instance(self, name: str) -> "RemovePlanResponse":
         """GET /api/databases/instances/{name}/remove-plan
 
@@ -4695,7 +4981,7 @@ class Databases:
         Needs: permission `databases.manage`, sudo mode."""
         return self._call("PUT", f"/api/databases/instances/{quote(str(name), safe='')}/tls", query=None, body=body)
 
-    def plan_tls(self, name: str, body: "TlsModeRequest") -> "TlsPlanResponse":
+    def plan_tls_post(self, name: str, body: "TlsModeRequest") -> "TlsPlanResponse":
         """POST /api/databases/instances/{name}/tls/plan
 
         Plan Tls
@@ -4735,13 +5021,13 @@ class Databases:
         Needs: permission `databases.read`."""
         return self._call("POST", f"/api/databases/instances/{quote(str(name), safe='')}/tuning/plan", query=None, body=body)
 
-    def upgrade_instance(self, name: str, *, backup: Union[bool, None] = None) -> "JobAcceptedResponse":
+    def upgrade_instance(self, name: str, *, backup: Union[bool, None] = None, body: Union["UpgradeRequest", None] = None) -> "JobAcceptedResponse":
         """POST /api/databases/instances/{name}/upgrade
 
         Upgrade Instance
 
         Needs: permission `databases.manage`, sudo mode."""
-        return self._call("POST", f"/api/databases/instances/{quote(str(name), safe='')}/upgrade", query={"backup": backup}, body=None)
+        return self._call("POST", f"/api/databases/instances/{quote(str(name), safe='')}/upgrade", query={"backup": backup}, body=body)
 
     def move_database(self, body: "NoustWebApiDatabasesMigrationsMoveRequest") -> "JobAcceptedResponse":
         """POST /api/databases/moves
@@ -4759,7 +5045,7 @@ class Databases:
         Needs: permission `databases.read`."""
         return self._call("POST", "/api/databases/moves/plan", query=None, body=body)
 
-    def get_status(self) -> "PitrStatusResponse":
+    def get_status_get(self) -> "PitrStatusResponse":
         """GET /api/databases/pitr
 
         Get Status
@@ -4918,6 +5204,78 @@ class Databases:
 
         Needs: permission `databases.read`."""
         return self._call("POST", "/api/databases/query/export", query=None, body=body)
+
+    def list_status_get(self) -> list["ReplicaStatusResponse"]:
+        """GET /api/databases/replicas
+
+        List Status
+
+        Needs: permission `databases.read`."""
+        return self._call("GET", "/api/databases/replicas", query=None, body=None)
+
+    def join(self, body: "ReplicaJoinRequest") -> "JobAcceptedResponse":
+        """POST /api/databases/replicas/join
+
+        Join
+
+        Needs: permission `databases.manage`, sudo mode."""
+        return self._call("POST", "/api/databases/replicas/join", query=None, body=body)
+
+    def plan_join(self, body: "ReplicaJoinPlanRequest") -> "ReplicaJoinPlanResponse":
+        """POST /api/databases/replicas/join/plan
+
+        Plan Join
+
+        Needs: permission `databases.manage`."""
+        return self._call("POST", "/api/databases/replicas/join/plan", query=None, body=body)
+
+    def get_status_get_(self, engine: str) -> "ReplicaStatusResponse":
+        """GET /api/databases/replicas/{engine}
+
+        Get Status
+
+        Needs: permission `databases.read`."""
+        return self._call("GET", f"/api/databases/replicas/{quote(str(engine), safe='')}", query=None, body=None)
+
+    def prepare(self, engine: str, body: "ReplicaPrepareRequest") -> "ReplicaPreparedResponse":
+        """POST /api/databases/replicas/{engine}
+
+        Prepare
+
+        Needs: permission `databases.manage`, sudo mode."""
+        return self._call("POST", f"/api/databases/replicas/{quote(str(engine), safe='')}", query=None, body=body)
+
+    def plan_prepare(self, engine: str, body: "ReplicaPrepareRequest") -> "ReplicaPlanResponse":
+        """POST /api/databases/replicas/{engine}/plan
+
+        Plan Prepare
+
+        Needs: permission `databases.read`."""
+        return self._call("POST", f"/api/databases/replicas/{quote(str(engine), safe='')}/plan", query=None, body=body)
+
+    def promote(self, engine: str, body: "ReplicaConfirmRequest") -> dict[str, Any]:
+        """POST /api/databases/replicas/{engine}/promote
+
+        Promote
+
+        Needs: permission `databases.manage`, sudo mode."""
+        return self._call("POST", f"/api/databases/replicas/{quote(str(engine), safe='')}/promote", query=None, body=body)
+
+    def remove(self, name: str, engine: str, *, confirm: Union[bool, None] = None, restore_listen: Union[bool, None] = None) -> dict[str, Any]:
+        """DELETE /api/databases/replicas/{engine}/{name}
+
+        Remove
+
+        Needs: permission `databases.manage`, sudo mode."""
+        return self._call("DELETE", f"/api/databases/replicas/{quote(str(engine), safe='')}/{quote(str(name), safe='')}", query={"confirm": confirm, "restore_listen": restore_listen}, body=None)
+
+    def show_token(self, name: str, engine: str) -> "ReplicaTokenResponse":
+        """POST /api/databases/replicas/{engine}/{name}/token
+
+        Show Token
+
+        Needs: permission `databases.manage`, sudo mode."""
+        return self._call("POST", f"/api/databases/replicas/{quote(str(engine), safe='')}/{quote(str(name), safe='')}/token", query=None, body=None)
 
     def create_user(self, body: "CreateUserRequest") -> "CreateUserResponse":
         """POST /api/databases/users
@@ -5306,7 +5664,7 @@ class Domains:
 
 
 class Fleet:
-    """Fleet: 53 operations."""
+    """Fleet: 54 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -5550,6 +5908,14 @@ class Fleet:
 
         Needs: permission `fleet.manage`, sudo mode."""
         return self._call("POST", f"/api/fleet/cloud/servers/{quote(str(node), safe='')}/power-on", query=None, body=None)
+
+    def transfer_database(self, body: "DatabaseTransferIn") -> "NoustWebApiFleetActionOut":
+        """POST /api/fleet/databases/transfer
+
+        Transfer Database
+
+        Needs: permission `fleet.manage`."""
+        return self._call("POST", "/api/fleet/databases/transfer", query=None, body=body)
 
     def enroll_server(self, body: "EnrollBody") -> "JobAcceptedResponse":
         """POST /api/fleet/enroll
@@ -7402,7 +7768,7 @@ class SelfBackup:
 
 
 class Server:
-    """Server: 70 operations."""
+    """Server: 72 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -7542,6 +7908,22 @@ class Server:
 
         Needs: permission `server.read`."""
         return self._call("GET", "/api/server/processes", query={"sort_by": sort_by, "limit": limit, "group": group}, body=None)
+
+    def restore(self, body: "RestoreRequest") -> "JobAcceptedResponse":
+        """POST /api/server/restore
+
+        Restore
+
+        Needs: permission `backups.manage`, sudo mode."""
+        return self._call("POST", "/api/server/restore", query=None, body=body)
+
+    def plan_restore(self, *, from_destination: Union[str, None] = None) -> "RestorePlanResponse":
+        """GET /api/server/restore/plan
+
+        Plan Restore
+
+        Needs: permission `server.read`."""
+        return self._call("GET", "/api/server/restore/plan", query={"from_destination": from_destination}, body=None)
 
     def get_overview(self) -> "OverviewOut":
         """GET /api/server/security
@@ -9418,7 +9800,7 @@ class VolumeBackups:
 
 
 class Webhooks:
-    """Webhooks: 8 operations."""
+    """Webhooks: 12 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -9463,6 +9845,22 @@ class Webhooks:
         Needs: permission `apps.read`."""
         return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/webhook/received", query={"limit": limit}, body=None)
 
+    def registry_hook_state(self, domain: str) -> "RegistryHookResponse":
+        """GET /api/apps/{domain}/webhook/registry
+
+        Registry Hook State
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/webhook/registry", query=None, body=None)
+
+    def reveal_registry_hook(self, domain: str) -> "RegistryHookResponse":
+        """POST /api/apps/{domain}/webhook/registry/reveal
+
+        Reveal Registry Hook
+
+        Needs: permission `secrets.reveal`, sudo mode."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/webhook/registry/reveal", query=None, body=None)
+
     def reveal_webhook_secret(self, domain: str) -> "WebhookSecretResponse":
         """POST /api/apps/{domain}/webhook/reveal
 
@@ -9486,6 +9884,22 @@ class Webhooks:
 
         Needs: permission `public`."""
         return self._call("POST", "/hooks/github", query=None, body=None)
+
+    def deliver_registry(self, domain: str, *, token: Union[str, None] = None) -> Any:
+        """POST /hooks/registry/{domain}
+
+        Deliver Registry
+
+        Needs: permission `public`."""
+        return self._call("POST", f"/hooks/registry/{quote(str(domain), safe='')}", query={"token": token}, body=None)
+
+    def deliver_registry_post(self, domain: str, token: Union[str, None]) -> Any:
+        """POST /hooks/registry/{domain}/{token}
+
+        Deliver Registry
+
+        Needs: permission `public`."""
+        return self._call("POST", f"/hooks/registry/{quote(str(domain), safe='')}/{quote(str(token), safe='')}", query=None, body=None)
 
 
 class Api:

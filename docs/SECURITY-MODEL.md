@@ -359,38 +359,38 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **999** API operations. **959** need a permission (`x-noust-permission`) and **40** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **330** operations need sudo mode and **40** can need a second person.
+- **1045** API operations. **1003** need a permission (`x-noust-permission`) and **42** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **351** operations need sudo mode and **40** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
 |---|---|
 | `accounts.manage` | 30 |
 | `accounts.read` | 12 |
-| `apps.deploy` | 35 |
-| `apps.manage` | 141 |
+| `apps.deploy` | 36 |
+| `apps.manage` | 144 |
 | `apps.operate` | 34 |
-| `apps.read` | 137 |
+| `apps.read` | 140 |
 | `apps.terminal` | 12 |
 | `audit.manage` | 1 |
 | `audit.read` | 9 |
-| `backups.manage` | 22 |
-| `backups.read` | 19 |
+| `backups.manage` | 28 |
+| `backups.read` | 24 |
 | `backups.run` | 14 |
 | `compliance.read` | 4 |
-| `databases.manage` | 40 |
-| `databases.read` | 60 |
+| `databases.manage` | 53 |
+| `databases.read` | 68 |
 | `databases.write` | 13 |
-| `fleet.manage` | 44 |
+| `fleet.manage` | 45 |
 | `fleet.read` | 22 |
-| `public` | 40 |
+| `public` | 42 |
 | `root_equivalent` | 18 |
-| `secrets.reveal` | 13 |
+| `secrets.reveal` | 16 |
 | `security.manage` | 8 |
 | `self` | 41 |
 | `server.host_access` | 21 |
 | `server.manage` | 56 |
-| `server.read` | 76 |
+| `server.read` | 77 |
 | `server.terminal` | 1 |
 | `settings.manage` | 30 |
 | `settings.read` | 22 |
@@ -485,15 +485,15 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **495** events.
+The catalogue holds **505** events.
 
 | Category | Events |
 |---|---|
 | access | 48 |
 | account | 37 |
 | config | 29 |
-| change | 321 |
-| read | 20 |
+| change | 330 |
+| read | 21 |
 | denial | 16 |
 | system | 21 |
 | host | 3 |
