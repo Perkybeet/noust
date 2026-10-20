@@ -205,6 +205,8 @@ export function rolloutBody(input: {
   what: RolloutWhat;
   value: string;
   force: boolean;
+  /** Build on every server although the application has a build server; false follows it. */
+  buildOnEach?: boolean;
   rollback: boolean;
   serial: string;
   failures: string;
@@ -217,6 +219,7 @@ export function rolloutBody(input: {
   const value = input.value.trim();
   const body: RolloutBody = {
     force: input.force,
+    build_on_each: input.buildOnEach ?? false,
     rollback_on_failure: input.rollback,
     serial,
     max_failures: failures,
