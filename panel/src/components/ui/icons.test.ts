@@ -9,6 +9,11 @@ describe("semantic icons", () => {
     expect(new Set(icons).size).toBe(icons.length);
   });
 
+  it("has a key for what will ask to confirm it's you, apart from the lock of what cannot be changed", () => {
+    expect(ICONS.elevated).toBeDefined();
+    expect(ICONS.elevated).not.toBe(ICONS.locked);
+  });
+
   it("names the four severities a message can have", () => {
     for (const severity of ["info", "success", "warning", "error"] as const) expect(ICONS[severity]).toBeDefined();
   });

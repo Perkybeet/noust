@@ -42,7 +42,12 @@ export interface Column<T> {
 
 export interface DataTableProps<T> {
   columns: readonly Column<T>[];
-  rows: readonly T[];
+  /**
+   * The rows. `undefined` is "not loaded yet" and draws the skeleton, as `loading` does; an empty
+   * array is "there are none" and draws `empty`. A query's `data` can be passed as it comes, so a
+   * table never says "no applications" before the answer has arrived.
+   */
+  rows: readonly T[] | undefined;
   getRowId: (row: T) => string;
   /** Names the table for assistive technology; rendered visually hidden. */
   caption: string;
@@ -67,9 +72,11 @@ export interface DataTableProps<T> {
   empty?: ReactNode;
   density?: "compact" | "comfortable";
   /**
-   * Below 640px: `scroll` keeps the table and scrolls it sideways; `cards` draws each row as a
-   * card (state, name, the rest on one line) with its actions always in view. Lists of a T1
-   * page use `cards`.
+   * Below 640px: `cards` draws each row as a card (state, name, the rest on one line) with its
+   * actions always in view; `scroll` keeps the table and scrolls it sideways, for a table whose
+   * columns are the point (a parameter list, a diff) and that no card can hold. Lists of a T1
+   * page use `cards`. The default is `scroll` while the pages that rely on it move; it becomes
+   * `cards` (`DEFAULT_MOBILE`) with the last of them.
    */
   mobile?: "scroll" | "cards";
   /**
@@ -89,8 +96,18 @@ export interface DataTableProps<T> {
   className?: string;
 }
 
+/**
+ * What a table does under 640px when it is not told. `cards` is what the console wants everywhere
+ * (DESIGN 6.8); the tables that still rely on this are `scroll`, and changing it is one line and
+ * the tests of the pages that read a table in a window jsdom thinks is a phone.
+ */
+export const DEFAULT_MOBILE: NonNullable<DataTableProps<unknown>["mobile"]> = "scroll";
+
 /** The smallest page size: a list this short has nothing to page, so no control is drawn. */
 const SMALLEST_PAGE = 20;
+
+/** The rows of a table whose rows have not arrived: one array, so memoised work is not redone. */
+const NO_ROWS: readonly never[] = [];
 
 const HIDE: Record<NonNullable<Column<unknown>["hideBelow"]>, string> = {
   sm: "hidden sm:table-cell",
@@ -114,7 +131,7 @@ function compare(a: string | number | null, b: string | number | null): number {
  */
 export function DataTable<T>({
   columns,
-  rows,
+  rows: given,
   getRowId,
   caption,
   sort,
@@ -122,16 +139,19 @@ export function DataTable<T>({
   onSortChange,
   onRowActivate,
   rowActions,
-  loading = false,
+  loading: loadingGiven = false,
   skeletonRows = 5,
   empty,
   density = "comfortable",
-  mobile = "scroll",
+  mobile = DEFAULT_MOBILE,
   layout = "auto",
   pagination,
   className,
 }: DataTableProps<T>) {
   const t = useT();
+  // Rows that have not arrived are a wait, not an empty list: the skeleton, never "none".
+  const loading = loadingGiven || given === undefined;
+  const rows = given ?? NO_ROWS;
   const wide = useMediaQuery(SM_UP);
   const captionId = useId();
   const [internalSort, setInternalSort] = useState<SortState | null>(defaultSort);

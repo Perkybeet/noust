@@ -2,6 +2,7 @@ import { Button as BaseButton } from "@base-ui/react/button";
 import type { ReactNode } from "react";
 
 import { cx } from "../../lib/cx";
+import { useDemoted } from "./demotePrimary";
 import { Spinner } from "./Spinner";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
@@ -71,6 +72,9 @@ export function Button({
   type = "button",
   ...rest
 }: ButtonProps) {
+  // While the save bar holds changes the header's primary steps aside (PageHeader, FM-2): the
+  // colour changes, the label and the size do not.
+  const effective = useDemoted() && variant === "primary" ? "secondary" : variant;
   return (
     <BaseButton
       {...rest}
@@ -79,8 +83,8 @@ export function Button({
       focusableWhenDisabled={loading}
       aria-busy={loading || undefined}
       // Read by the design contract (one primary per view) and by the gallery.
-      data-variant={variant}
-      className={buttonClassName(variant, size, className)}
+      data-variant={effective}
+      className={buttonClassName(effective, size, className)}
     >
       {loading ? <Spinner size={size === "sm" ? 14 : 16} /> : icon}
       {children}

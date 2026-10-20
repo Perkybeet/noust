@@ -4,6 +4,7 @@ import { useId } from "react";
 import type { ReactNode } from "react";
 
 import { cx } from "../../lib/cx";
+import { GroupError } from "./Field";
 
 export interface ChoiceCard<V extends string> {
   value: V;
@@ -23,6 +24,11 @@ export interface ChoiceCardsProps<V extends string> {
   options: readonly ChoiceCard<V>[];
   value: V;
   onValueChange: (value: V) => void;
+  /**
+   * The choice is not valid ("Choose how deploys work"): the same glyph and sentence a `Field`
+   * shows, tied to the group with `aria-describedby` and announced with it.
+   */
+  error?: string | null | undefined;
   className?: string;
 }
 
@@ -32,9 +38,11 @@ export interface ChoiceCardsProps<V extends string> {
  * a radio named by its label and described by its sentence, so the choice is read with what it
  * means. For a choice that needs no sentence, a `SegmentedControl` or a `Select`.
  */
-export function ChoiceCards<V extends string>({ legend, options, value, onValueChange, className }: ChoiceCardsProps<V>) {
+export function ChoiceCards<V extends string>({ legend, options, value, onValueChange, error, className }: ChoiceCardsProps<V>) {
   const base = useId();
   const legendId = `${base}-legend`;
+  const errorId = `${base}-error`;
+  const invalid = error !== undefined && error !== null && error !== "";
   return (
     <div className={cx("flex flex-col gap-2", className)}>
       <p id={legendId} className="text-13 font-medium text-fg">
@@ -42,6 +50,7 @@ export function ChoiceCards<V extends string>({ legend, options, value, onValueC
       </p>
       <RadioGroup<V>
         aria-labelledby={legendId}
+        {...(invalid ? { "aria-invalid": true, "aria-describedby": errorId } : {})}
         value={value}
         onValueChange={(next: V) => {
           onValueChange(next);
@@ -88,6 +97,7 @@ export function ChoiceCards<V extends string>({ legend, options, value, onValueC
           );
         })}
       </RadioGroup>
+      {invalid ? <GroupError id={errorId}>{error}</GroupError> : null}
     </div>
   );
 }

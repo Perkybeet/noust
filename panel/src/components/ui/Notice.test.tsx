@@ -53,6 +53,13 @@ describe("Notice", () => {
     expect(onDismiss).toHaveBeenCalledOnce();
   });
 
+  it("says which variant it is, for the contract that allows one banner per page", () => {
+    const { container, rerender } = render(<Notice title="Inline" />);
+    expect(container.firstElementChild).toHaveAttribute("data-variant", "inline");
+    rerender(<Notice variant="banner" title="Banner" />);
+    expect(container.firstElementChild).toHaveAttribute("data-variant", "banner");
+  });
+
   it("is roomier as a banner than inline", () => {
     const { container, rerender } = render(<Notice title="Inline" />);
     expect(container.firstElementChild).toHaveClass("rounded-control");
