@@ -141,4 +141,6 @@ Installing Noust again brings back what stopped: the scheduled timers go on by t
 - [releases.md](releases.md): the layout, the gate, rollback and migrations.
 - [security.md](security.md): the threat model, builds, sudo mode and the audit trail.
 - [PRIVACY.md](PRIVACY.md): what leaves a server.
-- [coolify.md](coolify.md): the same concepts for someone coming from Coolify.
+- [coolify.md](coolify.md), [dokploy.md](dokploy.md), [caprover.md](caprover.md) and
+  [dokku.md](dokku.md): the same concepts for someone coming from each of them.
+- [examples/README.md](../examples/README.md): a minimal application for every type, to deploy as is.

@@ -17,6 +17,10 @@ as PID 1 and a Docker of its own, installs Noust into it, and for each example:
 
 The first example is also deployed from a plain directory, the form ``examples/README.md`` shows.
 
+Three more stacks are not folders of ``examples/`` because a generator makes them (Rails, Phoenix and
+Jekyll): the container runs the generator the framework guide names, commits what it wrote and
+deploys that, so what ``docs/frameworks.md`` says about them is something that was run.
+
 It is not part of pytest (nothing here is named ``test_*``): it drives Docker and the network (npm,
 PyPI, crates.io, Go's and Maven's mirrors, nuget.org, hex.pm, JSR, Docker Hub). ``run.py`` is loaded as a
 module and reused, never edited. Everything it creates is named ``<prefix>-...`` (``NOUST_IT_PREFIX``)
@@ -100,6 +104,7 @@ REPOS_IN_CONTAINER = "/root/ex-repos"
 FIRST_DEPLOY_TIMEOUT = 2400
 UPDATE_TIMEOUT = 1500
 SERVED_WITHIN = 180
+GENERATE_TIMEOUT = 1800
 
 
 # ---------------------------------------------------------------------------
@@ -210,6 +215,8 @@ class Example:
             for one name, ``ex-NAME.test``, and the example's sentence.
         releases: Whether the type builds releases, and so goes back with a rollback.
         docker: Whether the example runs containers, and so needs the inner Docker daemon.
+        generate: For a stack made by a generator, the shell script that writes the project into the
+            current directory (the folder of ``examples/`` is then not used).
     """
 
     name: str
@@ -218,6 +225,7 @@ class Example:
     hosts: tuple[tuple[str, str], ...] = ()
     releases: bool = True
     docker: bool = False
+    generate: str = ""
 
     @property
     def domain(self) -> str:
@@ -263,6 +271,38 @@ class Example:
         return [(self.domain, f"{greeting} ({self.name}")]
 
 
+RAILS = """
+gem install --no-document rails -v '~> 8.0'
+rails new . --api --minimal --skip-active-record --skip-git --skip-test --skip-bundle \\
+  --skip-docker --skip-kamal --skip-thruster --skip-solid --skip-ci --skip-brakeman --skip-rubocop --force
+cat > config/routes.rb <<'RUBY'
+Rails.application.routes.draw do
+  root to: proc { [200, { "Content-Type" => "text/plain" }, ["Hello from Noust (rails)\\n"]] }
+end
+RUBY
+bundle install
+"""
+
+PHOENIX = """
+mix local.hex --force
+mix local.rebar --force
+mix archive.install hex phx_new 1.7.21 --force
+mix phx.new . --app hello --no-ecto --no-mailer --no-gettext --no-dashboard --install
+printf '<p>Hello from Noust (phoenix)</p>\\n' > lib/hello_web/controllers/page_html/home.html.heex
+"""
+
+JEKYLL = """
+gem install --no-document jekyll bundler
+jekyll new . --force --skip-bundle
+printf -- '---\\nlayout: default\\n---\\nHello from Noust (jekyll)\\n' > index.markdown
+rm -f index.md
+sed -i '/^.bundle\\//d' .gitignore
+mkdir -p .bundle
+printf 'BUNDLE_PATH: "vendor/bundle"\\n' > .bundle/config
+printf 'build:\\n  install: bundle install\\n  build: bundle exec jekyll build\\n  publish_directory: _site\\n' > noust.yaml
+bundle lock
+"""
+
 EXAMPLES: dict[str, Example] = {
     example.name: example
     for example in (
@@ -296,6 +336,9 @@ EXAMPLES: dict[str, Example] = {
         ),
         Example("docker-compose", "docker-compose", releases=False, docker=True),
         Example("container", "container", docker=True),
+        Example("rails", "ruby", generate=RAILS),
+        Example("phoenix", "elixir", generate=PHOENIX),
+        Example("jekyll", "static", create="--type static", generate=JEKYLL),
     )
 }
 
@@ -324,6 +367,20 @@ def make_repository(sc: Scenario, example: Example) -> None:
         sc: The scenario.
         example: The example.
     """
+    if example.generate:
+        sc.run(
+            f"rm -rf {example.repo} && mkdir -p {example.repo} && cd {example.repo} && set -e && "
+            f"{example.generate}",
+            timeout=GENERATE_TIMEOUT,
+            label=f"(generator) {example.name}: {example.generate.strip().splitlines()[0]} ...",
+        )
+        sc.run(
+            f"cd {example.repo} && git init -q -b main && {GIT_IDENTITY} && git add -A && "
+            "git commit -q -m 'version 1'",
+            timeout=120,
+            label=f"(repository) {example.repo}: what the generator wrote, served at {example.url}",
+        )
+        return
     sc.run(
         f"rm -rf {example.repo} && cp -a {EXAMPLES_IN_CONTAINER}/{example.name} {example.repo} && "
         f"cd {example.repo} && git init -q -b main && {GIT_IDENTITY} && git add -A && "
