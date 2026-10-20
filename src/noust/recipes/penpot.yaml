@@ -1,0 +1,149 @@
+# Penpot from the images the project publishes (penpotapp/frontend, backend and exporter on Docker
+# Hub), arranged as its own compose file does (docker/images/docker-compose.yaml of the
+# repository, read 2026-10-20) without the admin console, the MCP server and the mail catcher it
+# adds for a demonstration. The frontend is the only public service: its nginx sends /api to the
+# backend (penpot-backend:6060) and the exports to the exporter (penpot-exporter:6061), so one
+# address serves the design tool, the API, the WebSocket and the exports. Settings are
+# PENPOT_* variables: PENPOT_PUBLIC_URI (the address people use), PENPOT_SECRET_KEY, the database
+# and the Valkey (redis protocol) the backend and the exporter share, assets on the file system
+# (/opt/data/assets, shared by the frontend and the backend), and PENPOT_FLAGS.
+#
+# Derived in part from Coolify's template "penpot" (Apache-2.0,
+# https://github.com/coollabsio/coolify/blob/next/templates/compose/penpot.yaml). Pinned to the
+# release tag and to the digests Docker Hub serves for it.
+schema: 2
+name: penpot
+kind: compose
+title: Penpot
+slogan: "The open source design and prototyping platform for product teams."
+description: "Design interfaces and prototypes together in the browser, with real components, flex and grid layout, and design tokens, in a file format built on open web standards (SVG, CSS). A single public address serves the editor, the API and exports. Sign-up is open until you close it."
+category: productivity
+tags: [design, prototyping, figma-alternative, svg]
+logo: logo.svg
+version: "2.18.3"
+revision: 1
+updated: 2026-10-20
+homepage: https://penpot.app
+docs: https://help.penpot.app/technical-guide/
+repository: https://github.com/penpot/penpot
+license: MPL-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 9001
+variables:
+  PENPOT_URL:
+    from: url
+    description: The address people use; Penpot builds its links and its cookies from it.
+  PENPOT_SECRET_KEY:
+    generate: base64_64
+    description: Signs the sessions and the tokens. Changing it signs everybody out.
+  PENPOT_FLAGS:
+    default: "enable-login-with-password enable-registration disable-email-verification"
+    description: "Penpot's feature flags. Set disable-registration once the accounts you need exist; add enable-smtp when you configure a mail server."
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /
+  expect: "200"
+  timeout: 240
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    penpot-frontend:
+      image: penpotapp/frontend:2.18.3@sha256:bb8abe27d53de84c95597f2c02c0e702b2779971fb0703e543f9ecf183e999f6
+      restart: unless-stopped
+      depends_on:
+        penpot-backend:
+          condition: service_started
+        penpot-exporter:
+          condition: service_started
+      environment:
+        PENPOT_FLAGS: "${PENPOT_FLAGS}"
+        PENPOT_PUBLIC_URI: "${PENPOT_URL}"
+        PENPOT_HTTP_SERVER_MAX_BODY_SIZE: "367001600"
+        PENPOT_HTTP_SERVER_MAX_MULTIPART_BODY_SIZE: "367001600"
+      volumes:
+        - penpot-assets:/opt/data/assets
+      ports:
+        - "127.0.0.1:${PORT}:8080"
+    penpot-backend:
+      image: penpotapp/backend:2.18.3@sha256:2df1b3440d2a82cc3571db211b4ffdfa2b89ccc910759e8d5e9387fb62971b5c
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+        penpot-valkey:
+          condition: service_healthy
+      environment:
+        PENPOT_FLAGS: "${PENPOT_FLAGS}"
+        PENPOT_PUBLIC_URI: "${PENPOT_URL}"
+        PENPOT_SECRET_KEY: "${PENPOT_SECRET_KEY}"
+        PENPOT_HTTP_SERVER_MAX_BODY_SIZE: "367001600"
+        PENPOT_HTTP_SERVER_MAX_MULTIPART_BODY_SIZE: "367001600"
+        PENPOT_DATABASE_URI: postgresql://db/penpot
+        PENPOT_DATABASE_USERNAME: penpot
+        PENPOT_DATABASE_PASSWORD: "${DB_PASSWORD}"
+        PENPOT_REDIS_URI: redis://penpot-valkey/0
+        PENPOT_OBJECTS_STORAGE_BACKEND: fs
+        PENPOT_OBJECTS_STORAGE_FS_DIRECTORY: /opt/data/assets
+        PENPOT_TELEMETRY_ENABLED: "false"
+        PENPOT_SMTP_DEFAULT_FROM:
+        PENPOT_SMTP_DEFAULT_REPLY_TO:
+        PENPOT_SMTP_HOST:
+        PENPOT_SMTP_PORT:
+        PENPOT_SMTP_USERNAME:
+        PENPOT_SMTP_PASSWORD:
+        PENPOT_SMTP_TLS:
+        PENPOT_SMTP_SSL:
+      volumes:
+        - penpot-assets:/opt/data/assets
+    penpot-exporter:
+      image: penpotapp/exporter:2.18.3@sha256:418232d6ca3120b1c2bfde298a56a05a1f41f567cd8494deac3fe7fbc186cfbd
+      restart: unless-stopped
+      depends_on:
+        penpot-valkey:
+          condition: service_healthy
+      environment:
+        PENPOT_FLAGS: "${PENPOT_FLAGS}"
+        PENPOT_PUBLIC_URI: "${PENPOT_URL}"
+        PENPOT_SECRET_KEY: "${PENPOT_SECRET_KEY}"
+        PENPOT_REDIS_URI: redis://penpot-valkey/0
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      stop_signal: SIGINT
+      environment:
+        POSTGRES_USER: penpot
+        POSTGRES_DB: penpot
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+        POSTGRES_INITDB_ARGS: --data-checksums
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U penpot -d penpot"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - penpot-db:/var/lib/postgresql/data
+    penpot-valkey:
+      image: valkey/valkey:9.0.6-alpine@sha256:187679e3bd4036959631e3f03983ab2ba503ab21e6fd0454d508e909db2ee989
+      restart: unless-stopped
+      command: ["valkey-server", "--maxmemory", "128mb", "--maxmemory-policy", "volatile-lfu"]
+      healthcheck:
+        test: ["CMD-SHELL", "valkey-cli ping | grep PONG"]
+        interval: 5s
+        timeout: 3s
+        retries: 10
+        start_period: 3s
+      volumes:
+        - penpot-cache:/data
+  volumes:
+    penpot-assets:
+    penpot-db:
+    penpot-cache:
+notes:
+  - "Open {{ url }} now and register the first account: sign-up is open (and e-mail verification is off) until you add disable-registration to PENPOT_FLAGS (the application's Environment tab) and restart it."
+  - "The designs and assets are in the Docker volume penpot-assets and the database in penpot-db (PostgreSQL, dumped by Noust before every update). Back both up before updating: the assets are not in the database dump."
+  - "Penpot sends no e-mail until you add enable-smtp to PENPOT_FLAGS and set the PENPOT_SMTP_* variables (host, port, user, password, TLS)."

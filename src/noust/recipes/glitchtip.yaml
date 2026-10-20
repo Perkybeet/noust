@@ -1,0 +1,100 @@
+# GlitchTip from the image the project publishes (glitchtip/glitchtip on Docker Hub) with
+# PostgreSQL, as its installation guide describes (glitchtip.com/documentation/install, read
+# 2026-10-20) and the scripts of its 6.2.6 release (bin/start.sh, run-all-in-one.sh): with
+# GLITCHTIP_EMBED_WORKER=true the one process migrates the database, maintains its partitions,
+# serves the web and runs the task worker and the scheduler, so there is no separate worker and
+# no job that exits, and no Redis (it keeps its tasks and its cache in PostgreSQL). Settings are its
+# environment: SECRET_KEY, DATABASE_URL, GLITCHTIP_DOMAIN (the public address, with its scheme),
+# EMAIL_URL (consolemail:// prints e-mail to the log until you give an SMTP address) and
+# DEFAULT_FROM_EMAIL. GlitchTip speaks the Sentry protocol: point a Sentry SDK's DSN at it.
+#
+# Derived in part from Coolify's template "glitchtip" (Apache-2.0,
+# https://github.com/coollabsio/coolify/blob/next/templates/compose/glitchtip.yaml). Pinned to the
+# release tag and to the digests Docker Hub serves for it.
+schema: 2
+name: glitchtip
+kind: compose
+title: GlitchTip
+slogan: "Open source error tracking and uptime monitoring that speaks Sentry's protocol."
+description: "Collect the errors your applications raise with the Sentry SDKs you already use, group them into issues, get alerts, track performance and watch uptime. A lighter alternative to Sentry for a small server. The first person to register becomes the administrator."
+category: monitoring
+tags: [error-tracking, sentry-compatible, apm, uptime]
+logo: logo.svg
+version: "6.2.6"
+revision: 1
+updated: 2026-10-20
+homepage: https://glitchtip.com
+docs: https://glitchtip.com/documentation
+repository: https://gitlab.com/glitchtip/glitchtip-backend
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8300
+variables:
+  GLITCHTIP_DOMAIN:
+    from: url
+    description: The public address with its scheme; GlitchTip builds the DSNs and the links in its e-mails from it.
+  SECRET_KEY:
+    generate: hex64
+    description: Signs the sessions. Changing it signs everybody out.
+  ENABLE_USER_REGISTRATION:
+    default: "true"
+    description: Whether anybody who reaches the page can register. Set it to false once the accounts you need exist.
+  EMAIL_URL:
+    default: "consolemail://"
+    description: The SMTP address GlitchTip sends e-mail through, such as smtp://user:pass@mail.example.com:587. The default prints e-mail to the log.
+  DEFAULT_FROM_EMAIL:
+    default: glitchtip@example.com
+    description: The address e-mails come from.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /api/0/settings/
+  expect: "200"
+  timeout: 300
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    glitchtip:
+      image: glitchtip/glitchtip:6.2.6@sha256:a3d8eb1b36c1e1603d55ab32711ea3dd8115874742a781a57391a62a16e0dff6
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        DATABASE_URL: "postgres://glitchtip:${DB_PASSWORD}@db:5432/glitchtip"
+        SECRET_KEY: "${SECRET_KEY}"
+        GLITCHTIP_DOMAIN: "${GLITCHTIP_DOMAIN}"
+        GLITCHTIP_EMBED_WORKER: "true"
+        ENABLE_USER_REGISTRATION: "${ENABLE_USER_REGISTRATION}"
+        EMAIL_URL: "${EMAIL_URL}"
+        DEFAULT_FROM_EMAIL: "${DEFAULT_FROM_EMAIL}"
+        PORT: "8000"
+      volumes:
+        - glitchtip-uploads:/code/uploads
+      ports:
+        - "127.0.0.1:${PORT}:8000"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: glitchtip
+        POSTGRES_DB: glitchtip
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U glitchtip -d glitchtip"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - glitchtip-db:/var/lib/postgresql/data
+  volumes:
+    glitchtip-uploads:
+    glitchtip-db:
+notes:
+  - "Open {{ url }} now and register: the first account is the one you administer from, and until you set ENABLE_USER_REGISTRATION to false (the application's Environment tab) and restart, anybody who reaches the page can register."
+  - "Create an organization and a project, then give the project's DSN to a Sentry SDK in your application. GlitchTip prints e-mail to its log until you set EMAIL_URL to an SMTP address."
+  - "Uploaded files are in the Docker volume glitchtip-uploads and the database in glitchtip-db (PostgreSQL, dumped by Noust before every update). Back both up before updating."

@@ -1,0 +1,104 @@
+# Karakeep (the project that was called Hoarder) from the images it publishes
+# (ghcr.io/karakeep-app/karakeep and karakeep-chrome), with the Meilisearch its installation guide
+# asks for (docs.karakeep.app "Installation > Docker Compose", docker-compose.yml of the
+# repository, read 2026-10-20): NEXTAUTH_URL, NEXTAUTH_SECRET, MEILI_ADDR and MEILI_MASTER_KEY,
+# BROWSER_WEB_URL (a headless Chrome that fetches and screenshots the pages), DATA_DIR, and
+# DISABLE_SIGNUPS to close registration. The first account to register is the administrator, which
+# the first note says. The project's compose file uses the moving tag `release`; the version
+# is pinned here, and so is Chrome's. The AI features need an OpenAI-compatible key or an Ollama
+# address (OPENAI_API_KEY, OLLAMA_BASE_URL), which are passed through when you set them.
+#
+# Derived in part from Coolify's template "karakeep" (Apache-2.0,
+# https://github.com/coollabsio/coolify/blob/next/templates/compose/karakeep.yaml). Pinned to the
+# release tags and to the digests the registries serve for them.
+schema: 2
+name: karakeep
+kind: compose
+title: Karakeep
+slogan: "A bookmark everything app with AI tagging and full-page archives."
+description: "Save links, notes and images in one place, with automatic tags and summaries from a model you choose (OpenAI or Ollama), full-text search, page archives and mobile apps. The first person to register becomes the administrator."
+category: productivity
+tags: [bookmarks, notes, read-it-later, archive, ai]
+logo: logo.svg
+version: "0.34.0"
+revision: 1
+updated: 2026-10-20
+homepage: https://karakeep.app
+docs: https://docs.karakeep.app
+repository: https://github.com/karakeep-app/karakeep
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3300
+variables:
+  KARAKEEP_URL:
+    from: url
+    description: The address people use; sign-in callbacks are built from it.
+  NEXTAUTH_SECRET:
+    generate: base64_32
+    description: Signs the sessions. Changing it signs everybody out.
+  MEILI_MASTER_KEY:
+    generate: password32
+    description: The key between Karakeep and its search index; it stays inside the stack.
+  DISABLE_SIGNUPS:
+    default: "false"
+    description: Set it to true once the accounts you need exist, to close sign-up.
+health:
+  path: /api/health
+  expect: "200"
+  timeout: 300
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    web:
+      image: ghcr.io/karakeep-app/karakeep:0.34.0@sha256:151cdd6b5f2e21635645983e126f411675bfa35becb02c028c1a727f45f899c6
+      restart: unless-stopped
+      depends_on:
+        chrome:
+          condition: service_started
+        meilisearch:
+          condition: service_started
+      environment:
+        NEXTAUTH_URL: "${KARAKEEP_URL}"
+        NEXTAUTH_SECRET: "${NEXTAUTH_SECRET}"
+        MEILI_ADDR: http://meilisearch:7700
+        MEILI_MASTER_KEY: "${MEILI_MASTER_KEY}"
+        BROWSER_WEB_URL: http://chrome:9222
+        DATA_DIR: /data
+        DISABLE_SIGNUPS: "${DISABLE_SIGNUPS}"
+        DISABLE_NEW_RELEASE_CHECK: "true"
+        OPENAI_API_KEY:
+        OPENAI_BASE_URL:
+        OLLAMA_BASE_URL:
+        INFERENCE_TEXT_MODEL:
+        INFERENCE_IMAGE_MODEL:
+      volumes:
+        - karakeep-data:/data
+      ports:
+        - "127.0.0.1:${PORT}:3000"
+    chrome:
+      image: ghcr.io/karakeep-app/karakeep-chrome:154.0.8037.57-r1@sha256:c51a8c8e6c3c1040a50fa0ecfd0b2fc298401b4229262636552458151f6f18fa
+      restart: unless-stopped
+      command:
+        - --no-sandbox
+        - --disable-gpu
+        - --disable-dev-shm-usage
+        - --remote-debugging-address=0.0.0.0
+        - --remote-debugging-port=9222
+        - --hide-scrollbars
+    meilisearch:
+      image: getmeili/meilisearch:v1.54.3@sha256:e68913ab7d6f5b159529e472cfd362ce3c741fafd3c127961b2142abbe41b3c9
+      restart: unless-stopped
+      environment:
+        MEILI_MASTER_KEY: "${MEILI_MASTER_KEY}"
+        MEILI_NO_ANALYTICS: "true"
+      volumes:
+        - karakeep-search:/meili_data
+  volumes:
+    karakeep-data:
+    karakeep-search:
+notes:
+  - "Open {{ url }} now and sign up: the first account becomes the administrator, and until you set DISABLE_SIGNUPS to true (the application's Environment tab) and restart, anybody who reaches it can register."
+  - "Automatic tagging needs a model: set OPENAI_API_KEY (and OPENAI_BASE_URL for a compatible server), or OLLAMA_BASE_URL with INFERENCE_TEXT_MODEL, in the Environment tab and restart. Without one, everything else works."
+  - "Your bookmarks and archives are in the Docker volume karakeep-data and the search index in karakeep-search: back them up before updating."
