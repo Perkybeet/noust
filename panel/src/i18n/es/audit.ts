@@ -58,10 +58,8 @@ export const audit: Catalog<typeof en> = {
     outcome: "Resultado",
     actor: "Actor",
     target: "Objetivo",
-    source: "Desde",
     when: "Cuándo",
     noTarget: "Sin objetivo",
-    noSource: "Origen desconocido",
   },
   fields: {
     action: "Acción",

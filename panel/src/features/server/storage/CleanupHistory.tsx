@@ -8,8 +8,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { RelativeTime } from "../../../components/page/RelativeTime";
-import { Badge } from "../../../components/ui/Badge";
-import type { BadgeTone } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { DataTable } from "../../../components/ui/DataTable";
@@ -18,6 +16,8 @@ import { Drawer } from "../../../components/ui/Drawer";
 import { EmptyCell } from "../../../components/ui/EmptyCell";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Mono } from "../../../components/ui/Mono";
+import { StatusPill } from "../../../components/ui/StatusPill";
+import type { Status } from "../../../components/ui/StatusPill";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
@@ -44,19 +44,19 @@ export function triggerLabel(t: T, trigger: string): string {
   }
 }
 
-/** How a run ended, as a word and the tone that carries it. */
-export function runStatus(t: T, status: string): { label: string; tone: BadgeTone } {
+/** How a run ended, as a state: its shape and its word. */
+export function runStatus(t: T, status: string): { label: string; state: Status } {
   switch (status) {
     case "ok":
-      return { label: t("server.storage.history.status.ok"), tone: "ok" };
+      return { label: t("server.storage.history.status.ok"), state: "running" };
     case "partial":
-      return { label: t("server.storage.history.status.partial"), tone: "warn" };
+      return { label: t("server.storage.history.status.partial"), state: "warning" };
     case "failed":
-      return { label: t("server.storage.history.status.failed"), tone: "fail" };
+      return { label: t("server.storage.history.status.failed"), state: "failed" };
     case "skipped":
-      return { label: t("server.storage.history.status.skipped"), tone: "neutral" };
+      return { label: t("server.storage.history.status.skipped"), state: "stopped" };
     default:
-      return { label: status, tone: "neutral" };
+      return { label: status, state: "unknown" };
   }
 }
 
@@ -85,7 +85,7 @@ function RunDrawer({ run, onClose }: { run: CleanupRun; onClose: () => void }) {
     >
       <div className="flex flex-col gap-5">
         <p className="flex flex-wrap items-center gap-2 text-13">
-          <Badge tone={status.tone}>{status.label}</Badge>
+          <StatusPill state={status.state} label={status.label} size="sm" />
           <RelativeTime value={run.started_at} />
           {run.actor ? <Mono tone="muted">{run.actor}</Mono> : null}
         </p>
@@ -106,7 +106,7 @@ function RunDrawer({ run, onClose }: { run: CleanupRun; onClose: () => void }) {
                 <li key={`${action.action}:${index}`} className="flex min-w-0 flex-col gap-1.5 py-3">
                   <span className="flex flex-wrap items-center gap-2 text-13 text-fg">
                     {cleanupActionLabel(t, action.action)}
-                    <Badge tone={outcome.tone}>{outcome.label}</Badge>
+                    <StatusPill state={outcome.state} label={outcome.label} appearance="inline" size="sm" />
                     {action.freed_bytes != null ? <span className="text-12 text-fg-muted">{t("server.storage.history.freed", { size: formatBytes(action.freed_bytes, t.locale) })}</span> : null}
                   </span>
                   {removed.length > 0 ? (
@@ -165,7 +165,7 @@ export function CleanupHistory() {
       header: t("server.storage.history.result"),
       cell: (row) => {
         const status = runStatus(t, row.status);
-        return <Badge tone={status.tone}>{status.label}</Badge>;
+        return <StatusPill state={status.state} label={status.label} appearance="inline" size="sm" />;
       },
     },
     {

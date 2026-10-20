@@ -11,7 +11,6 @@ export const mcpSettings = {
     command: "MCP settings",
   },
   documentTitle: "MCP",
-  loadFailed: "Could not read the MCP settings",
   loadingLabel: "the MCP settings",
   state: {
     title: "MCP endpoint",
@@ -54,7 +53,6 @@ export const mcpSettings = {
     prompts: "Prompts",
     resources: "Resources",
   },
-  command: "From a terminal",
   commandEnable: "noust mcp enable",
   commandToken: "noust mcp token ci-bot --preset deploy --owner maria",
 } as const;

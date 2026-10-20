@@ -28,7 +28,6 @@ export const consoleAccess: Catalog<typeof en> = {
     open: "Abrir {url}",
   },
   facts: {
-    title: "Lo que se publicó",
     address: "Dirección",
     allowList: "Accesible desde",
     anyone: "Cualquiera que conozca el nombre",
@@ -89,8 +88,6 @@ export const consoleAccess: Catalog<typeof en> = {
     jobSucceeded: "La consola está publicada en {domain}",
     jobFailed: "Falló la publicación de la consola en {domain}",
     logLabel: "Salida de la publicación de la consola",
-    logEmpty: "La tarea todavía no ha imprimido nada.",
-    notes: "Qué saber",
     restarting: "La consola se reinicia en unos segundos y responde en la nueva dirección.",
   },
   unpublish: {

@@ -8,7 +8,6 @@ export const mcpSettings: Catalog<typeof en> = {
     command: "Ajustes de MCP",
   },
   documentTitle: "MCP",
-  loadFailed: "No se pudieron leer los ajustes de MCP",
   loadingLabel: "los ajustes de MCP",
   state: {
     title: "Endpoint MCP",
@@ -54,7 +53,6 @@ export const mcpSettings: Catalog<typeof en> = {
     prompts: "Prompts",
     resources: "Recursos",
   },
-  command: "Desde una terminal",
   commandEnable: "noust mcp enable",
   commandToken: "noust mcp token ci-bot --preset deploy --owner maria",
 };

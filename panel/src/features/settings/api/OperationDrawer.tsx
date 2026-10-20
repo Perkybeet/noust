@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
 import { api, isApiError } from "../../../api/client";
@@ -17,11 +17,13 @@ import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
+import { StatusPill } from "../../../components/ui/StatusPill";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
+import { focusFirstInvalid } from "../formErrors";
 import { addressOf, curlOf } from "./openapiModel";
 import type { ApiField, ApiOperation, ApiParameter, ApiResponseInfo } from "./openapiModel";
 
@@ -98,6 +100,8 @@ function TryIt({ operation }: { operation: ApiOperation }) {
   const [bodyText, setBodyText] = useState(() => (operation.body === null ? "" : JSON.stringify(operation.example, null, 2)));
   const [confirming, setConfirming] = useState(false);
   const [answer, setAnswer] = useState<{ status: number; headers: string } | null>(null);
+  const [tried, setTried] = useState(false);
+  const formId = useId();
   const missing = operation.parameters.some((parameter) => parameter.required && (values[parameter.name] ?? "") === "");
   const body = parseBody(operation, bodyText);
   const ready = !missing && body.valid;
@@ -130,17 +134,30 @@ function TryIt({ operation }: { operation: ApiOperation }) {
         <p className="text-13 text-fg-muted">{t("apiReference.drawer.tryItRawBody")}</p>
       ) : (
         <form
+          id={formId}
           noValidate
           className="flex flex-col gap-4"
           onSubmit={(event: SyntheticEvent<HTMLFormElement>) => {
             event.preventDefault();
-            if (send.isPending || !ready) return;
+            if (send.isPending) return;
+            // The button is never off for a missing value: it says what is missing, where, and goes there.
+            if (!ready) {
+              setTried(true);
+              focusFirstInvalid(formId);
+              return;
+            }
             if (changes) setConfirming(true);
             else send.mutate();
           }}
         >
           {operation.parameters.map((parameter) => (
-            <Field key={`${parameter.where}:${parameter.name}`} label={parameter.name} optional={!parameter.required} description={parameter.description === "" ? parameter.type : `${parameter.type}. ${parameter.description}`}>
+            <Field
+              key={`${parameter.where}:${parameter.name}`}
+              label={parameter.name}
+              optional={!parameter.required}
+              description={parameter.description === "" ? parameter.type : `${parameter.type}. ${parameter.description}`}
+              error={tried && parameter.required && (values[parameter.name] ?? "") === "" ? t("settings.shared.required") : null}
+            >
               <Input
                 mono
                 autoComplete="off"
@@ -165,7 +182,7 @@ function TryIt({ operation }: { operation: ApiOperation }) {
             </Field>
           ) : null}
           <div>
-            <Button type="submit" variant={changes ? "primary" : "secondary"} loading={send.isPending} disabled={!ready}>
+            <Button type="submit" variant={changes ? "primary" : "secondary"} loading={send.isPending}>
               {t("apiReference.drawer.send")}
             </Button>
           </div>
@@ -289,7 +306,7 @@ export function OperationFlags({ operation }: { operation: ApiOperation }) {
     <span className="flex flex-wrap gap-1.5">
       {operation.needsSudoMode ? <Badge>{t("apiReference.table.sudoMode")}</Badge> : null}
       {operation.needsApproval ? <Badge>{t("apiReference.table.approval")}</Badge> : null}
-      {operation.deprecated ? <Badge tone="warn">{t("apiReference.table.deprecated")}</Badge> : null}
+      {operation.deprecated ? <StatusPill state="warning" label={t("apiReference.table.deprecated")} size="sm" /> : null}
     </span>
   );
 }

@@ -18,8 +18,6 @@ export const terminal: Catalog<typeof en> = {
     endsIn: "Termina en {time}",
     idleLimit: "Se cierra tras {minutes} min sin teclear",
     recorded: "Grabada en la auditoría",
-    root: "root",
-    container: "el usuario del contenedor",
   },
   state: {
     opening: "Abriendo",
@@ -34,7 +32,6 @@ export const terminal: Catalog<typeof en> = {
     opening: "Abriendo...",
     end: "Terminar sesión",
     newSession: "Abrir un terminal nuevo",
-    copy: "Copiar",
     display: "Pantalla",
     textView: "Vista de texto",
     textViewHelp: "Muestra la pantalla como texto, que un lector de pantalla puede leer.",

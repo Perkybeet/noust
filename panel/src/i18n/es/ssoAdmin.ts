@@ -60,35 +60,16 @@ export const ssoAdmin: Catalog<typeof en> = {
     column: { connection: "Conexión", type: "Tipo", state: "Estado", details: "Apunta a", signUp: "Primer acceso" },
   },
   providers: {
-    title: "Proveedores de identidad",
-    description:
-      "Cada uno es un botón en la página de acceso. El proveedor responde de quién es una persona; el segundo factor de la cuenta se pide después.",
-    addProvider: "Añadir un proveedor",
     kind: { github: "GitHub" },
-    tableCaption: "Proveedores configurados",
-    emptyTitle: "Aún no hay ningún proveedor de identidad",
-    emptyDescription:
-      "Añade el que ya usa tu organización, como Keycloak, Okta, Microsoft Entra o Google Workspace, y las personas entran con él.",
-    column: {
-      provider: "Proveedor",
-      issuer: "Emisor",
-      state: "Estado",
-      signUp: "Primer acceso",
-      secret: "Secreto",
-    },
     state: { enabled: "Activado", disabled: "Desactivado" },
     signUp: {
       off: "Se rechaza hasta vincular",
       invite: "Activa una cuenta invitada",
       auto: "Crea una cuenta",
     },
-    secret: { kept: "Guardado", none: "Ninguno (cliente público)" },
     test: "Probar",
-    testLabel: "Probar {name}",
     edit: "Editar",
-    editLabel: "Editar {name}",
     remove: "Quitar",
-    removeLabel: "Quitar {name}",
     redirect: {
       title: "Dirección que registrar en el proveedor",
       description:
@@ -114,7 +95,6 @@ export const ssoAdmin: Catalog<typeof en> = {
       checkFailed: "Fallida",
       checkOutput: "Lo que respondió el proveedor a {check}",
     },
-    testing: "Probando {name}",
   },
   form: {
     createTitle: "Añadir un proveedor de identidad",

@@ -10,6 +10,7 @@ import { Button } from "../../components/ui/Button";
 import { CopyTextButton } from "../../components/ui/CopyTextButton";
 import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
@@ -21,7 +22,7 @@ import type { T } from "../../i18n";
 import { ChoiceCards } from "../../components/ui/ChoiceCards";
 import { rolesQuery } from "./accounts/api";
 import type { RolesResponse } from "./accounts/api";
-import { splitErrors } from "./formErrors";
+import { focusFirstInvalid, splitErrors } from "./formErrors";
 import { NO_REACH, reachBody, reachReady } from "./tokenReach";
 import type { TokenReach } from "./tokenReach";
 import { TokenReachFields } from "./TokenReachFields";
@@ -116,6 +117,7 @@ export function CreateTokenDialog({ open, onClose }: CreateTokenDialogProps) {
   const [cidrs, setCidrs] = useState("");
   const [reach, setReach] = useState<TokenReach>(NO_REACH);
   const [created, setCreated] = useState<CreatedToken | null>(null);
+  const [tried, setTried] = useState(false);
   const { data: session } = useQuery(sessionQuery());
   const roles = useQuery({ ...rolesQuery(), enabled: open });
   const nameRef = useRef<HTMLInputElement>(null);
@@ -145,6 +147,7 @@ export function CreateTokenDialog({ open, onClose }: CreateTokenDialogProps) {
     setCidrs("");
     setReach(NO_REACH);
     setCreated(null);
+    setTried(false);
     create.reset();
   };
 
@@ -160,6 +163,12 @@ export function CreateTokenDialog({ open, onClose }: CreateTokenDialogProps) {
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
     if (create.isPending) return;
+    // The button is never off for a missing value: it says what is missing, where, and goes there.
+    if (name.trim() === "" || !reachReady(reach)) {
+      setTried(true);
+      focusFirstInvalid(formId);
+      return;
+    }
     create.mutate();
   };
 
@@ -209,7 +218,7 @@ export function CreateTokenDialog({ open, onClose }: CreateTokenDialogProps) {
           >
             {t("settings.shared.cancel")}
           </Button>
-          <Button type="submit" form={formId} variant="primary" loading={create.isPending} disabled={name.trim() === "" || !reachReady(reach)}>
+          <Button type="submit" form={formId} variant="primary" loading={create.isPending}>
             {t("settings.tokens.createToken")}
           </Button>
         </>
@@ -217,7 +226,7 @@ export function CreateTokenDialog({ open, onClose }: CreateTokenDialogProps) {
     >
       <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-5">
         {errors.form !== null ? <ErrorBlock live compact error={errors.form} title={t("settings.tokens.create.errorTitle")} /> : null}
-        <Field label={t("settings.tokens.create.nameLabel")} description={t("settings.tokens.create.nameDescription")} error={errors.fields.name}>
+        <Field label={t("settings.tokens.create.nameLabel")} description={t("settings.tokens.create.nameDescription")} error={errors.fields.name ?? (tried && name.trim() === "" ? t("settings.shared.required") : undefined)}>
           <Input
             ref={nameRef}
             mono
@@ -239,6 +248,7 @@ export function CreateTokenDialog({ open, onClose }: CreateTokenDialogProps) {
         />
         {errors.fields.scope !== undefined ? <p className="text-13 text-fail">{errors.fields.scope}</p> : null}
         <TokenReachFields reach={reach} onChange={setReach} errors={errors.fields} />
+        {tried && !reachReady(reach) ? <InlineMessage tone="error" live>{t("settings.tokens.create.reachRequired")}</InlineMessage> : null}
         <Capped t={t} scope={scope} roles={roles.data?.roles} own={session?.permissions ?? []} owner={session?.account?.username ?? null} />
         <Field label={t("settings.tokens.create.expiresLabel")} nativeLabel={false} error={errors.fields.expires_hours}>
           <Select

@@ -1,6 +1,5 @@
 /** Strings of the console's cron area: the jobs list, its dialog and run history. */
 export const cron = {
-  area: "Cron jobs",
 
   common: {
     cancel: "Cancel",
@@ -77,7 +76,7 @@ export const cron = {
 
   deleteDialog: {
     title: "Delete {name}",
-    description: "Removes the timer and its service unit. This cannot be undone.",
+    description: "Removes the timer and its service. This cannot be undone.",
   },
 
   dialog: {
@@ -123,7 +122,7 @@ export const cron = {
   runsDrawer: {
     titleFor: "Runs of {name}",
     titleDefault: "Runs",
-    description: "Newest first, read from the unit's journal.",
+    description: "Newest first, read from the service's journal.",
     loadError: "Could not load the run history",
     loading: "Loading run history",
     empty: "This job has not run yet.",

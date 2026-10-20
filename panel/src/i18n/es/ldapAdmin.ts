@@ -2,35 +2,6 @@ import type { ldapAdmin as en } from "../en/ldapAdmin";
 import type { Catalog } from "../types";
 
 export const ldapAdmin: Catalog<typeof en> = {
-  title: "Directorios (LDAP)",
-  description:
-    "Un servidor LDAP o Active Directory contra el que la gente inicia sesión con el nombre y la contraseña que tiene allí. El directorio comprueba la contraseña; el segundo factor de la propia cuenta sigue después.",
-  loadingLabel: "directorios",
-  tableCaption: "Directorios configurados",
-  add: "Añadir un directorio",
-  emptyTitle: "Todavía ningún directorio",
-  emptyDescription: "Añade uno para que la gente inicie sesión con la cuenta que ya tiene en Active Directory, OpenLDAP o FreeIPA.",
-  column: {
-    directory: "Directorio",
-    state: "Estado",
-    server: "Servidor",
-    signUp: "Un primer inicio de sesión",
-    password: "Cuenta de servicio",
-  },
-  state: {
-    enabled: "Activo",
-    disabled: "Desactivado",
-  },
-  password: {
-    kept: "Contraseña guardada",
-    anonymous: "Busca de forma anónima",
-  },
-  testLabel: "Probar {name}",
-  test: "Probar",
-  editLabel: "Editar {name}",
-  edit: "Editar",
-  removeLabel: "Quitar {name}",
-  remove: "Quitar",
   form: {
     createTitle: "Añadir un directorio",
     editTitle: "Editar {name}",

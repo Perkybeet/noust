@@ -7,7 +7,6 @@ export const scimAdmin = {
   title: "Provisioning (SCIM)",
   description:
     "An identity provider that keeps the roster: it creates the account of a new person, switches it off when they leave, and gives roles by group as it pushes them. It does not sign anybody in; the sign-in providers above do.",
-  loadFailed: "Could not read the provisioning sources",
   loadingLabel: "provisioning sources",
   tableCaption: "Provisioning sources",
   add: "Add a source",
@@ -28,9 +27,7 @@ export const scimAdmin = {
     disabled: "Disabled",
   },
   neverUsed: "Never",
-  editLabel: "Edit {name}",
   editText: "Edit",
-  removeLabel: "Remove {name}",
   removeText: "Remove",
   form: {
     createTitle: "Add a provisioning source",

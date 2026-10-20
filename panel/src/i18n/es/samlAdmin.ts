@@ -2,35 +2,9 @@ import type { samlAdmin as en } from "../en/samlAdmin";
 import type { Catalog } from "../types";
 
 export const samlAdmin: Catalog<typeof en> = {
-  title: "Proveedores SAML",
-  description:
-    "Un proveedor de identidad SAML 2.0 con el que la gente inicia sesión, como Entra ID, Okta, Keycloak o ADFS. Su respuesta tiene que ir firmada por un certificado que das aquí; el segundo factor de la propia cuenta sigue después.",
-  loadingLabel: "proveedores SAML",
-  tableCaption: "Proveedores SAML configurados",
-  add: "Añadir un proveedor SAML",
-  emptyTitle: "Todavía ningún proveedor SAML",
-  emptyDescription: "Añade uno con los metadatos que publica tu proveedor de identidad y registra después este servidor en él.",
-  column: {
-    provider: "Proveedor",
-    state: "Estado",
-    entity: "Proveedor de identidad",
-    certificate: "Certificado de firma",
-    signUp: "Un primer inicio de sesión",
-  },
-  state: {
-    enabled: "Activo",
-    disabled: "Desactivado",
-  },
   certificate: {
     expired: "Caducado",
-    none: "Ninguno",
   },
-  testLabel: "Probar {name}",
-  test: "Probar",
-  editLabel: "Editar {name}",
-  edit: "Editar",
-  removeLabel: "Quitar {name}",
-  remove: "Quitar",
   plainHttpTitle: "Esta consola no se sirve por HTTPS",
   plainHttp:
     "A esta consola se llega por HTTP sin cifrar. Un proveedor SAML responde con un formulario enviado desde su propio sitio, y el navegador solo manda la cookie de inicio de sesión con él por HTTPS, así que ningún inicio de sesión SAML puede terminar hasta que la consola se sirva con TLS.",

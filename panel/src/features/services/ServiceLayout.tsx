@@ -212,6 +212,7 @@ export function ServiceLayout({ name }: { name: string }) {
         }}
       />
       <ConfirmDialog
+        friction="type"
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         server={node}

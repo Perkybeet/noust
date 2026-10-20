@@ -173,7 +173,7 @@ describe("Settings > API reference", () => {
     await user.paste("{domain:");
 
     expect(await within(drawer).findByText("This is not valid JSON.")).toBeInTheDocument();
-    expect(within(drawer).getByRole("button", { name: "Send request" })).toBeDisabled();
+    await user.click(within(drawer).getByRole("button", { name: "Send request" }));
     expect(backend.callsTo("POST /api/jobs/update")).toHaveLength(0);
   });
 
@@ -209,7 +209,12 @@ describe("Settings > API reference", () => {
     await user.click(await screen.findByText("/api/apps/{domain}"));
     const drawer = await screen.findByRole("dialog", { name: "GET /api/apps/{domain}" });
     const send = within(drawer).getByRole("button", { name: "Send request" });
-    expect(send).toBeDisabled();
+    // A parameter the route needs is said missing, beside it, and nothing is sent.
+    await user.click(send);
+    await waitFor(() => {
+      expect(within(drawer).getByLabelText(/^domain/)).toBeInvalid();
+    });
+    expect(backend.callsTo("GET /api/apps/shop.example.com")).toHaveLength(0);
     await user.type(within(drawer).getByLabelText(/^domain/), "shop.example.com");
     await user.click(send);
     await waitFor(() => {

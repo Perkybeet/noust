@@ -14,7 +14,6 @@ import { ErrorBlock } from "../../../components/page/QueryState";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../../components/page/KeyValueList";
 import { RelativeTime } from "../../../components/page/RelativeTime";
-import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Checkbox } from "../../../components/ui/Checkbox";
@@ -24,6 +23,7 @@ import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
+import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { calendarWords } from "../../cron/data";
@@ -216,7 +216,7 @@ export function CleanupScheduleCard() {
   const items: KeyValueItem[] = [
     {
       label: t("server.storage.schedule.state"),
-      value: on ? <Badge tone="ok">{t("server.storage.schedule.on")}</Badge> : <Badge>{t("server.storage.schedule.off")}</Badge>,
+      value: <StatusPill state={on ? "running" : "stopped"} label={on ? t("server.storage.schedule.on") : t("server.storage.schedule.off")} size="sm" />,
       mono: false,
       copy: false,
     },

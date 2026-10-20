@@ -30,6 +30,7 @@ import { Menu, MenuItem } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
+import { StatusPill } from "../../../components/ui/StatusPill";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
@@ -250,7 +251,7 @@ function Keys({ hostname }: { hostname: string }) {
         <span className="flex flex-wrap items-center gap-1.5">
           <Mono>{row.key.bits ? `${row.key.type} ${String(row.key.bits)}` : row.key.type}</Mono>
           {kindLabel(t, row.key.kind) !== null ? <Badge>{kindLabel(t, row.key.kind)}</Badge> : null}
-          {row.key.weak !== "" ? <Badge tone="warn">{t("server.ssh.keys.weak")}</Badge> : null}
+          {row.key.weak !== "" ? <StatusPill state="warning" label={t("server.ssh.keys.weak")} appearance="inline" size="sm" /> : null}
         </span>
       ),
     },

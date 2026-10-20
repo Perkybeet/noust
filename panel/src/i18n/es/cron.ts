@@ -2,7 +2,6 @@ import type { cron as en } from "../en/cron";
 import type { Catalog } from "../types";
 
 export const cron: Catalog<typeof en> = {
-  area: "Tareas programadas",
 
   common: {
     cancel: "Cancelar",
@@ -76,7 +75,7 @@ export const cron: Catalog<typeof en> = {
 
   deleteDialog: {
     title: "Eliminar {name}",
-    description: "Elimina el temporizador y su unidad de servicio. Esto no se puede deshacer.",
+    description: "Elimina el temporizador y su servicio. Esto no se puede deshacer.",
   },
 
   dialog: {
@@ -122,7 +121,7 @@ export const cron: Catalog<typeof en> = {
   runsDrawer: {
     titleFor: "Ejecuciones de {name}",
     titleDefault: "Ejecuciones",
-    description: "Las más recientes primero, leídas del journal de la unidad.",
+    description: "Las más recientes primero, leídas del journal del servicio.",
     loadError: "No se pudo cargar el historial de ejecuciones",
     loading: "Cargando el historial de ejecuciones",
     empty: "Esta tarea aún no se ha ejecutado.",

@@ -23,8 +23,6 @@ export const terminal = {
     endsIn: "Ends in {time}",
     idleLimit: "Closes after {minutes} min without typing",
     recorded: "Recorded in the audit trail",
-    root: "root",
-    container: "the container's user",
   },
   state: {
     opening: "Opening",
@@ -39,7 +37,6 @@ export const terminal = {
     opening: "Opening...",
     end: "End session",
     newSession: "Open a new terminal",
-    copy: "Copy",
     display: "Display",
     textView: "Text view",
     textViewHelp: "Show the screen as text, which a screen reader can read.",

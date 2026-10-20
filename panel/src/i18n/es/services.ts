@@ -72,7 +72,6 @@ export const services: Catalog<typeof en> = {
     actionsFor: "Acciones de {name}",
     editTags: "Editar tags...",
     noun: "el servicio",
-    moreActions: "Más acciones",
     startedToast: "Se inició {name}",
     stoppedToast: "Se detuvo {name}",
     restartedToast: "Se reinició {name}",

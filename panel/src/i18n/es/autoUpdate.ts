@@ -45,7 +45,6 @@ export const autoUpdate: Catalog<typeof en> = {
     failed: "Falló",
     skipped: "No se instaló nada",
     updatedTo: "Actualizado de {from} a {to}",
-    updatedFrom: "Actualizado desde {from}",
   },
   editor: {
     title: "Actualizaciones automáticas",

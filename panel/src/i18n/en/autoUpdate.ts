@@ -46,7 +46,6 @@ export const autoUpdate = {
     failed: "Failed",
     skipped: "Nothing installed",
     updatedTo: "Updated from {from} to {to}",
-    updatedFrom: "Updated from {from}",
   },
   editor: {
     title: "Automatic updates",

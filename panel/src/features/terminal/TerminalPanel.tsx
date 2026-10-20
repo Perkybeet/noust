@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { LogOut, Plus, SlidersHorizontal, SquareTerminal } from "lucide-react";
+import { LogOut, Plus, SquareTerminal } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { announce } from "../../app/Announcer";
@@ -212,7 +212,7 @@ function Start({ target, status, permitted, loading, onOpen, t }: StartProps) {
           </Button>
           <Popover
             trigger={
-              <Button size="sm" variant="ghost" icon={<SlidersHorizontal aria-hidden="true" />}>
+              <Button size="sm" variant="ghost">
                 {t("terminal.actions.options")}
               </Button>
             }
@@ -255,7 +255,7 @@ function DisplayOptions({
   return (
     <Popover
       trigger={
-        <Button size="sm" variant="ghost" icon={<SlidersHorizontal aria-hidden="true" />}>
+        <Button size="sm" variant="ghost">
           {t("terminal.actions.display")}
         </Button>
       }

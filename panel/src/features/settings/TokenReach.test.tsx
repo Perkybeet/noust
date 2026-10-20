@@ -63,8 +63,9 @@ describe("Settings > API tokens bound to a project", () => {
     await user.click(await screen.findByRole("option", { name: "Acme Corp" }));
     await user.click(within(dialog).getByRole("combobox", { name: "Project" }));
     await user.click(await screen.findByRole("option", { name: "Web" }));
-    // Until it names an environment, the token cannot be made.
-    expect(within(dialog).getByRole("button", { name: "Create token" })).toBeDisabled();
+    // Until it names an environment, the token cannot be made: pressing the button says what is missing.
+    await user.click(within(dialog).getByRole("button", { name: "Create token" }));
+    expect(await within(dialog).findByText("Choose the team, project or environment the token reaches.")).toBeInTheDocument();
     await user.click(within(dialog).getByRole("combobox", { name: "Environment" }));
     await user.click(await screen.findByRole("option", { name: "Staging" }));
     expect(within(dialog).getByText(/sees that and nothing else of the server/)).toBeInTheDocument();

@@ -6,7 +6,6 @@ import type { MonitorStatus } from "../../api/queries/monitor";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Subsection } from "../../components/page/Subsection";
-import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { IconButton } from "../../components/ui/IconButton";
@@ -77,7 +76,7 @@ function UnitRow({ t, status }: { t: T; status: MonitorStatus }) {
             }
           />
         ) : (
-          <Badge>{t("server.monitor.notInstalled")}</Badge>
+          <StatusPill state="stopped" label={t("server.monitor.notInstalled")} size="sm" />
         )}
         {status.uptime ? <span className="text-12 text-fg-faint">{t("server.monitor.since", { uptime: status.uptime })}</span> : null}
       </div>

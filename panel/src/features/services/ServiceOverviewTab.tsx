@@ -1,28 +1,40 @@
-import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { CommandHint } from "../../components/page/CommandHint";
 import { KeyValueList, KeyValueListSkeleton } from "../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../components/page/KeyValueList";
+import { QueryState } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Card } from "../../components/ui/Card";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import { formatBytes } from "../../lib/format";
+import type { ServiceInfo } from "./data";
 import { useServiceRecord } from "./useServiceRecord";
+import type { ServiceRecord } from "./useServiceRecord";
 
 /** A service's facts: what it runs, its process, its memory, since when, and whether it starts at boot. */
 export function ServiceOverviewTab({ name }: { name: string }) {
   const t = useT();
   const record = useServiceRecord(name);
-  const data = record.service;
-  if (data === undefined) {
-    return (
-      <Card level={2} title={t("services.detail.factsTitle")} padding="sm">
-        <LoadingRegion label={t("services.detail.loading")}>
+  // The page above says why a service cannot be read (not found, a failed read), so only the
+  // wait is told here.
+  const query = { data: record.service, error: null, isPending: record.loading, isError: false };
+  return (
+    <QueryState
+      query={query}
+      label={name}
+      skeleton={
+        <Card level={2} title={t("services.detail.factsTitle")} padding="sm">
           <KeyValueListSkeleton rows={5} />
-        </LoadingRegion>
-      </Card>
-    );
-  }
+        </Card>
+      }
+    >
+      {(data) => <ServiceFacts name={name} data={data} record={record} />}
+    </QueryState>
+  );
+}
+
+function ServiceFacts({ name, data, record }: { name: string; data: ServiceInfo; record: ServiceRecord }) {
+  const t = useT();
   const items: KeyValueItem[] = [
     { label: t("services.detail.commandLabel"), value: data.description ?? null },
     { label: t("services.detail.mainPid"), value: data.active && data.pid ? data.pid : null },

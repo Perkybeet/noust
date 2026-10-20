@@ -69,7 +69,6 @@ export const services = {
     actionsFor: "Actions for {name}",
     editTags: "Edit tags...",
     noun: "service",
-    moreActions: "More actions",
     startedToast: "Started {name}",
     stoppedToast: "Stopped {name}",
     restartedToast: "Restarted {name}",
@@ -124,7 +123,7 @@ export const services = {
   },
   unitFile: {
     checkedTitle: "Checked with systemd-analyze before it is saved. Restarting the service applies it.",
-    rejected: "Nothing was saved: systemd-analyze rejected the unit. Fix what it names and try again.",
+    rejected: "Nothing was saved: systemd-analyze rejected the service file. Fix what it names and try again.",
     passed: "systemd-analyze found no problem.",
     saved: "Saved.",
     savedHint: "Restart the service to apply the change.",

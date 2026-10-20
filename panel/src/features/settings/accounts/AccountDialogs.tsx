@@ -14,7 +14,7 @@ import { Textarea } from "../../../components/ui/Textarea";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import { ChoiceCards } from "../../../components/ui/ChoiceCards";
-import { splitErrors } from "../formErrors";
+import { focusFirstInvalid, splitErrors } from "../formErrors";
 import { accountKeys, createException, disableAccount, setEmail, setRole } from "./api";
 import type { Account } from "./api";
 import { samePerson } from "./data";
@@ -272,6 +272,7 @@ export function ExceptionDialog({ onClose, person: suggested = "" }: ExceptionDi
   const [person, setPerson] = useState(suggested);
   const [reason, setReason] = useState("");
   const [days, setDays] = useState("90");
+  const [tried, setTried] = useState(false);
   const personRef = useRef<HTMLInputElement>(null);
   const formId = useId();
   const create = useMutation({
@@ -299,7 +300,7 @@ export function ExceptionDialog({ onClose, person: suggested = "" }: ExceptionDi
           <Button disabled={create.isPending} onClick={onClose}>
             {t("settings.shared.cancel")}
           </Button>
-          <Button type="submit" form={formId} variant="primary" loading={create.isPending} disabled={person.trim() === "" || reason.trim() === ""}>
+          <Button type="submit" form={formId} variant="primary" loading={create.isPending}>
             {t("accounts.exceptions.submit")}
           </Button>
         </>
@@ -311,11 +312,18 @@ export function ExceptionDialog({ onClose, person: suggested = "" }: ExceptionDi
         className="flex flex-col gap-5"
         onSubmit={(event) => {
           event.preventDefault();
-          if (!create.isPending) create.mutate();
+          if (create.isPending) return;
+          // The button is never off for a missing value: it says what is missing, where, and goes there.
+          if (person.trim() === "" || reason.trim() === "") {
+            setTried(true);
+            focusFirstInvalid(formId);
+            return;
+          }
+          create.mutate();
         }}
       >
         {errors.form !== null ? <ErrorBlock live compact error={errors.form} title={t("accounts.exceptions.failed")} /> : null}
-        <Field label={t("accounts.fields.person")} error={errors.fields.person_ref}>
+        <Field label={t("accounts.fields.person")} error={errors.fields.person_ref ?? (tried && person.trim() === "" ? t("settings.shared.required") : undefined)}>
           <Input
             ref={personRef}
             type="email"
@@ -327,7 +335,7 @@ export function ExceptionDialog({ onClose, person: suggested = "" }: ExceptionDi
             }}
           />
         </Field>
-        <Field label={t("accounts.exceptions.reason")} description={t("accounts.exceptions.reasonHint")} error={errors.fields.reason}>
+        <Field label={t("accounts.exceptions.reason")} description={t("accounts.exceptions.reasonHint")} error={errors.fields.reason ?? (tried && reason.trim() === "" ? t("settings.shared.required") : undefined)}>
           <Textarea
             rows={3}
             maxLength={1000}

@@ -56,10 +56,8 @@ export const audit = {
     outcome: "Outcome",
     actor: "Actor",
     target: "Target",
-    source: "From",
     when: "When",
     noTarget: "No target",
-    noSource: "Unknown source",
   },
   fields: {
     action: "Action",

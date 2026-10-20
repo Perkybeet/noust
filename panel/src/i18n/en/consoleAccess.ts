@@ -30,7 +30,6 @@ export const consoleAccess = {
     open: "Open {url}",
   },
   facts: {
-    title: "What was published",
     address: "Address",
     allowList: "Reachable from",
     anyone: "Anyone who knows the name",
@@ -89,8 +88,6 @@ export const consoleAccess = {
     jobSucceeded: "The console is published at {domain}",
     jobFailed: "Publishing the console at {domain} failed",
     logLabel: "Output of publishing the console",
-    logEmpty: "The job has printed nothing yet.",
-    notes: "What to know",
     restarting: "The console restarts in a few seconds and answers at the new address.",
   },
   unpublish: {
