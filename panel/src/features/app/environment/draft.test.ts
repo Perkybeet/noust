@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { setLocale } from "../../../app/locale";
-import { applyDraft, describeCounts, diffEnv, draftRows, isMasked, summarise } from "./draft";
+import { applyDraft, describeCounts, draftRows, isMasked, mergeOf, reviewOf, summarise } from "./draft";
 import type { DraftOp } from "./draft";
 
 const MASKED = new Map([
@@ -76,24 +76,66 @@ describe("draftRows", () => {
   });
 });
 
-describe("diffEnv", () => {
-  it("compares the values the file really holds", () => {
-    const next = applyDraft(CLEAR, [
-      { kind: "set", name: "SESSION_SECRET", value: "s3cr3t" },
+describe("reviewOf", () => {
+  it("lists what the rows will do and counts what stays, with no value read in clear", () => {
+    const rows = draftRows(MASKED, [
       { kind: "set", name: "PORT", value: "3000" },
-      { kind: "remove", name: "NODE_ENV" },
+      { kind: "set", name: "NODE_ENV", value: "staging" },
+      { kind: "set", name: "SESSION_SECRET", value: "rotated" },
+      { kind: "remove", name: "DATABASE_URL" },
     ]);
-    const diff = diffEnv(CLEAR, next);
+    const diff = reviewOf(rows);
     expect(diff.changes).toEqual([
+      { name: "NODE_ENV", kind: "changed", before: "production", after: "staging" },
+      // A secret's value before is the placeholder the API sent: nothing was read to say it.
+      { name: "DATABASE_URL", kind: "removed", before: "postgres://app:***@db/app", after: null },
+      { name: "SESSION_SECRET", kind: "changed", before: "***", after: "rotated" },
       { name: "PORT", kind: "added", before: null, after: "3000" },
-      { name: "NODE_ENV", kind: "removed", before: "production", after: null },
     ]);
-    expect(diff.unchanged).toBe(2);
+    expect(diff.unchanged).toBe(0);
+  });
+
+  it("counts the variables the draft leaves alone", () => {
+    expect(reviewOf(draftRows(MASKED, [])).unchanged).toBe(3);
+  });
+});
+
+describe("mergeOf", () => {
+  it("sends only what the draft changes and what it removes", () => {
+    const merge = mergeOf(MASKED, [
+      { kind: "set", name: "PORT", value: "3000" },
+      { kind: "set", name: "NODE_ENV", value: "production" },
+      { kind: "set", name: "SESSION_SECRET", value: "rotated" },
+      { kind: "remove", name: "DATABASE_URL" },
+    ]);
+    // NODE_ENV is set to what it already is: nothing to send. The secret has no value to compare, so it goes.
+    expect(merge).toEqual({ set: { PORT: "3000", SESSION_SECRET: "rotated" }, unset: ["DATABASE_URL"] });
+  });
+
+  it("sends nothing for an undone change", () => {
+    expect(
+      mergeOf(MASKED, [
+        { kind: "set", name: "NODE_ENV", value: "dev" },
+        { kind: "restore", name: "NODE_ENV" },
+      ]),
+    ).toEqual({ set: {}, unset: [] });
+  });
+
+  it("replaces a file by setting what it holds and removing what it leaves out", () => {
+    const merge = mergeOf(MASKED, [
+      {
+        kind: "replace",
+        variables: new Map([
+          ["NODE_ENV", "production"],
+          ["PORT", "8080"],
+        ]),
+      },
+    ]);
+    expect(merge).toEqual({ set: { PORT: "8080" }, unset: ["DATABASE_URL", "SESSION_SECRET"] });
   });
 
   it("keeps a value with surrounding spaces as it is: the writer quotes what needs it", () => {
-    const diff = diffEnv(new Map(), new Map([["GREETING", "  hola  "]]));
-    expect(diff.changes[0]).toEqual({ name: "GREETING", kind: "added", before: null, after: "  hola  " });
+    expect(mergeOf(new Map(), [{ kind: "set", name: "GREETING", value: "  hola  " }]).set).toEqual({ GREETING: "  hola  " });
   });
 });
 

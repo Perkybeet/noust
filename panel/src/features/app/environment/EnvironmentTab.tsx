@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 
 import { request } from "../../../api/client";
 import { appEnvQuery, appKeys, appQuery } from "../../../api/queries/apps";
-import { runtimeKeys } from "../../../api/queries/runtime";
 import type { App } from "../../../api/queries/apps";
 import { AUDIENCES } from "../../../api/queries/variables";
 import type { VariableAudience } from "../../../api/queries/variables";
@@ -24,14 +23,15 @@ import { IconButton } from "../../../components/ui/IconButton";
 import { ICONS } from "../../../components/ui/icons";
 import { Menu, MenuGroup, MenuItem, MenuSeparator } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
+import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { cx } from "../../../lib/cx";
 import { reportActionError } from "../../apps/useAppActions";
-import { audienceChanges, audienceHelp, audienceLabel, effectiveAudience, storedAudience } from "./audience";
+import { audienceBody, audienceChanges, audienceHelp, audienceLabel, effectiveAudience, storedAudience } from "./audience";
 import type { StagedAudience } from "./audience";
 import type { DraftOp, EnvDiff, EnvRow } from "./draft";
-import { applyDraft, diffEnv, draftRows, isMasked, summarise } from "./draft";
+import { draftRows, isMasked, mergeOf, reviewOf, summarise } from "./draft";
 import { ComposeVariables } from "./ComposeVariables";
 import { isValidName, oneLine } from "./dotenv";
 import { PasteDialog } from "./PasteDialog";
@@ -39,8 +39,12 @@ import { PredefinedVariables } from "./PredefinedVariables";
 import { ReviewDialog } from "./ReviewDialog";
 import { markFor, secrecyActionLabel, secrecyChoice, secrecyKind, secrecyLine, secrecyMarkAnnouncement } from "./secrecy";
 import type { EnvSecrecy, SecrecyChoice } from "./secrecy";
+import { useSaveEnvironment } from "./useSaveEnvironment";
 import { VariableDialog } from "./VariableDialog";
 import type { VariableTarget } from "./VariableDialog";
+
+/** A change this large, or a pasted file, is looked over in full before it is written; anything smaller is already in the table. */
+const REVIEW_ABOVE = 6;
 
 /** Where the app's `.env` lives: beside the code in a single folder, in `shared/` with instant rollback. */
 function envFile(app: App | undefined): string {
@@ -91,7 +95,10 @@ function TypeCell({ row, verdict, t }: { row: EnvRow; verdict: EnvSecrecy | unde
 /**
  * The variables in an app's `.env`: plain values in view, secrets hidden until revealed one at
  * a time (behind "Confirm it's you"), changed as a draft (row by row, or by pasting a whole
- * file) that the save bar at the foot reviews and writes, over the values the file really holds.
+ * file). A row opens on press; a change shows in the table, an old value struck beside the new
+ * one; and the bar at the foot writes only what changed and restarts the app, or leaves the
+ * change waiting as "not applied". Nothing is read in clear to change a variable: a hidden value
+ * is kept or replaced. A large or pasted change is looked over in full before it is written.
  */
 export function EnvironmentTab({ domain }: { domain: string }) {
   const t = useT();
@@ -107,6 +114,9 @@ export function EnvironmentTab({ domain }: { domain: string }) {
   const [editing, setEditing] = useState<VariableTarget | null>(null);
   const [pasting, setPasting] = useState(false);
   const [review, setReview] = useState<EnvDiff | null>(null);
+  // A pasted file is looked over before it is written, however few variables it holds.
+  const [pasted, setPasted] = useState(false);
+  const save = useSaveEnvironment(domain);
   // Who gets which variable, chosen but not saved: written with the values, in one request.
   const [staged, setStaged] = useState<StagedAudience>(new Map());
   // The notes above variables, changed but not saved (empty text takes one away).
@@ -207,14 +217,9 @@ export function EnvironmentTab({ domain }: { domain: string }) {
     setRevealed((current) => new Set(current).add(row.name));
   };
 
-  const edit = async (row: EnvRow): Promise<void> => {
-    let value = valueOf(row);
-    if (value === null) {
-      const values = await readClear();
-      if (values === null) return;
-      value = values.get(row.name) ?? "";
-    }
-    setEditing({ mode: "edit", name: row.name, value, audience: effectiveAudience(recordedAudience, staged, row.name), comment: commentOf(row.name) });
+  /** A hidden value is not read to be edited: the dialog keeps it or replaces it (`value: null`). */
+  const edit = (row: EnvRow): void => {
+    setEditing({ mode: "edit", name: row.name, value: valueOf(row), audience: effectiveAudience(recordedAudience, staged, row.name), comment: commentOf(row.name) });
   };
 
   const stage = (next: DraftOp[], message: string, pasted?: ReadonlyMap<string, string>): void => {
@@ -253,11 +258,42 @@ export function EnvironmentTab({ domain }: { domain: string }) {
     return <Badge tone={changing ? "accent" : "neutral"}>{changing ? t("variables.audience.badgeStaged", { audience: audienceLabel(now, t.locale) }) : audienceLabel(now, t.locale)}</Badge>;
   };
 
-  const openReview = async (): Promise<void> => {
-    // Read fresh: the review compares against what the file holds now, not when the page opened.
-    const values = await readClear(true);
-    if (values === null) return;
-    setReview(diffEnv(values, applyDraft(values, ops)));
+  const changeCount = counts.total + stagedChanges + loneCommentChanges;
+  const merge = mergeOf(masked, ops);
+  const audienceList = audienceChanges(recordedAudience, staged, names);
+  const reviewComments = new Map([...commentChanges].filter(([name]) => names.has(name)));
+  const needsReview = pasted || changeCount > REVIEW_ABOVE;
+
+  const forget = (): void => {
+    setOps([]);
+    setStaged(new Map());
+    setStagedComments(new Map());
+    setPasted(false);
+    // What was read in clear is the old file's now.
+    setClear(null);
+  };
+
+  /** Writes only what changed; the app is restarted too when `restart`, else the change waits as "not applied". */
+  const write = (restart: boolean): void => {
+    save.mutate(
+      {
+        merge,
+        ...(audienceList.length > 0 ? { audience: audienceBody(audienceList) } : {}),
+        ...(reviewComments.size > 0 ? { comments: Object.fromEntries(reviewComments) } : {}),
+        restart: restart && !isStatic,
+      },
+      {
+        onSuccess: forget,
+        onError: (error) => {
+          reportActionError(t("environment.reviewDialog.saveFailed"), error);
+        },
+      },
+    );
+  };
+
+  const saveAs = (restart: boolean): void => {
+    if (needsReview) setReview(reviewOf(rows));
+    else write(restart);
   };
 
   const columns: Column<EnvRow>[] = [
@@ -273,9 +309,10 @@ export function EnvironmentTab({ domain }: { domain: string }) {
               <Mono truncate title={row.name} tone={row.state === "removed" ? "muted" : "default"} className={cx(row.state === "removed" && "line-through")}>
                 {row.name === "" ? t("environment.noName") : row.name}
               </Mono>
-              {row.state !== "unchanged" ? <Badge>{stateBadge(t, row.state)}</Badge> : null}
+              {/* What the draft will do: staged, so the accent (the violet marks what is chosen and not yet done). */}
+              {row.state !== "unchanged" ? <Badge tone="accent">{stateBadge(t, row.state)}</Badge> : null}
               {row.state !== "removed" ? audienceBadge(row) : null}
-              {row.state !== "removed" && !isValidName(row.name) ? <Badge tone="fail">{t("environment.tab.notValidName")}</Badge> : null}
+              {row.state !== "removed" && !isValidName(row.name) ? <StatusPill state="failed" label={t("environment.tab.notValidName")} appearance="inline" size="sm" /> : null}
             </span>
             {note !== "" ? (
               <span title={note} className="truncate text-12 text-fg-muted">
@@ -290,6 +327,28 @@ export function EnvironmentTab({ domain }: { domain: string }) {
       id: "value",
       header: t("environment.tab.valueHeader"),
       cell: (row) => {
+        const hiddenValue = row.current !== null && isMasked(row.current);
+        // A changed variable shows what it was and what it will be, in the row: no dialog to open to see the change.
+        // A hidden value is never drawn, old or new: the row says only that it changed.
+        if (row.state === "changed" && row.draft !== null) {
+          if (hiddenValue) return <Masked />;
+          const before = oneLine(row.current ?? "");
+          const after = oneLine(row.draft);
+          return (
+            <span className="inline-flex max-w-full min-w-0 items-center gap-2 align-middle">
+              <Mono truncate title={row.current ?? ""} tone="muted" className="max-w-40 line-through">
+                {before.text === "" ? t("environment.empty") : before.text}
+              </Mono>
+              <span aria-hidden="true" className="text-fg-faint">
+                →
+              </span>
+              <span className="sr-only">{t("environment.reviewDialog.becomesSrOnly")}</span>
+              <Mono truncate title={row.draft} className="max-w-40">
+                {after.text === "" ? t("environment.empty") : after.text}
+              </Mono>
+            </span>
+          );
+        }
         const shown = inView(row);
         const value = shown ? valueOf(row) : null;
         const hideable = row.state !== "removed" && row.current !== null && isMasked(row.current) && row.draft === null && expressionOf(row) === null;
@@ -345,7 +404,7 @@ export function EnvironmentTab({ domain }: { domain: string }) {
     return (
       <Menu align="end" trigger={<IconButton size="sm" label={t("environment.tab.actionsAria", { name: row.name })} icon={<ICONS.more />} tooltip={false} />}>
         {row.state !== "removed" ? (
-          <MenuItem icon={<Pencil />} disabled={unmask.isPending} onClick={() => void edit(row)}>
+          <MenuItem icon={<Pencil />} onClick={() => edit(row)}>
             {t("environment.tab.edit")}
           </MenuItem>
         ) : null}
@@ -466,6 +525,10 @@ export function EnvironmentTab({ domain }: { domain: string }) {
             rows={rows}
             getRowId={(row) => row.name}
             rowActions={rowActions}
+            // The row opens its variable: the menu keeps what is not an edit (remove, who gets it, secrecy).
+            onRowActivate={(row) => {
+              if (row.state !== "removed") edit(row);
+            }}
             density="compact"
             mobile="cards"
           />
@@ -483,16 +546,21 @@ export function EnvironmentTab({ domain }: { domain: string }) {
       {empty ? null : (
         <>
           <SaveBar
-            changes={counts.total + stagedChanges + loneCommentChanges}
+            changes={changeCount}
             onDiscard={() => {
-              setOps([]);
-              setStaged(new Map());
-              setStagedComments(new Map());
+              forget();
               announce(t("environment.tab.discardedAnnounce"));
             }}
-            onSave={() => void openReview()}
-            saving={unmask.isPending && review === null && counts.total + stagedChanges + loneCommentChanges > 0}
-            saveLabel={t("environment.tab.reviewAndSave")}
+            onSave={() => saveAs(true)}
+            saving={save.isPending}
+            saveLabel={isStatic ? t("environment.tab.save") : t("environment.tab.saveAndRestart")}
+            {...(isStatic
+              ? {}
+              : {
+                  saveMenu: (
+                    <MenuItem onClick={() => saveAs(false)}>{t("environment.tab.saveOnly")}</MenuItem>
+                  ),
+                })}
           />
           {/* The empty state carries the same command; said once. */}
           <div className="flex flex-col gap-2">
@@ -512,7 +580,8 @@ export function EnvironmentTab({ domain }: { domain: string }) {
         onSubmit={(name, value, audience, comment) => {
           const adding = editing?.mode === "add";
           setEditing(null);
-          stage([{ kind: "set", name, value }], adding ? t("environment.tab.willBeAdded", { name }) : t("environment.tab.willChange", { name }));
+          // A hidden value that was kept is not a change of the value: only its audience or note may be.
+          if (value !== null) stage([{ kind: "set", name, value }], adding ? t("environment.tab.willBeAdded", { name }) : t("environment.tab.willChange", { name }));
           if (comment !== commentOf(name)) {
             setStagedComments((current) => new Map(current).set(name, comment));
           }
@@ -521,23 +590,25 @@ export function EnvironmentTab({ domain }: { domain: string }) {
           }
         }}
       />
-      <PasteDialog open={pasting} onOpenChange={setPasting} current={masked} onStage={(ops, summary, comments) => stage(ops, summary, comments)} />
+      <PasteDialog
+        open={pasting}
+        onOpenChange={setPasting}
+        current={masked}
+        onStage={(ops, summary, comments) => {
+          setPasted(true);
+          stage(ops, summary, comments);
+        }}
+      />
       <ReviewDialog
         domain={domain}
         file={file}
         isStatic={isStatic}
         diff={review}
-        audience={review === null ? [] : audienceChanges(recordedAudience, staged, new Set(review.next.keys()))}
-        comments={review === null ? new Map() : new Map([...commentChanges].filter(([name]) => review.next.has(name)))}
+        merge={merge}
+        audience={review === null ? [] : audienceList}
+        comments={review === null ? new Map() : reviewComments}
         onClose={() => setReview(null)}
-        onSaved={(next) => {
-          setOps([]);
-          setStaged(new Map());
-          setStagedComments(new Map());
-          setClear(next);
-          void queryClient.invalidateQueries({ queryKey: appKeys.env(domain, false) });
-          void queryClient.invalidateQueries({ queryKey: runtimeKeys.composeVariables(domain) });
-        }}
+        onSaved={forget}
       />
     </div>
   );

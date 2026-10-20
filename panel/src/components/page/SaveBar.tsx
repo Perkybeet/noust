@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { Button } from "../ui/Button";
+import { SplitButton } from "../ui/SplitButton";
 import { LeaveGuard } from "./LeaveGuard";
 import { useYieldPrimary } from "./primaryYield";
 
@@ -23,6 +24,11 @@ export interface SaveBarProps {
   busy?: boolean;
   /** "Save" by default; "Test and save" in a file editor. */
   saveLabel?: string;
+  /**
+   * The same save done another way, as the menu of a split button: "Save and restart" with "Save
+   * only" in it. Save is then a `SplitButton` whose main part is `onSave`; give it `onSave`, not `form`.
+   */
+  saveMenu?: ReactNode;
   /** One more action before Save: "Test" in a file editor. */
   secondary?: ReactNode;
   /**
@@ -48,7 +54,7 @@ export interface SaveBarProps {
  * (one primary per view). It also asks once before the page is left with changes: the guard
  * belongs to the bar, so no subsection writes its own.
  */
-export function SaveBar({ changes, onDiscard, onSave, form, saving = false, busy = false, saveLabel, secondary, guard = true, yieldPrimary = true, className }: SaveBarProps) {
+export function SaveBar({ changes, onDiscard, onSave, form, saving = false, busy = false, saveLabel, saveMenu, secondary, guard = true, yieldPrimary = true, className }: SaveBarProps) {
   const t = useT();
   const dirty = changes > 0;
   useYieldPrimary(dirty && yieldPrimary);
@@ -78,15 +84,28 @@ export function SaveBar({ changes, onDiscard, onSave, form, saving = false, busy
           {t("common.saveBar.discard")}
         </Button>
         {secondary}
-        <Button
-          variant={dirty ? "primary" : "secondary"}
-          disabled={!dirty || busy}
-          loading={saving}
-          {...(form !== undefined ? { type: "submit" as const, form } : {})}
-          {...(onSave !== undefined ? { onClick: onSave } : {})}
-        >
-          {saveLabel ?? t("common.saveBar.save")}
-        </Button>
+        {saveMenu !== undefined ? (
+          <SplitButton
+            name={saveLabel ?? t("common.saveBar.save")}
+            variant={dirty ? "primary" : "secondary"}
+            disabled={!dirty || busy}
+            loading={saving}
+            menu={saveMenu}
+            {...(onSave !== undefined ? { onClick: onSave } : {})}
+          >
+            {saveLabel ?? t("common.saveBar.save")}
+          </SplitButton>
+        ) : (
+          <Button
+            variant={dirty ? "primary" : "secondary"}
+            disabled={!dirty || busy}
+            loading={saving}
+            {...(form !== undefined ? { type: "submit" as const, form } : {})}
+            {...(onSave !== undefined ? { onClick: onSave } : {})}
+          >
+            {saveLabel ?? t("common.saveBar.save")}
+          </Button>
+        )}
       </div>
       {guard && routed ? <LeaveGuard changes={changes} /> : null}
     </div>
