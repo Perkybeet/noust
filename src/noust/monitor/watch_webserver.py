@@ -34,7 +34,6 @@ from __future__ import annotations
 
 import logging
 import os
-import shutil
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import partial
@@ -62,6 +61,10 @@ RESTART_WINDOW_SECONDS = 3600
 
 #: Lines of the journal a failed restart carries.
 JOURNAL_LINES = 20
+
+#: Absolute, as every path in a unit of Noust's is. The monitor package does not import ``shutil``
+#: (a safety test holds it to that), so it does not search ``PATH`` for it either.
+SYSTEMD_RUN = "/usr/bin/systemd-run"
 
 _CONTROL_TIMEOUT = 60
 _JOURNAL_TIMEOUT = 15
@@ -140,10 +143,9 @@ def _outside_the_unit(argv: list[str]) -> list[str]:
         The command through ``systemd-run`` when the monitor is a systemd service and the tool is
         there; the command itself in a terminal, where nothing is restricted.
     """
-    launcher = shutil.which("systemd-run") if os.environ.get("INVOCATION_ID") else None
-    if launcher is None:
+    if not os.environ.get("INVOCATION_ID") or not os.path.exists(SYSTEMD_RUN):
         return argv
-    return [launcher, "--quiet", "--collect", "--wait", "--pipe", *argv]
+    return [SYSTEMD_RUN, "--quiet", "--collect", "--wait", "--pipe", *argv]
 
 
 def _crashed(health: ServiceHealth) -> bool:

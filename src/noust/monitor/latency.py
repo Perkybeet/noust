@@ -33,7 +33,7 @@ def _empty() -> list[int]:
 @dataclass
 class Histogram:
     """
-    The times of some requests.
+    How long some of the answers took.
 
     Attributes:
         counts: Requests per bucket, in the order of :data:`BOUNDS_MS`, then the rest.

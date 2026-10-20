@@ -289,7 +289,7 @@ class TestInsideTheMonitorsUnit:
     @pytest.fixture
     def in_a_unit(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("INVOCATION_ID", "0123456789abcdef0123456789abcdef")
-        monkeypatch.setattr("shutil.which", lambda name: f"/usr/bin/{name}")
+        monkeypatch.setattr("noust.monitor.watch_webserver.os.path.exists", lambda path: True)
 
     def test_the_test_runs_in_a_unit_of_its_own(self, rig: Rig, in_a_unit: None) -> None:
         crashed(rig)

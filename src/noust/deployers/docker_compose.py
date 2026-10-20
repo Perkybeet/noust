@@ -42,6 +42,7 @@ from noust.core.exceptions import (
     DeploymentError,
     DockerError,
     NoustError,
+    PortConflictError,
     RolledBackError,
     SecurityError,
     ValidationError,
@@ -1476,8 +1477,26 @@ class DockerComposeDeployer(AppDeployer):
         ]
         if not mappings:
             return
-        # Asked whatever the flag says: only ``deploy`` sets it, an update reaches here with its
-        # default (True), and a stack that has no containers yet simply lists none.
+        claims = PortClaims(self.runner, self.store)
+        try:
+            claims.require_stack_free(self.domain, mappings)
+            return
+        except PortConflictError:
+            # The common case of a conflict is the stack itself: its containers listen on the
+            # ports its file publishes. Only then are they listed, so a stack with nothing in the
+            # way asks Docker for nothing beyond what it always did.
+            own = self._ports_published_by_containers()
+            if not own:
+                raise
+        claims.require_stack_free(self.domain, mappings, own=own)
+
+    def _ports_published_by_containers(self) -> set[tuple[int, str]]:
+        """
+        Returns:
+            ``(port, protocol)`` for every host port the stack's running containers publish.
+            Asked whatever ``_is_new_deployment`` says: only ``deploy`` sets it, an update reaches
+            the check with its default, and a stack with no containers lists none.
+        """
         own: set[tuple[int, str]] = set()
         result = self._run(self._compose("ps", "--format", "json"))
         if result.success:
@@ -1486,7 +1505,7 @@ class DockerComposeDeployer(AppDeployer):
                     number = published.get("PublishedPort")
                     if number:
                         own.add((int(number), str(published.get("Protocol") or "tcp")))
-        PortClaims(self.runner, self.store).require_stack_free(self.domain, mappings, own=own)
+        return own
 
     def _check_host_privileges(
         self, document: Any, *, accepted: Sequence[str] | None = None
