@@ -34,12 +34,13 @@ import { ACTIVITY_SCREENS, CRON_SCREENS, LOGS_SCREENS } from "../features/nav/ma
 import { OVERVIEW_SCREENS } from "../features/nav/overview";
 import { PROJECTS_SCREENS } from "../features/nav/projects";
 import { SERVER_SCREENS, SERVICE_SCREENS } from "../features/nav/server";
-import { SETTINGS_SCREENS } from "../features/nav/settings";
+import { RENAMED, SETTINGS_SCREENS, groupSettings } from "../features/nav/settings";
+import type { SettingsBlock } from "../features/nav/settings";
 import { TEAM_SCREENS } from "../features/nav/team";
 import type { PlainKey } from "../i18n";
 import { REDIRECT_ROWS } from "./redirects";
-import { groupSettings, shown, tabsOf } from "./navCore";
-import type { ConsolePath, Dest, NavContext, Scope, SettingsBlock, TabItem } from "./navCore";
+import { shown, tabsOf } from "./navCore";
+import type { ConsolePath, Dest, NavContext, Scope, TabItem } from "./navCore";
 
 export { INTERIM, isStaged, tabsOf, withCounts } from "./navCore";
 export type { ConsolePath, Dest, Kind, NavContext, Owner, Scope, Strip, TabItem, When } from "./navCore";
@@ -124,25 +125,6 @@ export const PLANNED: readonly { id: string; to: string; lane: string }[] = [
   { id: "app.settings.protection", to: "/apps/$domain/settings/protection", lane: "P" },
 ];
 
-/**
- * What the screens that changed their name were called before, as palette search words (NV-5):
- * an operator who knew "Console access" still finds it. Keys, so the old name is translated.
- */
-export const RENAMED: Readonly<Record<string, readonly PlainKey[]>> = {
-  domains: ["nav.renamed.domains"],
-  "apps.recipes": ["nav.renamed.catalog"],
-  "settings.notifications": ["nav.renamed.notifications"],
-  "settings.alerts": ["nav.renamed.alerts"],
-  "settings.console": ["nav.renamed.console"],
-  "settings.about": ["nav.renamed.about"],
-  "settings.access": ["nav.renamed.access"],
-  "settings.compliance": ["nav.renamed.compliance"],
-  "settings.probes": ["nav.renamed.probes"],
-  "settings.log-shipping": ["nav.renamed.logShipping"],
-  "settings.cloud": ["nav.renamed.cloud"],
-  "account.security": ["nav.renamed.security"],
-};
-
 /** An old address and where its screen is now (2.9 of the navigation design). */
 export interface Redirect {
   from: ConsolePath;
@@ -183,8 +165,8 @@ export function tabsById(id: string, ctx: NavContext = {}): TabItem[] {
   return tabsOf([dest(id), ...REGISTERED.filter((entry) => entry.parent === id)], ctx);
 }
 
-export { SETTINGS_GROUPS, groupSettings, settingsGroupOf } from "./navCore";
-export type { SettingsBlock } from "./navCore";
+export { RENAMED, SETTINGS_GROUPS, groupSettings, settingsGroupOf } from "../features/nav/settings";
+export type { SettingsBlock } from "../features/nav/settings";
 
 /** The sections of Settings a block holds, in titled groups, from the whole register. */
 export function settingsGroups(block: SettingsBlock, ctx: NavContext = {}): { id: string; sections: Dest[] }[] {

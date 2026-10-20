@@ -1,7 +1,7 @@
 import { Settings } from "lucide-react";
 
-import { area, section } from "../../app/navCore";
-import type { Dest, More, Owner, Strip } from "../../app/navCore";
+import { area, section, shown } from "../../app/navCore";
+import type { Dest, More, NavContext, Owner, Strip } from "../../app/navCore";
 import type { PlainKey } from "../../i18n";
 
 /** The account's own section is in no group of Settings: it leaves them for /account. */
@@ -146,3 +146,52 @@ export const SETTINGS_SCREENS: Strip = [
     command: "nav.settingsTabs.central.command",
   }),
 ];
+
+/** The block of Settings a section is in: the selected server's own, or the instance's (NV-7). */
+export type SettingsBlock = "server" | "instance";
+
+/** The groups of each block, in the order they are drawn. The ids are titled by whoever draws them. */
+export const SETTINGS_GROUPS: Readonly<Record<SettingsBlock, readonly string[]>> = {
+  server: ["this-server", "monitoring", "developers"],
+  instance: ["people", "governance", "fleet"],
+};
+
+const BLOCK_OWNERS: Readonly<Record<SettingsBlock, readonly Owner[]>> = { server: ["server"], instance: ["instance", "fleet"] };
+
+/** The group of a section: General, which is Settings' own page, is the first of "This server". */
+export function settingsGroupOf(entry: Dest): string {
+  return entry.id === "settings" || entry.group === undefined || entry.group === "" ? "this-server" : entry.group;
+}
+
+/**
+ * The sections of Settings a block holds, in titled groups. `screens` is the group of screens
+ * Settings is written as (SETTINGS_SCREENS): the page that draws the list passes it, so its route
+ * is given the texts of those sections and no others. The account's own sections are not Settings
+ * (NV-7): they leave for /account, so no block holds them.
+ */
+export function groupSettings(screens: Strip, block: SettingsBlock, ctx: NavContext = {}): { id: string; sections: Dest[] }[] {
+  const entries = screens.filter((entry) => (entry.id === "settings" || entry.kind === "section") && shown(entry, ctx) && entry.owner !== undefined && BLOCK_OWNERS[block].includes(entry.owner));
+  return SETTINGS_GROUPS[block].flatMap((id) => {
+    const sections = entries.filter((entry) => settingsGroupOf(entry) === id);
+    return sections.length > 0 ? [{ id, sections }] : [];
+  });
+}
+
+/**
+ * What the screens that changed their name were called before, as palette search words (NV-5):
+ * an operator who knew "Console access" still finds it. Keys, so the old name is translated.
+ */
+export const RENAMED: Readonly<Record<string, readonly PlainKey[]>> = {
+  domains: ["nav.renamed.domains"],
+  "apps.recipes": ["nav.renamed.catalog"],
+  "settings.notifications": ["nav.renamed.notifications"],
+  "settings.alerts": ["nav.renamed.alerts"],
+  "settings.console": ["nav.renamed.console"],
+  "settings.about": ["nav.renamed.about"],
+  "settings.access": ["nav.renamed.access"],
+  "settings.compliance": ["nav.renamed.compliance"],
+  "settings.probes": ["nav.renamed.probes"],
+  "settings.log-shipping": ["nav.renamed.logShipping"],
+  "settings.cloud": ["nav.renamed.cloud"],
+  "account.security": ["nav.renamed.security"],
+};

@@ -13,15 +13,13 @@ import { useServerEvents } from "../realtime/events";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { focusPageTitle } from "./focus";
 import { shortcuts as registeredShortcuts } from "./nav";
+import PaletteHost from "./PaletteHost";
 import { shortcutKey, useKeyboardShortcuts } from "./shortcuts";
 import type { KeyBinding } from "./shortcuts";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { Sidebar, SidebarFooter, SidebarNav } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import type { AppVerb } from "./verbCommands";
-
-// The palette, with everything it knows how to find, is fetched the first time it is opened.
-const PaletteHost = lazy(() => import("./PaletteHost"));
 
 // The dialogs a verb opens (the question before a stop, the choice of version) load when one is first chosen.
 const VerbRunner = lazy(() => import("./VerbRunner").then((module) => ({ default: module.VerbRunner })));
@@ -80,7 +78,7 @@ export function Shell() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
 
   const [paletteOpen, setPaletteOpen] = useState(false);
-  // Mounted at the first opening and kept, so a second one is instant.
+  // Its commands are built at the first opening and kept, so a second one is instant and an operator who never opens it pays nothing.
   const [paletteReady, setPaletteReady] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
@@ -222,9 +220,7 @@ export function Shell() {
       </Drawer>
 
       {paletteReady ? (
-        <Suspense fallback={null}>
-          <PaletteHost open={paletteOpen} onOpenChange={setPaletteOpen} onOpenShortcuts={openShortcuts} onVerb={runVerb} returnFocus={() => returnFocus.current} />
-        </Suspense>
+        <PaletteHost open={paletteOpen} onOpenChange={setPaletteOpen} onOpenShortcuts={openShortcuts} onVerb={runVerb} returnFocus={() => returnFocus.current} />
       ) : null}
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} shortcuts={bindings} />
       {chosenVerb !== null ? (

@@ -6,9 +6,7 @@ import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import { sessionQuery } from "../../api/queries/auth";
-import { RENAMED } from "../../app/nav";
-import { groupSettings } from "../../app/navCore";
-import type { Dest, NavContext, SettingsBlock } from "../../app/navCore";
+import type { Dest, NavContext } from "../../app/navCore";
 import { CommandHint } from "../../components/page/CommandHint";
 import { DetailPage } from "../../components/page/DetailPage";
 import { SettingsLayout } from "../../components/page/SettingsLayout";
@@ -20,7 +18,8 @@ import type { PlainKey } from "../../i18n";
 import { useHasFleet, useReturnServer, useServerList } from "../../nodes/servers";
 import { useConsoleContext } from "../../nodes/useNode";
 import { useCentral } from "../central/central";
-import { SETTINGS_SCREENS } from "../nav/settings";
+import { RENAMED, SETTINGS_SCREENS, groupSettings } from "../nav/settings";
+import type { SettingsBlock } from "../nav/settings";
 
 /** Where a section's primary action goes: the settings' page header (see SettingsPrimaryAction). */
 const PrimarySlot = createContext<HTMLElement | null>(null);

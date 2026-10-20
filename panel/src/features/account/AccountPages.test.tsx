@@ -262,11 +262,11 @@ describe("Account > Sign-in security", () => {
     expect(within(passkeys).queryByRole("button", { name: "Add a passkey" })).toBeNull();
   });
 
-  it("names the access token for what it is when it is who signed in, on the profile page", async () => {
+  it("names the access token for what it is when it is who signed in, once for every page of the account", async () => {
     fakeBackend(securityRoutes({ enabled: true }));
     renderConsole("/account");
-    const account = await screen.findByRole("region", { name: "Your account" });
-    expect(within(account).getByText("Signed in with the access token")).toBeInTheDocument();
+    expect(await screen.findByText("Signed in with the access token")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Your account" })).toBeNull();
   });
 });
 

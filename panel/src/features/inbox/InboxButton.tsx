@@ -1,38 +1,16 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Bell } from "lucide-react";
-import { Suspense, lazy, useState } from "react";
+import { useState } from "react";
 
 import { Button } from "../../components/ui/Button";
 import { Drawer } from "../../components/ui/Drawer";
 import { Popover } from "../../components/ui/Popover";
-import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusGlyph } from "../../components/ui/StatusPill";
 import { SM_UP, useMediaQuery } from "../../components/ui/useMediaQuery";
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
+import InboxPanel from "./InboxPanel";
 import { refreshAttention, useAttention } from "./useAttention";
-
-// The panel is drawn when the bell is first pressed: the frame of every page only carries the bell.
-const InboxPanel = lazy(() => import("./InboxPanel"));
-
-/** What the panel's place holds while its code arrives: the room of three rows, so nothing jumps. */
-function PanelPending() {
-  const t = useT();
-  return (
-    <div aria-busy="true" className="flex flex-col gap-3">
-      <span className="sr-only">{t("inbox.needs.checking")}</span>
-      {[0, 1, 2].map((row) => (
-        <div key={row} aria-hidden="true" className="flex gap-3">
-          <Skeleton className="mt-0.5 size-3.5 rounded-pill" />
-          <div className="flex flex-1 flex-col gap-2">
-            <Skeleton className="h-3.5 w-40" />
-            <Skeleton className="h-3 w-56 max-w-full" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 /**
  * The bell: what needs the operator, from any page, two clicks away (the bell, then the item). The
@@ -70,11 +48,7 @@ export function InboxButton() {
       ) : null}
     </Button>
   );
-  const panel = (
-    <Suspense fallback={<PanelPending />}>
-      <InboxPanel onNavigate={() => setOpen(false)} />
-    </Suspense>
-  );
+  const panel = <InboxPanel onNavigate={() => setOpen(false)} />;
   if (!wide) {
     return (
       <>

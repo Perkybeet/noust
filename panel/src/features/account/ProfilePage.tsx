@@ -12,26 +12,18 @@ import { RelativeTime } from "../../components/page/RelativeTime";
 import { Section, Sections } from "../../components/page/Section";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
-import { Notice } from "../../components/ui/Notice";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { PasswordDialog } from "../auth/PasswordDialog";
 import { roleLabel } from "../settings/accounts/roles";
 
-/** Who is signed in: a person's account, or the access token (emergency access). */
+/** Who is signed in, when it is a person's account. */
 function ProfileSection({ t, session }: { t: T; session: SessionInfo }) {
   const [changing, setChanging] = useState(false);
   const account = session.account;
-  if (account === null || account === undefined) {
-    return (
-      <Section title={t("auth.security.accountTitle")}>
-        <Notice tone="warning" title={t("auth.security.masterTitle")}>
-          {session.grant === "compat" ? t("auth.security.masterCompat") : t("auth.security.masterBreakGlass")}
-        </Notice>
-      </Section>
-    );
-  }
+  // The access token has no account: the shell says so above this page (AccountShell).
+  if (account === null || account === undefined) return null;
   const items: KeyValueItem[] = [
     { label: t("auth.security.username"), value: account.username },
     { label: t("auth.security.role"), value: roleLabel(t, account.role), mono: false, copy: false },
