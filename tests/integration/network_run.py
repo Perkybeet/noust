@@ -3889,8 +3889,10 @@ def scenario_acme_name_certificate_http01(env: Env) -> None:
         refused.returncode != 0,
         "a certificate was said to be ordered for a name that points elsewhere",
     )
+    # Noust names the name and its DNS; certbot's own words follow verbatim, authority's detail and all.
     env.check(
-        "192.0.2.1" in said, f"the refusal does not say which record is at fault: {said[-800:]}"
+        lost in said and "Detail:" in said,
+        f"the refusal does not name the name and carry certbot's own words: {said[-800:]}",
     )
     env.check(lost not in lineages_on_disk(env), f"a lineage was kept for {lost}")
     env.check(site_digest(env, base) == digest, "the site changed although the order was refused")
