@@ -6,8 +6,8 @@ import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import { sessionQuery } from "../../api/queries/auth";
-import { SETTINGS_TABS } from "../../app/nav";
-import type { SettingsScope } from "../../app/nav";
+import { SETTINGS_TABS } from "../nav/settings";
+import type { SettingsScope } from "../nav/settings";
 import { CommandHint } from "../../components/page/CommandHint";
 import { DetailPage } from "../../components/page/DetailPage";
 import { SettingsLayout } from "../../components/page/SettingsLayout";

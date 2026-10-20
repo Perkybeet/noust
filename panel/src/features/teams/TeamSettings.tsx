@@ -153,7 +153,7 @@ export function TeamSettings() {
             const kept = { ...rest, teams: mine.teams.filter((candidate) => candidate.slug !== team.slug) };
             return active === undefined || active === team.slug ? kept : { ...kept, active };
           });
-          await navigate({ to: "/teams" });
+          await navigate({ to: "/projects/teams" });
           await refreshOrganization(queryClient);
           announce(t("teams.settings.deleted", { name: team.name }));
         }}

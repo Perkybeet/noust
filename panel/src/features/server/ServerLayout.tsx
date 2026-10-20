@@ -15,6 +15,7 @@ import { ListChecks, Power, RefreshCw, RotateCw, SquareTerminal } from "lucide-r
 import { request } from "../../api/client";
 import { LinkTabs } from "../../app/LinkTabs";
 import type { LinkTab } from "../../app/LinkTabs";
+import { tabsOf, withCounts } from "../../app/navCore";
 import { DetailPage } from "../../components/page/DetailPage";
 import { Button } from "../../components/ui/Button";
 import { MenuItem, MenuSeparator } from "../../components/ui/Menu";
@@ -27,6 +28,7 @@ import { formatDuration } from "../../lib/format";
 import { useNodeCapability } from "../../nodes/capability";
 import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
+import { SERVER_SCREENS } from "../nav/server";
 import { useHasPermission } from "../terminal/queries";
 import { attentionItems, verdictOf } from "./attention";
 import type { Verdict } from "./attention";
@@ -93,15 +95,7 @@ function Layout() {
   const counts = security.data?.counts;
   const openFindings = counts ? counts.critical + counts.warning : null;
 
-  const tabs: readonly LinkTab[] = [
-    { label: "server.tabs.overview", to: "/server", exact: true },
-    { label: "server.tabs.updates", to: "/server/updates", ...(available ? { count: summary.data?.updates.pending ?? null } : {}) },
-    { label: "server.tabs.security", to: "/server/security", ...(available ? { count: openFindings } : {}) },
-    { label: "server.tabs.storage", to: "/server/storage" },
-    { label: "server.tabs.services", to: "/server/services" },
-    { label: "server.tabs.logs", to: "/server/logs" },
-    { label: "server.tabs.system", to: "/server/system" },
-  ];
+  const tabs: readonly LinkTab[] = withCounts(tabsOf(SERVER_SCREENS),available ? { "/server/updates": summary.data?.updates.pending ?? null, "/server/security": openFindings } : {});
 
   const banner =
     pending.length > 0 || scheduled !== null ? (

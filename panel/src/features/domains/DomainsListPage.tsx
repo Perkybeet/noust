@@ -6,8 +6,10 @@ import { dnsAccountsQuery, streamsQuery, tunnelsQuery } from "../../api/queries/
 import { sitesQuery } from "../../api/queries/sites";
 import { LinkTabs } from "../../app/LinkTabs";
 import type { LinkTab } from "../../app/LinkTabs";
+import { tabsOf, withCounts } from "../../app/navCore";
 import { ListPage } from "../../components/page/ListPage";
 import { useT } from "../../i18n";
+import { DOMAINS_SCREENS } from "../nav/domains";
 import { useOrganization } from "../teams/useOrganization";
 
 export interface DomainsListPageProps {
@@ -39,17 +41,14 @@ export function DomainsListPage({ secondaryActions, primaryAction, overflow, not
   const accounts = useQuery({ ...dnsAccountsQuery(), enabled: server });
   const tunnels = useQuery({ ...tunnelsQuery(), enabled: server });
   const streams = useQuery({ ...streamsQuery(), enabled: server });
-  const tabs: LinkTab[] = [
-    { label: "domains.page.certificatesTab", to: "/domains", exact: true, count: certs.data?.total ?? null },
-    { label: "domains.page.sitesTab", to: "/domains/sites", exact: true, count: sites.data?.total ?? null },
-    ...(server
-      ? ([
-          { label: "network.tabs.dns", to: "/domains/dns", exact: true, count: accounts.data?.accounts.length ?? null },
-          { label: "network.tabs.tunnels", to: "/domains/tunnels", exact: true, count: tunnels.data?.tunnels.length ?? null },
-          { label: "network.tabs.ports", to: "/domains/ports", exact: true, count: streams.data?.exposures.length ?? null },
-        ] satisfies LinkTab[])
-      : []),
-  ];
+  // The server's own network (DNS, tunnels, ports) is the server's to manage: the register leaves those tabs out for whoever cannot.
+  const tabs: LinkTab[] = withCounts(tabsOf(DOMAINS_SCREENS, { can: org.can }),{
+    "/domains": certs.data?.total ?? null,
+    "/domains/sites": sites.data?.total ?? null,
+    "/domains/dns": accounts.data?.accounts.length ?? null,
+    "/domains/tunnels": tunnels.data?.tunnels.length ?? null,
+    "/domains/ports": streams.data?.exposures.length ?? null,
+  });
   return (
     <ListPage
       header={{

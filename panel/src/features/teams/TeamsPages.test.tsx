@@ -242,7 +242,7 @@ describe("a team's page", () => {
       expect(backend.callsTo("DELETE /api/teams/globex")).toHaveLength(1);
     });
     await waitFor(() => {
-      expect(location().pathname).toBe("/teams");
+      expect(location().pathname).toBe("/projects/teams");
     });
   });
 
