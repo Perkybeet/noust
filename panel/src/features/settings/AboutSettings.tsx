@@ -44,7 +44,6 @@ function links(t: T): readonly { label: string; href: string; description: strin
     { label: t("settings.about.links.releaseNotes.label"), href: `${REPOSITORY}/releases`, description: t("settings.about.links.releaseNotes.description") },
     { label: t("settings.about.links.reportProblem.label"), href: `${REPOSITORY}/issues`, description: t("settings.about.links.reportProblem.description") },
     { label: t("settings.about.links.getHelp.label"), href: `${REPOSITORY}/blob/main/docs/SUPPORT.md`, description: t("settings.about.links.getHelp.description") },
-    { label: t("settings.about.links.source.label"), href: REPOSITORY, description: t("settings.about.links.source.description") },
   ];
 }
 
@@ -270,7 +269,43 @@ function InstallationSection() {
   );
 }
 
-/** Where the project lives, its licence, and the name it had before. */
+/**
+ * The notices the AGPL-3.0 asks an interactive interface to display (section 5, d): who holds the
+ * copyright, that the licence lets anyone use, change and share the work, that there is no
+ * warranty, where to read the licence, and (section 13) where the source of this version is.
+ */
+function LegalNotice() {
+  const t = useT();
+  return (
+    <Card level={4} title={t("settings.about.legal.title")} padding="sm">
+      <div className="flex max-w-measure min-w-0 flex-col gap-2 text-13 text-fg-muted">
+        <p className="font-medium text-fg">{t("settings.about.legal.copyright")}</p>
+        <p>
+          {t.rich("settings.about.legal.license", {
+            license: (
+              <ExternalLink key="license" href={`${REPOSITORY}/blob/main/LICENSE`}>
+                {t("settings.about.legal.licenseName")}
+              </ExternalLink>
+            ),
+            id: <Mono key="id">AGPL-3.0-or-later</Mono>,
+          })}
+        </p>
+        <p>{t("settings.about.legal.warranty")}</p>
+        <p>
+          {t.rich("settings.about.legal.source", {
+            repository: (
+              <ExternalLink key="repository" href={REPOSITORY}>
+                {t("settings.about.legal.repositoryName")}
+              </ExternalLink>
+            ),
+          })}
+        </p>
+      </div>
+    </Card>
+  );
+}
+
+/** Where the project lives, its legal notices, and the name it had before. */
 function ProjectSection() {
   const t = useT();
   return (
@@ -289,17 +324,9 @@ function ProjectSection() {
               <span className="text-12 text-fg-muted">{link.description}</span>
             </li>
           ))}
-          <li className="flex min-w-0 flex-col gap-0.5">
-            <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <ExternalLink href={`${REPOSITORY}/blob/main/LICENSE`} className="text-13">
-                {t("settings.about.license.label")}
-              </ExternalLink>
-              <Mono tone="muted">AGPL-3.0-or-later</Mono>
-            </span>
-            <span className="text-12 text-pretty text-fg-muted">{t("settings.about.license.description")}</span>
-          </li>
         </ul>
       </Card>
+      <LegalNotice />
       <Disclosure variant="card" label={t("settings.about.terminal.title")}>
         <dl className="flex flex-col divide-y divide-border">
           {terminalRows(t).map((row) => (

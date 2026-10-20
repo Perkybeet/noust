@@ -808,16 +808,21 @@ export const settings = {
     rename: {
       body: "Noust is the new name of WASM since version 3.0. The {wasm} command still works as {noust} throughout 3.x, and a server that ran WASM keeps its applications, settings and history.",
     },
-    license: {
-      label: "Licence",
-      description: "Free to use, study and change, commercially too. A modified version offered to others as a service must publish its source.",
+    legal: {
+      title: "Licence and warranty",
+      copyright: "© 2024-2026 Yago López Prado",
+      license:
+        "Noust is free software under the {license} ({id}). You may use, study, change and share it, commercially too; a modified version offered to others as a service must publish its source.",
+      licenseName: "GNU Affero General Public License, version 3 or later",
+      warranty: "There is no warranty for Noust, to the extent permitted by law.",
+      source: "The complete source code is at {repository}.",
+      repositoryName: "github.com/Perkybeet/noust",
     },
     links: {
       documentation: { label: "Documentation", description: "Installing, deploying and every command." },
       releaseNotes: { label: "Release notes", description: "What changed in each version." },
       reportProblem: { label: "Report a problem", description: "Include the output of noust support report." },
       getHelp: { label: "Getting help", description: "Where to ask, and what to include." },
-      source: { label: "Source code", description: "On GitHub." },
     },
     terminal: {
       title: "Commands for Noust itself",

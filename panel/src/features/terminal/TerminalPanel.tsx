@@ -374,8 +374,11 @@ export function TerminalPanel({ target, injected }: TerminalPanelProps) {
     );
   };
 
+  // A refresh of the settings that fails while a terminal is open says nothing: QueryState would
+  // put its note above the screen and remount it, and the session does not depend on the answer.
+  const query = { ...status, isError: status.data === undefined ? status.isError : false };
   return (
-    <QueryState query={status} label={t("terminal.page.what")} skeleton={<Skeleton className="h-40 w-full rounded-card" />}>
+    <QueryState query={query} label={t("terminal.page.what")} skeleton={<Skeleton className="h-40 w-full rounded-card" />}>
       {render}
     </QueryState>
   );

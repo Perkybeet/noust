@@ -48,8 +48,28 @@ describe("Settings > About", () => {
     expect(await screen.findByText("the apt repository")).toBeInTheDocument();
     expect(screen.getByText(/Noust is the new name of WASM since version 3\.0/)).toBeInTheDocument();
     expect(screen.getByText("AGPL-3.0-or-later")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Source code/ })).toHaveAttribute("href", "https://github.com/Perkybeet/noust");
+    expect(screen.getByRole("link", { name: /github\.com\/Perkybeet\/noust/ })).toHaveAttribute("href", "https://github.com/Perkybeet/noust");
     expect(screen.getByText("noust config show")).toBeInTheDocument();
+    await expectNoAxeViolations(container);
+  });
+
+  it("shows the copyright, the licence, that there is no warranty and where the source is (AGPL-3.0, sections 5 and 13)", { timeout: 20_000 }, async () => {
+    fakeBackend(aboutRoutes({ current_version: "4.0.0", latest_version: "4.0.0", has_update: false }));
+    const { container } = renderConsole("/settings/about");
+    const legal = (await screen.findByRole("heading", { name: "Licence and warranty" })).closest("section");
+    if (legal === null) throw new Error("no legal notice card");
+    expect(within(legal).getByText("© 2024-2026 Yago López Prado")).toBeInTheDocument();
+    // The licence is named, its short identifier is shown and its text is one click away.
+    expect(within(legal).getByRole("link", { name: /GNU Affero General Public License, version 3 or later/ })).toHaveAttribute(
+      "href",
+      "https://github.com/Perkybeet/noust/blob/main/LICENSE",
+    );
+    expect(within(legal).getByText("AGPL-3.0-or-later")).toBeInTheDocument();
+    expect(within(legal).getByText(/You may use, study, change and share it/)).toBeInTheDocument();
+    expect(within(legal).getByText("There is no warranty for Noust, to the extent permitted by law.")).toBeInTheDocument();
+    expect(within(legal).getByRole("link", { name: /github\.com\/Perkybeet\/noust/ })).toHaveAttribute("href", "https://github.com/Perkybeet/noust");
+    // It is one place, not a licence link beside another: the page names the licence once.
+    expect(screen.getAllByRole("link", { name: /GNU Affero General Public License/ })).toHaveLength(1);
     await expectNoAxeViolations(container);
   });
 
@@ -306,6 +326,25 @@ describe("Settings > About in Spanish", () => {
     );
     expect(screen.getByRole("region", { name: "Esta instalación" })).toBeInTheDocument();
     expect(screen.getByText("noust config show")).toBeInTheDocument();
+    await expectNoAxeViolations(container);
+  });
+
+  it("shows the copyright, the licence, that there is no warranty and where the source is, in Spanish", { timeout: 20_000 }, async () => {
+    await act(() => setLocale("es"));
+    fakeBackend(aboutRoutes({ current_version: "4.0.0", latest_version: "4.0.0", has_update: false }));
+    const { container } = renderConsole("/settings/about");
+    const legal = (await screen.findByRole("heading", { name: "Licencia y garantía" })).closest("section");
+    if (legal === null) throw new Error("no legal notice card");
+    // The name of the holder is not translated.
+    expect(within(legal).getByText("© 2024-2026 Yago López Prado")).toBeInTheDocument();
+    expect(within(legal).getByRole("link", { name: /Licencia Pública General Affero de GNU, versión 3 o posterior/ })).toHaveAttribute(
+      "href",
+      "https://github.com/Perkybeet/noust/blob/main/LICENSE",
+    );
+    expect(within(legal).getByText("AGPL-3.0-or-later")).toBeInTheDocument();
+    expect(within(legal).getByText("No hay ninguna garantía sobre Noust, en la medida que permita la ley.")).toBeInTheDocument();
+    expect(within(legal).getByText(/El código fuente completo está en/)).toBeInTheDocument();
+    expect(within(legal).getByRole("link", { name: /github\.com\/Perkybeet\/noust/ })).toHaveAttribute("href", "https://github.com/Perkybeet/noust");
     await expectNoAxeViolations(container);
   });
 });
