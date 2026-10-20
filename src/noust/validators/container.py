@@ -600,11 +600,13 @@ def check_command(words: object, *, field: str) -> tuple[str, ...]:
             empty command.
     """
     if isinstance(words, str) or not isinstance(words, list | tuple):
+        example = {
+            "entrypoint": "noust app container set DOMAIN --entrypoint '/app/run serve'",
+            "command": "noust app container set DOMAIN --command 'node server.js'",
+        }.get(field, "noust app container set DOMAIN --command 'node server.js'")
         raise ValidationError(
             f"The {field} must be a list of words",
-            details="Give the program and each argument as a separate word, or split a line "
-            "with noust app container set --"
-            f"{field} 'node server.js'.",
+            details=f"Give the program and each argument as a separate word, or split a line with {example}.",
             field=field,
         )
     if len(words) > MAX_COMMAND_WORDS:

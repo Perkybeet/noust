@@ -75,7 +75,8 @@ static site and `base_directory` on a PHP application are refused, with what to 
 | `python` | yes | yes | yes | yes | no | python |
 | `php-fpm` | no (use `webroot`) | yes | yes | no | no | php |
 | `go`, `rust`, `ruby`, `java`, `dotnet`, `elixir`, `deno` | yes | yes | yes | yes | no | none: the server's toolchain |
-| `monorepo`, `docker-compose` | no: they are built by their own configuration | | | | | |
+| `monorepo` | no: it is built by its workspaces' own tools | | | | | |
+| `docker-compose`, `container` | no: the image is built by the stack's or the Dockerfile's own configuration. Only `timeout` and `cache` apply ([how long a build may take](#how-long-a-build-may-take)) | | | | | |
 
 ## Where it comes from, and who wins
 
