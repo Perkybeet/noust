@@ -197,6 +197,78 @@ class TestGiteaKeepsItsName:
         assert queued[0]["metadata"]["provider"] == "gitea"
 
 
+def sends_everything(own: str, secret: str, body: bytes) -> dict[str, str]:
+    """
+    The headers Gitea and Forgejo really send (read off a live server), GitHub's compatible ones
+    included: a delivery that carries ``X-Hub-Signature-256`` is still not GitHub's.
+    """
+    delivery = str(uuid.uuid4())
+    headers = {
+        "X-Gitea-Signature": sign(secret, body),
+        "X-Gogs-Signature": sign(secret, body),
+        "X-Hub-Signature": "sha1=" + "0" * 40,
+        "X-Hub-Signature-256": "sha256=" + sign(secret, body),
+        "X-Gitea-Event": "push",
+        "X-Gitea-Delivery": delivery,
+        "X-GitHub-Event": "push",
+        "X-GitHub-Delivery": delivery,
+        "Content-Type": "application/json",
+    }
+    if own == "forgejo":
+        headers["X-Forgejo-Signature"] = sign(secret, body)
+        headers["X-Forgejo-Event"] = "push"
+    return headers
+
+
+class TestTheRealServersAreNotTakenForGitHub:
+    """
+    Gitea and Forgejo send GitHub's signature header as well. A delivery labelled ``github`` is a
+    different forge to everything after it: its pull requests are refused for lacking GitHub's
+    ``author_association``, and a preview's comment goes to GitHub's API instead of the host's.
+    """
+
+    @pytest.mark.parametrize("own", ["gitea", "forgejo"])
+    def test_a_delivery_is_labelled_by_the_host_that_sent_it(
+        self, own: str, client: TestClient, secret: str, queued: list[dict[str, Any]]
+    ) -> None:
+        response = client.post(
+            f"/hooks/deploy/{DOMAIN}", content=PUSH_MAIN, headers=sends_everything(own, secret, PUSH_MAIN)
+        )
+
+        assert response.status_code == 202, response.text
+        assert queued[0]["metadata"]["provider"] == own
+
+    def test_a_delivery_that_is_only_githubs_stays_githubs(
+        self, client: TestClient, secret: str, queued: list[dict[str, Any]]
+    ) -> None:
+        response = client.post(
+            f"/hooks/deploy/{DOMAIN}",
+            content=PUSH_MAIN,
+            headers={
+                "X-Hub-Signature-256": "sha256=" + sign(secret, PUSH_MAIN),
+                "X-GitHub-Event": "push",
+                "X-GitHub-Delivery": str(uuid.uuid4()),
+                "Content-Type": "application/json",
+            },
+        )
+
+        assert response.status_code == 202, response.text
+        assert queued[0]["metadata"]["provider"] == "github"
+
+    @pytest.mark.parametrize("own", ["gitea", "forgejo"])
+    def test_a_signature_that_is_wrong_in_every_header_is_still_refused(
+        self, own: str, client: TestClient, secret: str, queued: list[dict[str, Any]]
+    ) -> None:
+        response = client.post(
+            f"/hooks/deploy/{DOMAIN}",
+            content=PUSH_MAIN,
+            headers=sends_everything(own, "not-the-secret", PUSH_MAIN),
+        )
+
+        assert response.status_code == 401
+        assert queued == []
+
+
 GOGS_PULL_REQUEST: dict[str, Any] = {
     "action": "opened",
     "number": 7,

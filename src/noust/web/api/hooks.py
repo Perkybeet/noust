@@ -609,14 +609,13 @@ def _verify_provider(secret: str, body: bytes, request: Request) -> str | None:
     """
     headers = request.headers
 
-    github = headers.get("X-Hub-Signature-256")
-    if github and github.startswith(_GITHUB_SIGNATURE_PREFIX):
-        presented = github[len(_GITHUB_SIGNATURE_PREFIX) :].strip().lower()
-        if hmac.compare_digest(_hmac_hex(secret, body), presented):
-            return "github"
-
-    # Forgejo sends its own header and Gitea's too, so its own is read first: the log then says
-    # which of the two it was. Gitea sends Gogs's as well, so Gogs's is read last of the three.
+    # A host's own header is read before GitHub's: Gitea, Forgejo and Gogs also send
+    # ``X-Hub-Signature-256`` for the tools written for GitHub, and a delivery taken for GitHub's
+    # is a different forge to everything after it (its pull requests need GitHub's
+    # ``author_association``, and a preview's comment goes to GitHub's API). A delivery that is
+    # GitHub's carries none of these. Forgejo sends its own header and Gitea's too, so its own
+    # is read first: the log then says which of the two it was. Gitea sends Gogs's as well, so
+    # Gogs's is read last of the three.
     forgejo = headers.get("X-Forgejo-Signature")
     if forgejo and hmac.compare_digest(_hmac_hex(secret, body), forgejo.strip().lower()):
         return "forgejo"
@@ -629,6 +628,12 @@ def _verify_provider(secret: str, body: bytes, request: Request) -> str | None:
     gogs = headers.get("X-Gogs-Signature")
     if gogs and hmac.compare_digest(_hmac_hex(secret, body), gogs.strip().lower()):
         return "gogs"
+
+    github = headers.get("X-Hub-Signature-256")
+    if github and github.startswith(_GITHUB_SIGNATURE_PREFIX):
+        presented = github[len(_GITHUB_SIGNATURE_PREFIX) :].strip().lower()
+        if hmac.compare_digest(_hmac_hex(secret, body), presented):
+            return "github"
 
     # Bitbucket Cloud signs with the secret too, in the header GitHub used
     # for its SHA-1 signature: only a ``sha256=`` value is ever accepted.
