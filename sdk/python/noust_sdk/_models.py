@@ -402,6 +402,7 @@ AppDnsModel = TypedDict("AppDnsModel", {
 AppDomain = TypedDict("AppDomain", {
     "created_at": NotRequired[Union[str, None]],
     "domain": Required[str],
+    "enabled": NotRequired[bool],
     "kind": Required[str],
     "port": NotRequired[Union[int, None]],
     "temporary": NotRequired[bool],
@@ -2780,6 +2781,10 @@ DoctorSectionOut = TypedDict("DoctorSectionOut", {
     "explain": NotRequired[Union[str, None]],
     "items": Required[list["DoctorItemOut"]],
     "title": Required[str],
+})
+
+DomainEnabledRequest = TypedDict("DomainEnabledRequest", {
+    "enabled": Required[bool],
 })
 
 DomainPortRequest = TypedDict("DomainPortRequest", {
@@ -5554,6 +5559,7 @@ PolicyFields = TypedDict("PolicyFields", {
     "client_certs": NotRequired[bool],
     "connection_limit": NotRequired[int],
     "deny_ips": NotRequired[list[str]],
+    "force_https": NotRequired[bool],
     "forward_auth": NotRequired[Union["ForwardAuthFields", None]],
     "headers": NotRequired[dict[str, str]],
     "hidden_headers": NotRequired[list[str]],
@@ -5581,6 +5587,7 @@ PolicyRequest = TypedDict("PolicyRequest", {
     "client_certs": NotRequired[Union[bool, None]],
     "connection_limit": NotRequired[Union[int, None]],
     "deny_ips": NotRequired[Union[list[str], None]],
+    "force_https": NotRequired[Union[bool, None]],
     "forward_auth": NotRequired[Union["ForwardAuthFields", None]],
     "headers": NotRequired[Union[dict[str, str], None]],
     "hidden_headers": NotRequired[Union[list[str], None]],
@@ -5657,6 +5664,19 @@ PreviewDetailResponse = TypedDict("PreviewDetailResponse", {
     "active": NotRequired[bool],
     "last_deployment": NotRequired[Union[dict[str, Any], None]],
     "preview": Required["NoustWebApiPreviewsPreviewOut"],
+})
+
+PreviewDnsResponse = TypedDict("PreviewDnsResponse", {
+    "advice": NotRequired[Union[str, None]],
+    "app_domain": Required[str],
+    "base_domain": Required[str],
+    "cdn": NotRequired[Union[str, None]],
+    "expected_addresses": Required[list[str]],
+    "ok": Required[bool],
+    "probe": Required[str],
+    "resolved_addresses": Required[list[str]],
+    "verdict": Required[str],
+    "wildcard": Required[str],
 })
 
 PreviewLogsResponse = TypedDict("PreviewLogsResponse", {
@@ -8799,12 +8819,15 @@ TrafficModel = TypedDict("TrafficModel", {
 
 TrafficPointModel = TypedDict("TrafficPointModel", {
     "bytes": Required[int],
+    "latency_p50_ms": NotRequired[Union[float, None]],
+    "latency_p95_ms": NotRequired[Union[float, None]],
     "requests": Required[int],
     "s2xx": Required[int],
     "s3xx": Required[int],
     "s4xx": Required[int],
     "s5xx": Required[int],
     "ts": Required[int],
+    "visitors": NotRequired[Union[int, None]],
 })
 
 TrustModel = TypedDict("TrustModel", {

@@ -232,7 +232,7 @@ central that has been compromised, an application that has been compromised.
   - `tests/test_backup_destination_hosts.py::TestConfiguringADestination`
   - `tests/test_runner.py::TestSecrets::test_the_secret_never_appears_in_argv`
 
-**What it does not cover.** The scrubber works by value: it does not recognise a secret it was not told, and it leaves values shorter than six characters alone. `config.yaml` holds the secrets of the notification channels (webhook URLs, bot tokens, the SMTP password, a mail provider's key) encrypted under `secrets.key` beside it, `0600`, so a copy of the file alone discloses nothing; a key beside the ciphertext does not protect from a compromised host, which is why the central can be sealed. Losing `secrets.key` makes those channels unreadable until their secrets are entered again. Losing a backup's encryption key loses the backup.
+**What it does not cover.** The scrubber works by value: it does not recognise a secret it was not told, and it leaves values shorter than six characters alone. `config.yaml` holds SMTP and destination secrets in clear, `0600`; a key beside the ciphertext does not protect from a compromised host, which is why the central can be sealed. Losing a backup's encryption key loses the backup.
 
 ### 10. A release can be checked, and a fix is announced with its release
 
@@ -359,7 +359,7 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **985** API operations. **947** need a permission (`x-noust-permission`) and **38** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **987** API operations. **949** need a permission (`x-noust-permission`) and **38** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
 - **325** operations need sudo mode and **38** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
@@ -368,9 +368,9 @@ only what recovering an account takes.
 | `accounts.manage` | 30 |
 | `accounts.read` | 12 |
 | `apps.deploy` | 35 |
-| `apps.manage` | 139 |
+| `apps.manage` | 140 |
 | `apps.operate` | 32 |
-| `apps.read` | 136 |
+| `apps.read` | 137 |
 | `apps.terminal` | 12 |
 | `audit.manage` | 1 |
 | `audit.read` | 9 |
@@ -485,14 +485,14 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **489** events.
+The catalogue holds **490** events.
 
 | Category | Events |
 |---|---|
 | access | 46 |
 | account | 36 |
 | config | 29 |
-| change | 317 |
+| change | 318 |
 | read | 20 |
 | denial | 16 |
 | system | 22 |

@@ -2062,6 +2062,7 @@ Arguments: `domain`
 | `--accept-unreachable-auth` | Go ahead although the authentication service does not answer (everyone is refused until it does). |  |
 | `--http3`, `--no-http3` | Serve the site over HTTP/3 (QUIC) as well (nginx 1.25 or later with the HTTP/3 module). |  |
 | `--client-certs`, `--no-client-certs` | Answer only a visitor with a certificate this site's own authority signed (noust app policy clients issue makes them). |  |
+| `--force-https`, `--no-force-https` | Send port 80 to HTTPS once the site has a certificate (the default). --no-force-https leaves the site answering on both, for a client that cannot follow a redirect (nginx only). |  |
 | `--waf` | The web application firewall (OWASP Core Rule Set): detect writes down what the rules see, block also refuses what they score too high. |  |
 | `--waf-exclude` | Leave this rule out for the site (repeat for more); replaces the list. |  |
 | `--clear-waf-exclusions` | Leave no rule out for the site. |  |
@@ -5016,7 +5017,7 @@ noust config [OPTIONS] COMMAND [ARGS]...
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
 
-Subcommands: [`clean`](#noust-config-clean), [`get`](#noust-config-get), [`path`](#noust-config-path), [`set`](#noust-config-set), [`show`](#noust-config-show), [`upgrade`](#noust-config-upgrade)
+Subcommands: [`clean`](#noust-config-clean), [`get`](#noust-config-get), [`path`](#noust-config-path), [`protect`](#noust-config-protect), [`set`](#noust-config-set), [`show`](#noust-config-show), [`upgrade`](#noust-config-upgrade)
 
 ### noust config clean
 
@@ -5057,6 +5058,21 @@ Show where the configuration file lives, and whether it exists.
 
 ```
 noust config path [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust config protect
+
+Encrypt the secrets of the notification channels that config.yaml holds as text.
+
+```
+noust config protect [OPTIONS]
 ```
 
 | Option | What it does | Default |
@@ -7714,7 +7730,7 @@ Serve an application on more domains: aliases and redirects.
 noust domain [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`add`](#noust-domain-add), [`canonical`](#noust-domain-canonical), [`certificate`](#noust-domain-certificate), [`list`](#noust-domain-list), [`port`](#noust-domain-port), [`remove`](#noust-domain-remove), [`temporary`](#noust-domain-temporary)
+Subcommands: [`add`](#noust-domain-add), [`canonical`](#noust-domain-canonical), [`certificate`](#noust-domain-certificate), [`disable`](#noust-domain-disable), [`enable`](#noust-domain-enable), [`list`](#noust-domain-list), [`port`](#noust-domain-port), [`remove`](#noust-domain-remove), [`temporary`](#noust-domain-temporary)
 
 ### noust domain add
 
@@ -7763,6 +7779,35 @@ Arguments: `app_domain`
 | Option | What it does | Default |
 |---|---|---|
 | `--reduce` | Order it again with only the names the application answers on (after a removal). |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust domain disable
+
+Stop APP answering on DOMAIN without forgetting it.
+
+```
+noust domain disable [OPTIONS] APP DOMAIN
+```
+
+Arguments: `app_domain`, `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust domain enable
+
+Serve DOMAIN again, after 'noust domain disable'.
+
+```
+noust domain enable [OPTIONS] APP DOMAIN
+```
+
+Arguments: `app_domain`, `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--no-cert` | Do not extend the certificate now. Run the command again to. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust domain list
@@ -9593,6 +9638,7 @@ Arguments: `name`
 | `--username` | Loki, http, otlp: the user, for basic authentication. |  |
 | `--auth` | http, otlp: how to authenticate. |  |
 | `--dataset` | Axiom: the dataset. |  |
+| `--region` | New Relic: where the account lives (us by default). |  |
 | `--transport` | Syslog: udp, tcp or tls. |  |
 | `--host` | Syslog: the receiver. |  |
 | `--port` | Syslog: its port (6514 for tls, 514 otherwise). |  |
@@ -10644,7 +10690,7 @@ Pull request previews: a short-lived copy of an application per pull request.
 noust preview [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`approve`](#noust-preview-approve), [`create`](#noust-preview-create), [`disable`](#noust-preview-disable), [`enable`](#noust-preview-enable), [`list`](#noust-preview-list), [`logs`](#noust-preview-logs), [`pulls`](#noust-preview-pulls), [`redeploy`](#noust-preview-redeploy), [`reject`](#noust-preview-reject), [`remove`](#noust-preview-remove), [`start`](#noust-preview-start), [`stop`](#noust-preview-stop), [`sweep`](#noust-preview-sweep), [`vars`](#noust-preview-vars)
+Subcommands: [`approve`](#noust-preview-approve), [`create`](#noust-preview-create), [`disable`](#noust-preview-disable), [`dns`](#noust-preview-dns), [`enable`](#noust-preview-enable), [`list`](#noust-preview-list), [`logs`](#noust-preview-logs), [`pulls`](#noust-preview-pulls), [`redeploy`](#noust-preview-redeploy), [`reject`](#noust-preview-reject), [`remove`](#noust-preview-remove), [`start`](#noust-preview-start), [`stop`](#noust-preview-stop), [`sweep`](#noust-preview-sweep), [`vars`](#noust-preview-vars)
 
 ### noust preview approve
 
@@ -10705,6 +10751,21 @@ Arguments: `domain`
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
 | `--json` | Print the previews removed as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust preview dns
+
+Does the wildcard record of the previews of DOMAIN reach this server?
+
+```
+noust preview dns [OPTIONS] DOMAIN
+```
+
+Arguments: `domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the verdict as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust preview enable
