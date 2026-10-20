@@ -3,7 +3,8 @@
   "default": { "slug": "console", "source": "docs/console.md" },
   "pages": [
     { "route": "/", "slug": "console", "source": "docs/console.md", "anchor": "overview" },
-    { "route": "/projects", "slug": "teams", "source": "docs/teams.md" },
+    { "route": "/account", "slug": "security", "source": "docs/security.md", "anchor": "authentication" },
+    { "route": "/projects","slug": "teams", "source": "docs/teams.md" },
     { "route": "/projects/$team/$project", "slug": "teams", "source": "docs/teams.md" },
     { "route": "/teams", "slug": "teams", "source": "docs/teams.md" },
     { "route": "/teams/$team", "slug": "teams", "source": "docs/teams.md" },

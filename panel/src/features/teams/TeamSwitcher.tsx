@@ -135,7 +135,7 @@ export function TeamSwitcher({ className }: { className?: string }) {
                   {t("teams.switcher.settings", { name: current.name })}
                 </BaseMenu.Item>
               ) : null}
-              <BaseMenu.Item className={cx(ITEM, "min-h-8")} onClick={() => void navigate({ to: "/teams" })}>
+              <BaseMenu.Item className={cx(ITEM, "min-h-8")} onClick={() => void navigate({ to: "/projects/teams" })}>
                 <Users aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />
                 {t("teams.switcher.manage")}
               </BaseMenu.Item>
