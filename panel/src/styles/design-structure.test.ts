@@ -15,8 +15,10 @@
 
 import { describe, expect, it } from "vitest";
 
+import * as en from "../i18n/en";
 import { EXCEPTION } from "./designRules";
-import { STRUCTURE_EXCEPTION, STRUCTURE_RULES, UX_COLUMNS, countStructure, tallyUx, uxDirectory } from "./designStructure";
+import { STRUCTURE_EXCEPTION, STRUCTURE_RULES, UX_COLUMNS, countStructure, messageLookup, tallyUx, uxDirectory } from "./designStructure";
+import type { StructureContext } from "./designStructure";
 import baseline from "./design-structure-baseline.json";
 
 type Counts = Record<string, Record<string, number>>;
@@ -38,11 +40,14 @@ function sortedObject<T>(entries: [string, T][]): Record<string, T> {
   return Object.fromEntries(entries.sort(([a], [b]) => a.localeCompare(b)));
 }
 
+/** The English catalog, for the rules that read what a notice says. */
+const CONTEXT: StructureContext = { message: messageLookup(en) };
+
 function measure(): Counts {
   const counts: Counts = {};
   for (const rule of STRUCTURE_RULES) counts[rule.id] = {};
   for (const [path, source] of SOURCES) {
-    for (const [rule, count] of Object.entries(countStructure(path, source))) {
+    for (const [rule, count] of Object.entries(countStructure(path, source, CONTEXT))) {
       const byFile = counts[rule];
       if (byFile) byFile[path] = count;
     }

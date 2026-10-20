@@ -15,7 +15,7 @@ Where the system lives:
 | Page kit and the seven templates | `panel/src/components/page/` |
 | Page header and URL tabs | `panel/src/app/PageHeader.tsx`, `panel/src/app/LinkTabs.tsx` |
 | The executable specification | the gallery, `/__design` (development builds only; `panel/src/dev/`) |
-| Enforcement | `styles/tokens.test.ts`, `styles/design-rules.test.ts`, `eslint.config.js`, `e2e/design-contract.spec.ts`, `e2e/tab-switch-layout.spec.ts` |
+| Enforcement | `styles/tokens.test.ts`, `styles/design-rules.test.ts`, `styles/design-structure.test.ts`, `styles/setting-copy.test.ts`, `styles/concept-doors.test.ts`, `styles/dead-class.test.ts`, `i18n/verbs.test.ts`, `i18n/glossary.test.ts`, `eslint.config.js`, `e2e/design-contract.spec.ts`, `e2e/tab-switch-layout.spec.ts`, `e2e/leave-guard.spec.ts`, `e2e/settings-length.spec.ts` |
 
 The brand (the mark, its violet, its construction) is `docs/brand/BRAND.md`. Copy rules and the
 English/Spanish glossary are `panel/src/i18n/README.md`. This document says how the console
@@ -36,10 +36,12 @@ looks and behaves; the gallery shows it in both themes; the tests hold it.
    state is also told by a shape (a glyph) and a word. Whether something is on, shown as a
    label (in a card, a row, a list, a fact), is a state too, and is a state badge: the running
    green for on, the stopped grey for off, never bare text (owner item 56, 3.2.1). A control
-   that changes it (a `Switch`, a `Checkbox`) stays a control. The state of a feature at
-   the top of the place that configures it is one, and is a `FeatureState` (green on, grey
-   off, amber on but not working), because operators could not tell on from off at a glance
-   (owner item 56, 3.2).
+   that changes it (a `Switch`, a `Checkbox`) stays a control. The state of a feature is
+   told by a `StatusPill` of 20px (`size="sm"`) in the header of its card or its row (green
+   on, grey off, amber on but not working), because operators could not tell on from off at a
+   glance (owner item 56, 3.2): colour, shape and word, small. It is never a block: a state is
+   a fact, not news, and **no tinted block is taller than the control it explains** (the
+   `FeatureState` block of 3.2 was 74 to 142px tall for a switch of 18px, and is retired).
 3. **State first, action beside it.** The top of every view answers "how is it?" and "what can
    I do?": the state next to the title, the one primary action at the right.
 4. **One implementation of each pattern.** When two pages do the same thing they use the same
@@ -308,6 +310,53 @@ then **20, 24, 32, 40, 48, 64** for layout.
 - **D-3** Two zones: dense (13/12px, rows of 36-44) in tables, logs, key-value lists; generous
   (14-16px, gaps of 24-32) in headers, confirmations and empty states.
 
+### 2.10 Settings rows
+
+A setting is a row, and the state of a feature is the header of its card. The rules below hold
+every place that turns something on or off, and are the answer to the block of colour that used
+to say it.
+
+- **SW-1** A `Switch` is a setting that takes effect the moment it is moved and can be undone in
+  one step. It never shares a surface with a Save button, and it is never a filter or a view mode
+  (that is a `Checkbox` in a toolbar, or an `IconButton` with `aria-pressed`) nor a parameter of
+  an action (that is a `Checkbox` in the action's form). *Enforced by:* ratchet `switch-in-form`;
+  G-7.
+- **SW-2** A setting is a `Setting` row: a label, one sentence of help, the control at the end.
+  Rows of one subject live in a `SettingsGroup` (a `Card padding="none"` with `divide-y`). The
+  state of a feature is the header of its card: the title, a `StatusPill size="sm"` after it
+  (`Card status`) and the control in `actions`. A tinted block is never used to say that something
+  is on or off. *Enforced by:* ratchet `feature-state` (then the component is deleted); G-7
+  question 7.
+- **SW-3** The label names the thing and never changes with the state ("Send notifications", not
+  "Notifications are on"). The help describes what the setting does, in one sentence of 18 words
+  or fewer, and never starts with the state ("Off: ..."). A row is 44px without help and 60px
+  with one line of help; nothing in a row is taller than its text. *Enforced by:*
+  `styles/setting-copy.test.ts` (resolves the keys passed as `label`, `help` and `risk` and counts
+  words); ratchet `help-starts-with-state`; `e2e/design-contract.spec.ts` (row height).
+- **SW-4** What changes when it is on is said in the help. A risk that exists only while it is on
+  is one line under the help (`risk`: a 12px severity glyph in the state colour, the text in
+  `--text`, at most 14 words) with a "What changes" `Popover` (`riskDetail`) for the detail. A risk
+  that exists only while it is off (a safeguard) shows its line while it is off. *Enforced by:*
+  `styles/setting-copy.test.ts`; review.
+- **SW-5** Turning off a safeguard, or turning on something that exposes data or weakens a
+  boundary, asks one question (`ConfirmDialog friction="simple"`, the `confirmOff` of a `Setting`)
+  that says the consequence. Turning on what is safe and reversible asks nothing. Something that
+  needs a plan (a dry run, a rewrite of units, a restart) is a button with an ellipsis ("Turn
+  on..."), not a switch. *Enforced by:* `Setting.test.tsx` (`confirmOff` opens the question);
+  review.
+- **SW-6** A disabled switch always says why, in its help, with a link to what is missing. Locked
+  by policy shows the lock and who set it. A switch in progress keeps its value and shows its own
+  busy state; it fails back to the previous value with an error toast or an `ErrorBlock compact`.
+  *Enforced by:* the type (`disabled` requires `reason`); `Setting.test.tsx`.
+- **SW-7** A switch that asks for sudo mode says so before the press (a glyph with an accessible
+  name) while the window is closed. *Enforced by:* `Setting.test.tsx` (`elevated` renders the
+  glyph with a name).
+- **SW-8** A number that means "off" when it is 0 or empty is a `Setting` with a switch that
+  reveals the number in its `children` (the form of an optional limit): "No limit" and "Default"
+  are visible states, not magic values. *Enforced by:*
+  ratchet `empty-means-off` (the catalog strings "Empty keeps...", "0 turns it off", "Blank means
+  no limit").
+
 ---
 
 ## 3. Layout and widths
@@ -352,7 +401,10 @@ template first (and the gallery with it).
 Rules common to all:
 
 - **One primary action per view**, the last of the header's actions (or the save bar's Save,
-  while there are changes). Never in a section, never `size="sm"` for a page's primary.
+  while there are changes). Never in a section, never `size="sm"` for a page's primary. It holds
+  while the `SaveBar` has changes: the header's primary is then drawn as a secondary (same label,
+  same size, so nothing moves) until the changes are saved or discarded, and an empty state or a
+  card never repeats a primary the header already has (FM-2).
 - **The daily verbs are on the surface.** What an operator presses every day on a resource is
   a secondary action of its header, never behind `More actions` (Coolify's "Actions" dropdown
   is what its users protested most): an application's Restart, Stop or Start (by its state) and
@@ -409,7 +461,8 @@ servers.
 </ListPage>
 ```
 
-- Nothing sits between the header and the table but filters and at most one notice.
+- Nothing sits between the header and the table but filters and at most one notice (a page has
+  one banner at most: NT-3, held by the browser contract).
 - What configures the list (schedules, destinations, engines, users) goes to a subset tab or to
   settings, never below the table.
 - A row's light detail (a cron job's runs, an app's backups) opens in a `Drawer`; a row with a
@@ -447,9 +500,12 @@ shop.example.net  * Running  Next.js . :3001 . shop.example.net ->  [Restart] [S
 ```
 
 - The header and the tabs belong to the layout route: the same height and place on every tab.
-- Eight tabs at most. A view reached from a state rather than browsed (an application's
-  Diagnose) keeps its URL but leaves the strip: the status banner, the header's `More actions`
-  and the Overview's "Needs attention" link to it.
+- Eight tabs at most. A tab that repeats another area's view (Server > Logs, a fleet strip that
+  mirrors the sidebar) is a filter of that view, not a tab (NV-3, 6.14). A view reached from a
+  state rather than browsed (an application's Diagnose) keeps its URL but leaves the strip: the
+  status banner, the header's `More actions` and the Overview's "Needs attention" link to it.
+- Settings that are saved but do not run yet are a chip in the header's status line ("3 not
+  applied") that opens the review, not a full-width banner on every tab (FM-5).
 - Tabs are URLs (`LinkTabs`), never local state. A count on a tab (`count`) is `null` while it
   loads: its room is kept, so the strip does not change width when it arrives.
 - When the resource is broken, a status banner between the header and the tabs says the cause
@@ -490,14 +546,23 @@ grow).
 </SettingsLayout>
 ```
 
-- Each subsection is its own URL and fits in one and a half screens at 1440.
+- Each subsection is its own URL and fits in one and a half screens at 1440; one that does not is
+  split (FM-8, NV-9).
+- The side list is titled by whose each section is (account, resource, group, server, instance,
+  fleet: NV-11), holds 8 items per group at most, 6 groups and 20 per block of scope (NV-3), and
+  grows a filter box from 12 entries (`SettingsLayout`'s `filterFrom`; an item's `keywords` are
+  the old names that still find it).
 - A subsection's one primary action that is not a Save ("Invite a person", "Create token")
   goes in the page's header through `SettingsPrimaryAction` (`features/settings/SettingsShell`),
   never in a section.
 - **One form pattern**: a subsection is one form, saved from its `SaveBar`, which is there from
   the first frame ("No unsaved changes") so its arrival never moves the page; Save is the
-  view's primary only while there is something to save. No row of "Save changes" buttons.
-- A `Switch` applies at once and MUST NOT share a form with a Save button.
+  view's primary only while there is something to save (and the header's primary steps aside
+  meanwhile). No row of "Save changes" buttons.
+- **A subsection saves in one way** (FM-1): a form with a `SaveBar`, or a list of immediate
+  settings (`Setting` rows). Never both. It also warns before it is left with changes (FM-3):
+  the `SaveBar` owns that question.
+- A `Switch` applies at once and MUST NOT share a form with a Save button (SW-1).
 - Read-only facts (type, directory, unit) go in the General subsection as a compact
   `KeyValueList`, not among the fields.
 - What destroys goes in the last subsection, `danger: true`, set apart.
@@ -526,11 +591,14 @@ Overview                                                   [1h 24h 7d 30d] [+ Ne
   activity={<Card title="Recent activity" padding="none">...</Card>}
   charts={<>{charts}</>}
   firstSteps={empty ? <FirstSteps /> : undefined}
+  tabs={<LinkTabs .../>}              // optional: the Overview's Map is a tab of it
 />
 ```
 
 - It summarises and links; it never repeats a whole list (the Overview does not list every
   application).
+- It takes `tabs` when the dashboard has a sibling view of the same subject (the Overview and its
+  Map); the figures, attention and charts belong to the first tab.
 - "Needs attention" comes first and only when something does, worst first.
 - On an empty server, `firstSteps` replaces everything below the header: never four empty charts.
 
@@ -648,7 +716,7 @@ For: sign in, a sealed central, the legal notice.
 | Dialog | sm 440 a question, md 560 a form of up to six fields, lg 720 two columns or steps, xl 1280 only to look closely (an enlarged chart) |
 | Danger | In T3's last subsection or behind `More actions` with a confirmation; destructive options unchecked by default |
 | CLI hint | Once, at the foot of the view (T3: at the end of each subsection) |
-| State colours | Green only for running, serving, succeeded, and something that is on: a feature at the top of its settings (`FeatureState`), or an on/off label in a card, a row, a list or a fact (`StatusPill`, 6.1) |
+| State colours | Green only for running, serving, succeeded, and something that is on: a feature in the header of its card (`Card status`), or an on/off label in a row, a list or a fact (`StatusPill`, 6.1); never a block |
 
 ---
 
@@ -691,7 +759,11 @@ at any character, never cut, with its `CopyButton`. Not for a fact among facts (
 `KeyValueList` row copies its own) and not for output the system printed (`SystemOutput`).
 
 **`Switch`** applies at once. **`Checkbox`** is a choice inside a form saved with a button, or a
-selection. They never share a form.
+selection. They never share a form (SW-1). A switch is drawn by a `Setting` row, which owns its
+label, help, risk and `confirmOff`; on its own it is a bare control with an `aria-label` (its own
+`label` and `description` props are retired and go from the type when the last page has moved). While
+a change is applied it takes `busy`: it keeps its value and draws its arc, and says it with
+`aria-busy`.
 A yes/no choice is one of the two, never a `Select` of two options: the rule `boolean-select`
 fails a `value: "true"`, `"false"`, `"yes"` or `"no"` outside the kit (the one exception is the
 database row editor, whose options are a column's own two values and say so in a
@@ -699,22 +771,37 @@ database row editor, whose options are a column's own two values and say so in a
 are still a `Select` in a form: a form-height `SegmentedControl` is not in the kit yet, and where it
 goes with the rest of the form density is decided with the final UX pass, not here.
 
-**`ChoiceCards`** (`legend`, `options` with `label`, `description`, `badge`, `untranslated`). One
-of two to four exclusive choices that each need a sentence to be understood (how deploys work,
-a domain's role, a site's template): a radio group of cards, two to a row from 640px, each named
-by its label and described by its sentence. A choice that needs no sentence is a
+**`ChoiceCards`** (`legend`, `options` with `label`, `description`, `badge`, `untranslated`,
+`error`). One of two to four exclusive choices that each need a sentence to be understood (how
+deploys work, a domain's role, a site's template): a radio group of cards, two to a row from 640px,
+each named by its label and described by its sentence. A choice that needs no sentence is a
 `SegmentedControl` or a `Select`.
 
-**`Disclosure`** (`label`, `defaultOpen`). The options of a form most operators never change,
-folded under one ghost button ("More options") that says whether it is open. Open from the start
-when what it holds already differs from the defaults. Not for a section most operators need, and
-never for help, which stays visible.
+**`FieldGroup`** (`legend`, `description`, `error`, `optional`). Related controls under one name and
+one message: a set of checkboxes, a port and its protocol. A `fieldset` with a `legend` whose error
+is the one `Field` shows (a glyph and a sentence in the failure colour, tied to the group with
+`aria-describedby`). A paragraph in `text-fail` and a hand-written `role="alert"` have neither
+(ratchet `field-error-by-hand`).
+
+**`Disclosure`** (`label`, `defaultOpen`, `variant` `plain | card`, `summary`). The options of a
+form most operators never change, folded under one ghost button ("More options") that says whether
+it is open. Open from the start when what it holds already differs from the defaults. `card` is the
+same in a bordered surface of its own for a part of a page that most operators skip, with a
+one-line `summary` of what is inside; a native `<details>` is never written (ratchet
+`native-details`). Not for a section most operators need, and never for help, which stays visible.
 
 **`Dialog`** (`size` `sm | md | lg | xl`). A short task that needs focus. Not for long reading
 or long forms (a drawer). Footer buttons at the right, the primary last.
 
-**`ConfirmDialog`** (`friction` `"none" | "simple" | "type"`, `server`, `children`, `ready`). Anything that destroys
-or interrupts, with the friction its reach deserves (see 6.2). `simple` opens on Cancel; `type`
+**`ConfirmDialog`** (`friction` `"none" | "simple" | "type"`, `server`, `children`, `ready`, `size`
+`sm | md | lg`, `explainError`, `failureAction`). Anything that destroys
+or interrupts, with the friction its reach deserves (see 6.2); the friction is always declared,
+there is no default (FM-6). It is the only confirmation of the console: a plan with a before and an
+after (an sshd change, the ports a firewall protects) is its `children` in a wider `size`, not a
+second dialog (`ActionDialog` is retired), and a destructive last step is never a
+`variant="danger"` button written by hand outside it and `DangerZone`. `explainError` says a
+refusal in its own words before it is shown, and `failureAction` puts what to run on the node under
+the failure. `simple` opens on Cancel; `type`
 asks for `confirmText`; `none` runs at once and reports a failure as an error toast. A failure
 is shown in the dialog, verbatim, and the dialog stays open. On a fleet, pass `server`. Options
 that change what the action does ("Also delete its files") are its `children`, `Checkbox`es
@@ -735,6 +822,17 @@ certificate, a channel's form.
 the operator would otherwise stop to ask ("Nothing in the application changes"); most items have
 none.
 
+**`RowMenu`** (`name`). The menu at the end of a row: three dots, named "Actions for {name}" in
+both languages (`common.rowActions`) so that a list of twenty rows says which one a menu belongs
+to, with its `MenuItem`s as children. A feature does not write a `RowActions` of its own (ratchet
+`row-actions-local`).
+
+**`SplitButton`** (`children`, `name`, `onClick`, `menu`, `variant`, `loading`). One action with
+its variations: the main part does the usual thing and the arrow beside it opens a menu of the same
+action done another way ("Update" and, in the menu, "Update without cache"). One control of one
+height with one focus ring, two buttons with their own names. A menu of different subjects is a
+`Menu` on its own button, not this.
+
 **`Tooltip`**. A complement to an icon; never the only place something is said, never on a
 button that already has text. **`Popover`**: help and small panels (the session menu), never a
 confirmation.
@@ -749,6 +847,14 @@ checkbox is `card: "control"` (its own slot, never on the meta line), and an emp
 is left out of the card rather than drawn as a dash. `layout="fixed"` for values with no
 natural length (an audit event): the columns keep their widths and cells truncate.
 `pagination="apps"` names the list and turns on paging for it: see **`TablePagination`** and 6.8.
+Rows of like things that are not columns of facts (a variable, a mount, a person in a dialog) are a
+**`RowList`**, not a `ul` with `divide-y` and a border written by hand (ratchet `bordered-list`).
+
+**`RowList`** (`aria-label` required) and `RowList.Item` (`leading`, `actions`). A bordered list on
+a surface whose rows are told apart by a hairline, 44px at least, with the card's one radius and
+one way to hold a glyph at the start and a `RowMenu` or one small button at the end. Its three
+states are not its own: loading is `SkeletonRows` in a `LoadingRegion`, empty an `EmptyState
+variant="inline"`, failed a `QueryState`.
 
 **`TablePagination`** (`total`, `page`, `pageSize`, `onPageChange`, `onPageSizeChange`), with
 `usePageSize(list)` and `pageWindow`. Under a list of more than 20 rows: "Showing 21-40 of
@@ -767,33 +873,98 @@ ring), warning (triangle), failed (cross), stopped (ring), static (square), unkn
 mark). `AppStatePill` and `DeployStatePill` translate the backend's words. Never a `Badge` or a
 coloured dot for a state. It is also the badge of an on/off: `running` with the feature's word
 for on ("On", "Enabled", "Connected", "Starts"), `stopped` for off, read-only (a span, never a
-button; its accessible name is the word, the glyph is hidden).
+button; its accessible name is the word, the glyph is hidden). The state of a feature is one of
+these at `size="sm"` (20px) in the header of its card, as the `Card`'s `status` after the title,
+or after the label of a `Setting` row; "on but not working" is `warning` with its word ("On, no
+channel") and a sentence with one link to the fix, never a block. Stated in words for Spanish
+agreement: `StatusPill` has one word per state (`Fallido`) and a feminine entity passes a `label`
+("Tarea fallida").
 
-**`FeatureState`** (`state` `on | off | problem`, `title`, `action`, `children`). Whether a
-feature is on, at the top of the place that configures it: notifications, instant rollback,
-automatic updates, the build sandbox, scheduled backups, cron, accounts. Three signals at once:
-on is the running green with a switch drawn on; off is the stopped grey with a switch drawn
-off, what that implies, and the action that turns it on beside the title; on with a problem
-("on, but no channel") is amber with the warning glyph, never green, because it is not doing
-what it says. The title is the state in words, in the state's colour and in `title` weight;
-pass the feature's own when Spanish needs agreement ("Activadas"). It pulses once when the
-state changes, never with reduced motion. **The state of a feature is shown with
-`FeatureState`, never a neutral `Notice`**: a notice in which only a word changes between on
-and off has to be read to be understood. A `Switch` that changes the feature sits in the
-settings below it or is the `action`.
+**`FeatureState`** (retired in 4.0). A tinted block (`state` `on | off | problem`, `title`,
+`action`, `children`) that said whether a feature is on at the top of the place that configures it.
+At 74 to 142px for a switch of 18px it weighed the same for good news as for bad, and repeated what
+the card's title and the control already said. It stays in the kit only until the last page that
+draws it has moved (ratchet `feature-state` counts them), and is then deleted with its gallery
+entry and its rule. A new page never uses it. Instead: the feature's `Card` with a `StatusPill
+size="sm"` as its `status` and the action in `actions`, or a `Setting` row (2.10). Its three signals
+(colour, shape and word) are the `StatusPill`'s, in 20px. **The state of a feature is never a
+neutral `Notice` either**: a notice in which only a word changes between on and off has to be read
+to be understood (ratchet `feature-state-notice`).
 
-**`Badge`**. A short attribute: a type, a version, a count. Not a state.
+**`Setting`** (`label`, `help`, `status`, `risk`, `riskDetail`, `elevated`, `lockedBy`, `children`;
+a switch: `checked`, `onCheckedChange`, `busy`, `confirmOff`, `disabled` with its `reason`; or an
+`action` button). One setting as a row: its name, one sentence of help and the control at the end,
+44px tall without help and 60px with one line; nothing in a row is taller than its text. A
+switch applies at once and can be undone in one step (SW-1); what needs a plan is an `action`
+button ("Turn on...") and not a switch (SW-5). The rules of its text are SW-3 and SW-4 and are held
+by `styles/setting-copy.test.ts`. Not for a filter or a view mode, a parameter of an action, or
+anything saved with a Save button.
+
+**`SettingsGroup`** (`title`, `description`, `status`, `actions`, `command`, `level`). The rows of
+one subject on one surface: a `Card padding="none"` whose children are separated by a hairline. A
+subsection that saves with a Save button is a form of `Field`s, not a group of rows (FM-1).
+
+**`InlineMessage`** (`tone`, `trailing`, `live`). One line with no frame and no ground: the risk of
+an option, the status of a field or a row, a one-off result, in 14 words or fewer, with the severity
+glyph in the state colour and the text in `--text`. A `Setting`'s `risk` is one. A field's own
+validation stays the `Field` error; a framed condition with a fix is a `Notice` (NT-9).
+
+**`Badge`**. A short attribute: a type, a version, a branch, a count; or something staged
+(`tone="accent"`). Never a state: a state, including "this feature is on", is a `StatusPill`.
+
+- **BD-1** A `Badge` is an attribute (a type, a version, a branch, a count) or something selected
+  or staged (`accent`). It is never a state: a state, including "this feature is on", is a
+  `StatusPill`. *Enforced by:* ratchet `badge-state`; then the type is `BadgeTone = "neutral" |
+  "accent"`.
+- **BD-2** A state is never coloured text without its glyph and never a tone map of a feature's
+  own: `StatusGlyph`, `stateTextClass` and `StatusPill` say it. *Enforced by:* ratchet
+  `tone-map`; `styles/dead-class.test.ts` (a class that names no colour of the system, such as
+  `text-danger`, fails: Tailwind drops it silently and the text is painted without its colour).
 
 **`Card`** (`padding` `md | sm | none`, `as`, `interactive`, `loading`, `title`, `description`,
-`actions`, `footer`, `level`). Every panel of the console. A feature MUST NOT write `rounded-card border
-bg-surface` by hand.
+`status`, `actions`, `footer`, `level`). Every panel of the console. A feature MUST NOT write `rounded-card border
+bg-surface` by hand. `status` is the `StatusPill size="sm"` of a feature with a state, right after
+the title (not in `actions`).
 
 **`Notice`** (`tone` `info | success | warning | error`, `variant` `inline | banner`, `title`,
 `action`, `onDismiss`, `live`). A persistent message beside what it concerns (inline) or the
 state of a page or server (banner). Not the result of an action that is visible anyway (say
 nothing), not one that is not on screen (a toast), not a field's validation (`Field`), not a
 failure with the system's output (`ErrorBlock`). `live` only for the outcome of something the
-operator just did.
+operator just did. It renders `data-variant`, which the browser contract counts. **Notice
+rules**:
+
+- **NT-1** A notice states a condition that is true now and that the operator can change or must
+  know before acting. If a help line, a risk line or nothing says it, there is no notice. *Enforced
+  by:* ratchets `notice-info-bare` and `notice-stack`; review.
+- **NT-2** Size: an inline notice has a title of 8 words or fewer and a body of 30 words or fewer
+  (three lines at 880px); a banner has a title of 8 words or fewer and a body of 25 or fewer. More
+  than that goes behind "What changes" (`Popover`), a `Disclosure`, a `Drawer` or the documentation.
+  One action. *Enforced by:* ratchet `notice-long` (the test resolves the keys of every `<Notice>`
+  and holds the hard ceiling of 45 words; the limits above are held by review).
+- **NT-3** At most one notice per section or form, two per dialog, and one banner per page. A
+  banner states the condition of the page or the server and is never inside a card, a dialog or a
+  settings subsection (there it is inline). With several conditions, show the worst or aggregate
+  ("3 things need attention"). *Enforced by:* ratchet `notice-stack`; `e2e/design-contract.spec.ts`
+  (at most one `[data-variant="banner"]` on every route).
+- **NT-4** A notice never says whether a feature is on or off, never repeats the section's
+  description or the control's label, and never describes a risk that is only hypothetical: that is
+  a risk line (SW-4). A risk becomes a notice when it is in force (for example, previews are being
+  given every variable). *Enforced by:* ratchet `feature-state-notice`; review.
+- **NT-5** `info` is allowed only with an action or a title of its own, or for two or more
+  sentences that must persist. A static explanation is the description of its section. *Enforced
+  by:* ratchet `notice-info-bare`.
+- **NT-6** `success` is not the result of saving. It is allowed only inside a dialog or a wizard
+  that stays open and offers the next step. *Enforced by:* ratchet `notice-success`.
+- **NT-7** A notice sits beside its cause, on the side the operator is looking at. It never appears
+  above a control that is below it: the control would move under the pointer. *Enforced by:*
+  `e2e/layout-shift.spec.ts` (the query editor's write mode); review.
+- **NT-8** A link in a notice names its destination, not "Learn more". *Enforced by:*
+  `i18n/glossary.test.ts`.
+- **NT-9** `InlineMessage` (one line, no frame, no ground) is the form for a risk, a field's
+  status or a one-off result; `Notice` is for a framed condition with a fix; the banner is for the
+  page. A field's own validation stays `Field` error. *Enforced by:* the components' types and
+  tests; G-7.
 
 **`JobProgress`** (`state` `queued | running | succeeded | failed | cancelled`, `title`, `step`,
 `error`, `hint`, `action`, `onDismiss`, `announce`). The job the operator just started, where
@@ -803,16 +974,23 @@ they started it. Its history is Activity's.
 list: a 288px box that `/` focuses, the filters, the count at the right. Filters live in the URL.
 
 **`EmptyState`** (`variant` `firstUse | inline`). See the shared patterns above. The variant-less
-framed block is kept only for pages not yet on a template.
+framed block is kept only for pages not yet on a template, and the type makes the variant required
+when the last one has moved. A bare muted paragraph is not an empty state (ST-2).
 
 **`Section`** (`loading`), **`Sections`**, **`Subsection`**. A page's subjects (`h2`, 32px
 apart) and their parts (`h3`, or `h4` inside a card). Headings are never written by hand in a
 feature.
 
-**`PageHeader`** (`title`, `mono`, `status`, `meta`, `description`, `breadcrumbs`,
-`secondaryActions`, `primaryAction`, `overflow`, `server`, `flush`). The start of every page;
+**`PageHeader`** (`title`, `mono`, `status`, `statusExtras`, `meta`, `description`, `breadcrumbs`,
+`place`, `secondaryActions`, `primaryAction`, `overflow`, `server`, `flush`). The start of every page;
 templates render it from their `header` prop. `description` is one sentence of prose; facts go
-in `meta`; `actions` is the 3.0 form, kept for pages not yet migrated.
+in `meta`; `actions` is the 3.0 form, kept for pages not yet migrated. `statusExtras` are chips
+after the state that open what they count ("3 not applied", "Deploys paused"), instead of a banner
+on every tab, and keep their room while they load; `place` is the line above the title that says
+where a resource lives (team, project, environment), drawn only where there is something to tell
+apart. The `primaryAction` is wrapped so that it steps aside while a `SaveBar` holds changes
+(`DemotePrimary`): a `Dialog`, a `Drawer` and a `ConfirmDialog` reset it, since a dialog has a
+primary of its own.
 
 **`KeyValueList`**. Facts about one thing, one per row; system values in mono and copyable. Not
 tabular data.
@@ -833,12 +1011,17 @@ acted on in place.
 spinner only inside a control or a `JobProgress`. The region is whatever holds the skeleton: a
 `LoadingRegion`, a `DataTable` with `loading`, a `Card`, `Section`, `StatTile` or `TabToolbar`
 with `loading`, a `LogViewer` with `loading`. A skeleton with none of them around it is silent to
-a screen reader, and the route tests (section 9) refuse it.
+a screen reader, and the route tests (section 9) refuse it. The skeleton has the shape of the
+content: `SkeletonRows` (the rows of a `RowList` or a `DataTable`), `SkeletonCard`, `SkeletonSection`
+and `SkeletonText`, with heights from the control tokens, never a rectangle of a height guessed by
+eye (ST-1).
 
-**`TextLink`** (`size` `inline | ui`, and the router's `to`, `params`, `search`) and
-`textLinkClassName`. A link to another page of the console inside a sentence, a card or a
-notice: the accent, underlined on hover. `inline` takes the sentence's size; `ui` (13px) stands
-on its own. Not for an action (`Button`), a page outside the console (`ExternalLink`), or a link
+**`TextLink`** (`size` `inline | ui`, `variant` `link | row`, and the router's `to`, `params`,
+`search`) and `textLinkClassName`. A link to another page of the console inside a sentence, a card
+or a notice: the accent, underlined on hover. `inline` takes the sentence's size; `ui` (13px) stands
+on its own. `variant="row"` is the name of a row in a list or a table: medium weight in the text
+colour, underlined on hover (ratchet `row-link-class` counts the classes copied from file to
+file). Not for an action (`Button`), a page outside the console (`ExternalLink`), or a link
 drawn as a button (`buttonClassName` on a `Link`). A link the router does not build (a
 `ServerLink`, a download) takes `textLinkClassName`.
 
@@ -900,7 +1083,15 @@ beside Try again, after the system's words ("View output"); `JobProgress` passes
 
 **`DangerZone`**, **`DangerAction`**. Irreversible actions, last, each saying what it destroys.
 
-**`SaveBar`**, **`Stepper`**, **`WizardActions`**, and the templates `ListPage`, `DetailPage`,
+**`SaveBar`** (`changes`, `onDiscard`, `onSave` or `form`, `saving`, `busy`, `saveLabel`,
+`secondary`, `guard`, `yieldPrimary`). The one way a form is saved. It owns two things so that no
+subsection writes its own: the question asked once before the page is left with changes (FM-3: a
+`LeaveGuard`, a `ConfirmDialog friction="simple"` "Discard unsaved changes?" with "Keep editing"
+focused, over `useLeaveGuard`, which blocks a navigation and warns the browser before the tab is
+closed) and the header's primary stepping aside while there are changes (FM-2). A wizard or a file
+editor with no bar places a `LeaveGuard` itself; a dialog or a drawer asks when it is closed.
+
+**`Stepper`**, **`WizardActions`**, and the templates `ListPage`, `DetailPage`,
 `SettingsLayout`, `DashboardPage`, `Wizard`, `FileEditorPage`, `AuthLayout`: section 4. The
 `Wizard`'s `summary` is a landmark named "Chosen so far" (`summaryLabel` to rename it);
 `FileEditorPage`'s `footer` holds its `CommandHint`, under the bar. The `Wizard`'s summary sits
@@ -924,7 +1115,8 @@ so the page has one navigation landmark in a browser and in a unit test alike.
 | Counters in the sidebar and top bar | `StatusGlyph` of 10px and the number; the accessible name is a sentence ("2 services failed") |
 | Running text, a tooltip | The word in `stateTextClass`, with its glyph when it is a warning or a failure |
 | An aggregate | The colour and glyph of the worst state in it |
-| Whether a feature is on | `FeatureState` at the top of its settings, never a neutral `Notice` |
+| Whether a feature is on | `StatusPill size="sm"` in the header of its `Card` (`status`), never a block and never a neutral `Notice` |
+| Whether an option is on | The control itself: the switch of its `Setting` row says it |
 | An on/off as a label: a channel's card, a table cell, a fact | `StatusPill state="running"` (on) or `"stopped"` (off) with the word, `size="sm"`: on its soft ground in a card or a fact, `appearance="inline"` in a table. **A feature's on/off as a label is a state badge, never bare text.** A setup left half done is `queued` |
 | Never | Colour alone; a `Badge`; a dot of your own |
 
@@ -943,6 +1135,13 @@ application's state while it runs.
 | `simple` | One resource that can be made again, or an interruption that loses no data | Stop an app, remove a domain from an app, remove a schedule or a destination, revoke a token, remove a server from the fleet, delete a database user |
 | `type` | Data lost for good, or a wide reach | Delete an application, drop a database, delete a service or a site, delete a backup, restore over existing data |
 
+- The friction is declared at every call: there is no default, and a call that passes the name to
+  type has said `type` (FM-6). Removing a domain from an application and removing a server from
+  the fleet are `simple`, as the table says; turning off a safeguard is `simple` too (SW-5).
+- There is one confirmation component, `ConfirmDialog`: a plan with a before and an after is its
+  `children` in a wider `size`, and the last step of a destructive flow is never a danger `Button`
+  written by hand outside it and `DangerZone` (ratchets `action-dialog` and
+  `danger-button-outside-confirm`, with `confirm-hand-rolled`).
 - After acting, the interface itself changes (the row goes, the state changes), the change is
   announced to screen readers, and focus returns to something stable. A toast only when the
   result is not on screen.
@@ -982,7 +1181,7 @@ the operator just did. Never "Oops" or "Sorry"; an unknown cause is not invented
 ### 6.6 Empty, loading and partial
 
 Everything loaded has four states: a skeleton shaped like the content (the region
-`aria-busy`, a `sr-only` "Loading ..."), the error, the empty state, the content. `QueryState`
+`aria-busy`, a `sr-only` "Loading …"), the error, the empty state, the content. `QueryState`
 does all four. Under a second, nothing blinks; 1 to 10 seconds, a skeleton; beyond, progress
 if the end is known, otherwise a background job with its `JobProgress`. A skeleton lives in a
 `LoadingRegion` (`QueryState` uses one): after two seconds it also says, visibly and with a
@@ -1002,6 +1201,21 @@ keeps the last answer on screen with a compact error above it. When an optional 
 fails, only the affected block says so; controls are not disabled for it and "undefined" is
 never printed. An empty cell is `EmptyCell`.
 
+- **ST-1** Everything that loads draws its four states (skeleton, error, empty, content) through
+  `QueryState`, or `LoadingRegion` when it is not a query. No `aria-busy="true"` and no
+  `isError && data === undefined` ternary is written in a feature. A skeleton has the shape of the
+  content (`SkeletonRows`, `SkeletonCard`, `SkeletonSection`), never a rectangle of a height guessed
+  by eye, and nothing moves when the data arrives. *Enforced by:* ratchets `hand-aria-busy` and
+  `hand-error-ternary`; `routes/loading.test.tsx`; `e2e/layout-shift.spec.ts`. The codemod
+  `panel/scripts/codemods/loading-region.mjs` rewrites the common hand-written region.
+- **ST-2** An empty list is an `EmptyState` with its `variant`: `firstUse` in the place of the
+  content (one per page), `inline` inside a section or a filtered table. A bare paragraph is not an
+  empty state. *Enforced by:* the type (`variant` is required once the last page has moved); ratchet
+  `inline-empty-by-hand`.
+- **ST-3** A refresh that fails keeps the last answer on screen with a compact error above it; an
+  optional dependency that fails says so in its own block and disables nothing. *Enforced by:*
+  `QueryState.test.tsx`; `e2e/late-answers.spec.ts`.
+
 ### 6.7 Forms and the save bar
 
 Fields stacked vertically, 20px apart, each in a `Field`. Validation on submit, then on leaving
@@ -1010,8 +1224,40 @@ only when there is nothing to do (no changes) or while it works: an invalid valu
 disable it, the error says what is wrong where it is wrong. Settings are saved from the
 `SaveBar` (a settings subsection) or the form's own footer (a dialog). System values are typed
 in mono, without autocomplete or spellcheck; a unit is a `suffix`. A secret is shown once, with
-a copy button and "Done". Related fields are a `fieldset` with a `legend`; long forms go in a
-drawer.
+a copy button and "Done". Related fields are a `fieldset` with a `legend` (`FieldGroup`); long
+forms go in a drawer.
+
+- **FM-1** A settings subsection saves in one way: a form with a `SaveBar`, or a list of immediate
+  settings. Never both, and never a "Save" in a card (a dialog's or a drawer's footer is the only
+  other place). *Enforced by:* ratchets `card-save` and `switch-in-form`.
+- **FM-2** One primary per view, including while the `SaveBar` has changes: the header's primary
+  becomes secondary (`DemotePrimary`) until the changes are saved or discarded. An empty state or a
+  card never repeats a primary the header already has. *Enforced by:* `e2e/design-contract.spec.ts`
+  (one `[data-variant="primary"]` on every route of `e2e/routes.ts`, clean and dirty).
+- **FM-3** Leaving a form with unsaved changes (navigation, tab close) asks once: "Discard unsaved
+  changes?". `SaveBar` owns the guard (`LeaveGuard`); no page writes its own. *Enforced by:*
+  `e2e/leave-guard.spec.ts`; ratchet `own-leave-dialog`.
+- **FM-4** A submit button is never disabled for an invalid or incomplete value, in a page, a
+  dialog or a drawer. Pressing it focuses the first field with an error and says what is missing. A
+  button is disabled only when there is nothing to do or while it works. *Enforced by:* ratchet
+  `submit-disabled-invalid` (a heuristic: it reads the `disabled` of the button itself for an empty
+  or invalid value, and misses a flag computed elsewhere);
+  `e2e/design-contract.spec.ts` on a sample of dialogs.
+- **FM-5** A setting that was saved but does not run yet is a chip in the page header's status line
+  ("3 not applied", `statusExtras`) that opens the review; it is not a banner on every tab.
+  *Enforced by:* `e2e/app-overview.spec.ts` (the chip shows with another banner present).
+- **FM-6** One confirmation component: `ConfirmDialog`, with `friction` always declared (`none`,
+  `simple`, `type`; there is no default). A confirmation that needs a plan or a host name uses its
+  `children`, `size` and `confirmText`; there is no second dialog and no hand-written
+  `variant="danger"` outside `ConfirmDialog` and `DangerZone`. *Enforced by:* the type; ratchets
+  `confirm-hand-rolled`, `action-dialog` and `danger-button-outside-confirm`.
+- **FM-7** A success toast is only for what is not visible on screen. A row that appears, a row
+  that disappears or a dialog that closes says nothing. *Enforced by:* ratchet `toast-success`
+  (only goes down); G-7.
+- **FM-8** A subsection of settings fits in one and a half screens at 1440px; when it does not, it
+  is split (account, sign-in methods, compliance controls and the ENS report are four subsections,
+  not one). *Enforced by:* `e2e/settings-length.spec.ts` (heights per route, a baseline that only
+  goes down; over 1400px needs a reason).
 
 ### 6.8 Tables
 
@@ -1063,14 +1309,18 @@ An event is said in one channel, never two:
 | Channel | When | Component | Stays | ARIA |
 |---|---|---|---|---|
 | Field error | A control's value is wrong | `Field error` | Until fixed | `aria-invalid`, `aria-describedby` |
+| Risk or status line | What could go wrong with an option, the status of a field or a row, a one-off result | `InlineMessage` (a `Setting`'s `risk`) | While it is true | none, or `status` if `live` |
 | Inline notice | Something persistent about a form, section or dialog | `Notice` | Until resolved or dismissed | none, or `status` if `live` |
 | Banner | The state of the page or the server | `Notice variant="banner"` | Until resolved | none |
 | Error block | A load or an action failed, with the system's words | `ErrorBlock`, `QueryState` | Until retried | `alert` only if `live` |
 | Toast | The outcome of an action not visible on screen; a job queued | `toast.*` | Success and info 5s; error and warning until closed; 3 at most | the announcer's polite or assertive region |
+| Inbox | What failed on its own or needs a decision, while the operator was elsewhere; the bell in the top bar | the inbox (`Needs you`, `Recent`) | Until resolved | the announcer's polite region, never a counter that changes every few seconds |
 | Dialog | A decision that blocks | `Dialog`, `ConfirmDialog` | Until decided | `dialog`, `alertdialog` |
 
 A toast's title reuses the action's verb in the past tense ("Deployed shop.example.com"), with
-at most one action. Success is said sparingly: only when it is not evident from the interface.
+at most one action. Success is said sparingly: only when it is not evident from the interface
+(FM-7). A toast acknowledges what the operator just did; what failed on its own or needs a
+decision stays in the inbox until it is resolved; Activity is the history (NV-17, 6.14).
 
 ### 6.13 Keyboard and real time
 
@@ -1093,6 +1343,30 @@ list or table. Every shortcut is in the shortcuts dialog and in its control's to
 stream's state ("Live", "Reconnecting") uses a `StatusGlyph` and a word, at the end of the
 machine strip so the readings that arrive after it never push it across the bar; numbers that
 change every few seconds are never live regions.
+
+### 6.15 Observability and data
+
+- **LG-1** Every log surface (application, server, global, a service, a job) uses one toolbar: the
+  query, level chips with counts, the source, the range (with "Live" as one of its options) and
+  "Copy link". It keeps its state in the URL and has one query grammar. *Enforced by:* the unit tests
+  of `LogToolbar`; `e2e/log-query.spec.ts` and `e2e/logs-probes.spec.ts` (the same controls on every
+  surface); ratchet `live-switch`.
+- **LG-2** Every log line can be opened in context and can seed a filter from its values where its
+  source supports it; a link to a line carries the range and the line. *Enforced by:*
+  `e2e/log-query.spec.ts`.
+- **LG-3** A control that follows the output has one name and one place: the viewer's "Follow". A
+  page never adds a second "Live" or "Follow" switch. *Enforced by:* ratchet `live-switch`.
+- **AL-1** A firing alert or a failing probe is shown where the operator looks (the inbox,
+  Overview's "Needs attention", the sidebar counter, the affected application's header) with its
+  acknowledgement in place, not only in Settings. *Enforced by:* `attention.test.ts` (the kinds
+  `alert` and `probe`); `e2e/inbox.spec.ts`.
+- **AL-2** Acknowledging is called "Acknowledge" and "Reopen", shows who and when, and stops the
+  reminders; it never resolves. *Enforced by:* `i18n/verbs.test.ts`.
+- **DB-1** A restore goes to a new database by default; over an existing one it takes a safety copy
+  first, names it, asks for the name and shows what it will replace before it runs. *Enforced by:*
+  `e2e/databases.spec.ts`; one `RestoreDialog` for applications and databases.
+- **DB-2** A data-gap message under a chart or a log ("not recorded yet") is one line under its
+  title, not a `Notice`. *Enforced by:* ratchet `notice-info-bare`.
 
 ---
 
@@ -1125,6 +1399,13 @@ change every few seconds are never live regions.
   **System updates** (the operating system's packages: Server, Overview, the fleet's "Noust
   and system updates") and **Update Noust** (Noust itself). Never a bare "Updates" for either.
   `i18n/verbs.test.ts` holds the words in both languages.
+- **Retry, try again, run again** are three verbs: **Retry** repeats an action that failed (a
+  deployment, a certificate, a job); **Try again** reads again after a read that failed;
+  **Run again** repeats a check. **Rebuild** builds the same commit again. **Clear** empties a
+  field, a list or a cache; **Dismiss** closes a notice; **Done** only follows a secret shown once.
+  **Acknowledge** and **Reopen** are an alert's, and acknowledging never resolves it. The whole
+  table, in both languages, is the glossary in `panel/src/i18n/README.md`, "The words of the
+  interface".
 - **Empty states**: the title says what this place is and what is missing ("No applications
   yet"); one or two sentences say the next step; the action is an imperative of one or two
   words; the command, when the CLI has one.
@@ -1145,9 +1426,32 @@ change every few seconds are never live regions.
 | Payload URL / forge | Webhook URL / GitHub, GitLab or Gitea |
 | Deliveries | Pushes received |
 | Unit / systemd unit | Service (the unit name in mono) |
+| Unit security | Service security |
 | Run as an argv, without a shell. | Runs directly, not through a shell: pipes, && and $VARS do not work. |
 | Drain | Keep the old version for (seconds) |
 | Covered / Not covered | HTTPS / No HTTPS |
+| Emergency access (the access token) | Access token |
+| Live version | Live now |
+| Domains and certificates | Domains |
+| Console access | Console address |
+| Roles and access | Roles |
+| Log shipping | Logs and metrics export |
+| Reading ... | Loading … |
+| Make a file | New file |
+| Confirm / OK | Continue, or the verb of what is confirmed |
+
+- **TX-1** Each action has one verb and each thing one name, in both languages, from the glossary
+  in `panel/src/i18n/README.md`; a term changes there first. *Enforced by:* `i18n/verbs.test.ts`;
+  `i18n/glossary.test.ts`.
+- **TX-2** A page button has no article and a dialog title has one ("Add server" / "Add a server");
+  "Make", "Confirm" and "OK" are not button words; a title has no final full stop; an ellipsis is
+  one character. *Enforced by:* `i18n/glossary.test.ts`.
+- **TX-3** The accessible text of every loading region is "Loading …"; a state word is a state,
+  not a verb (in Spanish "Fallido", not "Falló"). *Enforced by:* `i18n/glossary.test.ts`;
+  `LoadingRegion` takes its label as a sentence.
+- **TX-4** A label that means the same in two places is one key, and a sentence repeated three
+  times moves to `common.*`. *Enforced by:* review; the divergence count of
+  `i18n/glossary.test.ts` holds the English texts whose Spanish differs from key to key.
 
 ---
 
@@ -1191,7 +1495,10 @@ lint`, the E2E suite).
 | Tokens | `styles/tokens.test.ts` (`lib/contrast.ts` does the maths) | Every text pair 4.5:1, every control boundary 3:1, tinted borders 1.4:1, hairlines visible; surfaces, text and idle achromatic; dark elevation by luminance; the `viz` pair's contrast, colour-vision distance, hue distance, lightness and chroma; every colour token has a utility and at least one verified pair; the values of radii, control heights, layers, widths, measures, icon sizes and the seven type sizes; `scrollbar-gutter: stable` |
 | Lint | `eslint.config.js`, `no-restricted-syntax` and `no-restricted-imports` | Outside the kit (`components/`, `app/`, `dev/`) and the legacy list: raw hex, arbitrary dimensions (`max-w-[...]`, `h-[...]`, `rounded-[...]`, `z-[...]`), colour functions, hand-written `h1`-`h4`, `<label>`, `style=`, and severity icons imported from lucide instead of `icons.ts` |
 | Ratchet | `styles/design-rules.test.ts`, rules in `styles/designRules.ts`, counts in `styles/design-baseline.json` | Per rule and per file, counts that may only go down (the rule ids below); ESLint's legacy list only shrinks; the `viz` colours stay inside `Chart`; no component of the system is left unused except those still waiting for their pages |
-| Browser | `e2e/design-contract.spec.ts` | On a sample of every template, at 1440 and 390, both themes, and the gallery: font sizes, families and weights, radii, border widths, every opaque colour grey or a token, one primary button per view |
+| Structure | `styles/design-structure.test.ts`, rules in `styles/designStructure.ts`, counts in `styles/design-structure-baseline.json` | The same contract for what a regular expression per line cannot see, found in the syntax tree: a component used where a kit piece exists, a file with three notices, a notice read in English words (the structural rule ids below). `npm run ux:counts` prints how much of the console is built from each piece, from the same code. Examples of what each rule counts and what it does not are `styles/design-structure.cases.test.ts` |
+| Copy | `styles/setting-copy.test.ts`, `styles/concept-doors.test.ts`, `styles/dead-class.test.ts`, `i18n/verbs.test.ts`, `i18n/glossary.test.ts` (baselines `i18n/glossary-baseline.json`, `styles/concept-doors.json`) | The words of a setting row (SW-3, SW-4); the concepts with more than one editable home (NV-8), a list that only gets shorter; a colour class that names no colour of the system; the glossary's verbs and states in both languages; a retired value that comes back, a glossary word translated otherwise, one English text translated several ways |
+| Browser | `e2e/design-contract.spec.ts` | On a sample of every template, at 1440 and 390, both themes, and the gallery: font sizes, families and weights, radii, border widths, every opaque colour grey or a token, one primary button per view (clean and with unsaved changes), at most one banner per route, the height of a setting row |
+| Forms and length | `e2e/leave-guard.spec.ts`, `e2e/settings-length.spec.ts` (baseline `e2e/settings-length.baseline.json`) | The question asked before a form with changes is left, and that discarding puts the value back; the height of every settings route at 1440, which may only go down |
 | Loading | `routes/loading.test.tsx` | Every route of the console, on the real router and a server that answers only the session: the body shows a skeleton inside an `aria-busy` region, no skeleton is outside one, and no empty state is drawn while the answer is awaited. A route with no entry in the table fails, so a page cannot ship without someone having looked at what it draws while it waits |
 | Layout | `e2e/layout-shift.spec.ts`, `e2e/tab-switch-layout.spec.ts` | Cumulative layout shift 0.05 or less on load; switching between a long and a short tab (with real scrollbars) does not move the content column |
 | Accessibility and CSP | `e2e/pages.spec.ts`, `e2e/fixtures.ts` | axe on every route and theme; any CSP violation or console error fails the test |
@@ -1218,21 +1525,57 @@ The ratchet's rules (`designRules.ts`):
 | `dashed-empty` | `border-dashed` outside `EmptyState` | `EmptyState` |
 | `spinner-outside-kit` | `<Spinner>` in a feature | `JobProgress`, `Button loading` |
 | `focus-ring-repeat` | `focus-visible:outline-2` | the global ring |
-| `confirm-hand-rolled` | `AlertDialog.Popup` outside `ConfirmDialog` | `ConfirmDialog` |
+| `confirm-hand-rolled` | `AlertDialog.Popup` outside `ConfirmDialog` (its twin `ActionDialog` and a hand-written danger button are the structural rules `action-dialog` and `danger-button-outside-confirm`) | `ConfirmDialog` |
 | `page-without-template` | `<PageHeader>` written by a feature | a template's `header` prop |
-| `feature-state-notice` | a `Notice` whose title or text is an on/off key (`.on`, `.offTitle`, `.enabled`...) | `FeatureState` |
+| `feature-state-notice` | a `Notice` whose title or text is an on/off key (`.on`, `.offTitle`, `.enabled`...) | `Card status`, a `Setting` row |
+
+The structural rules (`designStructure.ts`), found in the syntax tree:
+
+| Rule id | What it counts | Instead |
+|---|---|---|
+| `feature-state` | `<FeatureState` outside the kit | `Card status` (a `StatusPill size="sm"`), a `Setting` row; the component is deleted when the count reaches 0 |
+| `badge-state` | a `Badge` with tone `ok`, `warn`, `fail`, or a tone the code computes | `StatusPill`; then `BadgeTone` is `neutral \| accent` |
+| `notice-stack` | a file with three `<Notice` or more (one per file; a design-exception anywhere in the file, with its reason, excuses it) | the worst one, an aggregate, help text or a risk line |
+| `notice-info-bare` | an `info` Notice with neither an action nor a title | the help text of its field, row or section |
+| `notice-success` | a `success` Notice outside a Dialog, Drawer, ConfirmDialog or Wizard | nothing (the interface changes) or a toast |
+| `notice-long` | a Notice of more than 45 English words, title and body (the test resolves the catalog keys) | a "What changes" Popover, a Disclosure, a Drawer or the docs |
+| `switch-in-form` | a `<Switch` in a file with a `<form`, a `type="submit"` or a `SaveBar` | a `Setting` row, or a `Checkbox` in the form |
+| `card-save` | a Save or Apply button inside a `Card` and outside a dialog | the `SaveBar`, or immediate settings |
+| `submit-disabled-invalid` | a primary, danger or submit button whose `disabled` reads an empty or invalid value (a lower bound) | press it, focus the first field with an error |
+| `own-leave-dialog` | `useBlocker(` outside `lib/useLeaveGuard.ts` | `SaveBar`'s guard, or `LeaveGuard` |
+| `hand-aria-busy` | `aria-busy="true"` outside the kit | `QueryState`, `LoadingRegion` (the codemod rewrites the common form) |
+| `hand-error-ternary` | `isError && data === undefined` | `QueryState` |
+| `inline-empty-by-hand` | a muted `<p>` whose only content is an `empty` key | `EmptyState variant="inline"` |
+| `action-dialog` | `<ActionDialog` | `ConfirmDialog`; the file is deleted |
+| `danger-button-outside-confirm` | `variant="danger"` outside `ConfirmDialog` and `DangerZone` | `ConfirmDialog`, `DangerZone` |
+| `native-details` | `<details` | `Disclosure variant="card"` |
+| `row-actions-local` | a `RowActions` component of a feature | `RowMenu` |
+| `bordered-list` | a `ul`, `ol` or `div` with `divide-y`, a border and the card's or the control's radius | `RowList` |
+| `row-link-class` | the classes `hover:underline hover:underline-offset-2` written in a feature | `TextLink variant="row"` |
+| `copy-box-by-hand` | a sunken, framed box that holds a value with its own copy button, or a `select-all` box | `CopyValue` |
+| `field-error-by-hand` | a `<p>` in `text-fail`, or a `role="alert"` on a plain element | `Field`, `FieldGroup` |
+| `destination-outside-register` | an array of `{ label, to }` destinations in a file that deals in tabs, outside `app/nav.ts` | the register (`tabsOf`, 6.14) |
+| `own-back-link` | a `TextLink` or `Link` that wears a left arrow | the breadcrumbs of the template |
+| `empty-means-off` | an English catalog string that says "Empty keeps", "Blank means", "0 turns it off" | a `Setting` whose switch reveals the number |
+| `help-starts-with-state` | an English `*Help`, `*Description`, `*Note` or `*Hint` that starts with "On," or "Off," | help that says what the setting does |
+| `live-switch` | a `Switch` named Live or Follow | the viewer's "Follow" (LG-3) |
+| `toast-success` | `toast.success(` | nothing, when the result is on screen (FM-7) |
 
 **Exceptions.** A line that has to break a rule says so, on that line or the one above:
 `// design-exception: <rule-id> <reason>`. For a lint rule, the same words go after the
 directive: `// eslint-disable-next-line no-restricted-syntax -- design-exception: <rule-id>
 <reason>`. The ratchet fails on an exception without a known rule id or without a reason, and
-on a design lint rule silenced without one.
+on a design lint rule silenced without one. The structural rules are excused by the same comment
+(`notice-stack`, which is about a file as a whole, by one anywhere in it).
 
 **Commands** (in `panel/`):
 
 ```bash
-npx vitest run src/styles              # tokens and the ratchet
+npx vitest run src/styles src/i18n     # tokens, the ratchets, the copy and the glossary
 npm run design:baseline                # lock in lower counts after a migration (refuses if any went up)
+npm run ux:counts                      # how much of the console is built from each piece, by directory
+node scripts/ux-counts.mjs --rules     # what each structural rule counts today
+node scripts/codemods/loading-region.mjs src/features/x   # rewrite hand-written loading regions (--write)
 npm run lint                           # includes the design rules
 NODE_ENV=development npx vite build --mode development --outDir /tmp/noust-dev-build
 NOUST_E2E_STATIC=/tmp/noust-dev-build npx playwright test design-contract tab-switch-layout
@@ -1250,7 +1593,8 @@ NOUST_E2E_STATIC=/tmp/noust-dev-build npx playwright test design-contract tab-sw
   it is written again.
 - **G-3 New rules enter with today's count** as their baseline, and the count may only go down.
   A page moved onto its template lowers the counts in its files and runs `npm run
-  design:baseline`; `design-baseline.json` is committed with it.
+  design:baseline`, which rewrites `design-baseline.json`, `design-structure-baseline.json` and
+  `i18n/glossary-baseline.json` (and refuses to raise any count); they are committed with it.
 - **G-4 New pages** are composed of a template and existing components; a page that cannot be
   extends a template or adds a component first (gallery, tests, this document).
 - **G-5 Copy** changes in the catalogs, English and Spanish together, and a term of the glossary
@@ -1258,10 +1602,18 @@ NOUST_E2E_STATIC=/tmp/noust-dev-build npx playwright test design-contract tab-sw
 - **G-6 Builds.** Every change under `panel/src` ships with `npm run build` and the committed
   `src/noust/web/static` (the packaging rule of `CONTRIBUTING.md`).
 - **G-7 Visual review.** Screenshots of every route at 390, 1440 and 1920 in both themes and in
-  Spanish are reviewed before a release with six questions: is there one primary action? Does
+  Spanish are reviewed before a release with seven questions: is there one primary action? Does
   the state read in greyscale? Is anything coloured that is neither a state, an action nor a
   series? Does anything move as it loads? Is the server named where something is destroyed?
-  Does the empty state say what to do?
+  Does the empty state say what to do? **Is any notice or state block taller than the control it
+  explains?**
+- **G-8 A new destination** enters with its register entry (`app/nav.ts`), its answers to the
+  four tests of NV-4 (a noun the operator says every day or every week; it lists what exists or
+  shows what happened; most installations use it; it is not set-up, a catalogue, another
+  destination's view or a module that is off) and, if it repeats a concept, its row in
+  `styles/concept-doors.json` with the reason. A fifth global indicator needs a row in NV-16.
+- **G-9 A new setting** says in its change which step of NV-7 it falls on (account, resource,
+  group, server, instance, fleet) and how the other places that could hold it link to it.
 
 ---
 
