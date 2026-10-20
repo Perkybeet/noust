@@ -165,8 +165,11 @@ noust compose import templates/blueprints/ghost --from dokploy \
 noust create -d blog.example.com -s ./blog
 ```
 
-or, in the console, **New application > Compose > Convert a template**, with the format set to
-Dokploy and the two files pasted. API: `POST /api/compose/import` with `"format": "dokploy"`.
+The command line and the API do this; the console's **New application > Compose > Convert a
+template** reads Coolify's format only, because a Dokploy template can carry files to write beside the
+stack and the console's form has one document. API: `POST /api/compose/import` with
+`"format": "dokploy"`, the Compose text in `document` and the `template.toml` in `template`; the
+answer lists the `files` and, apart, the ones that hold a secret (`secret_files`).
 
 - **The expressions are expanded the way Dokploy's own processor does it**, with Noust's generators:
   `${password:N}` is N lower-case letters and digits, `${hash:N}` N hexadecimal digits, `${base64:N}`
