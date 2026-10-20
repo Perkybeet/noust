@@ -1,0 +1,14 @@
+{
+  "name": "noust-example-nuxt",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "nuxt": "4.6.2",
+    "vue": "3.5.44",
+    "vue-router": "4.6.4"
+  }
+}

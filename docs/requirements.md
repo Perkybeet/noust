@@ -19,6 +19,35 @@ is measured, and the method is below so anyone can repeat it.
 `noust setup doctor` checks the list against the machine it runs on and prints the command that
 fixes each gap.
 
+## How big a server
+
+Three sizes for each resource, because "does it fit" has three answers. Below the **floor** Noust
+or its own installation stops working, so the installer refuses (`--force` tries anyway) and
+`noust setup doctor` reports a failure. Below the **minimum** a small server is under-sized: the
+installer says so and asks (`--yes` accepts), and the doctor warns. The **recommended** size is
+what the figures below are comfortable at; nothing is judged against it.
+
+<!-- BEGIN REQUIREMENTS (generated: scripts/sync_install_targets.py) -->
+
+| | Floor: below it Noust is not installed | Minimum: below it the installer asks and `noust setup doctor` warns | Recommended |
+|---|---|---|---|
+| **Memory** | 512 MB | 1 GB | 2 GB |
+| **Processors** | 1 processor | 1 processor | 2 processors |
+| **Free disk** | 3 GB | 10 GB | 20 GB |
+
+<!-- END REQUIREMENTS -->
+
+The numbers are declared once, in `noust/managers/server/requirements.py`, and the installer and
+this table are generated from them. Free disk is read where Noust writes (the applications'
+directory, its own data and the system packages), not "the root": a server whose `/var` is a
+volume of its own is judged by that volume. Memory is the kernel's, or the container's limit when
+that is lower.
+
+`noust setup doctor` (and **Settings > About > Installation check**) shows the machine against
+these sizes and says **who holds ports 80 and 443**: the web server, a container that publishes
+them (another platform's proxy, a Compose stack), or another program such as Caddy or Apache,
+with the command that frees them. The installer asks the same before it installs the web server.
+
 ## What Noust costs when it is idle
 
 Noust has two long-running processes: the console (`noust-web`) and the monitor

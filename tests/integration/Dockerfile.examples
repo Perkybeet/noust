@@ -1,0 +1,14 @@
+# The toolchains image (Dockerfile.toolchains: Java, .NET, Elixir, Deno, Go, Rust, Ruby, Gradle and
+# pnpm, installed the way each deployer's advice says) with its own Docker back, for
+# tests/integration/examples_run.py.
+#
+# The toolchains layer masks the Docker units (nothing there used them) so that systemd reports
+# "running"; the two examples that run containers (Compose and a Dockerfile) need the daemon, so the
+# units are given back here. Its data lives on the named volume run.py mounts on /var/lib/docker,
+# never on the host's Docker.
+
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+RUN systemctl unmask docker.service docker.socket containerd.service \
+    && systemctl enable docker.socket docker.service containerd.service

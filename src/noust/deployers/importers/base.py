@@ -21,20 +21,26 @@ redeploy and a rollback behave the same way as the first deploy.
 from __future__ import annotations
 
 import json
+import posixpath
+import re
 import shlex
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from noust.core.exceptions import ValidationError
-from noust.core.secret_detection import name_looks_secret
+from noust.core.secret_detection import classify, name_looks_secret
 from noust.validators.health import HEALTH_TIMEOUT_MAX, HEALTH_TIMEOUT_MIN
 
 #: Larger than any configuration file a person writes.
 MAX_CONFIG_SIZE = 512 * 1024
 
 #: Engines a proposal can say the application needs, as ``noust db`` names them.
-DATABASE_ENGINES = ("postgresql", "mysql", "redis", "mongodb")
+DATABASE_ENGINES = ("postgresql", "mysql", "mariadb", "redis", "valkey", "mongodb")
+
+#: Engines Noust runs in a container of its own (``noust db instance create``) and not on the
+#: host, so a proposal names them but does not put them in the import document.
+INSTANCE_ENGINES = ("keydb", "dragonfly", "clickhouse")
 
 
 @dataclass
@@ -47,7 +53,7 @@ class ProposedEnv:
         value: The default the configuration gives it, or None when it gives
             none (a value kept in the platform's dashboard, a generated one,
             one read from a database).
-        secret: Whether it holds a credential: generated, or its name says so.
+        secret: Whether it holds a credential: generated, or its name or its value says so.
         generated: The platform generates the value (Render's
             ``generateValue``, Heroku's ``generator: secret``); Noust generates
             a random one in its place.
@@ -85,6 +91,301 @@ class RemoteApplication:
     source: str = ""
     domains: tuple[str, ...] = ()
     project: str = ""
+
+
+@dataclass
+class ProposedStorage:
+    """
+    Data the application kept outside its image on the other platform.
+
+    Attributes:
+        mount_path: Where the application saw it, inside its container.
+        volume: The Docker volume that held it, when it was a named one.
+        host_path: The directory of the other server that held it, when it was a bind mount.
+        persistent_path: The path, relative to the application's directory here, that
+            ``--persist`` keeps across releases for the same data; None when the mount is outside
+            the application's own directory (say what to do instead).
+        read_only: The mount was read-only there.
+        export: The command to run on the other server to copy the data out, as a
+            tarball on standard output. Never run by Noust.
+        restore: The command to run here to put it back.
+    """
+
+    mount_path: str
+    volume: str | None = None
+    host_path: str | None = None
+    persistent_path: str | None = None
+    read_only: bool = False
+    export: str | None = None
+    restore: str | None = None
+
+    def describe(self) -> str:
+        """
+        Returns:
+            One sentence for an operator: what the data was and how to bring it.
+        """
+        held = (
+            f"the volume {self.volume}"
+            if self.volume
+            else f"{self.host_path} on the server"
+            if self.host_path
+            else "storage"
+        )
+        text = f"It kept data in {held}, mounted at {self.mount_path}."
+        if self.persistent_path:
+            text += f" Here that is --persist {self.persistent_path}."
+        else:
+            text += (
+                " That is outside the application's own directory, so there is no persistent"
+                " path for it here: if the data matters, mount it with 'noust app mount' or"
+                " keep it in a path of the application."
+            )
+        if self.export and self.restore:
+            text += f" Copy it: on that server, {self.export}; here, {self.restore}."
+        return text
+
+
+@dataclass
+class ProposedDatabase:
+    """
+    A database the application used on the other platform.
+
+    Attributes:
+        engine: The engine, as ``noust db`` names it (``postgresql``, ``mysql``...).
+        name: What the other platform calls it.
+        reference: What names it there: a container, a service, the host the application
+            connected to.
+        image: The image it ran.
+        version: Its version, when the image says.
+        database: The database inside the engine, when the platform says.
+        user: The account that owns it, when the platform says.
+        linked: An environment variable of the application points at it; False for one that
+            only shares the application's environment.
+        dump: The command to run on the other server to write it to standard output, never
+            run by Noust. The password is read inside the container, not given on the line.
+        restore: The command to run here to load that dump.
+        note: What else is worth knowing.
+    """
+
+    engine: str
+    name: str
+    reference: str
+    image: str | None = None
+    version: str | None = None
+    database: str | None = None
+    user: str | None = None
+    linked: bool = False
+    dump: str | None = None
+    restore: str | None = None
+    note: str | None = None
+
+    def describe(self) -> str:
+        """
+        Returns:
+            One sentence for an operator: what the database was and how to bring it.
+        """
+        text = f"It uses the {self.engine} database {self.name!r} ({self.reference})."
+        if self.engine in INSTANCE_ENGINES:
+            text += (
+                f" Noust runs {self.engine} in a container of its own: create one with"
+                f" 'noust db instance create NAME --engine {self.engine}'."
+            )
+        elif self.dump and self.restore:
+            text += (
+                f" Create the engine if this server lacks it ('noust db install {self.engine}'),"
+                f" dump it on that server with: {self.dump}; and load it here with: {self.restore}."
+            )
+        elif self.engine in DUMP_SCRIPTS and not self.dump:
+            text += (
+                " No command is written for it: its name is not one that can go on a command line"
+                " as it is. Dump it with the engine's own tool and load it here with"
+                " 'noust db import'."
+            )
+        if self.note:
+            text += f" {self.note}"
+        return text
+
+
+#: How each engine's official image dumps itself, as a script for ``sh -c`` inside its container,
+#: and the extension of the file it writes. The container's own variables hold the account, the
+#: database and the password (``POSTGRES_*``, ``MYSQL_*``, ``MARIADB_*``, ``MONGO_INITDB_*``): the
+#: password is read there and given to the client through its environment, never on a command line.
+#: A variable the image leaves to its default is spelled with that default.
+DUMP_SCRIPTS: dict[str, tuple[str, str]] = {
+    "postgresql": (
+        'pg_dump -U "${POSTGRES_USER:-postgres}" -Fc "${POSTGRES_DB:-${POSTGRES_USER:-postgres}}"',
+        "dump",
+    ),
+    "mysql": (
+        'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysqldump --single-transaction --no-tablespaces '
+        '-uroot "${MYSQL_DATABASE:---all-databases}"',
+        "sql",
+    ),
+    "mariadb": (
+        'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" mariadb-dump --single-transaction -uroot '
+        '"${MARIADB_DATABASE:---all-databases}"',
+        "sql",
+    ),
+    "mongodb": (
+        'mongodump --archive --username "$MONGO_INITDB_ROOT_USERNAME" '
+        '--password "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin',
+        "archive",
+    ),
+}
+
+
+#: A name another platform gave something (a container, a service, a file) that may be written into
+#: a command as it is. The platform's owner is not always the person who pastes the command, so a
+#: name with a space, a quote, a semicolon or a substitution in it is never put on a command line.
+_PLAIN_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+
+#: The one expression that finds a Swarm or Compose service's container, built only by
+#: :func:`service_container`.
+_SERVICE_CONTAINER = re.compile(r"\$\(docker ps -qf name=\^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\\\.\)")
+
+
+def is_plain_name(value: str | None) -> bool:
+    """
+    Args:
+        value: A name another platform gave something.
+
+    Returns:
+        Whether it may be written into a command as it is.
+    """
+    return value is not None and _PLAIN_NAME.fullmatch(value) is not None
+
+
+def service_container(service: str) -> str | None:
+    """
+    Write the expression a shell turns into the container of a Swarm service.
+
+    Args:
+        service: The service's name, as the other platform gave it.
+
+    Returns:
+        ``$(docker ps -qf name=^SERVICE\\.)``, or None when the name is not a plain one.
+    """
+    if not is_plain_name(service):
+        return None
+    return f"$(docker ps -qf name=^{service}\\.)"
+
+
+def database_commands(engine: str, container: str, name: str, label: str) -> tuple[str, str] | None:
+    """
+    Write the commands that move a database's data from the other server to this one.
+
+    Args:
+        engine: As ``noust db`` names it.
+        container: What ``docker exec`` is given to reach its container: a name, or an expression
+            that finds it (``$(docker ps -qf name=...)``).
+        name: The database's name here (a plain identifier).
+        label: Names the file the dump is written to, without its extension.
+
+    Returns:
+        ``(dump, restore)``, or None for an engine the official images have no portable dump for
+        (a cache: Redis and its kin are rebuilt, or copied with their own tools), and for a
+        container or a label that is not a plain name: nothing the other platform supplied reaches
+        a command unchecked.
+    """
+    if engine not in DUMP_SCRIPTS:
+        return None
+    if not (
+        is_plain_name(label)
+        and is_plain_name(name)
+        and (is_plain_name(container) or _SERVICE_CONTAINER.fullmatch(container))
+    ):
+        return None
+    script, extension = DUMP_SCRIPTS[engine]
+    return (
+        f"docker exec {container} sh -c '{script}' > {label}.{extension}",
+        f"noust db import {name} {label}.{extension} -e {engine}",
+    )
+
+
+def database_name_for(name: str) -> str:
+    """
+    Args:
+        name: What the other platform calls a database (``production-db``).
+
+    Returns:
+        A name for the database here: lower-case letters, digits and underscores.
+    """
+    cleaned = "".join(char if char.isalnum() else "_" for char in name).strip("_").lower()
+    return cleaned or "imported"
+
+
+def volume_export(volume: str) -> str:
+    """
+    Write the command that copies a Docker volume out as a tarball.
+
+    Args:
+        volume: The volume's name.
+
+    Returns:
+        A command for the other server's shell; it never writes there, and the volume is
+        mounted read-only.
+    """
+    return (
+        f"docker run --rm -v {shlex.quote(volume)}:/data:ro alpine tar -C /data -czf - . "
+        f"> {shlex.quote(volume + '.tar.gz')}"
+    )
+
+
+def directory_export(path: str) -> str:
+    """
+    Write the command that copies a directory of the other server out as a tarball.
+
+    Args:
+        path: The directory.
+
+    Returns:
+        A command for the other server's shell.
+    """
+    name = path.strip("/").replace("/", "-") or "data"
+    return f"tar -C {shlex.quote(path)} -czf {shlex.quote(name + '.tar.gz')} ."
+
+
+def tarball_restore(persistent_path: str | None) -> str:
+    """
+    Write the command that puts a tarball back under an application's persistent path.
+
+    Args:
+        persistent_path: The path ``--persist`` keeps, relative to the application's directory;
+            None writes the command with a placeholder for the folder.
+
+    Returns:
+        A command for this server, to run as root.
+    """
+    safe = persistent_path is not None and all(
+        re.fullmatch(r"[A-Za-z0-9_.][A-Za-z0-9_.-]*", part) for part in persistent_path.split("/")
+    )
+    target = f"/var/www/apps/APP/shared/{persistent_path}" if safe else "FOLDER"
+    return f"tar -xzf FILE.tar.gz -C {target}"
+
+
+def persistent_path_for(mount_path: str, work_dir: str = "/app") -> str | None:
+    """
+    Turn a path inside a container into a path of the application's directory.
+
+    Args:
+        mount_path: Where the data was mounted.
+        work_dir: The directory the application ran in there (``/app`` for the buildpack
+            builders Coolify and CapRover use).
+
+    Returns:
+        The path relative to it, or None when the mount is outside it (or is the directory itself).
+    """
+    clean = posixpath.normpath(mount_path)
+    prefix = work_dir.rstrip("/") + "/"
+    if not clean.startswith(prefix) or ".." in clean.split("/"):
+        return None
+    relative = clean[len(prefix) :]
+    if not relative or not all(
+        re.fullmatch(r"[A-Za-z0-9_.][A-Za-z0-9_.-]*", part) for part in relative.split("/")
+    ):
+        # A path with a space, a quote or a substitution in it is not written into a command.
+        return None
+    return relative
 
 
 @dataclass
@@ -140,6 +441,8 @@ class Proposal:
         memory_max_mb: Its memory limit, in MB.
         cpu_quota_percent: Its CPU limit, as a percent of one CPU.
         cron: Its scheduled tasks.
+        storage: The data it kept outside its image, and how to bring it.
+        database_details: The databases it used, and how to bring their data.
         submodules: Whether it initialised submodules; None when it does not say.
         equivalent: The ``noust`` command that makes what Noust cannot yet
             deploy from a proposal (an image, a Dockerfile, a Compose file).
@@ -169,6 +472,8 @@ class Proposal:
     memory_max_mb: int | None = None
     cpu_quota_percent: int | None = None
     cron: list[ProposedCron] = field(default_factory=list)
+    storage: list[ProposedStorage] = field(default_factory=list)
+    database_details: list[ProposedDatabase] = field(default_factory=list)
     submodules: bool | None = None
     equivalent: str | None = None
 
@@ -300,7 +605,11 @@ def declared_env(
         configuration file committed to a repository is not where a real
         credential belongs, and a proposal must not spread one further.
     """
-    secret = generated or name_looks_secret(name)
+    # What the value looks like counts as well as the name: a connection string with a password in
+    # it (DATABASE_URL) is a credential, and so is a token under a plain name.
+    secret = (
+        generated or name_looks_secret(name) or (value is not None and classify(name, value).secret)
+    )
     shown = None if secret else value
     needed = (value is None and not generated) if required is None else required
     if secret and value is not None and not generated:

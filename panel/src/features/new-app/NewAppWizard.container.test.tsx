@@ -226,6 +226,9 @@ describe("a container application from an image in a registry", () => {
     expect(password).toHaveAttribute("type", "password");
     await user.type(password, "tok_live_123");
     await user.type(field("Container port"), "8080");
+    // The port on this machine is not proposed as 8080: that is the console's own on a default
+    // install, and the server refuses it for an application.
+    expect(screen.getByLabelText("Port")).not.toHaveValue("8080");
     await expectNoAxeViolations(screen.getByRole("main"));
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
@@ -244,6 +247,7 @@ describe("a container application from an image in a registry", () => {
       app_type: "container",
       container: { method: "image", image: "ghcr.io/owner/app:1.4", container_port: 8080, registry_username: "ci", registry_password: "tok_live_123" },
     });
+    expect(body["port"]).not.toBe(8080);
     expect(body).not.toHaveProperty("source");
     expect(body).not.toHaveProperty("branch");
   });

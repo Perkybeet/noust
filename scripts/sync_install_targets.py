@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-Keep the installer's platform table and docs/PLATFORMS.md equal to the code's.
+Keep the installer's platform table, the sizes it checks and the documents equal to the code's.
 
 The table of releases Noust installs on is ``TARGETS`` in
-``noust/managers/server/platforms.py``. ``packaging/install.sh`` cannot import
-it (it runs before Noust is installed), so it carries a generated copy between
-two marker lines, and ``docs/PLATFORMS.md`` shows the same rows as a table
-between its own markers. This script rewrites both, or with ``--check`` fails
-when either differs, which is what CI runs.
+``noust/managers/server/platforms.py``, and the memory, processors and free disk a server needs
+are ``REQUIREMENTS`` in ``noust/managers/server/requirements.py``. ``packaging/install.sh``
+cannot import either (it runs before Noust is installed), so it carries a generated copy of
+each between two marker lines, and ``docs/PLATFORMS.md`` and ``docs/requirements.md`` show the
+same rows as a table between their own markers. This script rewrites all four, or with
+``--check`` fails when any differs, which is what CI runs.
 
 Usage:
     scripts/sync_install_targets.py           Rewrite the installer and the document.
@@ -23,10 +24,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from noust.managers.server import platforms  # noqa: E402
+from noust.managers.server import platforms, requirements  # noqa: E402
 
 INSTALLER = ROOT / "packaging" / "install.sh"
 DOCUMENT = ROOT / "docs" / "PLATFORMS.md"
+REQUIREMENTS_DOCUMENT = ROOT / "docs" / "requirements.md"
 
 DOC_BEGIN = "<!-- BEGIN TARGETS (generated: scripts/sync_install_targets.py) -->"
 DOC_END = "<!-- END TARGETS -->"
@@ -68,7 +70,9 @@ def main(argv: list[str] | None = None) -> int:
 
     pairs = (
         (INSTALLER, platforms.replace_installer_block),
+        (INSTALLER, requirements.replace_installer_block),
         (DOCUMENT, replace_document_table),
+        (REQUIREMENTS_DOCUMENT, requirements.replace_document_table),
     )
     stale = []
     for path, render in pairs:
@@ -77,7 +81,9 @@ def main(argv: list[str] | None = None) -> int:
         if wanted == current:
             continue
         if args.check:
-            stale.append(path.relative_to(ROOT).as_posix())
+            name = path.relative_to(ROOT).as_posix()
+            if name not in stale:
+                stale.append(name)
         else:
             path.write_text(wanted, encoding="utf-8")
             print(f"wrote {path.relative_to(ROOT)}")

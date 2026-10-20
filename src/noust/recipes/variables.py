@@ -244,12 +244,11 @@ def generate_value(form: str, *, signing_secret: str | None = None, role: str | 
         tail = "".join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(15))
         return head + tail
     if form in ("password32", "password64"):
-        length = int(form.removeprefix("password"))
-        return "".join(secrets.choice(_ALPHANUMERIC) for _ in range(length))
+        return random_alphanumeric(int(form.removeprefix("password")))
     if form in ("hex32", "hex64"):
-        return secrets.token_hex(int(form.removeprefix("hex")) // 2)
+        return random_hex_digits(int(form.removeprefix("hex")))
     if form in ("base64_32", "base64_64"):
-        return base64.b64encode(secrets.token_bytes(int(form.removeprefix("base64_")))).decode()
+        return random_base64(int(form.removeprefix("base64_")))
     if form == "jwt":
         if not signing_secret:
             raise ValidationError(
@@ -260,6 +259,69 @@ def generate_value(form: str, *, signing_secret: str | None = None, role: str | 
     raise ValidationError(
         f"Unknown form of generated value: {form!r}", details="See noust.recipes.model.GENERATORS."
     )
+
+
+def random_alphanumeric(length: int, *, lowercase: bool = False) -> str:
+    """
+    Draw random letters and digits.
+
+    Args:
+        length: How many characters.
+        lowercase: Digits and lower-case letters only (for a database name or a user, which
+            some engines fold or refuse in upper case).
+
+    Returns:
+        The string.
+    """
+    alphabet = string.ascii_lowercase + string.digits if lowercase else _ALPHANUMERIC
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+def random_hex_digits(length: int) -> str:
+    """
+    Draw random hexadecimal digits.
+
+    Args:
+        length: How many digits (an odd count is allowed).
+
+    Returns:
+        The string, lower case.
+    """
+    return secrets.token_hex((length + 1) // 2)[:length]
+
+
+def random_base64(byte_count: int) -> str:
+    """
+    Draw random bytes and write them in standard base64.
+
+    Args:
+        byte_count: How many random bytes.
+
+    Returns:
+        The base64 text (longer than ``byte_count``).
+    """
+    return base64.b64encode(secrets.token_bytes(byte_count)).decode()
+
+
+def signed_jwt(signing_secret: str, claims: Mapping[str, object]) -> str:
+    """
+    Sign an HS256 JWT with the claims given, exactly as given.
+
+    Args:
+        signing_secret: The shared secret.
+        claims: The payload; the caller decides ``iat`` and ``exp``.
+
+    Returns:
+        The compact token.
+    """
+
+    def part(value: Mapping[str, object]) -> str:
+        raw = json.dumps(value, separators=(",", ":"), sort_keys=True).encode()
+        return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+
+    signing_input = ".".join((part({"alg": "HS256", "typ": "JWT"}), part(claims)))
+    signature = hmac.new(signing_secret.encode(), signing_input.encode(), hashlib.sha256).digest()
+    return f"{signing_input}.{base64.urlsafe_b64encode(signature).rstrip(b'=').decode()}"
 
 
 def _jwt(signing_secret: str, role: str) -> str:
@@ -273,22 +335,11 @@ def _jwt(signing_secret: str, role: str) -> str:
     Returns:
         The compact token.
     """
-
-    def part(value: Mapping[str, object]) -> str:
-        raw = json.dumps(value, separators=(",", ":"), sort_keys=True).encode()
-        return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
-
     issued = int(time.time())
-    signing_input = ".".join(
-        (
-            part({"alg": "HS256", "typ": "JWT"}),
-            part(
-                {"role": role, "iss": "noust", "iat": issued, "exp": issued + JWT_LIFETIME_SECONDS}
-            ),
-        )
+    return signed_jwt(
+        signing_secret,
+        {"role": role, "iss": "noust", "iat": issued, "exp": issued + JWT_LIFETIME_SECONDS},
     )
-    signature = hmac.new(signing_secret.encode(), signing_input.encode(), hashlib.sha256).digest()
-    return f"{signing_input}.{base64.urlsafe_b64encode(signature).rstrip(b'=').decode()}"
 
 
 @dataclass(frozen=True)

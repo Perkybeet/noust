@@ -106,7 +106,7 @@ class RemoteClient:
 
     Args:
         base_url: The platform's address.
-        header: The header that carries the token, ``(name, value)``.
+        header: The header that carries the token, ``(name, value)``, or several as a mapping.
         platform: Its name, for the messages.
         timeout: Seconds per call.
         opener: Replacement for :func:`urllib.request.urlopen` (tests).
@@ -117,7 +117,7 @@ class RemoteClient:
     def __init__(
         self,
         base_url: str,
-        header: tuple[str, str] | None,
+        header: tuple[str, str] | Mapping[str, str] | None,
         *,
         platform: str,
         timeout: float = REQUEST_TIMEOUT,
@@ -125,12 +125,24 @@ class RemoteClient:
         hints: Mapping[int, str] | None = None,
     ) -> None:
         self.base_url = check_base_url(base_url, platform)
-        self._header = header
+        self._headers: dict[str, str] = (
+            {} if header is None else dict([header]) if isinstance(header, tuple) else dict(header)
+        )
         self._hints = dict(hints or {})
         self.platform = platform
         self.timeout = timeout
         self._opener: Opener = opener or urllib.request.build_opener(_NoRedirects).open
         self._guarded = opener is None
+
+    def add_header(self, name: str, value: str) -> None:
+        """
+        Send one more header with every request from now on (a session token a login returned).
+
+        Args:
+            name: The header.
+            value: Its value.
+        """
+        self._headers[name] = value
 
     def get(self, path: str, query: Mapping[str, Any] | None = None) -> Any:
         """
@@ -268,8 +280,7 @@ class RemoteClient:
                     "is listed: noust config set notifications.allow_private_hosts HOST",
                 ) from None
         headers = {"Accept": "application/json", "User-Agent": f"noust/{__version__}"}
-        if self._header is not None:
-            headers[self._header[0]] = self._header[1]
+        headers.update(self._headers)
         body = None
         if form is not None:
             body = urlencode(form).encode()

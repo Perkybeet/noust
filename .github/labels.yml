@@ -45,6 +45,9 @@
 - name: fleet
   color: 5319e7
   description: A central and its servers
+- name: recipe
+  color: 5319e7
+  description: An application for the catalogue of ready-made services
 - name: packaging
   color: 5319e7
   description: Installer, apt, dnf, zypper, PyPI, container image

@@ -238,12 +238,12 @@ test("the wizard reads an application from Coolify into the import review", asyn
   );
   await answer(page, "**/api/import/proposal", "POST", {
     proposal: { platform: "coolify", files: [], warnings: ["Preview deployments have no equivalent here: use Previews in Noust."], domains: ["shop.example.com"], app_type: "nextjs" },
-    document: { format: "wasm-app", version: 1, secrets_included: false, app: { domain: "shop.example.com", app_type: "nextjs" }, env: {} },
+    document: { format: "noust-app", version: 1, secrets_included: false, app: { domain: "shop.example.com", app_type: "nextjs" }, env: {} },
     deployable: true,
   });
   await signIn(page, consoleServer, "/apps/new?start=import");
   await elevate(page, consoleServer);
-  await page.getByRole("button", { name: "Read it from Coolify or Dokploy" }).click();
+  await page.getByRole("button", { name: "Read it from Coolify, Dokploy or CapRover" }).click();
   await page.getByLabel(/^Address of the server/).fill("https://coolify.example.com");
   await page.getByLabel(/^API token/).fill("ro-token");
   await page.getByRole("button", { name: "List the applications" }).click();

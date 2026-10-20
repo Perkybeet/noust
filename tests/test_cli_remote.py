@@ -135,6 +135,26 @@ class TestContexts:
         assert "can be read by other users" in output
         assert "chmod 600" in output
 
+    def test_saving_a_context_is_not_a_change_to_a_server_and_touches_no_audit_trail(
+        self, home: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        A laptop has no ``/etc/noust`` to keep an audit trail in: the first context saved there
+        used to print that audit events were being lost.
+        """
+        from noust.cli import audit_policy
+        from noust.core.audit import log
+
+        written: list[object] = []
+        monkeypatch.setattr(log.AuditLog, "_commit", lambda self, entry: written.append(entry))
+
+        run("context", "add", "prod", "--url", URL, "--token", "-", stdin=TOKEN + "\n")
+        run("context", "use", "prod")
+        run("context", "remove", "prod")
+
+        assert written == []
+        assert audit_policy.CLIENT_COMMANDS == {"context add", "context remove", "context use"}
+
     def test_the_first_context_is_the_one_in_use_and_another_can_be_chosen(
         self, token_file: Path
     ) -> None:

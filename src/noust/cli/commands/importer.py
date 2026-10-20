@@ -9,12 +9,15 @@ inspection uses too; with ``--deploy`` the proposal becomes an export
 document (:func:`noust.deployers.app_export.proposal_document`) and goes
 through ``noust app import``'s plan and run, so there is one create path.
 
-Coolify and Dokploy keep an application's configuration in their own database,
-so they are read through their API: ``--url`` is the server and a read-only
-token comes from ``--token-file`` or the ``NOUST_IMPORT_TOKEN`` environment
-variable (never an argument, where every local user could read it). Without
-``--app`` the server's applications are listed; with it, one is read and
-proposed. This module only parses and presents.
+Coolify, Dokploy and CapRover keep an application's configuration in their own
+database, so they are read through their API: ``--url`` is the server and a
+read-only token comes from ``--token-file`` or the ``NOUST_IMPORT_TOKEN``
+environment variable (never an argument, where every local user could read it;
+CapRover has no read-only credential, so its "token" is the dashboard's
+password). Dokku has no API: it is read by running its own read-only commands on
+its server, or over SSH with ``--ssh dokku@host``. Without ``--app`` the server's
+applications are listed; with it, one is read and proposed. This module only
+parses and presents.
 """
 
 from __future__ import annotations
@@ -23,6 +26,7 @@ import dataclasses
 import json
 import os
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -30,8 +34,10 @@ from noust.cli.app import Context, NoustCommand, global_flags, json_option, pass
 from noust.cli.commands.app import gather_env, run_import
 from noust.core.exceptions import ValidationError
 from noust.core.logger import Logger
+from noust.core.runner import get_runner
 from noust.deployers.app_export import plan_import, proposal_document
 from noust.deployers.importers import (
+    COMMAND_PLATFORMS,
     PLATFORMS,
     REMOTE_PLATFORMS,
     UNSUPPORTED_PLATFORMS,
@@ -39,7 +45,6 @@ from noust.deployers.importers import (
     read_platform,
 )
 from noust.deployers.importers.base import RemoteApplication
-from noust.deployers.importers.remote import RemoteClient
 
 #: Where a remote platform's token may come from besides a file.
 TOKEN_ENV = "NOUST_IMPORT_TOKEN"  # noqa: S105 - the name of a variable, not a credential
@@ -109,6 +114,17 @@ def print_proposal(logger: Logger, proposal: Proposal) -> None:
         logger.key_value("Persistent", ", ".join(proposal.persistent_paths))
     for job in proposal.cron:
         logger.key_value(f"  cron {job.name}", f"{job.schedule}  {job.command}")
+    for storage in proposal.storage:
+        where = storage.volume or storage.host_path or "?"
+        kept = (
+            f"--persist {storage.persistent_path}" if storage.persistent_path else "not persisted"
+        )
+        logger.key_value(f"  storage {storage.mount_path}", f"{where} ({kept})")
+    for database in proposal.database_details:
+        used = "used" if database.linked else "same environment, not named"
+        logger.key_value(
+            f"  database {database.name}", f"{database.engine}, {database.reference} ({used})"
+        )
     if proposal.equivalent:
         logger.key_value("Create it with", proposal.equivalent)
     for warning in proposal.warnings:
@@ -140,6 +156,23 @@ def _token(token_file: Path | None) -> str:
             field="token",
         )
     return value
+
+
+def _read_hint(platform: str, client: Any, ssh: str | None) -> str:
+    """
+    Spell the command that reads a server again, for the next step.
+
+    Args:
+        platform: The platform.
+        client: The client that was used.
+        ssh: Dokku's SSH target, if any.
+
+    Returns:
+        The command up to (not including) ``--app``.
+    """
+    if platform in COMMAND_PLATFORMS:
+        return f"noust import --from {platform}" + (f" --ssh {ssh}" if ssh else "")
+    return f"noust import --from {platform} --url {client.base_url} --token-file FILE"
 
 
 def _pick(applications: list[RemoteApplication], wanted: str) -> RemoteApplication:
@@ -180,28 +213,38 @@ def _remote(
     url: str | None,
     token_file: Path | None,
     app: str | None,
-) -> tuple[Proposal | None, RemoteClient | None]:
+    ssh: str | None = None,
+) -> tuple[Proposal | None, Any]:
     """
-    Read from another platform's API: list its applications, or describe one.
+    Read from another platform: list its applications, or describe one.
 
     Args:
         ctx: The CLI context.
-        platform: ``coolify`` or ``dokploy``.
-        url: The server's address.
-        token_file: Where the token is.
+        platform: ``coolify``, ``dokploy``, ``caprover`` or ``dokku``.
+        url: The server's address (not for Dokku).
+        token_file: Where the token is (not for Dokku).
         app: The application to read; None to list them.
+        ssh: For Dokku: the server to ask over SSH; None for this machine.
 
     Returns:
-        The proposal, or None after listing.
+        The proposal, or None after listing; and the client that was used.
 
     Raises:
         click.UsageError: No address was given.
         NoustError: The server cannot be read.
     """
-    if not url:
-        raise click.UsageError(f"--url is required for {platform}: the server to read")
-    module = REMOTE_PLATFORMS[platform]
-    client = module.connect(url, _token(token_file))
+    if platform in COMMAND_PLATFORMS:
+        if url or token_file:
+            raise click.UsageError(f"{platform} has no API: use --ssh dokku@host, or run it there.")
+        module = COMMAND_PLATFORMS[platform]
+        client: Any = module.connect(get_runner(), ssh)
+    else:
+        if ssh:
+            raise click.UsageError("--ssh is for dokku.")
+        if not url:
+            raise click.UsageError(f"--url is required for {platform}: the server to read")
+        module = REMOTE_PLATFORMS[platform]
+        client = module.connect(url, _token(token_file))
     applications = module.list_applications(client)
     if app is None:
         if ctx.json_output:
@@ -216,10 +259,7 @@ def _remote(
             ctx.logger.key_value(
                 item.name, f"{item.ref}  {item.build or '-'}  {domains}  {item.source}{where}"
             )
-        ctx.logger.info(
-            f"Read one with: noust import --from {platform} --url {client.base_url} "
-            "--token-file FILE --app NAME"
-        )
+        ctx.logger.info(f"Read one with: {_read_hint(platform, client, ssh)} --app NAME")
         return None, client
     chosen = _pick(applications, app)
     return module.read_application(client, chosen.ref), client
@@ -230,25 +270,33 @@ def _remote(
     "--from",
     "platform",
     required=True,
-    type=click.Choice([*PLATFORMS, *REMOTE_PLATFORMS, *UNSUPPORTED_PLATFORMS]),
+    type=click.Choice([*PLATFORMS, *REMOTE_PLATFORMS, *COMMAND_PLATFORMS, *UNSUPPORTED_PLATFORMS]),
     help="The platform whose configuration the repository carries, or whose server to read "
-    "(coolify, dokploy: with --url).",
+    "(coolify, dokploy, caprover: with --url; dokku: on its server or with --ssh).",
 )
 @click.option(
     "--url",
-    help="coolify and dokploy: the server's address, https://coolify.example.com.",
+    help="coolify, dokploy and caprover: the server's address, https://coolify.example.com.",
 )
 @click.option(
     "--token-file",
     type=click.Path(exists=True, dir_okay=False, readable=True, path_type=Path),
-    help=f"coolify and dokploy: a file whose first line is a read-only API token (or set "
-    f"{TOKEN_ENV}).",
+    help=f"coolify, dokploy and caprover: a file whose first line is a read-only API token "
+    f"(CapRover: the dashboard's password) (or set {TOKEN_ENV}).",
+)
+@click.option(
+    "--ssh",
+    "ssh_target",
+    metavar="[dokku@]HOST",
+    help="dokku: the server to ask over SSH, with a key Dokku accepts and a host key already "
+    "known. Without it, the dokku command of this machine.",
 )
 @click.option(
     "--app",
     "remote_app",
     metavar="NAME",
-    help="coolify and dokploy: the application to read, by name or id. Without it they are listed.",
+    help="coolify, dokploy, caprover and dokku: the application to read, by name or id. Without "
+    "it they are listed.",
 )
 @click.argument(
     "path",
@@ -286,6 +334,7 @@ def cli(
     platform: str,
     url: str | None,
     token_file: Path | None,
+    ssh_target: str | None,
     remote_app: str | None,
     path: Path,
     deploy_domain: str | None,
@@ -296,18 +345,21 @@ def cli(
 ) -> None:
     """
     Read Vercel, Railway, Render or Heroku configuration from a repository, or
-    a Coolify or Dokploy application through its API.
+    a Coolify, Dokploy, CapRover or Dokku application from its server.
 
     PATH is the checked-out repository (default: here). Prints what Noust would
     deploy - type, commands, port, health check, variables, databases,
     domains - and a warning for everything without an equivalent. With
     --deploy DOMAIN it deploys that, from --source or PATH, like 'noust app
-    import'. Coolify and Dokploy keep their configuration in their own
-    database: give --url and a read-only token (--token-file, or NOUST_IMPORT_TOKEN)
-    to list their applications, and --app to read one. Nothing is written to them.
+    import'. Coolify, Dokploy and CapRover keep their configuration in their own
+    database: give --url and a token (--token-file, or NOUST_IMPORT_TOKEN; CapRover
+    has none that only reads, so it is the dashboard's password) to list their
+    applications, and --app to read one. Dokku is asked with its own commands, on
+    its server or with --ssh. Nothing is written to them. What an application
+    kept (storage, databases) comes with the commands that copy it.
     """
-    if platform in REMOTE_PLATFORMS:
-        proposal, _client = _remote(ctx, platform, url, token_file, remote_app)
+    if platform in REMOTE_PLATFORMS or platform in COMMAND_PLATFORMS:
+        proposal, _client = _remote(ctx, platform, url, token_file, remote_app, ssh_target)
         if proposal is None:
             return
         if deploy_domain is None:
@@ -318,14 +370,16 @@ def cli(
                 return
             print_proposal(ctx.logger, proposal)
             ctx.logger.info(
-                f"Deploy it with: noust import --from {platform} --url {url} "
-                f"--token-file FILE --app {remote_app} --deploy DOMAIN"
+                f"Deploy it with: {_read_hint(platform, _client, ssh_target)} "
+                f"--app {remote_app} --deploy DOMAIN"
             )
             return
         _deploy_proposal(ctx, proposal, deploy_domain, source, branch, env_file, env_pairs)
         return
-    if url or token_file or remote_app:
-        raise click.UsageError("--url, --token-file and --app are for coolify and dokploy.")
+    if url or token_file or remote_app or ssh_target:
+        raise click.UsageError(
+            "--url, --token-file, --ssh and --app are for coolify, dokploy, caprover and dokku."
+        )
     proposal = read_platform(platform, path)
     if deploy_domain is None:
         if source or branch or env_file or env_pairs:

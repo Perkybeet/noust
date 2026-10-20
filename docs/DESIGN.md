@@ -991,7 +991,11 @@ draw its header over a blank area while its first read is out: its body holds th
 the first frame (a list keeps its filters and its table, the rows being placeholders), and an
 empty state is drawn only once the answer is known, never because the answer has not come. A
 page that waits on something it needs before it can show anything else (the rows behind a notice
-that must not push them down) shows the skeleton for that wait too. A route that keeps the router
+that must not push them down) shows the skeleton for that wait too, and when the wait ends it
+draws what came as new elements, never as the placeholders pushed down: `ListPage`'s `arrival`
+changes at that moment, and a page whose body depends on a second read (a deployment on whether
+its app is a static site) holds the skeleton until both are in. Something that will sit above
+or beside content (a button, a note) has its place held while it is read. A route that keeps the router
 waiting past a second (the session, a page's code) is drawn as `RoutePending`, a skeleton in the
 page's place; before that, the previous page stays and nothing blinks. A refresh that fails
 keeps the last answer on screen with a compact error above it. When an optional dependency
@@ -1098,7 +1102,8 @@ produces when it is a Latin letter or a symbol, and the letter of the physical k
 when it is not, so it works on AZERTY, QWERTZ and non-Latin layouts. `/` focuses the page's search.
 No single-key shortcut acts unless the focus is in a list or table. Every shortcut is in the
 shortcuts dialog and in its control's tooltip. A live stream's state ("Live", "Reconnecting") uses a
-`StatusGlyph` and a word; numbers that change every few seconds are never live regions.
+`StatusGlyph` and a word, at the end of the machine strip so the readings that arrive after it never
+push it across the bar; numbers that change every few seconds are never live regions.
 
 ### 6.14 Navigation and where things live
 
