@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import Any, NoReturn, Optional, TypeVar
 from urllib.parse import quote
 
-from noust.core import paths, schema_v12, schema_v13, schema_v14, schema_v15
+from noust.core import domain_certificates, paths, schema_v12, schema_v13, schema_v14, schema_v15
 from noust.core.exceptions import DomainConflictError, DomainError, NoustError, ValidationError
 from noust.core.fs import (
     SECRET_DIR_MODE,
@@ -722,6 +722,8 @@ class DomainRecord:
             not the application's own (schema v14); None for the application's.
         enabled: Whether the name is served. A name that is switched off keeps its row and
             its port, and the site and the certificate leave it out.
+        certificate: ``shared`` when the lineage under the primary domain covers the name,
+            ``own`` when it holds a certificate of its own (:mod:`noust.core.domain_certificates`).
     """
 
     id: int | None = None
@@ -731,6 +733,7 @@ class DomainRecord:
     created_at: str | None = None
     port: int | None = None
     enabled: bool = True
+    certificate: str = "shared"
 
     def __post_init__(self) -> None:
         """Read the flag the database stores as an integer."""
@@ -3149,6 +3152,78 @@ class NoustStore:
                 "UPDATE domains SET enabled = ? WHERE id = ?", (1 if enabled else 0, row["id"])
             )
             return True
+
+    def set_domain_certificate(self, app_domain: str, domain: str, certificate: str) -> bool:
+        """
+        Choose whether a name is covered by the shared certificate or holds one of its own.
+
+        Only the record: ordering the certificate and rendering the site are
+        :mod:`noust.deployers.name_certificates`'s, in the order that keeps the service up.
+        This is the chokepoint for what may be recorded, so no caller can leave a primary
+        outside the lineage everything hangs from, or split a monorepo's certificate.
+
+        Args:
+            app_domain: The application's (primary) domain.
+            domain: The alias or redirect.
+            certificate: ``shared`` or ``own``.
+
+        Returns:
+            True when the application has that name, False when it does not.
+
+        Raises:
+            ValidationError: ``certificate`` is not a mode, or the application is of a
+                type that orders one certificate for names only its deploy knows.
+            DomainError: The name is the primary and ``own`` was asked for.
+        """
+        mode = domain_certificates.check_mode(certificate)
+        name = domain.strip().lower()
+        with self._transaction() as cursor:
+            cursor.execute(
+                "SELECT d.id, d.kind, a.app_type FROM domains d JOIN apps a ON a.id = d.app_id "
+                "WHERE a.domain = ? AND d.domain = ?",
+                (app_domain, name),
+            )
+            row = cursor.fetchone()
+            if row is None:
+                return False
+            if mode == domain_certificates.OWN:
+                if row["kind"] == DomainKind.PRIMARY.value:
+                    raise DomainError(
+                        f"{name} is the primary domain, and the shared certificate is the one "
+                        "kept under it",
+                        details=(
+                            "Give the other names a certificate of their own and the shared "
+                            f"one covers {name} alone."
+                        ),
+                    )
+                if row["app_type"] in domain_certificates.TYPES_WITHOUT_OWN_CERTIFICATE:
+                    raise ValidationError(
+                        f"A {row['app_type']} has one certificate for all its names",
+                        details=(
+                            "Its workspaces' subdomains are named by its deploy, which orders "
+                            f"the certificate: noust update {app_domain}"
+                        ),
+                        field="certificate",
+                    )
+            cursor.execute("UPDATE domains SET certificate = ? WHERE id = ?", (mode, row["id"]))
+            return True
+
+    def domain_certificate(self, domain: str) -> str | None:
+        """
+        Say how a name is covered, whichever application has it.
+
+        Args:
+            domain: The name, normalised.
+
+        Returns:
+            ``shared`` or ``own``, or None when no application answers on the name.
+        """
+        row = (
+            self._get_connection()
+            .execute("SELECT certificate FROM domains WHERE domain = ?", (domain,))
+            .fetchone()
+        )
+        return None if row is None else str(row["certificate"])
 
     @staticmethod
     def _refuse_switching_off_primary(domain: str) -> NoReturn:

@@ -352,6 +352,7 @@ EVENTS: dict[str, EventSpec] = {
             "sites.port": "The port a name of an application is proxied to was changed.",
             "domains.canonical": "Which spelling of a domain, www or the bare name, is served was changed.",
             "domains.enabled": "A name of an application was switched off, or on again, without being deleted.",
+            "domains.certificate": "A name of an application was given a certificate of its own, or back to the shared one.",
             "certs.upload": "A certificate and its key were uploaded.",
             "certs.assign": "The certificate an application's site serves was chosen.",
             "certs.acme": "The certificate authority, the account e-mail or the challenge was changed.",

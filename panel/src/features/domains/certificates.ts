@@ -103,6 +103,22 @@ export function covers(cert: Pick<CertEntry, "domain" | "domains"> | null | unde
 }
 
 /**
+ * The certificate that presents a name: the app's, or - for a name that holds one of its own - the
+ * lineage kept under that name. `app` is the app's certificate (undefined while unknown, null when
+ * it has none) and `find` looks a name up in the machine's list. A name whose own certificate is not
+ * issued yet is still served, with the app's, which does not cover it: that is what is returned.
+ */
+export function certificateOf<C>(
+  entry: { domain: string; certificate?: string | undefined },
+  app: C | null | undefined,
+  find: (name: string) => C | null | undefined,
+): C | null | undefined {
+  if (entry.certificate !== "own") return app;
+  const own = find(entry.domain);
+  return own === null ? app : own;
+}
+
+/**
  * What the certificate does for one name of an app: covers it (with the certificate's own state),
  * does not (the name is served over HTTP until the certificate is extended), or is being
  * extended to it. `lineage` is the app's certificate: undefined while unknown, null when it has

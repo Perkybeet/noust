@@ -130,6 +130,9 @@ def test_listing_returns_every_domain_primary_first(client: TestClient, calls: C
                 "port": None,
                 "temporary": False,
                 "enabled": True,
+                "certificate": "shared",
+                "served_by": "example.com",
+                "certificate_pending": False,
             },
             {
                 "domain": "shop.example.com",
@@ -138,6 +141,9 @@ def test_listing_returns_every_domain_primary_first(client: TestClient, calls: C
                 "port": None,
                 "temporary": False,
                 "enabled": True,
+                "certificate": "shared",
+                "served_by": None,
+                "certificate_pending": False,
             },
         ],
         "canonical": "",
@@ -169,7 +175,15 @@ def test_adding_never_runs_certbot_on_the_request_path(
         (
             "add",
             ("example.com", "shop.example.com", "redirect"),
-            {"issue_cert": False, "force": False, "dns": True, "port": None},
+            {
+                "issue_cert": False,
+                "force": False,
+                "dns": True,
+                "port": None,
+                "certificate": "shared",
+                "challenge": None,
+                "dns_provider": None,
+            },
         )
     ]
     assert response.json()["certificate_job_id"] is None
@@ -386,7 +400,15 @@ def test_force_port_and_dns_are_handed_to_the_operation(client: TestClient, call
     )
 
     assert response.status_code == 201, response.text
-    assert calls.calls[0][2] == {"issue_cert": False, "force": True, "dns": False, "port": 9000}
+    assert calls.calls[0][2] == {
+        "issue_cert": False,
+        "force": True,
+        "dns": False,
+        "port": 9000,
+        "certificate": "shared",
+        "challenge": None,
+        "dns_provider": None,
+    }
 
 
 def test_the_dns_entries_and_the_canonical_name_come_back_with_the_change(
@@ -513,3 +535,166 @@ def test_the_check_answers_with_a_verdict(
     body = client.get("/api/apps/example.com/domains/shop.example.com/dns").json()
 
     assert (body["verdict"], body["resolver"], body["cdn"]) == ("unknown", "1.1.1.1", None)
+
+
+# ---------------------------------------------------------------------------
+# A certificate of its own
+# ---------------------------------------------------------------------------
+
+
+def test_a_name_can_be_added_with_a_certificate_of_its_own(
+    client: TestClient, calls: Calls
+) -> None:
+    response = client.post(
+        "/api/apps/example.com/domains",
+        json={
+            "domain": "api.example.com",
+            "certificate": "own",
+            "challenge": "dns-01",
+            "dns_provider": "cf",
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    kwargs = calls.calls[0][2]
+    assert (kwargs["certificate"], kwargs["challenge"], kwargs["dns_provider"]) == (
+        "own",
+        "dns-01",
+        "cf",
+    )
+
+
+def test_each_name_says_which_certificate_serves_it(
+    client: TestClient, calls: Calls, store: NoustStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store.add_domain("example.com", "admin.example.com", "alias")
+    store.set_domain_certificate("example.com", "admin.example.com", "own")
+    admin = DomainRecord(
+        id=3,
+        app_id=1,
+        domain="admin.example.com",
+        kind="alias",
+        created_at="t2",
+        certificate="own",
+    )
+    monkeypatch.setattr(domains_api, "list_domains", calls.stub("list", [PRIMARY, admin]))
+
+    body = client.get("/api/apps/example.com/domains").json()
+
+    by_name = {entry["domain"]: entry for entry in body["domains"]}
+    assert by_name["example.com"]["certificate"] == "shared"
+    assert by_name["admin.example.com"]["certificate"] == "own"
+    # Its lineage is not on disk in this test: the shared one serves it meanwhile.
+    assert by_name["admin.example.com"]["certificate_pending"] is True
+    assert by_name["admin.example.com"]["served_by"] == "example.com"
+
+
+def test_giving_a_name_a_certificate_of_its_own_is_a_job_not_a_request(
+    client: TestClient, calls: Calls, jobs: FakeJobs
+) -> None:
+    response = client.put(
+        "/api/apps/example.com/domains/shop.example.com/certificate",
+        json={"certificate": "own"},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["certificate_job_id"] == "job-1"
+    (job,) = jobs.created
+    assert job["func"] is domains_api.name_certificate_job
+    assert job["kwargs"] == {
+        "app_domain": "example.com",
+        "name": "shop.example.com",
+        "certificate": "own",
+        "challenge": None,
+        "dns_provider": None,
+    }
+    assert job["metadata"] == {"domain": "example.com"}
+
+
+def test_the_job_asks_the_operation_and_reports_what_happened(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from noust.deployers.name_certificates import NameCertificateChange
+
+    recorder = Calls()
+    change = NameCertificateChange(
+        app="example.com",
+        name="shop.example.com",
+        certificate="own",
+        changed=True,
+        tls=True,
+        ordered=True,
+        warnings=("still named",),
+    )
+    monkeypatch.setattr(domains_api, "set_certificate", recorder.stub("set", change))
+
+    result = domains_api.name_certificate_job(
+        "example.com", "shop.example.com", "own", "dns-01", "cf"
+    )
+
+    assert recorder.calls == [
+        (
+            "set",
+            ("example.com", "shop.example.com", "own"),
+            {"challenge": "dns-01", "dns_provider": "cf"},
+        )
+    ]
+    assert result["ordered"] is True and result["warnings"] == ["still named"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"certificate": "private"},
+        {"certificate": "own", "challenge": "tls-alpn"},
+        {"certificate": "own", "challenge": "dns-01"},
+    ],
+)
+def test_a_choice_that_cannot_work_is_refused_before_a_job_is_queued(
+    client: TestClient, calls: Calls, jobs: FakeJobs, body: dict[str, Any]
+) -> None:
+    response = client.put("/api/apps/example.com/domains/shop.example.com/certificate", json=body)
+
+    assert response.status_code == 400, response.text
+    assert jobs.created == []
+
+
+def test_the_route_is_held_to_the_application(
+    client: TestClient, calls: Calls, jobs: FakeJobs
+) -> None:
+    response = client.put(
+        "/api/apps/ghost.example.com/domains/shop.example.com/certificate",
+        json={"certificate": "own"},
+    )
+
+    assert response.status_code == 404, response.text
+    assert jobs.created == []
+
+
+def test_removing_a_name_that_held_its_own_certificate_queues_only_its_deletion(
+    client: TestClient, calls: Calls, jobs: FakeJobs, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    change = DomainChange(
+        app="example.com",
+        domains=(PRIMARY,),
+        tls=True,
+        lineage_pending="shop.example.com",
+    )
+    monkeypatch.setattr(domains_api, "remove_domain", calls.stub("remove", change))
+
+    response = client.delete("/api/apps/example.com/domains/shop.example.com")
+
+    assert response.status_code == 200, response.text
+    (job,) = jobs.created
+    assert job["func"] is domains_api.release_certificate_job
+    assert job["kwargs"] == {"app_domain": "example.com", "name": "shop.example.com"}
+
+
+def test_the_release_job_deletes_the_lineage(monkeypatch: pytest.MonkeyPatch) -> None:
+    recorder = Calls()
+    monkeypatch.setattr(domains_api, "release_certificate", recorder.stub("release", True))
+
+    result = domains_api.release_certificate_job("example.com", "shop.example.com")
+
+    assert recorder.calls == [("release", ("example.com", "shop.example.com"), {})]
+    assert result == {"domain": "example.com", "name": "shop.example.com", "removed": True}

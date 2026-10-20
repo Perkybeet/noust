@@ -8975,6 +8975,15 @@ Add the name although another site of the web server already answers on it.
 .B \-\-no\-dns
 Do not point the name at this server in the DNS account that holds its zone.
 .TP
+.B \-\-own\-certificate
+Give DOMAIN a certificate of its own instead of covering it with APP's.
+.TP
+.B \-\-dns
+With \-\-own\-certificate: prove it with a DNS record in ACCOUNT (a wildcard needs it).
+.TP
+.B \-\-http
+With \-\-own\-certificate: prove it over HTTP (the default).
+.TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
@@ -8994,11 +9003,25 @@ Do not extend the certificate to cover both names now.
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
 .SS noust domain certificate
-Make APP's certificate cover exactly the names it answers on.
+Make APP's certificate cover exactly the names it answers on, or say how one name is covered.
 .TP
 .B Arguments
 .br
 \fIapp_domain\fR
+.br
+\fIname\fR
+.TP
+.B \-\-own
+Give NAME a certificate of its own, kept under its own name.
+.TP
+.B \-\-shared
+Cover NAME with APP's certificate again, and delete the one it had.
+.TP
+.B \-\-dns
+With \-\-own: prove it with a DNS record in ACCOUNT (a wildcard needs it).
+.TP
+.B \-\-http
+With \-\-own: prove it over HTTP.
 .TP
 .B \-\-reduce
 Order it again with only the names the application answers on (after a removal).
