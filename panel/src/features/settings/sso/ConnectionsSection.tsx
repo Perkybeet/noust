@@ -11,7 +11,7 @@ import { removeProvider, ssoAdminKeys, ssoConfigQuery, testProvider } from "../.
 import type { SsoProviderInfo, SsoTestResult } from "../../../api/queries/ssoAdmin";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { useNow } from "../../../components/page/clock";
-import { ErrorBlock } from "../../../components/page/QueryState";
+import { ErrorBlock, QueryState } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { RowMenu } from "../../../components/page/RowMenu";
 import { Section } from "../../../components/page/Section";
@@ -27,7 +27,6 @@ import { Menu, MenuItem, MenuSeparator } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { StatusPill } from "../../../components/ui/StatusPill";
-import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { SettingsPrimaryAction } from "../SettingsShell";
@@ -196,7 +195,19 @@ export function ConnectionsSection() {
     ),
   ];
   const pending = oidc.isPending || saml.isPending || ldap.isPending;
-  const failed = [oidc, saml, ldap].find((query) => query.isError && query.data === undefined);
+  const failed = [oidc, saml, ldap].find((query) => query.data === undefined && query.error !== null);
+  // Three reads make one list: it is shown when all three answered, and the first failure is the
+  // one told, with a retry that asks again only for those that failed.
+  const list = {
+    data: pending || failed !== undefined ? undefined : rows,
+    error: failed?.error ?? null,
+    isPending: pending,
+    isError: failed !== undefined,
+    isRefetching: [oidc, saml, ldap].some((query) => query.isRefetching),
+    refetch: () => {
+      for (const query of [oidc, saml, ldap]) if (query.isError) void query.refetch();
+    },
+  };
   const plainHttp = saml.data !== undefined && saml.data.providers.length > 0 && !saml.data.secure;
   const hasOidc = (oidc.data?.providers.length ?? 0) > 0;
 
@@ -222,16 +233,13 @@ export function ConnectionsSection() {
 
   const remove = async (connection: Connection): Promise<void> => {
     if (connection.kind === "oidc") {
-      const gone = await removeProvider(connection.name);
-      toast.success(t("ssoAdmin.providers.removedToast", { name: gone.removed }));
+      await removeProvider(connection.name);
       void queryClient.invalidateQueries({ queryKey: ssoAdminKeys.all });
     } else if (connection.kind === "saml") {
-      const gone = await removeSamlProvider(connection.name);
-      toast.success(t("samlAdmin.removeDialog.toast", { name: gone.removed }));
+      await removeSamlProvider(connection.name);
       void queryClient.invalidateQueries({ queryKey: samlKeys.all });
     } else {
-      const gone = await removeDirectory(connection.name);
-      toast.success(t("ldapAdmin.removeDialog.toast", { name: gone.removed }));
+      await removeDirectory(connection.name);
       void queryClient.invalidateQueries({ queryKey: ldapKeys.all });
     }
   };
@@ -285,59 +293,58 @@ export function ConnectionsSection() {
         </Notice>
       ) : null}
       {testError !== null ? <ErrorBlock live compact error={testError} title={t("ssoAdmin.providers.testResult.failed")} /> : null}
-      {failed !== undefined ? (
-        <ErrorBlock
-          error={failed.error}
-          title={t("ssoAdmin.connections.loadFailed")}
-          onRetry={() => {
-            for (const query of [oidc, saml, ldap]) if (query.isError) void query.refetch();
-          }}
-          retrying={[oidc, saml, ldap].some((query) => query.isRefetching)}
-        />
-      ) : pending ? (
-        <DataTable caption={t("ssoAdmin.connections.tableCaption")} columns={columns} rows={[]} getRowId={(connection) => `${connection.kind}:${connection.name}`} loading mobile="cards" skeletonRows={2} />
-      ) : rows.length === 0 ? (
-        <EmptyState
-          variant="firstUse"
-          level={3}
-          icon={<KeyRound />}
-          title={t("ssoAdmin.connections.emptyTitle")}
-          description={t("ssoAdmin.connections.emptyDescription")}
-          action={add}
-          command={t("ssoAdmin.commandProviders")}
-        />
-      ) : (
-        <div className="flex flex-col gap-4">
-          <DataTable
-            caption={t("ssoAdmin.connections.tableCaption")}
-            columns={columns}
-            rows={rows}
-            getRowId={(connection) => `${connection.kind}:${connection.name}`}
-            mobile="cards"
-            onRowActivate={edit}
-            rowActions={(connection) => (
-              <RowMenu name={connection.name}>
-                <MenuItem disabled={testing === connection.name} onClick={() => void runTest(connection)}>
-                  {t("ssoAdmin.providers.test")}
-                </MenuItem>
-                <MenuItem onClick={() => edit(connection)}>{t("ssoAdmin.providers.edit")}</MenuItem>
-                <MenuSeparator />
-                <MenuItem destructive onClick={() => setRemoving(connection)}>
-                  {t("ssoAdmin.providers.remove")}
-                </MenuItem>
-              </RowMenu>
-            )}
+      <QueryState
+        query={list}
+        label={t("ssoAdmin.connections.what")}
+        skeleton={
+          <DataTable caption={t("ssoAdmin.connections.tableCaption")} columns={columns} rows={[]} getRowId={(connection) => `${connection.kind}:${connection.name}`} loading mobile="cards" skeletonRows={2} />
+        }
+        isEmpty={(connections) => connections.length === 0}
+        empty={
+          <EmptyState
+            variant="firstUse"
+            level={3}
+            icon={<KeyRound />}
+            title={t("ssoAdmin.connections.emptyTitle")}
+            description={t("ssoAdmin.connections.emptyDescription")}
+            action={add}
+            command={t("ssoAdmin.commandProviders")}
           />
-          {hasOidc && oidc.data !== undefined ? (
-            <div className="flex flex-col gap-2">
-              <p className="text-13 font-medium text-fg">{t("ssoAdmin.providers.redirect.title")}</p>
-              <p className="max-w-measure text-13 text-fg-muted">{t("ssoAdmin.providers.redirect.description")}</p>
-              <CopyValue value={oidc.data.redirect_uri} label={t("ssoAdmin.providers.redirect.copy")} name={t("ssoAdmin.providers.redirect.name")} />
-            </div>
-          ) : null}
-          <CommandHint command={t("ssoAdmin.commandProviders")} label={t("ssoAdmin.command")} />
-        </div>
-      )}
+        }
+      >
+        {() => (
+          <div className="flex flex-col gap-4">
+            <DataTable
+              caption={t("ssoAdmin.connections.tableCaption")}
+              columns={columns}
+              rows={rows}
+              getRowId={(connection) => `${connection.kind}:${connection.name}`}
+              mobile="cards"
+              onRowActivate={edit}
+              rowActions={(connection) => (
+                <RowMenu name={connection.name}>
+                  <MenuItem disabled={testing === connection.name} onClick={() => void runTest(connection)}>
+                    {t("ssoAdmin.providers.test")}
+                  </MenuItem>
+                  <MenuItem onClick={() => edit(connection)}>{t("ssoAdmin.providers.edit")}</MenuItem>
+                  <MenuSeparator />
+                  <MenuItem destructive onClick={() => setRemoving(connection)}>
+                    {t("ssoAdmin.providers.remove")}
+                  </MenuItem>
+                </RowMenu>
+              )}
+            />
+            {hasOidc && oidc.data !== undefined ? (
+              <div className="flex flex-col gap-2">
+                <p className="text-13 font-medium text-fg">{t("ssoAdmin.providers.redirect.title")}</p>
+                <p className="max-w-measure text-13 text-fg-muted">{t("ssoAdmin.providers.redirect.description")}</p>
+                <CopyValue value={oidc.data.redirect_uri} label={t("ssoAdmin.providers.redirect.copy")} name={t("ssoAdmin.providers.redirect.name")} />
+              </div>
+            ) : null}
+            <CommandHint command={t("ssoAdmin.commandProviders")} label={t("ssoAdmin.command")} />
+          </div>
+        )}
+      </QueryState>
 
       {editing?.kind === "oidc" && oidc.data !== undefined ? (
         <ProviderDrawer provider={editing.item} redirectUri={oidc.data.redirect_uri} onClose={() => setEditing(null)} />

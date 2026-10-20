@@ -16,6 +16,7 @@ import { CommandHint } from "../../../components/page/CommandHint";
 import { Button } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { Dialog } from "../../../components/ui/Dialog";
+import { EmptyState } from "../../../components/ui/EmptyState";
 import { Mono } from "../../../components/ui/Mono";
 import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Notice } from "../../../components/ui/Notice";
@@ -124,7 +125,7 @@ export function ApplyDialog({ scope, keptBack, onClose }: ApplyDialogProps) {
             <Skeleton className="h-20 w-full rounded-control" />
           </LoadingRegion>
         ) : plan.data.packages.length === 0 ? (
-          <p className="text-13 text-fg-muted">{t("server.updates.apply.nothing")}</p>
+          <EmptyState variant="inline" title={t("server.updates.apply.nothing")} />
         ) : (
           <>
             <div className="flex flex-col gap-2">

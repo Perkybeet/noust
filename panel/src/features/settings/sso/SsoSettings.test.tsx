@@ -638,7 +638,7 @@ describe("Settings > Single sign-on", () => {
     it("says why a console over plain HTTP cannot take a SAML answer", { timeout: 30_000 }, async () => {
       await pageAt({ saml: [SAML_PROVIDER], secure: false });
       expect(await screen.findByText("This console is not served over HTTPS")).toBeInTheDocument();
-      expect(screen.getByText(/no SAML sign-in can finish until the console is served over TLS/)).toBeInTheDocument();
+      expect(screen.getByText(/Serve the console over TLS/)).toBeInTheDocument();
     });
 
     it("adds a provider from its metadata alone, leaving the rest for the server to read", { timeout: 30_000 }, async () => {

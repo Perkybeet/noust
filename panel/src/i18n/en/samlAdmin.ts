@@ -9,7 +9,7 @@ export const samlAdmin = {
   },
   plainHttpTitle: "This console is not served over HTTPS",
   plainHttp:
-    "This console is reached over plain HTTP. A SAML provider answers with a form posted from its own site, which a browser only sends the sign-in cookie with over HTTPS, so no SAML sign-in can finish until the console is served over TLS.",
+    "A SAML provider posts a form from its own site, and a browser sends the sign-in cookie with it only over HTTPS. Serve the console over TLS.",
   form: {
     createTitle: "Add a SAML provider",
     editTitle: "Edit {name}",
@@ -67,7 +67,6 @@ export const samlAdmin = {
     title: "Remove {name}?",
     description: "People linked to it can no longer sign in with it. Their accounts stay as they are.",
     action: "Remove provider",
-    toast: "Removed the SAML provider {name}",
   },
   savedToast: "Saved the SAML provider {name}",
 } as const;

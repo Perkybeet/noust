@@ -62,7 +62,6 @@ export const ldapAdmin: Catalog<typeof en> = {
     title: "¿Quitar {name}?",
     description: "Su contraseña se olvida y la gente vinculada a él ya no podrá iniciar sesión con él. Sus cuentas se quedan como están.",
     action: "Quitar directorio",
-    toast: "Se quitó el directorio {name}",
   },
   savedToast: "Se guardó el directorio {name}",
 } as const;

@@ -45,7 +45,7 @@ export const ssoAdmin: Catalog<typeof en> = {
     title: "Conexiones",
     description: "Todas las formas de entrar con la palabra de otro. El proveedor responde de quién es la persona; el segundo factor de la propia cuenta sigue.",
     tableCaption: "Conexiones de inicio de sesión",
-    loadFailed: "No se pudieron leer las conexiones de inicio de sesión",
+    what: "las conexiones de inicio de sesión",
     add: "Añadir una conexión",
     addOidc: "Proveedor OpenID Connect",
     addOidcHelp: "Keycloak, Entra, Okta, Google o GitHub.",
@@ -83,7 +83,6 @@ export const ssoAdmin: Catalog<typeof en> = {
         "Su botón sale de la página de acceso y las personas vinculadas a él ya no pueden entrar por él. Sus cuentas siguen, con la contraseña y el segundo factor que tengan.",
       action: "Quitar proveedor",
     },
-    removedToast: "Se quitó {name}",
     savedToast: "Se guardó {name}",
     testResult: {
       title: "Prueba de {name}",

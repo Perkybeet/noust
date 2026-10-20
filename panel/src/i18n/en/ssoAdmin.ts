@@ -47,7 +47,7 @@ export const ssoAdmin = {
     title: "Connections",
     description: "Every way a person signs in through somebody else's word. The provider vouches for who they are; the account's own second factor still follows.",
     tableCaption: "Sign-in connections",
-    loadFailed: "Could not read the sign-in connections",
+    what: "the sign-in connections",
     add: "Add a connection",
     addOidc: "OpenID Connect provider",
     addOidcHelp: "Keycloak, Entra, Okta, Google or GitHub.",
@@ -84,7 +84,6 @@ export const ssoAdmin = {
         "Its button leaves the sign-in page and the people linked to it can no longer sign in through it. Their accounts stay, with whatever password and second factor they have.",
       action: "Remove provider",
     },
-    removedToast: "{name} was removed",
     savedToast: "{name} was saved",
     testResult: {
       title: "Test of {name}",

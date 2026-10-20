@@ -64,7 +64,6 @@ export const ldapAdmin = {
     title: "Remove {name}?",
     description: "Its password is forgotten and people linked to it can no longer sign in with it. Their accounts stay as they are.",
     action: "Remove directory",
-    toast: "Removed the directory {name}",
   },
   savedToast: "Saved the directory {name}",
 } as const;

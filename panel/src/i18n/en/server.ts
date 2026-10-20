@@ -254,7 +254,7 @@ export const server = {
       off: "Off",
       busy: "Another change is running on the server.",
       label: "Automatic security updates",
-      description: "Installs security updates every day. It never reboots the server by itself.",
+      description: "Installs security updates every day and never reboots the server by itself.",
       descriptionReboots: "Installs security updates every day, and reboots the server by itself when one needs it.",
       unsupported: "Not available on this system.",
       mechanism: "Through {mechanism}.",

@@ -7,7 +7,7 @@ export const samlAdmin: Catalog<typeof en> = {
   },
   plainHttpTitle: "Esta consola no se sirve por HTTPS",
   plainHttp:
-    "A esta consola se llega por HTTP sin cifrar. Un proveedor SAML responde con un formulario enviado desde su propio sitio, y el navegador solo manda la cookie de inicio de sesión con él por HTTPS, así que ningún inicio de sesión SAML puede terminar hasta que la consola se sirva con TLS.",
+    "Un proveedor SAML envía un formulario desde su sitio, y el navegador solo manda la cookie de inicio de sesión con él por HTTPS. Sirve la consola con TLS.",
   form: {
     createTitle: "Añadir un proveedor SAML",
     editTitle: "Editar {name}",
@@ -65,7 +65,6 @@ export const samlAdmin: Catalog<typeof en> = {
     title: "¿Quitar {name}?",
     description: "Las personas vinculadas a él ya no podrán iniciar sesión con él. Sus cuentas se quedan como están.",
     action: "Quitar proveedor",
-    toast: "Proveedor SAML {name} quitado",
   },
   savedToast: "Proveedor SAML {name} guardado",
 };
