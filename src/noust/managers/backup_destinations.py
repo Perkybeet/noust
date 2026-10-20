@@ -1919,11 +1919,12 @@ class BackupDestinationManager:
         """
         _require_rclone(self.runner)
         record = self._require(name)
-        self._require_public_host(record.backend, record.settings, configuring=True)
-        self.settle_folder(name)
-
+        # First, and before anything is sent to the host: settling the folder writes to it.
         if judge_host:
             self._require_public_host(record.backend, record.settings, configuring=True)
+        self.settle_folder(name)
+        # Settling may have gone back to the folder the destination used to send to.
+        record = self._require(name)
         env = self.remote_env(name)
         secrets_literal = self._secret_literals(name)
         target = self.target(name)

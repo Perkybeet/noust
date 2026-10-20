@@ -133,6 +133,9 @@ class FakeDatabaseManager:
     """
 
     restored: ClassVar[list[tuple[str, Path, str]]] = []
+    #: The options each restore was told, in order: a dump Noust itself kept is loaded as the
+    #: superuser (checklist H-19), and the double has to see that to be able to say so.
+    restore_options: ClassVar[list[dict[str, Any]]] = []
 
     def __init__(self, engine: str = "postgresql") -> None:
         """
@@ -176,16 +179,18 @@ class FakeDatabaseManager:
 
         return _Info()
 
-    def restore(self, database: str, backup_path: Path) -> None:
+    def restore(self, database: str, backup_path: Path, **options: Any) -> None:
         """
         Record the restore and read the dump back.
 
         Args:
             database: Target database.
             backup_path: Dump handed over by the backup manager.
+            **options: What the caller told the engine about the dump (``as_superuser``).
         """
         content = Path(backup_path).read_text()
         FakeDatabaseManager.restored.append((database, Path(backup_path), content))
+        FakeDatabaseManager.restore_options.append(options)
         get_runner().run(["psql", "--no-password", "-d", database], timeout=3600)
 
 
@@ -229,6 +234,7 @@ def manager(
     from noust.managers.database.registry import DatabaseRegistry
 
     FakeDatabaseManager.restored = []
+    FakeDatabaseManager.restore_options = []
     backup_manager = BackupManager(verbose=False, runner=runner)
     backup_manager.backup_dir = tmp_path / "backups"
 
@@ -326,6 +332,8 @@ class TestSelfContainedBackup:
         manager.restore_archive(moved)
 
         assert FakeDatabaseManager.restored, "the database was never restored"
+        # The dump is one Noust took and keeps: it goes back as it was taken, as the superuser.
+        assert FakeDatabaseManager.restore_options == [{"as_superuser": True}]
         database, dump_path, content = FakeDatabaseManager.restored[0]
         assert database == "shop"
         assert content == "-- dump of shop\n"

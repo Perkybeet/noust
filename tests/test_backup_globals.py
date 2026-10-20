@@ -76,6 +76,7 @@ def roles(manager: BackupManager, monkeypatch: pytest.MonkeyPatch) -> type[Postg
     PostgresDouble.restored_roles = []
     PostgresDouble.refuse = False
     FakeDatabaseManager.restored = []
+    FakeDatabaseManager.restore_options = []
     monkeypatch.setattr(
         DatabaseRegistry,
         "get",
@@ -159,7 +160,9 @@ class TestPuttingThemBack:
             order.append("roles")
             return original(self, source)
 
-        def dump_second(self: PostgresDouble, database: str, backup_path: Path) -> None:
+        def dump_second(
+            self: PostgresDouble, database: str, backup_path: Path, **options: Any
+        ) -> None:
             order.append("dump")
 
         monkeypatch.setattr(PostgresDouble, "restore_globals", roles_first)
