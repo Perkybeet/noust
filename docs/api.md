@@ -386,7 +386,10 @@ server's applications is planned and applied through it (`POST /api/manifest/pla
 project, an environment or a tag in one call, and `POST /api/mcp` speaks the Model Context Protocol for clients
 that inspect, deploy and control with an API token ([mcp.md](mcp.md)).
 
-The console lists every route with the permission it needs and can try a read: Settings > API reference.
+The console lists every route with the permission it needs and can try any of them: Settings > API
+reference sends the call with the session you are signed in with (a JSON body to edit, the status, the
+headers and the server's own words back), so your role, sudo mode and a second person's approval apply
+as on any page, and a change asks before it goes. It loads nothing from outside: no Swagger UI, no CDN.
 The same document is `GET /api/openapi.json`.
 A typed Python client generated from it is `sdk/python` ([sdk.md](sdk.md)), and a Terraform and OpenTofu
 provider written against it is `terraform-provider-noust/` ([terraform.md](terraform.md)).
