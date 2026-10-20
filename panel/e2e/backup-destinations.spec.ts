@@ -84,6 +84,9 @@ test("testing a destination says it is reachable and what is there", async ({ pa
 test("adding an SFTP destination lists it; one that cannot be reached says so in rclone's words", async ({ page, consoleServer, problems }, testInfo) => {
   // Creating a destination is sudo mode: the first attempt is refused until the operator confirms.
   problems.expect(/status of 403 .*\/api\/backup-destinations$/);
+  // The server tries the connection before it keeps a destination, and this host is one no
+  // resolver answers: it refuses with rclone's words until the operator keeps it anyway.
+  problems.expect(/status of 400 .*\/api\/backup-destinations$/);
   // Testing the unreachable one fails on purpose, with rclone's own error: a server-side
   // status (a BackupError answers 500 today; an upstream failure may well become 502).
   problems.expect(/status of [45]\d\d .*\/api\/backup-destinations\/[a-z0-9-]+\/test$/);
@@ -116,6 +119,22 @@ test("adding an SFTP destination lists it; one that cannot be reached says so in
     // A new destination is encrypted unless someone says otherwise (the dialog's box starts on).
     encrypted: true,
   });
+
+  // The server tried the connection first and kept nothing: the dialog stays open and tells it
+  // in the server's own words, with what rclone said verbatim.
+  const refusal = dialog.getByRole("alert");
+  await expect(refusal.getByText("The destination did not answer, so it was not created")).toBeVisible();
+  await expect(refusal.getByText(`Backup destination '${name}' was not saved: it could not be reached`)).toBeVisible();
+  await expect(refusal.getByText(/lookup backup\.old\.invalid: no such host/)).toBeVisible();
+  await settle(page);
+  await expectNoA11yViolations(page, "the add destination dialog, refused for not answering");
+
+  // Down on purpose (a NAS that sleeps at night): the operator keeps it and tests it later.
+  const kept = page.waitForRequest(
+    (request) => request.url().endsWith("/api/backup-destinations") && request.method() === "POST" && (request.postDataJSON() as { verify?: boolean }).verify === false,
+  );
+  await refusal.getByRole("button", { name: "Keep it anyway" }).click();
+  expect((await kept).postDataJSON()).toMatchObject({ name, backend: "sftp", encrypted: true, verify: false });
   await expect(dialog).toBeHidden();
   await expect(toasts(page).getByText(`Backup destination created: ${name}`, { exact: true })).toBeVisible();
 

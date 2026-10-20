@@ -415,6 +415,10 @@ export const backups: Catalog<typeof en> = {
     encryptWarningBold: "Perderla hace que todas las copias de seguridad de este destino queden irrecuperables.",
     errorCreate: "El destino no se creó",
     errorSave: "El destino no se guardó",
+    errorUnreachableCreate: "El destino no respondió, así que no se creó",
+    errorUnreachableSave: "El destino no respondió, así que el cambio no se guardó",
+    keepAnyway: "Mantenerlo igualmente",
+    keepAnywayHelp: "Se guarda sin probar la conexión. Pruébalo más tarde desde su menú.",
   },
 
   showKeyDialog: {

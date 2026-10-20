@@ -28,7 +28,9 @@ from, the way a recipe's Compose document is.
 
 from __future__ import annotations
 
+import posixpath
 import re
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -121,12 +123,15 @@ class PastedCompose:
         return not self.refused
 
 
-def analyze_document(document: str) -> PastedCompose:
+def analyze_document(document: str, *, provided: Collection[str] = ()) -> PastedCompose:
     """
     Read a pasted Compose document and say what it is, running nothing.
 
     Args:
         document: The document's text.
+        provided: Files that will sit beside the document when it is deployed from a folder
+            (``files/app.env``): an ``env_file`` that names one is not refused. A converted
+            template writes the files it mounts, and a pasted document has none.
 
     Returns:
         Its services and variables, and what refuses or warns about it.
@@ -167,7 +172,7 @@ def analyze_document(document: str) -> PastedCompose:
             raise ValidationError(
                 f"Service {name!r} is not a usable service", field="compose_document"
             )
-        _read_service(str(name), spec, result)
+        _read_service(str(name), spec, result, frozenset(_relative(p) for p in provided))
     result.variables = _variables(document, services)
     findings = inspect_compose(parsed, Path("/var/www/apps/app"))
     result.refused.extend(findings.refused)
@@ -175,7 +180,20 @@ def analyze_document(document: str) -> PastedCompose:
     return result
 
 
-def _read_service(name: str, spec: dict[str, Any], result: PastedCompose) -> None:
+def _relative(path: str) -> str:
+    """
+    Args:
+        path: A path in a document or a list of files.
+
+    Returns:
+        It without a leading ``./`` and with its separators collapsed, for comparing.
+    """
+    return posixpath.normpath(path).removeprefix("./")
+
+
+def _read_service(
+    name: str, spec: dict[str, Any], result: PastedCompose, provided: frozenset[str]
+) -> None:
     """
     Add one service to the analysis, with what is wrong with it.
 
@@ -183,6 +201,7 @@ def _read_service(name: str, spec: dict[str, Any], result: PastedCompose) -> Non
         name: The service.
         spec: Its mapping.
         result: The analysis being built.
+        provided: Files that sit beside the document (see :func:`analyze_document`).
     """
     image = spec.get("image")
     ports = [
@@ -214,7 +233,7 @@ def _read_service(name: str, spec: dict[str, Any], result: PastedCompose) -> Non
                 "have: use an image, or deploy a repository"
             )
     for entry in _env_files(spec.get("env_file")):
-        if entry not in (".env", "./.env"):
+        if entry not in (".env", "./.env") and _relative(entry) not in provided:
             result.refused.append(
                 f"service {name} reads env_file {entry!r}, which a pasted document does not "
                 "have: give the values as variables"

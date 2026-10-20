@@ -18,6 +18,12 @@ export interface SaveDestinationInput {
   name: string;
   fields: Record<string, string>;
   encrypted: boolean;
+  /**
+   * False keeps the destination without trying its connection first. The server tries it by
+   * default and refuses one that does not answer (400 `destination_unreachable`), so only
+   * "Keep it anyway" sends this.
+   */
+  verify?: boolean | undefined;
 }
 
 /** An encrypted destination's two passphrases, as "Show encryption key" displays them. */
@@ -51,6 +57,7 @@ export function useDestinationActions() {
           fields: input.fields,
           encrypted: input.encrypted,
           encryption_key: input.encryptionKey ?? null,
+          ...(input.verify === false ? { verify: false } : {}),
         },
       }),
     onSuccess: (result) => {
@@ -63,7 +70,7 @@ export function useDestinationActions() {
     mutationFn: (input: SaveDestinationInput) =>
       request("put", "/api/backup-destinations/{name}", {
         params: { name: input.name },
-        body: { fields: input.fields, encrypted: input.encrypted },
+        body: { fields: input.fields, encrypted: input.encrypted, ...(input.verify === false ? { verify: false } : {}) },
       }),
     onSuccess: (result) => {
       toast.success(result.message);

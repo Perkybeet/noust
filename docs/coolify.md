@@ -131,6 +131,26 @@ no equivalent in Noust comes with a warning that says what to do instead, and an
 runs an image, a Dockerfile or a Compose file comes with the `noust create` command that deploys
 it, because an import creates only what Noust builds from a repository.
 
+What Coolify keeps beside the application comes too, with the commands that copy its data (Coolify
+has no export: the data is on its server, in Docker, and only a command on that server can reach it):
+
+- **Storage.** Coolify answers an application's persistent storage as Docker volumes (or directories
+  of the server) mounted in its container. A mount under `/app`, where Nixpacks and Railpack run the
+  application, becomes a `--persist` path of the proposal (`/app/uploads` is `--persist uploads`);
+  one anywhere else is said, because it is outside the application's directory here. Each comes with
+  the command that copies the volume out of Coolify's server as a tarball (the volume is mounted
+  read-only) and the one that puts it under the application's `shared/` folder. A file Coolify writes
+  and mounts is said with `noust app mount file`.
+- **Databases.** A Coolify database is a separate resource of the environment whose container is named
+  by its uuid, and that uuid is the host name the application connects to. A variable that holds a
+  database's uuid is the link: the proposal lists those databases with their engine, image, database
+  and account, adds the engine to what the application needs, and gives the `docker exec` that dumps it
+  (the password is read inside the container, never on a command line) and the `noust db import` that
+  loads it. A database of the same environment that no variable names is listed as not named, and
+  one Noust runs in a container of its own (KeyDB, Dragonfly, ClickHouse) points at `noust db instance
+  create`. A value that looks like a credential, such as a `DATABASE_URL` with a password in it, is
+  asked for again: it names Coolify's database, so it has to point at the new one.
+
 The same path by hand is mechanical, and each step is checked by Noust:
 
 1. **Install Noust on a new server** (or the same one, once you decide where Coolify's proxy goes;
@@ -211,10 +231,13 @@ convert, then go on as with any Compose file).
   [`noust.nginx.yaml`](compose.md#routing-with-noustnginxyaml)), a variable named like a Coolify one
   that Noust does not fill in.
 - **The result is judged like any Compose file** (`noust compose check`): a template that mounts the
-  Docker socket or runs privileged is refused, as a repository's would be. Run against Coolify's whole
-  catalogue (382 templates), 353 convert to a document nothing refuses and 27 are refused for exactly
-  that; two are not valid YAML as written (an anchor merged where a list is). Images are not pinned:
-  the analysis says so, and a tag can be pinned by digest before deploying.
+  Docker socket or runs privileged is refused, as a repository's would be. `python
+  scripts/template_catalogue.py coolify PATH/TO/coolify/templates/compose` converts a whole checkout
+  and prints the figures; on commit `e7934729` of Coolify's repository (386 templates), 357 convert
+  to a document nothing refuses and 27 are refused for exactly that (21 mount the Docker socket, 7
+  run privileged, one both); two are not valid YAML as written (an anchor merged where a list is).
+  Images are not pinned: the analysis says so, and a tag can be pinned by digest before deploying.
+  Dokploy's templates are converted the same way ([dokploy.md](dokploy.md#a-template-from-dokploys-catalogue)).
 
 Coolify and its templates are Apache-2.0; a template's own authors keep their rights in it. Noust
 ships none of them: you bring the file, the converted document says where it came from, and the logos

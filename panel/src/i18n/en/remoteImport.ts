@@ -1,20 +1,23 @@
 /**
- * Reading an application from a Coolify or Dokploy server over its API, in the new-app wizard's
+ * Reading an application from a Coolify, Dokploy or CapRover server over its API, in the new-app wizard's
  * import step. What the other server or Noust refuses is shown verbatim and is not here.
  */
 export const remoteImport = {
-  disclosure: "Read it from Coolify or Dokploy",
+  disclosure: "Read it from Coolify, Dokploy or CapRover",
   title: "From another platform",
   description: "Noust reads an application over the other server's API with a read-only token and proposes how it runs here. Nothing is written to the other server. The token is used for this request and is not stored.",
   platform: "Platform",
   platforms: {
     coolify: "Coolify",
     dokploy: "Dokploy",
+    caprover: "CapRover",
   },
   url: "Address of the server",
   urlDescription: "Where its API answers, such as https://coolify.example.com.",
   token: "API token",
   tokenDescription: "A read-only token created on that server.",
+  password: "Dashboard password",
+  passwordDescription: "CapRover has no token that only reads, so its dashboard password is used to sign in for this request. It is not stored.",
   list: "List the applications",
   listFailed: "The applications could not be listed",
   applications: "Application",
